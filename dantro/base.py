@@ -29,8 +29,9 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
             name (str): The name of this container
             data: The data that is to be stored
         """
-        self._name = name  # always read-only
-        self._data = data  # can be read-only, if there is no data.setter
+        # Pass name and data to read-only attributes
+        self._name = str(name)
+        self._data = data
 
     # .........................................................................
     # Properties
@@ -57,19 +58,6 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
 
         # Now, the data should be loaded and can be returned
         return self._data
-
-    @data.setter
-    def data(self, val):
-        """Set the data attribute. If it is a Proxy, it is first resolved."""
-        # Have to check whether the data might be a proxy. If so, resolve it.
-        if self.data_is_proxy:
-            log.debug("Resolving %s for %s '%s' ...",
-                      self._data.__class__.__name__,
-                      self.classname, self.name)
-            self._data = self._data.resolve()
-
-        # Now can set the value
-        self._data = val
 
     @property
     def data_is_proxy(self) -> bool:
@@ -263,6 +251,52 @@ class BaseDataContainer(AbstractDataContainer):
 
 class BaseDataGroup(collections.abc.MutableMapping, BaseDataContainer):
     """The BaseDataGroup serves as base group for all data groups."""
+
+    # .........................................................................
+    # Recursive item access via a path
+
+    def __getitem__(self, key: str):
+        """Returns the container in this group with the given name.
+        
+        Args:
+            key (str): The object to retrieve. If this is a path, will recurse
+                down until at the end.
+        
+        Returns:
+            The object at `key`
+        """
+        if not isinstance(key, list):
+            # Assuming this is a string ...
+            key = key.split(PATH_JOIN_CHAR)
+
+        # Can be sure that this is a list now
+        # If there is more than one entry, need to call this recursively
+        if len(key) > 1:
+            return self.data[key[0]][key[1:]]
+        # else: end of recursion
+        return self.data[key[0]]
+
+    def __setitem__(self, key: str, val) -> None:
+        """Sets an attribute at `key`.
+        
+        Args:
+            key (str): The key to which to set the value. If this is a path,
+                will recurse down to the lowest level. Note that all inter-
+                mediate keys need to be present.
+            val: The value to set
+        
+        """
+        if not isinstance(key, list):
+            key = key.split(PATH_JOIN_CHAR)
+
+        # Depending on length of the key sequence, start recursion or not
+        if len(key) > 1:
+            self.data[key[0]][key[1:]] = val
+        # else: end of recursion, set the value
+        self.data[key[0]] = val
+
+    # .........................................................................
+    # For tree representation
 
     @abc.abstractmethod
     @property
