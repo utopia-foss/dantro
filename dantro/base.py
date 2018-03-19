@@ -3,6 +3,7 @@
 import abc
 import collections
 import logging
+from typing import Union
 
 # Setup logging for this file
 log = logging.getLogger(__name__)
@@ -250,53 +251,41 @@ class BaseDataContainer(AbstractDataContainer):
 # -----------------------------------------------------------------------------
 
 class BaseDataGroup(collections.abc.MutableMapping, BaseDataContainer):
-    """The BaseDataGroup serves as base group for all data groups."""
+    """The BaseDataGroup serves as base group for all data groups.
 
-    # .........................................................................
-    # Recursive item access via a path
+    It enforces a MutableMapping interface with a focus on setting abilities
+    and less so on deletion, i.e.
+    """
 
-    def __getitem__(self, key: str):
-        """Returns the container in this group with the given name.
-        
-        Args:
-            key (str): The object to retrieve. If this is a path, will recurse
-                down until at the end.
-        
-        Returns:
-            The object at `key`
-        """
-        if not isinstance(key, list):
-            # Assuming this is a string ...
-            key = key.split(PATH_JOIN_CHAR)
+    @abc.abstractmethod
+    def __contains__(self, cont: Union[str, BaseDataContainer]) -> bool:
+        """Whether the given container is a member of this group"""
+        pass
 
-        # Can be sure that this is a list now
-        # If there is more than one entry, need to call this recursively
-        if len(key) > 1:
-            return self.data[key[0]][key[1:]]
-        # else: end of recursion
-        return self.data[key[0]]
+    @abc.abstractmethod
+    def keys(self):
+        """Returns an iterator over the container names in this group."""
+        pass
 
-    def __setitem__(self, key: str, val) -> None:
-        """Sets an attribute at `key`.
-        
-        Args:
-            key (str): The key to which to set the value. If this is a path,
-                will recurse down to the lowest level. Note that all inter-
-                mediate keys need to be present.
-            val: The value to set
-        
-        """
-        if not isinstance(key, list):
-            key = key.split(PATH_JOIN_CHAR)
+    @abc.abstractmethod
+    def values(self):
+        """Returns an iterator over the containers in this group."""
+        pass
 
-        # Depending on length of the key sequence, start recursion or not
-        if len(key) > 1:
-            self.data[key[0]][key[1:]] = val
-        # else: end of recursion, set the value
-        self.data[key[0]] = val
+    @abc.abstractmethod
+    def items(self):
+        """Returns an iterator over the (name, data container) tuple of this group."""
+        pass
 
-    # .........................................................................
-    # For tree representation
+    @abc.abstractmethod
+    def get(self, key, default=None):
+        """Return the container at `key`, or `default` if container with name `key` is not available."""
+        pass
+
+    @abc.abstractmethod
+    def setdefault(self, key, default=None):
+        """If `key` is in the dictionary, return its value. If not, insert `key` with a value of `default` and return `default`. `default` defaults to None."""
+        pass
 
     @abc.abstractmethod
     @property
