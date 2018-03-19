@@ -93,13 +93,16 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
     # .........................................................................
     # Formatting
 
-    @abc.abstractmethod
     def __str__(self) -> str:
         """An info string, that describes the object. Each class should implement this to return an informative response."""
-        pass
+        return "<{} '{}', {}>".format(self.classname, self.name,
+                                      self._format_info())
 
     def __format__(self, spec_str: str) -> str:
         """Creates a formatted string from this """
+        if not spec_str:
+            return str(self)
+
         specs = spec_str.split(",")
         parts = []
         join_char = ", "
@@ -125,11 +128,10 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
         """A __format__ helper function: returns the class name"""
         return self.classname
 
+    @abc.abstractmethod
     def _format_info(self) -> str:
-        """A __format__ helper function: returns the info string"""
-        if not self.data_is_proxy:
-            return str(self)
-        return str(self.proxy_data)
+        """A __format__ helper function: returns an info string that is used to characterise this object. Should NOT include name and classname!"""
+        pass
 
 
 # -----------------------------------------------------------------------------
@@ -288,19 +290,10 @@ class BaseDataGroup(collections.abc.MutableMapping, BaseDataContainer):
         pass
 
     @abc.abstractmethod
-    @property
-    def tree_repr(self) -> dict:
-        """Returns a tree representation of the contents of this group, stored in a dict.
-
-        The returned dict has as keys the entries and as values either dicts
-        (for group-like object) or parsed strings (for container-like objects)
-        """
-        pass
-
-    @abc.abstractmethod
     def _format_tree(self) -> str:
         """Returns a multi-line string tree representation of this group."""
         pass
+
 
 # -----------------------------------------------------------------------------
 
