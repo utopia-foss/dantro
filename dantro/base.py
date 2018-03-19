@@ -30,9 +30,14 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
             name (str): The name of this container
             data: The data that is to be stored
         """
+        
         # Pass name and data to read-only attributes
         self._name = str(name)
         self._data = data
+
+        log.debug("Initialising %s '%s' ...", self.classname, self.name)
+
+        # Nothing else to do here ...
 
     # .........................................................................
     # Properties
@@ -174,6 +179,80 @@ class BaseDataAttrs(collections.abc.Mapping, AbstractDataContainer):
 
 # -----------------------------------------------------------------------------
 
+class DataAttrs(BaseDataAttrs):
+    """A class to store attributes that belong to a data container.
+
+    This implements a dict-like interface and serves as default attribute class."""
+
+    def __init__(self, attrs: dict=None, **dc_kwargs):
+        """Initialise a DataAttributes object.
+        
+        Args:
+            attrs (dict, optional): The attributes to store
+            **dc_kwargs: Further kwargs to the parent DataContainer
+        """
+        # Make sure it is a dict; initialise empty if empty
+        attrs = dict(attrs) if attrs else {}
+
+        # Store them via the parent method.
+        super().__init__(data=attrs, **dc_kwargs)
+
+        log.debug("BaseDataAttrs.__init__ finished.")
+    
+    # .........................................................................
+    # Magic methods and iterators for convenient dict-like access
+
+    def __str__(self) -> str:
+        return "{} attributes".format(len(self))
+
+    def __getitem__(self, key):
+        """Returns an attribute."""
+        return self.data[key]
+
+    def __setitem__(self, key, val):
+        """Sets an attribute."""
+        log.debug("Setting attribute '%s' to '%s' ...", key, val)
+        self.data[key] = val
+
+    def __delitem__(self, key):
+        """Deletes an attribute"""
+        del self.data[key]
+
+    def __contains__(self, key) -> bool:
+        """Whether the given key is contained in the attributes."""
+        return bool(key in self.data)
+
+    def __len__(self) -> int:
+        """The number of attributes."""
+        return len(self.data)
+
+    def __iter__(self):
+        """Iterates over the attribute keys."""
+        return iter(self.data)
+
+    def keys(self):
+        """Returns an iterator over the attribute names."""
+        return self.data.keys()
+
+    def values(self):
+        """Returns an iterator over the attribute values."""
+        return self.data.values()
+
+    def items(self):
+        """Returns an iterator over the (keys, values) tuple of the attributes."""
+        return self.data.items()
+
+    def get(self, key, default=None):
+        """Return the value at `key`, or `default` if `key` is not available."""
+        return self.data.get(key, default)
+
+    def _format_info(self) -> str:
+        """A __format__ helper function: returns info about these attributes"""
+        return str(len(self)) + " attributes"
+
+
+# -----------------------------------------------------------------------------
+
 class BaseDataContainer(AbstractDataContainer):
     """The BaseDataContainer extends the base class by its ability to holds attributes."""
 
@@ -209,10 +288,9 @@ class BaseDataContainer(AbstractDataContainer):
         return self._attrs
 
     @attrs.setter
-    @abc.abstractmethod
     def attrs(self, new_attrs):
         """Setter method for the container `attrs` attribute."""
-        pass
+        self._attrs = DataAttrs(name='attrs', attrs=new_attrs)
 
     # .........................................................................
     # Methods needed for location relative to other groups
@@ -293,6 +371,11 @@ class BaseDataGroup(collections.abc.MutableMapping, BaseDataContainer):
     def _format_tree(self) -> str:
         """Returns a multi-line string tree representation of this group."""
         pass
+
+    # Can already resolve the conversion method; this should always be the same
+    def convert_to(self, TargetCls, **target_init_kwargs):
+        """ """
+        return TargetCls(name=self.name, data=self.data)
 
 
 # -----------------------------------------------------------------------------

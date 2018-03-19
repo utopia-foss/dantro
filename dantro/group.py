@@ -1,5 +1,6 @@
 """In this module, BaseDataContainer specialisations that group data containers are implemented."""
 
+import collections
 import logging
 from typing import Union
 
@@ -17,6 +18,41 @@ class DataGroup(BaseDataGroup):
     It uses an OrderedDict to associate containers with this group.
     """
     
+    def __init__(self, *, name: str, containers: list, data: dict=None, **dc_kwargs):
+        """Initialise a DataGroup."""
+
+        log.debug("DataGroup.__init__ called.")
+
+        if containers is not None:
+            # Read the container names and generate an ordered dict from it.
+
+            if not all([isinstance(c, BaseDataContainer)
+                        for c in containers]):
+                raise TypeError("The given `containers` list can only have "
+                                "BaseDataContainer-derived objects as "
+                                "contents.")
+
+            # Build an OrderedDict with the container names
+            names = [c.name for c in containers]
+            data = collections.OrderedDict()
+
+            for _name, container in zip(names, containers):
+                data[_name] = container
+
+        elif data is not None:
+            # Just convert into an OrderedDict, assuming a dict-interface
+            data = collections.OrderedDict(data.items())
+
+        else:
+            # Use an empty dict
+            data = collections.OrderedDict()
+
+        # Initialise with parent method
+        super().__init__(name=name, data=data, **dc_kwargs)
+
+        # Done.
+        log.debug("DataGroup.__init__ finished.")
+
     # .........................................................................
     # Recursive item access via a path
 
@@ -60,6 +96,9 @@ class DataGroup(BaseDataGroup):
         # else: end of recursion, set the value
         self.data[key[0]] = val
 
+    def __delitem__(self, key: str) -> None:
+        raise NotImplementedError
+
     # .........................................................................
 
     def __len__(self) -> int:
@@ -88,6 +127,13 @@ class DataGroup(BaseDataGroup):
         if len(key_seq) > 1:
             return bool(key_seq[1:] in self[key_seq[0]])
         return bool(key_seq[0] in self.keys())
+
+    # .........................................................................
+    # Iteration
+
+    def __iter__(self):
+        """Returns an iterator over the OrderedDict"""
+        return iter(self.data)
 
     def keys(self):
         """Returns an iterator over the container names in this group."""
