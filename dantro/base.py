@@ -1,13 +1,14 @@
 """This module implements the base classes of dantro."""
 
 import abc
+import collections
 import logging
-from typing import Union
 
 # Setup logging for this file
 log = logging.getLogger(__name__)
 
 # Local constants
+PATH_JOIN_CHAR = "/"
 
 # -----------------------------------------------------------------------------
 
@@ -23,6 +24,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
 
     def __init__(self, *, name: str, data):
         """Initialise the AbstractDataContainer, which holds the bare essentials of what a data container should have.
+        
         Args:
             name (str): The name of this container
             data: The data that is to be stored
@@ -86,12 +88,17 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def __getitem__(self, key):
-        """Get an item from the data"""
+        """Gets an item from the container."""
         pass
 
     @abc.abstractmethod
     def __setitem__(self, key, val) -> None:
-        """Set an item in the data."""
+        """Sets an item in the container."""
+        pass
+
+    @abc.abstractmethod
+    def __delitem__(self, key) -> None:
+        """Deletes an item from the container."""
         pass
 
     # .........................................................................
@@ -138,7 +145,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
 
 # -----------------------------------------------------------------------------
 
-class BaseDataAttrs(AbstractDataContainer):
+class BaseDataAttrs(collections.abc.Mapping, AbstractDataContainer):
     """The BaseDataAttrs class defines the interface for the `.attrs` attribute of a data container.
 
     This class derives from the abstract class as otherwise there would be 
@@ -179,8 +186,15 @@ class BaseDataAttrs(AbstractDataContainer):
 class BaseDataContainer(AbstractDataContainer):
     """The BaseDataContainer extends the base class by its ability to holds attributes."""
 
-    def __init__(self, *, name: str, data, attrs=None):
-        """Initialise a BaseDataContainer, which can store data and attributes."""
+    def __init__(self, *, name: str, data, parent, attrs=None):
+        """Initialise a BaseDataContainer, which can store data and attributes.
+        
+        Args:
+            name (str): The name of this data container
+            data (TYPE): The data to store in this container
+            parent (TYPE): The parent object (or None if at the top)
+            attrs (None, optional): A mapping that is stored as attributes
+        """
         log.debug("BaseDataContainer.__init__ called.")
 
         # Basic initialisation via parent method
@@ -188,6 +202,7 @@ class BaseDataContainer(AbstractDataContainer):
 
         # Property-managed attributes
         self._attrs = None
+        self._parent = parent
 
         # Store the attributes object
         self.attrs = attrs
@@ -211,17 +226,18 @@ class BaseDataContainer(AbstractDataContainer):
     # .........................................................................
     # Methods needed for location relative to other groups
 
-    @abc.abstractmethod
     @property
-    def parent(self) -> Union[None, BaseDataGroup]:
-        """The parent data group or None if on the highest level."""
-        pass
+    def parent(self):
+        """The group this container is contained in."""
+        return self._parent
 
-    @abc.abstractmethod
     @property
     def path(self) -> str:
-        """Return the path to get to this data group"""
-        pass
+        """Return the path to get to this container"""
+        if self.parent is None:
+            return PATH_JOIN_CHAR + self.name
+        # else: not at the top, also need the parent's path
+        return self.parent.path + PATH_JOIN_CHAR + self.name
 
     # .........................................................................
     # Methods needed for data container conversion
@@ -236,9 +252,16 @@ class BaseDataContainer(AbstractDataContainer):
         """
         pass
 
+    # .........................................................................
+    # Formatting
+
+    def _format_path(self) -> str:
+        """A __format__ helper function: returns the path to this container"""
+        return self.path
+
 # -----------------------------------------------------------------------------
 
-class BaseDataGroup(BaseDataContainer):
+class BaseDataGroup(collections.abc.MutableMapping, BaseDataContainer):
     """The BaseDataGroup serves as base group for all data groups."""
 
     @abc.abstractmethod
