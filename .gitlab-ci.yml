@@ -1,5 +1,5 @@
 ---
-image: python:3.6-slim
+image: python:3.6
 
 stages:
   - setup
@@ -26,11 +26,9 @@ setup:venv:
   stage: setup
   tags:
     - light
-  before_script:
-    - pip3 install virtualenv       # not included in 3.6-slim
   script:
     # create a virtual env in the current directory
-    - python3 -m virtualenv env
+    - python3 -m venv env
     # enter virtual environment and install into it, including test deps
     - source ./env/bin/activate
     - pip3 install .[test_deps]
