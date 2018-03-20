@@ -249,7 +249,7 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
     NOTE: This is still an abstract class and needs to be subclassed.
     """
 
-    def __init__(self, *, name: str, data=None, containers: list=None, attrs=None):
+    def __init__(self, *, name: str, containers: list=None, attrs=None):
         """Initialise a BaseDataGroup, which can store other containers and attributes.
         
         Args:
@@ -260,7 +260,7 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
         log.debug("BaseDataGroup.__init__ called.")
 
         # Prepare the data (via abstract helper method)
-        data = self._prepare_data(data=data, containers=containers)
+        data = self._prepare_data(containers=containers)
 
         # Basic initialisation via parent method
         super().__init__(name=name, data=data)
@@ -275,7 +275,7 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
         log.debug("BaseDataGroup.__init__ finished.")
 
     @abc.abstractmethod
-    def _prepare_data(self, *, data, containers: list) -> dict:
+    def _prepare_data(self, *, containers: list) -> dict:
         """Called by __init__, this method should parse the arguments `data`
         and `containers` which are passed to __init__. As return value,
         a dict-like object is expected.

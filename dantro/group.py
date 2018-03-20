@@ -2,7 +2,6 @@
 
 import collections
 import logging
-import warnings
 
 from dantro.base import BaseDataGroup, BaseDataContainer
 
@@ -23,35 +22,30 @@ class DataGroup(BaseDataGroup):
         log.debug("DataGroup.__init__ called.")
 
         # Initialise with parent method, which will call the _prepare_data
-        super().__init__(name=name, containers=containers,
-                         data=None, **dc_kwargs)
+        super().__init__(name=name, containers=containers, **dc_kwargs)
 
         # Done.
         log.debug("DataGroup.__init__ finished.")
 
     @staticmethod
-    def _prepare_data(*, data, containers) -> collections.OrderedDict:
+    def _prepare_data(*, containers) -> collections.OrderedDict:
         """ """
 
-        if containers is not None:
+        if containers is None:
+            # Just return an empty dict
+            return collections.OrderedDict()
+
             # Read the container names and generate an ordered dict from it.
 
-            if not all([isinstance(c, BaseDataContainer) for c in containers]):
-                raise TypeError("The given `containers` list can only have "
-                                "BaseDataContainer-derived objects as "
-                                "contents, but there were some of other type!")
-            elif data is not None:
-                warnings.warn("")
+        if not all([isinstance(c, BaseDataContainer) for c in containers]):
+            raise TypeError("The given `containers` list can only have "
+                            "BaseDataContainer-derived objects as "
+                            "contents, but there were some of other type!")
+        
+        # Build an OrderedDict with the container names and return
+        data = collections.OrderedDict()
 
-            # Build an OrderedDict with the container names
-            names = [c.name for c in containers]
-            data = collections.OrderedDict()
-
-            for _name, container in zip(names, containers):
-                data[_name] = container
-
-        else:
-            # Use an empty dict
-            data = collections.OrderedDict()
+        for cont in containers:
+            data[cont.name] = cont
 
         return data
