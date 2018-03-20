@@ -1,8 +1,7 @@
-"""Test the DataGroup and derived classes"""
+"""Test the BaseDataContainer-derived classes"""
 
 import pytest
 
-import dantro.group as grp
 import dantro.container as cont
 
 # Fixtures --------------------------------------------------------------------
@@ -12,11 +11,9 @@ import dantro.container as cont
 
 def test_init():
     """Tests whether the __init__ method behaves as desired"""
-    # Basic initialisation, without containers
-    dg = grp.DataGroup(name="foo")
+    # Basic initialisation
+    ic = cont.ItemContainer(name="foo", data=[])
 
     # Passing some containers
-    conts = [cont.ItemContainer(name=i, data=list(range(i)))
-             for i in range(10)]
-    dg2 = grp.DataGroup(name="bar", containers=conts)
+    
     

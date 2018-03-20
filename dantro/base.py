@@ -95,51 +95,7 @@ class AttrsMixin:
         self._attrs = BaseDataAttrs(name='attrs', attrs=new_attrs)
 
 
-# -----------------------------------------------------------------------------
-# Base classes ----------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
-class BaseDataProxy(dantro.abc.AbstractDataProxy):
-    """The base class for data proxies.
-
-    NOTE: This is still an abstract class and needs to be subclassed.
-    """
-    # Nothing to define here; the resolve method needs to be data-specific
-    pass
-
-
-# -----------------------------------------------------------------------------
-
-class BaseDataAttrs(dantro.abc.AbstractDataAttrs):
-    """A class to store attributes that belong to a data container.
-
-    This implements a dict-like interface and serves as default attribute class.
-
-    NOTE: Unlike the other base classes, this can already be instantiated. That
-    is required as it is needed in BaseDataContainer where no previous
-    subclassing or mixin is reasonable.
-    """
-
-    def __init__(self, attrs: dict=None, **dc_kwargs):
-        """Initialise a DataAttributes object.
-        
-        Args:
-            attrs (dict, optional): The attributes to store
-            **dc_kwargs: Further kwargs to the parent DataContainer
-        """
-        # Make sure it is a dict; initialise empty if empty
-        attrs = dict(attrs) if attrs else {}
-
-        # Store them via the parent method.
-        super().__init__(data=attrs, **dc_kwargs)
-
-        log.debug("BaseDataAttrs.__init__ finished.")
-    
-    # .........................................................................
-    # Magic methods and iterators for convenient dict-like access
-
-    def __str__(self) -> str:
-        return "{} attributes".format(len(self))
+class ItemAccessMixin:
 
     def __getitem__(self, key):
         """Returns an attribute."""
@@ -147,7 +103,6 @@ class BaseDataAttrs(dantro.abc.AbstractDataAttrs):
 
     def __setitem__(self, key, val):
         """Sets an attribute."""
-        log.debug("Setting attribute '%s' to '%s' ...", key, val)
         self.data[key] = val
 
     def __delitem__(self, key):
@@ -181,6 +136,53 @@ class BaseDataAttrs(dantro.abc.AbstractDataAttrs):
     def get(self, key, default=None):
         """Return the value at `key`, or `default` if `key` is not available."""
         return self.data.get(key, default)
+
+    def _format_info(self) -> str:
+        """A __format__ helper function: returns info about these attributes"""
+        return str(len(self)) + " items"
+
+# -----------------------------------------------------------------------------
+# Base classes ----------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+class BaseDataProxy(dantro.abc.AbstractDataProxy):
+    """The base class for data proxies.
+
+    NOTE: This is still an abstract class and needs to be subclassed.
+    """
+    # Nothing to define here; the resolve method needs to be data-specific
+    pass
+
+
+# -----------------------------------------------------------------------------
+
+class BaseDataAttrs(ItemAccessMixin, dantro.abc.AbstractDataAttrs):
+    """A class to store attributes that belong to a data container.
+
+    This implements a dict-like interface and serves as default attribute class.
+
+    NOTE: Unlike the other base classes, this can already be instantiated. That
+    is required as it is needed in BaseDataContainer where no previous
+    subclassing or mixin is reasonable.
+    """
+
+    def __init__(self, attrs: dict=None, **dc_kwargs):
+        """Initialise a DataAttributes object.
+        
+        Args:
+            attrs (dict, optional): The attributes to store
+            **dc_kwargs: Further kwargs to the parent DataContainer
+        """
+        # Make sure it is a dict; initialise empty if empty
+        attrs = dict(attrs) if attrs else {}
+
+        # Store them via the parent method.
+        super().__init__(data=attrs, **dc_kwargs)
+
+        log.debug("BaseDataAttrs.__init__ finished.")
+    
+    # .........................................................................
+    # Magic methods and iterators for convenient dict-like access
 
     def _format_info(self) -> str:
         """A __format__ helper function: returns info about these attributes"""
