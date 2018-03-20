@@ -10,5 +10,8 @@ import dantro.group as grp
 # Tests -----------------------------------------------------------------------
 
 def test_init():
-    """ """
-    dg = grp.DataGroup(name="foo", containers=[], parent=None)
+    """Tests whether the __init__ method behaves as desired"""
+    # Basic initialisation
+    dg = grp.DataGroup(name="foo", containers=[])
+
+    # Passing some container
