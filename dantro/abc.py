@@ -8,9 +8,9 @@ AbstractDataAttr: define a dict-like attribute interface to both of the above
 import abc
 import collections
 from typing import Union
-
 import logging
 
+# Local constants
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
@@ -25,6 +25,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
         data: The stored data
     """
 
+    @abc.abstractmethod
     def __init__(self, *, name: str, data):
         """Initialise the AbstractDataContainer, which holds the bare essentials of what a data container should have.
         
@@ -131,7 +132,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
 
 # -----------------------------------------------------------------------------
 
-class AbstractDataGroup(collections.abc.MutableMapping, AbstractDataContainer):
+class AbstractDataGroup(AbstractDataContainer, collections.abc.MutableMapping):
     """The AbstractDataGroup is the abstract basis of all data groups.
 
     It enforces a MutableMapping interface with a focus on _setting_ abilities
