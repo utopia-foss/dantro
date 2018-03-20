@@ -451,6 +451,11 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
 
     def _format_tree(self) -> str:
         """Returns a multi-line string tree representation of this group."""
+        return self._tree_repr()
+
+    def _tree_repr(self, level: int=0) -> str:
+        """Recursively creates a multi-line string tree representation of this
+        group. This is used by, e.g., the _format_tree method."""
         raise NotImplementedError
 
     # .........................................................................
