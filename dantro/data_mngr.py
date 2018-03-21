@@ -6,7 +6,7 @@ import logging
 import datetime
 from typing import Union
 
-from dantro.base import PATH_JOIN_CHAR
+from dantro.base import PATH_JOIN_CHAR BaseDataContainer
 from dantro.group import OrderedDataGroup
 from dantro.tools import load_yml, recursive_update
 
@@ -241,7 +241,7 @@ class DataManager(OrderedDataGroup):
                     group = self[group_path]
                 
                 else:
-                    if len(group_path.split("PATH_JOIN_CHAR")) > 1:
+                    if len(group_path.split(PATH_JOIN_CHAR)) > 1:
                         raise NotImplementedError("Cannot create intermediate "
                                                   "groups yet for path '{}'!"
                                                   "".format(group_path))
@@ -268,5 +268,25 @@ class DataManager(OrderedDataGroup):
         if print_tree:
             print("{dm:name} tree:\n{dm:tree}".format(dm=self))
 
-    def _load_entry(self, entry_name, **load_params):
+    def _load_entry(self, *, entry_name: str, loader: str, glob_str: str, exclude_glob_str: str=None, always_create_group: bool=False, required: bool=False, name_regex: str=None, parallel: bool=False, **loader_kwargs) -> BaseDataContainer:
+        """
+        Args:
+            entry_name (str): The name of the entry
+            loader (str): The loader to use
+            glob_str (str): The glob string to search files in the data dir
+            exclude_glob_str (str, optional): The files matching this glob
+                string will be excluded
+            always_create_group (bool, optional): If False (default), no group
+                will be created if only a single file was loaded. If True,
+                will create a group even if only one file is loaded.
+            required (bool, optional): If True, will raise an error if no files
+                were found.
+            name_regex (str, optional): The regex applied to the relative path
+                of the files that were found. It is used to generate the name
+                of the target container. If not given, the path is converted
+                to a name.
+            parallel (bool, optional): If True, data is loaded in parallel -
+                not implemented yet!
+            **loader_kwargs: passed on to the loader function
+        """
         pass
