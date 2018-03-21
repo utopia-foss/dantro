@@ -1,15 +1,36 @@
 """This module implements the DataManager class, the root of the data tree."""
 
 import os
+import copy
 import logging
 import datetime
 from typing import Union
 
+from dantro.base import PATH_JOIN_CHAR
 from dantro.group import OrderedDataGroup
-from dantro.tools import load_yml
+from dantro.tools import load_yml, recursive_update
 
 # Local constants
 log = logging.getLogger(__name__)
+
+
+# Exception classes ...........................................................
+
+class DataManagerError(Exception):
+    """All DataManager exceptions derive from this one"""
+    pass
+
+class RequiredDataMissingError(DataManagerError):
+    """Raised if required data was missing."""
+    pass
+
+class MissingDataError(DataManagerError):
+    """Raised if data was missing, but is not required."""
+    pass
+
+class MissingLoaderError(DataManagerError):
+    """Raised if a data loader was not available"""
+    pass
 
 # -----------------------------------------------------------------------------
 
@@ -19,6 +40,12 @@ class DataManager(OrderedDataGroup):
     It handles the loading of data and can be used for interactive work with
     the data.
     """
+
+    # Define as class variables what should be the default groups / containers
+    _DefaultDataGroupClass = OrderedDataGroup
+
+    # .........................................................................
+    # Initialisation
 
     def __init__(self, data_dir: str, *, name: str=None, load_cfg: Union[dict, str]=None, out_dir: Union[str, bool]="_output/{date:}"):
         """Initialises a DataManager object.
@@ -55,7 +82,7 @@ class DataManager(OrderedDataGroup):
         self.dirs = self._init_dirs(data_dir=data_dir, out_dir=out_dir)
 
         # If specific values for the load configuration was given, use these to set the class constants of this instance.
-        self.load_cfg = None
+        self.load_cfg = {}
 
         if load_cfg and isinstance(load_cfg, str):
             # Assume this is the path to a configuration file and load it
@@ -129,3 +156,117 @@ class DataManager(OrderedDataGroup):
                              for k, v in dirs.items()]))
 
         return dirs
+
+    # .........................................................................
+    # Loading data
+
+    def load_data(self, *, load_cfg: dict=None, update_load_cfg: dict=None, overwrite_existing: bool=False, print_tree: bool=False) -> None:
+        """Load the data using the specified load configuration.
+        
+        Args:
+            load_cfg (dict, optional): The load configuration to use. If not
+                given, the one specified during initialisation is used.
+            update_load_cfg (dict, optional): If given, it is used to update
+                the load configuration recursively
+            overwrite_existing (bool, optional): If True, existing data will
+                be overwritten. If False, they will be skipped (without
+                raising an error)
+            print_tree (bool, optional): If True, a tree representation of the
+                DataManager is printed after the data was loaded
+        """
+
+        if not load_cfg:
+            log.debug("Using default load_cfg.")
+            load_cfg = self.load_cfg
+
+        # Make sure to work on a copy, be it on the defaults or on the passed
+        load_cfg = copy.deepcopy(load_cfg)
+
+        if update_load_cfg:
+            # Recursively update with the given keywords
+            load_cfg = recursive_update(load_cfg, update_load_cfg)
+            log.debug("Updated the default load configuration for this call of `load_data`.")
+
+        log.info("Loading %d data entries ...", len(load_cfg))
+
+        # Loop over the data entries that were configured to be loaded.
+        for entry_name, params in load_cfg.items():
+            log.note("Loading data entry '%s' ...", entry_name)
+
+            # Warn if the entry_name is already present
+            if entry_name in self:
+                if overwrite_existing:
+                    log.warning("The data entry '%s' was already loaded and "
+                                "will be overwritten.", entry_name)
+                else:
+                    log.debug("The data entry '%s' was already loaded; not "
+                              "loading it again ...", entry_name)
+                    continue
+
+            # Extract the group path, which is not needed by _load_entry
+            group_path = params.pop('group_path', None)
+
+            # Try loading the data and handle specific DataManagerErrors
+            try:
+                _entry = self._load_entry(entry_name=entry_name, **params)
+
+            except RequiredDataMissingError:
+                log.error("Required entry '%s' could not be loaded!", entry_name)
+                raise
+
+            except MissingDataError:
+                log.warning("No files were found to import.")
+                # Does not raise
+                _entry = None
+
+            except MissingLoaderError:
+                # Loader was not available.
+                raise
+
+            else:
+                # Everything as desired, _entry is now the imported data
+                log.debug("Data successfully imported.")
+
+            # Save the entry
+            # See if a base_group was specified in the parameters. If yes, do not load the data under self[entry_name] but into the base group with the specified name. If that group is not present, create it.
+            if not group_path:
+                # Save it under the name of this entry
+                self[entry_name] = _entry
+                log.progress("Imported and saved data to entry_name '%s'.",
+                             entry_name)
+
+            else:
+                # Find the group the entry is to be added to, create if needed
+                if group_path in self:
+                    group = self[group_path]
+                
+                else:
+                    if len(group_path.split("PATH_JOIN_CHAR")) > 1:
+                        raise NotImplementedError("Cannot create intermediate "
+                                                  "groups yet for path '{}'!"
+                                                  "".format(group_path))
+                    # TODO implement creation of empty groups on the way
+
+                    log.note("Creating group '%s' ...", group_path)
+                    group = self._DefaultDataGroupClass(name=group_path)
+
+                    # Let it be managed by this DataManager
+                    self[group_path] = group
+
+                # Recursively save to that group
+                group.recursive_update(_entry)
+                log.progress("Imported and saved data into group '%s'.",
+                             group_path)
+
+            # Done with this config entry, continue with next
+        else:
+            # All done
+            log.info("Successfully loaded %d data entries.", len(self.data))
+            log.info("Available data entries:\n  %s",
+                     ",  ".join(self.data.keys()))
+
+        if print_tree:
+            print("{dm:name} tree:\n{dm:tree}".format(dm=self))
+
+    def _load_entry(self, entry_name, **load_params):
+        pass
