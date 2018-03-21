@@ -4,14 +4,14 @@ import warnings
 import logging
 from collections.abc import MutableSequence
 
-from dantro.base import BaseDataContainer, ItemAccessMixin
+from dantro.base import BaseDataContainer, ItemAccessMixin, CollectionMixin
 
 # Local constants
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
-class MutableSequenceContainer(ItemAccessMixin, BaseDataContainer, MutableSequence):
+class MutableSequenceContainer(ItemAccessMixin, CollectionMixin, BaseDataContainer, MutableSequence):
     """The MutableSequenceContainer stores data that is sequence-like"""
 
     def __init__(self, *, name: str, data, **dc_kwargs):

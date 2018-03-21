@@ -23,34 +23,51 @@ PATH_JOIN_CHAR = "/"
 # Mixins ----------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-class ProxyMixin:
+
+class AttrsMixin:
+    """This Mixin class supplies the `attrs` property getter and setter and the private `_attrs` attribute.
+
+    Hereby, the setter function will initialise a BaseDataAttrs-derived object
+    and store it as an attribute.
+    This relays the checking of the correct attribute format to the actual
+    BaseDataAttrs-derived class.
+
+    For changing the class that is used for the attributes, an overwrite of the
+    _AttrsClass class variable suffices.
+    """
+    # Define the class variables
+    _attrs = None
+    _AttrsClass = None
 
     @property
-    def data(self):
-        # Have to check whether the data might be a proxy. If so, resolve it.
-        if self.data_is_proxy:
-            log.debug("Resolving %s for %s '%s' ...",
-                      self._data.__class__.__name__,
-                      self.classname, self.name)
-            self._data = self._data.resolve()
+    def attrs(self):
+        """The container attributes."""
+        return self._attrs
 
-        # Now, the data should be loaded and can be returned
-        return self._data
+    @attrs.setter
+    def attrs(self, new_attrs):
+        """Setter method for the container `attrs` attribute."""
+        # Decide which class to use for attributes
+        if self._AttrsClass is not None:
+            # Use the pre-defined one
+            AttrsClass = self._AttrsClass
+        else:
+            # Use a default
+            AttrsClass = BaseDataAttrs
 
-    @property
-    def data_is_proxy(self) -> bool:
-        """Returns true, if this is proxy data"""
-        return isinstance(self._data, BaseDataProxy)
-
-    @property
-    def proxy_data(self):
-        """If the data is proxy, returns the proxy data object without using the .data attribute (which would trigger resolving the proxy); else returns None."""
-        if self.data_is_proxy:
-            return self._data
-        return None
+        # Perform the initialisation
+        log.debug("Using %s for attributes of %s",
+                  AttrsClass.__name__, self.logstr)
+        self._attrs = AttrsClass(name='attrs', attrs=new_attrs)
 
 
 class PathMixin:
+    """This Mixin class implements path capabilities for groups or containers.
+
+    That means, that each object can re-create the path at which it can be
+    accessed _if_ it knows its parent object."""
+    # Define the needed class variables
+    _parent = None
 
     @property
     def parent(self):
@@ -82,32 +99,58 @@ class PathMixin:
         return self.path
 
 
-class AttrsMixin:
+class ProxyMixin:
+    """This Mixin class overwrites the `data` property to allow proxy objects.
+
+    A proxy object is a place keeper for data that is not yet loaded. It will
+    only be loaded if `data` is directly accessed.
+    """
 
     @property
-    def attrs(self):
-        """The container attributes."""
-        return self._attrs
+    def data(self):
+        """The container data. If the data is a proxy, this call will lead
+        to the resolution of the proxy.
+        
+        Returns:
+            The data stored in this container
+        """
+        # Have to check whether the data might be a proxy. If so, resolve it.
+        if self.data_is_proxy:
+            log.debug("Resolving %s for %s '%s' ...",
+                      self._data.__class__.__name__,
+                      self.classname, self.name)
+            self._data = self._data.resolve()
 
-    @attrs.setter
-    def attrs(self, new_attrs):
-        """Setter method for the container `attrs` attribute."""
-        self._attrs = BaseDataAttrs(name='attrs', attrs=new_attrs)
+        # Now, the data should be loaded and can be returned
+        return self._data
+
+    @property
+    def data_is_proxy(self) -> bool:
+        """Returns true, if this is proxy data
+        
+        Returns:
+            bool: Whether the _currently_ stored data is a proxy object
+        """
+        return isinstance(self._data, BaseDataProxy)
+
+    @property
+    def proxy_data(self):
+        """If the data is proxy, returns the proxy data object without using the .data attribute (which would trigger resolving the proxy); else returns None.
+        
+        Returns:
+            Union[BaseDataProxy, None]: If the data is proxy, return the
+                proxy object; else None.
+        """
+        if self.data_is_proxy:
+            return self._data
+        return None
 
 
-class ItemAccessMixin:
-
-    def __getitem__(self, key):
-        """Returns an item."""
-        return self.data[key]
-
-    def __setitem__(self, key, val):
-        """Sets an item."""
-        self.data[key] = val
-
-    def __delitem__(self, key):
-        """Deletes an item"""
-        del self.data[key]
+class CollectionMixin:
+    """This Mixin class implements the methods needed for being a Collection.
+    
+    It relays all calls forward to the data attribute.
+    """
 
     def __contains__(self, key) -> bool:
         """Whether the given key is contained in the items."""
@@ -125,8 +168,30 @@ class ItemAccessMixin:
         """A __format__ helper function: returns info about the items"""
         return str(len(self)) + " items"
 
-class MappingAccessMixin(ItemAccessMixin):
-    """Extends item access by the """
+
+class ItemAccessMixin:
+    """This Mixin class implements the methods needed for getting, setting,
+    and deleting items. It relays all calls forward to the data attribute.
+    """
+
+    def __getitem__(self, key):
+        """Returns an item."""
+        return self.data[key]
+
+    def __setitem__(self, key, val):
+        """Sets an item."""
+        self.data[key] = val
+
+    def __delitem__(self, key):
+        """Deletes an item"""
+        del self.data[key]
+
+
+class MappingAccessMixin(ItemAccessMixin, CollectionMixin):
+    """Supplies all methods that are needed for Mapping access.
+
+    All calls are relayed to the data attribute.
+    """
 
     def keys(self):
         """Returns an iterator over the attribute names."""
@@ -216,10 +281,6 @@ class BaseDataContainer(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDa
         # Basic initialisation via parent method
         super().__init__(name=name, data=data)
 
-        # Property-managed attributes
-        self._attrs = None
-        self._parent = None
-
         # Store the attributes object
         self.attrs = attrs
 
@@ -261,10 +322,6 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
 
         # Basic initialisation via parent method
         super().__init__(name=name, data=data)
-
-        # Property-managed attributes
-        self._attrs = None
-        self._parent = None
 
         # Store the attributes object
         self.attrs = attrs
