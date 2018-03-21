@@ -75,17 +75,14 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def __getitem__(self, key):
         """Gets an item from the container."""
-        pass
 
     @abc.abstractmethod
     def __setitem__(self, key, val) -> None:
         """Sets an item in the container."""
-        pass
 
     @abc.abstractmethod
     def __delitem__(self, key) -> None:
         """Deletes an item from the container."""
-        pass
 
     # .........................................................................
     # Formatting
@@ -127,7 +124,6 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def _format_info(self) -> str:
         """A __format__ helper function: returns an info string that is used to characterise this object. Should NOT include name and classname!"""
-        pass
 
 
 # -----------------------------------------------------------------------------
@@ -141,48 +137,39 @@ class AbstractDataGroup(AbstractDataContainer, collections.abc.MutableMapping):
     @abc.abstractmethod
     def add(self, *conts, overwrite: bool=False) -> None:
         """Adds the given containers to the group."""
-        pass
 
     @abc.abstractmethod
     def __contains__(self, cont: Union[str, AbstractDataContainer]) -> bool:
         """Whether the given container is a member of this group"""
-        pass
 
     @abc.abstractmethod
     def keys(self):
         """Returns an iterator over the container names in this group."""
-        pass
 
     @abc.abstractmethod
     def values(self):
         """Returns an iterator over the containers in this group."""
-        pass
 
     @abc.abstractmethod
     def items(self):
         """Returns an iterator over the (name, data container) tuple of this group."""
-        pass
 
     @abc.abstractmethod
     def get(self, key, default=None):
         """Return the container at `key`, or `default` if container with name `key` is not available."""
-        pass
 
     @abc.abstractmethod
     def setdefault(self, key, default=None):
         """If `key` is in the dictionary, return its value. If not, insert `key` with a value of `default` and return `default`. `default` defaults to None."""
-        pass
 
     @abc.abstractmethod
     def _format_tree(self) -> str:
         """A __format__ helper function: tree representation of this group"""
-        pass
 
     @abc.abstractmethod
     def _tree_repr(self, level: int=0) -> str:
         """Recursively creates a multi-line string tree representation of this
         group. This is used by, e.g., the _format_tree method."""
-        pass
 
 # -----------------------------------------------------------------------------
 
@@ -200,27 +187,22 @@ class AbstractDataAttrs(collections.abc.Mapping, AbstractDataContainer):
     @abc.abstractmethod
     def __contains__(self, key) -> bool:
         """Whether the given key is contained in the attributes."""
-        pass
     
     @abc.abstractmethod
     def __len__(self) -> int:
         """The number of attributes."""
-        pass
 
     @abc.abstractmethod
     def keys(self):
         """Returns an iterator over the attribute names."""
-        pass
 
     @abc.abstractmethod
     def values(self):
         """Returns an iterator over the attribute values."""
-        pass
 
     @abc.abstractmethod
     def items(self):
         """Returns an iterator over the (keys, values) tuple of the attributes."""
-        pass
 
 # -----------------------------------------------------------------------------
 
@@ -230,4 +212,3 @@ class AbstractDataProxy(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def resolve(self):
         """Resolve the proxy object, returning the actual object."""
-        pass

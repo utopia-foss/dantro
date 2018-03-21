@@ -56,4 +56,8 @@ def test_mutuable_sequence_container():
     # strings
     for msc in [msc1, msc2, msc3]:
         str(msc)
-        "{:info,cls_name}".format(msc)
+        "{:info,cls_name,name}".format(msc)
+        "{}".format(msc)
+
+        with pytest.raises(ValueError):
+            "{:illegal_formatspec}".format(msc)

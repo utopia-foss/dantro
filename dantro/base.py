@@ -236,7 +236,6 @@ class BaseDataContainer(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDa
         Conversion might not be possible if TargetCls requires more information
         than is available in this container.
         """
-        pass
 
 
 # -----------------------------------------------------------------------------
