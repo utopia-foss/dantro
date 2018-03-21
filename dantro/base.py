@@ -141,6 +141,7 @@ class ItemAccessMixin:
         """A __format__ helper function: returns info about these attributes"""
         return str(len(self)) + " items"
 
+
 # -----------------------------------------------------------------------------
 # Base classes ----------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -251,7 +252,7 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
     NOTE: This is still an abstract class and needs to be subclassed.
     """
 
-    def __init__(self, *, name: str, containers: list=None, attrs=None):
+    def __init__(self, *, name: str, containers: list=None, attrs=None, StorageCls=dict):
         """Initialise a BaseDataGroup, which can store other containers and attributes.
         
         Args:
@@ -261,8 +262,8 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
         """
         log.debug("BaseDataGroup.__init__ called.")
 
-        # Prepare the data (via abstract helper method)
-        data = self._prepare_data(containers=containers)
+        # Prepare the storage class that is used as `data` attribute
+        data = StorageCls()
 
         # Basic initialisation via parent method
         super().__init__(name=name, data=data)
@@ -274,15 +275,11 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
         # Store the attributes object
         self.attrs = attrs
 
-        log.debug("BaseDataGroup.__init__ finished.")
+        # Now fill the storage
+        if containers is not None:
+            self.add(*containers)
 
-    @abc.abstractmethod
-    def _prepare_data(self, *, containers: list) -> dict:
-        """Called by __init__, this method should parse the arguments `data`
-        and `containers` which are passed to __init__. As return value,
-        a dict-like object is expected.
-        """
-        pass
+        log.debug("BaseDataGroup.__init__ finished.")
 
     # .........................................................................
     # Item access
@@ -309,7 +306,8 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
         return self.data[key[0]]
 
     def __setitem__(self, key: str, val: BaseDataContainer) -> None:
-        """Set the value at the given `key` of the group.
+        """This method is used to allow access to the content of containers of
+        this group. For adding an element to this group, use the `add` method.
         
         Args:
             key (str): The key to which to set the value. If this is a path,
@@ -324,13 +322,16 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
         # Depending on length of the key sequence, start recursion or not
         if len(key) > 1:
             self.data[key[0]][key[1:]] = val
+            return
         
-        # else: end of recursion, set the value
-        old_val = self.data.get(key[0])
-        self.data[key[0]] = val
-
-        # Update the links
-        self._link_child(new_child=val, old_child=old_val)
+        # else: end of recursion, i.e. the path led to an item of this group
+        # This operation is not allowed, as the add method should be used
+        # That method takes care that the name this element is registered with
+        # is equal to that of the registered object
+        raise ValueError("{} cannot carry out __setitem__ operation for the "
+                         "given key '{}'. Note that to add a group or "
+                         "container to the group, the `add` method should "
+                         "be used.".format(self.logstr, key))
 
     def __delitem__(self, key: str) -> None:
         """Deletes an item from the group"""
@@ -349,6 +350,36 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
         del self.data[key[0]]
 
         self._unlink_child(cont)
+
+    def add(self, *conts, overwrite: bool=False):
+        """Add the given containers to this group."""
+        for cont in conts:
+            if not isinstance(cont, (BaseDataGroup, BaseDataContainer)):
+                raise TypeError("Can only add BaseDataGroup- or "
+                                "BaseDataContainer-derived objects to {}, "
+                                "got {}!".format(self.logstr, type(cont)))
+
+            # else: is of correct type
+            # Get the name and check if one like this already exists
+            if cont.name in self:
+                if not overwrite:
+                    raise ValueError("{} already has a member with "
+                                     "name '{}', cannot add {}."
+                                     "".format(self.logstr, cont.name, cont))
+                log.debug("Overwriting member '%s' of %s ...",
+                          cont.name, self.logstr)
+                old_cont = self[cont.name]
+            
+            else:
+                old_cont = None
+
+            # Write to data, assuring that the name is that of the container
+            self._data[cont.name] = cont
+
+            # Re-link
+            self._link_child(new_child=cont, old_child=old_cont)
+
+        log.debug("Added %d container(s) to %s.", len(conts), self.logstr)
 
     # .........................................................................
     # Linking
@@ -398,7 +429,7 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
         Returns:
             bool: Whether the given container is in this group.
         """
-        if isinstance(cont, BaseDataContainer):
+        if isinstance(cont, (BaseDataGroup, BaseDataContainer)):
             return bool(cont in self.values())
 
         elif not isinstance(cont, list):

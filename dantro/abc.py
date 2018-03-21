@@ -139,6 +139,11 @@ class AbstractDataGroup(AbstractDataContainer, collections.abc.MutableMapping):
     and less so on deletion."""
 
     @abc.abstractmethod
+    def add(self, *conts, overwrite: bool=False) -> None:
+        """Adds the given containers to the group."""
+        pass
+
+    @abc.abstractmethod
     def __contains__(self, cont: Union[str, AbstractDataContainer]) -> bool:
         """Whether the given container is a member of this group"""
         pass
