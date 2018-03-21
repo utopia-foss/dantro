@@ -208,13 +208,10 @@ class BaseDataContainer(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDa
         
         Args:
             name (str): The name of this data container
-            data (TYPE): The data to store in this container
+            data: The data to store in this container
             attrs (None, optional): A mapping that is stored as attributes
         """
         log.debug("BaseDataContainer.__init__ called.")
-
-        # Prepare the data (via abstract helper method)
-        data = self._prepare_data(data=data)
 
         # Basic initialisation via parent method
         super().__init__(name=name, data=data)
@@ -228,12 +225,6 @@ class BaseDataContainer(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDa
 
         log.debug("BaseDataContainer.__init__ finished.")
 
-    @abc.abstractmethod
-    def _prepare_data(self, *, data):
-        """Called by __init__, this method should parse the given `data`
-        argument to a desirable form.
-        """
-        pass
     # .........................................................................
     # Methods needed for data container conversion
 

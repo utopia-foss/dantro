@@ -2,7 +2,7 @@
 
 import pytest
 
-import dantro.container as cont
+from dantro.container import MutableSequenceContainer
 
 # Fixtures --------------------------------------------------------------------
 
@@ -12,6 +12,11 @@ import dantro.container as cont
 def test_init():
     """Tests whether the __init__ method behaves as desired"""
     # Basic initialisation
-    ic = cont.ItemContainer(name="foo", data=[])
+    ic = MutableSequenceContainer(name="foo", data=["bar", "baz"])
+    assert ic.data == ["bar", "baz"]
 
-    # Passing some containers
+    # Without data
+    ic = MutableSequenceContainer(name="foo", data=None)
+    assert ic.data is None
+
+    # Basic 

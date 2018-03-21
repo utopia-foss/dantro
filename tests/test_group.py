@@ -3,7 +3,7 @@
 import pytest
 
 import dantro.group as grp
-import dantro.container as cont
+from dantro.container import MutableSequenceContainer
 
 # Fixtures --------------------------------------------------------------------
 
@@ -16,7 +16,7 @@ def test_init():
     dg = grp.OrderedDataGroup(name="foo")
 
     # Passing some containers
-    conts = [cont.ItemContainer(name=i, data=list(range(i)))
+    conts = [MutableSequenceContainer(name=i, data=list(range(i)))
              for i in range(10)]
     dg2 = grp.OrderedDataGroup(name="bar", containers=conts)
     
