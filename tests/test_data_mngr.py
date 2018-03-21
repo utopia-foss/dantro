@@ -1,10 +1,14 @@
 """Test the DataManager"""
 
 import os
+import pkg_resources
 
 import pytest
 
 from dantro.data_mngr import DataManager
+
+# Local constants
+LOAD_CFG_PATH = pkg_resources.resource_filename('tests', 'cfg/load_cfg.yml')
 
 # Fixtures --------------------------------------------------------------------
 
@@ -15,11 +19,21 @@ def data_dir(tmpdir) -> str:
 
     return tmpdir
 
+@pytest.fixture
+def load_cfg() -> dict:
+    """Returns a dummy load configuration"""
+    return dict(foo="bar")
+
+@pytest.fixture
+def basic_dm(data_dir) -> DataManager:
+    """Returns a basic configuration of a DataManager"""
+    return DataManager(data_dir, load_cfg=LOAD_CFG_PATH)
+
 # Tests -----------------------------------------------------------------------
 
-def test_init(data_dir):
+def test_init(data_dir, load_cfg):
     """Test the initialisation of a DataManager"""
-    dm = DataManager(data_dir)
+    dm = DataManager(data_dir, load_cfg=load_cfg)
 
     # Assert folders are existing and correctly linked
     assert dm.dirs['data'] == data_dir
@@ -28,3 +42,8 @@ def test_init(data_dir):
 
     # Without out_dir, this should be different
     assert DataManager(data_dir, out_dir=None).dirs['out'] is False
+
+@pytest.mark.skip("Not yet implemented")
+def test_loading(basic_dm):
+    """Tests whether loading works"""
+    basic_dm.load_data()
