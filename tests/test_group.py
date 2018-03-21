@@ -1,4 +1,4 @@
-"""Test the DataGroup and derived classes"""
+"""Test BaseDataGroup-derived classes"""
 
 import pytest
 
@@ -13,16 +13,16 @@ import dantro.container as cont
 def test_init():
     """Tests whether the __init__ method behaves as desired"""
     # Basic initialisation, without containers
-    dg = grp.DataGroup(name="foo")
+    dg = grp.OrderedDataGroup(name="foo")
 
     # Passing some containers
     conts = [cont.ItemContainer(name=i, data=list(range(i)))
              for i in range(10)]
-    dg2 = grp.DataGroup(name="bar", containers=conts)
+    dg2 = grp.OrderedDataGroup(name="bar", containers=conts)
     
     # Nest these together
-    root = grp.DataGroup(name="root", containers=[dg, dg2])
+    grp.OrderedDataGroup(name="root", containers=[dg, dg2])
 
     # If a non-container object is passed to a group, this should fail.
-    # with pytest.raises(TypeError):
-        
+    with pytest.raises(TypeError):
+        grp.OrderedDataGroup(name="bar", containers=["foo", "bar"])
