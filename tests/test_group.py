@@ -20,3 +20,9 @@ def test_init():
              for i in range(10)]
     dg2 = grp.DataGroup(name="bar", containers=conts)
     
+    # Nest these together
+    root = grp.DataGroup(name="root", containers=[dg, dg2])
+
+    # If a non-container object is passed to a group, this should fail.
+    # with pytest.raises(TypeError):
+        

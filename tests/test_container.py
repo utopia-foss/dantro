@@ -15,5 +15,3 @@ def test_init():
     ic = cont.ItemContainer(name="foo", data=[])
 
     # Passing some containers
-    
-    
