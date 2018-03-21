@@ -1,5 +1,6 @@
 """This module implements specialisations of the BaseDataContainer class."""
 
+import warnings
 import logging
 from collections.abc import MutableSequence
 
@@ -25,6 +26,14 @@ class MutableSequenceContainer(ItemAccessMixin, BaseDataContainer, MutableSequen
         """
 
         log.debug("MutableSequenceContainer.__init__ called.")
+
+        # Perform a check whether the data is actually a mutable sequence
+        if not isinstance(data, MutableSequence):
+            warnings.warn("The data given to {} '{}' was not identified as a "
+                          "MutableSequence, but as '{}'. Initialisation will "
+                          "work, but be informed that there might be errors "
+                          "later on.".format(self.classname, name, type(data)),
+                          UserWarning)
 
         # Initialise with parent method
         super().__init__(name=name, data=data, **dc_kwargs)

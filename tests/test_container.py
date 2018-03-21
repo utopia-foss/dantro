@@ -9,14 +9,51 @@ from dantro.container import MutableSequenceContainer
 
 # Tests -----------------------------------------------------------------------
 
-def test_init():
+def test_mutuable_sequence_container():
     """Tests whether the __init__ method behaves as desired"""
-    # Basic initialisation
-    ic = MutableSequenceContainer(name="foo", data=["bar", "baz"])
-    assert ic.data == ["bar", "baz"]
+    # Basic initialisation of sequence-like data
+    msc1 = MutableSequenceContainer(name="foo", data=["bar", "baz"])
+    msc2 = MutableSequenceContainer(name="foo", data=["bar", "baz"],
+                                    attrs=dict(one=1, two="two"))
 
-    # Without data
-    ic = MutableSequenceContainer(name="foo", data=None)
-    assert ic.data is None
+    # There will be warnings for other data types:
+    with pytest.warns(UserWarning):
+        msc3 = MutableSequenceContainer(name="bar", data=("hello", "world"))
 
-    # Basic 
+    with pytest.warns(UserWarning):
+        msc4 = MutableSequenceContainer(name="baz", data=None)
+    
+    # Basic assertions ........................................................
+    # Data access
+    assert msc1.data == ["bar", "baz"] == msc1[:]
+    assert msc2.data == ["bar", "baz"] == msc2[:]
+
+    # Attribute access
+    assert msc2.attrs == dict(one=1, two="two")
+    assert msc2.attrs['one'] == 1
+
+    # this will still work, as it is a sequence
+    assert msc3.data == ("hello", "world") == msc3[:]
+    with pytest.raises(TypeError):
+        msc4[:]
+
+    # Test insertion into the list ............................................
+    msc1.insert(0, "foo")
+    assert msc1.data == ["foo", "bar", "baz"]
+
+    # This should not work:
+    with pytest.raises(AttributeError):
+        msc3.insert(len(msc3), ("!",))
+
+    # Conversion ..............................................................
+    # To itself
+    msc1c = msc1.convert_to(MutableSequenceContainer)
+
+    # Ensure that it is a shallow copy
+    assert msc1c.data is msc1.data
+
+    # Properties ..............................................................
+    # strings
+    for msc in [msc1, msc2, msc3]:
+        str(msc)
+        "{:info,cls_name}".format(msc)
