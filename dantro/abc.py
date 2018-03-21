@@ -163,6 +163,10 @@ class AbstractDataGroup(AbstractDataContainer, collections.abc.MutableMapping):
         """If `key` is in the dictionary, return its value. If not, insert `key` with a value of `default` and return `default`. `default` defaults to None."""
 
     @abc.abstractmethod
+    def recursive_update(self, other):
+        """Updates the group with the contents of another group."""
+
+    @abc.abstractmethod
     def _format_tree(self) -> str:
         """A __format__ helper function: tree representation of this group"""
 

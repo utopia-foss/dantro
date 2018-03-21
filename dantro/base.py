@@ -432,6 +432,35 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
 
         log.debug("Added %d container(s) to %s.", len(conts), self.logstr)
 
+    def recursive_update(self, other):
+        """Recursively updates the contents of this data group with the entries
+        of the given data group"""
+
+        if not isinstance(other, BaseDataGroup):
+            raise TypeError("Can only update {} with objects of classes that "
+                            "are derived from BaseDataGroup. Got: {}"
+                            "".format(self.logstr, type(other)))
+
+        # Loop over the given DataGroup
+        for name, obj in other.items():
+            # Distinguish between the case where it is another group and where
+            # it is a container
+            if isinstance(obj, BaseDataGroup):
+                # Already a group -> if a group with the same name is already
+                # present, continue recursion. If not, just create an entry
+                # and add it to this group
+                if name in self:
+                    # Continue recursion
+                    self[name].recursive_update(obj)
+                else:
+                    self.add(obj)
+
+            else:
+                # Not a group; add it to this group
+                self.add(obj)
+
+        log.debug("Finished recursive update of %s.", self.logstr)
+
     # .........................................................................
     # Linking
 
