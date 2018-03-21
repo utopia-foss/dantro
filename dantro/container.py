@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
-class MutableSequenceContainer(ItemAccessMixin, MutableSequence, BaseDataContainer):
+class MutableSequenceContainer(ItemAccessMixin, BaseDataContainer, MutableSequence):
     """The MutableSequenceContainer stores data that is sequence-like"""
 
     def __init__(self, *, name: str, data, **dc_kwargs):

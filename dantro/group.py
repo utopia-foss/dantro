@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
-class OrderedDataGroup(BaseDataGroup):
+class OrderedDataGroup(BaseDataGroup, collections.abc.MutableMapping):
     """The OrderedDataGroup class manages groups of data containers, preserving
     the order in which they were added to this group.
 
