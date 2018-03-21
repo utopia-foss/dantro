@@ -98,28 +98,35 @@ class AttrsMixin:
 class ItemAccessMixin:
 
     def __getitem__(self, key):
-        """Returns an attribute."""
+        """Returns an item."""
         return self.data[key]
 
     def __setitem__(self, key, val):
-        """Sets an attribute."""
+        """Sets an item."""
         self.data[key] = val
 
     def __delitem__(self, key):
-        """Deletes an attribute"""
+        """Deletes an item"""
         del self.data[key]
 
     def __contains__(self, key) -> bool:
-        """Whether the given key is contained in the attributes."""
+        """Whether the given key is contained in the items."""
         return bool(key in self.data)
 
     def __len__(self) -> int:
-        """The number of attributes."""
+        """The number of items."""
         return len(self.data)
 
     def __iter__(self):
-        """Iterates over the attribute keys."""
+        """Iterates over the items."""
         return iter(self.data)
+
+    def _format_info(self) -> str:
+        """A __format__ helper function: returns info about the items"""
+        return str(len(self)) + " items"
+
+class MappingAccessMixin(ItemAccessMixin):
+    """Extends item access by the """
 
     def keys(self):
         """Returns an iterator over the attribute names."""
@@ -137,9 +144,6 @@ class ItemAccessMixin:
         """Return the value at `key`, or `default` if `key` is not available."""
         return self.data.get(key, default)
 
-    def _format_info(self) -> str:
-        """A __format__ helper function: returns info about these attributes"""
-        return str(len(self)) + " items"
 
 
 # -----------------------------------------------------------------------------
@@ -157,7 +161,7 @@ class BaseDataProxy(dantro.abc.AbstractDataProxy):
 
 # -----------------------------------------------------------------------------
 
-class BaseDataAttrs(ItemAccessMixin, dantro.abc.AbstractDataAttrs):
+class BaseDataAttrs(MappingAccessMixin, dantro.abc.AbstractDataAttrs):
     """A class to store attributes that belong to a data container.
 
     This implements a dict-like interface and serves as default attribute class.
