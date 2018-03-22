@@ -22,7 +22,7 @@ def data_dir(tmpdir) -> str:
 @pytest.fixture
 def load_cfg() -> dict:
     """Returns a dummy load configuration"""
-    return dict(foo="bar")
+    return dict(yaml=dict(loader="yaml", glob_str="*.yml"))
 
 @pytest.fixture
 def basic_dm(data_dir) -> DataManager:
@@ -43,7 +43,6 @@ def test_init(data_dir, load_cfg):
     # Without out_dir, this should be different
     assert DataManager(data_dir, out_dir=None).dirs['out'] is False
 
-@pytest.mark.skip("Not yet implemented")
 def test_loading(basic_dm):
     """Tests whether loading works"""
     basic_dm.load_data()

@@ -183,6 +183,32 @@ class DataManager(OrderedDataGroup):
                 DataManager is printed after the data was loaded
         """
 
+        def get_target_group(target_group_path: str) -> BaseDataGroup:
+            """A helper function to resolve the target group"""
+            # Determine to which group to save the entry that will be loaded
+            if not target_group_path:
+                # Save it in the root level
+                return self
+
+            # else: Find or create the group that the entry is to be added to
+            if target_group_path not in self:
+                if len(target_group_path.split(PATH_JOIN_CHAR)) > 1:
+                    raise NotImplementedError("Cannot create intermediate "
+                                              "groups yet for "
+                                              "target_group path '{}'!"
+                                              "".format(target_group_path))
+                # TODO implement creation of empty groups on the way
+
+                log.debug("Creating group '%s' ...", target_group_path)
+                _grp = self._DefaultDataGroupClass(name=target_group_path)
+                # FIXME this assumes target_group_path to *not* be a path
+
+                # Add to the root level
+                self.add(_grp)
+
+            # Resolve the entry and return
+            return self[target_group_path]
+
         if not load_cfg:
             log.debug("Using default load_cfg.")
             load_cfg = self.load_cfg
@@ -199,65 +225,49 @@ class DataManager(OrderedDataGroup):
 
         # Loop over the data entries that were configured to be loaded.
         for entry_name, params in load_cfg.items():
-            log.note("Loading data entry '%s' ...", entry_name)
+            log.info("Loading data entry '%s' ...", entry_name)
 
-            # Extract the target group path parameter
-            target_group_path = params.pop('target_group', None)  # as string
+            if not isinstance(params, dict):
+                raise TypeError("Got invalid load specifications for entry "
+                                "'{}'! Expected dict, got {} with value '{}'. "
+                                "Check the correctness of the given load "
+                                "configuration!".format(entry_name,
+                                                        type(params), params))
+
+            # Extract the target group path parameter and resolve it
+            target_group = get_target_group(params.pop('target_group', None))
+
+            # Extract the name of the target container or group
             target_basename = params.pop('target_basename', entry_name)
 
-            # Determine to which group to save the entry that will be loaded
-            if not target_group_path:
-                # Save it in the root level
-                target_group = self
-                log.debug("Imported and saved data to '%s'.",
-                          entry_name)
-
-            else:
-                # Find the group the entry is to be added to, create if needed
-                if target_group_path not in self:
-                    if len(target_group_path.split(PATH_JOIN_CHAR)) > 1:
-                        raise NotImplementedError("Cannot create intermediate "
-                                                  "groups yet for "
-                                                  "target_group path '{}'!"
-                                                  "".format(target_group_path))
-                    # TODO implement creation of empty groups on the way
-
-                    log.debug("Creating group '%s' ...", target_group_path)
-                    _grp = self._DefaultDataGroupClass(name=target_group_path)
-                    # FIXME this assumes target_group_path to *not* be a path
-
-                    # Add to the root level
-                    self.add(_grp)
-
-                # Resolve the entry
-                target_group = self[target_group_path]
-
-            # Warn if the entry_name is already present
-            if entry_name in self:
-                if overwrite_existing:
-                    log.warning("The data entry '%s' was already loaded and "
-                                "will be overwritten.", entry_name)
-                else:
-                    log.debug("The data entry '%s' was already loaded; not "
-                              "loading it again ...", entry_name)
+            # Check if the target already exists
+            if target_basename in self[target_group]:
+                log.warning("The data entry with target basename '%s' already "
+                            "exists in target group '%s'.",
+                            target_basename, target_group)
+                if not overwrite_existing:
+                    log.warning("It will not be loaded again.")
+                    # go to the next entry
                     continue
+                # else: load it, overwriting data
+                log.warning("It will be overwritten.")
 
             # Try loading the data and handle specific DataManagerErrors
             try:
                 _entry = self._load_entry(name=target_basename, **params)
 
             except RequiredDataMissingError:
-                log.error("Required entry '%s' could not be loaded!", entry_name)
+                log.error("Required entry '%s' could not be loaded!",
+                          entry_name)
                 raise
 
             except MissingDataError:
                 warnings.warn("No files were found to import.",
                               MissingDataWarning)
-                # Does not raise
-                _entry = None
+                # Does not raise, but does not save anything either
+                continue
 
             except MissingLoaderError:
-                # Loader was not available.
                 raise
 
             else:
