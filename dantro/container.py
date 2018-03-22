@@ -97,3 +97,13 @@ class MutableMappingContainer(MappingAccessMixin, BaseDataContainer, MutableMapp
 
         # Done.
         log.debug("MutableMappingContainer.__init__ finished.")
+
+    def convert_to(self, TargetCls, **target_init_kwargs):
+        """With this method, a TargetCls object can be created from this
+        particular container instance.
+        
+        Conversion might not be possible if TargetCls requires more information
+        than is available in this container.
+        """
+        return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
+                         **target_init_kwargs)

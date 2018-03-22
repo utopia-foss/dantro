@@ -285,8 +285,13 @@ class DataManager(OrderedDataGroup):
                 # Everything as desired, _entry is now the imported data
                 log.debug("Data successfully imported.")
 
-            # Loaded now. Recursively save there . . . . . . . . . . . . . . . 
-            target_group.recursive_update(_entry)
+            # Loaded now. Save it . . . . . . . . . . . . . . . . . . . . . . .
+            if isinstance(_entry, BaseDataGroup):
+                # ... recursively
+                target_group.recursive_update(_entry)
+            else:
+                # just add it, assuming it is a BaseDataContainer
+                target_group.add(_entry)
             log.debug("Saved data to target group %s.", target_group.path)
 
             # Done with this config entry, continue with next
