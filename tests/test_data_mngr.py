@@ -5,10 +5,18 @@ import pkg_resources
 
 import pytest
 
-from dantro.data_mngr import DataManager
+import dantro.data_mngr
+from dantro.data_loaders import YamlLoaderMixin
 
 # Local constants
 LOAD_CFG_PATH = pkg_resources.resource_filename('tests', 'cfg/load_cfg.yml')
+
+# Test class ------------------------------------------------------------------
+
+class DataManager(YamlLoaderMixin, dantro.data_mngr.DataManager):
+    """A DataManager-derived class for testing the implementation"""
+    pass
+
 
 # Fixtures --------------------------------------------------------------------
 

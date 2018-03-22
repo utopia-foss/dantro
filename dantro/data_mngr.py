@@ -356,8 +356,11 @@ class DataManager(OrderedDataGroup):
         try:
             load_func = getattr(self, '_load_' + loader)
         except AttributeError as err:
-            raise MissingLoaderError("Loader '{}' was not available to {}!"
-                                     "".format(loader, self.logstr)) from err
+            raise MissingLoaderError("Loader '{}' was not available to {}! "
+                                     "Make sure to use a mixin class that "
+                                     "supplies the '{}' loader method."
+                                     "".format(loader, self.logstr,
+                                               '_load_'+loader)) from err
 
         # Generate an absolute glob string and a list of files
         glob_str = os.path.join(self.dirs['data'], glob_str)
