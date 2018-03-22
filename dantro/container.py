@@ -3,7 +3,7 @@
 import warnings
 import logging
 from collections.abc import MutableSequence
-from numpy import ndarray
+import numpy as np
 from dantro.base import BaseDataContainer, ItemAccessMixin, CollectionMixin
 from dantro.mixins import NumpyMixin
 # Local constants
@@ -78,7 +78,7 @@ class NumpyDataContainer(NumpyMixin, BaseDataContainer):
         log.debug("NumpyDataConainer.__init__ called.")
 
         # check whether the data is a numpy.ndarray.dtype
-        if not isinstance(data, ndarray):
+        if not isinstance(data, np.ndarray):
             warnings.warn("The data given to {} '{}' was not identified as a "
                           "MutableSequence, but as '{}'. Initialisation will "
                           "work, but be informed that there might be errors "

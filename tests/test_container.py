@@ -3,7 +3,7 @@
 import pytest
 
 from dantro.container import MutableSequenceContainer, NumpyDataContainer
-from numpy import ndarray, array
+import numpy as np
 # Fixtures --------------------------------------------------------------------
 
 
@@ -65,6 +65,6 @@ def test_mutuable_sequence_container():
 def test_numpy_data_container():
     """Tests whether the __init__method behaves as desired"""
     # Basic initialization of Numpy ndarray-like data
-    ndc = NumpyDataContainer(name="oof", data=array([2,3,4]))
+    ndc = NumpyDataContainer(name="oof", data=np.array([2,3,4]))
     dasd = ndc.copy()
     print(dasd)
