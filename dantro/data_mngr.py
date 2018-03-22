@@ -40,6 +40,10 @@ class MissingDataWarning(UserWarning):
     """Used as warning instead of MissingDataError"""
     pass
 
+class ExistingDataWarning(UserWarning):
+    """If there was data already existing ..."""
+    pass
+
 # -----------------------------------------------------------------------------
 
 class DataManager(OrderedDataGroup):
@@ -209,6 +213,7 @@ class DataManager(OrderedDataGroup):
             # Resolve the entry and return
             return self[target_group_path]
 
+
         if not load_cfg:
             log.debug("Using load configuration given at initialisation.")
             load_cfg = self.load_cfg
@@ -225,10 +230,10 @@ class DataManager(OrderedDataGroup):
 
         log.info("Loading %d data entries ...", len(load_cfg))
 
-        # Loop over the data entries that were configured to be loaded.
+        
+        # Loop over the data entries that were configured to be loaded . . . .
         for entry_name, params in load_cfg.items():
-            log.info("Loading data entry '%s' ...", entry_name)
-
+            # Some initial checks
             if not isinstance(params, dict):
                 raise TypeError("Got invalid load specifications for entry "
                                 "'{}'! Expected dict, got {} with value '{}'. "
@@ -236,25 +241,29 @@ class DataManager(OrderedDataGroup):
                                 "configuration!".format(entry_name,
                                                         type(params), params))
 
+            log.info("Loading data entry '%s' ...", entry_name)
+
             # Extract the target group path parameter and resolve it
             target_group = get_target_group(params.pop('target_group', None))
 
-            # Extract the name of the target container or group
+            # Extract the name of the target container or group . . . . . . . .
             target_basename = params.pop('target_basename', entry_name)
 
             # Check if the target already exists
             if target_basename in target_group:
-                log.warning("The data entry with target basename '%s' already "
-                            "exists in target group '%s'.",
-                            target_basename, target_group)
+                _warnmsg = ("The data entry with target basename '{}' "
+                            "already exists in target group '{}'."
+                            "".format(target_basename, target_group))
                 if not overwrite_existing:
-                    log.warning("It will not be loaded again.")
+                    warnings.warn(_warnmsg + " It will not be loaded again.",
+                                  ExistingDataWarning)
                     # go to the next entry
                     continue
                 # else: load it, overwriting data
-                log.warning("It will be overwritten.")
+                warnings.warn(_warnmsg + " It will be overwritten!",
+                              ExistingDataWarning)
 
-            # Try loading the data and handle specific DataManagerErrors
+            # Try loading the data and handle specific DataManagerErrors . . .
             try:
                 _entry = self._entry_loader(target_group=target_group,
                                             name=target_basename, **params)
@@ -264,11 +273,10 @@ class DataManager(OrderedDataGroup):
                           entry_name)
                 raise
 
-            except MissingDataError:
-                warnings.warn("No files were found to import.",
+            except MissingDataError as err:
+                warnings.warn("No files were found to import!\n"+str(err),
                               MissingDataWarning)
-                # Does not raise, but does not save anything either
-                continue
+                continue  # Does not raise, but does not save anything either
 
             except LoaderError:
                 raise
@@ -277,7 +285,7 @@ class DataManager(OrderedDataGroup):
                 # Everything as desired, _entry is now the imported data
                 log.debug("Data successfully imported.")
 
-            # Loaded now. Recursively save there
+            # Loaded now. Recursively save there . . . . . . . . . . . . . . . 
             target_group.recursive_update(_entry)
             log.debug("Saved data to target group %s.", target_group.path)
 
@@ -405,7 +413,7 @@ class DataManager(OrderedDataGroup):
         if not files:
             # No files found; can exit here, one way or another
             if not required:
-                raise MissingDataError("No files to import for glob_str '{}' "
+                raise MissingDataError("No files matching glob_str '{}' "
                                        "(and ignoring {}).".format(glob_str,
                                                                    ignore))
             raise RequiredDataMissingError("No files matching '{}' (and "
