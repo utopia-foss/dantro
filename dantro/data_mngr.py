@@ -164,7 +164,7 @@ class DataManager(OrderedDataGroup):
 
         # Inform about the managed directories, then return
         log.debug("Managed directories:\n%s",
-                  "\n".join(["  {:<8s} : {}".format(k, v)
+                  "\n".join(["  {:>8s} : {}".format(k, v)
                              for k, v in dirs.items()]))
 
         return dirs
@@ -283,16 +283,12 @@ class DataManager(OrderedDataGroup):
 
             else:
                 # Everything as desired, _entry is now the imported data
-                log.debug("Data successfully imported.")
+                log.debug("Data successfully loaded.")
 
             # Loaded now. Save it . . . . . . . . . . . . . . . . . . . . . . .
-            if isinstance(_entry, BaseDataGroup):
-                # ... recursively
-                target_group.recursive_update(_entry)
-            else:
-                # just add it, assuming it is a BaseDataContainer
-                target_group.add(_entry)
-            log.debug("Saved data to target group %s.", target_group.path)
+            log.debug("Saving %s to %s...", _entry.logstr, target_group.logstr)
+            target_group.add(_entry)
+            log.debug("Entry '%s' successfully loaded and saved.", entry_name)
 
             # Done with this config entry, continue with next
         
@@ -435,6 +431,8 @@ class DataManager(OrderedDataGroup):
 
         # Distinguish between cases where a group should be created and one where the DataContainer-object can be directly returned
         if len(files) == 1 and not always_create_group:
+            log.debug("Found a single file and will not create a new group.")
+
             # Use the single file available
             file = files[0]
 
@@ -461,6 +459,8 @@ class DataManager(OrderedDataGroup):
 
         # Create a group wherein all entries are gathered
         # It has the same name as the entry
+        log.debug("Creating a group to data loaded from %d file(s) in...",
+                  len(files))
         group = self._DefaultDataGroupClass(name=name)
 
         # Go over the files and load them

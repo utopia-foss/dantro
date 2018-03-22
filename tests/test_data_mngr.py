@@ -24,11 +24,12 @@ class DataManager(YamlLoaderMixin, dantro.data_mngr.DataManager):
 @pytest.fixture
 def data_dir(tmpdir) -> str:
     """Writes some dummy data to a temporary directory and returns the path to that directory"""
-    # Create YAML dummy data
-    ymld1 = dict(foo="bar")
+    # Create YAML dummy data and write it out
+    foobar = dict(one=1, two=2,
+                  go_deeper=dict(eleven=11),
+                  a_list=list(range(10)))
 
-    # Write it out
-    write_yml(ymld1, path=tmpdir.join("foobar.yml"))
+    write_yml(foobar, path=tmpdir.join("foobar.yml"))
 
     return tmpdir
 
@@ -58,3 +59,13 @@ def test_loading(dm):
     NOTE this uses the load configuration specified in cfg/load_cfg.yml
     """
     dm.load_data()
+
+    # Assert that the top level entries are all available
+    assert 'foobar' in dm
+
+    # Assert their content is right
+    foobar = dm['foobar']
+    assert foobar['one'] == 1
+    assert foobar['two'] == 2
+    assert foobar['go_deeper']['eleven'] == 11
+    assert foobar['a_list'] == list(range(10))

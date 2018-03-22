@@ -33,7 +33,7 @@ def load_yml(path: str) -> dict:
     Returns:
         dict: The parsed dictionary data
     """
-    log.debug("Loading YAML file from %s ...", path)
+    log.debug("Loading YAML file... path:\n  %s", path)
 
     with open(path, 'r') as yaml_file:
         d = yaml.load(yaml_file)
@@ -48,7 +48,7 @@ def write_yml(d: dict, *, path: str):
         d (dict): The dict to convert to dump
         path (str): The path to write the yml file to
     """
-    log.debug("Dumping %s to YAML file at %s ...", type(d), path)
+    log.debug("Dumping %s to YAML file... target:\n  %s", type(d), path)
 
     with open(path, 'w') as yaml_file:
         yaml.dump(d, stream=yaml_file)

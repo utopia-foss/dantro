@@ -2,6 +2,6 @@
 
 # Configure the logging module for the whole package here
 import logging
-logging.basicConfig(format="%(levelname)-7s %(module)-14s %(message)s",
+logging.basicConfig(format="%(levelname)-7s %(module)-12s %(message)s",
                     level=logging.DEBUG)
 log = logging.getLogger(__name__)
