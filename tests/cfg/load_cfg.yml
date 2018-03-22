@@ -1,2 +1,4 @@
 ---
-foo: bar
+yaml_test:
+  loader: yaml
+  glob_str: "*.yaml"

@@ -210,8 +210,10 @@ class DataManager(OrderedDataGroup):
             return self[target_group_path]
 
         if not load_cfg:
-            log.debug("Using default load_cfg.")
+            log.debug("Using load configuration given at initialisation.")
             load_cfg = self.load_cfg
+        else:
+            log.debug("Using the given load configuration.")
 
         # Make sure to work on a copy, be it on the defaults or on the passed
         load_cfg = copy.deepcopy(load_cfg)
@@ -219,7 +221,7 @@ class DataManager(OrderedDataGroup):
         if update_load_cfg:
             # Recursively update with the given keywords
             load_cfg = tools.recursive_update(load_cfg, update_load_cfg)
-            log.debug("Updated the default load configuration for this call of `load_data`.")
+            log.debug("Updated the load config.")
 
         log.info("Loading %d data entries ...", len(load_cfg))
 
@@ -241,7 +243,7 @@ class DataManager(OrderedDataGroup):
             target_basename = params.pop('target_basename', entry_name)
 
             # Check if the target already exists
-            if target_basename in self[target_group]:
+            if target_basename in target_group:
                 log.warning("The data entry with target basename '%s' already "
                             "exists in target group '%s'.",
                             target_basename, target_group)
@@ -254,7 +256,8 @@ class DataManager(OrderedDataGroup):
 
             # Try loading the data and handle specific DataManagerErrors
             try:
-                _entry = self._load_entry(name=target_basename, **params)
+                _entry = self._entry_loader(target_group=target_group,
+                                            name=target_basename, **params)
 
             except RequiredDataMissingError:
                 log.error("Required entry '%s' could not be loaded!",
@@ -287,8 +290,8 @@ class DataManager(OrderedDataGroup):
         if print_tree:
             print("{dm:name} tree:\n{dm:tree}".format(dm=self))
 
-    def _load_entry(self, *, target_group: BaseDataGroup, name: str, loader: str, glob_str: str, ignore: list=None, always_create_group: bool=False, required: bool=False, name_regex: str=None, progress_indicator: bool=True, parallel: bool=False, **loader_kwargs) -> Union[BaseDataContainer, BaseDataGroup]:
-        """Helper function that loads a single data entry.
+    def _entry_loader(self, *, target_group: BaseDataGroup, name: str, loader: str, glob_str: str, ignore: list=None, always_create_group: bool=False, required: bool=False, name_regex: str=None, progress_indicator: bool=True, parallel: bool=False, **loader_kwargs) -> Union[BaseDataContainer, BaseDataGroup]:
+        """Helper function that loads a data entry.
         
         Args:
             target_group (BaseDataGroup): The group the entry is loaded to;
@@ -349,12 +352,12 @@ class DataManager(OrderedDataGroup):
 
             return key
 
-
         # Get the load function
-        load_func = getattr(self, '_load_' + loader)
-        if not load_func:
+        try:
+            load_func = getattr(self, '_load_' + loader)
+        except AttributeError as err:
             raise MissingLoaderError("Loader '{}' was not available to {}!"
-                                     "".format(loader, self.logstr))
+                                     "".format(loader, self.logstr)) from err
 
         # Generate an absolute glob string and a list of files
         glob_str = os.path.join(self.dirs['data'], glob_str)
@@ -376,7 +379,7 @@ class DataManager(OrderedDataGroup):
                 try:
                     files.remove(rmf)
                 except ValueError:
-                    log.debug("%s was not included in the first place.", rmf)
+                    log.debug("%s was not found in files list.", rmf)
                 else:
                     log.debugv("%s removed from files list.", rmf)
 

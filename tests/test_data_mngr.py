@@ -22,7 +22,7 @@ def data_dir(tmpdir) -> str:
 @pytest.fixture
 def load_cfg() -> dict:
     """Returns a dummy load configuration"""
-    return dict(yaml=dict(loader="yaml", glob_str="*.yml"))
+    return dict(yaml_test=dict(loader="yaml", glob_str="*.yml"))
 
 @pytest.fixture
 def basic_dm(data_dir) -> DataManager:
