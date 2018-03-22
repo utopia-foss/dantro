@@ -33,7 +33,7 @@ def data_dir(tmpdir) -> str:
     return tmpdir
 
 @pytest.fixture
-def basic_dm(data_dir) -> DataManager:
+def dm(data_dir) -> DataManager:
     """Returns a basic configuration of a DataManager"""
     return DataManager(data_dir, load_cfg=LOAD_CFG_PATH)
 
@@ -52,9 +52,9 @@ def test_init(data_dir):
     # Without out_dir, this should be different
     assert DataManager(data_dir, out_dir=None).dirs['out'] is False
 
-def test_loading(basic_dm):
+def test_loading(dm):
     """Tests whether loading works
 
     NOTE this uses the load configuration specified in cfg/load_cfg.yml
     """
-    basic_dm.load_data()
+    dm.load_data()

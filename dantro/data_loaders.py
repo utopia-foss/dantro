@@ -21,10 +21,20 @@ log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
+def add_loader(*, TargetCls):
+    def load_method_decorator(func):
+        def decorated(cls, *args, **kwargs):              
+            func.TargetCls = TargetCls
+            return func(*args, **kwargs)
+        return decorated
+    return load_method_decorator
+
+# -----------------------------------------------------------------------------
+
 class YamlLoaderMixin:
     """Supplies functionality to load yaml files in the data manager"""
 
-    @staticmethod
+    @add_loader(TargetCls=MutableMappingContainer)
     def _load_yaml(filepath: str, *, TargetCls: MutableMappingContainer):
         """Load a yaml file from the given path and creates a container to
         store that data in."""
@@ -36,4 +46,4 @@ class YamlLoaderMixin:
     _load_yaml.TargetCls = MutableMappingContainer
 
     # Also make available under `yml`
-    _load_yml = _load_yaml
+    # _load_yml = _load_yaml
