@@ -91,6 +91,10 @@ class NumpyDataContainer(NumpyMixin, BaseDataContainer, CollectionMixin, ItemAcc
         # Done.
         log.debug("NumpyDataContainer.__init__ finished")
 
+    def _format_info(self) -> str:
+        """A __format__ helper function: returns info about the item"""
+        return "{} elements are in the {} dimensional data".format(self.data.size, self.data.ndim)
+
     def convert_to(self, TargetCls, **target_init_kwargs):
         """With this method, a TargetCls object can be created from this
         particular container instance.
@@ -100,3 +104,5 @@ class NumpyDataContainer(NumpyMixin, BaseDataContainer, CollectionMixin, ItemAcc
         """
         return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
                          **target_init_kwargs)
+
+                    
