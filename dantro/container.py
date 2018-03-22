@@ -2,9 +2,9 @@
 
 import warnings
 import logging
-from collections.abc import MutableSequence
+from collections.abc import MutableSequence, MutableMapping
 
-from dantro.base import BaseDataContainer, ItemAccessMixin, CollectionMixin
+from dantro.base import BaseDataContainer, ItemAccessMixin, CollectionMixin, MappingAccessMixin
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -62,3 +62,34 @@ class MutableSequenceContainer(ItemAccessMixin, CollectionMixin, BaseDataContain
         """
         return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
                          **target_init_kwargs)
+
+# -----------------------------------------------------------------------------
+
+class MutableMappingContainer(MappingAccessMixin, BaseDataContainer, MutableMapping):
+
+    def __init__(self, *, name: str, data, **dc_kwargs):
+        """Initialise a MutableMappingContainer, storing mapping data.
+
+        NOTE: There is no check if the given data is actually a mapping!
+        
+        Args:
+            name (str): The name of this container
+            data: The mapping-like data to store
+            **dc_kwargs: Additional arguments for container initialisation
+        """
+
+        log.debug("MutableMappingContainer.__init__ called.")
+
+        # Perform a check whether the data is actually a mutable sequence
+        if not isinstance(data, MutableMapping):
+            warnings.warn("The data given to {} '{}' was not identified as a "
+                          "MutableMapping, but as '{}'. Initialisation will "
+                          "work, but be informed that there might be errors "
+                          "later on.".format(self.classname, name, type(data)),
+                          UserWarning)
+
+        # Initialise with parent method
+        super().__init__(name=name, data=data, **dc_kwargs)
+
+        # Done.
+        log.debug("MutableMappingContainer.__init__ finished.")
