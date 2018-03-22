@@ -40,6 +40,19 @@ def load_yml(path: str) -> dict:
 
     return d
 
+
+def write_yml(d: dict, *, path: str):
+    """Write a dict as a yaml file to a path
+    
+    Args:
+        d (dict): The dict to convert to dump
+        path (str): The path to write the yml file to
+    """
+    log.debug("Dumping %s to YAML file at %s ...", type(d), path)
+
+    with open(path, 'w') as yaml_file:
+        yaml.dump(d, stream=yaml_file)
+
 # -----------------------------------------------------------------------------
 # Dictionary operations
 

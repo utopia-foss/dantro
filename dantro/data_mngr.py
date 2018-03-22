@@ -365,7 +365,9 @@ class DataManager(OrderedDataGroup):
             try:
                 TargetCls = getattr(load_func, 'TargetCls')
             except AttributeError as err:
-                raise LoaderError() from err
+                raise LoaderError("Load function {} misses required attribute "
+                                  "'TargetCls'. Check your mixin!"
+                                  "".format(load_func)) from err
 
             # Create a new init function where the name is already resolved
             return lambda **kws: TargetCls(name=tname, **kws)

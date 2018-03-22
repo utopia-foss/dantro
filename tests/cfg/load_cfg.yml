@@ -1,4 +1,4 @@
 ---
 yaml_test:
   loader: yaml
-  glob_str: "*.yaml"
+  glob_str: "*.yml"
