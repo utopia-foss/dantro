@@ -10,13 +10,10 @@ log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
-class NumpyMixin(dantro.base.CollectionMixin, dantro.base.ItemAccessMixin):
-    """This Mixin class implements the methods needed for getting the functionality of
-    a numpy.ndarray. 
+class ForwardAttrsToDataMixin():
+    """This Mixin class implements the method to forward attributes to the data attribute.
     """
 
     def __getattr__(self, attr_name):
-        """Forward attributes that were not available in this class to data attribute, i.e. np.ndarray ..."""
+        """Forward attributes that were not available in this class to data attribute."""
         return getattr(self.data, attr_name)
-
-    
