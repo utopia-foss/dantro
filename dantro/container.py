@@ -63,15 +63,15 @@ class MutableSequenceContainer(ItemAccessMixin, CollectionMixin, BaseDataContain
         return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
                          **target_init_kwargs)
 
-class NumpyDataContainer(NumpyMixin, BaseDataContainer):
+class NumpyDataContainer(NumpyMixin, BaseDataContainer, CollectionMixin, ItemAccessMixin):
     """The NumpyDataContainer stores data that is numpy.ndarray-like"""
 
     def __init__(self, *, name: str, data, **dc_kwargs):
         """Initialize a NumpyDataContainer, storing data that is like a numpy.ndarray.
         
         Arguments:
-            name {str} -- The name of this container
-            data {np.ndarray} -- The numpy.ndarray-like data to store
+            name (str) -- The name of this container
+            data (np.ndarray) -- The numpy.ndarray-like data to store
             **dc_kwargs: Description
         """
 
@@ -100,7 +100,3 @@ class NumpyDataContainer(NumpyMixin, BaseDataContainer):
         """
         return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
                          **target_init_kwargs)
-
-
-    def copy(self):
-        return NumpyDataContainer(name=self.name, data=self.data)
