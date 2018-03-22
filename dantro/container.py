@@ -3,9 +3,9 @@
 import warnings
 import logging
 from collections.abc import MutableSequence
-
+from numpy import ndarray
 from dantro.base import BaseDataContainer, ItemAccessMixin, CollectionMixin
-
+from dantro.mixins import NumpyMixin
 # Local constants
 log = logging.getLogger(__name__)
 
@@ -62,3 +62,45 @@ class MutableSequenceContainer(ItemAccessMixin, CollectionMixin, BaseDataContain
         """
         return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
                          **target_init_kwargs)
+
+class NumpyDataContainer(NumpyMixin, BaseDataContainer):
+    """The NumpyDataContainer stores data that is numpy.ndarray-like"""
+
+    def __init__(self, *, name: str, data, **dc_kwargs):
+        """Initialize a NumpyDataContainer, storing data that is like a numpy.ndarray.
+        
+        Arguments:
+            name {str} -- The name of this container
+            data {np.ndarray} -- The numpy.ndarray-like data to store
+            **dc_kwargs: Description
+        """
+
+        log.debug("NumpyDataConainer.__init__ called.")
+
+        # check whether the data is a numpy.ndarray.dtype
+        if not isinstance(data, ndarray):
+            warnings.warn("The data given to {} '{}' was not identified as a "
+                          "MutableSequence, but as '{}'. Initialisation will "
+                          "work, but be informed that there might be errors "
+                          "later on.".format(self.classname, name, type(data)),
+                          UserWarning)
+
+        #initialize with parent method
+        super().__init__(name=name, data=data, **dc_kwargs)
+
+        # Done.
+        log.debug("NumpyDataContainer.__init__ finished")
+
+    def convert_to(self, TargetCls, **target_init_kwargs):
+        """With this method, a TargetCls object can be created from this
+        particular container instance.
+        
+        Conversion might not be possible if TargetCls requires more information
+        than is available in this container.
+        """
+        return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
+                         **target_init_kwargs)
+
+
+    def copy(self):
+        return NumpyDataContainer(name=self.name, data=self.data)

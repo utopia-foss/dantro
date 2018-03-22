@@ -2,8 +2,8 @@
 
 import pytest
 
-from dantro.container import MutableSequenceContainer
-
+from dantro.container import MutableSequenceContainer, NumpyDataContainer
+from numpy import ndarray, array
 # Fixtures --------------------------------------------------------------------
 
 
@@ -61,3 +61,10 @@ def test_mutuable_sequence_container():
 
         with pytest.raises(ValueError):
             "{:illegal_formatspec}".format(msc)
+
+def test_numpy_data_container():
+    """Tests whether the __init__method behaves as desired"""
+    # Basic initialization of Numpy ndarray-like data
+    ndc = NumpyDataContainer(name="oof", data=array([2,3,4]))
+    dasd = ndc.copy()
+    print(dasd)
