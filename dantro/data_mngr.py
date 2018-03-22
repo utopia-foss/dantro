@@ -2,13 +2,17 @@
 
 import os
 import copy
-import logging
 import datetime
+import uuid
+import re
+import glob
+import logging
+import warnings
 from typing import Union
 
-from dantro.base import PATH_JOIN_CHAR BaseDataContainer
+from dantro.base import PATH_JOIN_CHAR, BaseDataContainer, BaseDataGroup
 from dantro.group import OrderedDataGroup
-from dantro.tools import load_yml, recursive_update
+import dantro.tools as tools
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -30,6 +34,10 @@ class MissingDataError(DataManagerError):
 
 class MissingLoaderError(DataManagerError):
     """Raised if a data loader was not available"""
+    pass
+
+class MissingDataWarning(UserWarning):
+    """Used as warning instead of MissingDataError"""
     pass
 
 # -----------------------------------------------------------------------------
@@ -88,7 +96,7 @@ class DataManager(OrderedDataGroup):
             # Assume this is the path to a configuration file and load it
             log.debug("Loading the default load config from a path:\n  %s",
                       load_cfg)
-            self.load_cfg = load_yml(load_cfg)
+            self.load_cfg = tools.load_yml(load_cfg)
 
         elif load_cfg:
             # Assume this is already a mapping and store it as the default
@@ -184,7 +192,7 @@ class DataManager(OrderedDataGroup):
 
         if update_load_cfg:
             # Recursively update with the given keywords
-            load_cfg = recursive_update(load_cfg, update_load_cfg)
+            load_cfg = tools.recursive_update(load_cfg, update_load_cfg)
             log.debug("Updated the default load configuration for this call of `load_data`.")
 
         log.info("Loading %d data entries ...", len(load_cfg))
@@ -192,6 +200,37 @@ class DataManager(OrderedDataGroup):
         # Loop over the data entries that were configured to be loaded.
         for entry_name, params in load_cfg.items():
             log.note("Loading data entry '%s' ...", entry_name)
+
+            # Extract the target group path parameter
+            target_group_path = params.pop('target_group', None)  # as string
+            target_basename = params.pop('target_basename', entry_name)
+
+            # Determine to which group to save the entry that will be loaded
+            if not target_group_path:
+                # Save it in the root level
+                target_group = self
+                log.debug("Imported and saved data to '%s'.",
+                          entry_name)
+
+            else:
+                # Find the group the entry is to be added to, create if needed
+                if target_group_path not in self:
+                    if len(target_group_path.split(PATH_JOIN_CHAR)) > 1:
+                        raise NotImplementedError("Cannot create intermediate "
+                                                  "groups yet for "
+                                                  "target_group path '{}'!"
+                                                  "".format(target_group_path))
+                    # TODO implement creation of empty groups on the way
+
+                    log.debug("Creating group '%s' ...", target_group_path)
+                    _grp = self._DefaultDataGroupClass(name=target_group_path)
+                    # FIXME this assumes target_group_path to *not* be a path
+
+                    # Add to the root level
+                    self.add(_grp)
+
+                # Resolve the entry
+                target_group = self[target_group_path]
 
             # Warn if the entry_name is already present
             if entry_name in self:
@@ -203,19 +242,17 @@ class DataManager(OrderedDataGroup):
                               "loading it again ...", entry_name)
                     continue
 
-            # Extract the group path, which is not needed by _load_entry
-            group_path = params.pop('group_path', None)
-
             # Try loading the data and handle specific DataManagerErrors
             try:
-                _entry = self._load_entry(entry_name=entry_name, **params)
+                _entry = self._load_entry(name=target_basename, **params)
 
             except RequiredDataMissingError:
                 log.error("Required entry '%s' could not be loaded!", entry_name)
                 raise
 
             except MissingDataError:
-                log.warning("No files were found to import.")
+                warnings.warn("No files were found to import.",
+                              MissingDataWarning)
                 # Does not raise
                 _entry = None
 
@@ -227,55 +264,30 @@ class DataManager(OrderedDataGroup):
                 # Everything as desired, _entry is now the imported data
                 log.debug("Data successfully imported.")
 
-            # Save the entry
-            # See if a base_group was specified in the parameters. If yes, do not load the data under self[entry_name] but into the base group with the specified name. If that group is not present, create it.
-            if not group_path:
-                # Save it under the name of this entry
-                self[entry_name] = _entry
-                log.progress("Imported and saved data to entry_name '%s'.",
-                             entry_name)
-
-            else:
-                # Find the group the entry is to be added to, create if needed
-                if group_path in self:
-                    group = self[group_path]
-                
-                else:
-                    if len(group_path.split(PATH_JOIN_CHAR)) > 1:
-                        raise NotImplementedError("Cannot create intermediate "
-                                                  "groups yet for path '{}'!"
-                                                  "".format(group_path))
-                    # TODO implement creation of empty groups on the way
-
-                    log.note("Creating group '%s' ...", group_path)
-                    group = self._DefaultDataGroupClass(name=group_path)
-
-                    # Let it be managed by this DataManager
-                    self[group_path] = group
-
-                # Recursively save to that group
-                group.recursive_update(_entry)
-                log.progress("Imported and saved data into group '%s'.",
-                             group_path)
+            # Loaded now. Recursively save there
+            target_group.recursive_update(_entry)
+            log.debug("Saved data to target group %s.", target_group.path)
 
             # Done with this config entry, continue with next
-        else:
-            # All done
-            log.info("Successfully loaded %d data entries.", len(self.data))
-            log.info("Available data entries:\n  %s",
-                     ",  ".join(self.data.keys()))
+        
+        # All done
+        log.info("Successfully loaded %d data entries.", len(self.data))
+        log.info("Available data entries:\n  %s", ",  ".join(self.data.keys()))
 
         if print_tree:
             print("{dm:name} tree:\n{dm:tree}".format(dm=self))
 
-    def _load_entry(self, *, entry_name: str, loader: str, glob_str: str, exclude_glob_str: str=None, always_create_group: bool=False, required: bool=False, name_regex: str=None, parallel: bool=False, **loader_kwargs) -> BaseDataContainer:
-        """
+    def _load_entry(self, *, target_group: BaseDataGroup, name: str, loader: str, glob_str: str, ignore: list=None, always_create_group: bool=False, required: bool=False, name_regex: str=None, progress_indicator: bool=True, parallel: bool=False, **loader_kwargs) -> Union[BaseDataContainer, BaseDataGroup]:
+        """Helper function that loads a single data entry.
+        
         Args:
-            entry_name (str): The name of the entry
+            target_group (BaseDataGroup): The group the entry is loaded to;
+                this is used to check whether the entry exists or not
+            name (str): The name of the entry
             loader (str): The loader to use
             glob_str (str): The glob string to search files in the data dir
-            exclude_glob_str (str, optional): The files matching this glob
-                string will be excluded
+            ignore (list, optional): The exact file names in this list will
+                be ignored during loading. Paths are seen as elative to the data directory.
             always_create_group (bool, optional): If False (default), no group
                 will be created if only a single file was loaded. If True,
                 will create a group even if only one file is loaded.
@@ -283,10 +295,141 @@ class DataManager(OrderedDataGroup):
                 were found.
             name_regex (str, optional): The regex applied to the relative path
                 of the files that were found. It is used to generate the name
-                of the target container. If not given, the path is converted
-                to a name.
+                of the target container. If not given, the basename is used.
+            progress_indicator (bool, optional): Description
             parallel (bool, optional): If True, data is loaded in parallel -
                 not implemented yet!
             **loader_kwargs: passed on to the loader function
+        
+        Returns:
+            Union[BaseDataContainer, BaseDataGroup]: The loaded entry
+        
+        Raises:
+            MissingDataError: If data was missing, but was not required
+            MissingLoaderError: If the loader could not be found
+            NotImplementedError: For `parallel == True`
+            RequiredDataMissingError: If required data was missing
         """
-        pass
+
+        def determine_name(*, target_group: BaseDataGroup, file_path: str=None, pattern=None) -> str:
+            """Helper method to determine the name of a new container."""
+            if file_path:
+                if pattern:
+                    # Use the specified regex pattern to extract the first group
+                    try:
+                        key = re.findall(pattern, file_path)[0]
+                    except IndexError:
+                        warnings.warn("Could not extract a key using the "
+                                      "pattern '{}' on the file path:\n{}\n "
+                                      "Using the hash instead."
+                                      "".format(pattern, file_path),
+                                      UserWarning)
+                        key = hash(file_path)[:12]
+
+                else:
+                    # use the file's basename, without extension
+                    key = os.path.splitext(os.path.basename(file_path))[0].lower()
+
+            if key in target_group:
+                warnings.warn("Possible duplicate entry '{}' in {}! "
+                              "Adding a random string to the end ..."
+                              "".format(key, target_group.path),
+                              UserWarning)
+                key += "_" + str(uuid.uuid4().hex[:12])
+
+            return key
+
+
+        # Get the load function
+        load_func = getattr(self, '_load_' + loader)
+        if not load_func:
+            raise MissingLoaderError("Loader '{}' was not available to {}!"
+                                     "".format(loader, self.logstr))
+
+        # Generate an absolute glob string and a list of files
+        glob_str = os.path.join(self.dirs['data'], glob_str)
+        log.debug("Created absolute glob string:\n  %s", glob_str)
+        files = glob.glob(glob_str, recursive=True)
+
+        # See if some files should be ignored
+        if ignore:
+            log.debug("Got list of files to ignore:\n  %s", ignore)
+            
+            # Make absolute and generate list of files to exclude
+            ignore = [os.path.join(self.dirs['data'], path) for path in ignore]
+
+            log.debug("Removing them one by one now ...")
+
+            # Remove the elements one by one
+            while ignore:
+                rmf = ignore.pop()
+                try:
+                    files.remove(rmf)
+                except ValueError:
+                    log.debug("%s was not included in the first place.", rmf)
+                else:
+                    log.debugv("%s removed from files list.", rmf)
+
+        # Now the file list is final
+        log.debug("Found %d files for loader '%s':\n  %s",
+                  len(files), loader, "\n  ".join(files))
+
+        if not files:
+            # No files found; can exit here, one way or another
+            if not required:
+                raise MissingDataError("No files to import for glob_str '{}' "
+                                       "(and ignoring {}).".format(glob_str,
+                                                                   ignore))
+            raise RequiredDataMissingError("No files matching '{}' (and "
+                                           "ignoring {}) were found, but this "
+                                           "entry was marked as required."
+                                           "".format(glob_str, ignore))
+
+        # else: there was at least one file to load.
+
+        # If a regex pattern was specified, compile it
+        re_pattern = re.compile(name_regex) if name_regex else None
+
+        # Distinguish between cases where a group should be created and one where the DataContainer-object can be directly returned
+        if len(files) == 1 and not always_create_group:
+            # Use the single file available
+            file = files[0]
+
+            # Find the data key
+            dname = determine_name(target_group=target_group,
+                                  file_path=file, pattern=re_pattern)
+
+            # Load the data
+            data = load_func(file, name=dname, **loader_kwargs)
+
+            log.debug("Finished loading a single file for entry %s.", name)
+
+            # And return it
+            return data
+    
+        # else: more than one file -> need to work with groups
+
+        if parallel:
+            # TODO could be implemented by parallelising the below for loop
+            raise NotImplementedError("Cannot load in parallel yet.")
+
+        # Create a group wherein all entries are gathered
+        # It has the same name as the entry
+        group = self._DefaultDataGroupClass(name=name)
+
+        # Go over the files and load them
+        for n, file in enumerate(files):
+            if progress_indicator:
+                line = "  Loading ... {}/{}".format(n+1, len(files))
+                print(tools.fill_tty_line(line), end="\r")
+
+            # Need to specify a name; either that is extracted from the whole filepath with the specified regex, or the filename is used.
+            dname = determine_name(target_group=group,
+                                  file_path=file, pattern=re_pattern)
+
+            # Use load_func to get the data and directly add it to the group
+            group.add(load_func(file, name=dname, **loader_kwargs))
+
+        log.debug("Finished loading %d files for entry %s.", len(files), name)
+
+        return group
