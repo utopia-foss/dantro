@@ -8,7 +8,7 @@ import re
 import glob
 import logging
 import warnings
-from typing import Union
+from typing import Union, Callable
 
 from dantro.base import PATH_JOIN_CHAR, BaseDataContainer, BaseDataGroup
 from dantro.group import OrderedDataGroup
@@ -324,43 +324,43 @@ class DataManager(OrderedDataGroup):
             RequiredDataMissingError: If required data was missing
         """
 
-        def determine_name(*, target_group: BaseDataGroup, file_path: str=None, pattern=None) -> str:
-            """Helper method to determine the name of a new container."""
-            if file_path:
-                if pattern:
-                    # Use the specified regex pattern to extract the first group
+        def prepare_target_cont_class(*, target_group, load_func, filepath: str, re_pattern):
+            """Fetches the class that the load function specifies and prepares it to be used for initialisation by the load function."""
+            # Find a suitable name
+            if filepath:
+                if re_pattern:
+                    # Use the specified regex pattern to extract a name
                     try:
-                        key = re.findall(pattern, file_path)[0]
+                        # Only take into account the first matching group
+                        tname = re.findall(re_pattern, filepath)[0]
                     except IndexError:
-                        warnings.warn("Could not extract a key using the "
+                        warnings.warn("Could not extract a name using the "
                                       "pattern '{}' on the file path:\n{}\n "
                                       "Using the hash instead."
-                                      "".format(pattern, file_path),
+                                      "".format(re_pattern, filepath),
                                       UserWarning)
-                        key = hash(file_path)[:12]
+                        tname = hash(filepath)[:12]
 
                 else:
                     # use the file's basename, without extension
-                    key = os.path.splitext(os.path.basename(file_path))[0].lower()
+                    tname = os.path.splitext(os.path.basename(filepath))[0].lower()
 
-            if key in target_group:
+            # Ensure that there is nothing under that name in the target group
+            if tname in target_group:
                 warnings.warn("Possible duplicate entry '{}' in {}! "
                               "Adding a random string to the end ..."
-                              "".format(key, target_group.path),
+                              "".format(tname, target_group.path),
                               UserWarning)
-                key += "_" + str(uuid.uuid4().hex[:12])
+                tname += "_" + str(uuid.uuid4().hex[:12])
 
-            return key
-
-        def prepare_target_cont_class(*, load_func, name):
-            """Fetches the class that the load function specifies and prepares it to be used for initialisation by the load function."""
+            # Try to resolve the class that is to 
             try:
                 TargetCls = getattr(load_func, 'TargetCls')
             except AttributeError as err:
                 raise LoaderError() from err
 
-            # Create a new function where the name is already resolved
-            return lambda **kws: TargetCls(name=name, **kws)
+            # Create a new init function where the name is already resolved
+            return lambda **kws: TargetCls(name=tname, **kws)
 
         # Get the load function
         load_func_name = '_load_' + loader.lower()
@@ -423,14 +423,12 @@ class DataManager(OrderedDataGroup):
             # Use the single file available
             file = files[0]
 
-            # Find the data key
-            dname = determine_name(target_group=target_group,
-                                   file_path=file, pattern=re_pattern)
-
-            # Prepare the call to the target class, which will be filled by the
-            # load function. Resolving this here ensures correct name usage
+            # Prepare the target class, which will be filled by the load func
+            # The helper function takes care of the naming of the target cont
             TargetCls = prepare_target_cont_class(load_func=load_func,
-                                                  name=dname)
+                                                  target_group=target_group,
+                                                  filepath=file,
+                                                  re_pattern=re_pattern)
 
             # Load the data using the loader function
             data = load_func(file, TargetCls=TargetCls, **loader_kwargs)
@@ -456,14 +454,12 @@ class DataManager(OrderedDataGroup):
                 line = "  Loading ... {}/{}".format(n+1, len(files))
                 print(tools.fill_tty_line(line), end="\r")
 
-            # Need to specify a name; either that is extracted from the whole filepath with the specified regex, or the filename is used.
-            dname = determine_name(target_group=group,
-                                   file_path=file, pattern=re_pattern)
-
-            # Prepare the call to the target class, which will be filled by the
-            # load function. Resolving this here ensures correct name usage
+            # Prepare the target class, which will be filled by the load func
+            # The helper function takes care of the naming of the target cont
             TargetCls = prepare_target_cont_class(load_func=load_func,
-                                                  name=dname)
+                                                  target_group=group,
+                                                  filepath=file,
+                                                  re_pattern=re_pattern)
 
             # Get the data and add it to the group
             _data = load_func(file, TargetCls=TargetCls, **loader_kwargs)
