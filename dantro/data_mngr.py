@@ -32,7 +32,7 @@ class MissingDataError(DataManagerError):
     """Raised if data was missing, but is not required."""
     pass
 
-class MissingLoaderError(DataManagerError):
+class LoaderError(DataManagerError):
     """Raised if a data loader was not available"""
     pass
 
@@ -270,7 +270,7 @@ class DataManager(OrderedDataGroup):
                 # Does not raise, but does not save anything either
                 continue
 
-            except MissingLoaderError:
+            except LoaderError:
                 raise
 
             else:
@@ -319,7 +319,7 @@ class DataManager(OrderedDataGroup):
         
         Raises:
             MissingDataError: If data was missing, but was not required
-            MissingLoaderError: If the loader could not be found
+            LoaderError: If the loader could not be found
             NotImplementedError: For `parallel == True`
             RequiredDataMissingError: If required data was missing
         """
@@ -352,15 +352,27 @@ class DataManager(OrderedDataGroup):
 
             return key
 
+        def prepare_target_cont_class(*, load_func, name):
+            """Fetches the class that the load function specifies and prepares it to be used for initialisation by the load function."""
+            try:
+                TargetCls = getattr(load_func, 'TargetCls')
+            except AttributeError as err:
+                raise LoaderError() from err
+
+            # Create a new function where the name is already resolved
+            return lambda **kws: TargetCls(name=name, **kws)
+
         # Get the load function
+        load_func_name = '_load_' + loader.lower()
         try:
-            load_func = getattr(self, '_load_' + loader)
+            load_func = getattr(self, load_func_name)
         except AttributeError as err:
-            raise MissingLoaderError("Loader '{}' was not available to {}! "
-                                     "Make sure to use a mixin class that "
-                                     "supplies the '{}' loader method."
-                                     "".format(loader, self.logstr,
-                                               '_load_'+loader)) from err
+            raise LoaderError("Loader '{}' was not available to {}! Make sure "
+                              "to use a mixin class that supplies the '{}' "
+                              "loader method.".format(loader, self.logstr,
+                                                      load_func_name)) from err
+        else:
+            log.debug("Resolved '%s' loader function.", loader)
 
         # Generate an absolute glob string and a list of files
         glob_str = os.path.join(self.dirs['data'], glob_str)
@@ -413,10 +425,15 @@ class DataManager(OrderedDataGroup):
 
             # Find the data key
             dname = determine_name(target_group=target_group,
-                                  file_path=file, pattern=re_pattern)
+                                   file_path=file, pattern=re_pattern)
 
-            # Load the data
-            data = load_func(file, name=dname, **loader_kwargs)
+            # Prepare the call to the target class, which will be filled by the
+            # load function. Resolving this here ensures correct name usage
+            TargetCls = prepare_target_cont_class(load_func=load_func,
+                                                  name=dname)
+
+            # Load the data using the loader function
+            data = load_func(file, TargetCls=TargetCls, **loader_kwargs)
 
             log.debug("Finished loading a single file for entry %s.", name)
 
@@ -441,10 +458,16 @@ class DataManager(OrderedDataGroup):
 
             # Need to specify a name; either that is extracted from the whole filepath with the specified regex, or the filename is used.
             dname = determine_name(target_group=group,
-                                  file_path=file, pattern=re_pattern)
+                                   file_path=file, pattern=re_pattern)
 
-            # Use load_func to get the data and directly add it to the group
-            group.add(load_func(file, name=dname, **loader_kwargs))
+            # Prepare the call to the target class, which will be filled by the
+            # load function. Resolving this here ensures correct name usage
+            TargetCls = prepare_target_cont_class(load_func=load_func,
+                                                  name=dname)
+
+            # Get the data and add it to the group
+            _data = load_func(file, TargetCls=TargetCls, **loader_kwargs)
+            group.add(_data)
 
         log.debug("Finished loading %d files for entry %s.", len(files), name)
 

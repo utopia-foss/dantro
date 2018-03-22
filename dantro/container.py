@@ -67,21 +67,25 @@ class MutableSequenceContainer(ItemAccessMixin, CollectionMixin, BaseDataContain
 
 class MutableMappingContainer(MappingAccessMixin, BaseDataContainer, MutableMapping):
 
-    def __init__(self, *, name: str, data, **dc_kwargs):
+    def __init__(self, *, name: str, data=None, **dc_kwargs):
         """Initialise a MutableMappingContainer, storing mapping data.
-
+        
         NOTE: There is no check if the given data is actually a mapping!
         
         Args:
             name (str): The name of this container
-            data: The mapping-like data to store
+            data: The mapping-like data to store. If not given, an empty dict
+                is created
             **dc_kwargs: Additional arguments for container initialisation
         """
 
         log.debug("MutableMappingContainer.__init__ called.")
 
         # Perform a check whether the data is actually a mutable sequence
-        if not isinstance(data, MutableMapping):
+        if data is None:
+            data = {}
+            
+        elif not isinstance(data, MutableMapping):
             warnings.warn("The data given to {} '{}' was not identified as a "
                           "MutableMapping, but as '{}'. Initialisation will "
                           "work, but be informed that there might be errors "
