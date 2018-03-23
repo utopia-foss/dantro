@@ -237,20 +237,47 @@ class DataManager(OrderedDataGroup):
         """Performs a single load operation.
         
         # TODO
-
+        
         Args:
-            entry_name (str): Name of this entry; will also be the name 
-            loader (str): Description
-            glob_str (str): Description
+            entry_name (str): Name of this entry; will also be the name of the
+                created group or container, unless `target_basename` is given
+            loader (str): The name of the loader to use
+            glob_str (str): The glob string by which to identify the files
+                within `data_dir` that are to be loaded using the loader
             exists_action (str, optional): The behaviour upon existing data.
                 Can be: raise, skip, skip_nowarn, overwrite, overwrite_nowarn,
                 update, update_nowarn
-            target_group (str, optional): Description
-            target_basename (str, optional): Description
-            **load_params: Description
+            target_group (str, optional): The path of the target group to write
+                the loaded data to. If none is given, writes to the root level
+                of the data manager
+            target_basename (str, optional): The basename of the created group
+                or container; this is needed when calling the load function
+                via the load_from_cfg function, where no two `entry_name`
+                values can be the same
+            print_tree (bool, optional): Whether to print the tree at the end
+                of the loading operation.
+            **load_params: Further loading parameters:
+                ignore (list): The exact file names in this list will be
+                    ignored during loading. Paths are seen as elative to the
+                    data directory of the data manager.
+                always_create_group (bool): If False (default), no group
+                    will be created if only a single file was loaded. If True,
+                    will create a group even if only one file is loaded.
+                required (bool): If True, will raise an error if no files were
+                    found. Default: False.
+                path_regex (str): The regex applied to the relative path of
+                    the files that were found. It is used to generate the name
+                    of the target container within the target group if
+                    multiple files are to be loaded. If not given, the path's
+                    basename is used.
+                progress_indicator (bool): Whether to print a progress
+                    indicator or not. Default: True
+                parallel (bool, optional): If True, data is loaded in parallel.
+                    This feature is not implemented yet!
+                any further kwargs: passed on to the loader function
         
         Returns:
-            TYPE: Description
+            None
         """
 
         def get_target_group(target_group_path: str) -> BaseDataGroup:
@@ -279,7 +306,7 @@ class DataManager(OrderedDataGroup):
             # Resolve the entry and return
             return self[target_group_path]
 
-        def skip_existing(exists_action: str, *, target_basename, target_group) -> bool:
+        def skip_existing(exists_action: str, *, target_basename: str, target_group: BaseDataGroup) -> bool:
             """Helper function to generate a meaningful error message if data
             already existed and how the loading will continue ...
             
@@ -287,14 +314,15 @@ class DataManager(OrderedDataGroup):
                 exists_action (str): The behaviour upon existing data. Can be:
                     raise, skip, skip_nowarn, overwrite, overwrite_nowarn,
                     update, update_nowarn
-                target_basename (TYPE): The basename that already existed
-                target_group (TYPE): The group the basename already existed in
+                target_basename (str): The basename that already existed
+                target_group (BaseDataGroup): The group the basename already
+                    existed in, i.e. where the conflict occured
             
             Returns:
-                bool: Whether to call `continue` on the outer for loop
+                bool: Whether to skip loading, i.e. exiting the `load` method
             
             Raises:
-                ExistingDataWarning: Raised if the mode was 'raise'
+                ExistingDataError: Raised when `exists_action == 'raise'`
                 ValueError: Raised for invalid `exists_action` value
             """
             _msg = ("The data entry with target basename '{}' already "
@@ -409,7 +437,8 @@ class DataManager(OrderedDataGroup):
             path_regex (str, optional): The regex applied to the relative path
                 of the files that were found. It is used to generate the name
                 of the target container. If not given, the basename is used.
-            progress_indicator (bool, optional): Description
+            progress_indicator (bool, optional): Whether to print a progress
+                indicator or not
             parallel (bool, optional): If True, data is loaded in parallel -
                 not implemented yet!
             **loader_kwargs: passed on to the loader function
