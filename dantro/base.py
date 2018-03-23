@@ -426,7 +426,7 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
                 old_cont = None
 
             # Write to data, assuring that the name is that of the container
-            self._data[cont.name] = cont
+            self.data[cont.name] = cont
 
             # Re-link
             self._link_child(new_child=cont, old_child=old_cont)
@@ -488,9 +488,9 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
         This method should be called from any method that removes an item from
         this group, be it through deletion or through 
         """
-        if child not in self:
-            raise ValueError("{} is no child of {}!".format(child.logstr,
-                                                            self.logstr))
+        if child.parent is not self:
+            raise ValueError("{} was not linked to {}. Refuse to unlink."
+                             "".format(child.logstr, self.logstr))
         child.parent = None
 
     # .........................................................................

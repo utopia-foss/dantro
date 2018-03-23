@@ -332,10 +332,11 @@ class DataManager(OrderedDataGroup):
 
             # Loaded now. Save it . . . . . . . . . . . . . . . . . . . . . . .
             log.debug("Saving %s to %s...", _entry.logstr, target_group.logstr)
-            target_group.add(_entry)
-            log.debug("Entry '%s' successfully loaded and saved.", entry_name)
+            target_group.add(_entry, overwrite=True)
+            # NOTE case `overwrite=False` would have led to a skip earlier
 
-            # Done with this config entry, continue with next
+            # Done with this config entry
+            log.debug("Entry '%s' successfully loaded and saved.", entry_name)
         
         # All done
         log.info("Successfully loaded %d data entries.", len(self.data))
