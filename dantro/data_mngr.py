@@ -266,7 +266,8 @@ class DataManager(OrderedDataGroup):
             # Try loading the data and handle specific DataManagerErrors . . .
             try:
                 _entry = self._entry_loader(target_group=target_group,
-                                            name=target_basename, **params)
+                                            target_basename=target_basename,
+                                            entry_name=entry_name, **params)
 
             except RequiredDataMissingError:
                 log.error("Required entry '%s' could not be loaded!",
@@ -299,13 +300,13 @@ class DataManager(OrderedDataGroup):
         if print_tree:
             print("{dm:name} tree:\n{dm:tree}".format(dm=self))
 
-    def _entry_loader(self, *, target_group: BaseDataGroup, name: str, loader: str, glob_str: str, ignore: list=None, always_create_group: bool=False, required: bool=False, name_regex: str=None, progress_indicator: bool=True, parallel: bool=False, **loader_kwargs) -> Union[BaseDataContainer, BaseDataGroup]:
+    def _entry_loader(self, *, target_group: BaseDataGroup, target_basename: str, entry_name: str, loader: str, glob_str: str, ignore: list=None, always_create_group: bool=False, required: bool=False, path_regex: str=None, progress_indicator: bool=True, parallel: bool=False, **loader_kwargs) -> Union[BaseDataContainer, BaseDataGroup]:
         """Helper function that loads a data entry.
         
         Args:
             target_group (BaseDataGroup): The group the entry is loaded to;
                 this is used to check whether the entry exists or not
-            name (str): The name of the entry
+            target_basename (str): The name of the container to be created
             loader (str): The loader to use
             glob_str (str): The glob string to search files in the data dir
             ignore (list, optional): The exact file names in this list will
@@ -315,7 +316,7 @@ class DataManager(OrderedDataGroup):
                 will create a group even if only one file is loaded.
             required (bool, optional): If True, will raise an error if no files
                 were found.
-            name_regex (str, optional): The regex applied to the relative path
+            path_regex (str, optional): The regex applied to the relative path
                 of the files that were found. It is used to generate the name
                 of the target container. If not given, the basename is used.
             progress_indicator (bool, optional): Description
@@ -327,16 +328,24 @@ class DataManager(OrderedDataGroup):
             Union[BaseDataContainer, BaseDataGroup]: The loaded entry
         
         Raises:
-            MissingDataError: If data was missing, but was not required
             LoaderError: If the loader could not be found
+            MissingDataError: If data was missing, but was not required
             NotImplementedError: For `parallel == True`
             RequiredDataMissingError: If required data was missing
         """
 
-        def prepare_target_cont_class(*, target_group, load_func, filepath: str, re_pattern):
+        def prepare_target(*, load_func, target_group, target_basename: str=None, filepath: str=None, re_pattern=None):
             """Fetches the class that the load function specifies and prepares it to be used for initialisation by the load function."""
             # Find a suitable name
-            if filepath:
+            if target_basename:
+                if filepath:
+                    warnings.warn("Got both `target_basename` and `filepath` "
+                                  "arguments; will ignore the latter.",
+                                  UserWarning)
+                # Use the given name as name of the group 
+                tname = target_basename
+
+            elif filepath:
                 if re_pattern:
                     # Use the specified regex pattern to extract a name
                     try:
@@ -373,7 +382,7 @@ class DataManager(OrderedDataGroup):
             # Create a new init function where the name is already resolved
             return lambda **kws: TargetCls(name=tname, **kws)
 
-        # Get the load function
+        # Get the load function . . . . . . . . . . . . . . . . . . . . . . . .
         load_func_name = '_load_' + loader.lower()
         try:
             load_func = getattr(self, load_func_name)
@@ -385,7 +394,7 @@ class DataManager(OrderedDataGroup):
         else:
             log.debug("Resolved '%s' loader function.", loader)
 
-        # Generate an absolute glob string and a list of files
+        # Generate an absolute glob string and a list of files . . . . . . . .
         glob_str = os.path.join(self.dirs['data'], glob_str)
         log.debug("Created absolute glob string:\n  %s", glob_str)
         files = glob.glob(glob_str, recursive=True)
@@ -425,10 +434,11 @@ class DataManager(OrderedDataGroup):
                                            "".format(glob_str, ignore))
 
         # else: there was at least one file to load.
-
+        
         # If a regex pattern was specified, compile it
-        re_pattern = re.compile(name_regex) if name_regex else None
+        re_pattern = re.compile(path_regex) if path_regex else None
 
+        # Ready for loading files now . . . . . . . . . . . . . . . . . . . . .
         # Distinguish between cases where a group should be created and one where the DataContainer-object can be directly returned
         if len(files) == 1 and not always_create_group:
             log.debug("Found a single file and will not create a new group.")
@@ -438,15 +448,15 @@ class DataManager(OrderedDataGroup):
 
             # Prepare the target class, which will be filled by the load func
             # The helper function takes care of the naming of the target cont
-            TargetCls = prepare_target_cont_class(load_func=load_func,
-                                                  target_group=target_group,
-                                                  filepath=file,
-                                                  re_pattern=re_pattern)
+            TargetCls = prepare_target(load_func=load_func,
+                                       target_group=target_group,
+                                       target_basename=target_basename)
 
             # Load the data using the loader function
             data = load_func(file, TargetCls=TargetCls, **loader_kwargs)
 
-            log.debug("Finished loading a single file for entry %s.", name)
+            log.debug("Finished loading a single file for entry %s.",
+                      entry_name)
 
             # And return it
             return data
@@ -459,9 +469,9 @@ class DataManager(OrderedDataGroup):
 
         # Create a group wherein all entries are gathered
         # It has the same name as the entry
-        log.debug("Creating a group to data loaded from %d file(s) in...",
-                  len(files))
-        group = self._DefaultDataGroupClass(name=name)
+        log.debug("Creating a %s to group data loaded from %d file(s) in...",
+                  self._DefaultDataGroupClass.__name__, len(files))
+        group = self._DefaultDataGroupClass(name=target_basename)
 
         # Go over the files and load them
         for n, file in enumerate(files):
@@ -471,15 +481,15 @@ class DataManager(OrderedDataGroup):
 
             # Prepare the target class, which will be filled by the load func
             # The helper function takes care of the naming of the target cont
-            TargetCls = prepare_target_cont_class(load_func=load_func,
-                                                  target_group=group,
-                                                  filepath=file,
-                                                  re_pattern=re_pattern)
+            TargetCls = prepare_target(load_func=load_func,
+                                       target_group=group,
+                                       filepath=file, re_pattern=re_pattern)
 
             # Get the data and add it to the group
             _data = load_func(file, TargetCls=TargetCls, **loader_kwargs)
             group.add(_data)
 
-        log.debug("Finished loading %d files for entry %s.", len(files), name)
+        log.debug("Finished loading %d files for entry %s.", len(files),
+                  entry_name)
 
         return group

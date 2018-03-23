@@ -29,19 +29,30 @@ def data_dir(tmpdir) -> str:
                   go_deeper=dict(eleven=11),
                   a_list=list(range(10)))
 
+    lamo = dict(nothing="to see here")
+
     write_yml(foobar, path=tmpdir.join("foobar.yml"))
+    write_yml(lamo, path=tmpdir.join("lamo.yml"))
 
     return tmpdir
 
 @pytest.fixture
 def dm(data_dir) -> DataManager:
-    """Returns a basic configuration of a DataManager"""
-    return DataManager(data_dir, load_cfg=LOAD_CFG_PATH)
+    """Returns a DataManager without load configuration"""
+    return DataManager(data_dir, out_dir=None)
 
 # Tests -----------------------------------------------------------------------
 
 def test_init(data_dir):
     """Test the initialisation of a DataManager"""
+    # Initialise via path to yaml file
+    dm = DataManager(data_dir, out_dir=None, load_cfg=LOAD_CFG_PATH)
+
+    # Assert that only the data directory is available
+    assert dm.dirs['data'] == data_dir
+    assert dm.dirs['out'] is False
+
+    # Initialise via dict and with default out dir
     dm = DataManager(data_dir,
                      load_cfg=dict(test=dict(loader="yaml", glob_str="*.yml")))
 
@@ -50,22 +61,36 @@ def test_init(data_dir):
     assert os.path.isdir(dm.dirs['data'])
     assert os.path.isdir(dm.dirs['out'])
 
-    # Without out_dir, this should be different
-    assert DataManager(data_dir, out_dir=None).dirs['out'] is False
-
 def test_loading(dm):
-    """Tests whether loading works
+    """Tests whether loading works"""
+    # Shortcut for loading into the dm
+    load_into_dm = lambda **cfg: dm.load_data(load_cfg=cfg, print_tree=True)
 
-    NOTE this uses the load configuration specified in cfg/load_cfg.yml
-    """
-    dm.load_data()
+    # Single entry
+    load_into_dm(barfoo=dict(loader="yaml", glob_str="foobar.yml"))
 
-    # Assert that the top level entries are all available
-    assert 'foobar' in dm
+    # Assert that the top level entries are all available and content is right
+    assert 'barfoo' in dm
 
-    # Assert their content is right
-    foobar = dm['foobar']
-    assert foobar['one'] == 1
-    assert foobar['two'] == 2
-    assert foobar['go_deeper']['eleven'] == 11
-    assert foobar['a_list'] == list(range(10))
+    barfoo = dm['barfoo']
+    assert barfoo['one'] == 1
+    assert barfoo['two'] == 2
+    assert barfoo['go_deeper']['eleven'] == 11
+    assert barfoo['a_list'] == list(range(10))
+
+
+    # Load another single entry, this time forcing a group to be created
+    load_into_dm(barbaz=dict(loader="yaml", glob_str="foobar.yml",
+                             always_create_group=True))
+
+    assert 'barbaz' in dm
+    assert 'barbaz/foobar' in dm
+
+    # Load again, this time with more data
+    load_into_dm(all_yaml=dict(loader="yaml", glob_str="*.yml"))
+
+    assert 'all_yaml' in dm
+    assert 'all_yaml/foobar' in dm
+    assert 'all_yaml/lamo' in dm
+
+    # raise
