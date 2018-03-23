@@ -94,3 +94,19 @@ def test_loading(dm):
     assert 'all_yaml' in dm
     assert 'all_yaml/foobar' in dm
     assert 'all_yaml/lamo' in dm
+    assert 'all_yaml/also_lamo' in dm
+    assert 'all_yaml/looooooooooong_filename' in dm
+
+    # Now see what happens if loading into a target_group is desired
+    load_into_dm(more_yaml=dict(loader="yaml", glob_str="*.yml",
+                                target_group="all_yaml"))
+
+    assert 'all_yaml/more_yaml' in dm
+    assert 'all_yaml/more_yaml/foobar' in dm
+    assert 'all_yaml/more_yaml/lamo' in dm
+
+    # Test what happens with name collisions
+    with pytest.raises(dantro.data_mngr.ExistingDataError):
+        load_into_dm(barfoo=dict(loader="yaml", glob_str="*.yml"))    
+
+    

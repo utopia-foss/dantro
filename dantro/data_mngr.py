@@ -32,6 +32,10 @@ class MissingDataError(DataManagerError):
     """Raised if data was missing, but is not required."""
     pass
 
+class ExistingDataError(DataManagerError):
+    """Raised if data already existed."""
+    pass
+
 class LoaderError(DataManagerError):
     """Raised if a data loader was not available"""
     pass
@@ -172,7 +176,7 @@ class DataManager(OrderedDataGroup):
     # .........................................................................
     # Loading data
 
-    def load_data(self, *, load_cfg: dict=None, update_load_cfg: dict=None, overwrite_existing: bool=False, print_tree: bool=False) -> None:
+    def load_data(self, *, load_cfg: dict=None, update_load_cfg: dict=None, exists_behaviour: str='raise', print_tree: bool=False) -> None:
         """Load the data using the specified load configuration.
         
         Args:
@@ -180,11 +184,13 @@ class DataManager(OrderedDataGroup):
                 given, the one specified during initialisation is used.
             update_load_cfg (dict, optional): If given, it is used to update
                 the load configuration recursively
-            overwrite_existing (bool, optional): If True, existing data will
-                be overwritten. If False, they will be skipped (without
-                raising an error)
+            exists_behaviour (str, optional): The behaviour when a certain key
+                already exists in the target.
             print_tree (bool, optional): If True, a tree representation of the
                 DataManager is printed after the data was loaded
+        
+        Raises:
+            TypeError: Description
         """
 
         def get_target_group(target_group_path: str) -> BaseDataGroup:
@@ -213,12 +219,57 @@ class DataManager(OrderedDataGroup):
             # Resolve the entry and return
             return self[target_group_path]
 
+        def skip_existing(exists_behaviour: str, *, target_basename, target_group) -> bool:
+            """Helper function to generate a meaningful error message if data
+            already existed and how the loading will continue ...
+            
+            Args:
+                exists_behaviour (str): The behaviour defining string. Can be:
+                    raise, skip, skip_nowarn, overwrite, overwrite_nowarn
+                target_basename (TYPE): The basename that already existed
+                target_group (TYPE): The group the basename already existed in
+            
+            Returns:
+                bool: Whether to call `continue` on the outer for loop
+            
+            Raises:
+                ExistingDataWarning: Raised if the mode was 'raise'
+                ValueError: Raised for invalid `exists_behaviour` value
+            """
+            _msg = ("The data entry with target basename '{}' already "
+                    "exists in target group '{}'!"
+                    "".format(target_basename, target_group))
 
+            if exists_behaviour == 'raise':
+                raise ExistingDataError(_msg + " Adjust argument "
+                                        "`exists_behaviour` to allow skipping "
+                                        "or overwriting of existing entries.")
+
+            if exists_behaviour in ['skip', 'skip_nowarn']:
+                if exists_behaviour == 'skip':
+                    warnings.warn(_msg
+                                  + " Loading of this entry will be skipped.",
+                                  ExistingDataWarning)
+                return True  # will lead to `continue` being called
+
+            elif exists_behaviour in ['overwrite', 'overwrite_nowarn']:
+                if exists_behaviour == 'overwrite':
+                    warnings.warn(_msg + " It will be overwritten!",
+                                  ExistingDataWarning)
+                return False  # will lead to the data being loaded
+
+            else:
+                raise ValueError("Invalid value for `exists_behaviour` "
+                                 "argument '{}'! Can be: raise, skip, "
+                                 "skip_nowarn, overwrite, overwrite_nowarn"
+                                 "".format(exists_behaviour))
+
+        # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        # Determine which load configuration to use
         if not load_cfg:
-            log.debug("Using load configuration given at initialisation.")
+            log.debug("No load configuration given; will use load "
+                      "configuration given at initialisation.")
             load_cfg = self.load_cfg
-        else:
-            log.debug("Using the given load configuration.")
 
         # Make sure to work on a copy, be it on the defaults or on the passed
         load_cfg = copy.deepcopy(load_cfg)
@@ -251,17 +302,12 @@ class DataManager(OrderedDataGroup):
 
             # Check if the target already exists
             if target_basename in target_group:
-                _warnmsg = ("The data entry with target basename '{}' "
-                            "already exists in target group '{}'."
-                            "".format(target_basename, target_group))
-                if not overwrite_existing:
-                    warnings.warn(_warnmsg + " It will not be loaded again.",
-                                  ExistingDataWarning)
-                    # go to the next entry
+                if skip_existing(exists_behaviour,
+                                 target_group=target_group,
+                                 target_basename=target_basename):
+                    log.debug("Skipping entry '%s' as it already exists.",
+                              entry_name)
                     continue
-                # else: load it, overwriting data
-                warnings.warn(_warnmsg + " It will be overwritten!",
-                              ExistingDataWarning)
 
             # Try loading the data and handle specific DataManagerErrors . . .
             try:
@@ -270,8 +316,6 @@ class DataManager(OrderedDataGroup):
                                             entry_name=entry_name, **params)
 
             except RequiredDataMissingError:
-                log.error("Required entry '%s' could not be loaded!",
-                          entry_name)
                 raise
 
             except MissingDataError as err:
@@ -429,9 +473,10 @@ class DataManager(OrderedDataGroup):
                                        "(and ignoring {}).".format(glob_str,
                                                                    ignore))
             raise RequiredDataMissingError("No files matching '{}' (and "
-                                           "ignoring {}) were found, but this "
-                                           "entry was marked as required."
-                                           "".format(glob_str, ignore))
+                                           "ignoring {}) were found, but "
+                                           "entry '{}' was marked as required."
+                                           "".format(glob_str, ignore,
+                                                     entry_name))
 
         # else: there was at least one file to load.
         
