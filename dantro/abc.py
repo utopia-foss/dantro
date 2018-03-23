@@ -89,7 +89,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
 
     def __str__(self) -> str:
         """An info string, that describes the object. Each class should implement this to return an informative response."""
-        return "<{}, {}>".format(self.logstr, self._format_info())
+        return "<{:logstr,info}>".format(self)
 
     def __format__(self, spec_str: str) -> str:
         """Creates a formatted string from this """
@@ -120,6 +120,11 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
     def _format_cls_name(self) -> str:
         """A __format__ helper function: returns the class name"""
         return self.classname
+
+    def _format_logstr(self) -> str:
+        """A __format__ helper function: returns the log string, a combination
+        of class name and name"""
+        return self.logstr
 
     @abc.abstractmethod
     def _format_info(self) -> str:

@@ -298,7 +298,7 @@ class DataManager(OrderedDataGroup):
         log.info("Available data entries:\n  %s", ",  ".join(self.data.keys()))
 
         if print_tree:
-            print("{dm:name} tree:\n{dm:tree}".format(dm=self))
+            print("{:tree}".format(self))
 
     def _entry_loader(self, *, target_group: BaseDataGroup, target_basename: str, entry_name: str, loader: str, glob_str: str, ignore: list=None, always_create_group: bool=False, required: bool=False, path_regex: str=None, progress_indicator: bool=True, parallel: bool=False, **loader_kwargs) -> Union[BaseDataContainer, BaseDataGroup]:
         """Helper function that loads a data entry.

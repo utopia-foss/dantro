@@ -14,6 +14,7 @@ import logging
 from typing import Union
 
 import dantro.abc
+import dantro.tools as tools
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -566,11 +567,59 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
         """Returns a multi-line string tree representation of this group."""
         return self._tree_repr()
 
-    def _tree_repr(self, level: int=0) -> str:
+    def _tree_repr(self, level: int=0, info_fstr="<{:cls_name,info}>", info_ratio: float=0.6) -> str:
         """Recursively creates a multi-line string tree representation of this
         group. This is used by, e.g., the _format_tree method."""
-        # TODO
-        raise NotImplementedError
+        # Variable definitions and calculations
+        fstr = "{offset:}{mark:>3s} {name:<{name_width}s}  {info:}"
+        
+        num_cols = tools.TTY_COLS
+        lvl_factor = 4
+        offset = " " * lvl_factor * level
+        info_width = int(num_cols * info_ratio)
+        name_width = (num_cols - info_width) - (lvl_factor * level + 3 + 1 + 2)
+
+        # Choose a mark symbol; the first entry on a level has a different sym
+        first_mark = "\ -"
+        base_mark =  " |-"
+        mark = first_mark if level > 0 else base_mark
+
+        # Create the list to gather the lines in; add a description on level 0
+        lines = []
+        if level == 0:
+            lines.append("")
+            lines.append("Tree of {:logstr,info}".format(self))
+
+        # Go over the entries on this level and format the lines
+        for key, obj in self.items():
+            # Get key and info, truncate if necessary
+            name = key if len(key) <= name_width else key[:name_width-1]+"…"
+            info = info_fstr.format(obj)
+            info = info if len(info) <= info_width else info[:info_width-1]+"…"
+
+            # Format the line and add to list of lines
+            line = fstr.format(offset=offset, mark=mark, name_width=name_width,
+                               name=name, info=info)
+            lines.append(line)
+
+            # Change to the base mark (only relevant in first iteration)
+            mark = base_mark
+
+            # If it was a group and it is not empty...
+            if isinstance(obj, BaseDataGroup) and len(obj) > 0:
+                # ...continue recursion
+                lines += obj._tree_repr(level=level+1, info_fstr=info_fstr)
+
+        # Done, return them.
+        if level > 0:
+            # Within recursion: return the list of lines
+            return lines
+        
+        # Highest level; join the lines together and return that string
+        lines.append("")
+        return "\n".join(lines)
+
+
 
     # .........................................................................
     # Conversion

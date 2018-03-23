@@ -33,6 +33,8 @@ def data_dir(tmpdir) -> str:
 
     write_yml(foobar, path=tmpdir.join("foobar.yml"))
     write_yml(lamo, path=tmpdir.join("lamo.yml"))
+    write_yml(lamo, path=tmpdir.join("also_lamo.yml"))
+    write_yml(lamo, path=tmpdir.join("looooooooooong_filename.yml"))
 
     return tmpdir
 
@@ -92,5 +94,3 @@ def test_loading(dm):
     assert 'all_yaml' in dm
     assert 'all_yaml/foobar' in dm
     assert 'all_yaml/lamo' in dm
-
-    # raise
