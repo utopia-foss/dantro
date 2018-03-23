@@ -72,28 +72,23 @@ def test_init(data_dir):
 
 def test_loading(dm):
     """Tests whether loading works"""
-    def load_into_dm(*, dm=dm, update_load_cfg: dict=None, print_tree=True, exists_action='raise', **load_cfg):
-        """Shortcut for loading into the dm"""
-        dm.load_data(load_cfg=load_cfg,
-                     update_load_cfg=update_load_cfg,
-                     exists_action=exists_action,
-                     print_tree=print_tree)
-
-
+    # Check loading from config dict or file ..................................
     # No load config given
-    load_into_dm()
+    dm.load_from_cfg()
 
     # Single entry
-    load_into_dm(barfoo=dict(loader="yaml", glob_str="foobar.yml"))
+    dm.load_from_cfg(load_cfg=dict(barfoo=dict(loader="yaml",
+                                               glob_str="foobar.yml")),
+                     print_tree=True)
 
     # Check the `update_load_cfg` argument
-    load_into_dm(update_load_cfg=dict(barfoo2=dict(loader="yaml",
-                                                  glob_str="foobar.yml")))
+    dm.load_from_cfg(update_load_cfg=dict(barfoo2=dict(loader="yaml",
+                                                       glob_str="foobar.yml")),
+                     print_tree=True)
 
     # Invalid load config
     with pytest.raises(TypeError):
-        load_into_dm(update_load_cfg=dict(barfoo2=[1,2,3]))
-
+        dm.load_from_cfg(update_load_cfg=dict(barfoo2=[1,2,3]))
 
     # Assert that the top level entries are all available and content is right
     assert 'barfoo' in dm
@@ -104,16 +99,16 @@ def test_loading(dm):
     assert barfoo['go_deeper']['eleven'] == 11
     assert barfoo['a_list'] == list(range(10))
 
-
+    # Check single entry loading ..............................................
     # Load another single entry, this time forcing a group to be created
-    load_into_dm(barbaz=dict(loader='yaml', glob_str="foobar.yml",
-                             always_create_group=True))
+    dm.load('barbaz', loader='yaml', glob_str="foobar.yml",
+            always_create_group=True, print_tree=True)
 
     assert 'barbaz' in dm
     assert 'barbaz/foobar' in dm
 
     # Load again, this time with more data
-    load_into_dm(all_yaml=dict(loader='yaml', glob_str="*.yml"))
+    dm.load('all_yaml', loader='yaml', glob_str="*.yml")
 
     assert 'all_yaml' in dm
     assert 'all_yaml/foobar' in dm
@@ -122,23 +117,23 @@ def test_loading(dm):
     assert 'all_yaml/looooooooooong_filename' in dm
 
     # Now see what happens if loading into an existing target_group is desired
-    load_into_dm(more_yaml=dict(loader='yaml', glob_str="*.yml",
-                                target_group="all_yaml"))
+    dm.load('more_yaml', loader='yaml', glob_str="*.yml",
+            target_group="all_yaml")
 
     assert 'all_yaml/more_yaml' in dm
     assert 'all_yaml/more_yaml/foobar' in dm
     assert 'all_yaml/more_yaml/lamo' in dm
 
     # ...and into a non-existing one
-    load_into_dm(more_yaml=dict(loader='yaml', glob_str="*.yml",
-                                target_group="all_yaml2"))
+    dm.load('more_yaml', loader='yaml', glob_str="*.yml",
+            target_group="all_yaml2")
 
     assert 'all_yaml2/more_yaml' in dm
     assert 'all_yaml2/more_yaml/foobar' in dm
 
     # Ignore some files and assert that they were not loaded
-    load_into_dm(some_more_yaml=dict(loader='yaml', glob_str="**/*.yml",
-                                     ignore=["lamo.yml", "missing.yml"]))
+    dm.load('some_more_yaml', loader='yaml', glob_str="**/*.yml",
+            ignore=["lamo.yml", "missing.yml"])
 
     assert 'some_more_yaml/foobar' in dm
     assert 'some_more_yaml/missing' not in dm
@@ -147,63 +142,73 @@ def test_loading(dm):
 
     # This should fail if more than one group would need to be created
     with pytest.raises(NotImplementedError):
-        load_into_dm(more_yaml=dict(loader='yaml', glob_str="*.yml",
-                                    target_group="all/yaml/goes/here"))        
+        dm.load('more_yaml', loader='yaml', glob_str="*.yml",
+                target_group="all/yaml/goes/here")
 
     # With name collisions, an error should be raised
     with pytest.raises(dantro.data_mngr.ExistingDataError):
-        load_into_dm(barfoo=dict(loader='yaml', glob_str="*.yml"))
+        dm.load('barfoo', loader='yaml', glob_str="*.yml")
 
+    # Test different `exist_action` values ....................................
     # warn if loading is skipped; should still hold `barfoo` afterwards
     with pytest.warns(dantro.data_mngr.ExistingDataWarning):
-        load_into_dm(exists_action='skip',
-                     barfoo=dict(loader='yaml', glob_str="*.yml"))
-
+        dm.load('barfoo', loader='yaml', glob_str="*.yml",
+                exists_action='skip')
     assert isinstance(dm['barfoo'], dantro.base.BaseDataContainer)
 
     # same without warning
-    load_into_dm(exists_action='skip_nowarn',
-                 barfoo=dict(loader='yaml', glob_str="*.yml"))
+    dm.load('barfoo', loader='yaml', glob_str="*.yml",
+            exists_action='skip_nowarn')
     assert isinstance(dm['barfoo'], dantro.base.BaseDataContainer)
 
     # with overwriting, the content should change
     with pytest.warns(dantro.data_mngr.ExistingDataWarning):
-        load_into_dm(exists_action='overwrite',
-                     barfoo=dict(loader='yaml', glob_str="*.yml"))
+        dm.load('barfoo', loader='yaml', glob_str="*.yml",
+                exists_action='overwrite',)
     assert isinstance(dm['barfoo'], dantro.base.BaseDataGroup)
 
     # overwrite again with the old one
-    load_into_dm(exists_action='overwrite_nowarn',
-                 barfoo=dict(loader='yaml', glob_str="foobar.yml"))
+    dm.load('barfoo', loader='yaml', glob_str="foobar.yml",
+            exists_action='overwrite_nowarn')
     assert isinstance(dm['barfoo'], dantro.base.BaseDataContainer)
 
     # Check for invalid `exists_action` value
     with pytest.raises(ValueError):
-        load_into_dm(exists_action='very bad value, much illegal',
-                     barfoo=dict(loader='yaml', glob_str="*.yml"))
+        dm.load('barfoo', loader='yaml', glob_str="*.yml",
+                exists_action='very bad value, much illegal')
 
+    # Check that there is a warning for update
+    with pytest.warns(dantro.data_mngr.ExistingDataWarning):
+        dm.load('barfoo', loader='yaml', glob_str="*.yml",
+                exists_action='update')
+
+    print("{:tree}".format(dm))
+
+    # Check for missing data ..................................................
     # Check for data missing that was required
     with pytest.raises(dantro.data_mngr.RequiredDataMissingError):
-        load_into_dm(i_need_this=dict(loader='yaml', glob_str="needed.yml",
-                                      required=True))
+        dm.load('i_need_this', loader='yaml', glob_str="needed.yml",
+                required=True)
 
     # Check for warning being given when data was missing but not required
     with pytest.warns(dantro.data_mngr.MissingDataWarning):
-        load_into_dm(might_need_this=dict(loader='yaml',
-                                          glob_str="maybe_needed.yml",))
+        dm.load('might_need_this', loader='yaml', glob_str="maybe_needed.yml")
 
-    # Check for invalid loaders
+
+    # Check for invalid loaders ...............................................
     with pytest.raises(dantro.data_mngr.LoaderError):
-        load_into_dm(nopenopenope=dict(loader='nope', glob_str="*."))
+        dm.load('nopenopenope', loader='nope', glob_str="*.")
     
     with pytest.raises(dantro.data_mngr.LoaderError):
-        load_into_dm(nopenopenope=dict(loader='bad_loadfunc', glob_str="*"))
+        dm.load('nopenopenope', loader='bad_loadfunc', glob_str="*")
 
+    print("{:tree}".format(dm))
+
+    # Check regex stuff .......................................................
     # Check whether regex name extraction works
     with pytest.warns(UserWarning):
-        load_into_dm(sub_foobar=dict(loader='yaml', glob_str="sub/*.yml",
-                                     always_create_group=True,
-                                     path_regex='([0-9]*).yml'))
+        dm.load('sub_foobar', loader='yaml', glob_str="sub/*.yml",
+                always_create_group=True, path_regex='([0-9]*).yml')
 
     assert 'sub_foobar/123' in dm
     assert 'sub_foobar/abcdef' in dm
@@ -211,18 +216,15 @@ def test_loading(dm):
     # There should be an error if the regex is creating non-unique names
     with pytest.raises(dantro.data_mngr.ExistingDataError,
                        match='.*resolves to unique names.*'):
-        load_into_dm(bad_sub_foobar=dict(loader='yaml', glob_str="sub/*.yml",
-                                         always_create_group=True,
-                                         path_regex='([abc]*)\w+.yml'))    
+        dm.load('bad_sub_foobar', loader='yaml', glob_str="sub/*.yml",
+                always_create_group=True, path_regex='([abc]*)\w+.yml')
 
     # There should be a warning for a bad regex
     with pytest.warns(UserWarning):
-        load_into_dm(more_foobar1=dict(loader='yaml', glob_str="foobar.yml",
-                                       path_regex='will_not_match'))
+        dm.load('more_foobar1', loader='yaml', glob_str="foobar.yml",
+                path_regex='will_not_match')
 
     # ... or if trying to regex something that will not be loaded into a group
     with pytest.warns(UserWarning):
-        load_into_dm(more_foobar2=dict(loader='yaml', glob_str="foobar.yml",
-                                       path_regex='(foo)*.yml'))
-
-
+        dm.load('more_foobar2', loader='yaml', glob_str="foobar.yml",
+                path_regex='(foo)*.yml')

@@ -175,7 +175,7 @@ class DataManager(OrderedDataGroup):
     # .........................................................................
     # Loading data
 
-    def load_data(self, *, load_cfg: dict=None, update_load_cfg: dict=None, exists_action: str='raise', print_tree: bool=False) -> None:
+    def load_from_cfg(self, *, load_cfg: dict=None, update_load_cfg: dict=None, exists_action: str='raise', print_tree: bool=False) -> None:
         """Load the data using the specified load configuration.
         
         Args:
@@ -219,7 +219,10 @@ class DataManager(OrderedDataGroup):
                                                         type(params), params))
 
             # Use the public method to load this single entry
-            self.load(entry_name, exists_action=exists_action, **params)    
+            self.load(entry_name,
+                      exists_action=exists_action,
+                      print_tree=False,  # to not have too many prints
+                      **params)
         
         # All done
         log.info("Successfully loaded %d data entries.", len(self.data))
@@ -230,7 +233,7 @@ class DataManager(OrderedDataGroup):
             print("{:tree}".format(self))
 
 
-    def load(self, entry_name: str, *, loader: str, glob_str: str, exists_action: str='raise', target_group: str=None, target_basename: str=None, **load_params): 
+    def load(self, entry_name: str, *, loader: str, glob_str: str, exists_action: str='raise', target_group: str=None, target_basename: str=None, print_tree: bool=False, **load_params): 
         """Performs a single load operation.
         
         # TODO
@@ -371,7 +374,7 @@ class DataManager(OrderedDataGroup):
         if exists_action in ['update', 'update_nowarn']:
             log.debug("Recursively updating %s with %s...",
                       target_group.logstr, _entry.logstr)
-            target_group.parent.recursive_update(_entry)
+            target_group.recursive_update(_entry)
 
         else:
             log.debug("Saving %s to %s...", _entry.logstr, target_group.logstr)
@@ -380,6 +383,9 @@ class DataManager(OrderedDataGroup):
 
         # Done with this config entry
         log.debug("Entry '%s' successfully loaded and saved.", entry_name)
+
+        if print_tree:
+            print("{:tree}".format(self))
     
     # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     # Helpers for loading data
