@@ -175,7 +175,7 @@ class DataManager(OrderedDataGroup):
     # .........................................................................
     # Loading data
 
-    def load_data(self, *, load_cfg: dict=None, update_load_cfg: dict=None, exists_behaviour: str='raise', print_tree: bool=False) -> None:
+    def load_data(self, *, load_cfg: dict=None, update_load_cfg: dict=None, exists_action: str='raise', print_tree: bool=False) -> None:
         """Load the data using the specified load configuration.
         
         Args:
@@ -183,8 +183,9 @@ class DataManager(OrderedDataGroup):
                 given, the one specified during initialisation is used.
             update_load_cfg (dict, optional): If given, it is used to update
                 the load configuration recursively
-            exists_behaviour (str, optional): The behaviour when a certain key
-                already exists in the target.
+            exists_action (str, optional): The behaviour upon existing data.
+                Can be: raise, skip, skip_nowarn, overwrite, overwrite_nowarn,
+                update, update_nowarn
             print_tree (bool, optional): If True, a tree representation of the
                 DataManager is printed after the data was loaded
         
@@ -218,7 +219,7 @@ class DataManager(OrderedDataGroup):
                                                         type(params), params))
 
             # Use the public method to load this single entry
-            self.load(entry_name, exists_behaviour=exists_behaviour, **params)    
+            self.load(entry_name, exists_action=exists_action, **params)    
         
         # All done
         log.info("Successfully loaded %d data entries.", len(self.data))
@@ -229,14 +230,18 @@ class DataManager(OrderedDataGroup):
             print("{:tree}".format(self))
 
 
-    def load(self, entry_name: str, *, loader: str, glob_str: str, exists_behaviour: str='raise', target_group: str=None, target_basename: str=None, **load_params): 
+    def load(self, entry_name: str, *, loader: str, glob_str: str, exists_action: str='raise', target_group: str=None, target_basename: str=None, **load_params): 
         """Performs a single load operation.
         
+        # TODO
+
         Args:
             entry_name (str): Name of this entry; will also be the name 
             loader (str): Description
             glob_str (str): Description
-            exists_behaviour (str, optional): Description
+            exists_action (str, optional): The behaviour upon existing data.
+                Can be: raise, skip, skip_nowarn, overwrite, overwrite_nowarn,
+                update, update_nowarn
             target_group (str, optional): Description
             target_basename (str, optional): Description
             **load_params: Description
@@ -271,13 +276,14 @@ class DataManager(OrderedDataGroup):
             # Resolve the entry and return
             return self[target_group_path]
 
-        def skip_existing(exists_behaviour: str, *, target_basename, target_group) -> bool:
+        def skip_existing(exists_action: str, *, target_basename, target_group) -> bool:
             """Helper function to generate a meaningful error message if data
             already existed and how the loading will continue ...
             
             Args:
-                exists_behaviour (str): The behaviour defining string. Can be:
-                    raise, skip, skip_nowarn, overwrite, overwrite_nowarn
+                exists_action (str): The behaviour upon existing data. Can be:
+                    raise, skip, skip_nowarn, overwrite, overwrite_nowarn,
+                    update, update_nowarn
                 target_basename (TYPE): The basename that already existed
                 target_group (TYPE): The group the basename already existed in
             
@@ -286,35 +292,41 @@ class DataManager(OrderedDataGroup):
             
             Raises:
                 ExistingDataWarning: Raised if the mode was 'raise'
-                ValueError: Raised for invalid `exists_behaviour` value
+                ValueError: Raised for invalid `exists_action` value
             """
             _msg = ("The data entry with target basename '{}' already "
                     "exists in target group '{}'!"
                     "".format(target_basename, target_group))
 
-            if exists_behaviour == 'raise':
+            if exists_action == 'raise':
                 raise ExistingDataError(_msg + " Adjust argument "
-                                        "`exists_behaviour` to allow skipping "
+                                        "`exists_action` to allow skipping "
                                         "or overwriting of existing entries.")
 
-            if exists_behaviour in ['skip', 'skip_nowarn']:
-                if exists_behaviour == 'skip':
+            if exists_action in ['skip', 'skip_nowarn']:
+                if exists_action == 'skip':
                     warnings.warn(_msg
                                   + " Loading of this entry will be skipped.",
                                   ExistingDataWarning)
-                return True  # will lead to `continue` being called
+                return True  # will lead to the data not being loaded
 
-            elif exists_behaviour in ['overwrite', 'overwrite_nowarn']:
-                if exists_behaviour == 'overwrite':
+            elif exists_action in ['overwrite', 'overwrite_nowarn']:
+                if exists_action == 'overwrite':
                     warnings.warn(_msg + " It will be overwritten!",
+                                  ExistingDataWarning)
+                return False  # will lead to the data being loaded
+            
+            elif exists_action in ['update', 'update_nowarn']:
+                if exists_action == 'update':
+                    warnings.warn(_msg + " Will be updated with loaded data.",
                                   ExistingDataWarning)
                 return False  # will lead to the data being loaded
 
             else:
-                raise ValueError("Invalid value for `exists_behaviour` "
+                raise ValueError("Invalid value for `exists_action` "
                                  "argument '{}'! Can be: raise, skip, "
                                  "skip_nowarn, overwrite, overwrite_nowarn"
-                                 "".format(exists_behaviour))
+                                 "".format(exists_action))
 
         log.info("Loading data entry '%s' ...", entry_name)
 
@@ -326,7 +338,7 @@ class DataManager(OrderedDataGroup):
 
         # Check if the target already exists
         if target_basename in target_group:
-            if skip_existing(exists_behaviour,
+            if skip_existing(exists_action,
                              target_group=target_group,
                              target_basename=target_basename):
                 log.debug("Skipping entry '%s' as it already exists.",
@@ -355,9 +367,15 @@ class DataManager(OrderedDataGroup):
             # Everything as desired, _entry is now the imported data
             log.debug("Data successfully loaded.")
 
-        # Loaded now. Save it
-        log.debug("Saving %s to %s...", _entry.logstr, target_group.logstr)
-        target_group.add(_entry, overwrite=True)
+        # Loaded now. Save it, either directly or recursively updating
+        if exists_action in ['update', 'update_nowarn']:
+            log.debug("Recursively updating %s with %s...",
+                      target_group.logstr, _entry.logstr)
+            target_group.parent.recursive_update(_entry)
+
+        else:
+            log.debug("Saving %s to %s...", _entry.logstr, target_group.logstr)
+            target_group.add(_entry, overwrite=True)
         # NOTE case `overwrite=False` would have led to a skip earlier
 
         # Done with this config entry

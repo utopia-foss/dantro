@@ -72,11 +72,11 @@ def test_init(data_dir):
 
 def test_loading(dm):
     """Tests whether loading works"""
-    def load_into_dm(*, dm=dm, update_load_cfg: dict=None, print_tree=True, exists_behaviour='raise', **load_cfg):
+    def load_into_dm(*, dm=dm, update_load_cfg: dict=None, print_tree=True, exists_action='raise', **load_cfg):
         """Shortcut for loading into the dm"""
         dm.load_data(load_cfg=load_cfg,
                      update_load_cfg=update_load_cfg,
-                     exists_behaviour=exists_behaviour,
+                     exists_action=exists_action,
                      print_tree=print_tree)
 
 
@@ -156,30 +156,30 @@ def test_loading(dm):
 
     # warn if loading is skipped; should still hold `barfoo` afterwards
     with pytest.warns(dantro.data_mngr.ExistingDataWarning):
-        load_into_dm(exists_behaviour='skip',
+        load_into_dm(exists_action='skip',
                      barfoo=dict(loader='yaml', glob_str="*.yml"))
 
     assert isinstance(dm['barfoo'], dantro.base.BaseDataContainer)
 
     # same without warning
-    load_into_dm(exists_behaviour='skip_nowarn',
+    load_into_dm(exists_action='skip_nowarn',
                  barfoo=dict(loader='yaml', glob_str="*.yml"))
     assert isinstance(dm['barfoo'], dantro.base.BaseDataContainer)
 
     # with overwriting, the content should change
     with pytest.warns(dantro.data_mngr.ExistingDataWarning):
-        load_into_dm(exists_behaviour='overwrite',
+        load_into_dm(exists_action='overwrite',
                      barfoo=dict(loader='yaml', glob_str="*.yml"))
     assert isinstance(dm['barfoo'], dantro.base.BaseDataGroup)
 
     # overwrite again with the old one
-    load_into_dm(exists_behaviour='overwrite_nowarn',
+    load_into_dm(exists_action='overwrite_nowarn',
                  barfoo=dict(loader='yaml', glob_str="foobar.yml"))
     assert isinstance(dm['barfoo'], dantro.base.BaseDataContainer)
 
-    # Check for invalid `exists_behaviour` value
+    # Check for invalid `exists_action` value
     with pytest.raises(ValueError):
-        load_into_dm(exists_behaviour='very bad value, much illegal',
+        load_into_dm(exists_action='very bad value, much illegal',
                      barfoo=dict(loader='yaml', glob_str="*.yml"))
 
     # Check for data missing that was required
