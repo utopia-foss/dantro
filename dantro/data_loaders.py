@@ -14,7 +14,9 @@ type and name.
 
 import logging
 
-from dantro.container import MutableMappingContainer
+import h5py as h5
+
+from dantro.container import MutableMappingContainer, NumpyDC
 from dantro.group import OrderedDataGroup
 import dantro.tools as tools
 
@@ -80,10 +82,98 @@ class Hdf5LoaderMixin:
     It resolves the hdf5 groups into corresponding data groups and the datasets
     into NumpyDataContainers."""
 
-    @add_loader(TargetCls=OrderedDataGroup)
-    def _load_hdf5(filepath: str, *, TargetCls) -> OrderedDataGroup:
+    # Define the container classes to use within the target group
+    _HDF5_DSET_CLS = NumpyDC
+
+    @add_loader(TargetCls=OrderedDataGroup, omit_self=False)
+    def _load_hdf5(self, filepath: str, *, TargetCls) -> OrderedDataGroup:
         raise NotImplementedError
 
-    @add_loader(TargetCls=OrderedDataGroup)
-    def _load_hdf5_proxy(filepath: str, *, TargetCls) -> OrderedDataGroup:
+    @add_loader(TargetCls=OrderedDataGroup, omit_self=False)
+    def _load_hdf5_proxy(self, filepath: str, *, TargetCls) -> OrderedDataGroup:
         raise NotImplementedError
+
+    def _hdf5_loading_helper(self, filepath: str, *, TargetCls: OrderedDataGroup, load_as_proxy: bool=False, lower_case_keys: bool=True, load_attrs: bool=True, print_params: dict=None) -> OrderedDataGroup:
+        """Loads the specified hdf5 file into DataGroup and DataContainer-like object; this completely loads all data into memory and recreates the hierarchic structure of the hdf5 file.
+        
+        The h5py File and Group objects will be converted to the specified DataGroup-derived objects; the Dataset objects to the specified DataContainer-derived object.
+        
+        All attributes are carried over and are accessible under the `attrs` attribute.
+        
+        Args:
+            filepath (str): hdf5 file to load
+            name (str): the group this is loaded into
+            load_as_proxy (bool, optional): if True, the leaf datasets are
+                loaded as Hdf5DataProxy objects. That way, they are only
+                loaded when their .data attribute is accessed the first time.
+                To do so, a reference to the hdf5 file is saved in a
+                H5DataProxy
+            lower_case_keys (bool, optional): whether to cast all keys to
+                lower case
+            print_params (dict, optional): parameters for the status report
+                level: how verbose to print loading info (0: None,
+                    1: file level, 2: every level, recursively)
+                fstrs1: format string level 1
+                fstrs2: format string level 2
+        
+        Returns:
+            OrderedDataGroup: The root level, corresponding to the file
+        """
+
+        # TODO
+        # def recursively_load_hdf5(src, target: DataGroup, *,lower_case_keys: bool=False, GroupCls: Union[str,DataGroup]=DataGroup, DsetCls: Union[str,DataContainer]=NumpyDC):
+        #     '''Recursively loads the data from the source hdf5 file into the target DataGroup object.'''
+
+        #     # Go through the elements of the source object
+        #     for key, obj in src.items():
+        #         if lower_case_keys and isinstance(key, str):
+        #             key     = key.lower()
+
+        #         if isinstance(obj, h5.Group):
+        #             # Create a group in the target object, carry over the attributes, and then start the recursive call
+        #             target[key] = GroupCls(name=key, attrs=obj.attrs)
+        #             recursively_load_hdf5(obj, target[key],
+        #                                   lower_case_keys=lower_case_keys,
+        #                                   GroupCls=GroupCls, DsetCls=DsetCls)
+
+        #         elif isinstance(obj, h5.Dataset):
+        #             # Reached a leaf -> Import the data and attributes into a DataContainer-derived object. As a basic data structure, a np.array is assumed.
+        #             if plvl >= 2:
+        #                 line    = fstr2.format(name=name, key=key, obj=obj)
+        #                 print(deval.tools.fill_tty_line(line), end="\r")
+
+        #             if not load_as_proxy:
+        #                 # Import the data completely
+        #                 data        = np.array(obj)
+        #             else:
+        #                 data        = H5DataProxy(obj=obj)
+        #             target[key] = DsetCls(name=key, data=data, attrs=obj.attrs)
+
+        #         else:
+        #             log.warning("Encountered %s during loading of hdf5 file; this is not supported yet.", type(obj))
+
+        # Get the classes to use for groups and/or containers
+        DsetCls = self._HDF5_DSET_CLS
+        GroupCls = type(TargetCls)
+
+        # Prepare print format strings
+        print_params = print_params if print_params else {}
+        plvl = print_params.get('level', 0)
+        fstr1 = print_params.get('fstr1', "  Loading {name:} ... ")
+        fstr2 = print_params.get('fstr2', "  Loading {name:} - {key:} ...")
+
+        # Initialise the root group
+        log.debug("Loading hdf5 file %s into %s ...",
+                  filepath, TargetCls.__name__)
+        root = TargetCls()
+
+        # Now recursively go through the hdf5 file and add them to the group
+        with h5.File(filepath, 'r') as h5file:
+            if plvl >= 1:
+                line = fstr1.format(name=root.name, file=filepath)
+                print(tools.fill_tty_line(line), end="\r")
+            # recursively_load_hdf5(h5file, group,
+            #                       lower_case_keys=lower_case_keys,
+            #                       GroupCls=GroupCls, DsetCls=DsetCls)
+
+        return root
