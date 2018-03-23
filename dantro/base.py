@@ -522,7 +522,10 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
 
         # is a list of keys, might have to check recursively
         if len(key_seq) > 1:
-            return bool(key_seq[1:] in self[key_seq[0]])
+            if key_seq[0] in self:
+                # Can continue recursion
+                return bool(key_seq[1:] in self[key_seq[0]])
+            return False
         return bool(key_seq[0] in self.keys())
 
     # .........................................................................

@@ -340,7 +340,8 @@ class DataManager(OrderedDataGroup):
         
         # All done
         log.info("Successfully loaded %d data entries.", len(self.data))
-        log.info("Available data entries:\n  %s", ",  ".join(self.data.keys()))
+        log.info("Available data entries:\n  %s\n",
+                 ",  ".join(self.data.keys()))
 
         if print_tree:
             print("{:tree}".format(self))
@@ -410,10 +411,11 @@ class DataManager(OrderedDataGroup):
 
             # Ensure that there is nothing under that name in the target group
             if tname in target_group:
-                warnings.warn("Possible duplicate entry '{}' in {}! "
+                warnings.warn("Possible duplicate entry '{}' at '{}' of {}! "
                               "Adding a random string to the end ..."
-                              "".format(tname, target_group.path),
-                              UserWarning)
+                              "".format(tname, target_group.path,
+                                        target_group.logstr),
+                              ExistingDataWarning)
                 tname += "_" + str(uuid.uuid4().hex[:12])
 
             # Try to resolve the class that is to 
