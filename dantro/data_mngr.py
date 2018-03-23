@@ -191,6 +191,59 @@ class DataManager(OrderedDataGroup):
         Raises:
             TypeError: Description
         """
+        # Determine which load configuration to use
+        if not load_cfg:
+            log.debug("No load configuration given; will use load "
+                      "configuration given at initialisation.")
+            load_cfg = self.load_cfg
+
+        # Make sure to work on a copy, be it on the defaults or on the passed
+        load_cfg = copy.deepcopy(load_cfg)
+
+        if update_load_cfg:
+            # Recursively update with the given keywords
+            load_cfg = tools.recursive_update(load_cfg, update_load_cfg)
+            log.debug("Updated the load config.")
+
+        log.info("Loading %d data entries ...", len(load_cfg))
+
+        # Loop over the data entries that were configured to be loaded
+        for entry_name, params in load_cfg.items():
+            # Check if this is of valid type
+            if not isinstance(params, dict):
+                raise TypeError("Got invalid load specifications for entry "
+                                "'{}'! Expected dict, got {} with value '{}'. "
+                                "Check the correctness of the given load "
+                                "configuration!".format(entry_name,
+                                                        type(params), params))
+
+            # Use the public method to load this single entry
+            self.load(entry_name, exists_behaviour=exists_behaviour, **params)    
+        
+        # All done
+        log.info("Successfully loaded %d data entries.", len(self.data))
+        log.info("Available data entries:\n  %s\n",
+                 ",  ".join(self.data.keys()))
+
+        if print_tree:
+            print("{:tree}".format(self))
+
+
+    def load(self, entry_name: str, *, loader: str, glob_str: str, exists_behaviour: str='raise', target_group: str=None, target_basename: str=None, **load_params): 
+        """Performs a single load operation.
+        
+        Args:
+            entry_name (str): Name of this entry; will also be the name 
+            loader (str): Description
+            glob_str (str): Description
+            exists_behaviour (str, optional): Description
+            target_group (str, optional): Description
+            target_basename (str, optional): Description
+            **load_params: Description
+        
+        Returns:
+            TYPE: Description
+        """
 
         def get_target_group(target_group_path: str) -> BaseDataGroup:
             """A helper function to resolve the target group"""
@@ -263,87 +316,55 @@ class DataManager(OrderedDataGroup):
                                  "skip_nowarn, overwrite, overwrite_nowarn"
                                  "".format(exists_behaviour))
 
-        # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        # Determine which load configuration to use
-        if not load_cfg:
-            log.debug("No load configuration given; will use load "
-                      "configuration given at initialisation.")
-            load_cfg = self.load_cfg
+        log.info("Loading data entry '%s' ...", entry_name)
 
-        # Make sure to work on a copy, be it on the defaults or on the passed
-        load_cfg = copy.deepcopy(load_cfg)
+        # Extract the target group path parameter and resolve it
+        target_group = get_target_group(target_group)
 
-        if update_load_cfg:
-            # Recursively update with the given keywords
-            load_cfg = tools.recursive_update(load_cfg, update_load_cfg)
-            log.debug("Updated the load config.")
+        # Extract the desired name of the target container or group
+        target_basename = target_basename if target_basename else entry_name
 
-        log.info("Loading %d data entries ...", len(load_cfg))
+        # Check if the target already exists
+        if target_basename in target_group:
+            if skip_existing(exists_behaviour,
+                             target_group=target_group,
+                             target_basename=target_basename):
+                log.debug("Skipping entry '%s' as it already exists.",
+                          entry_name)
+                return
 
-        
-        # Loop over the data entries that were configured to be loaded . . . .
-        for entry_name, params in load_cfg.items():
-            # Some initial checks
-            if not isinstance(params, dict):
-                raise TypeError("Got invalid load specifications for entry "
-                                "'{}'! Expected dict, got {} with value '{}'. "
-                                "Check the correctness of the given load "
-                                "configuration!".format(entry_name,
-                                                        type(params), params))
+        # Try loading the data and handle specific DataManagerErrors . . .
+        try:
+            _entry = self._entry_loader(loader=loader, glob_str=glob_str,
+                                        target_group=target_group,
+                                        target_basename=target_basename,
+                                        entry_name=entry_name, **load_params)
 
-            log.info("Loading data entry '%s' ...", entry_name)
+        except RequiredDataMissingError:
+            raise
 
-            # Extract the target group path parameter and resolve it
-            target_group = get_target_group(params.pop('target_group', None))
+        except MissingDataError as err:
+            warnings.warn("No files were found to import!\n"+str(err),
+                          MissingDataWarning)
+            return  # Does not raise, but does not save anything either
 
-            # Extract the name of the target container or group . . . . . . . .
-            target_basename = params.pop('target_basename', entry_name)
+        except LoaderError:
+            raise
 
-            # Check if the target already exists
-            if target_basename in target_group:
-                if skip_existing(exists_behaviour,
-                                 target_group=target_group,
-                                 target_basename=target_basename):
-                    log.debug("Skipping entry '%s' as it already exists.",
-                              entry_name)
-                    continue
+        else:
+            # Everything as desired, _entry is now the imported data
+            log.debug("Data successfully loaded.")
 
-            # Try loading the data and handle specific DataManagerErrors . . .
-            try:
-                _entry = self._entry_loader(target_group=target_group,
-                                            target_basename=target_basename,
-                                            entry_name=entry_name, **params)
+        # Loaded now. Save it
+        log.debug("Saving %s to %s...", _entry.logstr, target_group.logstr)
+        target_group.add(_entry, overwrite=True)
+        # NOTE case `overwrite=False` would have led to a skip earlier
 
-            except RequiredDataMissingError:
-                raise
-
-            except MissingDataError as err:
-                warnings.warn("No files were found to import!\n"+str(err),
-                              MissingDataWarning)
-                continue  # Does not raise, but does not save anything either
-
-            except LoaderError:
-                raise
-
-            else:
-                # Everything as desired, _entry is now the imported data
-                log.debug("Data successfully loaded.")
-
-            # Loaded now. Save it . . . . . . . . . . . . . . . . . . . . . . .
-            log.debug("Saving %s to %s...", _entry.logstr, target_group.logstr)
-            target_group.add(_entry, overwrite=True)
-            # NOTE case `overwrite=False` would have led to a skip earlier
-
-            # Done with this config entry
-            log.debug("Entry '%s' successfully loaded and saved.", entry_name)
-        
-        # All done
-        log.info("Successfully loaded %d data entries.", len(self.data))
-        log.info("Available data entries:\n  %s\n",
-                 ",  ".join(self.data.keys()))
-
-        if print_tree:
-            print("{:tree}".format(self))
+        # Done with this config entry
+        log.debug("Entry '%s' successfully loaded and saved.", entry_name)
+    
+    # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    # Helpers for loading data
 
     def _entry_loader(self, *, target_group: BaseDataGroup, target_basename: str, entry_name: str, loader: str, glob_str: str, ignore: list=None, always_create_group: bool=False, required: bool=False, path_regex: str=None, progress_indicator: bool=True, parallel: bool=False, **loader_kwargs) -> Union[BaseDataContainer, BaseDataGroup]:
         """Helper function that loads a data entry.
