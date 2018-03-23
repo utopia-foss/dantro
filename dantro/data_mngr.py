@@ -3,7 +3,6 @@
 import os
 import copy
 import datetime
-import uuid
 import re
 import glob
 import logging
@@ -380,46 +379,60 @@ class DataManager(OrderedDataGroup):
             RequiredDataMissingError: If required data was missing
         """
 
-        def prepare_target(*, load_func, target_group, target_basename: str=None, filepath: str=None, re_pattern=None, ignore_existing: bool=False):
+        def prepare_target(*, load_func, target_group, target_basename: str=None, filepath: str=None, path_sre=None, ignore_existing: bool=False):
             """Fetches the class that the load function specifies and prepares it to be used for initialisation by the load function."""
+            tname = None
+
             # Find a suitable name
             if target_basename:
-                if filepath:
-                    warnings.warn("Got both `target_basename` and `filepath` "
-                                  "arguments; will ignore the latter.",
-                                  UserWarning)
+                # Warn about cases where additional arguments were given that
+                # will be ignored
+                if path_sre:
+                    # Will not use path_regex if loading a single item (not 
+                    # into a group)
+                    warnings.warn("Argument `path_sre` or `path_regex` was "
+                                  "given; will be ignored as the target's "
+                                  "basename was already given!", UserWarning)
+
                 # Use the given name as name of the group 
                 tname = target_basename
 
             elif filepath:
-                if re_pattern:
+                if path_sre:
                     # Use the specified regex pattern to extract a name
                     try:
-                        # Only take into account the first matching group
-                        tname = re.findall(re_pattern, filepath)[0]
+                        tname = path_sre.findall(filepath)[0]
                     except IndexError:
+                        # nothing could be found
+                        pass
+                    
+                    if not tname:
+                        # Could not find a basename
                         warnings.warn("Could not extract a name using the "
-                                      "pattern '{}' on the file path:\n{}\n "
-                                      "Using the hash instead."
-                                      "".format(re_pattern, filepath),
+                                      "regex pattern '{}' on the file path:\n"
+                                      "{}\nUsing the path's basename instead."
+                                      "".format(path_sre, filepath),
                                       UserWarning)
-                        tname = hash(filepath)[:12]
 
-                else:
+                if not tname:
                     # use the file's basename, without extension
                     tname = os.path.splitext(os.path.basename(filepath))[0].lower()
 
             # Ensure that there is nothing under that name in the target group
             if tname in target_group:
-                _msg = ("Duplicate '{}' at '{}' of {}!"
+                _msg = ("Member '{}' already exists at '{}' of {}!"
                         "".format(tname, target_group.path,
                                   target_group.logstr))
-                if ignore_existing:
-                    log.debug(_msg)
-                else:
-                    warnings.warn(_msg+"Adding a random string to the end ...",
-                                  ExistingDataWarning)
-                    tname += "_" + str(uuid.uuid4().hex[:12])
+                if not ignore_existing:
+                    if not path_sre:
+                        raise ExistingDataError(_msg)
+                    raise ExistingDataError(_msg + " You might want to check "
+                                            "that the given `path_regex` '{}' "
+                                            "resolves to unique names."
+                                            "".format(path_sre.pattern))
+                # else: just log it
+                log.debug(_msg)
+                    
 
             # Try to resolve the class that is to 
             try:
@@ -487,7 +500,7 @@ class DataManager(OrderedDataGroup):
         # else: there was at least one file to load.
         
         # If a regex pattern was specified, compile it
-        re_pattern = re.compile(path_regex) if path_regex else None
+        path_sre = re.compile(path_regex) if path_regex else None
 
         # Ready for loading files now . . . . . . . . . . . . . . . . . . . . .
         # Distinguish between cases where a group should be created and one where the DataContainer-object can be directly returned
@@ -499,10 +512,11 @@ class DataManager(OrderedDataGroup):
             TargetCls = prepare_target(load_func=load_func,
                                        target_group=target_group,
                                        target_basename=target_basename,
-                                       re_pattern=re_pattern,
+                                       path_sre=path_sre,
                                        ignore_existing=True)
             # NOTE can set `ignore_existing` because this check already
-            # happened in `load_data` ...
+            # happened in `load_data` ... Also, the regex pattern will be
+            # ignored as the basename was already chosen
 
             # Load the data using the loader function
             data = load_func(files[0], TargetCls=TargetCls, **loader_kwargs)
@@ -535,7 +549,9 @@ class DataManager(OrderedDataGroup):
             # The helper function takes care of the naming of the target cont
             TargetCls = prepare_target(load_func=load_func,
                                        target_group=group,
-                                       filepath=file, re_pattern=re_pattern)
+                                       filepath=file, path_sre=path_sre)
+            # NOTE target_basename should not be given here, as the name is
+            # resolved from the filepath or via the given pattern
 
             # Get the data and add it to the group
             _data = load_func(file, TargetCls=TargetCls, **loader_kwargs)
