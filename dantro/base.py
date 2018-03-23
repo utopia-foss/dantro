@@ -628,7 +628,5 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
         """Convert this BaseDataGroup to TargetCls by passing data and attrs"""
         log.debug("Converting %s '%s' to %s ...", self.classname, self.name,
                   TargetCls.__name__)
-        return TargetCls(name=self.name, parent=self.parent,
-                         data=self.data, attrs=self.attrs,
+        return TargetCls(name=self.name, data=self.data, attrs=self.attrs,
                          **target_init_kwargs)
-
