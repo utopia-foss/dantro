@@ -380,7 +380,7 @@ class DataManager(OrderedDataGroup):
             RequiredDataMissingError: If required data was missing
         """
 
-        def prepare_target(*, load_func, target_group, target_basename: str=None, filepath: str=None, re_pattern=None):
+        def prepare_target(*, load_func, target_group, target_basename: str=None, filepath: str=None, re_pattern=None, ignore_existing: bool=False):
             """Fetches the class that the load function specifies and prepares it to be used for initialisation by the load function."""
             # Find a suitable name
             if target_basename:
@@ -411,12 +411,15 @@ class DataManager(OrderedDataGroup):
 
             # Ensure that there is nothing under that name in the target group
             if tname in target_group:
-                warnings.warn("Possible duplicate entry '{}' at '{}' of {}! "
-                              "Adding a random string to the end ..."
-                              "".format(tname, target_group.path,
-                                        target_group.logstr),
-                              ExistingDataWarning)
-                tname += "_" + str(uuid.uuid4().hex[:12])
+                _msg = ("Duplicate '{}' at '{}' of {}!"
+                        "".format(tname, target_group.path,
+                                  target_group.logstr))
+                if ignore_existing:
+                    log.debug(_msg)
+                else:
+                    warnings.warn(_msg+"Adding a random string to the end ...",
+                                  ExistingDataWarning)
+                    tname += "_" + str(uuid.uuid4().hex[:12])
 
             # Try to resolve the class that is to 
             try:
@@ -491,17 +494,18 @@ class DataManager(OrderedDataGroup):
         if len(files) == 1 and not always_create_group:
             log.debug("Found a single file and will not create a new group.")
 
-            # Use the single file available
-            file = files[0]
-
             # Prepare the target class, which will be filled by the load func
             # The helper function takes care of the naming of the target cont
             TargetCls = prepare_target(load_func=load_func,
                                        target_group=target_group,
-                                       target_basename=target_basename)
+                                       target_basename=target_basename,
+                                       re_pattern=re_pattern,
+                                       ignore_existing=True)
+            # NOTE can set `ignore_existing` because this check already
+            # happened in `load_data` ...
 
             # Load the data using the loader function
-            data = load_func(file, TargetCls=TargetCls, **loader_kwargs)
+            data = load_func(files[0], TargetCls=TargetCls, **loader_kwargs)
 
             log.debug("Finished loading a single file for entry %s.",
                       entry_name)
@@ -537,6 +541,10 @@ class DataManager(OrderedDataGroup):
             _data = load_func(file, TargetCls=TargetCls, **loader_kwargs)
             group.add(_data)
 
+        # Clear the line
+        tools.clear_line()
+
+        # Done
         log.debug("Finished loading %d files for entry %s.", len(files),
                   entry_name)
 
