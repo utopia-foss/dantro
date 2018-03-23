@@ -479,7 +479,7 @@ class DataManager(OrderedDataGroup):
                 except ValueError:
                     log.debug("%s was not found in files list.", rmf)
                 else:
-                    log.debugv("%s removed from files list.", rmf)
+                    log.debug("%s removed from files list.", rmf)
 
         # Now the file list is final
         log.debug("Found %d files for loader '%s':\n  %s",

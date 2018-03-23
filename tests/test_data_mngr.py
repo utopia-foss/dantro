@@ -17,7 +17,9 @@ LOAD_CFG_PATH = pkg_resources.resource_filename('tests', 'cfg/load_cfg.yml')
 
 class DataManager(YamlLoaderMixin, dantro.data_mngr.DataManager):
     """A DataManager-derived class for testing the implementation"""
-    pass
+    
+    def _load_bad_loadfunc(self):
+        pass
 
 
 # Fixtures --------------------------------------------------------------------
@@ -134,6 +136,15 @@ def test_loading(dm):
     assert 'all_yaml2/more_yaml' in dm
     assert 'all_yaml2/more_yaml/foobar' in dm
 
+    # Ignore some files and assert that they were not loaded
+    load_into_dm(some_more_yaml=dict(loader='yaml', glob_str="**/*.yml",
+                                     ignore=["lamo.yml", "missing.yml"]))
+
+    assert 'some_more_yaml/foobar' in dm
+    assert 'some_more_yaml/missing' not in dm
+    assert 'some_more_yaml/lamo' not in dm
+
+
     # This should fail if more than one group would need to be created
     with pytest.raises(NotImplementedError):
         load_into_dm(more_yaml=dict(loader='yaml', glob_str="*.yml",
@@ -183,7 +194,10 @@ def test_loading(dm):
 
     # Check for invalid loaders
     with pytest.raises(dantro.data_mngr.LoaderError):
-        load_into_dm(nopenopenope=dict(loader='nope', glob_str="*.yml"))
+        load_into_dm(nopenopenope=dict(loader='nope', glob_str="*."))
+    
+    with pytest.raises(dantro.data_mngr.LoaderError):
+        load_into_dm(nopenopenope=dict(loader='bad_loadfunc', glob_str="*"))
 
     # Check whether regex name extraction works
     with pytest.warns(UserWarning):
@@ -210,3 +224,5 @@ def test_loading(dm):
     with pytest.warns(UserWarning):
         load_into_dm(more_foobar2=dict(loader='yaml', glob_str="foobar.yml",
                                        path_regex='(foo)*.yml'))
+
+
