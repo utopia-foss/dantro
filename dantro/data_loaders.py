@@ -8,12 +8,14 @@ class LoadernameLoaderMixin:
     _load_loadername.TargetCls = TheTargetContainerClass
 
 Each `_load_loadername` method gets supplied with path to a file and the
-`TargetCls` argument, which creates a TargetClass of the correct type and name
+`TargetCls` argument, which can be called to create an object of the correct
+type and name.
 """
 
 import logging
 
 from dantro.container import MutableMappingContainer
+from dantro.group import OrderedDataGroup
 import dantro.tools as tools
 
 # Local constants
@@ -50,9 +52,17 @@ class YamlLoaderMixin:
     """Supplies functionality to load yaml files in the data manager"""
 
     @add_loader(TargetCls=MutableMappingContainer)
-    def _load_yaml(filepath: str, *, TargetCls: MutableMappingContainer):
+    def _load_yaml(filepath: str, *, TargetCls) -> MutableMappingContainer:
         """Load a yaml file from the given path and creates a container to
-        store that data in."""
+        store that data in.
+        
+        Args:
+            filepath (str): Where to load the yaml file from
+            TargetCls (TYPE): The MutableMappingContainer class
+        
+        Returns:
+            MutableMappingContainer: The loaded yaml file
+        """
         # Load the dict
         d = tools.load_yml(filepath)
 
@@ -61,3 +71,19 @@ class YamlLoaderMixin:
 
     # Also make available under `yml`
     _load_yml = _load_yaml
+
+# -----------------------------------------------------------------------------
+
+class Hdf5LoaderMixin:
+    """Supplies functionality to load hdf5 files into the data manager.
+
+    It resolves the hdf5 groups into corresponding data groups and the datasets
+    into NumpyDataContainers."""
+
+    @add_loader(TargetCls=OrderedDataGroup)
+    def _load_hdf5(filepath: str, *, TargetCls) -> OrderedDataGroup:
+        raise NotImplementedError
+
+    @add_loader(TargetCls=OrderedDataGroup)
+    def _load_hdf5_proxy(filepath: str, *, TargetCls) -> OrderedDataGroup:
+        raise NotImplementedError
