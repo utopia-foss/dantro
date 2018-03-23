@@ -107,3 +107,26 @@ class MutableMappingContainer(MappingAccessMixin, BaseDataContainer, MutableMapp
         """
         return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
                          **target_init_kwargs)
+
+# -----------------------------------------------------------------------------
+
+# TODO when merging: use that from MR !4
+
+class NumpyDC(ItemAccessMixin, CollectionMixin, BaseDataContainer):
+    """A dummy numpy data container to use for testing. Will be replaced by !4."""
+
+    def __init__(self, *, name: str, data, **dc_kwargs):
+        log.debug("NumpyDC.__init__ called.")
+
+        # Initialise with parent method
+        super().__init__(name=name, data=data, **dc_kwargs)
+
+        # Done.
+        log.debug("NumpyDC.__init__ finished.")
+
+    def convert_to(self, TargetCls, **target_init_kwargs):
+        return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
+                         **target_init_kwargs)
+
+    def _format_info(self) -> str:
+        return "{}, shape {}".format(self.data.dtype, self.data.shape)
