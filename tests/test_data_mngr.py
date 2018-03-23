@@ -4,16 +4,18 @@ import os
 import pkg_resources
 
 import pytest
+import numpy as np
+import h5py as h5
 
 import dantro.base
 import dantro.data_mngr
-from dantro.data_loaders import YamlLoaderMixin
+from dantro.data_loaders import YamlLoaderMixin, Hdf5LoaderMixin
 from dantro.tools import write_yml
 
 # Local constants
 LOAD_CFG_PATH = pkg_resources.resource_filename('tests', 'cfg/load_cfg.yml')
 
-# Test class ------------------------------------------------------------------
+# Test classes ----------------------------------------------------------------
 
 class DataManager(YamlLoaderMixin, dantro.data_mngr.DataManager):
     """A DataManager-derived class for testing the implementation"""
@@ -21,6 +23,9 @@ class DataManager(YamlLoaderMixin, dantro.data_mngr.DataManager):
     def _load_bad_loadfunc(self):
         pass
 
+class Hdf5DataManager(Hdf5LoaderMixin, DataManager):
+    """A DataManager-derived class to test the Hdf5LoaderMixin class"""
+    pass
 
 # Fixtures --------------------------------------------------------------------
 
@@ -50,7 +55,39 @@ def dm(data_dir) -> DataManager:
     """Returns a DataManager without load configuration"""
     return DataManager(data_dir, out_dir=None)
 
-# Tests -----------------------------------------------------------------------
+@pytest.fixture
+def hdf5_dm(data_dir) -> Hdf5DataManager:
+    """Returns a Hdf5DataManager without load configuration.
+
+    Additionally to the yaml files in the data_dir, some hdf5 files with dummy
+    data are added.
+    """
+    # Create a subdirectory for that data
+    h5dir = data_dir.mkdir("hdf5_data")
+
+    # Write some basics: a dataset, a group, an attribute
+    basic = h5.File(h5dir.join("basic.h5"))
+    basic.create_dataset("float_dset", data=np.random.random(size=(2,3,4)))
+    basic.create_dataset("int_dset", data=np.random.randint(10, size=(1,2,3)))
+    basic.create_group("group")
+    basic.attrs['foo'] = "this is an attribute"
+    basic.close()
+
+    # Write nested groups
+    nested = h5.File(h5dir.join("nested.h5"))
+    nested.create_group('group1')
+    nested.create_group('group2')
+    nested['group1'].create_group('group11')
+    nested['group1'].create_group('group12')
+    nested['group2'].create_group('group21')
+    nested['group2'].create_group('group22')
+    nested['group1']['group11'].create_group('group111')
+    nested['group1']['group11']['group111'].create_dataset('dset', data=np.random.random(size=(3,4,5)))
+    nested.close()
+
+    return Hdf5DataManager(data_dir, out_dir=None)
+
+# General tests ---------------------------------------------------------------
 
 def test_init(data_dir):
     """Test the initialisation of a DataManager"""
@@ -71,7 +108,9 @@ def test_init(data_dir):
     assert os.path.isdir(dm.dirs['out'])
 
 def test_loading(dm):
-    """Tests whether loading works"""
+    """Tests whether loading works by using the default DataManager, i.e. that
+    with the YamlLoaderMixin ...
+    """
     # Check loading from config dict or file ..................................
     # No load config given
     dm.load_from_cfg()
@@ -228,3 +267,9 @@ def test_loading(dm):
     with pytest.warns(UserWarning):
         dm.load('more_foobar2', loader='yaml', glob_str="foobar.yml",
                 path_regex='(foo)*.yml')
+
+# Hdf5LoaderMixin tests -------------------------------------------------------
+
+def test_hdf5_loader(hdf5_dm):
+    """Test whether loading of hdf5 data works as desired"""
+    pass
