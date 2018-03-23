@@ -5,6 +5,7 @@ import pkg_resources
 
 import pytest
 
+import dantro.base
 import dantro.data_mngr
 from dantro.data_loaders import YamlLoaderMixin
 from dantro.tools import write_yml
@@ -66,7 +67,7 @@ def test_init(data_dir):
 def test_loading(dm):
     """Tests whether loading works"""
     # Shortcut for loading into the dm
-    load_into_dm = lambda **cfg: dm.load_data(load_cfg=cfg, print_tree=True)
+    load_into_dm = lambda exists_behaviour='raise', **cfg: dm.load_data(load_cfg=cfg, exists_behaviour=exists_behaviour, print_tree=True)
 
     # Single entry
     load_into_dm(barfoo=dict(loader="yaml", glob_str="foobar.yml"))
@@ -97,7 +98,7 @@ def test_loading(dm):
     assert 'all_yaml/also_lamo' in dm
     assert 'all_yaml/looooooooooong_filename' in dm
 
-    # Now see what happens if loading into a target_group is desired
+    # Now see what happens if loading into an existing target_group is desired
     load_into_dm(more_yaml=dict(loader="yaml", glob_str="*.yml",
                                 target_group="all_yaml"))
 
@@ -105,8 +106,31 @@ def test_loading(dm):
     assert 'all_yaml/more_yaml/foobar' in dm
     assert 'all_yaml/more_yaml/lamo' in dm
 
-    # Test what happens with name collisions
-    with pytest.raises(dantro.data_mngr.ExistingDataError):
-        load_into_dm(barfoo=dict(loader="yaml", glob_str="*.yml"))    
+    # ...and into a non-existing one
+    load_into_dm(more_yaml=dict(loader="yaml", glob_str="*.yml",
+                                target_group="even_more_yaml"))
 
-    
+    assert 'even_more_yaml/more_yaml' in dm
+    assert 'even_more_yaml/more_yaml/foobar' in dm
+
+    # With name collisions, an error should be raised
+    with pytest.raises(dantro.data_mngr.ExistingDataError):
+        load_into_dm(barfoo=dict(loader="yaml", glob_str="*.yml"))
+
+    # warn if loading is skipped; should still hold `barfoo` afterwards
+    with pytest.warns(dantro.data_mngr.ExistingDataWarning):
+        load_into_dm(exists_behaviour='skip',
+                     barfoo=dict(loader="yaml", glob_str="*.yml"))
+
+    assert isinstance(dm['barfoo'], dantro.base.BaseDataContainer)
+
+    # same without warning
+    load_into_dm(exists_behaviour='skip_nowarn',
+                 barfoo=dict(loader="yaml", glob_str="*.yml"))
+    assert isinstance(dm['barfoo'], dantro.base.BaseDataContainer)
+
+    # with overwriting, the content will change
+    with pytest.warns(dantro.data_mngr.ExistingDataWarning):
+        load_into_dm(exists_behaviour='overwrite',
+                     barfoo=dict(loader="yaml", glob_str="*.yml"))
+    assert isinstance(dm['barfoo'], dantro.base.BaseDataGroup)
