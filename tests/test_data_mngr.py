@@ -3,11 +3,13 @@
 import os
 import pkg_resources
 
-import pytest
 import numpy as np
 import h5py as h5
+import pytest
 
 import dantro.base
+from dantro.container import NumpyDC
+from dantro.mixins import NumpyProxyMixin
 import dantro.data_mngr
 from dantro.data_loaders import YamlLoaderMixin, Hdf5LoaderMixin
 from dantro.tools import write_yml
@@ -23,9 +25,14 @@ class DataManager(YamlLoaderMixin, dantro.data_mngr.DataManager):
     def _load_bad_loadfunc(self):
         pass
 
+class NumpyTestDC(NumpyProxyMixin, NumpyDC):
+    """A data container class that provides numpy proxy access"""
+    pass
+
 class Hdf5DataManager(Hdf5LoaderMixin, DataManager):
     """A DataManager-derived class to test the Hdf5LoaderMixin class"""
-    pass
+    # Define the class to use for loading the datasets
+    _HDF5_DSET_DEFAULT_CLS = NumpyTestDC
 
 # Fixtures --------------------------------------------------------------------
 

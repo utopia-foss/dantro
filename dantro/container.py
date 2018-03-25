@@ -130,3 +130,11 @@ class NumpyDC(ItemAccessMixin, CollectionMixin, BaseDataContainer):
 
     def _format_info(self) -> str:
         return "{}, shape {}".format(self.data.dtype, self.data.shape)
+
+    @property
+    def dtype(self):
+        return self.data.dtype
+    
+    @property
+    def shape(self):
+        return self.data.shape
