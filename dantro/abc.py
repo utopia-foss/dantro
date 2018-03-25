@@ -237,7 +237,7 @@ class AbstractDataProxy(metaclass=abc.ABCMeta):
     def resolve(self):
         """Get the data that this proxy is a placeholder for and return it.
 
-        This should only return the data, not store it in the target container;
-        that is done by container this proxy is stored in.
+        Note that this method does not place the resolved data in the
+        container of which this proxy object is a placeholder for! This only
+        returns the data.
         """
-

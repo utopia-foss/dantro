@@ -187,6 +187,8 @@ def test_loading(dm):
     assert 'some_more_yaml/missing' not in dm
     assert 'some_more_yaml/lamo' not in dm
 
+    print("{:tree}".format(dm))
+
 
 def test_loading_errors(dm):
     """Test the cases in which errors are raised or warnings are created."""
