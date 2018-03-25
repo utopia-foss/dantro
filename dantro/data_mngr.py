@@ -184,8 +184,8 @@ class DataManager(OrderedDataGroup):
             update_load_cfg (dict, optional): If given, it is used to update
                 the load configuration recursively
             exists_action (str, optional): The behaviour upon existing data.
-                Can be: raise, skip, skip_nowarn, overwrite, overwrite_nowarn,
-                update, update_nowarn
+                Can be: raise (default), skip, skip_nowarn, overwrite,
+                overwrite_nowarn, update, update_nowarn
             print_tree (bool, optional): If True, a tree representation of the
                 DataManager is printed after the data was loaded
         
@@ -233,10 +233,8 @@ class DataManager(OrderedDataGroup):
             print("{:tree}".format(self))
 
 
-    def load(self, entry_name: str, *, loader: str, glob_str: str, exists_action: str='raise', target_group: str=None, target_basename: str=None, print_tree: bool=False, **load_params): 
+    def load(self, entry_name: str, *, loader: str, glob_str: str, exists_action: str='raise', target_group: str=None, target_basename: str=None, print_tree: bool=False, **load_params) -> None:
         """Performs a single load operation.
-        
-        # TODO
         
         Args:
             entry_name (str): Name of this entry; will also be the name of the

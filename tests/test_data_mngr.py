@@ -188,6 +188,13 @@ def test_loading(dm):
     assert 'some_more_yaml/lamo' not in dm
 
 
+def test_loading_errors(dm):
+    """Test the cases in which errors are raised or warnings are created."""
+    # Load some data that will create collisions
+    dm.load_from_cfg(load_cfg=dict(barfoo=dict(loader="yaml",
+                                               glob_str="foobar.yml")),
+                     print_tree=True)
+
     # This should fail if more than one group would need to be created
     with pytest.raises(NotImplementedError):
         dm.load('more_yaml', loader='yaml', glob_str="*.yml",
@@ -197,7 +204,34 @@ def test_loading(dm):
     with pytest.raises(dantro.data_mngr.ExistingDataError):
         dm.load('barfoo', loader='yaml', glob_str="*.yml")
 
-    # Test different `exist_action` values ....................................
+    # Check for missing data ..................................................
+    # Check for data missing that was required
+    with pytest.raises(dantro.data_mngr.RequiredDataMissingError):
+        dm.load('i_need_this', loader='yaml', glob_str="needed.yml",
+                required=True)
+
+    # Check for warning being given when data was missing but not required
+    with pytest.warns(dantro.data_mngr.MissingDataWarning):
+        dm.load('might_need_this', loader='yaml', glob_str="maybe_needed.yml")
+
+
+    # Check for invalid loaders ...............................................
+    with pytest.raises(dantro.data_mngr.LoaderError):
+        dm.load('nopenopenope', loader='nope', glob_str="*.")
+    
+    with pytest.raises(dantro.data_mngr.LoaderError):
+        dm.load('nopenopenope', loader='bad_loadfunc', glob_str="*")
+
+    print("{:tree}".format(dm))
+
+
+def test_loading_exists_action(dm):
+    """Tests whether behaviour upon existing data is as desired"""
+    # Load the `barfoo` entry that will later create a collision
+    dm.load_from_cfg(load_cfg=dict(barfoo=dict(loader="yaml",
+                                               glob_str="foobar.yml")),
+                     print_tree=True)
+
     # warn if loading is skipped; should still hold `barfoo` afterwards
     with pytest.warns(dantro.data_mngr.ExistingDataWarning):
         dm.load('barfoo', loader='yaml', glob_str="*.yml",
@@ -230,30 +264,10 @@ def test_loading(dm):
         dm.load('barfoo', loader='yaml', glob_str="*.yml",
                 exists_action='update')
 
-    print("{:tree}".format(dm))
-
-    # Check for missing data ..................................................
-    # Check for data missing that was required
-    with pytest.raises(dantro.data_mngr.RequiredDataMissingError):
-        dm.load('i_need_this', loader='yaml', glob_str="needed.yml",
-                required=True)
-
-    # Check for warning being given when data was missing but not required
-    with pytest.warns(dantro.data_mngr.MissingDataWarning):
-        dm.load('might_need_this', loader='yaml', glob_str="maybe_needed.yml")
-
-
-    # Check for invalid loaders ...............................................
-    with pytest.raises(dantro.data_mngr.LoaderError):
-        dm.load('nopenopenope', loader='nope', glob_str="*.")
     
-    with pytest.raises(dantro.data_mngr.LoaderError):
-        dm.load('nopenopenope', loader='bad_loadfunc', glob_str="*")
-
-    print("{:tree}".format(dm))
-
-    # Check regex stuff .......................................................
-    # Check whether regex name extraction works
+def test_loading_regex(dm):
+    """Check whether regex name extraction works"""
+    # This should raise a warning for the `abcdef` entry
     with pytest.warns(UserWarning):
         dm.load('sub_foobar', loader='yaml', glob_str="sub/*.yml",
                 always_create_group=True, path_regex='([0-9]*).yml')
@@ -276,6 +290,7 @@ def test_loading(dm):
     with pytest.warns(UserWarning):
         dm.load('more_foobar2', loader='yaml', glob_str="foobar.yml",
                 path_regex='(foo)*.yml')
+
 
 # Hdf5LoaderMixin tests -------------------------------------------------------
 
