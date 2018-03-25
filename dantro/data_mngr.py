@@ -57,7 +57,7 @@ class DataManager(OrderedDataGroup):
     """
 
     # Define as class variables what should be the default groups / containers
-    _DefaultDataGroupClass = OrderedDataGroup
+    _DATA_GROUP_DEFAULT_CLS = OrderedDataGroup
 
     # .........................................................................
     # Initialisation
@@ -295,7 +295,7 @@ class DataManager(OrderedDataGroup):
                 # TODO implement creation of empty groups on the way
 
                 log.debug("Creating group '%s' ...", target_group_path)
-                _grp = self._DefaultDataGroupClass(name=target_group_path)
+                _grp = self._DATA_GROUP_DEFAULT_CLS(name=target_group_path)
                 # FIXME this assumes target_group_path to *not* be a path
 
                 # Add to the root level
@@ -608,8 +608,8 @@ class DataManager(OrderedDataGroup):
         # Create a group wherein all entries are gathered
         # It has the same name as the entry
         log.debug("Creating a %s to group data loaded from %d file(s) in...",
-                  self._DefaultDataGroupClass.__name__, len(files))
-        group = self._DefaultDataGroupClass(name=target_basename)
+                  self._DATA_GROUP_DEFAULT_CLS.__name__, len(files))
+        group = self._DATA_GROUP_DEFAULT_CLS(name=target_basename)
 
         # Go over the files and load them
         for n, file in enumerate(files):
