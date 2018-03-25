@@ -41,12 +41,11 @@ class Hdf5DataProxy(BaseDataProxy):
         return "{shape:}, {dtype:}".format(shape=self.shape, dtype=self.dtype)
 
     def resolve(self) -> np.ndarray:
-        """Resolve the proxy by opening the hdf5 file and loading the dataset
-        into a numpy array.
+        """Resolve the data of this proxy by opening the hdf5 file and loading
+        the dataset into a numpy array.
         
         Returns:
-            np.ndarray: The resolved dataset
+            np.ndarray: The dataset that this proxy was placeholder for
         """
-
         with h5.File(self.fname, 'r') as h5file:
             return np.array(h5file[self.name])

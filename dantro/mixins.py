@@ -30,10 +30,9 @@ class ProxyMixin:
         """
         # Have to check whether the data might be a proxy. If so, resolve it.
         if self.data_is_proxy:
-            log.debug("Resolving %s for %s '%s' ...",
-                      self._data.__class__.__name__,
-                      self.classname, self.name)
-            self._data = self._data.resolve()
+            log.debug("Resolving %s for %s ...",
+                      self.proxy.classname, self.logstr)
+            self._data = self.proxy.resolve()
 
         # Now, the data should be loaded and can be returned
         return self._data

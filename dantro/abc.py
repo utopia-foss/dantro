@@ -228,6 +228,16 @@ class AbstractDataProxy(metaclass=abc.ABCMeta):
     def __str__(self) -> str:
         """An info string to represent the proxied data"""
 
+    @property
+    def classname(self) -> str:
+        """Returns this proxy's class name"""
+        return self.__class__.__name__
+
     @abc.abstractmethod
     def resolve(self):
-        """Resolve the proxy object, returning the actual object."""
+        """Get the data that this proxy is a placeholder for and return it.
+
+        This should only return the data, not store it in the target container;
+        that is done by container this proxy is stored in.
+        """
+

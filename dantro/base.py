@@ -179,10 +179,7 @@ class BaseDataProxy(dantro.abc.AbstractDataProxy):
     def __init__(self, obj):
         """Initialise a proxy object for the given object."""
         super().__init__(obj)
-        log.debug("Initialising %s for %s ...",
-                  self.__class__.__name__, type(obj))
-    
-    # Nothing more to define here; resolve method is data-specific
+        log.debug("Initialising %s for %s ...", self.classname, type(obj))
 
 
 # -----------------------------------------------------------------------------
