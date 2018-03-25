@@ -34,11 +34,11 @@ class AttrsMixin:
     BaseDataAttrs-derived class.
 
     For changing the class that is used for the attributes, an overwrite of the
-    _AttrsClass class variable suffices.
+    _ATTRS_CLS class variable suffices.
     """
     # Define the class variables
     _attrs = None
-    _AttrsClass = None
+    _ATTRS_CLS = None
 
     @property
     def attrs(self):
@@ -49,17 +49,17 @@ class AttrsMixin:
     def attrs(self, new_attrs):
         """Setter method for the container `attrs` attribute."""
         # Decide which class to use for attributes
-        if self._AttrsClass is not None:
+        if self._ATTRS_CLS is not None:
             # Use the pre-defined one
-            AttrsClass = self._AttrsClass
+            AttrsCls = self._ATTRS_CLS
         else:
             # Use a default
-            AttrsClass = BaseDataAttrs
+            AttrsCls = BaseDataAttrs
 
         # Perform the initialisation
         log.debug("Using %s for attributes of %s",
-                  AttrsClass.__name__, self.logstr)
-        self._attrs = AttrsClass(name='attrs', attrs=new_attrs)
+                  AttrsCls.__name__, self.logstr)
+        self._attrs = AttrsCls(name='attrs', attrs=new_attrs)
 
 
 class PathMixin:
