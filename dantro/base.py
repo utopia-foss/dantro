@@ -174,8 +174,15 @@ class BaseDataProxy(dantro.abc.AbstractDataProxy):
 
     NOTE: This is still an abstract class and needs to be subclassed.
     """
-    # Nothing to define here; the resolve method needs to be data-specific
-    pass
+
+    @abc.abstractmethod
+    def __init__(self, obj):
+        """Initialise a proxy object for the given object."""
+        super().__init__(obj)
+        log.debug("Initialising %s for %s ...",
+                  self.__class__.__name__, type(obj))
+    
+    # Nothing more to define here; resolve method is data-specific
 
 
 # -----------------------------------------------------------------------------

@@ -26,6 +26,7 @@ class Hdf5DataProxy(BaseDataProxy):
         Args:
             obj (h5.Dataset): The dataset object to be proxy for
         """
+        super().__init__(obj)
 
         # Information to later resolve the data
         self.fname = obj.file.filename

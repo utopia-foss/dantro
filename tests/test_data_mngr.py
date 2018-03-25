@@ -302,9 +302,12 @@ def test_hdf5_loader(hdf5_dm):
     assert 'h5data/basic' in hdf5_dm
     assert 'h5data/nested' in hdf5_dm
 
-    # Test that the basic datasets are there and their dtype is correct
-    assert hdf5_dm['h5data/basic/int_dset']._data.dtype == np.dtype(int)
-    assert hdf5_dm['h5data/basic/float_dset']._data.dtype == np.dtype(float)
+    # Test that the basic datasets are there and their dtype & shape is correct
+    assert hdf5_dm['h5data/basic/int_dset'].dtype == np.dtype(int)
+    assert hdf5_dm['h5data/basic/float_dset'].dtype == np.dtype(float)
+
+    assert hdf5_dm['h5data/basic/int_dset'].shape == (1,2,3)
+    assert hdf5_dm['h5data/basic/float_dset'].shape == (2,3,4)
 
     # Test that attributes were loaded on file, group and dset level
     assert 'foo' in hdf5_dm['h5data/basic'].attrs
@@ -316,4 +319,22 @@ def test_hdf5_loader(hdf5_dm):
 
 def test_hdf5_proxy_loader(hdf5_dm):
     """Tests whether proxy loading of hdf5 data works"""
-    hdf5_dm.load('h5proxy', loader='hdf5', glob_str="**/*.h5")
+    hdf5_dm.load('h5proxy', loader='hdf5_proxy', glob_str="**/*.h5")
+
+    h5data = hdf5_dm['h5proxy']
+
+    # Test whether the loaded datasets are proxies
+    assert h5data['basic/int_dset'].data_is_proxy
+    assert h5data['basic/float_dset'].data_is_proxy
+    assert h5data['nested/group1/group11/group111/dset'].data_is_proxy
+
+    # Test the resolve method
+    h5data['basic/int_dset'].proxy.resolve()
+    h5data['basic/float_dset'].proxy.resolve()
+    h5data['nested/group1/group11/group111/dset'].proxy.resolve()
+
+    # Test that automatic resolution works
+    assert isinstance(h5data['basic/int_dset'].data, np.ndarray)
+    assert isinstance(h5data['basic/float_dset'].data, np.ndarray)
+    assert isinstance(h5data['nested/group1/group11/group111/dset'].data,
+                      np.ndarray)

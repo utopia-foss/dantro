@@ -2,6 +2,8 @@
 
 import logging
 
+import numpy as np
+
 import dantro.base
 
 log = logging.getLogger(__name__)
@@ -63,3 +65,17 @@ class ProxyMixin:
 class NumpyProxyMixin(ProxyMixin):
     """Provides some numpy-specific proxy capabilities, i.e. an info string
     that takes care to not resolve the data."""
+
+    @property
+    def dtype(self) -> np.dtype:
+        """Returns the NumpyDCs dtype, proxy-aware"""
+        if self.data_is_proxy:
+            return self.proxy.dtype
+        return self.data.dtype
+    
+    @property
+    def shape(self) -> tuple:
+        """Returns the NumpyDCs shape, proxy-aware"""
+        if self.data_is_proxy:
+            return self.proxy.shape
+        return self.data.shape
