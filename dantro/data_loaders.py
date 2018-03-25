@@ -95,7 +95,7 @@ class Hdf5LoaderMixin:
     _HDF5_DSET_DEFAULT_CLS = NumpyDC
 
     @add_loader(TargetCls=OrderedDataGroup, omit_self=False)
-    def _load_hdf5(self, filepath: str, *, TargetCls, **loader_kwargs) -> OrderedDataGroup:
+    def _load_hdf5(self, filepath: str, *, TargetCls, load_as_proxy: bool=False, lower_case_keys: bool=False, print_params: dict=None) -> OrderedDataGroup:
         """Loads the specified hdf5 file into DataGroup and DataContainer-like
         object; this completely recreates the hierarchic structure of the hdf5
         file. The data can be loaded into memory completely, or be loaded as
@@ -126,71 +126,7 @@ class Hdf5LoaderMixin:
         
         Returns:
             OrderedDataGroup: The root level, corresponding to the file"""
-        return self._hdf5_loading_helper(filepath, TargetCls=TargetCls,
-                                         **loader_kwargs)
-
-    @add_loader(TargetCls=OrderedDataGroup, omit_self=False)
-    def _load_hdf5_proxy(self, filepath: str, *, TargetCls, **loader_kwargs) -> OrderedDataGroup:
-        """Loads the specified hdf5 file into DataGroup and DataContainer-like
-        object; this completely recreates the hierarchic structure of the hdf5
-        file. Instead of loading all data directly, this loader will create
-        proxy objects for each dataset.
         
-        The h5py File and Group objects will be converted to the specified
-        DataGroup-derived objects; the Dataset objects to the specified
-        DataContainer-derived object, but storing only proxies.
-        
-        All attributes are carried over and are accessible under the `attrs`
-        attribute.
-        
-        Args:
-            filepath (str): hdf5 file to load
-            TargetCls (OrderedDataGroup): the group object this is loaded into
-            lower_case_keys (bool, optional): whether to cast all keys to
-                lower case
-            print_params (dict, optional): parameters for the status report
-                level: how verbose to print loading info; possible values are:
-                    0: None, 1: on file level, 2: on dataset level
-                fstrs1: format string level 1
-                fstrs2: format string level 2
-        
-        Returns:
-            OrderedDataGroup: The root level, corresponding to the file"""
-        return self._hdf5_loading_helper(filepath, TargetCls=TargetCls,
-                                         load_as_proxy=True, **loader_kwargs)
-
-    def _hdf5_loading_helper(self, filepath: str, *, TargetCls: OrderedDataGroup, load_as_proxy: bool=False, lower_case_keys: bool=True, print_params: dict=None) -> OrderedDataGroup:
-        """Loads the specified hdf5 file into DataGroup and DataContainer-like
-        object; this completely recreates the hierarchic structure of the hdf5
-        file. The data can be loaded into memory completely, or be loaded as
-        a proxy object.
-        
-        The h5py File and Group objects will be converted to the specified
-        DataGroup-derived objects; the Dataset objects to the specified
-        DataContainer-derived object.
-        
-        All attributes are carried over and are accessible under the `attrs`
-        attribute.
-        
-        Args:
-            filepath (str): hdf5 file to load
-            TargetCls (OrderedDataGroup): the group object this is loaded into
-            load_as_proxy (bool, optional): if True, the leaf datasets are
-                loaded as Hdf5DataProxy objects. That way, they are only
-                loaded when their .data attribute is accessed the first time.
-                To do so, a reference to the hdf5 file is saved in a
-                H5DataProxy
-            lower_case_keys (bool, optional): whether to cast all keys to
-                lower case
-            print_params (dict, optional): parameters for the status report
-                level: how verbose to print loading info; possible values are:
-                    0: None, 1: on file level, 2: on dataset level
-                fstrs1: format string level 1
-                fstrs2: format string level 2
-        
-        Returns:
-            OrderedDataGroup: The root level, corresponding to the file
-        """
 
         def recursively_load_hdf5(src, target: BaseDataGroup, *, load_as_proxy: bool, lower_case_keys: bool, GroupCls: BaseDataGroup, DsetCls: BaseDataContainer):
             """Recursively loads the data from the source hdf5 file into the target DataGroup object."""
@@ -272,3 +208,35 @@ class Hdf5LoaderMixin:
                                   GroupCls=GroupCls, DsetCls=DsetCls)
 
         return root
+
+    @add_loader(TargetCls=OrderedDataGroup, omit_self=False)
+    def _load_hdf5_proxy(self, filepath: str, *, TargetCls, **loader_kwargs) -> OrderedDataGroup:
+        """Loads the specified hdf5 file into DataGroup and DataContainer-like
+        object; this completely recreates the hierarchic structure of the hdf5
+        file. Instead of loading all data directly, this loader will create
+        proxy objects for each dataset.
+        
+        The h5py File and Group objects will be converted to the specified
+        DataGroup-derived objects; the Dataset objects to the specified
+        DataContainer-derived object, but storing only proxies.
+        
+        All attributes are carried over and are accessible under the `attrs`
+        attribute.
+        
+        Args:
+            filepath (str): hdf5 file to load
+            TargetCls (OrderedDataGroup): the group object this is loaded into
+            lower_case_keys (bool, optional): whether to cast all keys to
+                lower case
+            print_params (dict, optional): parameters for the status report
+                level: how verbose to print loading info; possible values are:
+                    0: None, 1: on file level, 2: on dataset level
+                fstrs1: format string level 1
+                fstrs2: format string level 2
+        
+        Returns:
+            OrderedDataGroup: The root level, corresponding to the file
+        """
+        # Use the other loader ...
+        return self._load_hdf5(filepath, TargetCls=TargetCls,
+                               load_as_proxy=True, **loader_kwargs)
