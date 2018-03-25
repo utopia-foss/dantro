@@ -67,10 +67,12 @@ def hdf5_dm(data_dir) -> Hdf5DataManager:
 
     # Write some basics: a dataset, a group, an attribute
     basic = h5.File(h5dir.join("basic.h5"))
-    basic.create_dataset("float_dset", data=np.random.random(size=(2,3,4)))
-    basic.create_dataset("int_dset", data=np.random.randint(10, size=(1,2,3)))
+    basic.create_dataset("float_dset", data=np.zeros((2,3,4), dtype=float))
+    basic.create_dataset("int_dset", data=np.ones((1,2,3), dtype=int))
     basic.create_group("group")
-    basic.attrs['foo'] = "this is an attribute"
+    basic.attrs['foo'] = "file level attribute"
+    basic['group'].attrs['foo'] = "group level attribute"
+    basic['int_dset'].attrs['foo'] = "dset level attribute"
     basic.close()
 
     # Write nested groups
@@ -272,4 +274,20 @@ def test_loading(dm):
 
 def test_hdf5_loader(hdf5_dm):
     """Test whether loading of hdf5 data works as desired"""
-    pass
+    hdf5_dm.load('h5data', loader='hdf5', glob_str="**/*.h5")
+
+    # Test that both files were loaded
+    assert 'h5data/basic' in hdf5_dm
+    assert 'h5data/nested' in hdf5_dm
+
+    # Test that the basic datasets are there and their dtype is correct
+    assert hdf5_dm['h5data/basic/int_dset']._data.dtype == np.dtype(int)
+    assert hdf5_dm['h5data/basic/float_dset']._data.dtype == np.dtype(float)
+
+    # Test that attributes were loaded on file, group and dset level
+    assert 'foo' in hdf5_dm['h5data/basic'].attrs
+    assert 'foo' in hdf5_dm['h5data/basic/int_dset'].attrs
+    assert 'foo' in hdf5_dm['h5data/basic/group'].attrs
+
+    # Test that nested loading worked
+    assert 'h5data/nested/group1/group11/group111/dset' in hdf5_dm

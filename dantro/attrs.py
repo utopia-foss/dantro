@@ -8,7 +8,4 @@ from dantro.base import BaseDataAttrs
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
-
-class Hdf5Attrs(BaseDataAttrs):
-    """ """
     
