@@ -89,27 +89,32 @@ def recursive_update(d: dict, u: dict) -> dict:
 # Terminal messaging
 
 def clear_line(only_in_tty=True, break_if_not_tty=True):
-    ''' Clears the current terminal line and resets the cursor to the first position using a POSIX command.'''
-    # Based on: http://stackoverflow.com/questions/5419389/how-to-overwrite-the-previous-print-to-stdout-in-python
-
-    if break_if_not_tty or only_in_tty:
-        # check if there is a tty
-        is_tty = sys.stdout.isatty()
-
+    """Clears the current terminal line and resets the cursor to the first
+    position using a POSIX command.
+    
+    Based on: https://stackoverflow.com/a/25105111/1827608
+    
+    Args:
+        only_in_tty (bool, optional): If True (default) will only clear the
+            line if the script is executed in a TTY
+        break_if_not_tty (bool, optional): If True (default), will insert a
+            line break if the script is not executed in a TTY
+    """
     # Differentiate cases
-    if (only_in_tty and is_tty) or not only_in_tty:
+    if (only_in_tty and IS_A_TTY) or not only_in_tty:
         # Print the POSIX character
         print('\x1b[2K\r', end='')
 
-    if break_if_not_tty and not is_tty:
+    if break_if_not_tty and not IS_A_TTY:
         # print linebreak (no flush)
         print('\n', end='')
 
-    # no linebreak, flush manually
+    # flush manually (there might not have been a linebreak)
     sys.stdout.flush()
 
 def fill_tty_line(s: str, fill_char: str=" ", align: str="left") -> str:
-    '''If the terminal is a tty, returns a string that fills the whole tty line with the specified fill character.'''
+    """If the terminal is a tty, returns a string that fills the whole tty 
+    line with the specified fill character."""
     if not IS_A_TTY:
         return s
 
@@ -128,5 +133,5 @@ def fill_tty_line(s: str, fill_char: str=" ", align: str="left") -> str:
         raise ValueError("align argument '{}' not supported".format(align))
 
 def tty_centred_msg(s: str, fill_char: str="·") -> str:
-    '''Shortcut for a common fill_tty_line use case.'''
+    """Shortcut for a common fill_tty_line use case."""
     return fill_tty_line(s, fill_char=fill_char, align='centre')
