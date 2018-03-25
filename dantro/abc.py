@@ -219,5 +219,15 @@ class AbstractDataProxy(metaclass=abc.ABCMeta):
     """A data proxy fills in for the place of a data container, e.g. if data should only be loaded on demand. It needs to supply the resolve method."""
 
     @abc.abstractmethod
+    def __init__(self, obj):
+        """Initialise the proxy object, being supplied with the object that
+        this proxy is to be proxy for.
+        """
+
+    @abc.abstractmethod
+    def __str__(self) -> str:
+        """An info string to represent the proxied data"""
+
+    @abc.abstractmethod
     def resolve(self):
         """Resolve the proxy object, returning the actual object."""

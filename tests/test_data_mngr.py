@@ -291,3 +291,7 @@ def test_hdf5_loader(hdf5_dm):
 
     # Test that nested loading worked
     assert 'h5data/nested/group1/group11/group111/dset' in hdf5_dm
+
+def test_hdf5_proxy_loader(hdf5_dm):
+    """Tests whether proxy loading of hdf5 data works"""
+    hdf5_dm.load('h5proxy', loader='hdf5', glob_str="**/*.h5")
