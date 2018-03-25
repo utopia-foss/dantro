@@ -96,7 +96,8 @@ class DataManager(OrderedDataGroup):
         # Initialise directories
         self.dirs = self._init_dirs(data_dir=data_dir, out_dir=out_dir)
 
-        # If specific values for the load configuration was given, use these to set the class constants of this instance.
+        # If a specific value for the load configuration was given, store it
+        # and use it as the default for the `load_from_cfg` method
         self.load_cfg = {}
 
         if load_cfg and isinstance(load_cfg, str):
@@ -176,7 +177,7 @@ class DataManager(OrderedDataGroup):
     # Loading data
 
     def load_from_cfg(self, *, load_cfg: dict=None, update_load_cfg: dict=None, exists_action: str='raise', print_tree: bool=False) -> None:
-        """Load the data using the specified load configuration.
+        """Load multiple data entries using the specified load configuration.
         
         Args:
             load_cfg (dict, optional): The load configuration to use. If not
@@ -185,12 +186,14 @@ class DataManager(OrderedDataGroup):
                 the load configuration recursively
             exists_action (str, optional): The behaviour upon existing data.
                 Can be: raise (default), skip, skip_nowarn, overwrite,
-                overwrite_nowarn, update, update_nowarn
+                overwrite_nowarn, update, update_nowarn.  With *_nowarn
+                values, no warning is given if an entry already existed.
             print_tree (bool, optional): If True, a tree representation of the
                 DataManager is printed after the data was loaded
         
         Raises:
-            TypeError: Description
+            TypeError: Raised if a given configuration entry was of invalid 
+                type, i.e. not a dict
         """
         # Determine which load configuration to use
         if not load_cfg:
@@ -219,16 +222,16 @@ class DataManager(OrderedDataGroup):
                                                         type(params), params))
 
             # Use the public method to load this single entry
-            self.load(entry_name,
-                      exists_action=exists_action,
-                      print_tree=False,  # to not have too many prints
+            self.load(entry_name, exists_action=exists_action,
+                      print_tree=False,  # to not have prints during loading
                       **params)
         
         # All done
-        log.info("Successfully loaded %d data entries.", len(self.data))
-        log.info("Available data entries:\n  %s\n",
+        log.info("Successfully loaded %d data entries.", len(load_cfg))
+        log.info("Available data entries:\n  %s\n", 
                  ",  ".join(self.data.keys()))
 
+        # Finally, print the tree
         if print_tree:
             print("{:tree}".format(self))
 
@@ -243,8 +246,9 @@ class DataManager(OrderedDataGroup):
             glob_str (str): The glob string by which to identify the files
                 within `data_dir` that are to be loaded using the loader
             exists_action (str, optional): The behaviour upon existing data.
-                Can be: raise, skip, skip_nowarn, overwrite, overwrite_nowarn,
-                update, update_nowarn
+                Can be: raise (default), skip, skip_nowarn, overwrite,
+                overwrite_nowarn, update, update_nowarn. With *_nowarn values,
+                no warning is given if an entry already existed.
             target_group (str, optional): The path of the target group to write
                 the loaded data to. If none is given, writes to the root level
                 of the data manager
