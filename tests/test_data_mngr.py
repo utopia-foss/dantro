@@ -328,6 +328,16 @@ def test_hdf5_proxy_loader(hdf5_dm):
     assert h5data['basic/float_dset'].data_is_proxy
     assert h5data['nested/group1/group11/group111/dset'].data_is_proxy
 
+    # Test that dtype and shape access do not resolve
+    assert h5data['basic/int_dset'].dtype == np.dtype(int)
+    assert h5data['basic/float_dset'].dtype == np.dtype(float)
+
+    assert h5data['basic/int_dset'].shape == (1,2,3)
+    assert h5data['basic/float_dset'].shape == (2,3,4)
+
+    assert h5data['basic/int_dset'].data_is_proxy
+    assert h5data['basic/float_dset'].data_is_proxy
+
     # Test the resolve method
     h5data['basic/int_dset'].proxy.resolve()
     h5data['basic/float_dset'].proxy.resolve()

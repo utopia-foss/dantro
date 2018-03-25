@@ -311,11 +311,16 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
             key = key.split(PATH_JOIN_CHAR)
 
         # Can be sure that this is a list now
-        # If there is more than one entry, need to call this recursively
-        if len(key) > 1:
-            return self.data[key[0]][key[1:]]
-        # else: end of recursion
-        return self.data[key[0]]
+        try:
+            # If there is more than one entry, need to call this recursively
+            if len(key) > 1:
+                return self.data[key[0]][key[1:]]
+            # else: end of recursion
+            return self.data[key[0]]
+
+        except (KeyError, IndexError) as err:
+            raise KeyError("No such key '{}' in {}! Full key sequence: {}"
+                           "".format(key[0], key, self.logstr)) from err
 
     def __setitem__(self, key: str, val: BaseDataContainer) -> None:
         """This method is used to allow access to the content of containers of
