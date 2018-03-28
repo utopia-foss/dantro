@@ -69,8 +69,10 @@ def test_numpy_data_container():
     ndc1 = NumpyDataContainer(name="oof", data=np.array([1,2,3]))
     ndc2 = NumpyDataContainer(name="zab", data=np.array([2,4,6]))
 
-    # Test the ForwardAttrsToDataMixin 
-    npa1 = np.array([1,2,3])
+    # Test the ForwardAttrsToDataMixin on a selection of numpy functions
+    l1 = [1,2,3]
+    ndc1 = NumpyDataContainer(name="oof", data=np.array(l1))
+    npa1 = np.array(l1)
     assert ndc1.size == npa1.size
     assert ndc1.ndim == npa1.ndim
     assert ndc1.max() == npa1.max()
@@ -78,6 +80,8 @@ def test_numpy_data_container():
     assert ndc1.cumsum()[-1] == npa1.cumsum()[-1]
 
     # Test the NumbersMixin
+    ndc1 = NumpyDataContainer(name="oof", data=np.array([1,2,3]))
+    ndc2 = NumpyDataContainer(name="zab", data=np.array([2,4,6]))
     add = ndc1 + ndc2
     sub = ndc1 - ndc2
     mult = ndc1 * ndc2
@@ -85,10 +89,15 @@ def test_numpy_data_container():
     floordiv = ndc1 // ndc2
     mod = ndc1 % ndc2
     div_mod = divmod(ndc1, ndc2)
+    power = ndc1 ** ndc2
 
     # Test NumbersMixin function for operations on two numpy arrays 
-    npa1 = np.array([1,2,3])
-    npa2 = np.array([2,4,6])
+    l1 = [1,2,3]
+    l2 = [2,4,6]
+    ndc1 = NumpyDataContainer(name="oof", data=np.array(l1))
+    ndc2 = NumpyDataContainer(name="zab", data=np.array(l2))
+    npa1 = np.array(l1)
+    npa2 = np.array(l2)
     
     add_npa = npa1 + npa2
     sub_npa = npa1 - npa2
@@ -96,7 +105,9 @@ def test_numpy_data_container():
     div_npa = npa1 / npa2
     floordiv_npa = npa1 // npa2
     mod_npa = npa1 % npa2
+    power_npa = npa1 ** npa2
         
+    
     for i in [0,1,2]:
         assert add.data[i] == add_npa[i] 
         assert sub.data[i] == sub_npa[i] 
@@ -106,25 +117,67 @@ def test_numpy_data_container():
         assert mod.data[i] == mod_npa[i] 
         assert div_mod.data[0][i] == floordiv_npa[i] 
         assert div_mod.data[1][i] == mod_npa[i]
+        assert power.data[i] == power_npa[i] 
 
         assert ndc1.data[i] == npa1[i]
 
     # Test NumbersMixin function for operations on one numpy array and a number
-    add_number = npa1 + 4.2
-    sub_number = npa1 - 4.2
-    mult_number = npa1 * 4.2
-    div_number = npa1 / 4.2
-    floordiv_number = npa1 // 4.2
-    mod_number = npa1 % 4.2
+    add_number = ndc1 + 4.2
+    sub_number = ndc1 - 4.2
+    mult_number = ndc1 * 4.2
+    div_number = ndc1 / 4.2
+    floordiv_number = ndc1 // 4.2
+    divmod_number = divmod(ndc1, 4.2)
+    mod_number = ndc1 % 4.2
+    power_number = ndc1 ** 4.2
+
+    add_npa_number = npa1 + 4.2
+    sub_npa_number = npa1 - 4.2
+    mult_npa_number = npa1 * 4.2
+    div_npa_number = npa1 / 4.2
+    floordiv_npa_number = npa1 // 4.2
+    divmod_npa_number = divmod(npa1, 4.2)
+    mod_npa_number = npa1 % 4.2
+    power_npa_number = npa1 ** 4.2
 
     for i in [0,1,2]:
-        assert add.data[i] == add_npa[i] 
-        assert sub.data[i] == sub_npa[i] 
-        assert mult.data[i] == mult_npa[i] 
-        assert div.data[i] == div_npa[i] 
-        assert floordiv.data[i] == floordiv_npa[i] 
-        assert mod.data[i] == mod_npa[i] 
-        assert div_mod.data[0][i] == floordiv_npa[i] 
-        assert div_mod.data[1][i] == mod_npa[i]
+        assert add_number.data[i] == add_npa_number[i] 
+        assert sub_number.data[i] == sub_npa_number[i] 
+        assert mult_number.data[i] == mult_npa_number[i] 
+        assert div_number.data[i] == div_npa_number[i] 
+        assert floordiv_number.data[i] == floordiv_npa_number[i] 
+        assert mod_number.data[i] == mod_npa_number[i] 
+        assert divmod_number.data[0][i] == floordiv_npa_number[i] 
+        assert divmod_number.data[1][i] == mod_npa_number[i]
+        assert power_number.data[i] == power_number[i]
 
-        assert ndc1.data[i] == npa1[i]
+
+    # Test ComparisonMixin
+    l1 = [1,2,3]
+    l2 = [0,2,4]
+    ndc1 = NumpyDataContainer(name="oof", data=np.array(l1))
+    ndc2 = NumpyDataContainer(name="tada", data=np.array(l2))
+    npa1 = np.array(l1)
+    npa2 = np.array(l2)
+
+    eq = (ndc1 == ndc2)
+    ne = (ndc1 != ndc2)
+    lt = (ndc1 < ndc2)
+    le = (ndc1 <= ndc2)
+    gt = (ndc1 > ndc2)
+    ge = (ndc1 >= ndc2)
+
+    eq_npa = (npa1 == npa2)
+    ne_npa = (npa1 != npa2)
+    lt_npa = (npa1 < npa2)
+    le_npa = (npa1 <= npa2)
+    gt_npa = (npa1 > npa2)
+    ge_npa = (npa1 >= npa2)
+
+    for i in [0,1,2]:
+        assert eq[i] == eq_npa[i]
+        assert ne[i] == ne_npa[i]
+        assert lt[i] == lt_npa[i]
+        assert le[i] == le_npa[i]
+        assert gt[i] == gt_npa[i]
+        assert ge[i] == ge_npa[i]

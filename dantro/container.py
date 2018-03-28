@@ -5,7 +5,7 @@ import logging
 from collections.abc import MutableSequence
 import numpy as np
 from dantro.base import BaseDataContainer, ItemAccessMixin, CollectionMixin
-from dantro.mixins import ForwardAttrsToDataMixin, NumbersMixin
+from dantro.mixins import ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin
 # Local constants
 log = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class MutableSequenceContainer(ItemAccessMixin, CollectionMixin, BaseDataContain
         return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
                          **target_init_kwargs)
 
-class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ItemAccessMixin, BaseDataContainer):
+class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin, ItemAccessMixin, BaseDataContainer):
     """The NumpyDataContainer stores data that is numpy.ndarray-like"""
 
     def __init__(self, *, name: str, data, **dc_kwargs):
