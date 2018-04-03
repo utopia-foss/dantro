@@ -12,9 +12,10 @@ log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
-
 class ProxyMixin:
     """This Mixin class overwrites the `data` property to allow proxy objects.
+
+    It should be used to add support for certain proxy types to a container.
 
     A proxy object is a place keeper for data that is not yet loaded. It will
     only be loaded if `data` is directly accessed.
@@ -47,7 +48,7 @@ class ProxyMixin:
         return isinstance(self._data, dantro.base.BaseDataProxy)
 
     @property
-    def proxy(self):
+    def proxy(self) -> dantro.base.BaseDataProxy:
         """If the data is proxy, returns the proxy data object without using 
         the .data attribute (which would trigger resolving the proxy); else 
         returns None.
@@ -61,9 +62,11 @@ class ProxyMixin:
         return None
 
 
-class NumpyProxyMixin(ProxyMixin):
-    """Provides some numpy-specific proxy capabilities, i.e. an info string
-    that takes care to not resolve the data."""
+class Hdf5ProxyMixin(ProxyMixin):
+    """Specialises the ProxyMixin to the capabilities of a Hdf5 Proxy, i.e. it
+    allows access to the cached `dtype` and `shape` properties of the
+    Hdf5DataProxy without resolving the proxy.
+    """
 
     @property
     def dtype(self) -> np.dtype:

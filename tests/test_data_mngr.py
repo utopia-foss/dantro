@@ -9,7 +9,7 @@ import pytest
 
 import dantro.base
 from dantro.container import NumpyDC
-from dantro.mixins import NumpyProxyMixin
+from dantro.mixins import Hdf5ProxyMixin
 import dantro.data_mngr
 from dantro.data_loaders import YamlLoaderMixin, Hdf5LoaderMixin
 from dantro.tools import write_yml
@@ -25,7 +25,7 @@ class DataManager(YamlLoaderMixin, dantro.data_mngr.DataManager):
     def _load_bad_loadfunc(self):
         pass
 
-class NumpyTestDC(NumpyProxyMixin, NumpyDC):
+class NumpyTestDC(Hdf5ProxyMixin, NumpyDC):
     """A data container class that provides numpy proxy access"""
     pass
 
