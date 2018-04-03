@@ -2,9 +2,9 @@
 
 import warnings
 import logging
-from collections.abc import MutableSequence
+from collections.abc import MutableSequence, MutableMapping
 
-from dantro.base import BaseDataContainer, ItemAccessMixin, CollectionMixin
+from dantro.base import BaseDataContainer, ItemAccessMixin, CollectionMixin, MappingAccessMixin
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -62,3 +62,79 @@ class MutableSequenceContainer(ItemAccessMixin, CollectionMixin, BaseDataContain
         """
         return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
                          **target_init_kwargs)
+
+# -----------------------------------------------------------------------------
+
+class MutableMappingContainer(MappingAccessMixin, BaseDataContainer, MutableMapping):
+
+    def __init__(self, *, name: str, data=None, **dc_kwargs):
+        """Initialise a MutableMappingContainer, storing mapping data.
+        
+        NOTE: There is no check if the given data is actually a mapping!
+        
+        Args:
+            name (str): The name of this container
+            data: The mapping-like data to store. If not given, an empty dict
+                is created
+            **dc_kwargs: Additional arguments for container initialisation
+        """
+
+        log.debug("MutableMappingContainer.__init__ called.")
+
+        # Perform a check whether the data is actually a mutable sequence
+        if data is None:
+            data = {}
+            
+        elif not isinstance(data, MutableMapping):
+            warnings.warn("The data given to {} '{}' was not identified as a "
+                          "MutableMapping, but as '{}'. Initialisation will "
+                          "work, but be informed that there might be errors "
+                          "later on.".format(self.classname, name, type(data)),
+                          UserWarning)
+
+        # Initialise with parent method
+        super().__init__(name=name, data=data, **dc_kwargs)
+
+        # Done.
+        log.debug("MutableMappingContainer.__init__ finished.")
+
+    def convert_to(self, TargetCls, **target_init_kwargs):
+        """With this method, a TargetCls object can be created from this
+        particular container instance.
+        
+        Conversion might not be possible if TargetCls requires more information
+        than is available in this container.
+        """
+        return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
+                         **target_init_kwargs)
+
+# -----------------------------------------------------------------------------
+
+# TODO when merging: use that from MR !4
+
+class NumpyDC(ItemAccessMixin, CollectionMixin, BaseDataContainer):
+    """A dummy numpy data container to use for testing. Will be replaced by !4."""
+
+    def __init__(self, *, name: str, data, **dc_kwargs):
+        log.debug("NumpyDC.__init__ called.")
+
+        # Initialise with parent method
+        super().__init__(name=name, data=data, **dc_kwargs)
+
+        # Done.
+        log.debug("NumpyDC.__init__ finished.")
+
+    def convert_to(self, TargetCls, **target_init_kwargs):
+        return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
+                         **target_init_kwargs)
+
+    def _format_info(self) -> str:
+        return "{}, shape {}".format(self.data.dtype, self.data.shape)
+
+    @property
+    def dtype(self):
+        return self.data.dtype
+    
+    @property
+    def shape(self):
+        return self.data.shape

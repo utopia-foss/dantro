@@ -1,0 +1,9 @@
+---
+load_foobar:
+  loader: yaml
+  glob_str: "foobar.yml"
+
+all_yaml:
+  loader: yaml
+  glob_str: "*.yml"
+  always_create_group: true
