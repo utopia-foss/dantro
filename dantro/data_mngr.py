@@ -7,7 +7,7 @@ import re
 import glob
 import logging
 import warnings
-from typing import Union, Callable
+from typing import Union, Callable, List
 
 from dantro.base import PATH_JOIN_CHAR, BaseDataContainer, BaseDataGroup
 from dantro.group import OrderedDataGroup
@@ -236,15 +236,16 @@ class DataManager(OrderedDataGroup):
             print("{:tree}".format(self))
 
 
-    def load(self, entry_name: str, *, loader: str, glob_str: str, exists_action: str='raise', target_group: str=None, target_basename: str=None, print_tree: bool=False, **load_params) -> None:
+    def load(self, entry_name: str, *, loader: str, glob_str: Union[str, List[str]], exists_action: str='raise', target_group: str=None, target_basename: str=None, print_tree: bool=False, **load_params) -> None:
         """Performs a single load operation.
         
         Args:
             entry_name (str): Name of this entry; will also be the name of the
                 created group or container, unless `target_basename` is given
             loader (str): The name of the loader to use
-            glob_str (str): The glob string by which to identify the files
-                within `data_dir` that are to be loaded using the loader
+            glob_str (Union[str, List[str]]): A glob string or a list of glob
+                strings by which to identify the files within `data_dir` that
+                are to be loaded using the given loader function
             exists_action (str, optional): The behaviour upon existing data.
                 Can be: raise (default), skip, skip_nowarn, overwrite,
                 overwrite_nowarn, update, update_nowarn. With *_nowarn values,
@@ -420,15 +421,17 @@ class DataManager(OrderedDataGroup):
     # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     # Helpers for loading data
 
-    def _entry_loader(self, *, target_group: BaseDataGroup, target_basename: str, entry_name: str, loader: str, glob_str: str, ignore: list=None, always_create_group: bool=False, required: bool=False, path_regex: str=None, progress_indicator: bool=True, parallel: bool=False, **loader_kwargs) -> Union[BaseDataContainer, BaseDataGroup]:
+    def _entry_loader(self, *, target_group: BaseDataGroup, target_basename: str, entry_name: str, loader: str, glob_str: Union[str, List[str]], ignore: list=None, always_create_group: bool=False, required: bool=False, path_regex: str=None, progress_indicator: bool=True, parallel: bool=False, **loader_kwargs) -> Union[BaseDataContainer, BaseDataGroup]:
         """Helper function that loads a data entry.
         
         Args:
             target_group (BaseDataGroup): The group the entry is loaded to;
                 this is used to check whether the entry exists or not
             target_basename (str): The name of the container to be created
+            entry_name (str): Description
             loader (str): The loader to use
-            glob_str (str): The glob string to search files in the data dir
+            glob_str (Union[str, List[str]]): A glob string or a list of glob
+                strings to match files in the data directory
             ignore (list, optional): The exact file names in this list will
                 be ignored during loading. Paths are seen as elative to the data directory.
             always_create_group (bool, optional): If False (default), no group
@@ -533,10 +536,25 @@ class DataManager(OrderedDataGroup):
         else:
             log.debug("Resolved '%s' loader function.", loader)
 
-        # Generate an absolute glob string and a list of files . . . . . . . .
-        glob_str = os.path.join(self.dirs['data'], glob_str)
-        log.debug("Created absolute glob string:\n  %s", glob_str)
-        files = glob.glob(glob_str, recursive=True)
+        # Generate a set of files . . . . . . . . . . . . . . . . . . . . . . .
+        # Create the set of file paths
+        files = set()
+        # NOTE with this being a set, all file paths are ensured to be unique
+
+        if isinstance(glob_str, str):
+            # Is a single glob string -> put into list to handle more uniformly
+            glob_str = [glob_str]
+        log.debug("Got %d glob string(s) to create set of matching file "
+                  "paths from.", len(glob_str))
+
+        # Go over the given glob strings and add to the files set
+        for gs in glob_str:
+            # Make the glob string absolute
+            gs = os.path.join(self.dirs['data'], gs)
+            log.debug("Adding files that match glob string:\n  %s", gs)
+
+            # Add to the set of files; this assures uniqueness of found paths
+            files.update(list(glob.glob(gs, recursive=True)))
 
         # See if some files should be ignored
         if ignore:
@@ -552,10 +570,10 @@ class DataManager(OrderedDataGroup):
                 rmf = ignore.pop()
                 try:
                     files.remove(rmf)
-                except ValueError:
-                    log.debug("%s was not found in files list.", rmf)
+                except KeyError:
+                    log.debug("%s was not found in set of files.", rmf)
                 else:
-                    log.debug("%s removed from files list.", rmf)
+                    log.debug("%s removed from set of files.", rmf)
 
         # Now the file list is final
         log.debug("Found %d files for loader '%s':\n  %s",
@@ -564,12 +582,13 @@ class DataManager(OrderedDataGroup):
         if not files:
             # No files found; can exit here, one way or another
             if not required:
-                raise MissingDataError("No files matching glob_str '{}' "
-                                       "(and ignoring {}).".format(glob_str,
-                                                                   ignore))
-            raise RequiredDataMissingError("No files matching '{}' (and "
-                                           "ignoring {}) were found, but "
-                                           "entry '{}' was marked as required."
+                raise MissingDataError("No files found matching `glob_str` "
+                                       "{} (and ignoring {})."
+                                       "".format(glob_str, ignore))
+            raise RequiredDataMissingError("No files found matching "
+                                           "`glob_str` {} (and ignoring {}) "
+                                           "were found, but entry '{}' was "
+                                           "marked as required!"
                                            "".format(glob_str, ignore,
                                                      entry_name))
 
@@ -595,7 +614,7 @@ class DataManager(OrderedDataGroup):
             # ignored as the basename was already chosen
 
             # Load the data using the loader function
-            data = load_func(files[0], TargetCls=TargetCls, **loader_kwargs)
+            data = load_func(files.pop(), TargetCls=TargetCls, **loader_kwargs)
 
             log.debug("Finished loading a single file for entry %s.",
                       entry_name)

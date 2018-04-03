@@ -189,6 +189,12 @@ def test_loading(dm):
 
     print("{:tree}".format(dm))
 
+    # If given a list of glob strings, possibly matching files more than once, they should only be loaded once
+    dm.load('multiglob', loader='yaml', glob_str=['*.yml', '*yml'])
+    assert len(dm['multiglob']) == 4  # 8 files match, only 4 should be loaded
+    
+    print("{:tree}".format(dm))
+
 
 def test_loading_errors(dm):
     """Test the cases in which errors are raised or warnings are created."""
