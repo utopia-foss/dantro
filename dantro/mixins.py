@@ -4,6 +4,7 @@ import logging
 
 import dantro.base
 import operator
+import math
 log = logging.getLogger(__name__)
 
 # Local variables
@@ -23,7 +24,7 @@ class NumbersMixin():
     """This Mixin class implements the methods needed for calculating with numbers
     """
     
-    def _apply_to_copy_numbersmixin(self, func, other):
+    def _apply_to_copy_numbersmixin(self, func, other=None):
         """Apply a given function to a copy for all datatypes
         
         Returns:
@@ -32,10 +33,13 @@ class NumbersMixin():
         # Work on a copy
         new = self.copy()
         # Change the data of the new object
-        if isinstance(other, dantro.base.BaseDataContainer):
-            new._data = func(new.data, other.data)
+        if other is None:
+            new._data = func(new.data)
         else:
-            new._data = func(new.data, other)
+            if isinstance(other, dantro.base.BaseDataContainer):
+                new._data = func(new.data, other.data)
+            else:
+                new._data = func(new.data, other)
         return new
 
     def _apply_inplace_numbersmixin(self, func, other):
@@ -115,6 +119,7 @@ class NumbersMixin():
         """
         return self._apply_to_copy_numbersmixin(operator.pow, other)
 
+    # inplace operations
     def __iadd__(self, other):
         """Add two objects
         
@@ -170,6 +175,96 @@ class NumbersMixin():
             Self with modified data
         """
         return self._apply_inplace_numbersmixin(operator.ipow, other)
+
+    # unitary operations
+    def __neg__(self):
+        """Negative numbers
+        
+        Returns:
+            A new object with negative elements
+        """
+        return self._apply_to_copy_numbersmixin(operator.neg)
+
+    def __pos__(self):
+        """Negative numbers
+        
+        Returns:
+            A new object with negative elements
+        """
+        return self._apply_to_copy_numbersmixin(operator.pos)
+
+    def __abs__(self):
+        """Absolute value
+
+        Returns:
+            A new object with the absolute value of the elements
+        """
+        return self._apply_to_copy_numbersmixin(operator.abs)
+
+    def __invert__(self):
+        """Inverse value
+
+        Returns:
+            A new object with the inverted values of the elements
+        """
+        return self._apply_to_copy_numbersmixin(operator.invert)
+
+    def __complex__(self):
+        """Complex numbers
+
+        Returns:
+            A new object as complex number
+        """
+        return self._apply_to_copy_numbersmixin(complex)
+
+    def __int__(self):
+        """Integer numbers
+
+        Returns:
+            A new object as integer
+        """
+        return self._apply_to_copy_numbersmixin(int)
+
+    def __float__(self):
+        """Float numbers
+
+        Returns:
+            A new object as float
+        """
+        return self._apply_to_copy_numbersmixin(float)
+
+    def __round__(self):
+        """Rounds number to nearest integer
+
+        Returns:
+            A new object as rounded number to nearest integer
+        """
+        return self._apply_to_copy_numbersmixin(round)
+
+    def __ceil__(self):
+        """Smallest integer
+
+        Returns:
+            A new object containing the smallest integer
+        """
+        return self._apply_to_copy_numbersmixin(math.ceil)
+
+    def __floor__(self):
+        """Largest integer
+
+        Returns:
+            A new object containing the largest element
+        """
+        return self._apply_to_copy_numbersmixin(math.floor)
+
+    def __trunc__(self):
+        """Truncated to the nearest integer toward 0
+
+        Returns:
+            A new object containing the truncated element
+        """
+        return self._apply_to_copy_numbersmixin(math.trunc)
+
 
 class ComparisonMixin():
     """This Mixin implements functions to compare objects"""

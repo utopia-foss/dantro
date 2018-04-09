@@ -4,6 +4,7 @@ import pytest
 
 from dantro.container import MutableSequenceContainer, NumpyDataContainer
 import numpy as np
+import math
 # Fixtures --------------------------------------------------------------------
 
 
@@ -183,6 +184,33 @@ def test_numpy_data_container():
     ndc1_inplace **= ndc2_inplace
     npa1_inplace **= npa2_inplace
     assert (ndc1_inplace.all() == npa1_inplace.all())
+
+    # Test unitary operations
+    l1 = [1.,-2.,3.]
+    l2 = [-2.,4.,6.]
+    ndc1 = NumpyDataContainer(name="oof", data=np.array(l1))
+    ndc2 = NumpyDataContainer(name="zab", data=np.array(l2))
+    npa1 = np.array(l1)
+    npa2 = np.array(l2)
+
+    assert (-ndc1).all() == (-npa1).all()
+    assert (+ndc1).all() == (+npa1).all()
+    assert abs(ndc1).all() == abs(npa1).all()
+    assert ~ndc1.all() == ~npa1.all()
+    with pytest.raises(TypeError):
+        complex(ndc1)
+    with pytest.raises(TypeError):
+        int(ndc1)
+    with pytest.raises(TypeError):
+        float(ndc1)
+    with pytest.raises(TypeError):
+        round(ndc1)
+    with pytest.raises(TypeError):
+        math.ceil(ndc1)
+    with pytest.raises(TypeError):
+        math.floor(ndc1)
+    with pytest.raises(TypeError):
+        math.trunc(ndc1)
 
     # Test ComparisonMixin
     l1 = [1,2,3]
