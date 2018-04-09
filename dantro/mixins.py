@@ -208,3 +208,7 @@ class ComparisonMixin():
     def __ge__(self, other):
         """Greater than or equal"""
         return self._apply_inplace_comparison(operator.ge, other)
+
+    def __bool__(self):
+        """Truth value"""
+        return bool(self.data)
