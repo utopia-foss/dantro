@@ -109,8 +109,18 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
         return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
                          **target_init_kwargs)
 
-    def copy(self, **target_init_kwargs):
-        return self.convert_to(type(self), **target_init_kwargs)
+    def copy(self):
+        """Return a copy of this NumpyDataContainer.
+
+        NOTE that this will create copies of the stored data.
+        """
+        log.debug("Creating copy of %s ...", self.logstr)
+        return self.__class__(name=self.name + "_copy",
+                              data=self.data.copy(),
+                              attrs={k:v for k, v in self.attrs})
+
+    # Disallow usage of some unary functions (added by NumbersMixin) which
+    # don't make sense with the np.ndarray data
 
     def __invert__(self):
         """Inverse value"""
