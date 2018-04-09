@@ -244,27 +244,27 @@ class ComparisonMixin():
 
     def __eq__(self, other):
         """Equality"""
-        return apply_boolean_func_inplace(self, operator.eq, other)
+        return self.data == get_data(other)
 
     def __ne__(self, other):
         """Inequality"""
-        return apply_boolean_func_inplace(self, operator.ne, other)
+        return self.data != get_data(other)
     
     def __lt__(self, other):
         """Less than"""
-        return apply_boolean_func_inplace(self, operator.lt, other)
+        return self.data < get_data(other)
 
     def __le__(self, other):
         """Less than or equal"""
-        return apply_boolean_func_inplace(self, operator.le, other)
+        return self.data <= get_data(other)
 
     def __gt__(self, other):
         """Greater than"""
-        return apply_boolean_func_inplace(self, operator.gt, other)
+        return self.data > get_data(other)
 
     def __ge__(self, other):
         """Greater than or equal"""
-        return apply_boolean_func_inplace(self, operator.ge, other)
+        return self.data >= get_data(other)
 
     def __bool__(self):
         """Truth value"""
@@ -274,6 +274,16 @@ class ComparisonMixin():
 # -----------------------------------------------------------------------------
 # Helpers ---------------------------------------------------------------------
 # -----------------------------------------------------------------------------
+
+def get_data(obj):
+    """Get the data 
+    """
+
+    if isinstance(obj, dantro.base.BaseDataContainer):
+        return obj.data
+    # Not dantro-based, just return the object itself.
+    return obj
+
 
 def apply_func_to_copy(obj, func, other=None):
     """Apply a given function to a copy for all datatypes
@@ -308,18 +318,3 @@ def apply_func_inplace(obj, func, other=None):
         else:
             func(obj._data, other)
     return obj
-
-def apply_boolean_func_inplace(obj, func, other=None):
-    """Apply a given comparison function inplace for all datatypes
-    
-    Returns:
-        Boolean values whether the condition is met or not
-    """
-    # Change the data of the new object
-    if other is None:
-        return func(obj._data)
-    else:
-        if isinstance(other, dantro.base.BaseDataContainer):
-            return func(obj._data, other.data)
-        else:
-            return func(obj._data, other)
