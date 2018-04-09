@@ -151,6 +151,41 @@ def test_numpy_data_container():
         assert divmod_number.data[1][i] == mod_npa_number[i]
         assert power_number.data[i] == power_number[i]
 
+    # Test inplace operations
+    l1 = [1,2,3]
+    l2 = [2,4,6]
+    ndc1_inplace = NumpyDataContainer(name="oof", data=np.array(l1))
+    ndc2_inplace = NumpyDataContainer(name="zab", data=np.array(l2))
+    npa1_inplace = np.array(l1)
+    npa2_inplace = np.array(l2)
+
+    ndc1_inplace += ndc2_inplace
+    npa1_inplace += npa2_inplace
+    assert (ndc1_inplace.all() == npa1_inplace.all())
+
+    ndc1_inplace -= ndc2_inplace
+    npa1_inplace -= npa2_inplace
+    assert (ndc1_inplace.all() == npa1_inplace.all())
+
+    ndc1_inplace *= ndc2_inplace
+    npa1_inplace *= npa2_inplace
+    assert (ndc1_inplace.all() == npa1_inplace.all())
+
+    # ndc1_inplace /= ndc2_inplace
+    # npa1_inplace /= npa2_inplace
+    # assert (ndc1_inplace.all() == npa1_inplace.all())
+
+    ndc1_inplace //= ndc2_inplace
+    npa1_inplace //= npa2_inplace
+    assert (ndc1_inplace.all() == npa1_inplace.all())
+
+    ndc1_inplace %= ndc2_inplace
+    npa1_inplace %= npa2_inplace
+    assert (ndc1_inplace.all() == npa1_inplace.all())
+    
+    ndc1_inplace **= ndc2_inplace
+    npa1_inplace **= npa2_inplace
+    assert (ndc1_inplace.all() == npa1_inplace.all())
 
     # Test ComparisonMixin
     l1 = [1,2,3]
