@@ -92,8 +92,12 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
         log.debug("NumpyDataContainer.__init__ finished")
 
     def _format_info(self) -> str:
-        """A __format__ helper function: returns info about the item"""
-        return "{} elements are in the {} dimensional data".format(self.data.size, self.data.ndim)
+        """A __format__ helper function: returns info about the item
+
+        In this case, the dtype and shape of the stored data is returned. Note
+        that this relies on the ForwardAttrsToDataMixin.
+        """
+        return "{}, shape {}".format(self.dtype, self.shape)
 
     def convert_to(self, TargetCls, **target_init_kwargs):
         """With this method, a TargetCls object can be created from this
@@ -110,32 +114,40 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
 
     def __invert__(self):
         """Inverse value"""
-        raise NotImplementedError("The invert operation is not implemented for NumpyDataContainer!")
+        raise NotImplementedError("__invert__ not supported for {}!"
+                                  "".format(self.logstr))
 
     def __complex__(self):
         """Complex value"""
-        raise NotImplementedError("The complex operation is not implemented for NumpyDataContainer!")
+        raise NotImplementedError("__complex__ not supported for {}!"
+                                  "".format(self.logstr))
 
     def __int__(self):
         """Inverse value"""
-        raise NotImplementedError("The int operation is not implemented for NumpyDataContainer!")
+        raise NotImplementedError("__int__ not supported for {}!"
+                                  "".format(self.logstr))
 
     def __float__(self):
         """Float value"""
-        raise NotImplementedError("The float operation is not implemented for NumpyDataContainer!")
+        raise NotImplementedError("__float__ not supported for {}!"
+                                  "".format(self.logstr))
 
     def __round__(self):
         """Round value"""
-        raise NotImplementedError("The round operation is not implemented for NumpyDataContainer!")
+        raise NotImplementedError("__round__ not supported for {}!"
+                                  "".format(self.logstr))
 
     def __ceil__(self):
         """Ceil value"""
-        raise NotImplementedError("The ceil operation is not implemented for NumpyDataContainer!")
+        raise NotImplementedError("__ceil__ not supported for {}!"
+                                  "".format(self.logstr))
     
     def __floor__(self):
         """Floor value"""
-        raise NotImplementedError("The floor operation is not implemented for NumpyDataContainer!")
+        raise NotImplementedError("__floor__ not supported for {}!"
+                                  "".format(self.logstr))
     
     def __trunc__(self):
         """Truncated to the nearest integer toward 0"""
-        raise NotImplementedError("The trunc operation is not implemented for NumpyDataContainer!")
+        raise NotImplementedError("__trunc__ not supported for {}!"
+                                  "".format(self.logstr))
