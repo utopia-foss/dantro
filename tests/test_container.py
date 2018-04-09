@@ -107,19 +107,17 @@ def test_numpy_data_container():
     mod_npa = npa1 % npa2
     power_npa = npa1 ** npa2
         
-    
-    for i in [0,1,2]:
-        assert add.data[i] == add_npa[i] 
-        assert sub.data[i] == sub_npa[i] 
-        assert mult.data[i] == mult_npa[i] 
-        assert div.data[i] == div_npa[i] 
-        assert floordiv.data[i] == floordiv_npa[i] 
-        assert mod.data[i] == mod_npa[i] 
-        assert div_mod.data[0][i] == floordiv_npa[i] 
-        assert div_mod.data[1][i] == mod_npa[i]
-        assert power.data[i] == power_npa[i] 
+    assert add.data.all() == add_npa.all() 
+    assert sub.data.all() == sub_npa.all() 
+    assert mult.data.all() == mult_npa.all() 
+    assert div.data.all() == div_npa.all() 
+    assert floordiv.data.all() == floordiv_npa.all() 
+    assert mod.data.all() == mod_npa.all() 
+    assert div_mod.data[0].all() == floordiv_npa.all() 
+    assert div_mod.data[1].all() == mod_npa.all()
+    assert power.data.all() == power_npa.all() 
 
-        assert ndc1.data[i] == npa1[i]
+    assert ndc1.data.all() == npa1.all()
 
     # Test NumbersMixin function for operations on one numpy array and a number
     add_number = ndc1 + 4.2
@@ -140,16 +138,15 @@ def test_numpy_data_container():
     mod_npa_number = npa1 % 4.2
     power_npa_number = npa1 ** 4.2
 
-    for i in [0,1,2]:
-        assert add_number.data[i] == add_npa_number[i] 
-        assert sub_number.data[i] == sub_npa_number[i] 
-        assert mult_number.data[i] == mult_npa_number[i] 
-        assert div_number.data[i] == div_npa_number[i] 
-        assert floordiv_number.data[i] == floordiv_npa_number[i] 
-        assert mod_number.data[i] == mod_npa_number[i] 
-        assert divmod_number.data[0][i] == floordiv_npa_number[i] 
-        assert divmod_number.data[1][i] == mod_npa_number[i]
-        assert power_number.data[i] == power_number[i]
+    assert add_number.data.all() == add_npa_number.all() 
+    assert sub_number.data.all() == sub_npa_number.all() 
+    assert mult_number.data.all() == mult_npa_number.all() 
+    assert div_number.data.all() == div_npa_number.all() 
+    assert floordiv_number.data.all() == floordiv_npa_number.all() 
+    assert mod_number.data.all() == mod_npa_number.all() 
+    assert divmod_number.data[0].all() == floordiv_npa_number.all() 
+    assert divmod_number.data[1].all() == mod_npa_number.all()
+    assert power_number.data.all() == power_number.all()
 
     # Test inplace operations
     l1 = [1,2,3]
@@ -209,10 +206,9 @@ def test_numpy_data_container():
     gt_npa = (npa1 > npa2)
     ge_npa = (npa1 >= npa2)
 
-    for i in [0,1,2]:
-        assert eq[i] == eq_npa[i]
-        assert ne[i] == ne_npa[i]
-        assert lt[i] == lt_npa[i]
-        assert le[i] == le_npa[i]
-        assert gt[i] == gt_npa[i]
-        assert ge[i] == ge_npa[i]
+    assert eq.all() == eq_npa.all()
+    assert ne.all() == ne_npa.all()
+    assert lt.all() == lt_npa.all()
+    assert le.all() == le_npa.all()
+    assert gt.all() == gt_npa.all()
+    assert ge.all() == ge_npa.all()
