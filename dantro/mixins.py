@@ -278,7 +278,6 @@ class ComparisonMixin():
 def get_data(obj):
     """Get the data 
     """
-
     if isinstance(obj, dantro.base.BaseDataContainer):
         return obj.data
     # Not dantro-based, just return the object itself.
@@ -302,6 +301,7 @@ def apply_func_to_copy(obj, func, other=None):
         else:
             new._data = func(new.data, other)
     return new
+
 
 def apply_func_inplace(obj, func, other=None):
     """Apply a given function inplace for all datatypes
