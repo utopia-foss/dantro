@@ -149,8 +149,8 @@ def test_numpy_data_container():
     assert power_number.data.all() == power_number.all()
 
     # Test inplace operations
-    l1 = [1,2,3]
-    l2 = [2,4,6]
+    l1 = [1.,2.,3.]
+    l2 = [2.,4.,6.]
     ndc1_inplace = NumpyDataContainer(name="oof", data=np.array(l1))
     ndc2_inplace = NumpyDataContainer(name="zab", data=np.array(l2))
     npa1_inplace = np.array(l1)
@@ -168,9 +168,9 @@ def test_numpy_data_container():
     npa1_inplace *= npa2_inplace
     assert (ndc1_inplace.all() == npa1_inplace.all())
 
-    # ndc1_inplace /= ndc2_inplace
-    # npa1_inplace /= npa2_inplace
-    # assert (ndc1_inplace.all() == npa1_inplace.all())
+    ndc1_inplace /= ndc2_inplace
+    npa1_inplace /= npa2_inplace
+    assert (ndc1_inplace.all() == npa1_inplace.all())
 
     ndc1_inplace //= ndc2_inplace
     npa1_inplace //= npa2_inplace
