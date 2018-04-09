@@ -276,7 +276,14 @@ class ComparisonMixin():
 # -----------------------------------------------------------------------------
 
 def get_data(obj):
-    """Get the data 
+    """Get the data of `obj` depending on whether it is part of dantro or not.
+    
+    Args:
+        obj: The object to check
+    
+    Returns:
+        Either the `.data` attribute of a dantro-based object or otherwise the
+            object itself.
     """
     if isinstance(obj, dantro.base.BaseDataContainer):
         return obj.data
