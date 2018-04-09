@@ -23,8 +23,8 @@ class NumbersMixin():
     """This Mixin class implements the methods needed for calculating with numbers
     """
     
-    def _apply_for_all_datatypes(self, func, other):
-        """Apply a given function for all datatypes
+    def _apply_to_copy(self, func, other):
+        """Apply a given function to a copy for all datatypes
         
         Returns:
             An object with the data on which the function was applied
@@ -44,7 +44,7 @@ class NumbersMixin():
         Returns:
             A new object containing the summed data
         """
-        return self._apply_for_all_datatypes(operator.add, other)
+        return self._apply_to_copy(operator.add, other)
 
     def __sub__(self, other):
         """Subtract two objects
@@ -52,7 +52,7 @@ class NumbersMixin():
         Returns:
             A new object containing the subtracted data
         """
-        return self._apply_for_all_datatypes(operator.sub, other)
+        return self._apply_to_copy(operator.sub, other)
 
     def __mul__(self, other):
         """Multiply two objects
@@ -60,7 +60,7 @@ class NumbersMixin():
         Returns:
             A object containing the multiplied data
         """
-        return self._apply_for_all_datatypes(operator.mul, other)
+        return self._apply_to_copy(operator.mul, other)
 
     def __truediv__(self, other):
         """Divide two objects
@@ -68,7 +68,7 @@ class NumbersMixin():
         Returns:
             A new object containing the divided data
         """
-        return self._apply_for_all_datatypes(operator.truediv, other)
+        return self._apply_to_copy(operator.truediv, other)
 
     def __floordiv__(self, other):
         """Floor divide two objects
@@ -76,7 +76,7 @@ class NumbersMixin():
         Returns:
             A new object containing the floor divided data
         """
-        return self._apply_for_all_datatypes(operator.floordiv, other)
+        return self._apply_to_copy(operator.floordiv, other)
 
     def __mod__(self, other):
         """Calculate the modulo of two objects
@@ -84,7 +84,7 @@ class NumbersMixin():
         Returns:
             A new object containing the summed data
         """
-        return self._apply_for_all_datatypes(operator.mod, other)
+        return self._apply_to_copy(operator.mod, other)
 
     def __divmod__(self, other):
         """Calculate the floor division and modulo of two objects
@@ -92,7 +92,7 @@ class NumbersMixin():
         Returns:
             A new object containing the floor divided data and its modulo
         """
-        return self._apply_for_all_datatypes(divmod, other)
+        return self._apply_to_copy(divmod, other)
 
     def __pow__(self, other):
         """Calculate the self data to the power of other data
@@ -100,12 +100,12 @@ class NumbersMixin():
         Returns:
             A new object containing the result
         """
-        return self._apply_for_all_datatypes(operator.pow, other)
+        return self._apply_to_copy(operator.pow, other)
 
 class ComparisonMixin():
     """This Mixin implements functions to compare objects"""
 
-    def _apply_for_all_datatypes(self, func, other):
+    def _apply_inplace(self, func, other):
         """Apply a given function for all datatypes
         
         Returns:
@@ -118,24 +118,24 @@ class ComparisonMixin():
 
     def __eq__(self, other):
         """Equality"""
-        return self._apply_for_all_datatypes(operator.eq, other)
+        return self._apply_inplace(operator.eq, other)
 
     def __ne__(self, other):
         """Inequality"""
-        return self._apply_for_all_datatypes(operator.ne, other)
+        return self._apply_inplace(operator.ne, other)
     
     def __lt__(self, other):
         """Less than"""
-        return self._apply_for_all_datatypes(operator.lt, other)
+        return self._apply_inplace(operator.lt, other)
 
     def __le__(self, other):
         """Less than or equal"""
-        return self._apply_for_all_datatypes(operator.le, other)
+        return self._apply_inplace(operator.le, other)
 
     def __gt__(self, other):
         """Greater than"""
-        return self._apply_for_all_datatypes(operator.gt, other)
+        return self._apply_inplace(operator.gt, other)
 
     def __ge__(self, other):
         """Greater than or equal"""
-        return self._apply_for_all_datatypes(operator.ge, other)
+        return self._apply_inplace(operator.ge, other)
