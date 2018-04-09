@@ -20,7 +20,100 @@ class ForwardAttrsToDataMixin():
         return getattr(self.data, attr_name)
 
 
-class NumbersMixin():
+class UnaryOperationsMixin():
+    """This Mixin class implements the methods needed for unary operations
+    """
+
+    def __neg__(self):
+        """Negative numbers
+        
+        Returns:
+            A new object with negative elements
+        """
+        return apply_func_to_copy(self, operator.neg)
+
+    def __pos__(self):
+        """Negative numbers
+        
+        Returns:
+            A new object with negative elements
+        """
+        return apply_func_to_copy(self, operator.pos)
+
+    def __abs__(self):
+        """Absolute value
+
+        Returns:
+            A new object with the absolute value of the elements
+        """
+        return apply_func_to_copy(self, operator.abs)
+
+    def __invert__(self):
+        """Inverse value
+
+        Returns:
+            A new object with the inverted values of the elements
+        """
+        return apply_func_to_copy(self, operator.invert)
+
+    def __complex__(self):
+        """Complex numbers
+
+        Returns:
+            A new object as complex number
+        """
+        return apply_func_to_copy(self, complex)
+
+    def __int__(self):
+        """Integer numbers
+
+        Returns:
+            A new object as integer
+        """
+        return apply_func_to_copy(self, int)
+
+    def __float__(self):
+        """Float numbers
+
+        Returns:
+            A new object as float
+        """
+        return apply_func_to_copy(self, float)
+
+    def __round__(self):
+        """Rounds number to nearest integer
+
+        Returns:
+            A new object as rounded number to nearest integer
+        """
+        return apply_func_to_copy(self, round)
+
+    def __ceil__(self):
+        """Smallest integer
+
+        Returns:
+            A new object containing the smallest integer
+        """
+        return apply_func_to_copy(self, math.ceil)
+
+    def __floor__(self):
+        """Largest integer
+
+        Returns:
+            A new object containing the largest element
+        """
+        return apply_func_to_copy(self, math.floor)
+
+    def __trunc__(self):
+        """Truncated to the nearest integer toward 0
+
+        Returns:
+            A new object containing the truncated element
+        """
+        return apply_func_to_copy(self, math.trunc)
+
+
+class NumbersMixin(UnaryOperationsMixin):
     """This Mixin class implements the methods needed for calculating with numbers
     """
 
@@ -144,95 +237,6 @@ class NumbersMixin():
             Self with modified data
         """
         return apply_func_inplace(self, operator.ipow, other)
-
-    # unitary operations
-    def __neg__(self):
-        """Negative numbers
-        
-        Returns:
-            A new object with negative elements
-        """
-        return apply_func_to_copy(self, operator.neg)
-
-    def __pos__(self):
-        """Negative numbers
-        
-        Returns:
-            A new object with negative elements
-        """
-        return apply_func_to_copy(self, operator.pos)
-
-    def __abs__(self):
-        """Absolute value
-
-        Returns:
-            A new object with the absolute value of the elements
-        """
-        return apply_func_to_copy(self, operator.abs)
-
-    def __invert__(self):
-        """Inverse value
-
-        Returns:
-            A new object with the inverted values of the elements
-        """
-        return apply_func_to_copy(self, operator.invert)
-
-    def __complex__(self):
-        """Complex numbers
-
-        Returns:
-            A new object as complex number
-        """
-        return apply_func_to_copy(self, complex)
-
-    def __int__(self):
-        """Integer numbers
-
-        Returns:
-            A new object as integer
-        """
-        return apply_func_to_copy(self, int)
-
-    def __float__(self):
-        """Float numbers
-
-        Returns:
-            A new object as float
-        """
-        return apply_func_to_copy(self, float)
-
-    def __round__(self):
-        """Rounds number to nearest integer
-
-        Returns:
-            A new object as rounded number to nearest integer
-        """
-        return apply_func_to_copy(self, round)
-
-    def __ceil__(self):
-        """Smallest integer
-
-        Returns:
-            A new object containing the smallest integer
-        """
-        return apply_func_to_copy(self, math.ceil)
-
-    def __floor__(self):
-        """Largest integer
-
-        Returns:
-            A new object containing the largest element
-        """
-        return apply_func_to_copy(self, math.floor)
-
-    def __trunc__(self):
-        """Truncated to the nearest integer toward 0
-
-        Returns:
-            A new object containing the truncated element
-        """
-        return apply_func_to_copy(self, math.trunc)
 
 
 class ComparisonMixin():

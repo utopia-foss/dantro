@@ -107,3 +107,35 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
 
     def copy(self, **target_init_kwargs):
         return self.convert_to(type(self), **target_init_kwargs)
+
+    def __invert__(self):
+        """Inverse value"""
+        raise NotImplementedError("The invert operation is not implemented for NumpyDataContainer!")
+
+    def __complex__(self):
+        """Complex value"""
+        raise NotImplementedError("The complex operation is not implemented for NumpyDataContainer!")
+
+    def __int__(self):
+        """Inverse value"""
+        raise NotImplementedError("The int operation is not implemented for NumpyDataContainer!")
+
+    def __float__(self):
+        """Float value"""
+        raise NotImplementedError("The float operation is not implemented for NumpyDataContainer!")
+
+    def __round__(self):
+        """Round value"""
+        raise NotImplementedError("The round operation is not implemented for NumpyDataContainer!")
+
+    def __ceil__(self):
+        """Ceil value"""
+        raise NotImplementedError("The ceil operation is not implemented for NumpyDataContainer!")
+    
+    def __floor__(self):
+        """Floor value"""
+        raise NotImplementedError("The floor operation is not implemented for NumpyDataContainer!")
+    
+    def __trunc__(self):
+        """Truncated to the nearest integer toward 0"""
+        raise NotImplementedError("The trunc operation is not implemented for NumpyDataContainer!")

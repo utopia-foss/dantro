@@ -197,19 +197,19 @@ def test_numpy_data_container():
     assert (+ndc1).all() == (+npa1).all()
     assert abs(ndc1).all() == abs(npa1).all()
     assert ~ndc1.all() == ~npa1.all()
-    with pytest.raises(TypeError):
+    with pytest.raises(NotImplementedError):
         complex(ndc1)
-    with pytest.raises(TypeError):
+    with pytest.raises(NotImplementedError):
         int(ndc1)
-    with pytest.raises(TypeError):
+    with pytest.raises(NotImplementedError):
         float(ndc1)
-    with pytest.raises(TypeError):
+    with pytest.raises(NotImplementedError):
         round(ndc1)
-    with pytest.raises(TypeError):
+    with pytest.raises(NotImplementedError):
         math.ceil(ndc1)
-    with pytest.raises(TypeError):
+    with pytest.raises(NotImplementedError):
         math.floor(ndc1)
-    with pytest.raises(TypeError):
+    with pytest.raises(NotImplementedError):
         math.trunc(ndc1)
 
     # Test ComparisonMixin
