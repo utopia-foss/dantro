@@ -212,3 +212,6 @@ def test_numpy_data_container():
     assert le.all() == le_npa.all()
     assert gt.all() == gt_npa.all()
     assert ge.all() == ge_npa.all()
+
+    with pytest.raises(ValueError):
+        bool(ndc1)
