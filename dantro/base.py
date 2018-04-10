@@ -437,8 +437,9 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         # Check that it was already associated
         if new_child not in self:
             raise ValueError("{} needs to be a child of {} _before_ it can "
-                             "be linked.".format(new_child.logstr,
-                                                 self.logstr))
+                             "be linked. Use the add method to add the child "
+                             "to the group.".format(new_child.logstr,
+                                                    self.logstr))
         new_child.parent = self
 
         if old_child is not None:
@@ -473,7 +474,11 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
             bool: Whether the given container is in this group.
         """
         if isinstance(cont, (BaseDataGroup, BaseDataContainer)):
-            return bool(cont in self.values())
+            # Implement a contains-check via is-relationships
+            for obj in self.values():
+                if obj is cont:
+                    return True 
+            return False
 
         elif not isinstance(cont, list):
             # assume it is a string

@@ -1,10 +1,16 @@
 """Test the BaseDataContainer-derived classes"""
 
+import math
+
+import numpy as np
+
 import pytest
 
 from dantro.container import MutableSequenceContainer, NumpyDataContainer
-import numpy as np
-import math
+
+# Local constants
+
+
 # Fixtures --------------------------------------------------------------------
 
 
@@ -185,7 +191,7 @@ def test_numpy_data_container():
     npa1_inplace **= npa2_inplace
     assert (ndc1_inplace.all() == npa1_inplace.all())
 
-    # Test unitary operations
+    # Test unary operations
     l1 = [1.,-2.,3.]
     l2 = [-2.,4.,6.]
     ndc1 = NumpyDataContainer(name="oof", data=np.array(l1))
@@ -197,6 +203,9 @@ def test_numpy_data_container():
     assert (+ndc1).all() == (+npa1).all()
     assert abs(ndc1).all() == abs(npa1).all()
     assert ~ndc1.all() == ~npa1.all()
+
+    # Assert that some functions are not available in the NumpyDataContainer
+    # as they make no sense with (most of the possible) np.ndarray-data
     with pytest.raises(NotImplementedError):
         complex(ndc1)
     with pytest.raises(NotImplementedError):
