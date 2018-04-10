@@ -3,9 +3,9 @@
 import warnings
 import logging
 from collections.abc import MutableSequence
-
+import numpy as np
 from dantro.base import BaseDataContainer, ItemAccessMixin, CollectionMixin
-
+from dantro.mixins import ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin
 # Local constants
 log = logging.getLogger(__name__)
 
@@ -62,3 +62,80 @@ class MutableSequenceContainer(ItemAccessMixin, CollectionMixin, BaseDataContain
         """
         return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
                          **target_init_kwargs)
+
+class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin, ItemAccessMixin, BaseDataContainer):
+    """The NumpyDataContainer stores data that is numpy.ndarray-like"""
+
+    def __init__(self, *, name: str, data, **dc_kwargs):
+        """Initialize a NumpyDataContainer, storing data that is like a numpy.ndarray.
+        
+        Arguments:
+            name (str) -- The name of this container
+            data (np.ndarray) -- The numpy.ndarray-like data to store
+            **dc_kwargs: Description
+        """
+
+        log.debug("NumpyDataConainer.__init__ called.")
+
+        # check whether the data is a numpy.ndarray.dtype
+        if not isinstance(data, np.ndarray):
+            warnings.warn("The data given to {} '{}' was not identified as a "
+                          "MutableSequence, but as '{}'. Initialisation will "
+                          "work, but be informed that there might be errors "
+                          "later on.".format(self.classname, name, type(data)),
+                          UserWarning)
+
+        #initialize with parent method
+        super().__init__(name=name, data=data, **dc_kwargs)
+
+        # Done.
+        log.debug("NumpyDataContainer.__init__ finished")
+
+    def _format_info(self) -> str:
+        """A __format__ helper function: returns info about the item"""
+        return "{} elements are in the {} dimensional data".format(self.data.size, self.data.ndim)
+
+    def convert_to(self, TargetCls, **target_init_kwargs):
+        """With this method, a TargetCls object can be created from this
+        particular container instance.
+        
+        Conversion might not be possible if TargetCls requires more information
+        than is available in this container.
+        """
+        return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
+                         **target_init_kwargs)
+
+    def copy(self, **target_init_kwargs):
+        return self.convert_to(type(self), **target_init_kwargs)
+
+    def __invert__(self):
+        """Inverse value"""
+        raise NotImplementedError("The invert operation is not implemented for NumpyDataContainer!")
+
+    def __complex__(self):
+        """Complex value"""
+        raise NotImplementedError("The complex operation is not implemented for NumpyDataContainer!")
+
+    def __int__(self):
+        """Inverse value"""
+        raise NotImplementedError("The int operation is not implemented for NumpyDataContainer!")
+
+    def __float__(self):
+        """Float value"""
+        raise NotImplementedError("The float operation is not implemented for NumpyDataContainer!")
+
+    def __round__(self):
+        """Round value"""
+        raise NotImplementedError("The round operation is not implemented for NumpyDataContainer!")
+
+    def __ceil__(self):
+        """Ceil value"""
+        raise NotImplementedError("The ceil operation is not implemented for NumpyDataContainer!")
+    
+    def __floor__(self):
+        """Floor value"""
+        raise NotImplementedError("The floor operation is not implemented for NumpyDataContainer!")
+    
+    def __trunc__(self):
+        """Truncated to the nearest integer toward 0"""
+        raise NotImplementedError("The trunc operation is not implemented for NumpyDataContainer!")
