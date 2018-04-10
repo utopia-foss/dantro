@@ -14,6 +14,7 @@ import logging
 from typing import Union
 
 import dantro.abc
+import dantro.tools as tools
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -33,11 +34,11 @@ class AttrsMixin:
     BaseDataAttrs-derived class.
 
     For changing the class that is used for the attributes, an overwrite of the
-    _AttrsClass class variable suffices.
+    _ATTRS_CLS class variable suffices.
     """
     # Define the class variables
     _attrs = None
-    _AttrsClass = None
+    _ATTRS_CLS = None
 
     @property
     def attrs(self):
@@ -48,17 +49,17 @@ class AttrsMixin:
     def attrs(self, new_attrs):
         """Setter method for the container `attrs` attribute."""
         # Decide which class to use for attributes
-        if self._AttrsClass is not None:
+        if self._ATTRS_CLS is not None:
             # Use the pre-defined one
-            AttrsClass = self._AttrsClass
+            AttrsCls = self._ATTRS_CLS
         else:
             # Use a default
-            AttrsClass = BaseDataAttrs
+            AttrsCls = BaseDataAttrs
 
         # Perform the initialisation
         log.debug("Using %s for attributes of %s",
-                  AttrsClass.__name__, self.logstr)
-        self._attrs = AttrsClass(name='attrs', attrs=new_attrs)
+                  AttrsCls.__name__, self.logstr)
+        self._attrs = AttrsCls(name='attrs', attrs=new_attrs)
 
 
 class PathMixin:
@@ -97,53 +98,6 @@ class PathMixin:
     def _format_path(self) -> str:
         """A __format__ helper function: returns the path to this container"""
         return self.path
-
-
-class ProxyMixin:
-    """This Mixin class overwrites the `data` property to allow proxy objects.
-
-    A proxy object is a place keeper for data that is not yet loaded. It will
-    only be loaded if `data` is directly accessed.
-    """
-
-    @property
-    def data(self):
-        """The container data. If the data is a proxy, this call will lead
-        to the resolution of the proxy.
-        
-        Returns:
-            The data stored in this container
-        """
-        # Have to check whether the data might be a proxy. If so, resolve it.
-        if self.data_is_proxy:
-            log.debug("Resolving %s for %s '%s' ...",
-                      self._data.__class__.__name__,
-                      self.classname, self.name)
-            self._data = self._data.resolve()
-
-        # Now, the data should be loaded and can be returned
-        return self._data
-
-    @property
-    def data_is_proxy(self) -> bool:
-        """Returns true, if this is proxy data
-        
-        Returns:
-            bool: Whether the _currently_ stored data is a proxy object
-        """
-        return isinstance(self._data, BaseDataProxy)
-
-    @property
-    def proxy_data(self):
-        """If the data is proxy, returns the proxy data object without using the .data attribute (which would trigger resolving the proxy); else returns None.
-        
-        Returns:
-            Union[BaseDataProxy, None]: If the data is proxy, return the
-                proxy object; else None.
-        """
-        if self.data_is_proxy:
-            return self._data
-        return None
 
 
 class CollectionMixin:
@@ -220,8 +174,12 @@ class BaseDataProxy(dantro.abc.AbstractDataProxy):
 
     NOTE: This is still an abstract class and needs to be subclassed.
     """
-    # Nothing to define here; the resolve method needs to be data-specific
-    pass
+
+    @abc.abstractmethod
+    def __init__(self, obj):
+        """Initialise a proxy object for the given object."""
+        super().__init__(obj)
+        log.debug("Initialising %s for %s ...", self.classname, type(obj))
 
 
 # -----------------------------------------------------------------------------
@@ -261,7 +219,7 @@ class BaseDataAttrs(MappingAccessMixin, dantro.abc.AbstractDataAttrs):
 
 # -----------------------------------------------------------------------------
 
-class BaseDataContainer(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataContainer):
+class BaseDataContainer(PathMixin, AttrsMixin, dantro.abc.AbstractDataContainer):
     """The BaseDataContainer extends the base class by its ability to holds attributes.
 
     NOTE: This is still an abstract class and needs to be subclassed.
@@ -301,7 +259,7 @@ class BaseDataContainer(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDa
 
 # -----------------------------------------------------------------------------
 
-class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
+class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
     """The BaseDataGroup serves as base group for all data groups.
 
     NOTE: This is still an abstract class and needs to be subclassed.
@@ -350,11 +308,16 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
             key = key.split(PATH_JOIN_CHAR)
 
         # Can be sure that this is a list now
-        # If there is more than one entry, need to call this recursively
-        if len(key) > 1:
-            return self.data[key[0]][key[1:]]
-        # else: end of recursion
-        return self.data[key[0]]
+        try:
+            # If there is more than one entry, need to call this recursively
+            if len(key) > 1:
+                return self.data[key[0]][key[1:]]
+            # else: end of recursion
+            return self.data[key[0]]
+
+        except (KeyError, IndexError) as err:
+            raise KeyError("No such key '{}' in {}! Full key sequence: {}"
+                           "".format(key[0], key, self.logstr)) from err
 
     def __setitem__(self, key: str, val: BaseDataContainer) -> None:
         """This method is used to allow access to the content of containers of
@@ -425,12 +388,41 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
                 old_cont = None
 
             # Write to data, assuring that the name is that of the container
-            self._data[cont.name] = cont
+            self.data[cont.name] = cont
 
             # Re-link
             self._link_child(new_child=cont, old_child=old_cont)
 
         log.debug("Added %d container(s) to %s.", len(conts), self.logstr)
+
+    def recursive_update(self, other):
+        """Recursively updates the contents of this data group with the entries
+        of the given data group"""
+
+        if not isinstance(other, BaseDataGroup):
+            raise TypeError("Can only update {} with objects of classes that "
+                            "are derived from BaseDataGroup. Got: {}"
+                            "".format(self.logstr, type(other)))
+
+        # Loop over the given DataGroup
+        for name, obj in other.items():
+            # Distinguish between the case where it is another group and where
+            # it is a container
+            if isinstance(obj, BaseDataGroup):
+                # Already a group -> if a group with the same name is already
+                # present, continue recursion. If not, just create an entry
+                # and add it to this group
+                if name in self:
+                    # Continue recursion
+                    self[name].recursive_update(obj)
+                else:
+                    self.add(obj)
+
+            else:
+                # Not a group; add it to this group
+                self.add(obj)
+
+        log.debug("Finished recursive update of %s.", self.logstr)
 
     # .........................................................................
     # Linking
@@ -458,9 +450,9 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
         This method should be called from any method that removes an item from
         this group, be it through deletion or through 
         """
-        if child not in self:
-            raise ValueError("{} is no child of {}!".format(child.logstr,
-                                                            self.logstr))
+        if child.parent is not self:
+            raise ValueError("{} was not linked to {}. Refuse to unlink."
+                             "".format(child.logstr, self.logstr))
         child.parent = None
 
     # .........................................................................
@@ -492,7 +484,10 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
 
         # is a list of keys, might have to check recursively
         if len(key_seq) > 1:
-            return bool(key_seq[1:] in self[key_seq[0]])
+            if key_seq[0] in self:
+                # Can continue recursion
+                return bool(key_seq[1:] in self[key_seq[0]])
+            return False
         return bool(key_seq[0] in self.keys())
 
     # .........................................................................
@@ -537,10 +532,59 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
         """Returns a multi-line string tree representation of this group."""
         return self._tree_repr()
 
-    def _tree_repr(self, level: int=0) -> str:
+    def _tree_repr(self, level: int=0, info_fstr="<{:cls_name,info}>", info_ratio: float=0.6) -> str:
         """Recursively creates a multi-line string tree representation of this
         group. This is used by, e.g., the _format_tree method."""
-        raise NotImplementedError
+        # Variable definitions and calculations
+        fstr = "{offset:}{mark:>3s} {name:<{name_width}s}  {info:}"
+        
+        num_cols = tools.TTY_COLS
+        lvl_factor = 4
+        offset = " " * lvl_factor * level
+        info_width = int(num_cols * info_ratio)
+        name_width = (num_cols - info_width) - (lvl_factor * level + 3 + 1 + 2)
+
+        # Choose a mark symbol; the first entry on a level has a different sym
+        first_mark = "\ -"
+        base_mark =  " |-"
+        mark = first_mark if level > 0 else base_mark
+
+        # Create the list to gather the lines in; add a description on level 0
+        lines = []
+        if level == 0:
+            lines.append("")
+            lines.append("Tree of {:logstr,info}".format(self))
+
+        # Go over the entries on this level and format the lines
+        for key, obj in self.items():
+            # Get key and info, truncate if necessary
+            name = key if len(key) <= name_width else key[:name_width-1]+"…"
+            info = info_fstr.format(obj)
+            info = info if len(info) <= info_width else info[:info_width-1]+"…"
+
+            # Format the line and add to list of lines
+            line = fstr.format(offset=offset, mark=mark, name_width=name_width,
+                               name=name, info=info)
+            lines.append(line)
+
+            # Change to the base mark (only relevant in first iteration)
+            mark = base_mark
+
+            # If it was a group and it is not empty...
+            if isinstance(obj, BaseDataGroup) and len(obj) > 0:
+                # ...continue recursion
+                lines += obj._tree_repr(level=level+1, info_fstr=info_fstr)
+
+        # Done, return them.
+        if level > 0:
+            # Within recursion: return the list of lines
+            return lines
+        
+        # Highest level; join the lines together and return that string
+        lines.append("")
+        return "\n".join(lines)
+
+
 
     # .........................................................................
     # Conversion
@@ -549,6 +593,5 @@ class BaseDataGroup(PathMixin, ProxyMixin, AttrsMixin, dantro.abc.AbstractDataGr
         """Convert this BaseDataGroup to TargetCls by passing data and attrs"""
         log.debug("Converting %s '%s' to %s ...", self.classname, self.name,
                   TargetCls.__name__)
-        return TargetCls(name=self.name, parent=self.parent,
-                         data=self.data, attrs=self.attrs,
+        return TargetCls(name=self.name, data=self.data, attrs=self.attrs,
                          **target_init_kwargs)

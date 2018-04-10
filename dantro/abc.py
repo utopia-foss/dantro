@@ -89,7 +89,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
 
     def __str__(self) -> str:
         """An info string, that describes the object. Each class should implement this to return an informative response."""
-        return "<{}, {}>".format(self.logstr, self._format_info())
+        return "<{:logstr,info}>".format(self)
 
     def __format__(self, spec_str: str) -> str:
         """Creates a formatted string from this """
@@ -120,6 +120,11 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
     def _format_cls_name(self) -> str:
         """A __format__ helper function: returns the class name"""
         return self.classname
+
+    def _format_logstr(self) -> str:
+        """A __format__ helper function: returns the log string, a combination
+        of class name and name"""
+        return self.logstr
 
     @abc.abstractmethod
     def _format_info(self) -> str:
@@ -161,6 +166,10 @@ class AbstractDataGroup(AbstractDataContainer, collections.abc.MutableMapping):
     @abc.abstractmethod
     def setdefault(self, key, default=None):
         """If `key` is in the dictionary, return its value. If not, insert `key` with a value of `default` and return `default`. `default` defaults to None."""
+
+    @abc.abstractmethod
+    def recursive_update(self, other):
+        """Updates the group with the contents of another group."""
 
     @abc.abstractmethod
     def _format_tree(self) -> str:
@@ -210,5 +219,25 @@ class AbstractDataProxy(metaclass=abc.ABCMeta):
     """A data proxy fills in for the place of a data container, e.g. if data should only be loaded on demand. It needs to supply the resolve method."""
 
     @abc.abstractmethod
+    def __init__(self, obj):
+        """Initialise the proxy object, being supplied with the object that
+        this proxy is to be proxy for.
+        """
+
+    @abc.abstractmethod
+    def __str__(self) -> str:
+        """An info string to represent the proxied data"""
+
+    @property
+    def classname(self) -> str:
+        """Returns this proxy's class name"""
+        return self.__class__.__name__
+
+    @abc.abstractmethod
     def resolve(self):
-        """Resolve the proxy object, returning the actual object."""
+        """Get the data that this proxy is a placeholder for and return it.
+
+        Note that this method does not place the resolved data in the
+        container of which this proxy object is a placeholder for! This only
+        returns the data.
+        """

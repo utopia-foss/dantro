@@ -2,9 +2,9 @@
 
 import warnings
 import logging
-from collections.abc import MutableSequence
+from collections.abc import MutableSequence, MutableMapping
 import numpy as np
-from dantro.base import BaseDataContainer, ItemAccessMixin, CollectionMixin
+from dantro.base import BaseDataContainer, ItemAccessMixin, CollectionMixin, MappingAccessMixin
 from dantro.mixins import ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin
 # Local constants
 log = logging.getLogger(__name__)
@@ -80,16 +80,24 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
         # check whether the data is a numpy.ndarray.dtype
         if not isinstance(data, np.ndarray):
             warnings.warn("The data given to {} '{}' was not identified as a "
-                          "MutableSequence, but as '{}'. Initialisation will "
+                          "NumpyData, but as '{}'. Initialisation will "
                           "work, but be informed that there might be errors "
                           "later on.".format(self.classname, name, type(data)),
                           UserWarning)
-
+        
         #initialize with parent method
         super().__init__(name=name, data=data, **dc_kwargs)
 
         # Done.
         log.debug("NumpyDataContainer.__init__ finished")
+
+    @property
+    def dtype(self):
+        return self.data.dtype
+    
+    @property
+    def shape(self):
+        return self.data.shape
 
     def _format_info(self) -> str:
         """A __format__ helper function: returns info about the item"""
@@ -139,3 +147,51 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
     def __trunc__(self):
         """Truncated to the nearest integer toward 0"""
         raise NotImplementedError("The trunc operation is not implemented for NumpyDataContainer!")
+
+
+class MutableMappingContainer(MappingAccessMixin, BaseDataContainer, MutableMapping):
+
+    def __init__(self, *, name: str, data=None, **dc_kwargs):
+        """Initialise a MutableMappingContainer, storing mapping data.
+        
+        NOTE: There is no check if the given data is actually a mapping!
+        
+        Args:
+            name (str): The name of this container
+            data: The mapping-like data to store. If not given, an empty dict
+                is created
+            **dc_kwargs: Additional arguments for container initialisation
+        """
+
+        log.debug("MutableMappingContainer.__init__ called.")
+
+        # Perform a check whether the data is actually a mutable sequence
+        if data is None:
+            data = {}
+            
+        elif not isinstance(data, MutableMapping):
+            warnings.warn("The data given to {} '{}' was not identified as a "
+                          "MutableMapping, but as '{}'. Initialisation will "
+                          "work, but be informed that there might be errors "
+                          "later on.".format(self.classname, name, type(data)),
+                          UserWarning)
+
+        # Initialise with parent method
+        super().__init__(name=name, data=data, **dc_kwargs)
+
+        # Done.
+        log.debug("MutableMappingContainer.__init__ finished.")
+
+    def convert_to(self, TargetCls, **target_init_kwargs):
+        """With this method, a TargetCls object can be created from this
+        particular container instance.
+        
+        Conversion might not be possible if TargetCls requires more information
+        than is available in this container.
+        """
+        return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
+                         **target_init_kwargs)
+
+    
+
+# -----------------------------------------------------------------------------
