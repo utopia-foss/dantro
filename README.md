@@ -1,6 +1,3 @@
-[![pipeline status](https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/badges/master/pipeline.svg)](https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/commits/master)
-[![coverage report](https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/badges/master/coverage.svg)](https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/commits/master)
-
 # dantro
 
 The `dantro` package (from *dentro*, gr., for tree) is a Python package to load hierarchical data into a tree-like structure.
