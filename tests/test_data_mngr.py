@@ -55,6 +55,14 @@ def data_dir(tmpdir) -> str:
     write_yml(foobar, path=subdir.join("abc123.yml"))
     write_yml(foobar, path=subdir.join("abcdef.yml"))
 
+    merged = tmpdir.mkdir("merged")
+    write_yml(foobar, path=merged.join("data0.yml"))
+    write_yml(foobar, path=merged.join("data1.yml"))
+    write_yml(foobar, path=merged.join("data2.yml"))
+    write_yml(foobar, path=merged.join("cfg0.yml"))
+    write_yml(foobar, path=merged.join("cfg1.yml"))
+    write_yml(foobar, path=merged.join("cfg2.yml"))
+
     return tmpdir
 
 @pytest.fixture
@@ -203,11 +211,6 @@ def test_loading_errors(dm):
                                                glob_str="foobar.yml")),
                      print_tree=True)
 
-    # This should fail if more than one group would need to be created
-    with pytest.raises(NotImplementedError):
-        dm.load('more_yaml', loader='yaml', glob_str="*.yml",
-                target_group="all/yaml/goes/here")
-
     # With name collisions, an error should be raised
     with pytest.raises(dantro.data_mngr.ExistingDataError):
         dm.load('barfoo', loader='yaml', glob_str="*.yml")
@@ -298,6 +301,32 @@ def test_loading_regex(dm):
     with pytest.warns(UserWarning):
         dm.load('more_foobar2', loader='yaml', glob_str="foobar.yml",
                 path_regex='(foo)*.yml')
+
+
+def test_regex_for_target_group(dm):
+    """Check whether using the extracted name for the target group works"""
+    dm.load('merged_cfg', loader='yaml', glob_str="merged/cfg*.yml",
+            always_create_group=True, path_regex='merged/cfg(\d+).yml',
+            target_group='merged/foo{match:}', target_basename='cfg')
+    
+    dm.load('merged_data', loader='yaml', glob_str="merged/data*.yml",
+            always_create_group=True, path_regex='merged/data(\d+).yml',
+            target_group='merged/foo{match:}', target_basename='data')
+
+    # Assert that the loaded data has the desired form
+    assert 'merged' in dm
+
+    assert 'merged/foo0' in dm
+    assert 'merged/foo1' in dm
+    assert 'merged/foo2' in dm
+
+    assert 'merged/foo0/cfg' in dm
+    assert 'merged/foo1/cfg' in dm
+    assert 'merged/foo2/cfg' in dm
+
+    assert 'merged/foo0/data' in dm
+    assert 'merged/foo1/data' in dm
+    assert 'merged/foo2/data' in dm
 
 
 # Hdf5LoaderMixin tests -------------------------------------------------------
