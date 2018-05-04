@@ -35,6 +35,10 @@ class ExistingDataError(DataManagerError):
     """Raised if data already existed."""
     pass
 
+class ExistingGroupError(DataManagerError):
+    """Raised if a group already existed."""
+    pass
+
 class LoaderError(DataManagerError):
     """Raised if a data loader was not available"""
     pass
@@ -236,7 +240,7 @@ class DataManager(OrderedDataGroup):
             print("{:tree}".format(self))
 
 
-    def load(self, entry_name: str, *, loader: str, glob_str: Union[str, List[str]], exists_action: str='raise', target_group: str=None, target_basename: str=None, print_tree: bool=False, **load_params) -> None:
+    def load(self, entry_name: str, *, loader: str, glob_str: Union[str, List[str]], exists_action: str='raise', target_group: str=None, target_basename: str=None, exist_ok: bool=True, print_tree: bool=False, **load_params) -> None:
         """Performs a single load operation.
         
         Args:
@@ -257,6 +261,8 @@ class DataManager(OrderedDataGroup):
                 or container; this is needed when calling the load function
                 via the load_from_cfg function, where no two `entry_name`
                 values can be the same
+            exist_ok (bool, optional): Whether it is ok that a _group_ along
+                the target_group path already exists.
             print_tree (bool, optional): Whether to print the tree at the end
                 of the loading operation.
             **load_params: Further loading parameters:
@@ -283,6 +289,29 @@ class DataManager(OrderedDataGroup):
             None
         """
 
+        def create_groups(base_group: BaseDataGroup, *, path: List[str]):
+            """Helper function to recursively create groups for the given path.
+            
+            Args:
+                base_group (BaseDataGroup): The group to start from
+                path (List[str]): The path to create groups along
+            """
+            # Catch the disallowed case as early as possible
+            if path[0] in base_group and not exist_ok:
+                raise ExistingGroupError(path[0])
+
+            # Create the group, if it does not yet exist
+            if path[0] not in base_group:
+                log.debug("Creating group '%s' in %s ...",
+                          path[0], base_group.logstr)
+                grp = self._DATA_GROUP_DEFAULT_CLS(name=path[0])
+                base_group.add(grp)
+
+            # Check whether to continue recursion
+            if len(path) > 1:
+                # Continue recursion
+                create_groups(base_group[path[0]], path=path[1:])
+
         def get_target_group(target_group_path: str) -> BaseDataGroup:
             """A helper function to resolve the target group"""
             # Determine to which group to save the entry that will be loaded
@@ -290,21 +319,12 @@ class DataManager(OrderedDataGroup):
                 # Save it in the root level
                 return self
 
-            # else: Find or create the group that the entry is to be added to
+            # else: Create the group that the entry is to be added to
             if target_group_path not in self:
-                if len(target_group_path.split(PATH_JOIN_CHAR)) > 1:
-                    raise NotImplementedError("Cannot create intermediate "
-                                              "groups yet for "
-                                              "target_group path '{}'!"
-                                              "".format(target_group_path))
-                # TODO implement creation of empty groups on the way
-
-                log.debug("Creating group '%s' ...", target_group_path)
-                _grp = self._DATA_GROUP_DEFAULT_CLS(name=target_group_path)
-                # FIXME this assumes target_group_path to *not* be a path
-
-                # Add to the root level
-                self.add(_grp)
+                log.debug("Creating target group path '%s' recursively ...",
+                          target_group_path)
+                create_groups(self,
+                              path=target_group_path.split(PATH_JOIN_CHAR))
 
             # Resolve the entry and return
             return self[target_group_path]
@@ -513,7 +533,7 @@ class DataManager(OrderedDataGroup):
                 log.debug(_msg)
                     
 
-            # Try to resolve the class that is to 
+            # Try to resolve the class that is to be created
             try:
                 TargetCls = getattr(load_func, 'TargetCls')
             except AttributeError as err:
