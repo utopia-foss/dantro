@@ -11,7 +11,7 @@ NOTE: These classes are not meant to be instantiated.
 
 import abc
 import logging
-from typing import Union
+from typing import Union, List
 
 import dantro.abc
 import dantro.tools as tools
@@ -293,15 +293,18 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
     # .........................................................................
     # Item access
 
-    def __getitem__(self, key: str):
+    def __getitem__(self, key: Union[str, List[str]]):
         """Returns the container in this group with the given name.
         
         Args:
-            key (str): The object to retrieve. If this is a path, will recurse
-                down until at the end.
+            key (Union[str, List[str]]): The object to retrieve.
+                If this is a path, will recurse down until at the end.
         
         Returns:
             The object at `key`
+        
+        Raises:
+            KeyError: If no such key can be found
         """
         if not isinstance(key, list):
             # Assuming this is a string ...
@@ -317,17 +320,24 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
         except (KeyError, IndexError) as err:
             raise KeyError("No such key '{}' in {}! Full key sequence: {}"
-                           "".format(key[0], key, self.logstr)) from err
+                           "".format(key[0], self.logstr, key)) from err
 
-    def __setitem__(self, key: str, val: BaseDataContainer) -> None:
+    def __setitem__(self, key: Union[str, List[str]], val: BaseDataContainer) -> None:
         """This method is used to allow access to the content of containers of
-        this group. For adding an element to this group, use the `add` method.
+        this group. For adding an element to this group, use the `add` method!
         
         Args:
-            key (str): The key to which to set the value. If this is a path,
-                will recurse down to the lowest level. Note that all inter-
-                mediate keys need to be present.
-            val: The value to set
+            key (Union[str, List[str]]): The key to which to set the value.
+                If this is a path, will recurse down to the lowest level.
+                Note that all intermediate keys need to be present.
+            val (BaseDataContainer): The value to set
+        
+        Returns:
+            None
+        
+        Raises:
+            ValueError: If trying to add an element to this group, which should
+                be done via the `add` method.
         
         """
         if not isinstance(key, list):
