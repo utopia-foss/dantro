@@ -346,7 +346,7 @@ class DataManager(OrderedDataGroup):
     # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     # Helpers for loading and storing data
 
-    def _load(self, *, target_path: str, loader: str, glob_str: Union[str, List[str]], ignore: List[str]=None, required: bool=False, path_regex: str=None, exists_action: str='skip', progress_indicator: bool=True, parallel: bool=False, **loader_kwargs) -> None:
+    def _load(self, *, target_path: str, loader: str, glob_str: Union[str, List[str]], ignore: List[str]=None, required: bool=False, path_regex: str=None, exists_action: str='raise', progress_indicator: bool=True, parallel: bool=False, **loader_kwargs) -> None:
         """Helper function that loads a data entry to the specified path.
         
         Args:
@@ -474,10 +474,9 @@ class DataManager(OrderedDataGroup):
                                            "".format(glob_str, ignore))
                 raise RequiredDataMissingError("No files found matching "
                                                "`glob_str` {} (and ignoring "
-                                               "{}) were found, but entry "
-                                               "'{}' was marked as required!"
-                                               "".format(glob_str, ignore,
-                                                         entry_name))
+                                               "{}) were found, but were "
+                                               "marked as required!"
+                                               "".format(glob_str, ignore))
 
             return files
 
@@ -537,12 +536,13 @@ class DataManager(OrderedDataGroup):
                 exists_action (str, optional): Description
             """
             if path not in self:
-                # No need to skip
+                # Does not exist yet -> no need to skip
                 return False
             # else: path exists already
 
             _msg = "Path '{}' already exists.".format(path)
 
+            # Distinguish different actions
             if exists_action == 'raise':
                 raise ExistingDataError(_msg + " Adjust argument "
                                         "`exists_action` to allow skipping "
@@ -672,7 +672,7 @@ class DataManager(OrderedDataGroup):
 
             # Get the data
             _data = load_func(file, TargetCls=_TargetCls, **loader_kwargs)
-
+            
             # If this succeeded, store the data
             store(_data, target_path=_target_path,
                   overwrite=True,  # would have skipped already otherwise

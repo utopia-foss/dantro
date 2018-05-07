@@ -490,20 +490,27 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
                     return True 
             return False
 
-        elif not isinstance(cont, list):
-            # assume it is a string
+        elif isinstance(cont, str):
             key_seq = cont.split(PATH_JOIN_CHAR)
 
         else:
+            # assume it is already a list
             key_seq = cont
 
-        # is a list of keys, might have to check recursively
-        if len(key_seq) > 1:
-            if key_seq[0] in self:
-                # Can continue recursion
+        # is a list of keys
+        # might have to check recursively
+        if key_seq[0] in self.keys():
+            if len(key_seq) > 2:
+                # More than one additional element -> continue recursion
                 return bool(key_seq[1:] in self[key_seq[0]])
-            return False
-        return bool(key_seq[0] in self.keys())
+            
+            elif len(key_seq) == 2:
+                # Pass not as list but as single key, i.e. as string
+                return bool(key_seq[1] in self[key_seq[0]])
+
+            # Length 1; already checked above
+            return True
+        return False
 
     # .........................................................................
     # Iteration

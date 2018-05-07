@@ -203,7 +203,6 @@ def test_loading(dm):
     print("{:tree}".format(dm))
 
 
-@pytest.mark.skip()
 def test_loading_errors(dm):
     """Test the cases in which errors are raised or warnings are created."""
     # Load some data that will create collisions
@@ -213,7 +212,7 @@ def test_loading_errors(dm):
 
     # With name collisions, an error should be raised
     with pytest.raises(dantro.data_mngr.ExistingDataError):
-        dm.load('barfoo', loader='yaml', glob_str="*.yml")
+        dm.load('barfoo', loader='yaml', glob_str="foobar.yml")
 
     # Check for missing data ..................................................
     # Check for data missing that was required
