@@ -270,9 +270,6 @@ class DataManager(OrderedDataGroup):
                     overwrite_nowarn, update, update_nowarn.
                     With *_nowarn values, no warning is given if an entry
                     already existed.
-                exist_ok (bool): Whether it is ok that a _group_ along the
-                    target_path already exists.
-                suppress_group (bool): # TODO write this
                 progress_indicator (bool): Whether to print a progress
                     indicator or not. Default: True
                 parallel (bool): If True, data is loaded in parallel.
@@ -283,30 +280,47 @@ class DataManager(OrderedDataGroup):
             None
         """
 
+        def default_target_path(*, entry_name: str, glob_str: Union[str, List[str]]) -> str:
+            """Create a default target path from the entry name.
+
+            This takes into account whether the glob_str has a wildcard or not.
+            """
+            if isinstance(glob_str, str):
+                if glob_str.find('*') < 0:
+                   # No wildcard. Use only entry name as target path
+                   return entry_name
+
+            # Add the base name to the entry name
+            # NOTE this is a format string, evaluated when the file is loaded
+            return entry_name + "/{basename:}"
+
+        def check_target_path(target_path: str):
+            """Check that the target path evaluates correctly."""
+            try:
+                _target_path = target_path.format(basename="basename",
+                                                  match="match")
+
+            except (IndexError, KeyError) as err:
+                raise ValueError("Invalid argument `target_path`. Will not be "
+                                 "able to properly evalaute '{}' later due to "
+                                 "a {}: {}".format(target_path,
+                                                   type(err), err)) from err
+            else:
+                log.debug("Target path will be:  %s", _target_path)    
+
+        # Some preparations
         log.info("Loading data entry '%s' ...", entry_name)
-        
-        # Create the default target path
+
+        # Create the default target path and check that it can be evaluated
         if not target_path:
-            target_path = "/" + entry_name + "/{basename:}"
-        
-        # Check that the target path can be evaluated correctly
-        try:
-            _target_path = target_path.format(basename="basename",
-                                              entry_name=entry_name,
-                                              match="match")
+            target_path = default_target_path(entry_name=entry_name,
+                                              glob_str=glob_str)
+        check_target_path(target_path)
 
-        except (IndexError, KeyError) as err:
-            raise ValueError("Invalid argument `target_path`. Will not be "
-                             "able to properly evalaute '{}' later due to "
-                             "a {}: {}".format(target_path,
-                                               type(err), err)) from err
-        else:
-            log.debug("Target path will be:  %s", _target_path)
-
-        # Try loading the data and handle specific DataManagerErrors . . . . .
+        # Try loading the data and handle specific DataManagerErrors
         try:
-            self._load(entry_name=entry_name,
-                       loader=loader, glob_str=glob_str, **load_params)
+            self._load(target_path=target_path, loader=loader,
+                       glob_str=glob_str, **load_params)
 
         except RequiredDataMissingError:
             raise
@@ -320,10 +334,10 @@ class DataManager(OrderedDataGroup):
             raise
 
         else:
-            # Everything as desired, _entry is now the imported data
+            # Everything as desired
             log.debug("Data successfully loaded.")
 
-        # Done with this config entry
+        # Done with this entry
         log.debug("Entry '%s' successfully loaded.", entry_name)
 
         if print_tree:
@@ -332,119 +346,7 @@ class DataManager(OrderedDataGroup):
     # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     # Helpers for loading and storing data
 
-    def _create_groups(self, *, path: List[str], base_group: BaseDataGroup=None, GroupCls=None, exist_ok: bool=True):
-        """Recursively create groups for the given path.
-        
-        Args:
-            path (List[str]): The path to create groups along
-            base_group (BaseDataGroup, optional): The group to start from. If
-                not given, uses self.
-            GroupCls (None, optional): The class to use for creating the groups
-                or None if the _DATA_GROUP_DEFAULT_CLS is to be used
-            exist_ok (bool, optional): Whether it is ok that groups along the
-                path already exist. These might also be of different type.
-                Default: True
-        
-        Raises:
-            ExistingGroupError: If not `exist_ok` and a group already exists
-        """
-        if base_group is None:
-            base_group = self
-
-        if GroupCls is None:
-            GroupCls = self._DATA_GROUP_DEFAULT_CLS
-
-        # Catch the disallowed case as early as possible
-        if path[0] in base_group and not exist_ok:
-            raise ExistingGroupError(path[0])
-
-        # Create the group, if it does not yet exist
-        if path[0] not in base_group:
-            log.debug("Creating group '%s' in %s ...",
-                      path[0], base_group.logstr)
-            grp = GroupCls(name=path[0])
-            base_group.add(grp)
-
-        # path[0] is now created
-        # Check whether to continue recursion
-        if len(path) > 1:
-            # Continue recursion
-            self._create_groups(base_group=base_group[path[0]], path=path[1:],
-                                GroupCls=GroupCls)
-
-    def _store(self, obj, *, path: str, exist_action: str):
-        """Store the given `obj` at the supplied `path`."""
-        # Extract the target group path parameter and resolve it
-        target_group = get_target_group(target_group)
-
-        # Extract the desired name of the target container or group
-        target_basename = target_basename if target_basename else entry_name
-
-        # Check if the target already exists
-        if target_basename in target_group:
-            if skip_existing(exists_action,
-                             target_group=target_group,
-                             target_basename=target_basename):
-                log.debug("Skipping entry '%s' as it already exists.",
-                          entry_name)
-                return
-
-        def skip_existing(exists_action: str, *, target_basename: str, target_group: BaseDataGroup) -> bool:
-            """Helper function to generate a meaningful error message if data
-            already existed and how the loading will continue ...
-            
-            Args:
-                exists_action (str): The behaviour upon existing data. Can be:
-                    raise, skip, skip_nowarn, overwrite, overwrite_nowarn,
-                    update, update_nowarn
-                target_basename (str): The basename that already existed
-                target_group (BaseDataGroup): The group the basename already
-                    existed in, i.e. where the conflict occured
-            
-            Returns:
-                bool: Whether to skip loading, i.e. exiting the `load` method
-            
-            Raises:
-                ExistingDataError: Raised when `exists_action == 'raise'`
-                ValueError: Raised for invalid `exists_action` value
-            """
-            _msg = ("The data entry with target basename '{}' already "
-                    "exists in target group '{}'!"
-                    "".format(target_basename, target_group))
-
-            if exists_action == 'raise':
-                raise ExistingDataError(_msg + " Adjust argument "
-                                        "`exists_action` to allow skipping "
-                                        "or overwriting of existing entries.")
-
-            if exists_action in ['skip', 'skip_nowarn']:
-                if exists_action == 'skip':
-                    warnings.warn(_msg
-                                  + " Loading of this entry will be skipped.",
-                                  ExistingDataWarning)
-                return True  # will lead to the data not being loaded
-
-            elif exists_action in ['overwrite', 'overwrite_nowarn']:
-                if exists_action == 'overwrite':
-                    warnings.warn(_msg + " It will be overwritten!",
-                                  ExistingDataWarning)
-                return False  # will lead to the data being loaded
-            
-            elif exists_action in ['update', 'update_nowarn']:
-                if exists_action == 'update':
-                    warnings.warn(_msg + " Will be updated with loaded data.",
-                                  ExistingDataWarning)
-                return False  # will lead to the data being loaded
-
-            else:
-                raise ValueError("Invalid value for `exists_action` "
-                                 "argument '{}'! Can be: raise, skip, "
-                                 "skip_nowarn, overwrite, overwrite_nowarn"
-                                 "".format(exists_action))
-
-
-
-    def _load(self, *, target_path: str, loader: str, glob_str: Union[str, List[str]], ignore: List[str]=None, required: bool=False, suppress_group: bool=None, path_regex: str=None, progress_indicator: bool=True, parallel: bool=False, **loader_kwargs) -> None:
+    def _load(self, *, target_path: str, loader: str, glob_str: Union[str, List[str]], ignore: List[str]=None, required: bool=False, path_regex: str=None, exists_action: str='skip', progress_indicator: bool=True, parallel: bool=False, **loader_kwargs) -> None:
         """Helper function that loads a data entry to the specified path.
         
         Args:
@@ -457,31 +359,30 @@ class DataManager(OrderedDataGroup):
                 will be ignored during loading. Paths are seen as elative to the data directory.
             required (bool, optional): If True, will raise an error if no files
                 were found.
-            suppress_group (bool, optional): Whether to suppress loading into
-                a group. If None, loads into a group only if the `glob_str` is
-                a list or contains a wildcard. Will raise an error if more than
-                one file is to be loaded.
             path_regex (str, optional): The regex applied to the relative path
                 of the files that were found. It is used to generate the name
                 of the target container. If not given, the basename is used.
+            exists_action (str, optional): The behaviour upon existing data.
+                Can be: raise (default), skip, skip_nowarn, overwrite,
+                overwrite_nowarn, update, update_nowarn.
+                With *_nowarn values, no warning is given if an entry already
+                existed.
             progress_indicator (bool, optional): Whether to print a progress
                 indicator or not
             parallel (bool, optional): If True, data is loaded in parallel -
                 not implemented yet!
             **loader_kwargs: passed on to the loader function
         
-        Returns:
-            None
-        
         Raises:
             NotImplementedError: For `parallel == True`
         """
 
-        def resolve_loader(loader: str) -> Tuple[Callable, str]:
+        def resolve_loader(loader: str) -> Tuple[Callable, str, Callable]:
             """Resolves the loader function"""
             load_func_name = '_load_' + loader.lower()
             try:
                 load_func = getattr(self, load_func_name)
+
             except AttributeError as err:
                 raise LoaderError("Loader '{}' was not available to {}! Make "
                                   "sure to use a mixin class that supplies "
@@ -491,33 +392,25 @@ class DataManager(OrderedDataGroup):
             else:
                 log.debug("Resolved '%s' loader function.", loader)
 
-            return loader, load_func_name
+            try:
+                TargetCls = getattr(load_func, 'TargetCls')
 
-        def parse_suppress_group_flag(suppress_group: bool, *, glob_str: Union[str, List[str]]) -> bool:
-            """Depending on the `glob_str`, re-evaluates `suppress_group`"""
-            if suppress_group is not None:
-                # Was already set. Return that value
-                return suppress_group
+            except AttributeError as err:
+                raise LoaderError("Load function {} misses required attribute "
+                                  "'TargetCls'. Check your mixin!"
+                                  "".format(load_func)) from err
 
-            if isinstance(glob_str, str):
-                # Check if it includes a wildcard
-                if glob_str.find("*") < 0:
-                    # Nope. Assume that a specific file is to be loaded
-                    log.debug("No wildcard found in `glob_str`; setting "
-                              "`suppress_group` flag.")
-                    return True
+            return load_func, load_func_name, TargetCls
 
-            # Is a list of glob strings or contains a wildcard
-            return False
-
-        def create_files_set(*, glob_str: Union[str, List[str]], ignore: List[str]) -> set:
+        def create_files_set(*, glob_str: Union[str, List[str]], ignore: List[str], required: bool=False) -> set:
             """Create the set of file paths to load from.
             
             Args:
                 glob_str (Union[str, List[str]]): The glob pattern or a list of
                     glob patterns
                 ignore (List[str]): The list of files to ignore
-                suppress_group (bool): If true, 
+                required (bool, optional): Will lead to an error being raised
+                    if no files could be matched
             
             Returns:
                 set: the file paths to load
@@ -586,83 +479,165 @@ class DataManager(OrderedDataGroup):
                                                "".format(glob_str, ignore,
                                                          entry_name))
 
-            return files, suppress_group
+            return files
 
-        def prepare_target_class(load_func: Callable, *, target_name: str) -> Callable:
-            """Prepare the target class to load data into."""
-            try:
-                TargetCls = getattr(load_func, 'TargetCls')
+        def prepare_target_path(target_path: str, *, filepath: str, path_sre=None) -> List[str]:
+            """Prepare the target path"""
+            # The dict to be filled with formatting parameters
+            fps = dict()
 
-            except AttributeError as err:
-                raise LoaderError("Load function {} misses required attribute "
-                                  "'TargetCls'. Check your mixin!"
-                                  "".format(load_func)) from err
+            # Extract the file basename (without extension)
+            fps['basename'] = os.path.splitext(os.path.basename(filepath))[0]
+            fps['basename'] = fps['basename'].lower()
 
-            # Create a new init function where the name is already resolved
-            return lambda **kws: TargetCls(name=target_name, **kws)
+            # Use the specified regex pattern to extract a match
+            if path_sre:
+                try:
+                    fps['match'] = path_sre.findall(filepath)[0]
+                
+                except IndexError:
+                    # nothing could be found
+                    pass
+                
+                if 'match' not in fps:
+                    # Could not find a basename
+                    warnings.warn("Could not extract a name using the "
+                                  "regex pattern '{}' on the file path:\n"
+                                  "{}\nUsing the path's basename instead."
+                                  "".format(path_sre, filepath),
+                                  UserWarning)
 
-        def prepare_target(*, load_func, target_group, target_basename: str=None, filepath: str=None, path_sre=None, ignore_existing: bool=False):
-            """Fetches the class that the load function specifies and prepares it to be used for initialisation by the load function."""
-            tname = None
+            # Parse the format string to generate the file path
+            log.debug("Parsing format string '%s' to generate target path ...",      target_path)
+            log.debug("  kwargs: %s", fps)
+            target_path = target_path.format(**fps)
 
-            # Find a suitable name
-            if target_basename:
-                # Warn about cases where additional arguments were given that
-                # will be ignored
-                if path_sre:
-                    # Will not use path_regex if loading a single item (not 
-                    # into a group)
-                    warnings.warn("Argument `path_sre` or `path_regex` was "
-                                  "given; will be ignored as the target's "
-                                  "basename was already given!", UserWarning)
+            log.debug("Generated target path:  %s", target_path)
+            return target_path.split(PATH_JOIN_CHAR)
 
-                # Use the given name as name of the group 
-                tname = target_basename
+        def skip_path(path: Union[str, List[str]], *, exists_action: str) -> bool:
+            """Check whether a given path exists and — depending on the
+            `exists_action` – decides whether to skip this path or now.
+            
+            Args:
+                path (Union[str, List[str]]): The path to check for existence.
+                exists_action (str): The behaviour upon existing data. Can be:
+                    raise, skip, skip_nowarn, overwrite, overwrite_nowarn,
+                    update, update_nowarn
+                    The *_nowarn arguments suppress the warning
+            
+            Returns:
+                bool: Whether to skip this path
+            
+            Raises:
+                ExistingDataError: Raised when `exists_action == 'raise'`
+                ValueError: Raised for invalid `exists_action` value
+            
+            Deleted Parameters:
+                exists_action (str, optional): Description
+            """
+            if path not in self:
+                # No need to skip
+                return False
+            # else: path exists already
 
-            elif filepath:
-                if path_sre:
-                    # Use the specified regex pattern to extract a name
-                    try:
-                        tname = path_sre.findall(filepath)[0]
-                    except IndexError:
-                        # nothing could be found
-                        pass
-                    
-                    if not tname:
-                        # Could not find a basename
-                        warnings.warn("Could not extract a name using the "
-                                      "regex pattern '{}' on the file path:\n"
-                                      "{}\nUsing the path's basename instead."
-                                      "".format(path_sre, filepath),
-                                      UserWarning)
+            _msg = "Path '{}' already exists.".format(path)
 
-                if not tname:
-                    # use the file's basename, without extension
-                    tname = os.path.splitext(os.path.basename(filepath))[0].lower()
+            if exists_action == 'raise':
+                raise ExistingDataError(_msg + " Adjust argument "
+                                        "`exists_action` to allow skipping "
+                                        "or overwriting of existing entries.")
 
-            # Ensure that there is nothing under that name in the target group
-            if tname in target_group:
-                _msg = ("Member '{}' already exists at '{}' of {}!"
-                        "".format(tname, target_group.path,
-                                  target_group.logstr))
-                if not ignore_existing:
-                    if not path_sre:
-                        raise ExistingDataError(_msg)
-                    raise ExistingDataError(_msg + " You might want to check "
-                                            "that the given `path_regex` '{}' "
-                                            "resolves to unique names."
-                                            "".format(path_sre.pattern))
-                # else: just log it
-                log.debug(_msg)
-                    
+            if exists_action in ['skip', 'skip_nowarn']:
+                if exists_action == 'skip':
+                    warnings.warn(_msg
+                                  + " Loading of this entry will be skipped.",
+                                  ExistingDataWarning)
+                return True  # will lead to the data not being loaded
+
+            elif exists_action in ['overwrite', 'overwrite_nowarn']:
+                if exists_action == 'overwrite':
+                    warnings.warn(_msg + " It will be overwritten!",
+                                  ExistingDataWarning)
+                return False  # will lead to the data being loaded
+            
+            elif exists_action in ['update', 'update_nowarn']:
+                if exists_action == 'update':
+                    warnings.warn(_msg + " Will be updated with loaded data.",
+                                  ExistingDataWarning)
+                return False  # will lead to the data being loaded
+
+            else:
+                raise ValueError("Invalid value for `exists_action` "
+                                 "argument '{}'! Can be: raise, skip, "
+                                 "skip_nowarn, overwrite, overwrite_nowarn, "
+                                 "update, update_nowarn."
+                                 "".format(exists_action))
+
+        def store(obj: Union[BaseDataGroup, BaseDataContainer], *, target_path: str, overwrite: bool=False, update: bool=False) -> bool:
+            """Store the given `obj` at the supplied `path`.
+
+            Args:
+                obj (Union[BaseDataGroup, BaseDataContainer]): Object to store
+                path (str): The path to store it at
+                overwrite (bool, optional): If true, overwrites whatever is at
+                    `path`. This has no effect if `update` is also given.
+                update (bool, optional): If true, tries recursively updating
+                    `path` instead of overwriting.
+            
+            Returns:
+                bool: Whether data was stored or not
+            """
+
+            if not isinstance(target_path, list):
+                # Split the target path to have a list
+                target_path = target_path.split(PATH_JOIN_CHAR)
+
+            # Check if the target already exists
+            if target_path in self:
+                log.debug("An object already exists at %s.", target_path)
+                if not (update or overwrite):
+                    # Not storing
+                    log.debug("Not storing %s there.", obj.logstr)
+                    return False
+
+            # Extract a target group path and a base name
+            group_path = target_path[:-1]
+            basename = target_path[-1]
+
+            # Resolve the target group object; create it if necessary
+            # Need to check whether it is given at all. If not, write into the
+            # data manager directly
+            if group_path:
+                if group_path not in self:
+                    self._create_groups(path=group_path)
+                group = self[group_path]
+            
+            else:
+                # Write directly into data manager root
+                group = self
+
+            # Store data, if possible
+            if basename not in group:
+                group.add(obj)
+                
+            else:
+                # Already exists. Distinguish overwrite and update
+                if update:
+                    # Call the recursive update function.
+                    group.recursive_update(obj)
+                    # NOTE will only work with a group
+                
+                elif overwrite:
+                    # Delete the old one, then store the new one
+                    del group[basename]
+                    group.add(obj)
+
+            return True
 
         # . . . . . . . . . . . End of helper functions . . . . . . . . . . . .
         # Get the loader function
-        loader, load_func_name = resolve_loader(loader)
-
-        # Evaluate the suppress_group flag
-        suppress_group = parse_suppress_group_flag(suppress_group,
-                                                   glob_str=glob_str)
+        load_func, load_func_name, TargetCls = resolve_loader(loader)
 
         # Create the set of file paths to load
         files = create_files_set(glob_str=glob_str, ignore=ignore,
@@ -671,60 +646,89 @@ class DataManager(OrderedDataGroup):
         # If a regex pattern was specified, compile it
         path_sre = re.compile(path_regex) if path_regex else None
 
-        # Ready for loading files now . . . . . . . . . . . . . . . . . . . . .
-        # Distinguish between cases where a group should be created and one where the DataContainer-object can be directly returned
-        if len(files) == 1 and suppress_group:
-            log.debug("Found a single file and will not create a new group.")
-
-            # Prepare the target class, which will be filled by the load func
-            # The helper function takes care of the naming of the target cont
-            TargetCls = prepare_target_class(load_func=load_func,
-                                       target_path=target_path,
-                                       path_sre=path_sre,
-                                       ignore_existing=True)
-
-            # Load the data using the loader function
-            data = load_func(files.pop(), TargetCls=TargetCls, **loader_kwargs)
-
-            log.debug("Finished loading a single file for entry %s.",
-                      entry_name)
-
-            # And return it
-            return data
-    
-        # else: more than one file -> need to work with groups
-
         if parallel:
             # TODO could be implemented by parallelising the below for loop
             raise NotImplementedError("Cannot load in parallel yet.")
-
-        # Create a group wherein all entries are gathered
-        # It has the same name as the entry
-        log.debug("Creating a %s to group data loaded from %d file(s) in...",
-                  self._DATA_GROUP_DEFAULT_CLS.__name__, len(files))
-        group = self._DATA_GROUP_DEFAULT_CLS(name=target_basename)
-
+        
+        # Ready for loading files now . . . . . . . . . . . . . . . . . . . . .
         # Go over the files and load them
         for n, file in enumerate(files):
             if progress_indicator:
-                line = "  Loading ... {}/{}".format(n+1, len(files))
+                line = "  Loading  {}/{}  ...".format(n+1, len(files))
                 print(tools.fill_tty_line(line), end="\r")
 
+            # Prepare the target path (a list of strings)
+            _target_path = prepare_target_path(target_path, filepath=file,
+                                               path_sre=path_sre)
+
+            # Check if it to be skipped
+            if skip_path(_target_path, exists_action=exists_action):
+                log.debug("Skipping %s ...", file)
+                continue
+
             # Prepare the target class, which will be filled by the load func
-            # The helper function takes care of the naming of the target cont
-            TargetCls = prepare_target(load_func=load_func,
-                                       target_group=group,
-                                       filepath=file, path_sre=path_sre)
-            # NOTE target_basename should not be given here, as the name is
-            # resolved from the filepath or via the given pattern
+            _TargetCls = lambda **kws: TargetCls(name=_target_path[-1], **kws)
+            # This assures that the name is already correct
 
-            # Get the data and add it to the group
-            _data = load_func(file, TargetCls=TargetCls, **loader_kwargs)
-            group.add(_data)
+            # Get the data
+            _data = load_func(file, TargetCls=_TargetCls, **loader_kwargs)
 
-        # Clear the line
-        tools.clear_line()
+            # If this succeeded, store the data
+            store(_data, target_path=_target_path,
+                  overwrite=True,  # would have skipped already otherwise
+                  update=exists_action.startswith('update'))
+
+            # Done with this file
+            log.debug("Successfully loaded %s and stored at %s",
+                      file, _target_path)
+
+        # Clear the line to get rid of the load indicator, if there was one
+        if progress_indicator:
+            tools.clear_line()
 
         # Done
-        log.debug("Finished loading %d files for entry %s.", len(files),
-                  entry_name)
+        log.debug("Finished loading %d files.", len(files))
+
+    def _create_groups(self, *, path: Union[str, List[str]], base_group: BaseDataGroup=None, GroupCls=None, exist_ok: bool=True):
+        """Recursively create groups for the given path.
+        
+        Args:
+            path (List[str]): The path to create groups along
+            base_group (BaseDataGroup, optional): The group to start from. If
+                not given, uses self.
+            GroupCls (None, optional): The class to use for creating the groups
+                or None if the _DATA_GROUP_DEFAULT_CLS is to be used
+            exist_ok (bool, optional): Whether it is ok that groups along the
+                path already exist. These might also be of different type.
+                Default: True
+        
+        Raises:
+            ExistingGroupError: If not `exist_ok` and a group already exists
+        """
+        # Parse arguments
+        if isinstance(path, str):
+            path = path.split(PATH_JOIN_CHAR)
+
+        if base_group is None:
+            base_group = self
+
+        if GroupCls is None:
+            GroupCls = self._DATA_GROUP_DEFAULT_CLS
+
+        # Catch the disallowed case as early as possible
+        if path[0] in base_group and not exist_ok:
+            raise ExistingGroupError(path[0])
+
+        # Create the group, if it does not yet exist
+        if path[0] not in base_group:
+            log.debug("Creating group '%s' in %s ...",
+                      path[0], base_group.logstr)
+            grp = GroupCls(name=path[0])
+            base_group.add(grp)
+
+        # path[0] is now created
+        # Check whether to continue recursion
+        if len(path) > 1:
+            # Continue recursion
+            self._create_groups(base_group=base_group[path[0]], path=path[1:],
+                                GroupCls=GroupCls)
