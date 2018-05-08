@@ -319,8 +319,11 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
             return self.data[key[0]]
 
         except (KeyError, IndexError) as err:
-            raise KeyError("No such key '{}' in {}! Full key sequence: {}"
-                           "".format(key[0], self.logstr, key)) from err
+            raise KeyError("No key or key sequence '{}' in {}! "
+                           "Available keys at top level: {}"
+                           "".format(PATH_JOIN_CHAR.join(key), self.logstr,
+                                     ", ".join([k for k in self.keys()]))
+                           ) from err
 
     def __setitem__(self, key: Union[str, List[str]], val: BaseDataContainer) -> None:
         """This method is used to allow access to the content of containers of
