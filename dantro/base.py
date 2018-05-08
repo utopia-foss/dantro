@@ -490,6 +490,7 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
                     return True 
             return False
 
+        # Check via the string, if such a key is available
         elif isinstance(cont, str):
             key_seq = cont.split(PATH_JOIN_CHAR)
 
@@ -497,19 +498,20 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
             # assume it is already a list
             key_seq = cont
 
-        # is a list of keys
-        # might have to check recursively
-        if key_seq[0] in self.keys():
-            if len(key_seq) > 2:
-                # More than one additional element -> continue recursion
-                return bool(key_seq[1:] in self[key_seq[0]])
-            
-            elif len(key_seq) == 2:
-                # Pass not as list but as single key, i.e. as string
-                return bool(key_seq[1] in self[key_seq[0]])
+        # key_seq is now a list of keys
+        if len(key_seq) > 1:
+            # More than one element.
+            # If the target element exists and is a group, continue recursively
+            if (key_seq[0] in self
+                and isinstance(self[key_seq[0]], BaseDataGroup)):
+                return PATH_JOIN_CHAR.join(key_seq[1:]) in self[key_seq[0]]
 
-            # Length 1; already checked above
-            return True
+            # else: does not exist or is not a group
+            return False
+        
+        elif len(key_seq) == 1:
+            return bool(key_seq[0] in self.keys())
+
         return False
 
     # .........................................................................
