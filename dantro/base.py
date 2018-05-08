@@ -314,7 +314,7 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         try:
             # If there is more than one entry, need to call this recursively
             if len(key) > 1:
-                return self.data[key[0]][key[1:]]
+                return self.data[key[0]][PATH_JOIN_CHAR.join(key[1:])]
             # else: end of recursion
             return self.data[key[0]]
 
@@ -345,7 +345,7 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
         # Depending on length of the key sequence, start recursion or not
         if len(key) > 1:
-            self.data[key[0]][key[1:]] = val
+            self.data[key[0]][PATH_JOIN_CHAR.join(key[1:])] = val
             return
         
         # else: end of recursion, i.e. the path led to an item of this group
@@ -556,22 +556,39 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         """Returns a multi-line string tree representation of this group."""
         return self._tree_repr()
 
-    def _tree_repr(self, level: int=0, info_fstr="<{:cls_name,info}>", info_ratio: float=0.6) -> str:
+    def _tree_repr(self, level: int=0, info_fstr="<{:cls_name,info}>", info_ratio: float=0.5) -> str:
         """Recursively creates a multi-line string tree representation of this
         group. This is used by, e.g., the _format_tree method."""
-        # Variable definitions and calculations
+        # Mark symbols
+        first_mark = r' └┬'
+        base_mark =  r'  ├'
+        last_mark =  r'  └'
+        only_mark =  r' └─'
+
+        # Offset
+        offset = "   " * level
+            
+        # Format string
         fstr = "{offset:}{mark:>3s} {name:<{name_width}s}  {info:}"
         
+        # Calculations
+        num_items = len(self)
         num_cols = tools.TTY_COLS
-        lvl_factor = 4
-        offset = " " * lvl_factor * level
-        info_width = int(num_cols * info_ratio)
-        name_width = (num_cols - info_width) - (lvl_factor * level + 3 + 1 + 2)
 
-        # Choose a mark symbol; the first entry on a level has a different sym
-        first_mark = "\ -"
-        base_mark =  " |-"
-        mark = first_mark if level > 0 else base_mark
+        info_width = int(num_cols * info_ratio)
+        name_width = (num_cols - info_width) - (len(offset) + 3 + 1 + 2)       
+
+        # Helper function
+        def get_mark(n: int) -> str:
+            """Helper function that returns the mark symbol depending on the
+            iteration number."""
+            if n == 0:
+                if num_items == 1:
+                    return only_mark
+                return first_mark
+            elif n == num_items - 1:
+                return last_mark
+            return base_mark
 
         # Create the list to gather the lines in; add a description on level 0
         lines = []
@@ -580,19 +597,19 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
             lines.append("Tree of {:logstr,info}".format(self))
 
         # Go over the entries on this level and format the lines
-        for key, obj in self.items():
+        for n, (key, obj) in enumerate(self.items()):
             # Get key and info, truncate if necessary
             name = key if len(key) <= name_width else key[:name_width-1]+"…"
             info = info_fstr.format(obj)
             info = info if len(info) <= info_width else info[:info_width-1]+"…"
 
+            # Get the mark, depending on the item number
+            mark = get_mark(n)
+
             # Format the line and add to list of lines
             line = fstr.format(offset=offset, mark=mark, name_width=name_width,
                                name=name, info=info)
             lines.append(line)
-
-            # Change to the base mark (only relevant in first iteration)
-            mark = base_mark
 
             # If it was a group and it is not empty...
             if isinstance(obj, BaseDataGroup) and len(obj) > 0:
