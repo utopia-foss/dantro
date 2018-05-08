@@ -33,5 +33,8 @@ def test_ordered_data_group():
     assert 'baz' not in root
 
     # There should be a custom key error if accessing something not available
-    with pytest.raises(KeyError, match=".*such key.*! Full key sequence:.*"):
+    with pytest.raises(KeyError, match="No key or key sequence '.*' in .*!"):
         root['i_am_a_ghost']
+    
+    with pytest.raises(KeyError, match="No key or key sequence '.*' in .*!"):
+        root['foo/is/a/ghost']
