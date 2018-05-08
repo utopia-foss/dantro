@@ -258,6 +258,7 @@ class DataManager(OrderedDataGroup):
                 can be a format string. It is evaluated for each file that has
                 been matched. If it is not given, the content is loaded to a
                 group with the name of this entry at the root level.
+                Available keys are: basename, match (if `path_regex` is given)
             print_tree (bool, optional): Whether to print the tree at the end
                 of the loading operation.
             **load_params: Further loading parameters, all optional!
@@ -356,6 +357,7 @@ class DataManager(OrderedDataGroup):
         Args:
             target_path (str): The path to load the result of the loader to.
                 This can be a format string; it is evaluated for each file.
+                Available keys are: basename, match (if `path_regex` is given)
             loader (str): The loader to use
             glob_str (Union[str, List[str]]): A glob string or a list of glob
                 strings to match files in the data directory
