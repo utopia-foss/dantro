@@ -608,7 +608,7 @@ class DataManager(OrderedDataGroup):
                 # Need to assure here, that the group path points to a group
                 if group_path not in self:
                     # Needs to be created
-                    self._create_groups(path=group_path)
+                    self._create_groups(group_path)
 
                 elif not isinstance(self[group_path], BaseDataGroup):
                     # Already exists, but is no group. Cannot continue
@@ -695,7 +695,7 @@ class DataManager(OrderedDataGroup):
         # Done
         log.debug("Finished loading %d files.", len(files))
 
-    def _contains_group(path: Union[str, List[str]], *, base_group: BaseDataGroup=None) -> bool:
+    def _contains_group(self, path: Union[str, List[str]], *, base_group: BaseDataGroup=None) -> bool:
         """Recursively checks if the given path is available _and_ a group.
         
         Args:
@@ -730,7 +730,7 @@ class DataManager(OrderedDataGroup):
         # End of recursion
         return check(path[0], base_group)
 
-    def _create_groups(self, *, path: Union[str, List[str]], base_group: BaseDataGroup=None, GroupCls=None, exist_ok: bool=True):
+    def _create_groups(self, path: Union[str, List[str]], *, base_group: BaseDataGroup=None, GroupCls=None, exist_ok: bool=True):
         """Recursively create groups for the given path.
         
         Args:
@@ -783,5 +783,5 @@ class DataManager(OrderedDataGroup):
         # Check whether to continue recursion
         if len(path) > 1:
             # Continue recursion
-            self._create_groups(base_group=base_group[path[0]], path=path[1:],
+            self._create_groups(path[1:], base_group=base_group[path[0]],
                                 GroupCls=GroupCls)

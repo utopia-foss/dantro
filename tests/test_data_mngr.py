@@ -311,10 +311,48 @@ def test_loading_exists_action(dm):
                 exists_action='overwrite')
     assert not isinstance(dm['a_group'], dantro.base.BaseDataGroup)
 
-@pytest.mark.skip()
 def test_contains_group(dm):
     """Assert that the contains_group method works."""
-    pass
+    dm.load('group', loader='yaml', glob_str='*.yml')
+    dm.load('subgroup', loader='yaml', glob_str='*.yml',
+            target_path='group/subgroup/{basename:}')
+    dm.load('subsubgroup', loader='yaml', glob_str='*.yml',
+            target_path='group/subgroup/subsubgroup/{basename:}')
+
+    assert dm._contains_group("group")
+    assert dm._contains_group("group/subgroup")
+    assert dm._contains_group("group/subgroup/subsubgroup")
+    assert not dm._contains_group("group/foobar")
+    assert not dm._contains_group("group/subgroup/foobar")
+    assert not dm._contains_group("group/subgroup/subsubgroup/foobar")
+    assert not dm._contains_group("i_dont_exist")
+    assert not dm._contains_group("group/i_dont_exist")
+    assert not dm._contains_group("group/i_dont_exist/i_dont_exist")
+
+def test_create_groups(dm):
+    """Check that group creation from paths works"""
+    # Simple creation
+    dm._create_groups("foobar")
+    assert "foobar" in dm
+
+    # Recursive
+    dm._create_groups("foo/bar/baz")
+    assert "foo/bar/baz" in dm
+
+    # A group in the path already exists
+    dm._create_groups("foo/bar/baz/foooo")
+    assert "foo/bar/baz/foooo" in dm
+
+    # Error with exist_ok=False
+    with pytest.raises(dantro.data_mngr.ExistingGroupError):
+        dm._create_groups("foo/bar", exist_ok=False)
+
+    # With data existing at a path, there should be another error
+    dm.load('foobar', loader='yaml', glob_str='foobar.yml',
+            target_path='foo/bar/baz/foobar')
+
+    with pytest.raises(dantro.data_mngr.ExistingDataError):
+        dm._create_groups("foo/bar/baz/foobar")
 
     
 def test_loading_regex(dm):
