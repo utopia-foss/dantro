@@ -232,7 +232,7 @@ class DataManager(OrderedDataGroup):
         
         # All done
         log.info("Successfully loaded %d data entries.", len(load_cfg))
-        log.info("Available data entries:\n  %s\n", 
+        log.info("Available top-level entries:\n  %s\n", 
                  ",  ".join(self.data.keys()))
 
         # Finally, print the tree
@@ -514,12 +514,12 @@ class DataManager(OrderedDataGroup):
             log.debug("Generated target path:  %s", target_path)
             return target_path.split(PATH_JOIN_CHAR)
 
-        def skip_path(path: Union[str, List[str]], *, exists_action: str) -> bool:
+        def skip_path(path: str, *, exists_action: str) -> bool:
             """Check whether a given path exists and — depending on the
             `exists_action` – decides whether to skip this path or now.
             
             Args:
-                path (Union[str, List[str]]): The path to check for existence.
+                path (str): The path to check for existence.
                 exists_action (str): The behaviour upon existing data. Can be:
                     raise, skip, skip_nowarn, overwrite, overwrite_nowarn,
                     update, update_nowarn
@@ -531,16 +531,16 @@ class DataManager(OrderedDataGroup):
             Raises:
                 ExistingDataError: Raised when `exists_action == 'raise'`
                 ValueError: Raised for invalid `exists_action` value
-            
-            Deleted Parameters:
-                exists_action (str, optional): Description
             """
             if path not in self:
                 # Does not exist yet -> no need to skip
                 return False
             # else: path exists already
+            # NOTE that it is not known whether the path points to a group
+            # or to a container
 
-            _msg = "Path '{}' already exists.".format(path)
+            _msg = ("Path '{}' already exists."
+                    "".format(PATH_JOIN_CHAR.join(path)))
 
             # Distinguish different actions
             if exists_action == 'raise':
@@ -601,6 +601,17 @@ class DataManager(OrderedDataGroup):
                     log.debug("Not storing %s there.", obj.logstr)
                     return False
 
+            # Check that the update flag is only given if the object is a group
+            if update and not isinstance(obj, BaseDataGroup):
+                raise ValueError("With the object to be stored at '{}' being "
+                                 "the {} and not BaseDataGroup-derived, the "
+                                 "`update` flag is not allowed. Ensure that "
+                                 "the parameter `exists_action` is not set to "
+                                 "update or that the object to be stored is a "
+                                 "group."
+                                 "".format(PATH_JOIN_CHAR.join(target_path),
+                                           obj.logstr))
+
             # Extract a target group path and a base name
             group_path = target_path[:-1]
             basename = target_path[-1]
@@ -608,15 +619,33 @@ class DataManager(OrderedDataGroup):
             # Resolve the target group object; create it if necessary
             # Need to check whether it is given at all. If not, write into the
             # data manager directly
-            if group_path:
-                if group_path not in self:
-                    self._create_groups(path=group_path)
-                group = self[group_path]
-            
-            else:
+            if not group_path:
                 # Write directly into data manager root
                 group = self
 
+            else:
+                # Need to retrieve or create the group
+                # The difficulty is that the path can also point to a container
+                # Need to assure here, that the group path points to a group
+                if group_path not in self:
+                    # Needs to be created
+                    self._create_groups(path=group_path)
+
+                elif not isinstance(self[group_path], BaseDataGroup):
+                    # Already exists, but is no group. Cannot continue
+                    group_path = PATH_JOIN_CHAR.join(group_path)
+                    target_path = PATH_JOIN_CHAR.join(target_path)
+                    raise ExistingDataError("The object at '{}' in {} is not "
+                                            "a group but a {}. Cannot store "
+                                            "{} there because the target path "
+                                            "'{}' requires it to be a group."
+                                            "".format(group_path, self.logstr,
+                                                      type(self[group_path]),
+                                                      obj.logstr, target_path))
+
+                # Now the group path will point to a group
+                group = self[group_path]
+            
             # Store data, if possible
             if basename not in group:
                 group.add(obj)
@@ -661,7 +690,7 @@ class DataManager(OrderedDataGroup):
             _target_path = prepare_target_path(target_path, filepath=file,
                                                path_sre=path_sre)
 
-            # Check if it to be skipped
+            # Check if it is to be skipped
             if skip_path(_target_path, exists_action=exists_action):
                 log.debug("Skipping %s ...", file)
                 continue
@@ -677,6 +706,7 @@ class DataManager(OrderedDataGroup):
             store(_data, target_path=_target_path,
                   overwrite=True,  # would have skipped already otherwise
                   update=exists_action.startswith('update'))
+            # NOTE need not check for return value, as it will overwrite
 
             # Done with this file
             log.debug("Successfully loaded %s and stored at %s",
@@ -689,11 +719,46 @@ class DataManager(OrderedDataGroup):
         # Done
         log.debug("Finished loading %d files.", len(files))
 
+    def _contains_group(path: Union[str, List[str]], *, base_group: BaseDataGroup=None) -> bool:
+        """Recursively checks if the given path is available _and_ a group.
+        
+        Args:
+            path (Union[str, List[str]]): The path to check.
+            base_group (BaseDataGroup): The group to start from. If not
+                given, will use self.
+        
+        Returns:
+            bool: Whether the path points to a group
+        
+        """
+        def check(path: str, base_group: BaseDataGroup) -> bool:
+            """Returns True if the object at path within base_group is
+            a group. False otherwise.
+            """
+            return (path in base_group
+                    and isinstance(base_group[path], BaseDataGroup))
+
+        if not isinstance(path, list):
+            path = path.split(PATH_JOIN_CHAR)
+
+        if not base_group:
+            base_group = self
+
+        if len(path) > 1:
+            # Need to continue recursively
+            if check(path[0], base_group):
+                return self._contains_group(path[1:],
+                                            base_group=base_group[path[0]])
+            return False
+
+        # End of recursion
+        return check(path[0], base_group)
+
     def _create_groups(self, *, path: Union[str, List[str]], base_group: BaseDataGroup=None, GroupCls=None, exist_ok: bool=True):
         """Recursively create groups for the given path.
         
         Args:
-            path (List[str]): The path to create groups along
+            path (Union[str, List[str]]): The path to create groups along
             base_group (BaseDataGroup, optional): The group to start from. If
                 not given, uses self.
             GroupCls (None, optional): The class to use for creating the groups
@@ -703,6 +768,7 @@ class DataManager(OrderedDataGroup):
                 Default: True
         
         Raises:
+            ExistingDataError: If not `exist_ok`
             ExistingGroupError: If not `exist_ok` and a group already exists
         """
         # Parse arguments
@@ -716,8 +782,19 @@ class DataManager(OrderedDataGroup):
             GroupCls = self._DATA_GROUP_DEFAULT_CLS
 
         # Catch the disallowed case as early as possible
-        if path[0] in base_group and not exist_ok:
-            raise ExistingGroupError(path[0])
+        if path[0] in base_group:
+            # Check if it is a group that exists there
+            if isinstance(base_group[path[0]], BaseDataGroup):
+                if not exist_ok:
+                    raise ExistingGroupError(path[0])
+
+            else:
+                # There is data (that is not a group) existing at the path.
+                # Cannot continue
+                raise ExistingDataError("Tried to create a group '{}' in {}, "
+                                        "but a container was already stored "
+                                        "at that path."
+                                        "".format(path[0], base_group.logstr))
 
         # Create the group, if it does not yet exist
         if path[0] not in base_group:

@@ -235,7 +235,6 @@ def test_loading_errors(dm):
     print("{:tree}".format(dm))
 
 
-@pytest.mark.skip()
 def test_loading_exists_action(dm):
     """Tests whether behaviour upon existing data is as desired"""
     # Load the `barfoo` entry that will later create a collision
@@ -245,35 +244,73 @@ def test_loading_exists_action(dm):
 
     # warn if loading is skipped; should still hold `barfoo` afterwards
     with pytest.warns(dantro.data_mngr.ExistingDataWarning):
-        dm.load('barfoo', loader='yaml', glob_str="*.yml",
+        dm.load('barfoo', loader='yaml', glob_str="foobar.yml",
                 exists_action='skip')
     assert isinstance(dm['barfoo'], dantro.base.BaseDataContainer)
+    assert 'one' in dm['barfoo']
 
     # same without warning
-    dm.load('barfoo', loader='yaml', glob_str="*.yml",
+    dm.load('barfoo', loader='yaml', glob_str="foobar.yml",
             exists_action='skip_nowarn')
     assert isinstance(dm['barfoo'], dantro.base.BaseDataContainer)
+    assert 'one' in dm['barfoo']
 
-    # with overwriting, the content should change
-    with pytest.warns(dantro.data_mngr.ExistingDataWarning):
+    # It should not be possible to change a container into a group
+    with pytest.raises(dantro.data_mngr.ExistingDataError,
+                       match="The object at 'barfoo' in DataManager"):
         dm.load('barfoo', loader='yaml', glob_str="*.yml",
-                exists_action='overwrite',)
-    assert isinstance(dm['barfoo'], dantro.base.BaseDataGroup)
+                target_path='barfoo/{basename:}',
+                exists_action='overwrite')
 
-    # overwrite again with the old one
-    dm.load('barfoo', loader='yaml', glob_str="foobar.yml",
+    # With barfoo/foobar being a container, this should also fail
+    with pytest.raises(dantro.data_mngr.ExistingDataError,
+                       match="Tried to create a group 'barfoo'"):
+        dm.load('barfoo', loader='yaml', glob_str="*.yml",
+                target_path='barfoo/foobar/{basename:}',
+                exists_action='overwrite')
+
+    # Overwriting with a container should work
+    dm.load('barfoo', loader='yaml', glob_str="lamo.yml",
             exists_action='overwrite_nowarn')
     assert isinstance(dm['barfoo'], dantro.base.BaseDataContainer)
+    assert 'one' not in dm['barfoo']
+    assert 'nothing' in dm['barfoo']
 
     # Check for invalid `exists_action` value
     with pytest.raises(ValueError):
-        dm.load('barfoo', loader='yaml', glob_str="*.yml",
+        dm.load('barfoo', loader='yaml', glob_str="foobar.yml",
                 exists_action='very bad value, much illegal')
 
-    # Check that there is a warning for update
-    with pytest.warns(dantro.data_mngr.ExistingDataWarning):
-        dm.load('barfoo', loader='yaml', glob_str="*.yml",
-                exists_action='update')
+    # Load a group
+    dm.load('a_group', loader='yaml', glob_str="*lamo.yml")
+    assert isinstance(dm['a_group'], dantro.base.BaseDataGroup)
+    assert 'lamo' in dm['a_group']
+    assert 'also_lamo' in dm['a_group']
+    assert 'foobar' not in dm['a_group']
+    assert 'looooooooooong_filename' not in dm['a_group']
+
+    # Check that there is a warning for existing element in a group
+    with pytest.warns(None) as record:
+        dm.load('more_yamls', loader='yaml', glob_str="*.yml",
+                target_path='a_group/{basename:}',
+                exists_action='skip')
+    assert len(record) == 2
+    assert all([issubclass(r.category, dantro.data_mngr.ExistingDataWarning)
+                for r in record])
+
+    # ...and that the elements were added
+    assert 'foobar' in dm['a_group']
+    assert 'looooooooooong_filename' in dm['a_group']
+
+    # Check that a group cannot be overwritten by a container
+    # TODO
+
+    # Check that a group cannot be _updated_ with a container
+    with pytest.raises(ValueError, match="With the object to be stored at"):
+        with pytest.warns(dantro.data_mngr.ExistingDataWarning):
+            dm.load('more_yamls', loader='yaml', glob_str="*.yml",
+                    target_path='a_group/{basename:}',
+                    exists_action='update')
 
     
 @pytest.mark.skip()
