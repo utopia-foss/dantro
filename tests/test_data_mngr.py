@@ -302,13 +302,6 @@ def test_loading_exists_action(dm):
     assert 'foobar' in dm['a_group']
     assert 'looooooooooong_filename' in dm['a_group']
 
-    # Check that a group cannot be _updated_ with a container
-    with pytest.raises(ValueError, match="With the object to be stored at"):
-        with pytest.warns(dantro.data_mngr.ExistingDataWarning):
-            dm.load('more_yamls', loader='yaml', glob_str="*.yml",
-                    target_path='a_group/{basename:}',
-                    exists_action='update')
-
     # Check that a group _can_ be overwritten by a container
     with pytest.raises(dantro.data_mngr.ExistingDataError):
         dm.load('a_group', loader='yaml', glob_str="lamo.yml")
@@ -317,6 +310,11 @@ def test_loading_exists_action(dm):
         dm.load('a_group', loader='yaml', glob_str="lamo.yml",
                 exists_action='overwrite')
     assert not isinstance(dm['a_group'], dantro.base.BaseDataGroup)
+
+@pytest.mark.skip()
+def test_contains_group(dm):
+    """Assert that the contains_group method works."""
+    pass
 
     
 def test_loading_regex(dm):
@@ -349,8 +347,15 @@ def test_loading_regex(dm):
                 target_path='sub_foobar/{match:}')
 
 
-def test_regex_for_target_group(dm):
-    """Check whether using the extracted name for the target group works"""
+def test_target_path(dm):
+    """Check whether the `target_path` argument works as desired"""
+
+    # Bad format string will fail
+    with pytest.raises(ValueError, match="Invalid argument `target_path`."):
+        dm.load('foo', loader='yaml', glob_str="*.yml",
+                target_path="{bad_key:}")
+
+    # Check whether loading into a matched group will work
     dm.load('merged_cfg', loader='yaml', glob_str="merged/cfg*.yml",
             path_regex='merged/cfg(\d+).yml',
             target_path='merged/foo{match:}/cfg')

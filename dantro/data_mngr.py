@@ -194,8 +194,8 @@ class DataManager(OrderedDataGroup):
                 the load configuration recursively
             exists_action (str, optional): The behaviour upon existing data.
                 Can be: raise (default), skip, skip_nowarn, overwrite,
-                overwrite_nowarn, update, update_nowarn.  With *_nowarn
-                values, no warning is given if an entry already existed.
+                overwrite_nowarn.  With *_nowarn values, no warning is given
+                if an entry already existed.
             print_tree (bool, optional): If True, a tree representation of the
                 DataManager is printed after the data was loaded
         
@@ -271,7 +271,7 @@ class DataManager(OrderedDataGroup):
                     available to the format string under the `match` key.
                 exists_action (str): The behaviour upon existing data.
                     Can be: raise (default), skip, skip_nowarn, overwrite,
-                    overwrite_nowarn, update, update_nowarn.
+                    overwrite_nowarn.
                     With *_nowarn values, no warning is given if an entry
                     already existed.
                 progress_indicator (bool): Whether to print a progress
@@ -368,7 +368,7 @@ class DataManager(OrderedDataGroup):
                 of the target container. If not given, the basename is used.
             exists_action (str, optional): The behaviour upon existing data.
                 Can be: raise (default), skip, skip_nowarn, overwrite,
-                overwrite_nowarn, update, update_nowarn.
+                overwrite_nowarn.
                 With *_nowarn values, no warning is given if an entry already
                 existed.
             progress_indicator (bool, optional): Whether to print a progress
@@ -528,8 +528,7 @@ class DataManager(OrderedDataGroup):
             Args:
                 path (str): The path to check for existence.
                 exists_action (str): The behaviour upon existing data. Can be:
-                    raise, skip, skip_nowarn, overwrite, overwrite_nowarn,
-                    update, update_nowarn
+                    raise, skip, skip_nowarn, overwrite, overwrite_nowarn.
                     The *_nowarn arguments suppress the warning
             
             Returns:
@@ -567,57 +566,30 @@ class DataManager(OrderedDataGroup):
                     warnings.warn(_msg + " It will be overwritten!",
                                   ExistingDataWarning)
                 return False  # will lead to the data being loaded
-            
-            elif exists_action in ['update', 'update_nowarn']:
-                if exists_action == 'update':
-                    warnings.warn(_msg + " Will be updated with loaded data.",
-                                  ExistingDataWarning)
-                return False  # will lead to the data being loaded
 
             else:
                 raise ValueError("Invalid value for `exists_action` "
                                  "argument '{}'! Can be: raise, skip, "
-                                 "skip_nowarn, overwrite, overwrite_nowarn, "
-                                 "update, update_nowarn."
+                                 "skip_nowarn, overwrite, overwrite_nowarn."
                                  "".format(exists_action))
 
-        def store(obj: Union[BaseDataGroup, BaseDataContainer], *, target_path: str, overwrite: bool=False, update: bool=False) -> bool:
+        def store(obj: Union[BaseDataGroup, BaseDataContainer], *, target_path: List[str]) -> None:
             """Store the given `obj` at the supplied `path`.
 
+            Note that this will automatically overwrite, assuming that all
+            checks have been made prior to the call to this function.
+            
             Args:
                 obj (Union[BaseDataGroup, BaseDataContainer]): Object to store
-                path (str): The path to store it at
-                overwrite (bool, optional): If true, overwrites whatever is at
-                    `path`. This has no effect if `update` is also given.
-                update (bool, optional): If true, tries recursively updating
-                    `path` instead of overwriting.
+                target_path (List[str]): The path to store the object at
             
             Returns:
-                bool: Whether data was stored or not
+                None
+            
+            Raises:
+                ExistingDataError: If non-group-like data already existed at
+                    that path
             """
-
-            if not isinstance(target_path, list):
-                # Split the target path to have a list
-                target_path = target_path.split(PATH_JOIN_CHAR)
-
-            # Check if the target already exists
-            if target_path in self:
-                log.debug("An object already exists at %s.", target_path)
-                if not (update or overwrite):
-                    # Not storing
-                    log.debug("Not storing %s there.", obj.logstr)
-                    return False
-
-            # Check that the update flag is only given if the object is a group
-            if update and not isinstance(obj, BaseDataGroup):
-                raise ValueError("With the object to be stored at '{}' being "
-                                 "the {} and not BaseDataGroup-derived, the "
-                                 "`update` flag is not allowed. Ensure that "
-                                 "the parameter `exists_action` is not set to "
-                                 "update or that the object to be stored is a "
-                                 "group."
-                                 "".format(PATH_JOIN_CHAR.join(target_path),
-                                           obj.logstr))
 
             # Extract a target group path and a base name
             group_path = target_path[:-1]
@@ -654,24 +626,16 @@ class DataManager(OrderedDataGroup):
                 group = self[group_path]
             
             # Store data, if possible
-            if basename not in group:
-                group.add(obj)
-                
-            else:
-                # Already exists. Distinguish overwrite and update
-                if update:
-                    # Call the recursive update function.
-                    group.recursive_update(obj)
-                    # NOTE will only work with a group
-                
-                elif overwrite:
-                    # Delete the old one, then store the new one
-                    del group[basename]
-                    group.add(obj)
+            if basename in group:
+                # Already exists. Delete the old one, then store the new one
+                del group[basename]
 
-            return True
+            # Can add now
+            group.add(obj)
+            
+            # Done
 
-        # . . . . . . . . . . . End of helper functions . . . . . . . . . . . .
+        # End of helper functions . . . . . . . . . . . . . . . . . . . . . . .
         # Get the loader function
         load_func, load_func_name, TargetCls = resolve_loader(loader)
 
@@ -707,7 +671,7 @@ class DataManager(OrderedDataGroup):
 
             # Check if it is to be skipped
             if skip_path(_target_path, exists_action=exists_action):
-                log.debug("Skipping %s ...", file)
+                log.debug("Skipping file '%s' ...", file)
                 continue
 
             # Prepare the target class, which will be filled by the load func
@@ -718,14 +682,11 @@ class DataManager(OrderedDataGroup):
             _data = load_func(file, TargetCls=_TargetCls, **loader_kwargs)
             
             # If this succeeded, store the data
-            store(_data, target_path=_target_path,
-                  overwrite=True,  # would have skipped already otherwise
-                  update=exists_action.startswith('update'))
-            # NOTE need not check for return value, as it will overwrite
+            store(_data, target_path=_target_path)
 
             # Done with this file
-            log.debug("Successfully loaded %s and stored at %s",
-                      file, _target_path)
+            log.debug("Successfully loaded '%s' and stored at '%s' as %s.",
+                      file, PATH_JOIN_CHAR.join(_target_path), _data.logstr)
 
         # Clear the line to get rid of the load indicator, if there was one
         if progress_indicator:
