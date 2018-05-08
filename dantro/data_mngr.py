@@ -51,6 +51,10 @@ class ExistingDataWarning(UserWarning):
     """If there was data already existing ..."""
     pass
 
+class NoMatchWarning(UserWarning):
+    """If there was no regex match"""
+    pass
+
 # -----------------------------------------------------------------------------
 
 class DataManager(OrderedDataGroup):
@@ -492,19 +496,22 @@ class DataManager(OrderedDataGroup):
             # Use the specified regex pattern to extract a match
             if path_sre:
                 try:
-                    fps['match'] = path_sre.findall(filepath)[0]
+                    _match = path_sre.findall(filepath)[0]
                 
                 except IndexError:
                     # nothing could be found
-                    pass
-                
-                if 'match' not in fps:
-                    # Could not find a basename
                     warnings.warn("Could not extract a name using the "
                                   "regex pattern '{}' on the file path:\n"
                                   "{}\nUsing the path's basename instead."
                                   "".format(path_sre, filepath),
-                                  UserWarning)
+                                  NoMatchWarning)
+                    _match = fps['basename']
+                
+                else:
+                    log.debug("Matched '%s' in file path '%s'.",
+                              _match, filepath)
+                
+                fps['match'] = _match
 
             # Parse the format string to generate the file path
             log.debug("Parsing format string '%s' to generate target path ...",      target_path)
@@ -674,6 +681,14 @@ class DataManager(OrderedDataGroup):
         
         # If a regex pattern was specified, compile it
         path_sre = re.compile(path_regex) if path_regex else None
+
+        # Check if the `match` key is being used in the target_path
+        if path_sre is not None and target_path.find("{match:") < 0:
+            raise ValueError("Received the `path_regex` argument to match the "
+                             "file path, but the `target_path` argument did "
+                             "not contain the corresponding `{{match:}}` "
+                             "placeholder. `target_path` value: '{}'."
+                             "".format(target_path))
 
         if parallel:
             # TODO could be implemented by parallelising the below for loop

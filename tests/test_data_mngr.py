@@ -313,32 +313,34 @@ def test_loading_exists_action(dm):
                     exists_action='update')
 
     
-@pytest.mark.skip()
 def test_loading_regex(dm):
     """Check whether regex name extraction works"""
     # This should raise a warning for the `abcdef` entry
-    with pytest.warns(UserWarning):
+    with pytest.warns(dantro.data_mngr.NoMatchWarning):
         dm.load('sub_foobar', loader='yaml', glob_str="sub/*.yml",
-                always_create_group=True, path_regex='([0-9]*).yml')
+                path_regex='sub/abc(\d+).yml',
+                target_path='sub_foobar/{match:}',
+                print_tree=True)
 
     assert 'sub_foobar/123' in dm
     assert 'sub_foobar/abcdef' in dm
 
+    # There should be a warning for non-matching regex
+    with pytest.warns(dantro.data_mngr.NoMatchWarning):
+        dm.load('more_foobar1', loader='yaml', glob_str="foobar.yml",
+                path_regex='will_not_match', target_path='sub/{match:}')
+
+    # There should be an error if the `match` key is not used in target_path
+    with pytest.raises(ValueError, match="Received the `path_regex` argument"):
+        dm.load('more_foobar2', loader='yaml', glob_str="foobar.yml",
+                path_regex='.*')
+
     # There should be an error if the regex is creating non-unique names
     with pytest.raises(dantro.data_mngr.ExistingDataError,
-                       match='.*resolves to unique names.*'):
+                       match="Path 'sub_foobar/abc' already exists."):
         dm.load('bad_sub_foobar', loader='yaml', glob_str="sub/*.yml",
-                always_create_group=True, path_regex='([abc]*)\w+.yml')
-
-    # There should be a warning for a bad regex
-    with pytest.warns(UserWarning):
-        dm.load('more_foobar1', loader='yaml', glob_str="foobar.yml",
-                path_regex='will_not_match')
-
-    # ... or if trying to regex something that will not be loaded into a group
-    with pytest.warns(UserWarning):
-        dm.load('more_foobar2', loader='yaml', glob_str="foobar.yml",
-                path_regex='(foo)*.yml')
+                path_regex='([abc]*)\w+.yml',
+                target_path='sub_foobar/{match:}')
 
 
 @pytest.mark.skip()
