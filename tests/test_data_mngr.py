@@ -308,7 +308,7 @@ def test_loading_exists_action(dm):
             dm.load('more_yamls', loader='yaml', glob_str="*.yml",
                     target_path='a_group/{basename:}',
                     exists_action='update')
-            
+
     # Check that a group _can_ be overwritten by a container
     with pytest.raises(dantro.data_mngr.ExistingDataError):
         dm.load('a_group', loader='yaml', glob_str="lamo.yml")
@@ -349,16 +349,15 @@ def test_loading_regex(dm):
                 target_path='sub_foobar/{match:}')
 
 
-@pytest.mark.skip()
 def test_regex_for_target_group(dm):
     """Check whether using the extracted name for the target group works"""
     dm.load('merged_cfg', loader='yaml', glob_str="merged/cfg*.yml",
-            always_create_group=True, path_regex='merged/cfg(\d+).yml',
-            target_group='merged/foo{match:}', target_basename='cfg')
+            path_regex='merged/cfg(\d+).yml',
+            target_path='merged/foo{match:}/cfg')
     
     dm.load('merged_data', loader='yaml', glob_str="merged/data*.yml",
-            always_create_group=True, path_regex='merged/data(\d+).yml',
-            target_group='merged/foo{match:}', target_basename='data')
+            path_regex='merged/data(\d+).yml',
+            target_path='merged/foo{match:}/data')
 
     # Assert that the loaded data has the desired form
     assert 'merged' in dm
@@ -378,7 +377,6 @@ def test_regex_for_target_group(dm):
 
 # Hdf5LoaderMixin tests -------------------------------------------------------
 
-@pytest.mark.skip()
 def test_hdf5_loader(hdf5_dm):
     """Test whether loading of hdf5 data works as desired"""
     hdf5_dm.load('h5data', loader='hdf5', glob_str="**/*.h5")
@@ -403,7 +401,6 @@ def test_hdf5_loader(hdf5_dm):
     assert 'h5data/nested/group1/group11/group111/dset' in hdf5_dm
 
 
-@pytest.mark.skip()
 def test_hdf5_proxy_loader(hdf5_dm):
     """Tests whether proxy loading of hdf5 data works"""
     hdf5_dm.load('h5proxy', loader='hdf5_proxy', glob_str="**/*.h5",
