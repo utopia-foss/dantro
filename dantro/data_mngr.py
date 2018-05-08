@@ -406,8 +406,11 @@ class DataManager(OrderedDataGroup):
 
             return load_func, load_func_name, TargetCls
 
-        def create_files_set(*, glob_str: Union[str, List[str]], ignore: List[str], required: bool=False) -> set:
-            """Create the set of file paths to load from.
+        def create_files_list(*, glob_str: Union[str, List[str]], ignore: List[str], required: bool=False, sort: bool=False) -> list:
+            """Create the list of file paths to load from.
+
+            Internally, this uses a set, thus ensuring that the paths are
+            unique. The set is converted to a list before returning.
             
             Args:
                 glob_str (Union[str, List[str]]): The glob pattern or a list of
@@ -415,9 +418,10 @@ class DataManager(OrderedDataGroup):
                 ignore (List[str]): The list of files to ignore
                 required (bool, optional): Will lead to an error being raised
                     if no files could be matched
+                sort (bool, optional): If true, sorts the list before returning
             
             Returns:
-                set: the file paths to load
+                list: the file paths to load
             
             Raises:
                 MissingDataError: If no files could be matched
@@ -481,6 +485,13 @@ class DataManager(OrderedDataGroup):
                                                "{}) were found, but were "
                                                "marked as required!"
                                                "".format(glob_str, ignore))
+
+            # Convert to list
+            files = list(files)
+
+            # Sort, if asked to do so
+            if sort:
+                files.sort()
 
             return files
 
@@ -639,9 +650,9 @@ class DataManager(OrderedDataGroup):
         # Get the loader function
         load_func, load_func_name, TargetCls = resolve_loader(loader)
 
-        # Create the set of file paths to load
-        files = create_files_set(glob_str=glob_str, ignore=ignore,
-                                 required=required)
+        # Create the list of file paths to load
+        files = create_files_list(glob_str=glob_str, ignore=ignore,
+                                  required=required, sort=True)
         
         # If a regex pattern was specified, compile it
         path_sre = re.compile(path_regex) if path_regex else None
