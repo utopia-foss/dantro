@@ -302,15 +302,21 @@ def test_loading_exists_action(dm):
     assert 'foobar' in dm['a_group']
     assert 'looooooooooong_filename' in dm['a_group']
 
-    # Check that a group cannot be overwritten by a container
-    # TODO
-
     # Check that a group cannot be _updated_ with a container
     with pytest.raises(ValueError, match="With the object to be stored at"):
         with pytest.warns(dantro.data_mngr.ExistingDataWarning):
             dm.load('more_yamls', loader='yaml', glob_str="*.yml",
                     target_path='a_group/{basename:}',
                     exists_action='update')
+            
+    # Check that a group _can_ be overwritten by a container
+    with pytest.raises(dantro.data_mngr.ExistingDataError):
+        dm.load('a_group', loader='yaml', glob_str="lamo.yml")
+
+    with pytest.warns(dantro.data_mngr.ExistingDataWarning):
+        dm.load('a_group', loader='yaml', glob_str="lamo.yml",
+                exists_action='overwrite')
+    assert not isinstance(dm['a_group'], dantro.base.BaseDataGroup)
 
     
 def test_loading_regex(dm):
