@@ -46,25 +46,25 @@ def test_check_data_mixin():
     class TestContainerB(CheckDataMixin, DummyContainer):
         """Only list or tuple allowed, raising if not correct"""
         DATA_EXPECTED_TYPES = (list, tuple)
-        DATA_ALLOW_PROXIES = True
+        DATA_ALLOW_PROXY = True
         DATA_UNEXPECTED_ACTION = 'raise'
     
     class TestContainerC(CheckDataMixin, DummyContainer):
         """Only list or tuple allowed, raising if not correct"""
         DATA_EXPECTED_TYPES = (list, tuple)
-        DATA_ALLOW_PROXIES = True
+        DATA_ALLOW_PROXY = True
         DATA_UNEXPECTED_ACTION = 'warn'
     
     class TestContainerD(CheckDataMixin, DummyContainer):
         """Only list or tuple allowed, raising if not correct"""
         DATA_EXPECTED_TYPES = (list, tuple)
-        DATA_ALLOW_PROXIES = True
+        DATA_ALLOW_PROXY = True
         DATA_UNEXPECTED_ACTION = 'ignore'
     
     class TestContainerE(CheckDataMixin, DummyContainer):
         """Only list or tuple allowed, raising if not correct"""
         DATA_EXPECTED_TYPES = (list, tuple)
-        DATA_ALLOW_PROXIES = True
+        DATA_ALLOW_PROXY = True
         DATA_UNEXPECTED_ACTION = 'invalid'
 
     # Tests ...................................................................
@@ -99,10 +99,10 @@ def test_mutuable_sequence_container():
                                     attrs=dict(one=1, two="two"))
 
     # There will be warnings for other data types:
-    with pytest.warns(UserWarning):
+    with pytest.warns(UnexpectedTypeWarning):
         msc3 = MutableSequenceContainer(name="bar", data=("hello", "world"))
 
-    with pytest.warns(UserWarning):
+    with pytest.warns(UnexpectedTypeWarning):
         msc4 = MutableSequenceContainer(name="baz", data=None)
     
     # Basic assertions ........................................................
@@ -150,6 +150,13 @@ def test_numpy_data_container():
     # Basic initialization of Numpy ndarray-like data
     ndc1 = NumpyDataContainer(name="oof", data=np.array([1,2,3]))
     ndc2 = NumpyDataContainer(name="zab", data=np.array([2,4,6]))
+
+    # Initialisation with lists should also work
+    NumpyDataContainer(name="rab", data=[3,6,9])
+
+    # Ensure that the CheckDataMixin does its job
+    with pytest.raises(TypeError, match="Unexpected type"):
+        NumpyDataContainer(name="zab", data=("not", "a", "valid", "type"))
 
     # Test the ForwardAttrsToDataMixin on a selection of numpy functions
     l1 = [1,2,3]

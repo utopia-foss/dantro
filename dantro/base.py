@@ -177,7 +177,7 @@ class CheckDataMixin:
     method in the BaseDataContainer, and can be controlled via class variables.
     
     Attributes:
-        DATA_ALLOW_PROXIES (bool): Whether to allow _all_ proxy types, i.e.
+        DATA_ALLOW_PROXY (bool): Whether to allow _all_ proxy types, i.e.
             classes derived from BaseDataProxy
         DATA_EXPECTED_TYPES (tuple, None): Which types to allow. If None, all
             types are allowed.
@@ -187,7 +187,7 @@ class CheckDataMixin:
 
     # Specify expected data types for this container class
     DATA_EXPECTED_TYPES = None       # as tuple or None (allow all)
-    DATA_ALLOW_PROXIES = True        # to check for BaseDataProxy
+    DATA_ALLOW_PROXY = True        # to check for BaseDataProxy
     DATA_UNEXPECTED_ACTION = 'warn'  # Can be: raise, warn, ignore
 
     def _check_data(self, data, *, name: str) -> bool:
@@ -211,7 +211,7 @@ class CheckDataMixin:
         # Compile tuple of allowed types
         expected_types = self.DATA_EXPECTED_TYPES
 
-        if self.DATA_ALLOW_PROXIES:
+        if self.DATA_ALLOW_PROXY:
             expected_types += (BaseDataProxy,)
 
         # Perform the check
