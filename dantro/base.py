@@ -11,6 +11,7 @@ NOTE: These classes are not meant to be instantiated.
 
 import abc
 import logging
+import warnings
 from typing import Union, List
 
 import dantro.abc
@@ -19,6 +20,10 @@ import dantro.tools as tools
 # Local constants
 log = logging.getLogger(__name__)
 PATH_JOIN_CHAR = "/"
+
+class UnexpectedTypeWarning(UserWarning):
+    """Given when there was an unexpected type passed to a data container."""
+    pass
 
 # -----------------------------------------------------------------------------
 # Mixins ----------------------------------------------------------------------
@@ -164,6 +169,84 @@ class MappingAccessMixin(ItemAccessMixin, CollectionMixin):
         return self.data.get(key, default)
 
 
+class CheckDataMixin:
+    """This mixin class extends a BaseDataContainer-derived class to check the
+    provided data before storing it in the container.
+    
+    It implements a general _check_data method, overwriting the placeholder 
+    method in the BaseDataContainer, and can be controlled via class variables.
+    
+    Attributes:
+        DATA_ALLOW_PROXY (bool): Whether to allow _all_ proxy types, i.e.
+            classes derived from BaseDataProxy
+        DATA_EXPECTED_TYPES (tuple, None): Which types to allow. If None, all
+            types are allowed.
+        DATA_UNEXPECTED_ACTION (str): The action to take when an unexpected
+            type was supplied. Can be: raise, warn, ignore
+    """
+
+    # Specify expected data types for this container class
+    DATA_EXPECTED_TYPES = None       # as tuple or None (allow all)
+    DATA_ALLOW_PROXY = False         # to check for BaseDataProxy
+    DATA_UNEXPECTED_ACTION = 'warn'  # Can be: raise, warn, ignore
+
+    def _check_data(self, data, *, name: str) -> bool:
+        """A general method to check the received data for its type
+        
+        Args:
+            data: The data to check
+            name (str): The name of the data container
+        
+        Returns:
+            bool: True if the data is of an expected type
+        
+        Raises:
+            TypeError: If the type was unexpected and the action was 'raise'
+            ValueError: Illegal value for DATA_UNEXPECTED_ACTION class variable
+        """
+        if self.DATA_EXPECTED_TYPES is None:
+            # All types allowed
+            return True
+
+        # Compile tuple of allowed types
+        expected_types = self.DATA_EXPECTED_TYPES
+
+        if self.DATA_ALLOW_PROXY:
+            expected_types += (BaseDataProxy,)
+
+        # Perform the check
+        if isinstance(data, expected_types):
+            # Is of the expected type
+            return True
+
+        # else: was not of the expected type
+
+        # Create a base message
+        msg = ("Unexpected type {} for data passed to {} '{}'! "
+               "Expected types are: {}.".format(type(data), self.classname,
+                                                name, expected_types))
+
+        # Handle according to the specified action
+        if self.DATA_UNEXPECTED_ACTION == 'raise':
+            raise TypeError(msg)
+
+        elif self.DATA_UNEXPECTED_ACTION == 'warn':
+            warnings.warn(msg + "\nInitialisation will work, but be informed "
+                          "that there might be errors at runtime.",
+                          UnexpectedTypeWarning)
+        
+        elif self.DATA_UNEXPECTED_ACTION == 'ignore':
+            log.debug(msg + " Ignoring ...")
+            pass
+
+        else:
+            raise ValueError("Illegal value '{}' for class variable "
+                             "DATA_UNEXPECTED_ACTION of {}. "
+                             "Allowed values are: raise, warn, ignore"
+                             "".format(self.DATA_UNEXPECTED_ACTION,
+                                       self.classname))
+        
+        return False
 
 # -----------------------------------------------------------------------------
 # Base classes ----------------------------------------------------------------
@@ -220,7 +303,8 @@ class BaseDataAttrs(MappingAccessMixin, dantro.abc.AbstractDataAttrs):
 # -----------------------------------------------------------------------------
 
 class BaseDataContainer(PathMixin, AttrsMixin, dantro.abc.AbstractDataContainer):
-    """The BaseDataContainer extends the base class by its ability to holds attributes.
+    """The BaseDataContainer extends the abstract base class by the ability to
+    hold attributes and be path-aware.
 
     NOTE: This is still an abstract class and needs to be subclassed.
     """
@@ -236,6 +320,11 @@ class BaseDataContainer(PathMixin, AttrsMixin, dantro.abc.AbstractDataContainer)
         """
         log.debug("BaseDataContainer.__init__ called.")
 
+        # Supply the data to the _check_data method, which can be adjusted
+        # to test the provided data. In this base class, the method does
+        # nothing and serves only as a placeholder
+        self._check_data(data, name=name)
+
         # Basic initialisation via parent method
         super().__init__(name=name, data=data)
 
@@ -243,6 +332,24 @@ class BaseDataContainer(PathMixin, AttrsMixin, dantro.abc.AbstractDataContainer)
         self.attrs = attrs
 
         log.debug("BaseDataContainer.__init__ finished.")
+
+    def _check_data(self, data, *, name: str) -> bool:
+        """This method can be used to check the data provided to __init__.
+        
+        It is called before the data is stored via the parent's __init__ and
+        should raise an exception or create a warning if the data is not as
+        desired.
+        
+        NOTE: The CheckDataMixin provides a generalised function to perform
+        some type checks and react to unexpected types.
+        
+        Args:
+            data: The data to check
+        
+        Returns:
+            bool: Whether the data passed the check.
+        """
+        return True
 
     # .........................................................................
     # Methods needed for data container conversion

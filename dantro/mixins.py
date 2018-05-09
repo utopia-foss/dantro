@@ -23,6 +23,13 @@ class ProxyMixin:
     only be loaded if `data` is directly accessed.
     """
 
+    # If the CheckDataMixin is used, it should also allow proxy data
+    DATA_ALLOW_PROXY = True
+    # NOTE Depending on the order of how the mixins are given, this might
+    # not have an effect. Make sure the proxy mixin is loaded after the
+    # CheckDataMixin or the container class that uses the CheckDataMixin
+
+
     @property
     def data(self):
         """The container data. If the data is a proxy, this call will lead

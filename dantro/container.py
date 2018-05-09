@@ -3,22 +3,29 @@
 import warnings
 import logging
 from collections.abc import MutableSequence, MutableMapping
+
 import numpy as np
-from dantro.base import BaseDataContainer, ItemAccessMixin, CollectionMixin, MappingAccessMixin
+
+from dantro.base import BaseDataContainer, ItemAccessMixin, CollectionMixin, MappingAccessMixin, CheckDataMixin
 from dantro.mixins import ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin
+
 # Local constants
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 # General container specialisations
 
-class MutableSequenceContainer(ItemAccessMixin, CollectionMixin, BaseDataContainer, MutableSequence):
+class MutableSequenceContainer(CheckDataMixin, ItemAccessMixin, CollectionMixin, BaseDataContainer, MutableSequence):
     """The MutableSequenceContainer stores data that is sequence-like"""
+
+    # Specify expected data types for this container class
+    DATA_EXPECTED_TYPES = (MutableSequence, list)
+    DATA_ALLOW_PROXY = False
+    DATA_UNEXPECTED_ACTION = 'warn'
+
 
     def __init__(self, *, name: str, data, **dc_kwargs):
         """Initialise a MutableSequenceContainer, storing data that is sequence-like.
-
-        NOTE: There is no check if the given data is actually a sequence!
         
         Args:
             name (str): The name of this container
@@ -27,14 +34,6 @@ class MutableSequenceContainer(ItemAccessMixin, CollectionMixin, BaseDataContain
         """
 
         log.debug("MutableSequenceContainer.__init__ called.")
-
-        # Perform a check whether the data is actually a mutable sequence
-        if not isinstance(data, MutableSequence):
-            warnings.warn("The data given to {} '{}' was not identified as a "
-                          "MutableSequence, but as '{}'. Initialisation will "
-                          "work, but be informed that there might be errors "
-                          "later on.".format(self.classname, name, type(data)),
-                          UserWarning)
 
         # Initialise with parent method
         super().__init__(name=name, data=data, **dc_kwargs)
@@ -65,7 +64,13 @@ class MutableSequenceContainer(ItemAccessMixin, CollectionMixin, BaseDataContain
                          **target_init_kwargs)
 
 
-class MutableMappingContainer(MappingAccessMixin, BaseDataContainer, MutableMapping):
+class MutableMappingContainer(CheckDataMixin, MappingAccessMixin, BaseDataContainer, MutableMapping):
+    """The MutableMappingContainer stores mutable mapping data, e.g. dicts"""
+
+    # Specify expected data types for this container class
+    DATA_EXPECTED_TYPES = (MutableMapping, dict)
+    DATA_ALLOW_PROXY = False
+    DATA_UNEXPECTED_ACTION = 'warn'
 
     def __init__(self, *, name: str, data=None, **dc_kwargs):
         """Initialise a MutableMappingContainer, storing mapping data.
@@ -81,16 +86,9 @@ class MutableMappingContainer(MappingAccessMixin, BaseDataContainer, MutableMapp
 
         log.debug("MutableMappingContainer.__init__ called.")
 
-        # Perform a check whether the data is actually a mutable sequence
+        # Supply a default value for the data, if none was given
         if data is None:
             data = {}
-            
-        elif not isinstance(data, MutableMapping):
-            warnings.warn("The data given to {} '{}' was not identified as a "
-                          "MutableMapping, but as '{}'. Initialisation will "
-                          "work, but be informed that there might be errors "
-                          "later on.".format(self.classname, name, type(data)),
-                          UserWarning)
 
         # Initialise with parent method
         super().__init__(name=name, data=data, **dc_kwargs)
@@ -112,28 +110,34 @@ class MutableMappingContainer(MappingAccessMixin, BaseDataContainer, MutableMapp
 # -----------------------------------------------------------------------------
 # Specialised containers
 
-class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin, ItemAccessMixin, BaseDataContainer):
-    """The NumpyDataContainer stores data that is numpy.ndarray-like"""
+class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin, CheckDataMixin, ItemAccessMixin, BaseDataContainer):
+    """The NumpyDataContainer stores numerical array-shaped data.
 
-    def __init__(self, *, name: str, data, **dc_kwargs):
+    Specifically: it is made for use with the np.ndarray class.
+    """
+
+    # Specify expected data types for this container class
+    DATA_EXPECTED_TYPES = (np.ndarray,)
+    DATA_ALLOW_PROXY = False
+    DATA_UNEXPECTED_ACTION = 'raise'
+
+    def __init__(self, *, name: str, data: np.ndarray, **dc_kwargs):
         """Initialize a NumpyDataContainer, storing data that is like a numpy.ndarray.
         
         Arguments:
-            name (str) -- The name of this container
-            data (np.ndarray) -- The numpy.ndarray-like data to store
-            **dc_kwargs: Description
+            name (str): The name of this container
+            data (np.ndarray): The numpy data to store
+            **dc_kwargs: Additional arguments for container initialisation
         """
 
         log.debug("NumpyDataConainer.__init__ called.")
 
-        # check whether the data is a numpy.ndarray.dtype
-        if not isinstance(data, np.ndarray):
-            warnings.warn("The data given to {} '{}' was not identified as a "
-                          "np.ndarray data, but as '{}'. Initialisation will "
-                          "work, but be informed that there might be errors "
-                          "later on.".format(self.classname, name, type(data)),
-                          UserWarning)
-        
+        # To be a bit more tolerant, allow lists as data argument
+        if isinstance(data, list):
+            log.debug("Received a list as `data` argument to %s '%s'. "
+                      "Calling np.array on it ...", self.classname, name)
+            data = np.array(data)
+
         #initialize with parent method
         super().__init__(name=name, data=data, **dc_kwargs)
 
