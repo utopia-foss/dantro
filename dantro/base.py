@@ -187,7 +187,7 @@ class CheckDataMixin:
 
     # Specify expected data types for this container class
     DATA_EXPECTED_TYPES = None       # as tuple or None (allow all)
-    DATA_ALLOW_PROXY = True        # to check for BaseDataProxy
+    DATA_ALLOW_PROXY = False         # to check for BaseDataProxy
     DATA_UNEXPECTED_ACTION = 'warn'  # Can be: raise, warn, ignore
 
     def _check_data(self, data, *, name: str) -> bool:
