@@ -55,6 +55,14 @@ def data_dir(tmpdir) -> str:
     write_yml(foobar, path=subdir.join("abc123.yml"))
     write_yml(foobar, path=subdir.join("abcdef.yml"))
 
+    merged = tmpdir.mkdir("merged")
+    write_yml(foobar, path=merged.join("data0.yml"))
+    write_yml(foobar, path=merged.join("data1.yml"))
+    write_yml(foobar, path=merged.join("data2.yml"))
+    write_yml(foobar, path=merged.join("cfg0.yml"))
+    write_yml(foobar, path=merged.join("cfg1.yml"))
+    write_yml(foobar, path=merged.join("cfg2.yml"))
+
     return tmpdir
 
 @pytest.fixture
@@ -129,15 +137,6 @@ def test_loading(dm):
                                                glob_str="foobar.yml")),
                      print_tree=True)
 
-    # Check the `update_load_cfg` argument
-    dm.load_from_cfg(update_load_cfg=dict(barfoo2=dict(loader="yaml",
-                                                       glob_str="foobar.yml")),
-                     print_tree=True)
-
-    # Invalid load config
-    with pytest.raises(TypeError):
-        dm.load_from_cfg(update_load_cfg=dict(barfoo2=[1,2,3]))
-
     # Assert that the top level entries are all available and content is right
     assert 'barfoo' in dm
 
@@ -147,13 +146,21 @@ def test_loading(dm):
     assert barfoo['go_deeper']['eleven'] == 11
     assert barfoo['a_list'] == list(range(10))
 
+    # Check the `update_load_cfg` argument
+    dm.load_from_cfg(update_load_cfg=dict(barfoo2=dict(loader="yaml",
+                                                       glob_str="foobar.yml")),
+                     print_tree=True)
+
+    # Invalid load config
+    with pytest.raises(TypeError):
+        dm.load_from_cfg(update_load_cfg=dict(barfoo2=[1,2,3]))
+
     # Check single entry loading ..............................................
     # Load another single entry, this time forcing a group to be created
     dm.load('barbaz', loader='yaml', glob_str="foobar.yml",
-            always_create_group=True, print_tree=True)
+            print_tree=True)
 
     assert 'barbaz' in dm
-    assert 'barbaz/foobar' in dm
 
     # Load again, this time with more data
     dm.load('all_yaml', loader='yaml', glob_str="*.yml")
@@ -164,9 +171,9 @@ def test_loading(dm):
     assert 'all_yaml/also_lamo' in dm
     assert 'all_yaml/looooooooooong_filename' in dm
 
-    # Now see what happens if loading into an existing target_group is desired
+    # Now see what happens if loading into an existing target_path
     dm.load('more_yaml', loader='yaml', glob_str="*.yml",
-            target_group="all_yaml")
+            target_path="all_yaml/more_yaml/{basename:}")
 
     assert 'all_yaml/more_yaml' in dm
     assert 'all_yaml/more_yaml/foobar' in dm
@@ -174,7 +181,7 @@ def test_loading(dm):
 
     # ...and into a non-existing one
     dm.load('more_yaml', loader='yaml', glob_str="*.yml",
-            target_group="all_yaml2")
+            target_path="all_yaml2/more_yaml/{basename:}")
 
     assert 'all_yaml2/more_yaml' in dm
     assert 'all_yaml2/more_yaml/foobar' in dm
@@ -203,14 +210,9 @@ def test_loading_errors(dm):
                                                glob_str="foobar.yml")),
                      print_tree=True)
 
-    # This should fail if more than one group would need to be created
-    with pytest.raises(NotImplementedError):
-        dm.load('more_yaml', loader='yaml', glob_str="*.yml",
-                target_group="all/yaml/goes/here")
-
     # With name collisions, an error should be raised
     with pytest.raises(dantro.data_mngr.ExistingDataError):
-        dm.load('barfoo', loader='yaml', glob_str="*.yml")
+        dm.load('barfoo', loader='yaml', glob_str="foobar.yml")
 
     # Check for missing data ..................................................
     # Check for data missing that was required
@@ -242,62 +244,198 @@ def test_loading_exists_action(dm):
 
     # warn if loading is skipped; should still hold `barfoo` afterwards
     with pytest.warns(dantro.data_mngr.ExistingDataWarning):
-        dm.load('barfoo', loader='yaml', glob_str="*.yml",
+        dm.load('barfoo', loader='yaml', glob_str="foobar.yml",
                 exists_action='skip')
     assert isinstance(dm['barfoo'], dantro.base.BaseDataContainer)
+    assert 'one' in dm['barfoo']
 
     # same without warning
-    dm.load('barfoo', loader='yaml', glob_str="*.yml",
+    dm.load('barfoo', loader='yaml', glob_str="foobar.yml",
             exists_action='skip_nowarn')
     assert isinstance(dm['barfoo'], dantro.base.BaseDataContainer)
+    assert 'one' in dm['barfoo']
 
-    # with overwriting, the content should change
-    with pytest.warns(dantro.data_mngr.ExistingDataWarning):
+    # It should not be possible to change a container into a group
+    with pytest.raises(dantro.data_mngr.ExistingDataError,
+                       match="The object at 'barfoo' in DataManager"):
         dm.load('barfoo', loader='yaml', glob_str="*.yml",
-                exists_action='overwrite',)
-    assert isinstance(dm['barfoo'], dantro.base.BaseDataGroup)
+                target_path='barfoo/{basename:}',
+                exists_action='overwrite')
 
-    # overwrite again with the old one
-    dm.load('barfoo', loader='yaml', glob_str="foobar.yml",
+    # With barfoo/foobar being a container, this should also fail
+    with pytest.raises(dantro.data_mngr.ExistingDataError,
+                       match="Tried to create a group 'barfoo'"):
+        dm.load('barfoo', loader='yaml', glob_str="*.yml",
+                target_path='barfoo/foobar/{basename:}',
+                exists_action='overwrite')
+
+    # Overwriting with a container should work
+    dm.load('barfoo', loader='yaml', glob_str="lamo.yml",
             exists_action='overwrite_nowarn')
     assert isinstance(dm['barfoo'], dantro.base.BaseDataContainer)
+    assert 'one' not in dm['barfoo']
+    assert 'nothing' in dm['barfoo']
 
     # Check for invalid `exists_action` value
     with pytest.raises(ValueError):
-        dm.load('barfoo', loader='yaml', glob_str="*.yml",
+        dm.load('barfoo', loader='yaml', glob_str="foobar.yml",
                 exists_action='very bad value, much illegal')
 
-    # Check that there is a warning for update
+    # Load a group
+    dm.load('a_group', loader='yaml', glob_str="*lamo.yml")
+    assert isinstance(dm['a_group'], dantro.base.BaseDataGroup)
+    assert 'lamo' in dm['a_group']
+    assert 'also_lamo' in dm['a_group']
+    assert 'foobar' not in dm['a_group']
+    assert 'looooooooooong_filename' not in dm['a_group']
+
+    # Check that there is a warning for existing element in a group
+    with pytest.warns(None) as record:
+        dm.load('more_yamls', loader='yaml', glob_str="*.yml",
+                target_path='a_group/{basename:}',
+                exists_action='skip')
+    assert len(record) == 2
+    assert all([issubclass(r.category, dantro.data_mngr.ExistingDataWarning)
+                for r in record])
+
+    # ...and that the elements were added
+    assert 'foobar' in dm['a_group']
+    assert 'looooooooooong_filename' in dm['a_group']
+
+    # Check that a group _can_ be overwritten by a container
+    with pytest.raises(dantro.data_mngr.ExistingDataError):
+        dm.load('a_group', loader='yaml', glob_str="lamo.yml")
+
     with pytest.warns(dantro.data_mngr.ExistingDataWarning):
-        dm.load('barfoo', loader='yaml', glob_str="*.yml",
-                exists_action='update')
+        dm.load('a_group', loader='yaml', glob_str="lamo.yml",
+                exists_action='overwrite')
+    assert not isinstance(dm['a_group'], dantro.base.BaseDataGroup)
+
+def test_contains_group(dm):
+    """Assert that the contains_group method works."""
+    dm.load('group', loader='yaml', glob_str='*.yml')
+    dm.load('subgroup', loader='yaml', glob_str='*.yml',
+            target_path='group/subgroup/{basename:}')
+    dm.load('subsubgroup', loader='yaml', glob_str='*.yml',
+            target_path='group/subgroup/subsubgroup/{basename:}')
+
+    assert dm._contains_group("group")
+    assert dm._contains_group("group/subgroup")
+    assert dm._contains_group("group/subgroup/subsubgroup")
+    assert not dm._contains_group("group/foobar")
+    assert not dm._contains_group("group/subgroup/foobar")
+    assert not dm._contains_group("group/subgroup/subsubgroup/foobar")
+    assert not dm._contains_group("i_dont_exist")
+    assert not dm._contains_group("group/i_dont_exist")
+    assert not dm._contains_group("group/i_dont_exist/i_dont_exist")
+
+def test_create_groups(dm):
+    """Check that group creation from paths works"""
+    # Simple creation
+    dm._create_groups("foobar")
+    assert "foobar" in dm
+
+    # Recursive
+    dm._create_groups("foo/bar/baz")
+    assert "foo/bar/baz" in dm
+
+    # A group in the path already exists
+    dm._create_groups("foo/bar/baz/foooo")
+    assert "foo/bar/baz/foooo" in dm
+
+    # Error with exist_ok=False
+    with pytest.raises(dantro.data_mngr.ExistingGroupError):
+        dm._create_groups("foo/bar", exist_ok=False)
+
+    # With data existing at a path, there should be another error
+    dm.load('foobar', loader='yaml', glob_str='foobar.yml',
+            target_path='foo/bar/baz/foobar')
+
+    with pytest.raises(dantro.data_mngr.ExistingDataError):
+        dm._create_groups("foo/bar/baz/foobar")
 
     
 def test_loading_regex(dm):
     """Check whether regex name extraction works"""
     # This should raise a warning for the `abcdef` entry
-    with pytest.warns(UserWarning):
+    with pytest.warns(dantro.data_mngr.NoMatchWarning):
         dm.load('sub_foobar', loader='yaml', glob_str="sub/*.yml",
-                always_create_group=True, path_regex='([0-9]*).yml')
+                path_regex='sub/abc(\d+).yml',
+                target_path='sub_foobar/{match:}',
+                print_tree=True)
 
     assert 'sub_foobar/123' in dm
     assert 'sub_foobar/abcdef' in dm
 
+    # There should be a warning for non-matching regex
+    with pytest.warns(dantro.data_mngr.NoMatchWarning):
+        dm.load('more_foobar1', loader='yaml', glob_str="foobar.yml",
+                path_regex='will_not_match', target_path='sub/{match:}')
+
+    # There should be an error if the `match` key is not used in target_path
+    with pytest.raises(ValueError, match="Received the `path_regex` argument"):
+        dm.load('more_foobar2', loader='yaml', glob_str="foobar.yml",
+                path_regex='.*')
+
     # There should be an error if the regex is creating non-unique names
     with pytest.raises(dantro.data_mngr.ExistingDataError,
-                       match='.*resolves to unique names.*'):
+                       match="Path 'sub_foobar/abc' already exists."):
         dm.load('bad_sub_foobar', loader='yaml', glob_str="sub/*.yml",
-                always_create_group=True, path_regex='([abc]*)\w+.yml')
+                path_regex='([abc]*)\w+.yml',
+                target_path='sub_foobar/{match:}')
 
-    # There should be a warning for a bad regex
-    with pytest.warns(UserWarning):
-        dm.load('more_foobar1', loader='yaml', glob_str="foobar.yml",
-                path_regex='will_not_match')
 
-    # ... or if trying to regex something that will not be loaded into a group
-    with pytest.warns(UserWarning):
-        dm.load('more_foobar2', loader='yaml', glob_str="foobar.yml",
-                path_regex='(foo)*.yml')
+def test_target_path(dm):
+    """Check whether the `target_path` argument works as desired"""
+
+    # Bad format string will fail
+    with pytest.raises(ValueError, match="Invalid argument `target_path`."):
+        dm.load('foo', loader='yaml', glob_str="*.yml",
+                target_path="{bad_key:}")
+
+    # Check whether loading into a matched group will work
+    dm.load('merged_cfg', loader='yaml', glob_str="merged/cfg*.yml",
+            path_regex='merged/cfg(\d+).yml',
+            target_path='merged/foo{match:}/cfg')
+    
+    dm.load('merged_data', loader='yaml', glob_str="merged/data*.yml",
+            path_regex='merged/data(\d+).yml',
+            target_path='merged/foo{match:}/data')
+
+    # Assert that the loaded data has the desired form
+    assert 'merged' in dm
+
+    assert 'merged/foo0' in dm
+    assert 'merged/foo1' in dm
+    assert 'merged/foo2' in dm
+
+    assert 'merged/foo0/cfg' in dm
+    assert 'merged/foo1/cfg' in dm
+    assert 'merged/foo2/cfg' in dm
+
+    assert 'merged/foo0/data' in dm
+    assert 'merged/foo1/data' in dm
+    assert 'merged/foo2/data' in dm
+
+    # Test the `target_group` argument
+    # Giving both should fail
+    with pytest.raises(ValueError, match="Received both arguments.*"):
+        dm.load('foo', loader='yaml', glob_str="*.yml",
+                target_group='foo',
+                target_path='foo')
+
+    # Giving a glob string that matches at most a single file
+    dm.load('foobar', loader='yaml', glob_str="foobar.yml",
+            target_group='foo_group')
+    assert 'foo_group/foobar' in dm
+
+    # Giving a glob string that matches possibly more than one file
+    dm.load('barfoo', loader='yaml', glob_str="*.yml",
+            target_group='barfoo_group')
+    assert 'barfoo_group' in dm
+    assert 'barfoo_group/foobar' in dm
+    assert 'barfoo_group/lamo' in dm
+    assert 'barfoo_group/also_lamo' in dm
 
 
 # Hdf5LoaderMixin tests -------------------------------------------------------
@@ -324,6 +462,7 @@ def test_hdf5_loader(hdf5_dm):
 
     # Test that nested loading worked
     assert 'h5data/nested/group1/group11/group111/dset' in hdf5_dm
+
 
 def test_hdf5_proxy_loader(hdf5_dm):
     """Tests whether proxy loading of hdf5 data works"""
