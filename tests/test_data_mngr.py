@@ -417,6 +417,26 @@ def test_target_path(dm):
     assert 'merged/foo1/data' in dm
     assert 'merged/foo2/data' in dm
 
+    # Test the `target_group` argument
+    # Giving both should fail
+    with pytest.raises(ValueError, match="Received both arguments.*"):
+        dm.load('foo', loader='yaml', glob_str="*.yml",
+                target_group='foo',
+                target_path='foo')
+
+    # Giving a glob string that matches at most a single file
+    dm.load('foobar', loader='yaml', glob_str="foobar.yml",
+            target_group='foo_group')
+    assert 'foo_group/foobar' in dm
+
+    # Giving a glob string that matches possibly more than one file
+    dm.load('barfoo', loader='yaml', glob_str="*.yml",
+            target_group='barfoo_group')
+    assert 'barfoo_group' in dm
+    assert 'barfoo_group/foobar' in dm
+    assert 'barfoo_group/lamo' in dm
+    assert 'barfoo_group/also_lamo' in dm
+
 
 # Hdf5LoaderMixin tests -------------------------------------------------------
 

@@ -244,7 +244,7 @@ class DataManager(OrderedDataGroup):
             print("{:tree}".format(self))
 
 
-    def load(self, entry_name: str, *, loader: str, glob_str: Union[str, List[str]], target_path: str=None, print_tree: bool=False, **load_params) -> None:
+    def load(self, entry_name: str, *, loader: str, glob_str: Union[str, List[str]], target_group: str=None, target_path: str=None, print_tree: bool=False, **load_params) -> None:
         """Performs a single load operation.
         
         Args:
@@ -254,6 +254,9 @@ class DataManager(OrderedDataGroup):
             glob_str (Union[str, List[str]]): A glob string or a list of glob
                 strings by which to identify the files within `data_dir` that
                 are to be loaded using the given loader function
+            target_group (str, optional): If given, the files to be loaded will
+                be stored in this group. This may only be given if the argument
+                target_path is _not_ given.
             target_path (str, optional): The path to write the data to. This
                 can be a format string. It is evaluated for each file that has
                 been matched. If it is not given, the content is loaded to a
@@ -285,22 +288,13 @@ class DataManager(OrderedDataGroup):
             None
         """
 
-        def default_target_path(*, entry_name: str, glob_str: Union[str, List[str]]) -> str:
-            """Create a default target path from the entry name.
-
-            This takes into account whether the glob_str has a wildcard or not.
-            """
-            if isinstance(glob_str, str):
-                if glob_str.find('*') < 0:
-                   # No wildcard. Use only entry name as target path
-                   return entry_name
-
-            # Add the base name to the entry name
-            # NOTE this is a format string, evaluated when the file is loaded
-            return entry_name + "/{basename:}"
+        def glob_match_single(glob_str: Union[str, List[str]]) -> bool:
+            """Returns True if the given glob str matches at most one file."""
+            return bool(isinstance(glob_str, str) and glob_str.find('*') < 0)
 
         def check_target_path(target_path: str):
             """Check that the target path evaluates correctly."""
+            log.debug("Checking target path '%s' ...", target_path)
             try:
                 _target_path = target_path.format(basename="basename",
                                                   match="match")
@@ -316,11 +310,30 @@ class DataManager(OrderedDataGroup):
         # Some preparations
         log.info("Loading data entry '%s' ...", entry_name)
 
-        # Create the default target path and check that it can be evaluated
-        if not target_path:
-            target_path = default_target_path(entry_name=entry_name,
-                                              glob_str=glob_str)
+        # Parse the arguments that result in the target path
+        if target_group:
+            if target_path:
+                raise ValueError("Received both arguments `target_group` and "
+                                 "`target_path`; make sure to only pass one "
+                                 "or none of them.")
+
+            if glob_match_single(glob_str):
+                target_path = target_group + "/" + entry_name
+            else:
+                target_path = target_group + "/{basename:}"
+
+        elif not target_path:
+            if glob_match_single(glob_str):
+                target_path = entry_name
+            else:
+                target_path = entry_name + "/{basename:}"
+
+        # ...and check that it is working.
         check_target_path(target_path)
+
+        # else: target_path was given
+
+        log.info("Loading entry '%s' ...", )
 
         # Try loading the data and handle specific DataManagerErrors
         try:
