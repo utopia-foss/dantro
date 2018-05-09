@@ -223,20 +223,20 @@ class CheckDataMixin:
 
         # Create a base message
         msg = ("Unexpected type {} for data passed to {} '{}'! "
-               "Expected types are: {}".format(type(data), self.classname,
-                                               name, expected_types))
+               "Expected types are: {}.".format(type(data), self.classname,
+                                                name, expected_types))
 
         # Handle according to the specified action
         if self.DATA_UNEXPECTED_ACTION == 'raise':
             raise TypeError(msg)
 
         elif self.DATA_UNEXPECTED_ACTION == 'warn':
-            warnings.warn(msg + ".\nInitialisation will work, but be informed "
+            warnings.warn(msg + "\nInitialisation will work, but be informed "
                           "that there might be errors at runtime.",
                           UnexpectedTypeWarning)
         
         elif self.DATA_UNEXPECTED_ACTION == 'ignore':
-            # Do nothing
+            log.debug(msg + " Ignoring ...")
             pass
 
         else:

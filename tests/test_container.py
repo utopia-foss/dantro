@@ -6,15 +6,90 @@ import numpy as np
 
 import pytest
 
+from dantro.base import BaseDataContainer, CheckDataMixin, ItemAccessMixin, UnexpectedTypeWarning
 from dantro.container import MutableSequenceContainer, NumpyDataContainer
 
 # Local constants
 
+class DummyContainer(ItemAccessMixin, BaseDataContainer):
+    """A dummy container that fulfills all the requirements of the abstract
+    BaseDataContainer class.
+
+    NOTE: the methods have not the correct functionality!
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def convert_to(self, TargetCls, **target_init_kwargs):
+        return
+
+    def _format_info(self):
+        return "dummy"
 
 # Fixtures --------------------------------------------------------------------
 
 
 # Tests -----------------------------------------------------------------------
+
+def test_init():
+    """Tests initialisation of the DummyContainer class"""
+    DummyContainer(name="dummy", data="foo")
+
+
+def test_check_data_mixin():
+    """Checks the CheckDataMixin class."""
+    # Define some test classes ................................................
+
+    class TestContainerA(CheckDataMixin, DummyContainer):
+        """All types allowed"""
+    
+    class TestContainerB(CheckDataMixin, DummyContainer):
+        """Only list or tuple allowed, raising if not correct"""
+        DATA_EXPECTED_TYPES = (list, tuple)
+        DATA_ALLOW_PROXIES = True
+        DATA_UNEXPECTED_ACTION = 'raise'
+    
+    class TestContainerC(CheckDataMixin, DummyContainer):
+        """Only list or tuple allowed, raising if not correct"""
+        DATA_EXPECTED_TYPES = (list, tuple)
+        DATA_ALLOW_PROXIES = True
+        DATA_UNEXPECTED_ACTION = 'warn'
+    
+    class TestContainerD(CheckDataMixin, DummyContainer):
+        """Only list or tuple allowed, raising if not correct"""
+        DATA_EXPECTED_TYPES = (list, tuple)
+        DATA_ALLOW_PROXIES = True
+        DATA_UNEXPECTED_ACTION = 'ignore'
+    
+    class TestContainerE(CheckDataMixin, DummyContainer):
+        """Only list or tuple allowed, raising if not correct"""
+        DATA_EXPECTED_TYPES = (list, tuple)
+        DATA_ALLOW_PROXIES = True
+        DATA_UNEXPECTED_ACTION = 'invalid'
+
+    # Tests ...................................................................
+    # Run tests for A
+    TestContainerA(name="foo", data="bar")
+
+    # Run tests for B
+    TestContainerB(name="foo", data=["my", "list"])
+    TestContainerB(name="foo", data=("my", "tuple"))
+
+    with pytest.raises(TypeError, match="Unexpected type <class 'str'> for.*"):
+        TestContainerB(name="foo", data="bar")
+
+    # Run tests for C
+    with pytest.warns(UnexpectedTypeWarning,
+                      match="Unexpected type <class 'str'> for.*"):
+        TestContainerC(name="foo", data="bar")
+    
+    # Run tests for D
+    TestContainerD(name="foo", data="bar")
+    
+    # Run tests for E
+    with pytest.raises(ValueError, match="Illegal value 'invalid' for class"):
+        TestContainerE(name="foo", data="bar")
+
 
 def test_mutuable_sequence_container():
     """Tests whether the __init__ method behaves as desired"""
