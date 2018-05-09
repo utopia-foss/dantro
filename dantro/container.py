@@ -20,7 +20,7 @@ class MutableSequenceContainer(CheckDataMixin, ItemAccessMixin, CollectionMixin,
 
     # Specify expected data types for this container class
     DATA_EXPECTED_TYPES = (MutableSequence, list)
-    DATA_ALLOW_PROXIES = False
+    DATA_ALLOW_PROXY = False
     DATA_UNEXPECTED_ACTION = 'warn'
 
 
@@ -69,7 +69,7 @@ class MutableMappingContainer(CheckDataMixin, MappingAccessMixin, BaseDataContai
 
     # Specify expected data types for this container class
     DATA_EXPECTED_TYPES = (MutableMapping, dict)
-    DATA_ALLOW_PROXIES = False
+    DATA_ALLOW_PROXY = False
     DATA_UNEXPECTED_ACTION = 'warn'
 
     def __init__(self, *, name: str, data=None, **dc_kwargs):
@@ -118,7 +118,7 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
 
     # Specify expected data types for this container class
     DATA_EXPECTED_TYPES = (np.ndarray,)
-    DATA_ALLOW_PROXIES = False
+    DATA_ALLOW_PROXY = False
     DATA_UNEXPECTED_ACTION = 'raise'
 
     def __init__(self, *, name: str, data: np.ndarray, **dc_kwargs):
