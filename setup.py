@@ -12,7 +12,7 @@ install_deps = [
 test_deps = ['pytest>=3.4.0', 'pytest-cov>=2.5.1']
 
 setup(name='dantro',
-      version='0.1b',
+      version='0.1b',  # NOTE do not forget to set dantro.__init__.__version__!
       description="Loading and handling hierarchical data",
       long_description=("With dantro, hierarchical data can be loaded and "
                         "conveniently handled, preserving the tree-like "
