@@ -8,24 +8,20 @@ stages:
 # -----------------------------------------------------------------------------
 setup:py:
   stage: setup
-  tags:
-    - light
+  only:
+    - master
   script:
     - python3 setup.py test
     - python3 setup.py install
 
 setup:pip:
   stage: setup
-  tags:
-    - light
   script:
     - pip3 install .
 
 setup:venv:
   # NOTE This step is required for the next stages to have all dependencies:
   stage: setup
-  tags:
-    - light
   script:
     # create a virtual env in the current directory
     - python3 -m venv env
@@ -45,8 +41,6 @@ test:all:
   stage: test
   dependencies:
     - setup:venv
-  tags:
-    - light
   script:
     # enter the virtual environment passed over from the last stage
     - source ./env/bin/activate
