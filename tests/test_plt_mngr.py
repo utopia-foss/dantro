@@ -4,6 +4,8 @@ from pkg_resources import resource_filename
 
 import pytest
 
+from dantro import DataManager
+from dantro.container import NumpyDataContainer as NumpyDC
 from dantro.plt_mngr import PlotManager
 
 
@@ -12,13 +14,20 @@ PLOTS_CFG_PATH = resource_filename("tests", "cfg/plots_cfg.yml")
 
 
 # Test classes ----------------------------------------------------------------
-# (Can) import some from other tests here
 
 
 # Fixtures --------------------------------------------------------------------
-# Import some from other tests
-from .test_data_mngr import data_dir
-from .test_data_mngr import hdf5_dm as dm  # renaming to be more convenient
+
+@pytest.fixture
+def dm(tmpdir) -> DataManager:
+    """Returns a DataManager with some test data for plotting."""
+    # Initialize it to a temporary direcotry and without load config
+    dm = DataManager(tmpdir)
+
+    # Now add data to it
+    # TODO
+
+    return dm
 
 
 # Tests -----------------------------------------------------------------------

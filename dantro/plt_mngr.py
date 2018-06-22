@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 class PlotManager:
     
-    def __init__(self, *, dm: DataManager, plots_cfg: Union[dict, str]=None, out_dir: Union[str, None]="{name:}"):
+    def __init__(self, *, dm: DataManager, plots_cfg: Union[dict, str]=None, out_dir: Union[str, None]="{name:}", custom_modules_base_dir: str=None):
         """Initialize the PlotManager
         
         Args:
@@ -36,7 +36,7 @@ class PlotManager:
     # .........................................................................
     # Plotting
 
-    def plot_from_cfg(self, *, plots_cfg: dict=None, update_plots_cfg: dict=None, exists_action: str='raise', plot_only: List[str]=None) -> None:
+    def plot_from_cfg(self, *, plots_cfg: dict=None, update_plots_cfg: dict=None, plot_only: List[str]=None) -> None:
         """Create multiple plots from a configuration, either a given one or
         the one passed during initialisation.
         
@@ -48,17 +48,16 @@ class PlotManager:
                 given, the one specified during initialisation is used.
             update_plots_cfg (dict, optional): If given, it is used to update
                 the plots_cfg recursively
-            exists_action (str, optional): The behaviour upon existing plot fi.
-                Can be: raise, skip, create_copy, overwrite. With *_nowarn
-                values, no warning is given if an entry already existed.
             plot_only (List[str], optional): If given, create only those plots
                 from the resulting configuration that match these names.
         """
         pass
 
-    def plot(self, **kwargs) -> None:
+    def plot(self, name: str, ) -> None:
         """Create plot(s) from a single configuration entry.
 
-        # TODO
+        Note that more than one plot can result from a single configuration
+        entry, e.g. when plots were configured that have more dimensions than
+        representable in a single file.
         """
         pass
