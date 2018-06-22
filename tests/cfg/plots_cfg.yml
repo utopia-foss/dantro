@@ -1,3 +1,198 @@
 # Configuration for PlotManager tests
+#
+# This is also a showcase of the available syntax
 ---
-# TODO write
+# -----------------------------------------------------------------------------
+# Declarative mode
+
+scatter_short:
+  # This is the shortest possible configuration.
+  # It uses the default mode, 'declarative', and creates a simple scatter plot
+  # of two vectors.
+  
+  # Which data to use (keys to walk along DataManager)
+  data:
+    - vectors
+
+  # How the data should be visualized
+  mark: point
+
+  # How the data should be encoded
+  encoding:
+    x: values:Q
+    y: more_values:Q
+    # shorthand notation for field:type, Q -> quantitative
+
+
+scatter_long:
+  # Here, more keys are explicitly specified.
+  enabled: true
+  mode: declarative
+
+  data:
+    - vectors
+
+  mark: point
+
+  encoding:
+    x:
+      field: values
+      type: quantitative
+    y:
+      field: more_values
+      type: quantitative
+
+
+lineplot:
+  # A lineplot from vectorial data, no x-values given
+  data:
+    - vectors
+
+  mark:
+    type: line
+    point: true
+
+  encoding:
+    y: values:Q
+
+
+lineplot_with_x:
+  # A lineplot from vectorial data, x-values given
+  data:
+    - vectors
+
+  mark: line
+
+  encoding:
+    x: steps:Q
+    y: values:Q
+
+
+multi_vector_lineplot:
+  # A lineplot from vectors, multiple y values
+  data:
+    - vectors
+
+  # Common features
+  mark: line
+  encoding:
+    x: steps:Q
+
+  # Layers
+  layers:
+    - encoding.y: values:Q
+    - encoding.y: more_values:Q
+  # TODO need to figure out how to specify colour here!
+
+
+multi_lineplot_from_named_ndarray:
+  # Multiple lineplots from nd-array where the dimensions are named
+  data:
+    - ndarrays
+    - lineplot
+
+  mark: line
+
+  encoding:
+    x: steps:Q
+    y: values:Q
+    color: agents:N
+
+
+multi_lineplot_from_ndarray:
+  # Multiple lineplot from nd-arary where the dimensions are _not_ named
+  data:
+    - ndarrays
+    - lineplot
+
+  mark: line
+
+  encoding:
+    x:
+      dim: 0
+      type: quantitative
+    y:
+      dim: 1
+      type: quantitative
+    color:
+      dim: 2
+      type: nominal
+
+
+data_access_per_layer:
+  # Multiple layers with different data
+  mark: line
+
+  layers:
+    - data:
+        - vectors
+      encoding.y: values:Q
+    - data:
+        - ndarrays
+        - lineplot
+      encoding:
+        x: steps:Q
+        y: values:Q
+
+
+select_and_slice:
+  # Access data completely within encoding
+  data: []
+
+  mark: line
+
+  encoding:
+    x:
+      select:
+        - ndarrays
+        - lineplot
+        # TODO this need be easier
+        - !slice [42]
+        - 0
+        - 0
+      type: quantitative
+    y:
+      select:
+        - vectors
+        - values
+        - !slice [42]
+      type: quantitative
+
+
+# TODO style
+# TODO other configs?
+# TODO transform
+# TODO layers
+# TODO repeat -> subplots
+# TODO advanced data access
+# TODO should 'quantitative' be default?
+
+
+
+# -----------------------------------------------------------------------------
+# Custom mode
+
+custom:
+  # Use a custom plot function
+  # This can be used to couple to external methods and use the PlotManager only
+  # as a basic configuration frontend.
+  mode: custom
+
+  # Specify the module string to find the function at.
+  plot_func: my_module.my_plot_func
+  # NOTE This requires that the module is importable, i.e.: installed.
+
+  # The data manager is passed to that function as first positional argument,
+  # or, if that fails, as `data` keyword argument.
+  # All further kwargs on this level are passed on to that function.
+
+from_file:
+  # It is also possible to import a plot function from a file
+  mode: custom
+
+  # Specify the module to import via absolute or relative path
+  module_file: /abs/path/to/module.py
+  # NOTE Relative path can only be used if PlotManager was initialized with the
+  #      `custom_modules_base_dir` argument.
+
+  plot_func: my_plot_func
