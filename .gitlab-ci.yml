@@ -65,8 +65,8 @@ setup:venv:
     # create a virtual env in the current directory
     - python3 -m venv env
     # enter virtual environment and install external dependencies
-    - pip3 install $PARAMSPACE_REPO
     - source ./env/bin/activate
+    - pip3 install $PARAMSPACE_REPO
     # now install package, including test dependencies
     - pip3 install .[test_deps]
   artifacts:
