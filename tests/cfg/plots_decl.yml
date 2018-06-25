@@ -1,43 +1,7 @@
-# Configuration for PlotManager tests
+# Configuration for PlotManager tests with "declarative" PlotCreator
 #
 # This is also a showcase of the available syntax
 ---
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# Custom mode
-
-custom:
-  # Use a custom plot function
-  # This can be used to couple to external methods and use the PlotManager only
-  # as a basic configuration frontend.
-  mode: custom
-
-  # Specify the module string to find the function at.
-  plot_func: my_module.my_plot_func
-  # NOTE This requires that the module is importable, i.e.: installed.
-
-  # The data manager is passed to that function as first positional argument,
-  # or, if that fails, as `data` keyword argument.
-  # All further kwargs on this level are passed on to that function.
-
-from_file:
-  # It is also possible to import a plot function from a file
-  mode: custom
-
-  # Specify the module to import via absolute or relative path
-  module_file: /abs/path/to/module.py
-  # NOTE Relative path can only be used if PlotManager was initialized with the
-  #      `custom_modules_base_dir` argument.
-
-  plot_func: my_plot_func
-
-
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# Declarative mode
-# This introduces a syntax for declarative plotting
-
-
 # Basics ......................................................................
 
 scatter_short:

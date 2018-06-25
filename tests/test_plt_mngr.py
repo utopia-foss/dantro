@@ -10,7 +10,9 @@ from dantro.plt_mngr import PlotManager
 
 
 # Files -----------------------------------------------------------------------
-PLOTS_CFG_PATH = resource_filename("tests", "cfg/plots_cfg.yml")
+PLOTS_CUSTOM = resource_filename("tests", "cfg/plots_custom.yml")
+PLOTS_DECL = resource_filename("tests", "cfg/plots_decl.yml")
+PLOTS_VEGA = resource_filename("tests", "cfg/plots_vega.yml")
 
 
 # Test classes ----------------------------------------------------------------
@@ -50,7 +52,7 @@ def test_init(dm, tmpdir):
 
 def test_plot(dm):
     """Test the plotting functionality of the PlotManager"""
-    pm = PlotManager(dm=dm, plots_cfg=PLOTS_CFG_PATH)
+    pm = PlotManager(dm=dm, plots_cfg=PLOTS_CUSTOM)
 
     # Plot that config
     pm.plot_from_cfg()
