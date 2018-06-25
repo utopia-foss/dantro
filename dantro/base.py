@@ -746,3 +746,4 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
                   TargetCls.__name__)
         return TargetCls(name=self.name, data=self.data, attrs=self.attrs,
                          **target_init_kwargs)
+

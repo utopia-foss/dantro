@@ -5,9 +5,7 @@
 # Basics ......................................................................
 
 scatter_short:
-  # This is the shortest possible configuration.
-  # It uses the default mode, 'declarative', and creates a simple scatter plot
-  # of two vectors.
+  # This creates a simple scatter plot of two vectors.
   
   # Which data to use (keys to walk along DataManager)
   data:

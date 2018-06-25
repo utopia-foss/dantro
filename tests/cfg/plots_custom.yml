@@ -1,10 +1,10 @@
 # Configuration for PlotManager test with "custom" plot creator
+#
+# This can be used to couple to external methods and use the PlotManager only
+# as a basic configuration frontend.
 ---
 custom:
-  # Use a custom plot function
-  # This can be used to couple to external methods and use the PlotManager only
-  # as a basic configuration frontend.
-  mode: custom
+  # Use a custom plot function from an already importable module
 
   # Specify the module string to find the function at.
   plot_func: my_module.my_plot_func
@@ -12,15 +12,17 @@ custom:
 
   # The data manager is passed to that function as first positional argument,
   # or, if that fails, as `data` keyword argument.
+  # Also, the generated output path is passed as `out_path` keyword argument.
   # All further kwargs on this level are passed on to that function.
 
 from_file:
-  # It is also possible to import a plot function from a file
-  mode: custom
+  # It is also possible to import a plot function from a file, e.g. a module
+  # that might not have been installed.
 
   # Specify the module to import via absolute or relative path
   module_file: /abs/path/to/module.py
-  # NOTE Relative path can only be used if PlotManager was initialized with the
-  #      `custom_modules_base_dir` argument.
+  # NOTE Relative path can only be used if the PlotCreator was initialized
+  #      with the `custom_modules_base_dir` argument; this can be passed via
+  #      the `common_creator_kwargs` option to all instances of this class.
 
   plot_func: my_plot_func

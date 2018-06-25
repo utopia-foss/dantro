@@ -3,6 +3,8 @@
 AbstractDataContainer: define a general data container interface
 AbstractDataGroup: define a Mapping-like group interface
 AbstractDataAttr: define a dict-like attribute interface to both of the above
+AbstractDataProxy: define the interface for creation and resolution of proxies
+AbstractPlotCreator: defines the interface for PlotCreators
 """
 
 import abc
@@ -241,3 +243,49 @@ class AbstractDataProxy(metaclass=abc.ABCMeta):
         container of which this proxy object is a placeholder for! This only
         returns the data.
         """
+
+
+# -----------------------------------------------------------------------------
+
+class AbstractPlotCreator(metaclass=abc.ABCMeta):
+    """This class defines the interface for PlotCreator classes.
+
+    Abstract methods here:
+      * __init__: pass the data manager and the plot configuration
+      * __call__: Wrapper around the _plot method, which can update the config.
+      * _plot:    This method receives the fully parsed plot configuration and
+                  then performs the plot.
+    """
+
+    @abc.abstractmethod
+    def __init__(self, dm, *, out_path: str=None, **plot_cfg):
+        """Initialise the PlotCreator, given a data manager, an output path,
+        and the basic plot configuration.
+        """
+
+    @abc.abstractmethod
+    def _resolve_out_path(self, path: str) -> str:
+        """Given a path, resolve it such that it is an absolute output path.
+
+        This method would also allow to add more information to the output path.
+        # TODO see base class
+        """
+
+    @property
+    def classname(self) -> str:
+        """Returns this proxy's class name"""
+        return self.__class__.__name__
+
+    @abc.abstractmethod
+    def __call__(self, *, out_path: str=None, **update_plot_cfg):
+        """Perform the plot, updating the configuration passed to __init__
+        with the given values and then calling _plot.
+        """
+
+    @abc.abstractmethod
+    def _plot(self, out_path: str=None, **cfg):
+        """Given a specific configuration, perform a plot.
+
+        This method should always be private and only be called from __call__.
+        """
+
