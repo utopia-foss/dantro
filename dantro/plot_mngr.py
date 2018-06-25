@@ -14,12 +14,6 @@ import dantro.plot_creators as pcr
 # Local constants
 log = logging.getLogger(__name__)
 
-# The default mapping for creator names to classes
-DANTRO_CREATORS = dict(external=pcr.ExternalPlotCreator,
-                       declarative=pcr.DeclarativePlotCreator,
-                       vega=pcr.VegaPlotCreator,
-                       )
-
 
 # -----------------------------------------------------------------------------
 
@@ -30,10 +24,10 @@ class PlotManager:
     Attributes:
         CREATORS (dict): The mapping of creator names to classes. When it is
             desired to subclass PlotManager and extend the creator mapping, use
-            `dict(**DANTRO_CREATORS)` to inherit the default creator mapping.
+            `dict(**pcr.ALL)` to inherit the default creator mapping.
     """
 
-    CREATORS = DANTRO_CREATORS
+    CREATORS = pcr.ALL
 
     def __init__(self, *, dm: DataManager, plots_cfg: Union[dict, str]=None, out_dir: Union[str, None]="{name:}", common_creator_kwargs: Dict[str, dict]=None, default_creator: str=None):
         """Initialize the PlotManager
@@ -48,7 +42,6 @@ class PlotManager:
                 output directory. Absolute paths remain absolute.
                 The path can be a format-string; it is evaluated upon call to
                 the plot command. Available keys: date, plot_name, ...
-                # TODO implement this functionality
             common_creator_kwargs (Dict[str, dict], optional): If given, these
                 kwargs are passed to the initialisation calls of the respective
                 creator classes.
