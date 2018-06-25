@@ -5,28 +5,69 @@ stages:
   - setup
   - test
 
+variables:
+  PARAMSPACE_REPO: git+ssh://git@ts-gitlab.iup.uni-heidelberg.de:10022/yunus/paramspace
+
+# To install the necessary python environment, access to private repositories
+# is required. By adding a deploy key to selected jobs, the pull from these
+# repositories becomes possible
+.ssh-access: &ssh_access
+  before_script:
+    ## For outside dependencies, use the "dantro CI" deploy key
+    ## Instructions:
+    ##   https://docs.gitlab.com/ce/ci/ssh_keys/
+    ## Run ssh-agent (inside the build environment)
+    - eval $(ssh-agent -s)
+    ##
+    ## Add the SSH key stored in SSH_PRIVATE_KEY variable to the agent store
+    ## We're using tr to fix line endings which makes ed25519 keys work
+    ## without extra base64 encoding.
+    ## https://gitlab.com/gitlab-examples/ssh-private-key/issues/1#note_48526556
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
+    ##
+    ## Create the SSH directory and give it the right permissions
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    ## 
+    ## Add the known hosts lists to ensure this ssh connection is the right one
+    - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+    # - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config' # FIXME turn this on again
+
+
 # -----------------------------------------------------------------------------
 setup:py:
   stage: setup
+  <<: *.ssh_access
   only:
     - master
   script:
+    # Install external dependencies
+    - pip3 install $PARAMSPACE_REPO
+    # Now test and perform the installation
     - python3 setup.py test
     - python3 setup.py install
 
 setup:pip:
   stage: setup
+  <<: *.ssh_access
   script:
+    # install external dependencies
+    - pip3 install $PARAMSPACE_REPO
+    # install package itself
     - pip3 install .
 
 setup:venv:
   # NOTE This step is required for the next stages to have all dependencies:
   stage: setup
+  <<: *.ssh_access
   script:
     # create a virtual env in the current directory
     - python3 -m venv env
-    # enter virtual environment and install into it, including test deps
+    # enter virtual environment and install external dependencies
+    - pip3 install $PARAMSPACE_REPO
     - source ./env/bin/activate
+    # now install package, including test dependencies
     - pip3 install .[test_deps]
   artifacts:
     paths:
