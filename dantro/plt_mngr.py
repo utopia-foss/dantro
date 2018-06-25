@@ -4,19 +4,38 @@ to the PlotCreator.
 """
 
 import logging
-from typing import Union, List
+from typing import Union, List, Dict
+
+from paramspace import ParamSpace
 
 from dantro.data_mngr import DataManager
+import dantro.plt_creator as pcr
 
 # Local constants
 log = logging.getLogger(__name__)
+
+# The default mapping for creator names to classes
+DANTRO_CREATORS = dict(external=pcr.ExternalPlotCreator,
+                       declarative=pcr.DeclarativePlotCreator,
+                       vega=pcr.VegaPlotCreator,
+                       )
 
 
 # -----------------------------------------------------------------------------
 
 class PlotManager:
-    
-    def __init__(self, *, dm: DataManager, plots_cfg: Union[dict, str]=None, out_dir: Union[str, None]="{name:}", custom_modules_base_dir: str=None):
+    """The PlotManager takes care of configuring plots and calling the
+    configured PlotCreator classes that then carry out the plots.
+
+    Attributes:
+        CREATORS (dict): The mapping of creator names to classes. When it is
+            desired to subclass PlotManager and extend the creator mapping, use
+            `dict(**DANTRO_CREATORS)` to inherit the default creator mapping.
+    """
+
+    CREATORS = DANTRO_CREATORS
+
+    def __init__(self, *, dm: DataManager, plots_cfg: Union[dict, str]=None, out_dir: Union[str, None]="{name:}", common_creator_kwargs: Dict[str, dict]=None, default_creator: str=None):
         """Initialize the PlotManager
         
         Args:
@@ -30,6 +49,11 @@ class PlotManager:
                 The path can be a format-string; it is evaluated upon call to
                 the plot command. Available keys: date, plot_name, ...
                 # TODO implement this functionality
+            common_creator_kwargs (Dict[str, dict], optional): If given, these
+                kwargs are passed to the initialisation calls of the respective
+                creator classes.
+            default_creator (str, optional): If given, a plot without explicit
+                `creator` declaration will use this creator as default.
         """
         pass
 
@@ -53,9 +77,12 @@ class PlotManager:
         """
         pass
 
-    def plot(self, name: str, ) -> None:
+    def plot(self, name: str, *, from_pspace: ParamSpace=None, **plot_cfg) -> pcr.BasePlotCreator:
         """Create plot(s) from a single configuration entry.
 
+        A call to this function creates a single PlotCreator, which is also
+        returned after all plots are finished.
+    
         Note that more than one plot can result from a single configuration
         entry, e.g. when plots were configured that have more dimensions than
         representable in a single file.

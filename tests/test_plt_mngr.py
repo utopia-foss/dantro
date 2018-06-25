@@ -4,7 +4,7 @@ from pkg_resources import resource_filename
 
 import pytest
 
-from dantro import DataManager
+from dantro.data_mngr import DataManager
 from dantro.container import NumpyDataContainer as NumpyDC
 from dantro.plt_mngr import PlotManager
 

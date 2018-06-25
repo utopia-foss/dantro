@@ -2,7 +2,7 @@
 
 import pytest
 
-from dantro.plt_creator import PlotCreator
+import dantro.plt_creator as pcr
 
 # Fixtures --------------------------------------------------------------------
 
@@ -10,4 +10,4 @@ from dantro.plt_creator import PlotCreator
 
 def test_init():
     """Tests initialisation"""
-    PlotCreator()
+    pcr.BasePlotCreator()
