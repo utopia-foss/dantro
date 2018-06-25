@@ -38,7 +38,7 @@ variables:
 # -----------------------------------------------------------------------------
 setup:py:
   stage: setup
-  <<: *.ssh_access
+  <<: *ssh_access
   only:
     - master
   script:
@@ -50,7 +50,7 @@ setup:py:
 
 setup:pip:
   stage: setup
-  <<: *.ssh_access
+  <<: *ssh_access
   script:
     # install external dependencies
     - pip3 install $PARAMSPACE_REPO
@@ -60,7 +60,7 @@ setup:pip:
 setup:venv:
   # NOTE This step is required for the next stages to have all dependencies:
   stage: setup
-  <<: *.ssh_access
+  <<: *ssh_access
   script:
     # create a virtual env in the current directory
     - python3 -m venv env
