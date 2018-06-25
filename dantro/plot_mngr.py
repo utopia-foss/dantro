@@ -3,11 +3,13 @@ configuration of multiple plots and prepares the data and configuration to pass
 to the PlotCreator.
 """
 
+import copy
 import logging
 from typing import Union, List, Dict
 
 from paramspace import ParamSpace
 
+import dantro.tools as tools
 from dantro.data_mngr import DataManager
 import dantro.plot_creators as pcr
 
@@ -48,7 +50,23 @@ class PlotManager:
             default_creator (str, optional): If given, a plot without explicit
                 `creator` declaration will use this creator as default.
         """
-        pass
+        # Store arguments
+        self._dm = dm
+        self._plots_cfg = plots_cfg
+        self._out_dir = out_dir
+        self._cckwargs = common_creator_kwargs if common_creator_kwargs else {}
+
+        if default_creator and default_creator not in self.CREATORS:
+            raise ValueError("No such creator '{}' available, only: {}"
+                             "".format(default_creator,
+                                       [k for k in self.CREATORS.keys()]))
+        self._default_creator = default_creator
+
+        log.debug("%s initialised.", self.__class__.__name__)
+
+    # .........................................................................
+    # Properties
+
 
     # .........................................................................
     # Plotting
@@ -67,17 +85,85 @@ class PlotManager:
                 the plots_cfg recursively
             plot_only (List[str], optional): If given, create only those plots
                 from the resulting configuration that match these names.
+        
+        Raises:
+            TypeError: Invalid plot configuration type
         """
-        pass
+        # Determine which plot configuration to use
+        if not plots_cfg:
+            log.debug("No new plots configuration given; will use plots "
+                      "configuration given at initialisation.")
+            plots_cfg = self.plots_cfg
 
-    def plot(self, name: str, *, from_pspace: ParamSpace=None, **plot_cfg) -> pcr.BasePlotCreator:
+        # Make sure to work on a copy, be it on the defaults or on the passed
+        plots_cfg = copy.deepcopy(plots_cfg)
+
+        if update_plots_cfg:
+            # Recursively update with the given keywords
+            load_cfg = tools.recursive_update(load_cfg, update_plots_cfg)
+            log.debug("Updated the plots configuration.")
+
+        # Filter the plot selection
+        if plot_only:
+            # Only plot these entries
+            plots_cfg = {k:plots_cfg[k] for k in plot_only}
+            # NOTE that this deliberately raises an error for an invalid entry
+            #      in the `plot_only` argument
+
+            # Remove all `enabled` keys from the remaining entries
+            for cfg in plots_cfg.values():
+                cfg.pop('enabled', None)
+
+        else:
+            # Resolve all `enabled` entries
+            plots_cfg = {k:v for k, v in plots_cfg.items()
+                         if v.pop('enabled', True)}
+
+        log.info("Performing plots from %d entries ...", len(plots_cfg))
+
+        # Loop over the configured plots
+        for plot_name, cfg in plots_cfg.items():
+            # Use the public methods to perform the plotting call, depending
+            # on the type of the config
+            if isinstance(cfg, dict):
+                # Just a dict. Use the regular call
+                self.plot(name, **cfg)
+
+            elif isinstance(cfg, ParamSpace):
+                # Is a parameter space. Use the alternative signature
+                self.plot(name, from_pspace=cfg)
+
+            else:
+                raise TypeError("Got invalid plots specifications for entry "
+                                "'{}'! Expected dict, got {} with value '{}'. "
+                                "Check the correctness of the given plots "
+                                "configuration!".format(plot_name, type(cfg),
+                                                        cfg))
+        
+        # All done
+        log.info("Successfully performed plots for %d configuration(s).",
+                 len(plots_cfg))
+
+
+
+    def plot(self, name: str, *, creator: str=None, from_pspace: ParamSpace=None, **plot_cfg) -> pcr.BasePlotCreator:
         """Create plot(s) from a single configuration entry.
-
+        
         A call to this function creates a single PlotCreator, which is also
         returned after all plots are finished.
-    
+        
         Note that more than one plot can result from a single configuration
         entry, e.g. when plots were configured that have more dimensions than
         representable in a single file.
+        
+        Args:
+            name (str): The name of this plot
+            creator (str, optional): The name of the creator to use. Has to be
+                part of the CREATORS class variable.
+            from_pspace (ParamSpace, optional): If given, execute a parameter
+                sweep over these parameters, re-using the same creator instance
+            **plot_cfg: The plot configuration to pass on to the plot creator.
         """
-        pass
+        log.info("Performing plot '%s' ...", name)
+
+        # TODO continue here

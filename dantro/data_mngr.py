@@ -205,7 +205,7 @@ class DataManager(OrderedDataGroup):
         """
         # Determine which load configuration to use
         if not load_cfg:
-            log.debug("No load configuration given; will use load "
+            log.debug("No new load configuration given; will use load "
                       "configuration given at initialisation.")
             load_cfg = self.load_cfg
 
@@ -215,7 +215,7 @@ class DataManager(OrderedDataGroup):
         if update_load_cfg:
             # Recursively update with the given keywords
             load_cfg = tools.recursive_update(load_cfg, update_load_cfg)
-            log.debug("Updated the load config.")
+            log.debug("Updated the load configuration.")
 
         log.info("Loading %d data entries ...", len(load_cfg))
 
