@@ -9,7 +9,7 @@ from typing import Union, List, Dict
 from paramspace import ParamSpace
 
 from dantro.data_mngr import DataManager
-import dantro.plt_creator as pcr
+import dantro.plot_creators as pcr
 
 # Local constants
 log = logging.getLogger(__name__)

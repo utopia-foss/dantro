@@ -1,5 +1,6 @@
-"""This module implements the PlotCreator classes, which create plots on the
-level of a single file.
+"""This module implements the base PlotCreator class.
+
+Classes derived from this class create plots for single files.
 
 The interface is defined as an abstract base class and partly implemented by
 the BasePlotCreator (which still remains abstract).
@@ -15,7 +16,6 @@ import logging
 import dantro.abc
 import dantro.tools as tools
 from dantro.data_mngr import DataManager
-
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -81,25 +81,3 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
         # Now call the plottig function with these arguments
         return self._plot(out_path=out_path, **cfg)
 
-
-# -----------------------------------------------------------------------------
-
-class ExternalPlotCreator(BasePlotCreator):
-    """This PlotCreator uses external scripts to create plots."""
-    pass
-
-
-
-class DeclarativePlotCreator(BasePlotCreator):
-    """This PlotCreator can create plots from a dantro-specific declarative
-    plot configuration. The language is inspired by Vega-Lite but is adapted to
-    working with the different data structures stored in a DataManager.
-    """
-    pass
-
-
-class VegaPlotCreator(BasePlotCreator):
-    """This PlotCreator interfaces with Altair to provide a Vega-Lite interface
-    for plot creation.
-    """
-    pass

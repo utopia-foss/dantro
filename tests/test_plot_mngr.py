@@ -6,7 +6,7 @@ import pytest
 
 from dantro.data_mngr import DataManager
 from dantro.container import NumpyDataContainer as NumpyDC
-from dantro.plt_mngr import PlotManager
+from dantro.plot_mngr import PlotManager
 
 
 # Files -----------------------------------------------------------------------
