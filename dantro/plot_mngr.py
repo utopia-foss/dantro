@@ -93,7 +93,7 @@ class PlotManager:
         if not plots_cfg:
             log.debug("No new plots configuration given; will use plots "
                       "configuration given at initialisation.")
-            plots_cfg = self.plots_cfg
+            plots_cfg = self._plots_cfg
 
         # Make sure to work on a copy, be it on the defaults or on the passed
         plots_cfg = copy.deepcopy(plots_cfg)
@@ -127,11 +127,11 @@ class PlotManager:
             # on the type of the config
             if isinstance(cfg, dict):
                 # Just a dict. Use the regular call
-                self.plot(name, **cfg)
+                self.plot(plot_name, **cfg)
 
             elif isinstance(cfg, ParamSpace):
                 # Is a parameter space. Use the alternative signature
-                self.plot(name, from_pspace=cfg)
+                self.plot(plot_name, from_pspace=cfg)
 
             else:
                 raise TypeError("Got invalid plots specifications for entry "
@@ -166,4 +166,34 @@ class PlotManager:
         """
         log.info("Performing plot '%s' ...", name)
 
-        # TODO continue here
+        # If no creator is given, use the default one
+        if not creator:
+            if not self._default_creator:
+                raise ValueError("No `creator` argument given and no "
+                                 "`default_creator` specified during "
+                                 "initialisation; cannot perform plot!")
+
+            creator = self._default_creator
+
+        # Get the creator class and directly instantiate it
+        plot_creator = self.CREATORS[creator](name=name, dm=self._dm)
+
+        # Distinguish single calls and parameter sweeps
+        if not from_pspace:
+            # Generate the output path
+
+            # Call the plot creator
+            plot_creator(out_path=out_path, **plot_cfg)
+
+        else:
+            # Generate the base output path
+
+            # Create the iterator
+            it = from_pspace.all_points(with_info=('state_no', 'state_vector'))
+            # ...and loop over all points:
+            for cfg, state_no in it:
+                # Generate the output path
+                # TODO
+
+                # Call the plot creator
+                plot_creator(out_path=out_path, **cfg)

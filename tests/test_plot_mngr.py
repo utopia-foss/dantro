@@ -4,15 +4,16 @@ from pkg_resources import resource_filename
 
 import pytest
 
+from dantro.tools import load_yml
 from dantro.data_mngr import DataManager
 from dantro.container import NumpyDataContainer as NumpyDC
 from dantro.plot_mngr import PlotManager
 
 
 # Files -----------------------------------------------------------------------
-PLOTS_CUSTOM = resource_filename("tests", "cfg/plots_custom.yml")
-PLOTS_DECL = resource_filename("tests", "cfg/plots_decl.yml")
-PLOTS_VEGA = resource_filename("tests", "cfg/plots_vega.yml")
+PLOTS_CUSTOM = load_yml(resource_filename("tests", "cfg/plots_custom.yml"))
+# PLOTS_DECL = load_yml(resource_filename("tests", "cfg/plots_decl.yml"))
+# PLOTS_VEGA = load_yml(resource_filename("tests", "cfg/plots_vega.yml"))
 
 
 # Test classes ----------------------------------------------------------------
