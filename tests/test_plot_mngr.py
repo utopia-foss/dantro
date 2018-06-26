@@ -11,7 +11,7 @@ from dantro.plot_mngr import PlotManager
 
 
 # Files -----------------------------------------------------------------------
-PLOTS_CUSTOM = load_yml(resource_filename("tests", "cfg/plots_custom.yml"))
+PLOTS_EXT = load_yml(resource_filename("tests", "cfg/plots_ext.yml"))
 # PLOTS_DECL = load_yml(resource_filename("tests", "cfg/plots_decl.yml"))
 # PLOTS_VEGA = load_yml(resource_filename("tests", "cfg/plots_vega.yml"))
 
@@ -59,7 +59,7 @@ def test_init(dm, tmpdir):
 
 def test_plot(dm, pm_kwargs):
     """Test the plotting functionality of the PlotManager"""
-    pm = PlotManager(dm=dm, plots_cfg=PLOTS_CUSTOM, **pm_kwargs)
+    pm = PlotManager(dm=dm, plots_cfg=PLOTS_EXT, **pm_kwargs)
 
     # Plot that config
     pm.plot_from_cfg()

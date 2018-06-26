@@ -3,7 +3,7 @@
 # This can be used to couple to external methods and use the PlotManager only
 # as a basic configuration frontend.
 ---
-custom:
+from_func:
   # Use a custom plot function from an already importable module
 
   # Specify the module string to find the function at.
