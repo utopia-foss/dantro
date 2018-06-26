@@ -38,9 +38,11 @@ class PlotManager:
                          state="{key:}_{val:}", state_join_char="-",
                          state_vector_join_char="-",
                          path="{name:}.{ext:}",
-                         sweep="{name:}/{state_no:}-{state:}.{ext:}")
+                         sweep="{name:}/{state_no:}-{state:}.{ext:}",
+                         plot_cfg="{name:}_cfg.yml",
+                         )
 
-    def __init__(self, *, dm: DataManager, plots_cfg: Union[dict, str]=None, out_dir: Union[str, None]="{date:}/", out_fstrs: dict=None, common_creator_kwargs: Dict[str, dict]=None, default_creator: str=None):
+    def __init__(self, *, dm: DataManager, plots_cfg: Union[dict, str]=None, out_dir: Union[str, None]="{date:}/", out_fstrs: dict=None, common_creator_kwargs: Dict[str, dict]=None, default_creator: str=None, save_plot_cfg: bool=True):
         """Initialize the PlotManager
         
         Args:
@@ -64,6 +66,8 @@ class PlotManager:
                 creator classes.
             default_creator (str, optional): If given, a plot without explicit
                 `creator` declaration will use this creator as default.
+            save_plot_cfg (bool, optional): If True, the plot configuration is
+                saved to a yaml file alongside the created plot.
         
         Raises:
             ValueError: Invalid default creator
@@ -73,6 +77,8 @@ class PlotManager:
         # Store arguments
         self._dm = dm
         self._plots_cfg = plots_cfg
+
+        self.save_plot_cfg = save_plot_cfg
 
         self._out_dir = out_dir
         if out_fstrs:
@@ -194,6 +200,40 @@ class PlotManager:
 
         return out_path
 
+    def _save_plot_cfg(self, cfg: dict, *, name: str, creator: str, target_dir: str) -> str:
+        """Saves the given configuration under the top-level entry `name` to
+        a yaml file.
+        
+        Args:
+            cfg (dict): The plot configuration to save
+            name (str): The name of the plot
+            creator (str): The name of the creator
+            target_dir (str): The directory path to store the file in
+        
+        Returns:
+            str: The path the config was saved at (mainly used for testing)
+        """
+        # Build the dict that is to be saved
+        d = dict()
+        d[name] = copy.deepcopy(cfg)
+
+        if not isinstance(cfg, ParamSpace):
+            d[name]['creator'] = creator
+        else:
+            # FIXME hacky, should not use the internal API!
+            d[name]._dict['creator'] = creator
+
+        # Generate the filename
+        fname = self.out_fstrs['plot_cfg'].format(name=name)
+        target_path = os.path.join(target_dir, fname)
+        
+        # And save
+        tools.write_yml(d, path=target_path)
+        log.debug("Saved plot configuration for '%s' to: %s",
+                  name, target_path)
+
+        return target_path
+
 
     # .........................................................................
     # Plotting
@@ -267,8 +307,8 @@ class PlotManager:
             out_dir = self._out_dir
         out_dir = self._parse_out_dir(out_dir, name="{name:}")
         # NOTE creating this here such that all plots from this config are side
-        #      by side in one output directory. With the given name value, the
-        #      evaluation of that part of the output directory is postponed
+        #      by side in one output directory. With the given `name` key, the
+        #      evaluation of that part of the out_dir path is postponed
         #      to when the actual plot with that name is created.
 
         log.info("Performing plots from %d entries ...", len(plots_cfg))
@@ -279,7 +319,8 @@ class PlotManager:
             # on the type of the config
             if isinstance(cfg, ParamSpace):
                 # Is a parameter space. Use the corresponding call signature
-                self.plot(plot_name, out_dir=out_dir, from_pspace=cfg)
+                self.plot(plot_name, out_dir=out_dir,
+                          creator=cfg.get('creator'), from_pspace=cfg)
             
             else:
                 # Just a dict. Use the regular call
@@ -290,7 +331,7 @@ class PlotManager:
                  len(plots_cfg))
 
 
-    def plot(self, name: str, *, creator: str=None, out_dir: str=None, from_pspace: ParamSpace=None, **plot_cfg) -> pcr.BasePlotCreator:
+    def plot(self, name: str, *, creator: str=None, out_dir: str=None, from_pspace: ParamSpace=None, save_plot_cfg: bool=None, **plot_cfg) -> pcr.BasePlotCreator:
         """Create plot(s) from a single configuration entry.
         
         A call to this function creates a single PlotCreator, which is also
@@ -310,6 +351,8 @@ class PlotManager:
                 initialisation.
             from_pspace (ParamSpace, optional): If given, execute a parameter
                 sweep over these parameters, re-using the same creator instance
+            save_plot_cfg (bool, optional): Whether to save the plot config.
+                If not given, uses the default value from initialisation.
             **plot_cfg: The plot configuration to pass on to the plot creator.
         
         Returns:
@@ -319,6 +362,8 @@ class PlotManager:
             ValueError: If no creator was given here and at initialisation or
                 when out_dir was neither given here nor during initialisation
         """
+        log.debug("Preparing plot '%s' ...", name)
+
         # Check that the output directory is given
         if not out_dir:
             if not self._out_dir:
@@ -336,11 +381,16 @@ class PlotManager:
 
             creator = self._default_creator
 
+        # Whether to save the plot config
+        if save_plot_cfg is None:
+            save_plot_cfg = self.save_plot_cfg
+
         # Instantiate the creator class, also passing initialisation kwargs
         init_kwargs = self._cckwargs.get(creator, {})
-        creator = self.CREATORS[creator](name=name, dm=self._dm, **init_kwargs)
+        plot_creator = self.CREATORS[creator](name=name, dm=self._dm,
+                                              **init_kwargs)
 
-        log.debug("Received creator: %s", creator.classname)
+        log.debug("Resolved creator: %s", plot_creator.classname)
 
         # Distinguish single calls and parameter sweeps
         if not from_pspace:
@@ -348,11 +398,17 @@ class PlotManager:
 
             # Generate the output path
             out_dir = self._parse_out_dir(out_dir, name=name)
-            out_path = self._parse_out_path(creator, name=name,
+            out_path = self._parse_out_path(plot_creator, name=name,
                                              out_dir=out_dir)
 
             # Call the plot creator to perform the plot
-            creator(out_path=out_path, **plot_cfg)
+            plot_creator(out_path=out_path, **plot_cfg)
+
+            # Save the plot configuration alongside, if configured to do so
+            if save_plot_cfg:
+                self._save_plot_cfg(plot_cfg,
+                                    name=name, creator=creator,
+                                    target_dir=os.path.dirname(out_path))
 
         else:
             # If it is not already a ParamSpace, create one
@@ -377,7 +433,7 @@ class PlotManager:
             # ...and loop over all points:
             for cfg, state_no, state_vector in it:
                 # Generate the output path
-                out_path = self._parse_out_path(creator,
+                out_path = self._parse_out_path(plot_creator,
                                                 name=name,
                                                 out_dir=out_dir,
                                                 state_no=state_no,
@@ -386,7 +442,12 @@ class PlotManager:
                                                 dims=psp_dims)
 
                 # Call the plot creator to perform the plot
-                creator(out_path=out_path, **cfg)
+                plot_creator(out_path=out_path, **cfg)
+
+            # Save the plot configuration alongside, if configured to do so
+            if save_plot_cfg:
+                self._save_plot_cfg(from_pspace, name=name,
+                                    creator=creator, target_dir=out_dir)
 
         # Done now. Return the plot creator.
         return creator

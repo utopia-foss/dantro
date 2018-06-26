@@ -106,7 +106,6 @@ def test_plotting(dm, pm_kwargs):
         PlotManager(dm=dm).plot("foo")
 
 
-
 def test_sweep(dm, pm_kwargs, pspace_plots):
     """Test that sweeps work"""
     pm = PlotManager(dm=dm, **pm_kwargs)
@@ -118,3 +117,7 @@ def test_sweep(dm, pm_kwargs, pspace_plots):
     pm.plot("foo", from_pspace=dict(plot_func="my_module.my_func",
                                     foo=psp.ParamDim(default="foo",
                                                      values=["bar", "baz"])))
+
+@pytest.mark.skip("TODO")
+def test_save_plot_cfg():
+    pass
