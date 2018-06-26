@@ -176,7 +176,7 @@ class PlotManager:
                                                         digits=digits)
 
             # state values
-            state_pairs = [(name, dim.values[state])
+            state_pairs = [(name, dim.current_value)
                            for name, dim in dims.items()]
             sjc = fstrs['state_join_char']
             keys['state'] = sjc.join([fstrs['state'].format(key=k, val=v)
@@ -234,7 +234,7 @@ class PlotManager:
 
         if update_plots_cfg:
             # Recursively update with the given keywords
-            load_cfg = tools.recursive_update(load_cfg, update_plots_cfg)
+            plots_cfg = tools.recursive_update(plots_cfg, update_plots_cfg)
             log.debug("Updated the plots configuration.")
 
         # Filter the plot selection
@@ -249,7 +249,7 @@ class PlotManager:
                 cfg.pop('enabled', None)
 
         else:
-            # Resolve all `enabled` entries
+            # Resolve all `enabled` entries, creating a new plots_cfg dict
             plots_cfg = {k:v for k, v in plots_cfg.items()
                          if v.pop('enabled', True)}
 

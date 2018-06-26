@@ -4,6 +4,8 @@ from pkg_resources import resource_filename
 
 import pytest
 
+import paramspace as psp
+
 from dantro.tools import load_yml
 from dantro.data_mngr import DataManager
 from dantro.container import NumpyDataContainer as NumpyDC
@@ -38,6 +40,15 @@ def pm_kwargs() -> dict:
     return dict(default_creator="external",
                 common_creator_kwargs=dict())
 
+@pytest.fixture
+def pspace_plots() -> dict:
+    """Returns a plot configuration (external creator) with parameter sweeps"""
+    pc = dict()
+    pc["sweep"] = psp.ParamSpace(dict(plot_func="my_module.my_func",
+                                      foo=psp.ParamDim(default=0, range=[5])))
+
+    return pc
+
 
 # Tests -----------------------------------------------------------------------
 
@@ -56,6 +67,14 @@ def test_init(dm, tmpdir):
     # With a separate output directory
     PlotManager(dm=dm, out_dir=tmpdir.mkdir("out"))
 
+    # With updating out_fstrs
+    pm = PlotManager(dm=dm, out_fstrs=dict(state="foo"))
+    assert pm._out_fstrs.get('state') == "foo"
+
+    # Giving an invalid default creator
+    with pytest.raises(ValueError, match="No such creator 'invalid'"):
+        PlotManager(dm=dm, default_creator="invalid")
+
 
 def test_plot(dm, pm_kwargs):
     """Test the plotting functionality of the PlotManager"""
@@ -64,5 +83,9 @@ def test_plot(dm, pm_kwargs):
     # Plot that config
     pm.plot_from_cfg()
 
-    # TODO continue test-driven development here
-    # TODO try to make interface similar to that of DataManager
+
+def test_sweep(dm, pm_kwargs, pspace_plots):
+    """Test that sweeps work"""
+    pm = PlotManager(dm=dm, **pm_kwargs)
+
+    pm.plot_from_cfg(**pspace_plots)
