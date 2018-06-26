@@ -37,8 +37,8 @@ class PlotManager:
                          state_no="{no:0{digits:d}d}",
                          state="{key:}_{val:}", state_join_char="-",
                          state_vector_join_char="-",
-                         path="{name:}.{ext:}",
-                         sweep="{name:}/{state_no:}-{state:}.{ext:}",
+                         path="{name:}{ext:}",
+                         sweep="{name:}/{state_no:}-{state:}{ext:}",
                          plot_cfg="{name:}_cfg.yml",
                          )
 
@@ -144,7 +144,7 @@ class PlotManager:
         # Return the full path
         return out_dir
 
-    def _parse_out_path(self, creator: pcr.BasePlotCreator, *, name: str, out_dir: str, state_no: int=None, state_no_max: int=None, state_vector: Tuple[int]=None, dims: dict=None) -> str:
+    def _parse_out_path(self, creator: pcr.BasePlotCreator, *, name: str, out_dir: str, file_ext: str=None, state_no: int=None, state_no_max: int=None, state_vector: Tuple[int]=None, dims: dict=None) -> str:
         """Given a creator and (optionally) parameter sweep information, a full
         and absolute output path is generated, including the file extension.
         
@@ -157,6 +157,7 @@ class PlotManager:
             name (str): The name of the plot
             out_dir (str): The absolute output directory, prepended to all
                 generated paths
+            file_ext (str, optional): The file extension to use
             state_no (int, optional): The state number, starting with 0
             state_no_max (int, optional): The maximum state number
             state_vector (Tuple[int], optional): The state vector with info
@@ -165,14 +166,24 @@ class PlotManager:
                 sweep that is carried out.
         
         Returns:
-            str: Description
+            str: The fully parsed output path for this plot
         """
         # Get the fstrs
         fstrs = self.out_fstrs
         
         # Evaluate the keys available for both cases
-        keys = dict(date=time.strftime(fstrs['date']),
-                    name=name, ext=creator.get_ext())
+        keys = dict(date=time.strftime(fstrs['date']), name=name)
+
+        # Parse file extension and ensure it starts with a dot
+        ext = file_ext if file_ext else creator.get_ext()
+
+        if ext and ext[0] != ".":
+            ext = "." + ext
+        elif ext is None:
+            ext = ""
+
+        keys['ext'] = ext
+
 
         # Change behaviour depending on whether state information was given
         if state_no is None:
@@ -207,24 +218,22 @@ class PlotManager:
 
         return out_path
 
-    def _store_plot_info(self, name: str, *, plot_cfg: dict, creator_name: str, save: bool=False, target_dir: str=None, **info):
+    def _store_plot_info(self, name: str, *, plot_cfg: dict, creator_name: str, save: bool, target_dir: str, **info):
         """Stores all plot information in the plot_info list and, if `save` is
         set, also saves it using the _save_plot_cfg method.
         """
         # Prepare the entry
         entry = dict(name=name, plot_cfg=plot_cfg,
-                     creator_name=creator_name, **info)
+                     creator_name=creator_name, **info,
+                     plot_cfg_path=None)
 
         if save:
-            if not target_dir:
-                raise ValueError("Missing argument `target_dir` to save plot "
-                                 "configuration to.")
-
+            # Save the plot configuration
             save_path = self._save_plot_cfg(plot_cfg, name=name,
                                             target_dir=target_dir,
                                             creator_name=creator_name)
 
-            # Store the save path as well
+            # Store the save path
             entry['plot_cfg_path'] = save_path
 
         # Append to the plot_info list
@@ -294,6 +303,11 @@ class PlotManager:
         """
         # Determine which plot configuration to use
         if not plots_cfg:
+            if not self._plots_cfg and not update_plots_cfg:
+                raise ValueError("Got empty `plots_cfg` and `plots_cfg` given "
+                                 "at initialisation was also empty; cannot "
+                                 "plot.")
+
             log.debug("No new plots configuration given; will use plots "
                       "configuration given at initialisation.")
             plots_cfg = self._plots_cfg
@@ -360,7 +374,7 @@ class PlotManager:
                  len(plots_cfg))
 
 
-    def plot(self, name: str, *, creator: str=None, out_dir: str=None, from_pspace: ParamSpace=None, save_plot_cfg: bool=None, **plot_cfg) -> pcr.BasePlotCreator:
+    def plot(self, name: str, *, creator: str=None, out_dir: str=None, file_ext: str=None, from_pspace: ParamSpace=None, save_plot_cfg: bool=None, **plot_cfg) -> pcr.BasePlotCreator:
         """Create plot(s) from a single configuration entry.
         
         A call to this function creates a single PlotCreator, which is also
@@ -378,6 +392,8 @@ class PlotManager:
             out_dir (str, optional): If given, will use this directory as out
                 directory. If not, will use the default value given at
                 initialisation.
+            file_ext (str, optional): The file extension to use, including the
+                leading dot!
             from_pspace (ParamSpace, optional): If given, execute a parameter
                 sweep over these parameters, re-using the same creator instance
             save_plot_cfg (bool, optional): Whether to save the plot config.
@@ -428,7 +444,8 @@ class PlotManager:
             # Generate the output path
             out_dir = self._parse_out_dir(out_dir, name=name)
             out_path = self._parse_out_path(plot_creator, name=name,
-                                             out_dir=out_dir)
+                                             out_dir=out_dir,
+                                             file_ext=file_ext)
 
             # Call the plot creator to perform the plot
             plot_creator(out_path=out_path, **plot_cfg)
@@ -465,6 +482,7 @@ class PlotManager:
                 out_path = self._parse_out_path(plot_creator,
                                                 name=name,
                                                 out_dir=out_dir,
+                                                file_ext=file_ext,
                                                 state_no=state_no,
                                                 state_no_max=psp_vol-1,
                                                 state_vector=state_vector,
@@ -478,8 +496,8 @@ class PlotManager:
                                       out_path=out_path, plot_cfg=plot_cfg,
                                       state_no=state_no,
                                       state_vector=state_vector,
-                                      save=False)
-                                      # TODO consider making save configurable
+                                      save=False, # TODO check if reasonable
+                                      target_dir=os.path.dirname(out_path))
 
             # Save the plot configuration alongside, if configured to do so
             if save_plot_cfg:

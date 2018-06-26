@@ -42,7 +42,7 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
             point of the plot execution.
     """
     EXTENSIONS = 'all'
-    DEFAULT_EXT = None
+    DEFAULT_EXT = ""
     DEFAULT_EXT_REQUIRED = True
     POSTPONE_PATH_PREPARATION = False
 
