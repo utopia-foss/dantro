@@ -35,9 +35,11 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
             an error will be raised.
         EXTENSIONS (tuple): The supported extensions. If 'all', no checks for
             the extensions are performed
-        POSTPONE_PATH_PREPARATION (bool): Whether to create paths in the base
+        POSTPONE_PATH_PREPARATION (bool): Whether to prepare paths in the base
             class's __call__ method or not. If the derived class wants to
-            take care of this on their own, this should be set to True.
+            take care of this on their own, this should be set to True and the
+            _prepare_path method, adjusted or not, should be called at another
+            point of the plot execution.
     """
     EXTENSIONS = 'all'
     DEFAULT_EXT = None
