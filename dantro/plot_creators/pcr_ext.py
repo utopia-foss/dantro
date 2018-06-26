@@ -12,4 +12,6 @@ log = logging.getLogger(__name__)
 
 class ExternalPlotCreator(BasePlotCreator):
     """This PlotCreator uses external scripts to create plots."""
-    pass
+
+    def _plot(self):
+        pass

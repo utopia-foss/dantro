@@ -29,13 +29,18 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
         DEFAULT_EXT (str): The class variable to use for default extension
         default_ext (str): The property-managed actual value for the default
             extension to use
-        EXTENSIONS (tuple): The supported extensions
+        DEFAULT_EXT_REQUIRED (bool): Whether a default extension is required
+            or not. If True and the default_ext property evaluates to False,
+            an error will be raised.
+        EXTENSIONS (tuple): The supported extensions. If None, all are regarded
+            as supported
         POSTPONE_PATH_PREPARATION (bool): Whether to create paths in the base
             class's __call__ method or not. If the derived class wants to
             take care of this on their own, this should be set to True.
     """
-    EXTENSIONS = ()
+    EXTENSIONS = None
     DEFAULT_EXT = None
+    DEFAULT_EXT_REQUIRED = True
     POSTPONE_PATH_PREPARATION = False
 
     def __init__(self, name: str, *, dm: DataManager, default_ext: str=None, **plot_cfg):
@@ -58,7 +63,14 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
         self._default_ext = None
 
         # And others via their property setters
-        self.default_ext = default_ext if default_ext else DEFAULT_EXT
+        self.default_ext = default_ext if default_ext else self.DEFAULT_EXT
+
+        if self.DEFAULT_EXT_REQUIRED and not self.default_ext:
+            raise ValueError("{} requires a default extension, but neither "
+                             "the argument ('{}') nor the DEFAULT_EXT class "
+                             "variable ('{}') evaluated to True."
+                             "".format(self.logstr, default_ext,
+                                       self.DEFAULT_EXT))
 
         log.debug("%s initialised.", self.logstr)
 
@@ -103,10 +115,12 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
     @default_ext.setter
     def default_ext(self, val: str) -> None:
         """Sets the default extension. Needs to be in EXTENSIONS"""
-        if val.lower() not in self.EXTENSIONS:
+        if self.EXTENSIONS and val.lower() not in self.EXTENSIONS:
             raise ValueError("Extension '{}' not supported in {}. Supported "
                              "extensions are: {}"
                              "".format(val, self.logstr, self.EXTENSIONS))
+
+        self._default_ext = val
 
     # .........................................................................
     # Main API functions
