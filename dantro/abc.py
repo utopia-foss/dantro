@@ -263,11 +263,6 @@ class AbstractPlotCreator(metaclass=abc.ABCMeta):
         the default plot configuration.
         """
 
-    @property
-    def classname(self) -> str:
-        """Returns this proxy's class name"""
-        return self.__class__.__name__
-
     @abc.abstractmethod
     def __call__(self, *, out_path: str=None, **update_plot_cfg):
         """Perform the plot, updating the configuration passed to __init__

@@ -49,17 +49,39 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
             **plot_cfg: The default plot configuration
         """
         # Store arguments as private attributes
+        self._name = name
         self._dm = dm
         self._plot_cfg = plot_cfg
+
+        # Initialise property-managed attributes
+        self._logstr = None
         self._default_ext = None
 
         # And others via their property setters
         self.default_ext = default_ext if default_ext else DEFAULT_EXT
 
-        log.debug("%s initialised.", self.classname)
+        log.debug("%s initialised.", self.logstr)
 
     # .........................................................................
     # Properties
+
+    @property
+    def name(self) -> str:
+        """Returns this creator's name"""
+        return self._name
+
+    @property
+    def classname(self) -> str:
+        """Returns this creator's class name"""
+        return self.__class__.__name__
+    
+    @property
+    def logstr(self) -> str:
+        """Returns the classname and name of this object; a combination often
+        used in logging..."""
+        if not self._logstr:
+            self._logstr = "{} '{}'".format(self.classname, self.name)
+        return self._logstr
 
     @property
     def dm(self) -> DataManager:
@@ -82,9 +104,9 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
     def default_ext(self, val: str) -> None:
         """Sets the default extension. Needs to be in EXTENSIONS"""
         if val.lower() not in self.EXTENSIONS:
-            raise ValueError("Extension '{}' not supported. Supported "
+            raise ValueError("Extension '{}' not supported in {}. Supported "
                              "extensions are: {}"
-                             "".format(val, self.EXTENSIONS))
+                             "".format(val, self.logstr, self.EXTENSIONS))
 
     # .........................................................................
     # Main API functions
@@ -129,7 +151,13 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
         Returns:
             str: The (possibly adjusted) output path
         """
-        # Create necessary directories
+        # Check that the file path does not already exist:
+        if os.path.exists(out_path):
+            raise FileExistsError("There already exists a file at the desired "
+                                  "output path for {} at: {}"
+                                  "".format(self.logstr, out_path))
+
+        # Ensure that all necessary directories exist
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
         # Nothing more to do here (at least not in the base class)

@@ -66,8 +66,10 @@ class PlotManager:
                 `creator` declaration will use this creator as default.
         
         Raises:
-            ValueError: Description
+            ValueError: Invalid default creator
         """
+        # TODO consider making it possible to pass classes for plot creators
+
         # Store arguments
         self._dm = dm
         self._plots_cfg = plots_cfg
@@ -157,8 +159,7 @@ class PlotManager:
         
         # Evaluate the keys available for both cases
         keys = dict(date=time.strftime(fstrs['date']),
-                    name=name,
-                    ext=creator.get_ext())
+                    name=name, ext=creator.get_ext())
 
         # Change behaviour depending on whether state information was given
         if state_no is None:
@@ -298,7 +299,8 @@ class PlotManager:
         Args:
             name (str): The name of this plot
             creator (str, optional): The name of the creator to use. Has to be
-                part of the CREATORS class variable.
+                part of the CREATORS class variable. If not given, the argument
+                `default_creator` given at initialisation will be used.
             out_dir (str, optional): If given, will use this directory as out
                 directory. If not, will use the default value given at
                 initialisation.
@@ -322,7 +324,7 @@ class PlotManager:
             out_dir = self._out_dir
 
         # If no creator is given, use the default one
-        if not creator:
+        if creator is None:
             if not self._default_creator:
                 raise ValueError("No `creator` argument given and no "
                                  "`default_creator` specified during "
@@ -330,9 +332,12 @@ class PlotManager:
 
             creator = self._default_creator
 
-        # Get the creator class and directly instantiate it
-        plot_creator = self.CREATORS[creator](name=name, dm=self._dm)
+        # Instantiate the creator class, also passing initialisation kwargs
+        init_kwargs = self._cckwargs.get(creator, {})
+        plot_creator = self.CREATORS[creator](name=name, dm=self._dm,
+                                              **init_kwargs)
 
+        log.debug("Received creator: %s", creator.classname)
 
         # Distinguish single calls and parameter sweeps
         if not from_pspace:
