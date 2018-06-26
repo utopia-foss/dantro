@@ -198,7 +198,7 @@ class PlotManager:
     # .........................................................................
     # Plotting
 
-    def plot_from_cfg(self, *, plots_cfg: dict=None, update_plots_cfg: dict=None, plot_only: List[str]=None, out_dir: str=None) -> None:
+    def plot_from_cfg(self, *, plots_cfg: dict=None, plot_only: List[str]=None, out_dir: str=None, **update_plots_cfg) -> None:
         """Create multiple plots from a configuration, either a given one or
         the one passed during initialisation.
         
@@ -208,8 +208,6 @@ class PlotManager:
         Args:
             plots_cfg (dict, optional): The plots configuration to use. If not
                 given, the one specified during initialisation is used.
-            update_plots_cfg (dict, optional): If given, it is used to update
-                the plots_cfg recursively
             plot_only (List[str], optional): If given, create only those plots
                 from the resulting configuration that match these names. This
                 will lead to the `enabled` key being ignored, regardless of its
@@ -217,6 +215,10 @@ class PlotManager:
             out_dir (str, optional): A different output directory; will use the
                 one passed at initialisation if the given argument evaluates to
                 False.
+            **update_plots_cfg: If given, it is used to update the plots_cfg
+                recursively. Note that on the top level the _names_ of the
+                plots are placed; this cannot be used to make all plots have a
+                common property.
         
         Raises:
             TypeError: Invalid plot configuration type
