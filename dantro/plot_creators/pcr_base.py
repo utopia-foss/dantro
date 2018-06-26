@@ -131,8 +131,17 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
     def __call__(self, *, out_path: str, **update_plot_cfg):
         """Perform the plot, updating the configuration passed to __init__
         with the given values and then calling _plot.
+        
+        Args:
+            out_path (str): The full output path to store the plot at
+            **update_plot_cfg: Keys with which to update the default plot
+                configuration
+        
+        Returns:
+            The return value of the _plot function
         """
         # TODO add logging messages
+
         # Get (a deep copy of) the initial plot config
         cfg = self.plot_cfg
 
@@ -142,7 +151,7 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
 
         # Prepare the output path
         if not self.POSTPONE_PATH_PREPARATION:
-            out_path = self._prepare_path(out_path)
+            self._prepare_path(out_path)
 
         # Now call the plottig function with these arguments
         return self._plot(out_path=out_path, **cfg)
@@ -155,7 +164,7 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
         the supported extensions and """
         return self.default_ext
 
-    def _prepare_path(self, out_path: str) -> str:
+    def _prepare_path(self, out_path: str) -> None:
         """Prepares the output path, creating directories if needed, then
         returning the full absolute path.
         
@@ -164,9 +173,6 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
         
         Args:
             out_path (str): The absolute output path to start with
-        
-        Returns:
-            str: The (possibly adjusted) output path
         """
         # Check that the file path does not already exist:
         if os.path.exists(out_path):
@@ -177,5 +183,4 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
         # Ensure that all necessary directories exist
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
-        # Nothing more to do here (at least not in the base class)
-        return out_path
+        # Nothing more to do here, at least in the base class

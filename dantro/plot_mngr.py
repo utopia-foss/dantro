@@ -74,7 +74,9 @@ class PlotManager:
         """
         # TODO consider making it possible to pass classes for plot creators
 
-        # Store arguments
+        # Initialise attributes and store arguments
+        self._plot_info = []
+
         self._dm = dm
         self._plots_cfg = plots_cfg
 
@@ -107,6 +109,11 @@ class PlotManager:
     def out_fstrs(self) -> dict:
         """Returns the dict of output format strings"""
         return self._out_fstrs
+
+    @property
+    def plot_info(self) -> List[dict]:
+        """Returns a list of dicts with info on all plots"""
+        return self._plot_info
 
     # .........................................................................
     # Helpers
@@ -200,14 +207,37 @@ class PlotManager:
 
         return out_path
 
-    def _save_plot_cfg(self, cfg: dict, *, name: str, creator: str, target_dir: str) -> str:
+    def _store_plot_info(self, name: str, *, plot_cfg: dict, creator_name: str, save: bool=False, target_dir: str=None, **info):
+        """Stores all plot information in the plot_info list and, if `save` is
+        set, also saves it using the _save_plot_cfg method.
+        """
+        # Prepare the entry
+        entry = dict(name=name, plot_cfg=plot_cfg,
+                     creator_name=creator_name, **info)
+
+        if save:
+            if not target_dir:
+                raise ValueError("Missing argument `target_dir` to save plot "
+                                 "configuration to.")
+
+            save_path = self._save_plot_cfg(plot_cfg, name=name,
+                                            target_dir=target_dir,
+                                            creator_name=creator_name)
+
+            # Store the save path as well
+            entry['plot_cfg_path'] = save_path
+
+        # Append to the plot_info list
+        self._plot_info.append(entry)
+
+    def _save_plot_cfg(self, cfg: dict, *, name: str, creator_name: str, target_dir: str) -> str:
         """Saves the given configuration under the top-level entry `name` to
         a yaml file.
         
         Args:
             cfg (dict): The plot configuration to save
             name (str): The name of the plot
-            creator (str): The name of the creator
+            creator_name (str): The name of the creator
             target_dir (str): The directory path to store the file in
         
         Returns:
@@ -218,21 +248,20 @@ class PlotManager:
         d[name] = copy.deepcopy(cfg)
 
         if not isinstance(cfg, ParamSpace):
-            d[name]['creator'] = creator
+            d[name]['creator'] = creator_name
         else:
             # FIXME hacky, should not use the internal API!
-            d[name]._dict['creator'] = creator
+            d[name]._dict['creator'] = creator_name
 
         # Generate the filename
         fname = self.out_fstrs['plot_cfg'].format(name=name)
-        target_path = os.path.join(target_dir, fname)
+        save_path = os.path.join(target_dir, fname)
         
         # And save
-        tools.write_yml(d, path=target_path)
-        log.debug("Saved plot configuration for '%s' to: %s",
-                  name, target_path)
+        tools.write_yml(d, path=save_path)
+        log.debug("Saved plot configuration for '%s' to: %s", name, save_path)
 
-        return target_path
+        return save_path
 
 
     # .........................................................................
@@ -404,11 +433,11 @@ class PlotManager:
             # Call the plot creator to perform the plot
             plot_creator(out_path=out_path, **plot_cfg)
 
-            # Save the plot configuration alongside, if configured to do so
-            if save_plot_cfg:
-                self._save_plot_cfg(plot_cfg,
-                                    name=name, creator=creator,
-                                    target_dir=os.path.dirname(out_path))
+            # Store plot information
+            self._store_plot_info(name=name, creator_name=creator,
+                                  out_path=out_path, plot_cfg=plot_cfg,
+                                  save=save_plot_cfg,
+                                  target_dir=os.path.dirname(out_path))
 
         else:
             # If it is not already a ParamSpace, create one
@@ -444,10 +473,19 @@ class PlotManager:
                 # Call the plot creator to perform the plot
                 plot_creator(out_path=out_path, **cfg)
 
+                # Store plot information
+                self._store_plot_info(name=name, creator_name=creator,
+                                      out_path=out_path, plot_cfg=plot_cfg,
+                                      state_no=state_no,
+                                      state_vector=state_vector,
+                                      save=False)
+                                      # TODO consider making save configurable
+
             # Save the plot configuration alongside, if configured to do so
             if save_plot_cfg:
                 self._save_plot_cfg(from_pspace, name=name,
-                                    creator=creator, target_dir=out_dir)
+                                    creator_name=creator,
+                                    target_dir=out_dir)
 
         # Done now. Return the plot creator.
         return creator

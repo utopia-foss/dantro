@@ -105,6 +105,9 @@ def test_plotting(dm, pm_kwargs):
     with pytest.raises(ValueError, match="No `creator` argument"):
         PlotManager(dm=dm).plot("foo")
 
+    # Test that config files were created
+    assert pm.plot_info
+
 
 def test_sweep(dm, pm_kwargs, pspace_plots):
     """Test that sweeps work"""
@@ -118,6 +121,3 @@ def test_sweep(dm, pm_kwargs, pspace_plots):
                                     foo=psp.ParamDim(default="foo",
                                                      values=["bar", "baz"])))
 
-@pytest.mark.skip("TODO")
-def test_save_plot_cfg():
-    pass
