@@ -8,7 +8,7 @@ install_deps = [
     'numpy>=1.14',
     'pandas>=0.21',
     'PyYAML>=3.12',
-    'paramspace>=1.0'
+    'paramspace>=1.0.1'
     ]
 test_deps = ['pytest>=3.4.0', 'pytest-cov>=2.5.1']
 
