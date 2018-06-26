@@ -104,7 +104,7 @@ def test_plotting(dm, pm_kwargs):
 
     # Now directly to the plot function
     # If default values were given during init, this should work
-    pm.plot("foo")
+    pm.plot("foo", plot_func="my_func")
     assert len(pm.plot_info) == 2 * len(PLOTS_EXT) + 1
 
     # Otherwise, without out_dir or creator arguments, not:
@@ -115,12 +115,12 @@ def test_plotting(dm, pm_kwargs):
         PlotManager(dm=dm).plot("foo")
 
     # Test storage of config files
-    pm.plot("bar")
+    pm.plot("bar", plot_func="my_func")
     assert len(pm.plot_info) == 2 * len(PLOTS_EXT) + 2
     assert pm.plot_info[-1]['plot_cfg_path']
     assert os.path.exists(pm.plot_info[-1]['plot_cfg_path'])
     
-    pm.plot("baz", save_plot_cfg=False)
+    pm.plot("baz", plot_func="my_func", save_plot_cfg=False)
     assert len(pm.plot_info) == 2 * len(PLOTS_EXT) + 3
     assert pm.plot_info[-1]['plot_cfg_path'] is None
 
@@ -152,9 +152,9 @@ def test_file_ext(dm, pm_kwargs):
     # With extension (with dot)
     cc_kwargs = dict(external=dict(default_ext=".pdf"))
     PlotManager(dm=dm, **pm_kwargs, plots_cfg=PLOTS_EXT,
-                common_creator_kwargs=cc_kwargs).plot_from_cfg()
+                creator_init_kwargs=cc_kwargs).plot_from_cfg()
 
     # ...and without dot
     cc_kwargs = dict(external=dict(default_ext="pdf"))
     PlotManager(dm=dm, **pm_kwargs, plots_cfg=PLOTS_EXT,
-                common_creator_kwargs=cc_kwargs).plot_from_cfg()
+                creator_init_kwargs=cc_kwargs).plot_from_cfg()

@@ -42,7 +42,7 @@ class PlotManager:
                          plot_cfg="{name:}_cfg.yml",
                          )
 
-    def __init__(self, *, dm: DataManager, plots_cfg: Union[dict, str]=None, out_dir: Union[str, None]="{date:}/", out_fstrs: dict=None, common_creator_kwargs: Dict[str, dict]=None, default_creator: str=None, save_plot_cfg: bool=True):
+    def __init__(self, *, dm: DataManager, plots_cfg: Union[dict, str]=None, out_dir: Union[str, None]="{date:}/", out_fstrs: dict=None, creator_init_kwargs: Dict[str, dict]=None, default_creator: str=None, save_plot_cfg: bool=True):
         """Initialize the PlotManager
         
         Args:
@@ -61,7 +61,7 @@ class PlotManager:
                 output path is generated.
                 Keys to be set: `date` (%-style), `path`, `sweep`, `state`
                 Available keys for `path`:
-            common_creator_kwargs (Dict[str, dict], optional): If given, these
+            creator_init_kwargs (Dict[str, dict], optional): If given, these
                 kwargs are passed to the initialisation calls of the respective
                 creator classes.
             default_creator (str, optional): If given, a plot without explicit
@@ -92,7 +92,7 @@ class PlotManager:
             # Use defaults
             self._out_fstrs = self.DEFAULT_FSTRS
 
-        self._cckwargs = common_creator_kwargs if common_creator_kwargs else {}
+        self._cckwargs = creator_init_kwargs if creator_init_kwargs else {}
 
         if default_creator and default_creator not in self.CREATORS:
             raise ValueError("No such creator '{}' available, only: {}"
