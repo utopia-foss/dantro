@@ -32,6 +32,12 @@ def dm(tmpdir) -> DataManager:
 
     return dm
 
+@pytest.fixture
+def pm_kwargs() -> dict:
+    """Common plot manager kwargs to use"""
+    return dict(default_creator="external",
+                common_creator_kwargs=dict())
+
 
 # Tests -----------------------------------------------------------------------
 
@@ -51,9 +57,9 @@ def test_init(dm, tmpdir):
     PlotManager(dm=dm, out_dir=tmpdir.mkdir("out"))
 
 
-def test_plot(dm):
+def test_plot(dm, pm_kwargs):
     """Test the plotting functionality of the PlotManager"""
-    pm = PlotManager(dm=dm, plots_cfg=PLOTS_CUSTOM)
+    pm = PlotManager(dm=dm, plots_cfg=PLOTS_CUSTOM, **pm_kwargs)
 
     # Plot that config
     pm.plot_from_cfg()
