@@ -281,3 +281,6 @@ class AbstractPlotCreator(metaclass=abc.ABCMeta):
         This method should always be private and only be called from __call__.
         """
 
+    @abc.abstractmethod
+    def get_ext(self) -> str:
+        """Returns the extension to use for the upcoming plot"""

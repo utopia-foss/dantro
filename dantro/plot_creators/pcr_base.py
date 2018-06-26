@@ -4,10 +4,6 @@ Classes derived from this class create plots for single files.
 
 The interface is defined as an abstract base class and partly implemented by
 the BasePlotCreator (which still remains abstract).
-In this module, the following non-abstract plot creators are implemented:
-  - ExternalPlotCreator: imports and calls an external plot script
-  - DeclarativePlotCreator: creates plots using a declarative syntax
-  - VegaPlotCreator: interfaces with Altair to provide a Vega-Lite interface
 """
 
 import copy
@@ -28,18 +24,26 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
 
     NOTE that the `_plot` method remains abstract and needs to be subclassed!
     """
+    EXTENSIONS = ()
+    DEFAULT_EXT = None
 
-    def __init__(self, name: str, *, dm: DataManager, **plot_cfg):
+    def __init__(self, name: str, *, dm: DataManager, default_ext: str=None, **plot_cfg):
         """Create a PlotCreator instance for a plot with the given `name`.
         
         Args:
             name (str): The name of this plot
             dm (DataManager): The data manager that contains the data to plot
-            **plot_cfg: Description
+            default_ext (str, optional): The default extension to use; needs
+                to be in EXTENSIONS.
+            **plot_cfg: The default plot configuration
         """
         # Store arguments as private attributes
         self._dm = dm
         self._plot_cfg = plot_cfg
+        self._default_ext = None
+
+        # And others via their property setters
+        self.default_ext = default_ext if default_ext else DEFAULT_EXT
 
         log.debug("%s initialised.", self.classname)
 
@@ -57,6 +61,19 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
         configurations are completely independent of each other.
         """
         return copy.deepcopy(self._plot_cfg)
+
+    @property
+    def default_ext(self) -> str:
+        """Returns the default extension to use for the plots"""
+        return self._default_ext
+
+    @default_ext.setter
+    def default_ext(self, val: str) -> None:
+        """Sets the default extension. Needs to be in EXTENSIONS"""
+        if val.lower() not in EXTENSIONS:
+            raise ValueError("Extension '{}' not supported. Supported "
+                             "extensions are: {}"
+                             "".format(val, EXTENSIONS))
 
     # .........................................................................
 
@@ -81,3 +98,7 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
         # Now call the plottig function with these arguments
         return self._plot(out_path=out_path, **cfg)
 
+    def get_ext(self) -> str:
+        """Returns the extension to use for the upcoming plot by checking
+        the supported extensions and """
+        return self.default_ext

@@ -14,4 +14,5 @@ class VegaPlotCreator(BasePlotCreator):
     """This PlotCreator interfaces with Altair to provide a Vega-Lite interface
     for plot creation.
     """
-    pass
+    def __init__(self):
+        raise NotImplementedError()

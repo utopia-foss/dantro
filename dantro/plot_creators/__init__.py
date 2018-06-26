@@ -1,4 +1,10 @@
-"""This sub-package implements the dantro PlotCreators"""
+"""This sub-package implements the dantro PlotCreators
+
+In this module, the following non-abstract plot creators are implemented:
+  - ExternalPlotCreator: imports and calls an external plot script
+  - DeclarativePlotCreator: creates plots using a declarative syntax
+  - VegaPlotCreator: interfaces with Altair to provide a Vega-Lite interface
+"""
 
 # Supply the base class
 from dantro.plot_creators.pcr_base import BasePlotCreator
