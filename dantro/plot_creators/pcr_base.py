@@ -92,7 +92,7 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
         """Returns the classname and name of this object; a combination often
         used in logging..."""
         if not self._logstr:
-            self._logstr = "{} '{}'".format(self.classname, self.name)
+            self._logstr = "{} for '{}'".format(self.classname, self.name)
         return self._logstr
 
     @property
