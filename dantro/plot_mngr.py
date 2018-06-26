@@ -370,12 +370,12 @@ class PlotManager:
             for cfg, state_no, state_vector in it:
                 # Generate the output path
                 out_path = self._parse_out_path(plot_creator,
-                                                 name=name,
-                                                 out_dir=out_dir,
-                                                 state_no=state_no,
-                                                 state_no_max=psp_vol-1,
-                                                 state_vector=state_vector,
-                                                 dims=psp_dims)
+                                                name=name,
+                                                out_dir=out_dir,
+                                                state_no=state_no,
+                                                state_no_max=psp_vol-1,
+                                                state_vector=state_vector,
+                                                dims=psp_dims)
 
                 # Call the plot creator to perform the plot
                 plot_creator(out_path=out_path, **cfg)
