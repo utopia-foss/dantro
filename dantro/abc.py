@@ -284,3 +284,13 @@ class AbstractPlotCreator(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def get_ext(self) -> str:
         """Returns the extension to use for the upcoming plot"""
+
+
+    @abc.abstractmethod
+    def _prepare_path(self, out_path: str) -> str:
+        """Prepares the output path, creating directories if needed, then
+        returning the full absolute path.
+
+        This is called from __call__ and is meant to postpone directory
+        creation as far as possible.
+        """

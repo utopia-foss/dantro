@@ -147,7 +147,7 @@ class PlotManager:
             state_vector (Tuple[int], optional): The state vector with info
                 on how far each state dimension has progressed in the sweep
             dims (dict, optional): The dict of parameter dimensions of the
-
+                sweep that is carried out.
         
         Returns:
             str: Description

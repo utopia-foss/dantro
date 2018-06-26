@@ -6,6 +6,7 @@ The interface is defined as an abstract base class and partly implemented by
 the BasePlotCreator (which still remains abstract).
 """
 
+import os
 import copy
 import logging
 
@@ -21,11 +22,21 @@ log = logging.getLogger(__name__)
 
 class BasePlotCreator(dantro.abc.AbstractPlotCreator):
     """The base class for PlotCreators
-
-    NOTE that the `_plot` method remains abstract and needs to be subclassed!
+    
+    Note that the `_plot` method remains abstract and needs to be subclassed!
+    
+    Attributes:
+        DEFAULT_EXT (str): The class variable to use for default extension
+        default_ext (str): The property-managed actual value for the default
+            extension to use
+        EXTENSIONS (tuple): The supported extensions
+        POSTPONE_PATH_PREPARATION (bool): Whether to create paths in the base
+            class's __call__ method or not. If the derived class wants to
+            take care of this on their own, this should be set to True.
     """
     EXTENSIONS = ()
     DEFAULT_EXT = None
+    POSTPONE_PATH_PREPARATION = False
 
     def __init__(self, name: str, *, dm: DataManager, default_ext: str=None, **plot_cfg):
         """Create a PlotCreator instance for a plot with the given `name`.
@@ -70,14 +81,15 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
     @default_ext.setter
     def default_ext(self, val: str) -> None:
         """Sets the default extension. Needs to be in EXTENSIONS"""
-        if val.lower() not in EXTENSIONS:
+        if val.lower() not in self.EXTENSIONS:
             raise ValueError("Extension '{}' not supported. Supported "
                              "extensions are: {}"
-                             "".format(val, EXTENSIONS))
+                             "".format(val, self.EXTENSIONS))
 
     # .........................................................................
+    # Main API functions
 
-    def __call__(self, *, out_path: str=None, **update_plot_cfg):
+    def __call__(self, *, out_path: str, **update_plot_cfg):
         """Perform the plot, updating the configuration passed to __init__
         with the given values and then calling _plot.
         """
@@ -89,16 +101,36 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
         if update_plot_cfg:
             cfg = tools.recursive_update(cfg, update_plot_cfg)
 
-        # Check if a different output path was given, and if yes, use that one
-        if out_path:
-            out_path = self._resolve_out_path(out_path)
-        else:
-            out_path = self.out_path
+        # Prepare the output path
+        if not self.POSTPONE_PATH_PREPARATION:
+            out_path = self._prepare_path(out_path)
 
         # Now call the plottig function with these arguments
         return self._plot(out_path=out_path, **cfg)
+
+    # .........................................................................
+    # Helpers
 
     def get_ext(self) -> str:
         """Returns the extension to use for the upcoming plot by checking
         the supported extensions and """
         return self.default_ext
+
+    def _prepare_path(self, out_path: str) -> str:
+        """Prepares the output path, creating directories if needed, then
+        returning the full absolute path.
+        
+        This is called from __call__ and is meant to postpone directory
+        creation as far as possible.
+        
+        Args:
+            out_path (str): The absolute output path to start with
+        
+        Returns:
+            str: The (possibly adjusted) output path
+        """
+        # Create necessary directories
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+
+        # Nothing more to do here (at least not in the base class)
+        return out_path
