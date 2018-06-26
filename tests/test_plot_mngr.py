@@ -146,8 +146,15 @@ def test_sweep(dm, pm_kwargs, pspace_plots):
 
 def test_file_ext(dm, pm_kwargs):
     """Check file extension handling"""
-    cc_kwargs = dict(external=dict(default_ext="pdf"))
-    pm = PlotManager(dm=dm, **pm_kwargs, plots_cfg=PLOTS_EXT,
-                     common_creator_kwargs=cc_kwargs)
+    # Without given default extension
+    PlotManager(dm=dm, **pm_kwargs, plots_cfg=PLOTS_EXT).plot_from_cfg()
 
-    pm.plot_from_cfg()
+    # With extension (with dot)
+    cc_kwargs = dict(external=dict(default_ext=".pdf"))
+    PlotManager(dm=dm, **pm_kwargs, plots_cfg=PLOTS_EXT,
+                common_creator_kwargs=cc_kwargs).plot_from_cfg()
+
+    # ...and without dot
+    cc_kwargs = dict(external=dict(default_ext="pdf"))
+    PlotManager(dm=dm, **pm_kwargs, plots_cfg=PLOTS_EXT,
+                common_creator_kwargs=cc_kwargs).plot_from_cfg()
