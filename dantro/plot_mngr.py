@@ -165,7 +165,7 @@ class PlotManager:
         if state_no is None:
             # Assume the other arguments are also None -> Not part of the sweep
             # Evaluate it
-            out_path = fstrs.get['path'].format(**keys)
+            out_path = fstrs['path'].format(**keys)
 
         else:
             # Is part of a sweep
@@ -187,7 +187,7 @@ class PlotManager:
             keys['state_vector'] = svjc.join([str(s) for s in state_vector])
 
             # Evaluate it
-            out_path = fstrs.get['sweep'].format(**keys)
+            out_path = fstrs['sweep'].format(**keys)
 
         # Prepend the output directory and return
         out_path = os.path.join(out_dir, out_path)
@@ -336,8 +336,7 @@ class PlotManager:
 
         # Instantiate the creator class, also passing initialisation kwargs
         init_kwargs = self._cckwargs.get(creator, {})
-        plot_creator = self.CREATORS[creator](name=name, dm=self._dm,
-                                              **init_kwargs)
+        creator = self.CREATORS[creator](name=name, dm=self._dm, **init_kwargs)
 
         log.debug("Received creator: %s", creator.classname)
 
@@ -347,11 +346,11 @@ class PlotManager:
 
             # Generate the output path
             out_dir = self._parse_out_dir(out_dir, name=name)
-            out_path = self._parse_out_path(plot_creator, name=name,
+            out_path = self._parse_out_path(creator, name=name,
                                              out_dir=out_dir)
 
             # Call the plot creator to perform the plot
-            plot_creator(out_path=out_path, **plot_cfg)
+            creator(out_path=out_path, **plot_cfg)
 
         else:
             # If it is not already a ParamSpace, create one
@@ -376,7 +375,7 @@ class PlotManager:
             # ...and loop over all points:
             for cfg, state_no, state_vector in it:
                 # Generate the output path
-                out_path = self._parse_out_path(plot_creator,
+                out_path = self._parse_out_path(creator,
                                                 name=name,
                                                 out_dir=out_dir,
                                                 state_no=state_no,
@@ -385,7 +384,7 @@ class PlotManager:
                                                 dims=psp_dims)
 
                 # Call the plot creator to perform the plot
-                plot_creator(out_path=out_path, **cfg)
+                creator(out_path=out_path, **cfg)
 
         # Done now. Return the plot creator.
-        return plot_creator
+        return creator

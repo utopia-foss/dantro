@@ -32,13 +32,13 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
         DEFAULT_EXT_REQUIRED (bool): Whether a default extension is required
             or not. If True and the default_ext property evaluates to False,
             an error will be raised.
-        EXTENSIONS (tuple): The supported extensions. If None, all are regarded
-            as supported
+        EXTENSIONS (tuple): The supported extensions. If 'all', no checks for
+            the extensions are performed
         POSTPONE_PATH_PREPARATION (bool): Whether to create paths in the base
             class's __call__ method or not. If the derived class wants to
             take care of this on their own, this should be set to True.
     """
-    EXTENSIONS = None
+    EXTENSIONS = 'all'
     DEFAULT_EXT = None
     DEFAULT_EXT_REQUIRED = True
     POSTPONE_PATH_PREPARATION = False
@@ -115,7 +115,7 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
     @default_ext.setter
     def default_ext(self, val: str) -> None:
         """Sets the default extension. Needs to be in EXTENSIONS"""
-        if self.EXTENSIONS and val.lower() not in self.EXTENSIONS:
+        if self.EXTENSIONS != 'all' and val.lower() not in self.EXTENSIONS:
             raise ValueError("Extension '{}' not supported in {}. Supported "
                              "extensions are: {}"
                              "".format(val, self.logstr, self.EXTENSIONS))
