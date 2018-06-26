@@ -76,12 +76,35 @@ def test_init(dm, tmpdir):
         PlotManager(dm=dm, default_creator="invalid")
 
 
-def test_plot(dm, pm_kwargs):
+def test_plotting(dm, pm_kwargs):
     """Test the plotting functionality of the PlotManager"""
     pm = PlotManager(dm=dm, plots_cfg=PLOTS_EXT, **pm_kwargs)
 
     # Plot that config
     pm.plot_from_cfg()
+
+    # Plot only specific entries
+    pm.plot_from_cfg(plot_only=["from_func", "from_file"])
+
+    # An invalid key should be propagated
+    with pytest.raises(KeyError, match="invalid_key"):
+        pm.plot_from_cfg(plot_only=["invalid_key"])
+
+    # Invalid plot specification
+    with pytest.raises(TypeError, match="Got invalid plots specifications"):
+        pm.plot_from_cfg(invalid_entry=(1,2,3))
+
+    # Now directly to the plot function
+    # If default values were given during init, this should work
+    pm.plot("foo")
+
+    # Otherwise, without out_dir or creator arguments, not:
+    with pytest.raises(ValueError, match="No `out_dir` specified"):
+        PlotManager(dm=dm, out_dir=None).plot("foo")
+    
+    with pytest.raises(ValueError, match="No `creator` argument"):
+        PlotManager(dm=dm).plot("foo")
+
 
 
 def test_sweep(dm, pm_kwargs, pspace_plots):
@@ -89,3 +112,9 @@ def test_sweep(dm, pm_kwargs, pspace_plots):
     pm = PlotManager(dm=dm, **pm_kwargs)
 
     pm.plot_from_cfg(**pspace_plots)
+
+    # By passing a config to `from_pspace` that is no ParamSpace, a config
+    # should be created
+    pm.plot("foo", from_pspace=dict(plot_func="my_module.my_func",
+                                    foo=psp.ParamDim(default="foo",
+                                                     values=["bar", "baz"])))

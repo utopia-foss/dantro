@@ -237,6 +237,15 @@ class PlotManager:
             plots_cfg = tools.recursive_update(plots_cfg, update_plots_cfg)
             log.debug("Updated the plots configuration.")
 
+        # Check the plot configuration for invalid types
+        for plot_name, cfg in plots_cfg.items():
+            if not isinstance(cfg, (dict, ParamSpace)):
+                raise TypeError("Got invalid plots specifications for entry "
+                                "'{}'! Expected dict, got {} with value '{}'. "
+                                "Check the correctness of the given plots "
+                                "configuration!".format(plot_name, type(cfg),
+                                                        cfg))
+
         # Filter the plot selection
         if plot_only:
             # Only plot these entries
@@ -268,21 +277,14 @@ class PlotManager:
         for plot_name, cfg in plots_cfg.items():
             # Use the public methods to perform the plotting call, depending
             # on the type of the config
-            if isinstance(cfg, dict):
+            if isinstance(cfg, ParamSpace):
+                # Is a parameter space. Use the corresponding call signature
+                self.plot(plot_name, out_dir=out_dir, from_pspace=cfg)
+            
+            else:
                 # Just a dict. Use the regular call
                 self.plot(plot_name, out_dir=out_dir, **cfg)
 
-            elif isinstance(cfg, ParamSpace):
-                # Is a parameter space. Use the alternative signature
-                self.plot(plot_name, out_dir=out_dir, from_pspace=cfg)
-
-            else:
-                raise TypeError("Got invalid plots specifications for entry "
-                                "'{}'! Expected dict, got {} with value '{}'. "
-                                "Check the correctness of the given plots "
-                                "configuration!".format(plot_name, type(cfg),
-                                                        cfg))
-        
         # All done
         log.info("Successfully performed plots for %d configuration(s).",
                  len(plots_cfg))

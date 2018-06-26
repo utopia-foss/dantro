@@ -23,7 +23,8 @@ log = logging.getLogger(__name__)
 class BasePlotCreator(dantro.abc.AbstractPlotCreator):
     """The base class for PlotCreators
     
-    Note that the `_plot` method remains abstract and needs to be subclassed!
+    Note that the `_plot` method remains abstract, thus this class needs to be
+    subclassed and the method implemented!
     
     Attributes:
         DEFAULT_EXT (str): The class variable to use for default extension
