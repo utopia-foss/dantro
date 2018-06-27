@@ -1,7 +1,5 @@
 """Test the tools module"""
 
-import sys
-
 import pytest
 
 import dantro.tools as t
@@ -15,21 +13,24 @@ import dantro.tools as t
 
 # Tests -----------------------------------------------------------------------
 
-def test_tmp_sys_path():
-    """Tests the tmp_sys_path context manager"""
+def test_fill_line():
+    """Tests the fill_line and center_in_line methods"""
+    # Shortcut for setting number of columns
+    fill = lambda *args, **kwargs: t.fill_line(*args, num_cols=10, **kwargs)
 
-    # Define some test paths
-    test_paths = ["/foo/bar", "/bar/baz"]
+    # Check that the expected number of characters are filled at the right spot
+    assert fill("foo") == "foo" + 7*" "
+    assert fill("foo", fill_char="-") == "foo" + 7*"-"
+    assert fill("foo", align='r') == 7*" " + "foo"
+    assert fill("foo", align='c') == "   foo    "
+    assert fill("foob", align='c') == "   foob   "
 
-    # Store the old paths -- should return to this config afterwards
-    old_paths = sys.path
+    with pytest.raises(ValueError, match="length 1"):
+        fill("foo", fill_char="---")
 
-    # Check that they are not empty; testing makes no sense otherwise
-    assert sys.path
+    with pytest.raises(ValueError, match="align argument 'bar' not supported"):
+        fill("foo", align='bar')
 
-    # As default, the paths should be appended
-    with t.tmp_sys_path(*test_paths):
-        assert sys.path == old_paths + test_paths
-
-    # Everything should be the same as before
-    assert sys.path == old_paths
+    # The center_in_line method has a fill_char given and adds a spacing
+    assert t.center_in_line("foob", num_cols=10) == "·· foob ··"  # cdot!
+    assert t.center_in_line("foob", num_cols=10, spacing=2) == "·  foob  ·"

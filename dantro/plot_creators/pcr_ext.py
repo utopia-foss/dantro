@@ -6,7 +6,6 @@ import importlib
 import importlib.util
 from typing import Callable, Union, List
 
-from dantro.tools import tmp_sys_path
 from .pcr_base import BasePlotCreator
 
 
@@ -22,15 +21,13 @@ class ExternalPlotCreator(BasePlotCreator):
     DEFAULT_EXT = None
     DEFAULT_EXT_REQUIRED = False
 
-    def __init__(self, *, base_module_file_dir: str=None, additional_sys_paths: List[str]=None, **parent_kwargs):
+    def __init__(self, *, base_module_file_dir: str=None, **parent_kwargs):
         """Initialise an ExternalPlotCreator.
         
         Args:
             base_module_file_dir (str, optional): If given, `module_file`
                 arguments to the `_plot` method that are relative paths will
                 be seen relative to this directory
-            additional_sys_paths (List[str], optional): Additional paths to
-                add to the sys.path. These are also searched to import a module
             **parent_kwargs: Passed to the parent __init__
         """
         super().__init__(**parent_kwargs)
@@ -38,8 +35,6 @@ class ExternalPlotCreator(BasePlotCreator):
         self.base_module_file_dir = base_module_file_dir
         # TODO add check if it exists
 
-        # if additional_sys_paths:
-            # TODO
 
 
     def _plot(self, *, out_path: str, plot_func: Union[str, Callable], module: str=None, module_file: str=None, **func_kwargs):

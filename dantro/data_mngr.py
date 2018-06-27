@@ -689,7 +689,7 @@ class DataManager(OrderedDataGroup):
         for n, file in enumerate(files):
             if progress_indicator:
                 line = "  Loading  {}/{}  ...".format(n+1, len(files))
-                print(tools.fill_tty_line(line), end="\r")
+                print(tools.fill_line(line), end="\r")
 
             # Prepare the target path (a list of strings)
             _target_path = prepare_target_path(target_path, filepath=file,

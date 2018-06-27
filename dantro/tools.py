@@ -112,13 +112,28 @@ def clear_line(only_in_tty=True, break_if_not_tty=True):
     # flush manually (there might not have been a linebreak)
     sys.stdout.flush()
 
-def fill_tty_line(s: str, fill_char: str=" ", align: str="left") -> str:
-    """If the terminal is a tty, returns a string that fills the whole tty 
-    line with the specified fill character."""
-    if not IS_A_TTY:
-        return s
+def fill_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str=" ", align: str="left") -> str:
+    """Extends the given string such that it fills a whole line of `num_cols` columns.
+    
+    Args:
+        s (str): The string to extend to a whole line
+        num_cols (int, optional): The number of colums of the line; defaults to
+            the number of TTY columns or – if those are not available – 79
+        fill_char (str, optional): The fill character
+        align (str, optional): The alignment. Can be: 'left', 'right', 'center'
+            or the one-letter equivalents.
+    
+    Returns:
+        str: The string of length `num_cols`
+    
+    Raises:
+        ValueError: For invalid `align` or `fill_char` argument
+    """
+    if len(fill_char) != 1:
+        raise ValueError("Argument `fill_char` needs to be string of length 1 "
+                         "but was: "+str(fill_char))
 
-    fill_str = fill_char * (TTY_COLS - len(s))
+    fill_str = fill_char * (num_cols - len(s))
 
     if align in ["left", "l", None]:
         return s + fill_str
@@ -129,52 +144,20 @@ def fill_tty_line(s: str, fill_char: str=" ", align: str="left") -> str:
     elif align in ["center", "centre", "c"]:
         return fill_str[:len(fill_str)//2] + s + fill_str[len(fill_str)//2:]
 
-    else:
-        raise ValueError("align argument '{}' not supported".format(align))
+    raise ValueError("align argument '{}' not supported".format(align))
 
-def tty_centred_msg(s: str, fill_char: str="·") -> str:
-    """Shortcut for a common fill_tty_line use case."""
-    return fill_tty_line(s, fill_char=fill_char, align='centre')
-
-# -----------------------------------------------------------------------------
-# Context managers
-
-class tmp_sys_path:
-    """Temporarily adjusts the paths in sys.path"""
-
-    def __init__(self, *paths, mode: str='append'):
-        """
-        Args:
-            *paths: The paths that should be temporarily available in sys.path
-            mode (str, optional): The mode. Can be: append, prepend, replace
-        """
-        # Store arguments
-        self._paths = paths
-        self._mode = mode
-
-        # Store the current system path values
-        self._old_syspath = [p for p in sys.path]
-
-    def __enter__(self):
-        """Enter the environment, i.e. add the paths."""
-        if self._mode in ['append', 'prepend']:
-            # Determine the function to use for inserting values
-            add_path = (     sys.path.append if self._mode == 'append'
-                        else sys.path.insert)
-
-            # Go over the paths and append them
-            for p in self._paths:
-                if p not in self._old_syspath:
-                    add_path(p)
-
-        elif self._mode in ['replace']:
-            # Replace the sys.path completely
-            sys.path = self._paths
-
-        else:
-            raise ValueError("Invalid mode: {}".format(mode))
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        """Exit the environment, restoring the old paths."""
-        sys.path = self._old_syspath
-
+def center_in_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str="·", spacing: int=1) -> str:
+    """Shortcut for a common fill_line use case.
+    
+    Args:
+        s (str): The string to center in the line
+        num_cols (int, optional): The number of columns in the line
+        fill_char (str, optional): The fill character
+        spacing (int, optional): The spacing around the string `s`
+    
+    Returns:
+        str: The string centered in the line
+    """
+    spacing = " " * spacing
+    return fill_line(spacing + s + spacing, num_cols=num_cols,
+                     fill_char=fill_char, align='centre')
