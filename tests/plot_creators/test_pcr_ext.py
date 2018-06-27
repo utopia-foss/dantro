@@ -16,9 +16,19 @@ def init_kwargs(dm) -> dict:
 
 # Tests -----------------------------------------------------------------------
 
-def test_init(init_kwargs):
+def test_init(init_kwargs, tmpdir):
     """Tests initialisation"""
-    pc = ExternalPlotCreator("init", **init_kwargs)
+    ExternalPlotCreator("init", **init_kwargs)
 
-    # 
+    # Test passing a base_module_file_dir
+    ExternalPlotCreator("init", **init_kwargs,
+                        base_module_file_dir=tmpdir)
+    
+    # Check with invalid directories
+    with pytest.raises(ValueError, match="needs to be an absolute path"):
+        ExternalPlotCreator("init", **init_kwargs,
+                            base_module_file_dir="foo/bar/baz")
 
+    with pytest.raises(ValueError, match="does not exists or does not point"):
+        ExternalPlotCreator("init", **init_kwargs,
+                            base_module_file_dir=tmpdir.join("foo.bar"))

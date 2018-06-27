@@ -33,8 +33,20 @@ class ExternalPlotCreator(BasePlotCreator):
         """
         super().__init__(name, **parent_kwargs)
 
+        # If given, check the base module file dir argument is valid
+        if base_module_file_dir:
+            bmfd = os.path.expanduser(base_module_file_dir)
+            
+            if not os.path.isabs(bmfd):
+                raise ValueError("Argument `base_module_file_dir` needs to be "
+                                 "an absolute path, was not! Got: "+str(bmfd))
+            
+            elif not os.path.exists(bmfd) or not os.path.isdir(bmfd):
+                raise ValueError("Argument `base_module_file_dir` does not "
+                                 "exists or does not point to a directory!")
+
         self.base_module_file_dir = base_module_file_dir
-        # TODO add check if it exists
+
 
     def _plot(self, *, out_path: str, plot_func: Union[str, Callable], module: str=None, module_file: str=None, **func_kwargs):
         """Performs the plot operation by calling a specified plot function.
