@@ -130,8 +130,8 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
 
 
     # Plot only specific entries
-    pm.plot_from_cfg(plot_only=["from_func"])
-    assert_num_plots(pm, len(PLOTS_EXT) + 1)
+    pm.plot_from_cfg(plot_only=[]) # Plotting none to not create overlaps
+    assert_num_plots(pm, len(PLOTS_EXT))
 
 
     # Assert that plot files were created
@@ -145,12 +145,12 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
     # An invalid key should be propagated
     with pytest.raises(KeyError, match="invalid_key"):
         pm.plot_from_cfg(plot_only=["invalid_key"])
-    assert_num_plots(pm, len(PLOTS_EXT) + 1)
+    assert_num_plots(pm, len(PLOTS_EXT))
 
     # Invalid plot specification
     with pytest.raises(TypeError, match="Got invalid plots specifications"):
         pm.plot_from_cfg(invalid_entry=(1,2,3))
-    assert_num_plots(pm, len(PLOTS_EXT) + 1)
+    assert_num_plots(pm, len(PLOTS_EXT))
 
     # Empty plot config
     with pytest.raises(ValueError, match="Got empty `plots_cfg`"):
@@ -160,7 +160,7 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
     # Now, directly using the plot function
     # If default values were given during init, this should work
     pm.plot("foo", **pcr_ext_kwargs)
-    assert_num_plots(pm, len(PLOTS_EXT) + 2)
+    assert_num_plots(pm, len(PLOTS_EXT) + 1)
 
     # Otherwise, without out_dir or creator arguments, not:
     with pytest.raises(ValueError, match="No `out_dir` specified"):
@@ -172,12 +172,12 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
 
     # Assert that config files were created
     pm.plot("bar", **pcr_ext_kwargs)
-    assert_num_plots(pm, len(PLOTS_EXT) + 3)
+    assert_num_plots(pm, len(PLOTS_EXT) + 2)
     assert pm.plot_info[-1]['plot_cfg_path']
     assert os.path.exists(pm.plot_info[-1]['plot_cfg_path'])
     
     pm.plot("baz", **pcr_ext_kwargs, save_plot_cfg=False)
-    assert_num_plots(pm, len(PLOTS_EXT) + 4)
+    assert_num_plots(pm, len(PLOTS_EXT) + 3)
     assert pm.plot_info[-1]['plot_cfg_path'] is None
 
 

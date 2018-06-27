@@ -330,7 +330,7 @@ class PlotManager:
                                                         cfg))
 
         # Filter the plot selection
-        if plot_only:
+        if plot_only is not None:
             # Only plot these entries
             plots_cfg = {k:plots_cfg[k] for k in plot_only}
             # NOTE that this deliberately raises an error for an invalid entry
