@@ -42,7 +42,7 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
             point of the plot execution.
     """
     EXTENSIONS = 'all'
-    DEFAULT_EXT = ""
+    DEFAULT_EXT = None
     DEFAULT_EXT_REQUIRED = True
     POSTPONE_PATH_PREPARATION = False
 
@@ -66,8 +66,14 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
         self._default_ext = None
 
         # And others via their property setters
-        self.default_ext = default_ext if default_ext else self.DEFAULT_EXT
+        # Set the default extension, first from argument, then default.
+        if default_ext is not None:
+            self.default_ext = default_ext
+        
+        elif self.DEFAULT_EXT is not None:
+            self.default_ext = self.DEFAULT_EXT
 
+        # Check that it was set correctly
         if self.DEFAULT_EXT_REQUIRED and not self.default_ext:
             raise ValueError("{} requires a default extension, but neither "
                              "the argument ('{}') nor the DEFAULT_EXT class "
@@ -118,7 +124,7 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
     @default_ext.setter
     def default_ext(self, val: str) -> None:
         """Sets the default extension. Needs to be in EXTENSIONS"""
-        if self.EXTENSIONS != 'all' and val.lower() not in self.EXTENSIONS:
+        if self.EXTENSIONS != 'all' and val not in self.EXTENSIONS:
             raise ValueError("Extension '{}' not supported in {}. Supported "
                              "extensions are: {}"
                              "".format(val, self.logstr, self.EXTENSIONS))

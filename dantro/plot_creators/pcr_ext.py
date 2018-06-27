@@ -99,7 +99,7 @@ class ExternalPlotCreator(BasePlotCreator):
         # Call it
         log.info("Calling plotting function '%s'...", plot_func.__name__)
 
-        plot_func(self._dm, out_path=out_path, **func_kwargs)
+        plot_func(self.dm, out_path=out_path, **func_kwargs)
 
         log.info("Plotting function returned.")
 

@@ -1,4 +1,4 @@
-"""Tests the ExternalPlotCreator class"""
+"""Tests the ExternalPlotCreator class."""
 
 import pytest
 
@@ -19,3 +19,6 @@ def init_kwargs(dm) -> dict:
 def test_init(init_kwargs):
     """Tests initialisation"""
     pc = ExternalPlotCreator("init", **init_kwargs)
+
+    # 
+
