@@ -137,7 +137,7 @@ def tty_centred_msg(s: str, fill_char: str="·") -> str:
     return fill_tty_line(s, fill_char=fill_char, align='centre')
 
 # -----------------------------------------------------------------------------
-# Environment managers
+# Context managers
 
 class tmp_sys_path:
     """Temporarily adjusts the paths in sys.path"""
@@ -157,24 +157,24 @@ class tmp_sys_path:
 
     def __enter__(self):
         """Enter the environment, i.e. add the paths."""
-        if mode in ['append', 'prepend']:
+        if self._mode in ['append', 'prepend']:
             # Determine the function to use for inserting values
-            add_path = sys.path.append if mode == 'append' else sys.path.insert
+            add_path = (     sys.path.append if self._mode == 'append'
+                        else sys.path.insert)
 
             # Go over the paths and append them
             for p in self._paths:
                 if p not in self._old_syspath:
                     add_path(p)
 
-        elif mode in ['replace']:
-            # Clear the path
-            sys.path = []
-
-            # Add the values
-            for p in self._paths:
-                sys.path.append(p)
+        elif self._mode in ['replace']:
+            # Replace the sys.path completely
+            sys.path = self._paths
 
         else:
             raise ValueError("Invalid mode: {}".format(mode))
 
-    # def __exit__(self, ...): # TODO continue here
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Exit the environment, restoring the old paths."""
+        sys.path = self._old_syspath
+
