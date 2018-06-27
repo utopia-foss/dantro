@@ -40,7 +40,7 @@ def pm_kwargs(tmpdir) -> dict:
     """Common plot manager kwargs to use; uses the ExternalPlotCreator for all
     the tests."""
     # Create a file
-    tmpdir.join("module.py").write("test_func = lambda *,dm,out_path: None")
+    tmpdir.join("module.py").write("test_func = lambda dm,*,out_path: None")
 
     # Pass the tmpdir to the ExternalPlotCreator __init__
     cik = dict(external=dict(base_module_file_dir=str(tmpdir)))
@@ -48,19 +48,23 @@ def pm_kwargs(tmpdir) -> dict:
     return dict(default_creator="external", creator_init_kwargs=cik)
 
 @pytest.fixture
-def pspace_plots() -> dict:
-    """Returns a plot configuration (external creator) with parameter sweeps"""
-    pc = dict()
-    pc["sweep"] = psp.ParamSpace(dict(module=".basic",
-                                      plot_func="test_func",
-                                      foo=psp.ParamDim(default=0, range=[5])))
-
-    return pc
-
-@pytest.fixture
 def pcr_ext_kwargs() -> dict:
     """Returns valid kwargs to make a ExternalPlotCreator plot"""
-    return dict(module=".basic", plot_func="test_func")
+    return dict(module=".basic", plot_func="lineplot", y="vectors/values")
+
+@pytest.fixture
+def pspace_plots() -> dict:
+    """Returns a plot configuration (external creator) with parameter sweeps"""
+
+    # Create a sweep over the y-keys for the lineplot
+    y_pdim = psp.ParamDim(default="vectors/values",
+                          values=["vectors/values", "vectors/more_values"])
+
+    # Assemble the dict
+    return dict(sweep=psp.ParamSpace(dict(module=".basic",
+                                          plot_func="lineplot",
+                                          # kwargs to the plot function
+                                          y=y_pdim)))
 
 
 # Tests -----------------------------------------------------------------------
@@ -144,17 +148,15 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
         # FIXME activate once implemented
 
 
-def test_sweep(dm, pm_kwargs, pspace_plots, pcr_ext_kwargs):
+def test_sweep(dm, pm_kwargs, pspace_plots):
     """Test that sweeps work"""
     pm = PlotManager(dm=dm, **pm_kwargs)
 
     pm.plot_from_cfg(**pspace_plots)
 
-    # By passing a config to `from_pspace` that is no ParamSpace, a config
-    # should be created
-    pm.plot("foo", from_pspace=dict(**pcr_ext_kwargs,
-                                    foo=psp.ParamDim(default="foo",
-                                                     values=["bar", "baz"])))
+    # By passing a config to `from_pspace` that is no ParamSpace (in this case 
+    # the internally stored dict) a ParamSpace should be created from that dict
+    pm.plot("foo", from_pspace=pspace_plots["sweep"]._dict)
 
 
 def test_file_ext(dm, pm_kwargs):

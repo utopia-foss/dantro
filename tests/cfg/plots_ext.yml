@@ -8,13 +8,18 @@ from_func:
 
   # Specify the module to find the function in and the plot function
   module: .basic
-  plot_func: test_func
+  plot_func: lineplot
   # NOTE This requires that the module is importable, i.e.: installed.
 
   # The data manager is passed to that function as first positional argument,
-  # or, if that fails, as `data` keyword argument.
+  # or, if that fails, as `dm` keyword argument.
   # Also, the generated output path is passed as `out_path` keyword argument.
+
   # All further kwargs on this level are passed on to that function.
+  x: vectors/times
+  y: vectors/values
+
+  fmt: go-
 
 from_file:
   # It is also possible to import a plot function from a file, e.g. a module
@@ -27,3 +32,4 @@ from_file:
   #      the `common_creator_kwargs` option to all instances of this class.
 
   plot_func: test_func
+  # This function does not actually do anything
