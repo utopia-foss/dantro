@@ -51,14 +51,15 @@ def test_ordered_data_group():
         root.new_group("subgroup")
 
     # Should also work when explicitly giving the class
-    root.new_group("base_subgroup", GroupClass=OrderedDataGroup)
+    sg2 = root.new_group("sg2", Cls=OrderedDataGroup)
+    assert isinstance(sg2, OrderedDataGroup)
     # TODO pass another class here
 
     # Should _not_ work with something that is not a class or not a group
     with pytest.raises(TypeError,
-                       match="Argument `GroupClass` needs to be a class"):
-        root.new_group("foobar", GroupClass="not_a_class")
+                       match="Argument `Cls` needs to be a class"):
+        root.new_group("foobar", Cls="not_a_class")
 
     with pytest.raises(TypeError,
-                       match="Argument `GroupClass` needs to be a subclass"):
-        root.new_group("foobar", GroupClass=MutableSequenceContainer)
+                       match="Argument `Cls` needs to be a subclass"):
+        root.new_group("foobar", Cls=MutableSequenceContainer)
