@@ -7,6 +7,7 @@ install_deps = [
     'h5py>=2.7.0',
     'numpy>=1.14',
     'pandas>=0.21',
+    'matplotlib>=2.2.2',
     'PyYAML>=3.12',
     'paramspace>=1.0.1'
     ]
