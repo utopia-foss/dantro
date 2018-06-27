@@ -182,6 +182,25 @@ class DataManager(OrderedDataGroup):
         return dirs
 
     # .........................................................................
+
+    def new_group(self, name: str, *, Cls: type=None, **kwargs):
+        """Creates a new group with the given name.
+        
+        Args:
+            name (str): The name of the group
+            Cls (type, optional): If given, use this type to create the
+                group. If not given, uses the type of this instance.
+            **kwargs: Passed on to Cls.__init__
+        
+        Returns:
+            Cls: the created group
+        """
+        if Cls is None:
+            Cls = self._DATA_GROUP_DEFAULT_CLS
+
+        return super().new_group(name, Cls=Cls, **kwargs)
+
+    # .........................................................................
     # Loading data
 
     def load_from_cfg(self, *, load_cfg: dict=None, update_load_cfg: dict=None, exists_action: str='raise', print_tree: bool=False) -> None:

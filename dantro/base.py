@@ -561,7 +561,6 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         
         Returns:
             Cls: the created group
-        
         """
         # If no Cls is given, use the current class
         if Cls is None:
