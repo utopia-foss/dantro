@@ -95,7 +95,12 @@ class ExternalPlotCreator(BasePlotCreator):
             log.debug("Received plotting function:  %s", str(plot_func))
         
         # Now have the plotting function
-        # TODO continue here
+        # Call it
+        log.info("Calling plotting function '%s'...", plot_func.__name__)
+
+        plot_func(self._dm, out_path=out_path, **func_kwargs)
+
+        log.info("Plotting function returned.")
 
 
     def _get_module_from_file(self, path: str):

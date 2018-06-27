@@ -3,6 +3,8 @@
 import os
 from pkg_resources import resource_filename
 
+import numpy as np
+
 import pytest
 
 import paramspace as psp
@@ -31,6 +33,17 @@ def dm(tmpdir) -> DataManager:
     dm = DataManager(tmpdir)
 
     # Now add data to it
+    # Groups
+    vectors = dm.new_group("vectors")
+    ndarray = dm.new_group("ndarrays")
+
+    # Vectorial datasets
+    vals = 100
+    vectors.add(NumpyDC(name="times", data=np.linspace(0, 1, vals)))
+    vectors.add(NumpyDC(name="values", data=np.random.rand(vals)))
+    vectors.add(NumpyDC(name="more_values", data=np.random.rand(vals)))
+
+    # Multidimensional datasets
     # TODO
 
     return dm
@@ -162,12 +175,15 @@ def test_sweep(dm, pm_kwargs, pspace_plots):
 def test_file_ext(dm, pm_kwargs):
     """Check file extension handling"""
     # Without given default extension
-    PlotManager(dm=dm, **pm_kwargs, plots_cfg=PLOTS_EXT).plot_from_cfg()
+    PlotManager(dm=dm, **pm_kwargs, plots_cfg=PLOTS_EXT,
+                out_dir="no1/").plot_from_cfg()
 
     # With extension (with dot)
     pm_kwargs['creator_init_kwargs']['external']['default_ext'] = "pdf"
-    PlotManager(dm=dm, **pm_kwargs, plots_cfg=PLOTS_EXT).plot_from_cfg()
+    PlotManager(dm=dm, **pm_kwargs, plots_cfg=PLOTS_EXT,
+                out_dir="no2/").plot_from_cfg()
 
     # ...and without dot
     pm_kwargs['creator_init_kwargs']['external']['default_ext'] = ".pdf"
-    PlotManager(dm=dm, **pm_kwargs, plots_cfg=PLOTS_EXT).plot_from_cfg()
+    PlotManager(dm=dm, **pm_kwargs, plots_cfg=PLOTS_EXT,
+                out_dir="no3/").plot_from_cfg()
