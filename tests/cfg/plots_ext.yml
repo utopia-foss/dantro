@@ -26,10 +26,14 @@ from_file:
   # that might not have been installed.
 
   # Specify the module to import via absolute or relative path
-  module_file: module.py
+  module_file: test_module.py
   # NOTE Relative path can only be used if the PlotCreator was initialized
   #      with the `custom_modules_base_dir` argument; this can be passed via
   #      the `common_creator_kwargs` option to all instances of this class.
 
-  plot_func: test_func
-  # This function does not actually do anything
+  plot_func: write_something
+  
+  # This function does not actually plot something but just writes the kwargs
+  # that now follow to a file
+  foo: bar
+  spam: eggs

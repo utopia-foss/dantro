@@ -52,11 +52,19 @@ def dm(tmpdir) -> DataManager:
 def pm_kwargs(tmpdir) -> dict:
     """Common plot manager kwargs to use; uses the ExternalPlotCreator for all
     the tests."""
-    # Create a file
-    tmpdir.join("module.py").write("test_func = lambda dm,*,out_path: None")
+    # Create a test module that just writes a file to the given path
+    write_something_funcdef = (
+        "def write_something(dm, *, out_path, **kwargs):\n"
+        "    '''Writes the kwargs to the given path'''\n"
+        "    with open(out_path, 'w') as f:\n"
+        "        f.write(str(kwargs))\n"
+        )
+
+    tmpdir.join("test_module.py").write(write_something_funcdef)
 
     # Pass the tmpdir to the ExternalPlotCreator __init__
-    cik = dict(external=dict(base_module_file_dir=str(tmpdir)))
+    cik = dict(external=dict(default_ext="pdf",
+                             base_module_file_dir=str(tmpdir)))
 
     return dict(default_creator="external", creator_init_kwargs=cik)
 
@@ -108,34 +116,51 @@ def test_init(dm, tmpdir):
 
 def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
     """Test the plotting functionality of the PlotManager"""
+    def assert_num_plots(pm: PlotManager, num: int):
+        """Helper function to check if the plot info is ok"""
+        assert len(pm.plot_info) == num
+
+    # The plot manager to test everything with
     pm = PlotManager(dm=dm, plots_cfg=PLOTS_EXT, **pm_kwargs)
 
-    # Plot that config
+
+    # Plot all from the given default config file
     pm.plot_from_cfg()
-    assert len(pm.plot_info) == len(PLOTS_EXT)
+    assert_num_plots(pm, len(PLOTS_EXT))
+
 
     # Plot only specific entries
-    pm.plot_from_cfg(plot_only=["from_func", "from_file"])
-    assert len(pm.plot_info) == 2 * len(PLOTS_EXT)
+    pm.plot_from_cfg(plot_only=["from_func"])
+    assert_num_plots(pm, len(PLOTS_EXT) + 1)
 
+
+    # Assert that plot files were created
+    for pi in pm.plot_info:
+        print("Checking plot info: ", pi)
+        assert pi['out_path']
+        assert os.path.exists(pi['out_path'])
+
+
+    # Check invalid specifications and that they create no plots
     # An invalid key should be propagated
     with pytest.raises(KeyError, match="invalid_key"):
         pm.plot_from_cfg(plot_only=["invalid_key"])
-    assert len(pm.plot_info) == 2 * len(PLOTS_EXT)
+    assert_num_plots(pm, len(PLOTS_EXT) + 1)
 
     # Invalid plot specification
     with pytest.raises(TypeError, match="Got invalid plots specifications"):
         pm.plot_from_cfg(invalid_entry=(1,2,3))
-    assert len(pm.plot_info) == 2 * len(PLOTS_EXT)
+    assert_num_plots(pm, len(PLOTS_EXT) + 1)
 
     # Empty plot config
     with pytest.raises(ValueError, match="Got empty `plots_cfg`"):
         PlotManager(dm=dm).plot_from_cfg()
 
-    # Now directly to the plot function
+
+    # Now, directly using the plot function
     # If default values were given during init, this should work
     pm.plot("foo", **pcr_ext_kwargs)
-    assert len(pm.plot_info) == 2 * len(PLOTS_EXT) + 1
+    assert_num_plots(pm, len(PLOTS_EXT) + 2)
 
     # Otherwise, without out_dir or creator arguments, not:
     with pytest.raises(ValueError, match="No `out_dir` specified"):
@@ -144,46 +169,55 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
     with pytest.raises(ValueError, match="No `creator` argument"):
         PlotManager(dm=dm).plot("foo")
 
-    # Test storage of config files
+
+    # Assert that config files were created
     pm.plot("bar", **pcr_ext_kwargs)
-    assert len(pm.plot_info) == 2 * len(PLOTS_EXT) + 2
+    assert_num_plots(pm, len(PLOTS_EXT) + 3)
     assert pm.plot_info[-1]['plot_cfg_path']
     assert os.path.exists(pm.plot_info[-1]['plot_cfg_path'])
     
     pm.plot("baz", **pcr_ext_kwargs, save_plot_cfg=False)
-    assert len(pm.plot_info) == 2 * len(PLOTS_EXT) + 3
+    assert_num_plots(pm, len(PLOTS_EXT) + 4)
     assert pm.plot_info[-1]['plot_cfg_path'] is None
-
-    # Assert that all plot files were created
-    for pi in pm.plot_info:
-        assert pi['out_path']
-        # assert os.path.exists(pi['out_path'])
-        # FIXME activate once implemented
 
 
 def test_sweep(dm, pm_kwargs, pspace_plots):
     """Test that sweeps work"""
     pm = PlotManager(dm=dm, **pm_kwargs)
 
+    # Plot the sweep
     pm.plot_from_cfg(**pspace_plots)
+
+    # This should have created 2 plots
+    assert len(pm.plot_info) == 2
 
     # By passing a config to `from_pspace` that is no ParamSpace (in this case 
     # the internally stored dict) a ParamSpace should be created from that dict
     pm.plot("foo", from_pspace=pspace_plots["sweep"]._dict)
 
+    # This should have created two more plots
+    assert len(pm.plot_info) == 2 + 2
+
+    # Assert that all plots were created
+    for pi in pm.plot_info:
+        assert os.path.exists(pi['out_path'])
+
+        # None of them should have a plot config saved
+        assert pi['plot_cfg_path'] is None
+
 
 def test_file_ext(dm, pm_kwargs):
     """Check file extension handling"""
     # Without given default extension
-    PlotManager(dm=dm, **pm_kwargs, plots_cfg=PLOTS_EXT,
-                out_dir="no1/").plot_from_cfg()
+    PlotManager(dm=dm, plots_cfg=PLOTS_EXT, out_dir="no1/",
+                **pm_kwargs).plot_from_cfg()
 
     # With extension (with dot)
     pm_kwargs['creator_init_kwargs']['external']['default_ext'] = "pdf"
-    PlotManager(dm=dm, **pm_kwargs, plots_cfg=PLOTS_EXT,
-                out_dir="no2/").plot_from_cfg()
+    PlotManager(dm=dm, plots_cfg=PLOTS_EXT, out_dir="no2/",
+                **pm_kwargs).plot_from_cfg()
 
     # ...and without dot
     pm_kwargs['creator_init_kwargs']['external']['default_ext'] = ".pdf"
-    PlotManager(dm=dm, **pm_kwargs, plots_cfg=PLOTS_EXT,
-                out_dir="no3/").plot_from_cfg()
+    PlotManager(dm=dm, plots_cfg=PLOTS_EXT, out_dir="no3/",
+                **pm_kwargs).plot_from_cfg()
