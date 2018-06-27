@@ -60,50 +60,17 @@ class ExternalPlotCreator(BasePlotCreator):
             out_path (str): The output path for the resulting file
             plot_func (Union[str, Callable]): The plot function or a name or
                 module string under which it can be imported.
+            module (str, optional): If plot_func was the name of the plot
+                function, this needs to be the name of the module to import
             module_file (str, optional): Path to the file to load and look for
                 the `plot_func` in. If `base_module_file_dir` is given, this
                 can also be a path relative to that directory.
             **func_kwargs: Passed to the imported function
         """
-        if not callable(plot_func):
-            # First resolve the module
-            if module_file:
-                # Get it from a file
-                mod = self._get_module_from_file(module_file)
-
-            elif isinstance(module, str):
-                # Import module via importlib, allowing relative imports
-                # from the dantro.plot_funcs subpackage
-                mod = importlib.import_module(module,
-                                              package="dantro.plot_funcs")
-            
-            else:
-                raise TypeError("Could not import a module, because neither "
-                                "argument `module_file` was given nor did "
-                                "argument `module` have the correct type "
-                                "(needs to be string but was {} with value "
-                                "'{}')."
-                                "".format(type(module), module))
-
-            # Now, resolve the plot function
-            if not isinstance(plot_func, str):
-                raise TypeError("Argument `plot_func` needs to be a string, "
-                                "was {} with value '{}'."
-                                "".format(type(plot_func), plot_func))
-
-            # plot_func could be something like "A.B.C.d", so go along modules
-            # recursively to get to "C"
-            attr_names = plot_func.split(".")
-            for attr_name in attr_names[:-1]:
-                mod = getattr(mod, attr_name)
-
-            # This is now the last module. Get the actual function
-            plot_func = getattr(mod, attr_names[-1])
-
-            log.debug("Resolved plotting function:  %s", str(plot_func))
-
-        else:
-            log.debug("Received plotting function:  %s", str(plot_func))
+        # Get the plotting function
+        plot_func = self._resolve_plot_func(plot_func=plot_func,
+                                            module=module,
+                                            module_file=module_file)
         
         # Now have the plotting function
         # Call it
@@ -113,6 +80,63 @@ class ExternalPlotCreator(BasePlotCreator):
 
         log.info("Plotting function returned.")
 
+    def _resolve_plot_func(self, *, plot_func: Union[str, Callable], module: str=None, module_file: str=None) -> Callable:
+        """
+        Args:
+            plot_func (Union[str, Callable]): The plot function or a name or
+                module string under which it can be imported.
+            module (str): If plot_func was the name of the plot
+                function, this needs to be the name of the module to import
+            module_file (str): Path to the file to load and look for
+                the `plot_func` in. If `base_module_file_dir` is given, this
+                can also be a path relative to that directory.
+        
+        Returns:
+            Callable: The resolved plot function
+        
+        Raises:
+            TypeError: Upon wrong argument types
+        """
+        if callable(plot_func):
+            log.debug("Received plotting function:  %s", str(plot_func))
+            return plot_func
+        
+        elif not isinstance(plot_func, str):
+            raise TypeError("Argument `plot_func` needs to be a string or a "
+                            "callable, was {} with value '{}'."
+                            "".format(type(plot_func), plot_func))
+        
+        # else: need to resolve the module and find the plot_func in it
+        # First resolve the module
+        if module_file:
+            # Get it from a file
+            mod = self._get_module_from_file(module_file)
+
+        elif isinstance(module, str):
+            # Import module via importlib, allowing relative imports
+            # from the dantro.plot_funcs subpackage
+            mod = importlib.import_module(module, package="dantro.plot_funcs")
+        
+        else:
+            raise TypeError("Could not import a module, because neither "
+                            "argument `module_file` was given nor did "
+                            "argument `module` have the correct type "
+                            "(needs to be string but was {} with value "
+                            "'{}')."
+                            "".format(type(module), module))
+
+        # plot_func could be something like "A.B.C.d", so go along modules
+        # recursively to get to "C"
+        attr_names = plot_func.split(".")
+        for attr_name in attr_names[:-1]:
+            mod = getattr(mod, attr_name)
+
+        # This is now the last module. Get the actual function
+        plot_func = getattr(mod, attr_names[-1])
+
+        log.debug("Resolved plotting function:  %s", str(plot_func))
+
+        return plot_func
 
     def _get_module_from_file(self, path: str):
         """Returns the module corresponding to the file at the given `path`"""
