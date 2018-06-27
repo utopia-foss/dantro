@@ -7,7 +7,7 @@ import pytest
 
 import paramspace as psp
 
-from dantro.tools import load_yml
+from dantro.tools import load_yml, recursive_update
 from dantro.data_mngr import DataManager
 from dantro.container import NumpyDataContainer as NumpyDC
 from dantro.plot_mngr import PlotManager
@@ -36,18 +36,31 @@ def dm(tmpdir) -> DataManager:
     return dm
 
 @pytest.fixture
-def pm_kwargs() -> dict:
-    """Common plot manager kwargs to use"""
-    return dict(default_creator="external")
+def pm_kwargs(tmpdir) -> dict:
+    """Common plot manager kwargs to use; uses the ExternalPlotCreator for all
+    the tests."""
+    # Create a file
+    tmpdir.join("module.py").write("test_func = lambda *,dm,out_path: None")
+
+    # Pass the tmpdir to the ExternalPlotCreator __init__
+    cik = dict(external=dict(base_module_file_dir=str(tmpdir)))
+
+    return dict(default_creator="external", creator_init_kwargs=cik)
 
 @pytest.fixture
 def pspace_plots() -> dict:
     """Returns a plot configuration (external creator) with parameter sweeps"""
     pc = dict()
-    pc["sweep"] = psp.ParamSpace(dict(plot_func="my_module.my_func",
+    pc["sweep"] = psp.ParamSpace(dict(module=".basic",
+                                      plot_func="test_func",
                                       foo=psp.ParamDim(default=0, range=[5])))
 
     return pc
+
+@pytest.fixture
+def pcr_ext_kwargs() -> dict:
+    """Returns valid kwargs to make a ExternalPlotCreator plot"""
+    return dict(module=".basic", plot_func="test_func")
 
 
 # Tests -----------------------------------------------------------------------
@@ -76,7 +89,7 @@ def test_init(dm, tmpdir):
         PlotManager(dm=dm, default_creator="invalid")
 
 
-def test_plotting(dm, pm_kwargs):
+def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
     """Test the plotting functionality of the PlotManager"""
     pm = PlotManager(dm=dm, plots_cfg=PLOTS_EXT, **pm_kwargs)
 
@@ -104,7 +117,7 @@ def test_plotting(dm, pm_kwargs):
 
     # Now directly to the plot function
     # If default values were given during init, this should work
-    pm.plot("foo", plot_func="my_func")
+    pm.plot("foo", **pcr_ext_kwargs)
     assert len(pm.plot_info) == 2 * len(PLOTS_EXT) + 1
 
     # Otherwise, without out_dir or creator arguments, not:
@@ -115,12 +128,12 @@ def test_plotting(dm, pm_kwargs):
         PlotManager(dm=dm).plot("foo")
 
     # Test storage of config files
-    pm.plot("bar", plot_func="my_func")
+    pm.plot("bar", **pcr_ext_kwargs)
     assert len(pm.plot_info) == 2 * len(PLOTS_EXT) + 2
     assert pm.plot_info[-1]['plot_cfg_path']
     assert os.path.exists(pm.plot_info[-1]['plot_cfg_path'])
     
-    pm.plot("baz", plot_func="my_func", save_plot_cfg=False)
+    pm.plot("baz", **pcr_ext_kwargs, save_plot_cfg=False)
     assert len(pm.plot_info) == 2 * len(PLOTS_EXT) + 3
     assert pm.plot_info[-1]['plot_cfg_path'] is None
 
@@ -131,7 +144,7 @@ def test_plotting(dm, pm_kwargs):
         # FIXME activate once implemented
 
 
-def test_sweep(dm, pm_kwargs, pspace_plots):
+def test_sweep(dm, pm_kwargs, pspace_plots, pcr_ext_kwargs):
     """Test that sweeps work"""
     pm = PlotManager(dm=dm, **pm_kwargs)
 
@@ -139,7 +152,7 @@ def test_sweep(dm, pm_kwargs, pspace_plots):
 
     # By passing a config to `from_pspace` that is no ParamSpace, a config
     # should be created
-    pm.plot("foo", from_pspace=dict(plot_func="my_module.my_func",
+    pm.plot("foo", from_pspace=dict(**pcr_ext_kwargs,
                                     foo=psp.ParamDim(default="foo",
                                                      values=["bar", "baz"])))
 
@@ -150,11 +163,9 @@ def test_file_ext(dm, pm_kwargs):
     PlotManager(dm=dm, **pm_kwargs, plots_cfg=PLOTS_EXT).plot_from_cfg()
 
     # With extension (with dot)
-    cc_kwargs = dict(external=dict(default_ext=".pdf"))
-    PlotManager(dm=dm, **pm_kwargs, plots_cfg=PLOTS_EXT,
-                creator_init_kwargs=cc_kwargs).plot_from_cfg()
+    pm_kwargs['creator_init_kwargs']['external']['default_ext'] = "pdf"
+    PlotManager(dm=dm, **pm_kwargs, plots_cfg=PLOTS_EXT).plot_from_cfg()
 
     # ...and without dot
-    cc_kwargs = dict(external=dict(default_ext="pdf"))
-    PlotManager(dm=dm, **pm_kwargs, plots_cfg=PLOTS_EXT,
-                creator_init_kwargs=cc_kwargs).plot_from_cfg()
+    pm_kwargs['creator_init_kwargs']['external']['default_ext'] = ".pdf"
+    PlotManager(dm=dm, **pm_kwargs, plots_cfg=PLOTS_EXT).plot_from_cfg()

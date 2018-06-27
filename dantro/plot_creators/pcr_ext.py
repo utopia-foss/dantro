@@ -6,6 +6,7 @@ import importlib
 import importlib.util
 from typing import Callable, Union, List
 
+from dantro.tools import tmp_sys_path
 from .pcr_base import BasePlotCreator
 
 
@@ -32,12 +33,12 @@ class ExternalPlotCreator(BasePlotCreator):
                 add to the sys.path. These are also searched to import a module
             **parent_kwargs: Passed to the parent __init__
         """
-        super().__init__(*, **kwargs)
+        super().__init__(**parent_kwargs)
 
         self.base_module_file_dir = base_module_file_dir
         # TODO add check if it exists
 
-        if additional_sys_paths:
+        # if additional_sys_paths:
             # TODO
 
 
@@ -54,15 +55,16 @@ class ExternalPlotCreator(BasePlotCreator):
             plot_func (Union[str, Callable]): The plot function or a name or
                 module string under which it can be imported.
             module_file (str, optional): Path to the file to load and look for
-                the `plot_func` in. If `base_module_file_dir` is given du, this
+                the `plot_func` in. If `base_module_file_dir` is given, this
                 can also be a path relative to that directory.
             **func_kwargs: Passed to the imported function
         """
         if not callable(plot_func):
             # First resolve the module
             if module_file:
+                # Get it from a file
                 mod = self._get_module_from_file(module_file)
-            
+
             elif isinstance(module, str):
                 # Import module via importlib, allowing relative imports
                 # from the dantro.plot_funcs subpackage
@@ -123,7 +125,7 @@ class ExternalPlotCreator(BasePlotCreator):
         # Create a module specification and, from that, import the module
         spec = importlib.util.spec_from_file_location(mod_name, path)
         mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(foo)
+        spec.loader.exec_module(mod)
 
         # Now, it is loaded
         return mod

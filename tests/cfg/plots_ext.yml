@@ -6,8 +6,9 @@
 from_func:
   # Use a custom plot function from an already importable module
 
-  # Specify the module string to find the function at.
-  plot_func: my_module.my_plot_func
+  # Specify the module to find the function in and the plot function
+  module: .basic
+  plot_func: test_func
   # NOTE This requires that the module is importable, i.e.: installed.
 
   # The data manager is passed to that function as first positional argument,
@@ -20,9 +21,9 @@ from_file:
   # that might not have been installed.
 
   # Specify the module to import via absolute or relative path
-  module_file: /abs/path/to/module.py
+  module_file: module.py
   # NOTE Relative path can only be used if the PlotCreator was initialized
   #      with the `custom_modules_base_dir` argument; this can be passed via
   #      the `common_creator_kwargs` option to all instances of this class.
 
-  plot_func: my_plot_func
+  plot_func: test_func

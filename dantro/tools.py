@@ -135,3 +135,46 @@ def fill_tty_line(s: str, fill_char: str=" ", align: str="left") -> str:
 def tty_centred_msg(s: str, fill_char: str="·") -> str:
     """Shortcut for a common fill_tty_line use case."""
     return fill_tty_line(s, fill_char=fill_char, align='centre')
+
+# -----------------------------------------------------------------------------
+# Environment managers
+
+class tmp_sys_path:
+    """Temporarily adjusts the paths in sys.path"""
+
+    def __init__(self, *paths, mode: str='append'):
+        """
+        Args:
+            *paths: The paths that should be temporarily available in sys.path
+            mode (str, optional): The mode. Can be: append, prepend, replace
+        """
+        # Store arguments
+        self._paths = paths
+        self._mode = mode
+
+        # Store the current system path values
+        self._old_syspath = [p for p in sys.path]
+
+    def __enter__(self):
+        """Enter the environment, i.e. add the paths."""
+        if mode in ['append', 'prepend']:
+            # Determine the function to use for inserting values
+            add_path = sys.path.append if mode == 'append' else sys.path.insert
+
+            # Go over the paths and append them
+            for p in self._paths:
+                if p not in self._old_syspath:
+                    add_path(p)
+
+        elif mode in ['replace']:
+            # Clear the path
+            sys.path = []
+
+            # Add the values
+            for p in self._paths:
+                sys.path.append(p)
+
+        else:
+            raise ValueError("Invalid mode: {}".format(mode))
+
+    # def __exit__(self, ...): # TODO continue here
