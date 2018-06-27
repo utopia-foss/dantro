@@ -38,3 +38,27 @@ def test_ordered_data_group():
     
     with pytest.raises(KeyError, match="No key or key sequence '.*' in .*!"):
         root['foo/is/a/ghost']
+
+    # Test adding a new group in that group
+    subgroup = root.new_group("subgroup")
+
+    # Test it was added
+    assert "subgroup" in root
+    assert root["subgroup"] is subgroup
+
+    # Adding it again should fail
+    with pytest.raises(KeyError, match="A group or container with the name"):
+        root.new_group("subgroup")
+
+    # Should also work when explicitly giving the class
+    root.new_group("base_subgroup", GroupClass=OrderedDataGroup)
+    # TODO pass another class here
+
+    # Should _not_ work with something that is not a class or not a group
+    with pytest.raises(TypeError,
+                       match="Argument `GroupClass` needs to be a class"):
+        root.new_group("foobar", GroupClass="not_a_class")
+
+    with pytest.raises(TypeError,
+                       match="Argument `GroupClass` needs to be a subclass"):
+        root.new_group("foobar", GroupClass=MutableSequenceContainer)

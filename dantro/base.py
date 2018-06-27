@@ -12,6 +12,7 @@ NOTE: These classes are not meant to be instantiated.
 import abc
 import logging
 import warnings
+import inspect
 from typing import Union, List
 
 import dantro.abc
@@ -514,6 +515,42 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
             self._link_child(new_child=cont, old_child=old_cont)
 
         log.debug("Added %d container(s) to %s.", len(conts), self.logstr)
+
+    def new_group(self, name: str, *, GroupClass: type=None):
+        """Creates a new group with the given name.
+        
+        Args:
+            name (str): The name of the group
+            GroupClass (type, optional): If given, use this type to create the
+                group. If not given, uses the type of this instance.
+        
+        Raises:
+            KeyError: If the name already exists
+        """
+        # Check if name is available
+        if name in self:
+            raise KeyError("A group or container with the name '{}' already "
+                           "exists in {}.".format(name, self.logstr))
+
+        # Resolve the class to create the group with
+        if GroupClass is None:
+            # Use the current class
+            GroupClass = type(self)
+
+        elif not inspect.isclass(GroupClass):
+            raise TypeError("Argument `GroupClass` needs to be a class, but "
+                            "was of type {}.".format(type(GroupClass)))
+
+        elif not issubclass(GroupClass, BaseDataGroup):
+            raise TypeError("Argument `GroupClass` needs to be a subclass of "
+                            "BaseDataGroup, but was '{}'.".format(GroupClass))
+
+        # Create the group and add it
+        grp = GroupClass(name=name)
+        self.add(grp)
+
+        # Done. Return the created group
+        return grp
 
     def recursive_update(self, other):
         """Recursively updates the contents of this data group with the entries
