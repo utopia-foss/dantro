@@ -7,7 +7,7 @@ install_deps = [
     'h5py>=2.7.0',
     'numpy>=1.14',
     'pandas>=0.21',
-    'PyYAML>=3.12'
+    'PyYAML==3.12'
     ]
 test_deps = ['pytest>=3.4.0', 'pytest-cov>=2.5.1']
 
