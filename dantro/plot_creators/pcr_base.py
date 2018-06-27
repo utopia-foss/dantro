@@ -27,9 +27,12 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
     subclassed and the method implemented!
     
     Attributes:
-        DEFAULT_EXT (str): The class variable to use for default extension
+        DEFAULT_EXT (str): The class variable to use for default extension.
         default_ext (str): The property-managed actual value for the default
-            extension to use
+            extension to use. This value is needed by the PlotManager in order
+            to generate an out_path. It can be changed during runtime, but
+            not by passing arguments to __call__, as at that point the out_path
+            already needs to be fixed.
         DEFAULT_EXT_REQUIRED (bool): Whether a default extension is required
             or not. If True and the default_ext property evaluates to False,
             an error will be raised.
@@ -53,7 +56,9 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
             name (str): The name of this plot
             dm (DataManager): The data manager that contains the data to plot
             default_ext (str, optional): The default extension to use; needs
-                to be in EXTENSIONS.
+                to be in EXTENSIONS, if that class variable is not set to
+                'all'. The value given here is needed by the PlotManager to
+                build the output path.
             **plot_cfg: The default plot configuration
         """
         # Store arguments as private attributes

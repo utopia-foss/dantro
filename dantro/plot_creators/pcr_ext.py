@@ -36,8 +36,6 @@ class ExternalPlotCreator(BasePlotCreator):
         self.base_module_file_dir = base_module_file_dir
         # TODO add check if it exists
 
-
-
     def _plot(self, *, out_path: str, plot_func: Union[str, Callable], module: str=None, module_file: str=None, **func_kwargs):
         """Performs the plot operation by calling a specified plot function.
         

@@ -76,6 +76,9 @@ def test_properties(init_kwargs):
         mpc.default_ext = "three"
     assert mpc.default_ext == "one"
 
+    # Assert the get_ext method works (does nothing here)
+    assert mpc.get_ext() == mpc.default_ext
+
 
 def test_call(init_kwargs, tmpdir):
     """Test the call to the plot creator"""
