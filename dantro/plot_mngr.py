@@ -378,7 +378,7 @@ class PlotManager:
             if isinstance(cfg, ParamSpace):
                 # Is a parameter space. Use the corresponding call signature
                 self.plot(plot_name, out_dir=out_dir,
-                          creator=cfg.get('creator'), from_pspace=cfg)
+                          creator=cfg.pop('creator'), from_pspace=cfg)
             
             else:
                 # Just a dict. Use the regular call

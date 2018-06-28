@@ -172,7 +172,9 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
 
     def get_ext(self) -> str:
         """Returns the extension to use for the upcoming plot by checking
-        the supported extensions and """
+        the supported extensions and can be subclassed to have different
+        behaviour.
+        """
         return self.default_ext
 
     def _prepare_path(self, out_path: str) -> None:
