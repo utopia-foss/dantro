@@ -17,9 +17,15 @@ log = logging.getLogger(__name__)
 class ExternalPlotCreator(BasePlotCreator):
     """This PlotCreator uses external scripts to create plots."""
 
+    # Settings of functionality implemented in parent classes
     EXTENSIONS = 'all'  # no checks performed
     DEFAULT_EXT = None
     DEFAULT_EXT_REQUIRED = False
+
+    # For relative module imports, see the following as the base package
+    BASE_PKG = "dantro.plot_creators.ext_funcs"
+
+    # .........................................................................
 
     def __init__(self, name: str, *, base_module_file_dir: str=None, **parent_kwargs):
         """Initialise an ExternalPlotCreator.
@@ -115,7 +121,7 @@ class ExternalPlotCreator(BasePlotCreator):
         elif isinstance(module, str):
             # Import module via importlib, allowing relative imports
             # from the dantro.plot_funcs subpackage
-            mod = importlib.import_module(module, package="dantro.plot_funcs")
+            mod = importlib.import_module(module, package=self.BASE_PKG)
         
         else:
             raise TypeError("Could not import a module, because neither "

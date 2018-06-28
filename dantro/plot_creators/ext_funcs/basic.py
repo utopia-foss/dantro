@@ -2,7 +2,7 @@
 
 from typing import Union, List
 
-from ..data_mngr import DataManager
+from ...data_mngr import DataManager
 from .mpl_setup import *
 
 
