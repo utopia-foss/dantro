@@ -69,7 +69,7 @@ Before diving deeper, an overview over all `dantro` modules:
 ### Testing framework
 To assert correct functionality, `pytest`s are written alongside new features. They are also part of the continuous integration.
 
-`dantro` is tested for Python 3.6.
+`dantro` is tested for Python 3.6. Test coverage and pipeline status can be seen on [the project page](https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro).
 
 
 ## How to use dantro
@@ -78,18 +78,82 @@ A few examples of how to use `dantro`.
 Often times, there are many possibilities and options available.
 We advise to use `ipython` and its `? module.i.want.to.look.up` command to get the docstrings.
 
-### How to create a custom data container
+### Installation
+If the project you want to use `dantro` with uses a virtual environment, enter it now.
 
+Installation can happen directly via `pip`:
+```
+$ pip install git+ssh://git@ts-gitlab.iup.uni-heidelberg.de:10022/utopia/dantro.git
+```
+This will automatically resolve the needed dependencies.
+<!-- TODO it won't do with `paramspace` added! Adjust this ... -->
+
+If you do not have SSH keys available, use the HTTPS link. To install a certain branch, tag, or commit, see the [`pip` documentation](https://pip.pypa.io/en/stable/reference/pip_install/#git).
+
+### How to create a custom data container
+As an example, let's look at the implementation of the `MutableSequenceContainer`, a container that is meant to store mutable sequences:
+```python
+# Import the python abc we want to adhere to
+from collections.abc import MutableSequence
+
+# Import base mixin classes (others can be found in the mixin module)
+from dantro.base import BaseDataContainer, ItemAccessMixin, CollectionMixin, CheckDataMixin
+
+
+class MutableSequenceContainer(CheckDataMixin, ItemAccessMixin, CollectionMixin, BaseDataContainer, MutableSequence):
+    """The MutableSequenceContainer stores data that is sequence-like"""
+    # ...
+```
+The steps to arrive at this point are as follows:
+
+The [`collections.abc` python module](https://docs.python.org/3/library/collections.abc.html) is what also specifies the interface for python-internal classes.
+There, it says that the `MutableSequence` inherits from `Sequence` and has the following abstract methods: `__getitem__`, `__setitem__`, `__delitem__`, `__len__`, and `insert`.
+
+As we want the resulting container to adhere to this interface, we set `MutableSequence` as the first class to inherit from.
+
+The `BaseDataContainer` is what makes this object a data container. It implements some methods, but leaves others abstract.
+
+Now, we need to supply implementations of these abstract methods. That is the job of the following two (reading from right to left) mixin classes.  
+In this case, the `Sequence` interface has to be fulfilled. As a `Sequence` is nothing more than a `Collection` with item access, we can fulfill this by inheriting from the `CollectionMixin` and the `ItemAccessMixin`.
+
+The `CheckDataMixin` is an example of how functionality can be added to the container while still adhering to the interface. This mixin checks the provided data before storing it and allows specifying whether unexpected data should lead to warnings or exceptions.
+
+Some methods will still remain abstract, e.g. `insert`. These are the only ones that need to be manually instantiated.
+
+#### Using a data container
+Once defined, instantiation is easy:
+```python
+dc = MutableSequenceContainer(name="my_mutable_sequence",
+                              data=[16, 8, 4])
+
+# Insert values
+dc.insert(0, 2)
+dc.insert(0, 1)
+
+# Item access and collection interface
+assert 16 in dc  # True
+assert 32 in dc  # False
+print(dc[0])     # 16
+
+for num in dc:
+    print(num, end=", ")
+# 16, 8, 4, 2, 1, 
+```
 
 ### How to create a custom data manager
+_wip_
 
 #### How to load data
+_wip_
 
+### Example code
+_wip_
 
 ### How to run the tests
-Ideally, you do this in a virtual python3 environment:
+To run the tests, the test dependencies also need to be installed. Clone the repository to a local directory, then:
 ```
 $ source ~/.virtualenvs/dantro/bin/activate
+(dantro) $ cd dantro
 (dantro) $ pip install .[test_deps]
 (dantro) $ python -m pytest -v tests/ --cov=dantro --cov-report=term-missing
 ```
