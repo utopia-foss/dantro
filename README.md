@@ -46,11 +46,50 @@ class MyDataManager(YamlLoaderMixin, DataManager):
 
 This concept is extended also to ways how `DataContainer` classes can be specialised.
 
-### Data structures
-Before diving deeper, let's get an overview over important `dantro` classes:
+### Modules
+Before diving deeper, an overview over all `dantro` modules:
+
+* `abc` and `base` define the interface for the following classes:
+   * `BaseDataContainer`: a general data container
+   * `BaseDataGroup`: a group gathers multiple containers (or other groups)
+   * `BaseDataAttrs`: every container can store metadata in such an instance
+   * `BaseDataProxy`: can be a proxy for data, postponing loading to when it is needed
+* `container` and `group` implement some non-abstract classes for use as containers or groups
+* `mixins` define general purpose mixin classes that can be used when defining a custom data container
+* `data_mngr` defines the `DataManager` class:
+   * an extended `BaseDataGroup` which serves as the _root_ of a tree
+   * provides the ability to load data into the data tree
+   * allows dict-like access
+   * is associated with a directory
+   * can be extended using mixin classes from the `data_loaders` module
+* `proxy` holds the classes that "placeholder" objects can be created from
+* `tools` holds general-purpose tools and helper functions
 
 
 ### Testing framework
+To assert correct functionality, `pytest`s are written alongside new features. They are also part of the continuous integration.
+
+`dantro` is tested for Python 3.6.
 
 
 ## How to use dantro
+A few examples of how to use `dantro`.
+
+Often times, there are many possibilities and options available.
+We advise to use `ipython` and its `? module.i.want.to.look.up` command to get the docstrings.
+
+### How to create a custom data container
+
+
+### How to create a custom data manager
+
+#### How to load data
+
+
+### How to run the tests
+Ideally, you do this in a virtual python3 environment:
+```
+$ source ~/.virtualenvs/dantro/bin/activate
+(dantro) $ pip install .[test_deps]
+(dantro) $ python -m pytest -v tests/ --cov=dantro --cov-report=term-missing
+```
