@@ -5,6 +5,8 @@ import subprocess
 import collections
 import logging
 
+import paramspace.yaml_constructors as psp_constrs
+
 import yaml
 
 # Local constants
@@ -23,6 +25,12 @@ log.debug("Determined TTY_COLS: %d, IS_A_TTY: %d", TTY_COLS, IS_A_TTY)
 
 # -----------------------------------------------------------------------------
 # Loading from / writing to files
+
+# Set custom constructors for paramspace package
+yaml.add_constructor(u'!pspace', psp_constrs.pspace)
+yaml.add_constructor(u'!pdim', psp_constrs.pdim_enabled_only)
+yaml.add_constructor(u'!pdim-default', psp_constrs.pdim_get_default)
+
 
 def load_yml(path: str) -> dict:
     """Loads a yaml file from a path

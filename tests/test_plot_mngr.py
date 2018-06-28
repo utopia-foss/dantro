@@ -15,8 +15,12 @@ from dantro.container import NumpyDataContainer as NumpyDC
 from dantro.plot_mngr import PlotManager
 
 
-# Files -----------------------------------------------------------------------
-PLOTS_EXT = load_yml(resource_filename("tests", "cfg/plots_ext.yml"))
+# Local constants .............................................................
+# Paths
+PLOTS_EXT_PATH = resource_filename("tests", "cfg/plots_ext.yml")
+
+# Configurations
+PLOTS_EXT = load_yml(PLOTS_EXT_PATH)
 # PLOTS_DECL = load_yml(resource_filename("tests", "cfg/plots_decl.yml"))
 # PLOTS_VEGA = load_yml(resource_filename("tests", "cfg/plots_vega.yml"))
 
@@ -99,8 +103,8 @@ def test_init(dm, tmpdir):
     # With a configuration dict
     PlotManager(dm=dm, plots_cfg={})
 
-    # With a configuration file path
-    PlotManager(dm=dm, plots_cfg=tmpdir.join("foo.yml"))
+    # With a path to a configuration file
+    PlotManager(dm=dm, plots_cfg=PLOTS_EXT_PATH)
     
     # With a separate output directory
     PlotManager(dm=dm, out_dir=tmpdir.mkdir("out"))
@@ -126,12 +130,7 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
 
     # Plot all from the given default config file
     pm.plot_from_cfg()
-    assert_num_plots(pm, len(PLOTS_EXT))
-
-
-    # Plot only specific entries
-    pm.plot_from_cfg(plot_only=[]) # Plotting none to not create overlaps
-    assert_num_plots(pm, len(PLOTS_EXT))
+    assert_num_plots(pm, 4)  # 3 configured, one is pspace with volume 2
 
 
     # Assert that plot files were created
@@ -145,12 +144,12 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
     # An invalid key should be propagated
     with pytest.raises(KeyError, match="invalid_key"):
         pm.plot_from_cfg(plot_only=["invalid_key"])
-    assert_num_plots(pm, len(PLOTS_EXT))
+    assert_num_plots(pm, 4)
 
     # Invalid plot specification
     with pytest.raises(TypeError, match="Got invalid plots specifications"):
         pm.plot_from_cfg(invalid_entry=(1,2,3))
-    assert_num_plots(pm, len(PLOTS_EXT))
+    assert_num_plots(pm, 4)
 
     # Empty plot config
     with pytest.raises(ValueError, match="Got empty `plots_cfg`"):
@@ -160,7 +159,7 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
     # Now, directly using the plot function
     # If default values were given during init, this should work
     pm.plot("foo", **pcr_ext_kwargs)
-    assert_num_plots(pm, len(PLOTS_EXT) + 1)
+    assert_num_plots(pm, 4 + 1)
 
     # Otherwise, without out_dir or creator arguments, not:
     with pytest.raises(ValueError, match="No `out_dir` specified"):
@@ -172,13 +171,37 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
 
     # Assert that config files were created
     pm.plot("bar", **pcr_ext_kwargs)
-    assert_num_plots(pm, len(PLOTS_EXT) + 2)
+    assert_num_plots(pm, 4 + 2)
     assert pm.plot_info[-1]['plot_cfg_path']
     assert os.path.exists(pm.plot_info[-1]['plot_cfg_path'])
     
     pm.plot("baz", **pcr_ext_kwargs, save_plot_cfg=False)
-    assert_num_plots(pm, len(PLOTS_EXT) + 3)
+    assert_num_plots(pm, 4 + 3)
     assert pm.plot_info[-1]['plot_cfg_path'] is None
+
+
+def test_plots_enabled(dm, pm_kwargs, pcr_ext_kwargs):
+    """Tests the handling of `enabled` key in plots configuration"""
+    pm = PlotManager(dm=dm, **pm_kwargs,
+                     plots_cfg=dict(foo=dict(enabled=False, **pcr_ext_kwargs),
+                                    bar=dict(enabled=True, **pcr_ext_kwargs)))
+
+    # No plots should be created like this
+    pm.plot_from_cfg(plot_only=[])
+    assert len(pm.plot_info) == 0
+    
+    # Force plotting disabled foo plot
+    pm.plot_from_cfg(plot_only=["foo"])
+    assert len(pm.plot_info) == 1
+    
+    # This will have no effect; bar would be plotted anyway
+    pm.plot_from_cfg(plot_only=["bar"],
+                     bar=dict(file_ext="png")) # to avoid file name conflicts
+    assert len(pm.plot_info) == 2
+    
+    # Without plot_only, should only plot bar
+    pm.plot_from_cfg()
+    assert len(pm.plot_info) == 3
 
 
 def test_sweep(dm, pm_kwargs, pspace_plots):
@@ -220,4 +243,9 @@ def test_file_ext(dm, pm_kwargs):
     # ...and without dot
     pm_kwargs['creator_init_kwargs']['external']['default_ext'] = ".pdf"
     PlotManager(dm=dm, plots_cfg=PLOTS_EXT, out_dir="no3/",
+                **pm_kwargs).plot_from_cfg()
+
+    # ...and with None -> should result in ext == ""
+    pm_kwargs['creator_init_kwargs']['external']['default_ext'] = None
+    PlotManager(dm=dm, plots_cfg=PLOTS_EXT, out_dir="no4/",
                 **pm_kwargs).plot_from_cfg()

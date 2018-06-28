@@ -29,11 +29,12 @@ class PlotManager:
         CREATORS (dict): The mapping of creator names to classes. When it is
             desired to subclass PlotManager and extend the creator mapping, use
             `dict(**pcr.ALL)` to inherit the default creator mapping.
-        DEFAULT_FSTRS (dict): The default values for the output format strings
+        DEFAULT_OUT_FSTRS (dict): The default values for the output format
+            strings.
     """
 
     CREATORS = pcr.ALL
-    DEFAULT_FSTRS = dict(date="%y%m%d-%H%M%S",
+    DEFAULT_OUT_FSTRS = dict(date="%y%m%d-%H%M%S",
                          state_no="{no:0{digits:d}d}",
                          state="{key:}_{val:}", state_join_char="-",
                          state_vector_join_char="-",
@@ -48,7 +49,8 @@ class PlotManager:
         Args:
             dm (DataManager): The DataManager-derived object to read the plot
                 data from.
-            plots_cfg (Union[dict, str], optional): The default plots config.
+            plots_cfg (Union[dict, str], optional): The default plots config or
+                a path to a yaml-file to import
             out_dir (Union[str, None], optional): If given, will use this
                 output directory as basis for the output path for each plot.
                 The path can be a format-string; it is evaluated upon call to
@@ -58,9 +60,13 @@ class PlotManager:
                 If this argument evaluates to False, the DataManager's output
                 directory will be the output directory.
             out_fstrs (dict, optional): Format strings that define how the
-                output path is generated.
-                Keys to be set: `date` (%-style), `path`, `sweep`, `state`
-                Available keys for `path`:
+                output path is generated. The dict given here updates the
+                DEAFULT_OUT_FSTRS class variable which holds the default values
+                Keys: `date` (%-style), `path`, `sweep`, `state`, `plot_cfg`,
+                      `state`, `state_no`, `state_join_char`,
+                      `state_vector_join_char`
+                Available keys for `path`: `name`, `date`, `ext`
+                Additionally, for `sweep`: `state_no`, `state_vector`, `state`
             creator_init_kwargs (Dict[str, dict], optional): If given, these
                 kwargs are passed to the initialisation calls of the respective
                 creator classes.
@@ -77,20 +83,29 @@ class PlotManager:
         # Initialise attributes and store arguments
         self._plot_info = []
 
-        self._dm = dm
-        self._plots_cfg = plots_cfg
-
+        # Public
         self.save_plot_cfg = save_plot_cfg
 
+        # Private or read-only
+        self._dm = dm
         self._out_dir = out_dir
+
+        # Handle plot config
+        if isinstance(plots_cfg, str):
+            # Interpret as path to yaml file
+            log.debug("Loading plots_cfg from file %s ...", plots_cfg)
+            plots_cfg = tools.load_yml(plots_cfg)
+        self._plots_cfg = plots_cfg
+
+        # Update the default format strings, if any were given here
         if out_fstrs:
             # Update defaults
-            d = copy.deepcopy(self.DEFAULT_FSTRS)
+            d = copy.deepcopy(self.DEFAULT_OUT_FSTRS)
             d.update(out_fstrs)
             self._out_fstrs = d
         else:
             # Use defaults
-            self._out_fstrs = self.DEFAULT_FSTRS
+            self._out_fstrs = self.DEFAULT_OUT_FSTRS
 
         self._cckwargs = creator_init_kwargs if creator_init_kwargs else {}
 
