@@ -255,6 +255,10 @@ class AbstractPlotCreator(metaclass=abc.ABCMeta):
       * __call__: Wrapper around the _plot method, which can update the config.
       * _plot:    This method receives the fully parsed plot configuration and
                   then performs the plot.
+      * get_ext:  Used by PlotManager to retrieve the desired file extension
+      * _prepare_path: Creates the output path; can be subclassed to change
+                  behaviour, i.e. to postpone directory creation as far as
+                  possible
     """
 
     @abc.abstractmethod
