@@ -141,13 +141,109 @@ for num in dc:
 ```
 
 ### How to create a custom data manager
-_wip_
+As an example, the [`utopya.DataManager`](https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia/blob/master/python/utopya/utopya/datamanager.py):
+
+```python
+import dantro as dtr
+import dantro.data_mngr
+from dantro.data_loaders import YamlLoaderMixin, Hdf5LoaderMixin
+
+from utopya.datacontainer import NumpyDC
+
+class DataManager(Hdf5LoaderMixin, YamlLoaderMixin, dtr.data_mngr.DataManager):
+    """This class manages the data that is written out by Utopia simulations.
+
+    It is based on the dantro.DataManager class and adds the functionality for
+    specific loader functions that are needed in Utopia: Hdf5 and Yaml.
+    """
+
+    # Tell the HDF5 loader which container class to use
+    _HDF5_DSET_DEFAULT_CLS = NumpyDC
+
+```
+
+That's all. The only thing not visible here is the definition of `NumpyDC`, but this happens as described above. (In fact, [nothing more](https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia/blob/master/python/utopya/utopya/datacontainer.py) is done there.)
+
 
 #### How to load data
-_wip_
+To load data, a data manager needs to be instantiated.
+```python
+dm = DataManager(data_dir="~/output_dir/my_data")
 
-### Example code
-_wip_
+# Now, data can be loaded using the `load` command:
+dm.load("some_data",       # where to load the data to
+        loader="yaml",     # which loader to use
+        glob_str="*.yml")  # which files to find and load
+```
+
+#### Using a pre-defined load configuration
+For a known structure of output data, it makes sense to pre-define the configuration somewhere. It can then be passed to the `DataManager` during initialisation.
+
+Again, an example from `utopya`:
+```yaml
+data_manager:
+  # Where to create the output directory for this DataManager, relative to
+  # the run directory of the Multiverse.
+  out_dir: eval/{date:}
+  # The {date:} placeholder is replaced by the current timestamp such that
+  # future DataManager instances that operate on the same data directory do
+  # not create collisions.
+
+  # Supply a default load configuration for the DataManager
+  load_cfg:
+    # Load the frontend configuration files from the config/ directory
+    # Each file refers to a level of the configuration that is supplied to
+    # the Multiverse: base <- user <- model <- run <- update
+    cfg:
+      loader: yaml
+      glob_str: 'config/*.yml'
+      required: true
+      path_regex: config/(\w+)_cfg.yml
+      target_path: cfg/{match:}
+
+    # Load the configuration files that are generated for _each_ simulation
+    # These hold all information that is available to a single simulation and
+    # are in an explicit, human-readable form.
+    uni_cfg:
+      loader: yaml
+      glob_str: universes/uni*/config.yml
+      required: true
+      path_regex: universes/uni(\d+)/config.yml
+      target_path: uni/{match:}/cfg
+
+    # Load the binary output data from each simulation.
+    data:
+      loader: hdf5_proxy
+      glob_str: universes/uni*/data.h5
+      required: true
+      path_regex: universes/uni(\d+)/data.h5
+      target_path: uni/{match:}/data
+
+    # The resulting data tree is then:
+    #  └┬ cfg
+    #     └┬ base
+    #      ├ meta
+    #      ├ model
+    #      ├ run
+    #      └ update
+    #   └ uni
+    #     └┬ 0
+    #        └┬ cfg
+    #         └ data
+    #           └─ ...         
+    #      ├ 1
+    #      ...
+```
+
+Once the `DataManager` is configured this way, it becomes very easy to load data:
+```python
+dm = DataManager(data_dir="~/output_dir/my_data", load_cfg=load_cfg_dict)
+dm.load_from_cfg()
+
+# Access the data
+dm['cfg']['meta']['something_something']
+# ...
+```
 
 ### How to run the tests
 To run the tests, the test dependencies also need to be installed. Clone the repository to a local directory, then:
