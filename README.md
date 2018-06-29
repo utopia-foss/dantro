@@ -90,6 +90,33 @@ This will automatically resolve the needed dependencies.
 
 If you do not have SSH keys available, use the HTTPS link. To install a certain branch, tag, or commit, see the [`pip` documentation](https://pip.pypa.io/en/stable/reference/pip_install/#git).
 
+
+#### For developers
+If you would like to contribute to `dantro` (yeah!), you should clone the repository to a local directory:
+
+```
+git clone ssh://git@ts-gitlab.iup.uni-heidelberg.de:10022/utopia/dantro.git
+```
+
+For development purposes, it makes sense to work in a [python3 virtual environment](https://docs.python.org/3/library/venv.html) specific for dantro:
+```
+$ python3 -m venv ~/.virtualenvs/dantro
+$ source ~/.virtualenvs/dantro/bin/activate
+(dantro) $ 
+```
+
+To run the tests, the test dependencies also need to be installed. To do so, navigate to the cloned repository, enter it and perform an installation using:
+```
+(dantro) $ cd dantro
+(dantro) $ pip install .[test_deps]
+```
+
+To then perform the tests, call:
+```
+(dantro) $ python -m pytest -v tests/ --cov=dantro --cov-report=term-missing
+```
+
+
 ### How to create a custom data container
 As an example, let's look at the implementation of the `MutableSequenceContainer`, a container that is meant to store mutable sequences:
 ```python
@@ -243,13 +270,4 @@ dm.load_from_cfg()
 # Access the data
 dm['cfg']['meta']['something_something']
 # ...
-```
-
-### How to run the tests
-To run the tests, the test dependencies also need to be installed. Clone the repository to a local directory, then:
-```
-$ source ~/.virtualenvs/dantro/bin/activate
-(dantro) $ cd dantro
-(dantro) $ pip install .[test_deps]
-(dantro) $ python -m pytest -v tests/ --cov=dantro --cov-report=term-missing
 ```
