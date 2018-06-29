@@ -81,12 +81,16 @@ We advise to use `ipython` and its `? module.i.want.to.look.up` command to get t
 ### Installation
 If the project you want to use `dantro` with uses a virtual environment, enter it now.
 
-Installation can happen directly via `pip`:
+Before being able to install `dantro`, one external dependency that is not on the python package index, needs to be installed, `paramspace`:
+```
+$ pip install git+ssh://git@ts-gitlab.iup.uni-heidelberg.de:10022/yunus/paramspace.git
+```
+
+After that, installation of `dantro` can happen directly via `pip`:
 ```
 $ pip install git+ssh://git@ts-gitlab.iup.uni-heidelberg.de:10022/utopia/dantro.git
 ```
-This will automatically resolve the needed dependencies.
-<!-- TODO it won't do with `paramspace` added! Adjust this ... -->
+This will automatically resolve the remaining dependencies.
 
 If you do not have SSH keys available, use the HTTPS link. To install a certain branch, tag, or commit, see the [`pip` documentation](https://pip.pypa.io/en/stable/reference/pip_install/#git).
 
