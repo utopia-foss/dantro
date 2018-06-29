@@ -54,6 +54,7 @@ Before diving deeper, an overview over all `dantro` modules:
    * `BaseDataGroup`: a group gathers multiple containers (or other groups)
    * `BaseDataAttrs`: every container can store metadata in such an instance
    * `BaseDataProxy`: can be a proxy for data, postponing loading to when it is needed
+   * `AbstractPlotCreator`: defines the interface between `PlotManager` and `BasePlotCreator` classes (implemented elsewhere, see below)
 * `container` and `group` implement some non-abstract classes for use as containers or groups
 * `mixins` define general purpose mixin classes that can be used when defining a custom data container
 * `data_mngr` defines the `DataManager` class:
@@ -63,6 +64,10 @@ Before diving deeper, an overview over all `dantro` modules:
    * is associated with a directory
    * can be extended using mixin classes from the `data_loaders` module
 * `proxy` holds the classes that "placeholder" objects can be created from
+* `plot_creators` is a sub-package with the following modules:
+   * `pcr_base` holds the implementation of the `BasePlotCreator`
+   * `pcr_*` modules hold implementations of derived classes
+* `plot_mngr` implements the `PlotManager`, which handles the configuration of plots and passes it on to the `BasePlotCreator`-derived classes
 * `tools` holds general-purpose tools and helper functions
 
 
@@ -277,3 +282,105 @@ dm.load_from_cfg()
 dm['cfg']['meta']['something_something']
 # ...
 ```
+
+
+### How to create plots
+For creation of plots, `dantro` provides the `PlotManager` and the `PlotCreator` classes.
+
+The `PlotManager` does not actually carry out any plots. Its purpose is to handle the configuration of the `PlotCreator` classes; those implement the actual plotting functionality.  
+This way, the plots can be configured in a consistent way, profiting from the shared interface and the already implemented functions, while keeping the flexibility of having multiple ways to create plots.
+
+A brief usage example:
+```python
+# Load the data given a load configuration
+dm = DataManager(data_dir="/path/to/the/data/to/plot", load_cfg=load_cfg)
+dm.load_from_cfg()
+
+# Initialise a plot manager and provide it with that data manager
+pm = PlotManager(dm=dm)
+
+# Perform a single plot:
+pm.plot("my_plot",            # name of the plot
+        creator="external",   # plot creator to use
+        # all further: kwargs to that plot creator
+        module=".basic", plot_func="lineplot", y="vectors/values")
+```
+
+Like the `DataManager`, the `PlotManager` also provides a `plot_from_cfg` method, which allows passing a pre-existing configuration to generate multiple plotss.
+
+This is illustrated with examples using the `ExternalPlotCreator`. This is a class that makes it easy to use external scripts to create plots.
+Multiple ways of loading a plotting function are supplied:
+* It allows importing external scripts that receive a `DataManager` and an `out_path` as arguments.
+* All other arguments of the configuration are passed along
+* The script can do whatever it wants, also meaning that it _has_ to do everything by itself (getting data, saving plots, closing figures ...)
+* Plotting functions can be imported from three locations:
+   * The included `ext_funcs` subpackage, which currently supplies the `lineplot` method
+   * An already importable module, i.e. one that is installed or can be found in `sys.path`
+   * A module loaded from a file
+
+A configuration example would be the following:
+```yaml
+values_over_time:  # this will also be the final name of the plot (without extension)
+  # Select the creator to use
+  creator: external
+  # NOTE: This has to be known to `PlotManager` under this name.
+  #       It can also be set as default during `PlotManager` initialisation.
+
+  # Specify the module to find the plot_function in
+  module: .basic  # Uses the dantro-internal plot functions
+
+  # Specify the name of the plot function to load from that module
+  plot_func: lineplot
+
+  # The data manager is passed to that function as first positional argument.
+  # Also, the generated output path is passed as `out_path` keyword argument.
+
+  # All further kwargs on this level are passed on to that function.
+  # Specify how to get to the data in the data manager
+  x: vectors/times
+  y: vectors/values
+
+  # Specify styling
+  fmt: go-
+  # ...
+
+my_fancy_plot:
+  # Select the creator to use
+  creator: external
+
+  # This time, get the module from a file
+  module_file: /path/to/my/fancy/plotting/script.py
+  # NOTE Can also be a relative path, if `base_module_file_dir` was set
+
+  # Get the plot function from that module
+  plot_func: my_plot_func
+
+  # All further kwargs on this level are passed on to that function.
+  # ...
+```
+This will create two plots: `values_over_time` and `my_fancy_plot`. Both are using `ExternalPlotCreator` (known to `PlotManager` by name `external`) and are loading certain functions to use for plotting.
+
+
+#### Using parameter sweeps for creating multiple plots
+Using the `paramspace` package, it is also easily possible to sweep over a configuration _on the level of single output files_, i.e.: each point in parameter space is a single call to a plot creator.
+
+```yaml
+multiple_plots: !pspace
+  creator: external
+  module: .basic
+  plot_func: lineplot
+
+  # All further kwargs on this level are passed on to that function.
+  x: vectors/times
+
+  # Create multiple plots with different y-values
+  y: !pdim
+    default: vectors/values
+    values:
+      - vectors/values
+      - vectors/more_values
+```
+This will create two _files_, one with `values` over `times`, one with `more_values` over `times`. Having multiple lines in one plot would be the job of the plotting function used.
+
+#### More creators
+In the future, a `DeclarativePlotCreator` will allow to specify – in a declarative syntax – how the data should be loaded, potentially transformed, and then represented in a plot.
