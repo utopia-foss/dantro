@@ -72,13 +72,7 @@ To assert correct functionality, `pytest`s are written alongside new features. T
 `dantro` is tested for Python 3.6. Test coverage and pipeline status can be seen on [the project page](https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro).
 
 
-## How to use dantro
-A few examples of how to use `dantro`.
-
-Often times, there are many possibilities and options available.
-We advise to use `ipython` and its `? module.i.want.to.look.up` command to get the docstrings.
-
-### Installation
+## Installation
 If the project you want to use `dantro` with uses a virtual environment, enter it now.
 
 Installation can happen directly via `pip`:
@@ -115,6 +109,14 @@ To then perform the tests, call:
 ```
 (dantro) $ python -m pytest -v tests/ --cov=dantro --cov-report=term-missing
 ```
+
+
+
+## How to use dantro
+A few examples of how to use `dantro`.
+
+Often times, there are many possibilities and options available.
+We advise to use `ipython` and its `? module.i.want.to.look.up` command to get the docstrings.
 
 
 ### How to create a custom data container
