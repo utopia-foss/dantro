@@ -352,7 +352,7 @@ class DataManager(OrderedDataGroup):
 
         # else: target_path was given
 
-        log.info("Loading entry '%s' ...", )
+        log.info("Loading entry '%s' ...", entry_name)
 
         # Try loading the data and handle specific DataManagerErrors
         try:

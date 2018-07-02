@@ -9,7 +9,7 @@ import copy
 import logging
 from typing import Union, List, Dict, Tuple
 
-from paramspace import ParamSpace
+from paramspace import ParamSpace, ParamDim
 
 import dantro.tools as tools
 from dantro.data_mngr import DataManager
@@ -36,7 +36,10 @@ class PlotManager:
     CREATORS = pcr.ALL
     DEFAULT_OUT_FSTRS = dict(date="%y%m%d-%H%M%S",
                          state_no="{no:0{digits:d}d}",
-                         state="{key:}_{val:}", state_join_char="-",
+                         state="{key:}_{val:}",
+                         state_key_join_char="-",
+                         state_join_char="__",
+                         state_val_replace_chars=[("/", "-")],
                          state_vector_join_char="-",
                          path="{name:}{ext:}",
                          sweep="{name:}/{state_no:}-{state:}{ext:}",
@@ -183,6 +186,20 @@ class PlotManager:
         Returns:
             str: The fully parsed output path for this plot
         """
+        def parse_state_pair(name: tuple, dim: ParamDim, *, fstrs: dict) -> Tuple[str]:
+            """Helper method to create a state pair"""
+            # Parse the name
+            name = fstrs['state_key_join_char'].join(name)
+
+            # Parse the value
+            val = str(dim.current_value)
+
+            for search, replace in fstrs['state_val_replace_chars']:
+                val = val.replace(search, replace)
+            
+            return name, val
+
+
         # Get the fstrs
         fstrs = self.out_fstrs
         
@@ -214,9 +231,10 @@ class PlotManager:
             keys['state_no'] = fstrs['state_no'].format(no=state_no,
                                                         digits=digits)
 
-            # state values
-            state_pairs = [(name, dim.current_value)
+            # state values -- need to do some parsing here ...
+            state_pairs = [parse_state_pair(name, dim, fstrs=fstrs)
                            for name, dim in dims.items()]
+
             sjc = fstrs['state_join_char']
             keys['state'] = sjc.join([fstrs['state'].format(key=k, val=v)
                                       for k, v in state_pairs])
@@ -291,7 +309,7 @@ class PlotManager:
     # .........................................................................
     # Plotting
 
-    def plot_from_cfg(self, *, plots_cfg: dict=None, plot_only: List[str]=None, out_dir: str=None, **update_plots_cfg) -> None:
+    def plot_from_cfg(self, *, plots_cfg: Union[dict, str]=None, plot_only: List[str]=None, out_dir: str=None, **update_plots_cfg) -> None:
         """Create multiple plots from a configuration, either a given one or
         the one passed during initialisation.
         
@@ -300,7 +318,8 @@ class PlotManager:
         
         Args:
             plots_cfg (dict, optional): The plots configuration to use. If not
-                given, the one specified during initialisation is used.
+                given, the one specified during initialisation is used. If a
+                string is given, will assume it is a path and load the file.
             plot_only (List[str], optional): If given, create only those plots
                 from the resulting configuration that match these names. This
                 will lead to the `enabled` key being ignored, regardless of its
@@ -326,6 +345,11 @@ class PlotManager:
             log.debug("No new plots configuration given; will use plots "
                       "configuration given at initialisation.")
             plots_cfg = self._plots_cfg
+
+        elif isinstance(plots_cfg, str):
+            # Interpret as path to yaml file
+            log.debug("Loading plots_cfg from file %s ...", plots_cfg)
+            plots_cfg = tools.load_yml(plots_cfg)
 
         # Make sure to work on a copy, be it on the defaults or on the passed
         plots_cfg = copy.deepcopy(plots_cfg)
