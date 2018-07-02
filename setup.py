@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 # Dependency lists
 install_deps = [
@@ -17,7 +17,7 @@ test_deps = ['pytest>=3.4.0', 'pytest-cov>=2.5.1']
 setup(name='dantro',
       #
       # Set the version
-      version='0.1.0-rc.1',
+      version='0.1.0-rc.2',
       # NOTE do not forget to set dantro.__init__.__version__!
       #
       # Project info
@@ -41,7 +41,8 @@ setup(name='dantro',
       ],
       #
       # Distribution details, dependencies, ...
-      packages=['dantro'],
+      packages=find_packages(exclude=["*.tests", "*.tests.*",
+                                      "tests.*", "tests"]),
       install_requires=install_deps,
       tests_require=test_deps,
       test_suite='py.test',
