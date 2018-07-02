@@ -12,6 +12,7 @@ NOTE: These classes are not meant to be instantiated.
 import abc
 import logging
 import warnings
+import inspect
 from typing import Union, List
 
 import dantro.abc
@@ -515,6 +516,65 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
         log.debug("Added %d container(s) to %s.", len(conts), self.logstr)
 
+    def new_container(self, name: str, *, Cls: type, **kwargs):
+        """Creates a new container of class `Cls` and adds it to this
+        group.
+
+        Args:
+            name (str): The name of the container to add
+            Cls (type): The class of the container to add
+            **kwargs: kwargs to pass on to Cls.__init__
+
+        Returns:
+            Cls: the created container
+        """
+        # Check if name is available
+        if name in self:
+            raise KeyError("A group or container with the name '{}' already "
+                           "exists in {}.".format(name, self.logstr))
+
+        # Check the class to create the container with
+        if not inspect.isclass(Cls):
+            raise TypeError("Argument `Cls` needs to be a class, but "
+                            "was of type {} with value '{}'."
+                            "".format(type(Cls), Cls))
+
+        elif not issubclass(Cls, (BaseDataContainer, BaseDataGroup)):
+            raise TypeError("Argument `Cls` needs to be a subclass of "
+                            "BaseDataContainer or BaseDataGroup, was '{}'."
+                            "".format(Cls))
+        # Class is checked now
+
+        # Instantiate, add, and return it
+        cont = Cls(name=name, **kwargs)
+        self.add(cont)
+        return cont
+
+    def new_group(self, name: str, *, Cls: type=None, **kwargs):
+        """Creates a new group with the given name.
+        
+        Args:
+            name (str): The name of the group
+            Cls (type, optional): If given, use this type to create the
+                group. If not given, uses the type of this instance.
+            **kwargs: Passed on to Cls.__init__
+        
+        Returns:
+            Cls: the created group
+        """
+        # If no Cls is given, use the current class
+        if Cls is None:
+            Cls = type(self)
+
+        # Need to catch the case where a non-group class was given
+        elif inspect.isclass(Cls) and not issubclass(Cls, BaseDataGroup):
+            raise TypeError("Argument `Cls` needs to be a subclass of "
+                            "BaseDataGroup, was '{}'.".format(Cls))
+
+        # Use the container method to create the entry
+        return self.new_container(name, Cls=Cls, **kwargs)
+
+
     def recursive_update(self, other):
         """Recursively updates the contents of this data group with the entries
         of the given data group"""
@@ -746,3 +806,4 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
                   TargetCls.__name__)
         return TargetCls(name=self.name, data=self.data, attrs=self.attrs,
                          **target_init_kwargs)
+

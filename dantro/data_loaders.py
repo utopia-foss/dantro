@@ -156,7 +156,7 @@ class Hdf5LoaderMixin:
                     # Progress information on loading this dataset
                     if plvl >= 2:
                         line = fstr2.format(name=target.name, key=key, obj=obj)
-                        print(tools.fill_tty_line(line), end="\r")
+                        print(tools.fill_line(line), end="\r")
 
                     if load_as_proxy:
                         # Instantiate a proxy object
@@ -196,7 +196,7 @@ class Hdf5LoaderMixin:
             if plvl >= 1:
                 # Print information on the level of this file
                 line = fstr1.format(name=root.name, file=filepath)
-                print(tools.fill_tty_line(line), end="\r")
+                print(tools.fill_line(line), end="\r")
 
             # Load the file level attributes, manually re-creating the dict
             root.attrs = {k:v for k, v in h5file.attrs.items()}

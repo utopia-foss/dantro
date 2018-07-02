@@ -5,6 +5,8 @@ import subprocess
 import collections
 import logging
 
+import paramspace.yaml_constructors as psp_constrs
+
 import yaml
 
 # Local constants
@@ -23,6 +25,12 @@ log.debug("Determined TTY_COLS: %d, IS_A_TTY: %d", TTY_COLS, IS_A_TTY)
 
 # -----------------------------------------------------------------------------
 # Loading from / writing to files
+
+# Set custom constructors for paramspace package
+yaml.add_constructor(u'!pspace', psp_constrs.pspace)
+yaml.add_constructor(u'!pdim', psp_constrs.pdim_enabled_only)
+yaml.add_constructor(u'!pdim-default', psp_constrs.pdim_get_default)
+
 
 def load_yml(path: str) -> dict:
     """Loads a yaml file from a path
@@ -112,13 +120,28 @@ def clear_line(only_in_tty=True, break_if_not_tty=True):
     # flush manually (there might not have been a linebreak)
     sys.stdout.flush()
 
-def fill_tty_line(s: str, fill_char: str=" ", align: str="left") -> str:
-    """If the terminal is a tty, returns a string that fills the whole tty 
-    line with the specified fill character."""
-    if not IS_A_TTY:
-        return s
+def fill_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str=" ", align: str="left") -> str:
+    """Extends the given string such that it fills a whole line of `num_cols` columns.
+    
+    Args:
+        s (str): The string to extend to a whole line
+        num_cols (int, optional): The number of colums of the line; defaults to
+            the number of TTY columns or – if those are not available – 79
+        fill_char (str, optional): The fill character
+        align (str, optional): The alignment. Can be: 'left', 'right', 'center'
+            or the one-letter equivalents.
+    
+    Returns:
+        str: The string of length `num_cols`
+    
+    Raises:
+        ValueError: For invalid `align` or `fill_char` argument
+    """
+    if len(fill_char) != 1:
+        raise ValueError("Argument `fill_char` needs to be string of length 1 "
+                         "but was: "+str(fill_char))
 
-    fill_str = fill_char * (TTY_COLS - len(s))
+    fill_str = fill_char * (num_cols - len(s))
 
     if align in ["left", "l", None]:
         return s + fill_str
@@ -129,9 +152,20 @@ def fill_tty_line(s: str, fill_char: str=" ", align: str="left") -> str:
     elif align in ["center", "centre", "c"]:
         return fill_str[:len(fill_str)//2] + s + fill_str[len(fill_str)//2:]
 
-    else:
-        raise ValueError("align argument '{}' not supported".format(align))
+    raise ValueError("align argument '{}' not supported".format(align))
 
-def tty_centred_msg(s: str, fill_char: str="·") -> str:
-    """Shortcut for a common fill_tty_line use case."""
-    return fill_tty_line(s, fill_char=fill_char, align='centre')
+def center_in_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str="·", spacing: int=1) -> str:
+    """Shortcut for a common fill_line use case.
+    
+    Args:
+        s (str): The string to center in the line
+        num_cols (int, optional): The number of columns in the line
+        fill_char (str, optional): The fill character
+        spacing (int, optional): The spacing around the string `s`
+    
+    Returns:
+        str: The string centered in the line
+    """
+    spacing = " " * spacing
+    return fill_line(spacing + s + spacing, num_cols=num_cols,
+                     fill_char=fill_char, align='centre')

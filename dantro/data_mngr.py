@@ -182,6 +182,25 @@ class DataManager(OrderedDataGroup):
         return dirs
 
     # .........................................................................
+
+    def new_group(self, name: str, *, Cls: type=None, **kwargs):
+        """Creates a new group with the given name.
+        
+        Args:
+            name (str): The name of the group
+            Cls (type, optional): If given, use this type to create the
+                group. If not given, uses the type of this instance.
+            **kwargs: Passed on to Cls.__init__
+        
+        Returns:
+            Cls: the created group
+        """
+        if Cls is None:
+            Cls = self._DATA_GROUP_DEFAULT_CLS
+
+        return super().new_group(name, Cls=Cls, **kwargs)
+
+    # .........................................................................
     # Loading data
 
     def load_from_cfg(self, *, load_cfg: dict=None, update_load_cfg: dict=None, exists_action: str='raise', print_tree: bool=False) -> None:
@@ -205,7 +224,7 @@ class DataManager(OrderedDataGroup):
         """
         # Determine which load configuration to use
         if not load_cfg:
-            log.debug("No load configuration given; will use load "
+            log.debug("No new load configuration given; will use load "
                       "configuration given at initialisation.")
             load_cfg = self.load_cfg
 
@@ -215,7 +234,7 @@ class DataManager(OrderedDataGroup):
         if update_load_cfg:
             # Recursively update with the given keywords
             load_cfg = tools.recursive_update(load_cfg, update_load_cfg)
-            log.debug("Updated the load config.")
+            log.debug("Updated the load configuration.")
 
         log.info("Loading %d data entries ...", len(load_cfg))
 
@@ -689,7 +708,7 @@ class DataManager(OrderedDataGroup):
         for n, file in enumerate(files):
             if progress_indicator:
                 line = "  Loading  {}/{}  ...".format(n+1, len(files))
-                print(tools.fill_tty_line(line), end="\r")
+                print(tools.fill_line(line), end="\r")
 
             # Prepare the target path (a list of strings)
             _target_path = prepare_target_path(target_path, filepath=file,

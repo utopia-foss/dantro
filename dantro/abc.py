@@ -3,6 +3,8 @@
 AbstractDataContainer: define a general data container interface
 AbstractDataGroup: define a Mapping-like group interface
 AbstractDataAttr: define a dict-like attribute interface to both of the above
+AbstractDataProxy: define the interface for creation and resolution of proxies
+AbstractPlotCreator: defines the interface for PlotCreators
 """
 
 import abc
@@ -240,4 +242,53 @@ class AbstractDataProxy(metaclass=abc.ABCMeta):
         Note that this method does not place the resolved data in the
         container of which this proxy object is a placeholder for! This only
         returns the data.
+        """
+
+
+# -----------------------------------------------------------------------------
+
+class AbstractPlotCreator(metaclass=abc.ABCMeta):
+    """This class defines the interface for PlotCreator classes.
+
+    Abstract methods here:
+      * __init__: pass the data manager and the plot configuration
+      * __call__: Wrapper around the _plot method, which can update the config.
+      * _plot:    This method receives the fully parsed plot configuration and
+                  then performs the plot.
+      * get_ext:  Used by PlotManager to retrieve the desired file extension
+      * _prepare_path: Creates the output path; can be subclassed to change
+                  behaviour, i.e. to postpone directory creation as far as
+                  possible
+    """
+
+    @abc.abstractmethod
+    def __init__(self, name: str, *, dm, **plot_cfg):
+        """Initialise the PlotCreator, given a data manager, the plot name, and
+        the default plot configuration.
+        """
+
+    @abc.abstractmethod
+    def __call__(self, *, out_path: str=None, **update_plot_cfg):
+        """Perform the plot, updating the configuration passed to __init__
+        with the given values and then calling _plot.
+        """
+
+    @abc.abstractmethod
+    def _plot(self, out_path: str=None, **cfg):
+        """Given a specific configuration, perform a plot.
+
+        This method should always be private and only be called from __call__.
+        """
+
+    @abc.abstractmethod
+    def get_ext(self) -> str:
+        """Returns the extension to use for the upcoming plot"""
+
+    @abc.abstractmethod
+    def _prepare_path(self, out_path: str) -> str:
+        """Prepares the output path, creating directories if needed, then
+        returning the full absolute path.
+
+        This is called from __call__ and is meant to postpone directory
+        creation as far as possible.
         """
