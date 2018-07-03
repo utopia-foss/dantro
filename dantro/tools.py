@@ -59,7 +59,7 @@ def write_yml(d: dict, *, path: str):
     log.debug("Dumping %s to YAML file... target:\n  %s", type(d), path)
 
     with open(path, 'w') as yaml_file:
-        yaml.dump(d, stream=yaml_file)
+        yaml.dump(d, stream=yaml_file, default_flow_style=False)
 
 # -----------------------------------------------------------------------------
 # Dictionary operations
