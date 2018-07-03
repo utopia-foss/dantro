@@ -41,9 +41,12 @@ class PlotManager:
                          state_join_char="__",
                          state_val_replace_chars=[("/", "-")],
                          state_vector_join_char="-",
+                         # final fstr for single plot and config path
                          path="{name:}{ext:}",
-                         sweep="{name:}/{state_no:}-{state:}{ext:}",
                          plot_cfg="{name:}_cfg.yml",
+                         # and for sweep
+                         sweep="{name:}/{state_no:}-{state:}{ext:}",
+                         plot_cfg_sweep="{name:}/sweep_cfg.yml",
                          )
 
     def __init__(self, *, dm: DataManager, plots_cfg: Union[dict, str]=None, out_dir: Union[str, None]="{date:}/", out_fstrs: dict=None, creator_init_kwargs: Dict[str, dict]=None, default_creator: str=None, save_plot_cfg: bool=True):
@@ -272,8 +275,8 @@ class PlotManager:
         # Append to the plot_info list
         self._plot_info.append(entry)
 
-    def _save_plot_cfg(self, cfg: dict, *, name: str, creator_name: str, target_dir: str) -> str:
-        """Saves the given configuration under the top-level entry `name` to
+    def _save_plot_cfg(self, cfg: dict, *, name: str, creator_name: str, target_dir: str, is_sweep: bool=False) -> str:
+        """Saves the given configuration under the top-level entry `name` t, is_sweep=Trueo
         a yaml file.
         
         Args:
@@ -296,7 +299,10 @@ class PlotManager:
             d[name]._dict['creator'] = creator_name
 
         # Generate the filename
-        fname = self.out_fstrs['plot_cfg'].format(name=name)
+        if not is_sweep:
+            fname = self.out_fstrs['plot_cfg'].format(name=name)
+        else:
+            fname = self.out_fstrs['plot_cfg_sweep'].format(name=name)
         save_path = os.path.join(target_dir, fname)
         
         # And save
@@ -542,7 +548,7 @@ class PlotManager:
             if save_plot_cfg:
                 self._save_plot_cfg(from_pspace, name=name,
                                     creator_name=creator,
-                                    target_dir=out_dir)
+                                    target_dir=out_dir, is_sweep=True)
 
         # Done now. Return the plot creator.
         return creator
