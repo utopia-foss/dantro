@@ -7,7 +7,7 @@ import os
 import time
 import copy
 import logging
-from typing import Union, List, Dict, Tuple
+from typing import Union, List, Dict, Tuple, Callable
 
 from paramspace import ParamSpace, ParamDim
 
@@ -18,6 +18,21 @@ import dantro.plot_creators as pcr
 # Local constants
 log = logging.getLogger(__name__)
 
+
+# -----------------------------------------------------------------------------
+# Custom exception classes
+
+class PlottingError(Exception):
+    """Custom exception class for all plotting errors"""
+
+class PlotConfigError(ValueError, PlottingError):
+    """Raised when there were errors in the plot configuration"""
+
+class InvalidCreator(ValueError, PlottingError):
+    """Raised when an invalid creator was specified"""
+
+class PlotCreatorError(PlottingError):
+    """Raised when an error occured in a plot creator"""
 
 # -----------------------------------------------------------------------------
 
@@ -49,7 +64,7 @@ class PlotManager:
                          plot_cfg_sweep="{name:}/sweep_cfg.yml",
                          )
 
-    def __init__(self, *, dm: DataManager, plots_cfg: Union[dict, str]=None, out_dir: Union[str, None]="{date:}/", out_fstrs: dict=None, creator_init_kwargs: Dict[str, dict]=None, default_creator: str=None, save_plot_cfg: bool=True):
+    def __init__(self, *, dm: DataManager, plots_cfg: Union[dict, str]=None, out_dir: Union[str, None]="{date:}/", out_fstrs: dict=None, creator_init_kwargs: Dict[str, dict]=None, default_creator: str=None, save_plot_cfg: bool=True, raise_exc: bool=False):
         """Initialize the PlotManager
         
         Args:
@@ -80,9 +95,12 @@ class PlotManager:
                 `creator` declaration will use this creator as default.
             save_plot_cfg (bool, optional): If True, the plot configuration is
                 saved to a yaml file alongside the created plot.
+            raise_exc (bool, optional): Whether to raise exceptions if there
+                are errors raised from the plot creator or errors in the plot
+                configuration. If False, the errors will only be logged.
         
         Raises:
-            ValueError: Invalid default creator
+            InvalidCreator: When an invalid default creator was chosen
         """
         # TODO consider making it possible to pass classes for plot creators
 
@@ -91,6 +109,7 @@ class PlotManager:
 
         # Public
         self.save_plot_cfg = save_plot_cfg
+        self.raise_exc = raise_exc
 
         # Private or read-only
         self._dm = dm
@@ -116,9 +135,9 @@ class PlotManager:
         self._cckwargs = creator_init_kwargs if creator_init_kwargs else {}
 
         if default_creator and default_creator not in self.CREATORS:
-            raise ValueError("No such creator '{}' available, only: {}"
-                             "".format(default_creator,
-                                       [k for k in self.CREATORS.keys()]))
+            raise InvalidCreator("No such creator '{}' available, only: {}"
+                                 "".format(default_creator,
+                                           [k for k in self.CREATORS.keys()]))
         self._default_creator = default_creator
 
         log.debug("%s initialised.", self.__class__.__name__)
@@ -254,6 +273,30 @@ class PlotManager:
 
         return out_path
 
+    def _call_plot_creator(self, plot_creator: Callable, *, out_path: str, name: str, creator: str, **plot_cfg):
+        """Calls the plot creator and manages exceptions"""
+        try:
+            rv = plot_creator(out_path=out_path, **plot_cfg)
+
+        except Exception as err:
+            # No return value
+            rv = None
+
+            # Generate error message
+            e_msg = ("During plotting of '{}', an error occurred in the "
+                     "plot creator '{}'!".format(name, creator))
+
+            if self.raise_exc:
+                raise PlotCreatorError(e_msg) from err
+            
+            # else: just log it
+            log.error(e_msg + " {}: {}".format(err.__class__.__name__, err))
+
+        else:
+            log.debug("Plot creator call returned.")
+
+        return rv
+
     def _store_plot_info(self, name: str, *, plot_cfg: dict, creator_name: str, save: bool, target_dir: str, **info):
         """Stores all plot information in the plot_info list and, if `save` is
         set, also saves it using the _save_plot_cfg method.
@@ -339,14 +382,19 @@ class PlotManager:
                 common property.
         
         Raises:
-            TypeError: Invalid plot configuration type
+            PlotConfigError: Empty or invalid plot configuration
         """
         # Determine which plot configuration to use
         if not plots_cfg:
             if not self._plots_cfg and not update_plots_cfg:
-                raise ValueError("Got empty `plots_cfg` and `plots_cfg` given "
-                                 "at initialisation was also empty; cannot "
-                                 "plot.")
+                e_msg = ("Got empty `plots_cfg` and `plots_cfg` given at "
+                         "initialisation was also empty. Nothing to plot.")
+
+                if self.raise_exc:
+                    raise PlotConfigError(e_msg)
+
+                log.error(e_msg)
+                return
 
             log.debug("No new plots configuration given; will use plots "
                       "configuration given at initialisation.")
@@ -368,11 +416,11 @@ class PlotManager:
         # Check the plot configuration for invalid types
         for plot_name, cfg in plots_cfg.items():
             if not isinstance(cfg, (dict, ParamSpace)):
-                raise TypeError("Got invalid plots specifications for entry "
-                                "'{}'! Expected dict, got {} with value '{}'. "
-                                "Check the correctness of the given plots "
-                                "configuration!".format(plot_name, type(cfg),
-                                                        cfg))
+                raise PlotConfigError("Got invalid plots specifications for "
+                                      "entry '{}'! Expected dict, got {} with "
+                                      "value '{}'. Check the correctness of "
+                                      "the given plots configuration!"
+                                      "".format(plot_name, type(cfg), cfg))
 
         # Filter the plot selection
         if plot_only is not None:
@@ -449,25 +497,26 @@ class PlotManager:
             pcr.BasePlotCreator: The PlotCreator used for these plots
         
         Raises:
-            ValueError: If no creator was given here and at initialisation or
-                when out_dir was neither given here nor during initialisation
+            InvalidCreator: If no creator was given and no default specified
+            PlotConfigError: If no out directory was specified here or at init
+        
         """
         log.debug("Preparing plot '%s' ...", name)
 
         # Check that the output directory is given
         if not out_dir:
             if not self._out_dir:
-                raise ValueError("No `out_dir` specified here and at "
-                                 "initialisation; cannot perform plot.")
+                raise PlotConfigError("No `out_dir` specified here and at "
+                                      "initialisation; cannot perform plot.")
 
             out_dir = self._out_dir
 
         # If no creator is given, use the default one
         if creator is None:
             if not self._default_creator:
-                raise ValueError("No `creator` argument given and no "
-                                 "`default_creator` specified during "
-                                 "initialisation; cannot perform plot!")
+                raise InvalidCreator("No `creator` argument given and no "
+                                     "`default_creator` specified during "
+                                     "initialisation; cannot perform plot!")
 
             creator = self._default_creator
 
@@ -492,8 +541,11 @@ class PlotManager:
                                              out_dir=out_dir,
                                              file_ext=file_ext)
 
-            # Call the plot creator to perform the plot
-            plot_creator(out_path=out_path, **plot_cfg)
+            # Call the plot creator to perform the plot, using the private
+            # method to perform exception handling
+            self._call_plot_creator(plot_creator,
+                                    out_path=out_path, **plot_cfg,
+                                    name=name, creator=creator)
 
             # Store plot information
             self._store_plot_info(name=name, creator_name=creator,
@@ -533,8 +585,11 @@ class PlotManager:
                                                 state_vector=state_vector,
                                                 dims=psp_dims)
 
-                # Call the plot creator to perform the plot
-                plot_creator(out_path=out_path, **cfg)
+                # Call the plot creator to perform the plot, using the private
+                # method to perform exception handling
+                self._call_plot_creator(plot_creator,
+                                        out_path=out_path, **cfg, **plot_cfg,
+                                        name=name, creator=creator)
 
                 # Store plot information
                 self._store_plot_info(name=name, creator_name=creator,

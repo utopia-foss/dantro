@@ -12,7 +12,7 @@ import paramspace as psp
 from dantro.tools import load_yml, recursive_update
 from dantro.data_mngr import DataManager
 from dantro.container import NumpyDataContainer as NumpyDC
-from dantro.plot_mngr import PlotManager
+from dantro.plot_mngr import PlotManager, PlottingError, PlotConfigError, PlotCreatorError, InvalidCreator
 
 
 # Local constants .............................................................
@@ -147,13 +147,9 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
     assert_num_plots(pm, 4)
 
     # Invalid plot specification
-    with pytest.raises(TypeError, match="Got invalid plots specifications"):
+    with pytest.raises(PlotConfigError, match="invalid plots specifications"):
         pm.plot_from_cfg(invalid_entry=(1,2,3))
     assert_num_plots(pm, 4)
-
-    # Empty plot config
-    with pytest.raises(ValueError, match="Got empty `plots_cfg`"):
-        PlotManager(dm=dm).plot_from_cfg()
 
 
     # Now, directly using the plot function
@@ -178,6 +174,10 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
     pm.plot("baz", **pcr_ext_kwargs, save_plot_cfg=False)
     assert_num_plots(pm, 4 + 3)
     assert pm.plot_info[-1]['plot_cfg_path'] is None
+
+
+    # Test plotting from file path works
+    pm.plot_from_cfg(plots_cfg=PLOTS_EXT_PATH)
 
 
 def test_plots_enabled(dm, pm_kwargs, pcr_ext_kwargs):
@@ -249,3 +249,27 @@ def test_file_ext(dm, pm_kwargs):
     pm_kwargs['creator_init_kwargs']['external']['default_ext'] = None
     PlotManager(dm=dm, plots_cfg=PLOTS_EXT, out_dir="no4/",
                 **pm_kwargs).plot_from_cfg()
+
+
+def test_raise_exc(dm, pm_kwargs):
+    """Tests that the `raise_exc` argument behaves as desired"""
+    # Empty plot config should either log and return None
+    assert PlotManager(dm=dm, raise_exc=False).plot_from_cfg() is None
+    # ... or raise an error
+    with pytest.raises(PlotConfigError, match="Got empty `plots_cfg`"):
+        PlotManager(dm=dm, raise_exc=True).plot_from_cfg()
+
+
+    # Test calls to the plot creators
+    pm_log = PlotManager(dm=dm, raise_exc=False, **pm_kwargs)
+    pm_exc = PlotManager(dm=dm, raise_exc=True, **pm_kwargs)
+
+
+    # This should only log
+    pm_log.plot(name="logs",
+                module=".basic", plot_func="lineplot")
+    
+    # While this one should raise
+    with pytest.raises(PlottingError, match="During plotting of 'raises'"):
+        pm_exc.plot(name="raises",
+                    module=".basic", plot_func="lineplot")
