@@ -39,6 +39,12 @@ before_script:
 
 # -----------------------------------------------------------------------------
 
+test:py35:
+  image: python:3.5
+  stage: test
+  script:
+    - tox -e py35
+
 test:py36:
   image: python:3.6
   stage: test
