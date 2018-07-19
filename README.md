@@ -74,7 +74,8 @@ Before diving deeper, an overview over all `dantro` modules:
 ### Testing framework
 To assert correct functionality, `pytest`s are written alongside new features. They are also part of the continuous integration.
 
-`dantro` is tested for Python 3.6. Test coverage and pipeline status can be seen on [the project page](https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro).
+`dantro` is tested for Python 3.6 and 3.7.
+Test coverage and pipeline status can be seen on [the project page](https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro).
 
 
 ## Installation
@@ -118,6 +119,13 @@ To then perform the tests, call:
 ```
 (dantro) $ python -m pytest -v tests/ --cov=dantro --cov-report=term-missing
 ```
+
+Alternatively, with the [`tox`](https://tox.readthedocs.io/en/latest/) framework, it is possible to select different python environments for testing.
+Given that the interpreter is available, the test for a specific environment can be carried out with the following command:
+```
+(dantro) $ tox -e py37
+```
+_Note:_ that this relies on `paramspace` being available to `tox`, i.e.: it either needs to be installed in the virtual environment or as part of system-site-packages.
 
 
 

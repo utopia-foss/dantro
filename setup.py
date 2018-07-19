@@ -8,10 +8,10 @@ install_deps = [
     'numpy>=1.14',
     'pandas>=0.21',
     'matplotlib>=2.2.2',
-    'PyYAML==3.12',
+    'PyYAML>=3.12,<4.0',  # FIXME once safe_* is supported by paramspace
     'paramspace>=1.0.1'
     ]
-test_deps = ['pytest>=3.4.0', 'pytest-cov>=2.5.1']
+test_deps = ['pytest>=3.4.0', 'pytest-cov>=2.5.1', 'tox>=3.1.2']
 
 
 setup(name='dantro',
@@ -37,6 +37,7 @@ setup(name='dantro',
       classifiers=[
         'Intended Audience :: Science/Research',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Topic :: Utilities'
       ],
       #

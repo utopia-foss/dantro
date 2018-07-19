@@ -2,6 +2,10 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.2 _(unreleased)_
+- #19: Test for multiple Python versions
+
+
 ## v0.1
 First minor release. Contains basic features. API is mostly established, but not yet final.
 
