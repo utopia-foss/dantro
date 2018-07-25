@@ -16,11 +16,12 @@ import inspect
 from typing import Union, List
 
 import dantro.abc
+from dantro.abc import PATH_JOIN_CHAR
 import dantro.tools as tools
 
 # Local constants
 log = logging.getLogger(__name__)
-PATH_JOIN_CHAR = "/"
+
 
 class UnexpectedTypeWarning(UserWarning):
     """Given when there was an unexpected type passed to a data container."""

@@ -15,6 +15,9 @@ import logging
 # Local constants
 log = logging.getLogger(__name__)
 
+# The character used for separating paths
+PATH_JOIN_CHAR = "/"
+
 # -----------------------------------------------------------------------------
 
 class AbstractDataContainer(metaclass=abc.ABCMeta):
@@ -35,6 +38,8 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
             name (str): The name of this container
             data: The data that is to be stored
         """
+        # Ensure name does not contain path join character
+        if PATH
         
         # Pass name and data to read-only attributes
         self._name = str(name)
