@@ -33,7 +33,15 @@ class DummyContainer(ItemAccessMixin, BaseDataContainer):
 
 def test_init():
     """Tests initialisation of the DummyContainer class"""
-    DummyContainer(name="dummy", data="foo")
+    # Simple init
+    dc = DummyContainer(name="dummy", data="foo")
+
+    # Assert the name is a string
+    assert isinstance(dc.name, str)
+
+    # Check invalid name arguments
+    with pytest.raises(ValueError, match="Name for DummyContainer cannot "):
+        DummyContainer(name="a/name/with/the/PATH_JOIN_CHAR", data="foo")
 
 
 def test_check_data_mixin():
