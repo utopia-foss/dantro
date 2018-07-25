@@ -131,11 +131,11 @@ def test_init(data_dir):
 def test_init_with_create_groups(tmpdir):
     """Tests the create_groups argument to __init__"""
     # Check group creation from a list of names
-    test_groups = ["abc", "def", 123]
+    test_groups = ["abc", "def", "123"]
     dm = DataManager(tmpdir, out_dir=None, create_groups=test_groups)
     
     for grp_name in test_groups:
-        assert str(grp_name) in dm
+        assert grp_name in dm
         assert isinstance(dm[grp_name], dm._DATA_GROUP_DEFAULT_CLS)
 
     # And from a list of mixed names and dicts
@@ -156,7 +156,7 @@ def test_init_with_create_groups(tmpdir):
 
 
     # Without the class variable set, initialisation with a class fails
-    with pytest.raises(ValueError, match="foo"):
+    with pytest.raises(ValueError, match="is empty; cannot look up class"):
         dantro.data_mngr.DataManager(tmpdir, out_dir=None,
                                      create_groups=[dict(name="foo",
                                                          Cls="bar")])

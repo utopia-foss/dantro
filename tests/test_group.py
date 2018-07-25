@@ -15,8 +15,12 @@ def test_ordered_data_group():
     # Basic initialisation, without containers
     dg1 = OrderedDataGroup(name="foo")
 
+    # Names need be string
+    with pytest.raises(TypeError, match="Name for OrderedDataGroup needs to"):
+        OrderedDataGroup(name=123)
+
     # Passing some containers
-    conts = [MutableSequenceContainer(name=i, data=list(range(i)))
+    conts = [MutableSequenceContainer(name=str(i), data=list(range(i)))
              for i in range(10)]
     dg2 = OrderedDataGroup(name="bar", containers=conts)
     
@@ -47,7 +51,7 @@ def test_ordered_data_group():
     assert root["subgroup"] is subgroup
 
     # Adding it again should fail
-    with pytest.raises(KeyError, match="A group or container with the name"):
+    with pytest.raises(ValueError, match="has a member with name 'subgroup'"):
         root.new_group("subgroup")
 
     # Should also work when explicitly giving the class

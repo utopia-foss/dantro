@@ -40,6 +40,9 @@ def test_init():
     assert isinstance(dc.name, str)
 
     # Check invalid name arguments
+    with pytest.raises(TypeError, match="Name for DummyContainer needs"):
+        DummyContainer(name=123, data="foo")
+
     with pytest.raises(ValueError, match="Name for DummyContainer cannot "):
         DummyContainer(name="a/name/with/the/PATH_JOIN_CHAR", data="foo")
 
