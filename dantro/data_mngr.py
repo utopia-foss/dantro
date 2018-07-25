@@ -64,13 +64,16 @@ class DataManager(OrderedDataGroup):
     the data.
     """
 
-    # Define as class variables what should be the default groups / containers
+    # Define as class variable what should be the default group type
     _DATA_GROUP_DEFAULT_CLS = OrderedDataGroup
+
+    # For simple lookups, store class names in a dict; not set by default
+    _DATA_GROUP_CLASSES = None
 
     # .........................................................................
     # Initialisation
 
-    def __init__(self, data_dir: str, *, name: str=None, load_cfg: Union[dict, str]=None, out_dir: Union[str, bool]="_output/{date:}"):
+    def __init__(self, data_dir: str, *, name: str=None, load_cfg: Union[dict, str]=None, out_dir: Union[str, bool]="_output/{date:}", create_groups: List[Union[str, dict]]=None):
         """Initialises a DataManager object.
         
         Args:
@@ -89,6 +92,15 @@ class DataManager(OrderedDataGroup):
                 `date` and `name` is performed on this, where the latter is
                 the name of the data manager. If set to False, the output
                 directory is not created.
+            create_groups (List[Union[str, dict]], optional): If given, these
+                groups will be created after initialisation. If the list
+                entries are strings, the default group class will be used; if
+                they are dicts, the `name` key specifies the name of the group
+                and the `Cls` key specifies the type. If a string is given
+                instead of a type, the lookup happens from the
+                _DATA_GROUP_CLASSES variable.
+                NOTE that currently it is not possible to create _paths_, only
+                names.
         """
 
         # Find a name if none was given
@@ -119,6 +131,17 @@ class DataManager(OrderedDataGroup):
             log.debug("Using the given %s as default load configuration.",
                       type(load_cfg))
             self.load_cfg = load_cfg
+
+        # Create groups, if the create_groups argument is given
+        if create_groups:
+            for spec in create_groups:
+                if isinstance(spec, str):
+                    # Assume this is the path and to use the default class
+                    self.new_group(spec)
+
+                elif isinstance(spec, dict):
+                    # Got a more elaborate path specification
+                    self.new_group(**spec) 
 
         # Done
         log.debug("%s initialised.", self.logstr)
@@ -183,13 +206,19 @@ class DataManager(OrderedDataGroup):
 
     # .........................................................................
 
-    def new_group(self, name: str, *, Cls: type=None, **kwargs):
+    def new_group(self, name: str, *, Cls: Union[type, str]=None, **kwargs):
         """Creates a new group with the given name.
+
+        This is a slightly advanced version of the new_group method of the
+        BaseDataGroup. It not only adjusts the default type, but also allows
+        more ways how to specify the type of the group to create.
         
         Args:
             name (str): The name of the group
-            Cls (type, optional): If given, use this type to create the
-                group. If not given, uses the type of this instance.
+            Cls (Union[type, str], optional): If given, use this type to
+                create the group. If a string is given, resolves the type from
+                the _DATA_GROUP_CLASSES class variable. If None, uses the
+                default data group type of the data manager.
             **kwargs: Passed on to Cls.__init__
         
         Returns:
@@ -197,6 +226,24 @@ class DataManager(OrderedDataGroup):
         """
         if Cls is None:
             Cls = self._DATA_GROUP_DEFAULT_CLS
+
+        elif isinstance(Cls, str):
+            cls_name = Cls
+            
+            if not self._DATA_GROUP_CLASSES:
+                raise ValueError("The class variable _DATA_GROUP_CLASSES is "
+                                 "empty; cannot look up class type by the "
+                                 "given name '{}'.".format(cls_name))
+            elif cls_name not in self._DATA_GROUP_CLASSES:
+                raise KeyError("The given class name '{}' was not registered "
+                               "with this {}! Available classes: {}"
+                               "".format(cls_name, self.classname,
+                                         self._DATA_GROUP_CLASSES))
+
+            # everything ok, retrieve the class type
+            Cls = self._DATA_GROUP_CLASSES[cls_name]
+
+        # else: probably already a type
 
         return super().new_group(name, Cls=Cls, **kwargs)
 
