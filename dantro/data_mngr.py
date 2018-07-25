@@ -135,13 +135,13 @@ class DataManager(OrderedDataGroup):
         # Create groups, if the create_groups argument is given
         if create_groups:
             for spec in create_groups:
-                if isinstance(spec, str):
-                    # Assume this is the path and to use the default class
-                    self.new_group(spec)
-
-                elif isinstance(spec, dict):
-                    # Got a more elaborate path specification
+                if isinstance(spec, dict):
+                    # Got a more elaborate group specification
                     self.new_group(**spec) 
+
+                else:
+                    # Assume this is the group name; use the default class
+                    self.new_group(spec)
 
         # Done
         log.debug("%s initialised.", self.logstr)
