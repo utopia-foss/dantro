@@ -38,8 +38,11 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
             name (str): The name of this container
             data: The data that is to be stored
         """
-        # Ensure the given name argument is a string
-        name = str(name)
+        # Require strings as name
+        if not isinstance(name, str):
+            raise TypeError("Name for {} needs to be a string, was of type "
+                            "{} with value '{}'.".format(self.classname,
+                                                         type(name), name))
 
         # Ensure name does not contain path join character
         if PATH_JOIN_CHAR in name:

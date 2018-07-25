@@ -529,11 +529,6 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         Returns:
             Cls: the created container
         """
-        # Check if name is available
-        if name in self:
-            raise KeyError("A group or container with the name '{}' already "
-                           "exists in {}.".format(name, self.logstr))
-
         # Check the class to create the container with
         if not inspect.isclass(Cls):
             raise TypeError("Argument `Cls` needs to be a class, but "
@@ -666,7 +661,14 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
             key_seq = cont.split(PATH_JOIN_CHAR)
 
         else:
-            # assume it is already a list
+            # Need to check its type
+            if not isinstance(cont, list):
+                raise TypeError("Can only check content of {} against the "
+                                "container name or path (as string), or the "
+                                "explicit reference to the object! "
+                                "Got {} with value '{}'."
+                                "".format(self.logstr, type(cont), cont))
+
             key_seq = cont
 
         # key_seq is now a list of keys
