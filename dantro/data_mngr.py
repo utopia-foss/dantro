@@ -224,6 +224,9 @@ class DataManager(OrderedDataGroup):
         Returns:
             Cls: the created group
         """
+        # Check the class argument is valid. Can either be None, then a default
+        # is chosen; or can be a string, then a lookup happens from the class
+        # variable
         if Cls is None:
             Cls = self._DATA_GROUP_DEFAULT_CLS
 
@@ -234,6 +237,7 @@ class DataManager(OrderedDataGroup):
                 raise ValueError("The class variable _DATA_GROUP_CLASSES is "
                                  "empty; cannot look up class type by the "
                                  "given name '{}'.".format(cls_name))
+            
             elif cls_name not in self._DATA_GROUP_CLASSES:
                 raise KeyError("The given class name '{}' was not registered "
                                "with this {}! Available classes: {}"
@@ -243,7 +247,8 @@ class DataManager(OrderedDataGroup):
             # everything ok, retrieve the class type
             Cls = self._DATA_GROUP_CLASSES[cls_name]
 
-        # else: probably already a type
+        # else: assume it is already a type; will raise error upstream if that
+        # is not the case
 
         return super().new_group(name, Cls=Cls, **kwargs)
 
