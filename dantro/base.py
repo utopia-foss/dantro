@@ -517,12 +517,13 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
         log.debug("Added %d container(s) to %s.", len(conts), self.logstr)
 
-    def new_container(self, name: str, *, Cls: type, **kwargs):
-        """Creates a new container of class `Cls` and adds it to this
-        group.
+    def new_container(self, path: str, *, Cls: type, **kwargs):
+        """Creates a new container of class `Cls` and adds it at the given path
+        relative to this group.
 
         Args:
-            name (str): The name of the container to add
+            path (str): Where to add the container. Note that the intermediates
+                of this path need to already exist.
             Cls (type): The class of the container to add
             **kwargs: kwargs to pass on to Cls.__init__
 
@@ -541,24 +542,35 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
                             "".format(Cls))
         # Class is checked now
 
-        # Instantiate, add, and return it
-        cont = Cls(name=name, **kwargs)
-        self.add(cont)
-        return cont
+        # Check whether recursion is needed
+        if PATH_JOIN_CHAR not in path:
+            # Nope. Can create the container and return
+            cont = Cls(name=path, **kwargs)
+            self.add(cont)
+            return cont
 
-    def new_group(self, name: str, *, Cls: type=None, **kwargs):
-        """Creates a new group with the given name.
+        # Recursive branch: need to split off the front section and continue
+        spath = path.split(PATH_JOIN_CHAR)
+        return self[spath[0]].new_container(spath.join(PATH_JOIN_CHAR),
+                                            Cls=Cls, **kwargs)
+
+    def new_group(self, path: str, *, Cls: type=None, **kwargs):
+        """Creates a new group at the given path.
         
         Args:
-            name (str): The name of the group
+            path (str): The path to create the group at. Note that the whole
+                intermediate path needs to already exist.
             Cls (type, optional): If given, use this type to create the
                 group. If not given, uses the type of this instance.
             **kwargs: Passed on to Cls.__init__
         
         Returns:
             Cls: the created group
+        
+        Raises:
+            TypeError: For the given class not being derived from BaseDataGroup
         """
-        # If no Cls is given, use the current class
+        # If no Cls is given, use this instance's type
         if Cls is None:
             Cls = type(self)
 
@@ -567,9 +579,8 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
             raise TypeError("Argument `Cls` needs to be a subclass of "
                             "BaseDataGroup, was '{}'.".format(Cls))
 
-        # Use the container method to create the entry
-        return self.new_container(name, Cls=Cls, **kwargs)
-
+        # Use container method to create the entry. Recursion happens there.
+        return self.new_container(path, Cls=Cls, **kwargs)
 
     def recursive_update(self, other):
         """Recursively updates the contents of this data group with the entries
