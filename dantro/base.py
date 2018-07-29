@@ -551,8 +551,18 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
         # Recursive branch: need to split off the front section and continue
         spath = path.split(PATH_JOIN_CHAR)
-        return self[spath[0]].new_container(spath.join(PATH_JOIN_CHAR),
-                                            Cls=Cls, **kwargs)
+        grp_name, new_path = spath[0], PATH_JOIN_CHAR.join(spath[1:])
+
+        try:
+            return self[grp_name].new_container(new_path, Cls=Cls, **kwargs)
+
+        except KeyError as err:
+            raise KeyError("Could not create {} at '{}'! Check that all "
+                           "intermediate groups have already been created. "
+                           "Entries available in {}: {}"
+                           "".format(Cls.__name__, path, self.logstr,
+                                     ", ".join([k for k in self.keys()]))
+                           ) from err
 
     def new_group(self, path: str, *, Cls: type=None, **kwargs):
         """Creates a new group at the given path.

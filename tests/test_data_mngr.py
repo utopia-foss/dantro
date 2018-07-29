@@ -140,9 +140,9 @@ def test_init_with_create_groups(tmpdir):
 
     # And from a list of mixed names and dicts
     test_groups2 = ["ghi",
-                    dict(name="grp1"),
-                    dict(name="grp2", Cls=dm._DATA_GROUP_DEFAULT_CLS),
-                    dict(name="grp3", Cls="ordered")]
+                    dict(path="grp1"),
+                    dict(path="grp2", Cls=dm._DATA_GROUP_DEFAULT_CLS),
+                    dict(path="grp3", Cls="ordered")]
 
     dm2 = DataManager(tmpdir, out_dir=None, create_groups=test_groups2)
 
@@ -158,7 +158,7 @@ def test_init_with_create_groups(tmpdir):
     # Without the class variable set, initialisation with a class fails
     with pytest.raises(ValueError, match="is empty; cannot look up class"):
         dantro.data_mngr.DataManager(tmpdir, out_dir=None,
-                                     create_groups=[dict(name="foo",
+                                     create_groups=[dict(path="foo",
                                                          Cls="bar")])
 
 def test_loading(dm):
