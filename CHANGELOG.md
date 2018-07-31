@@ -2,7 +2,7 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
-## v0.2 _(unreleased)_
+## v0.2
 - #19: Test for multiple Python versions
 - #20: Make it possible to create custom groups during `DataManager` initialisation
 
