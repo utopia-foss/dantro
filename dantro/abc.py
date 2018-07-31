@@ -15,6 +15,9 @@ import logging
 # Local constants
 log = logging.getLogger(__name__)
 
+# The character used for separating hierarchies in the path
+PATH_JOIN_CHAR = "/"
+
 # -----------------------------------------------------------------------------
 
 class AbstractDataContainer(metaclass=abc.ABCMeta):
@@ -35,9 +38,20 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
             name (str): The name of this container
             data: The data that is to be stored
         """
+        # Require strings as name
+        if not isinstance(name, str):
+            raise TypeError("Name for {} needs to be a string, was of type "
+                            "{} with value '{}'.".format(self.classname,
+                                                         type(name), name))
+
+        # Ensure name does not contain path join character
+        if PATH_JOIN_CHAR in name:
+            raise ValueError("Name for {} cannot contain the path separator "
+                             "'{}'! Got: '{}'"
+                             "".format(self.classname, PATH_JOIN_CHAR, name))
         
         # Pass name and data to read-only attributes
-        self._name = str(name)
+        self._name = name
         self._data = data
 
         # Caching variables

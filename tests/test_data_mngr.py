@@ -9,6 +9,7 @@ import pytest
 
 import dantro.base
 from dantro.container import NumpyDataContainer
+from dantro.group import OrderedDataGroup
 from dantro.mixins import Hdf5ProxyMixin
 import dantro.data_mngr
 from dantro.data_loaders import YamlLoaderMixin, Hdf5LoaderMixin
@@ -21,7 +22,10 @@ LOAD_CFG_PATH = pkg_resources.resource_filename('tests', 'cfg/load_cfg.yml')
 
 class DataManager(YamlLoaderMixin, dantro.data_mngr.DataManager):
     """A DataManager-derived class for testing the implementation"""
+    # Set the class variable to test group class lookup via name
+    _DATA_GROUP_CLASSES = dict(ordered=OrderedDataGroup)
     
+    # A (bad) load function for testing
     def _load_bad_loadfunc(self):
         pass
 
@@ -123,6 +127,39 @@ def test_init(data_dir):
     assert dm.dirs['data'] == data_dir
     assert os.path.isdir(dm.dirs['data'])
     assert os.path.isdir(dm.dirs['out'])
+
+def test_init_with_create_groups(tmpdir):
+    """Tests the create_groups argument to __init__"""
+    # Check group creation from a list of names
+    test_groups = ["abc", "def", "123"]
+    dm = DataManager(tmpdir, out_dir=None, create_groups=test_groups)
+    
+    for grp_name in test_groups:
+        assert grp_name in dm
+        assert isinstance(dm[grp_name], dm._DATA_GROUP_DEFAULT_CLS)
+
+    # And from a list of mixed names and dicts
+    test_groups2 = ["ghi",
+                    dict(path="grp1"),
+                    dict(path="grp2", Cls=dm._DATA_GROUP_DEFAULT_CLS),
+                    dict(path="grp3", Cls="ordered")]
+
+    dm2 = DataManager(tmpdir, out_dir=None, create_groups=test_groups2)
+
+    assert "ghi" in dm2
+    assert "grp1" in dm2
+    assert "grp2" in dm2
+    assert "grp3" in dm2
+    assert isinstance(dm2["grp1"], dm2._DATA_GROUP_DEFAULT_CLS)
+    assert isinstance(dm2["grp2"], dm2._DATA_GROUP_DEFAULT_CLS)
+    assert isinstance(dm2["grp3"], OrderedDataGroup)
+
+
+    # Without the class variable set, initialisation with a class fails
+    with pytest.raises(ValueError, match="is empty; cannot look up class"):
+        dantro.data_mngr.DataManager(tmpdir, out_dir=None,
+                                     create_groups=[dict(path="foo",
+                                                         Cls="bar")])
 
 def test_loading(dm):
     """Tests whether loading works by using the default DataManager, i.e. that

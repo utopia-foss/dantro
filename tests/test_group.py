@@ -15,8 +15,12 @@ def test_ordered_data_group():
     # Basic initialisation, without containers
     dg1 = OrderedDataGroup(name="foo")
 
+    # Names need be string
+    with pytest.raises(TypeError, match="Name for OrderedDataGroup needs to"):
+        OrderedDataGroup(name=123)
+
     # Passing some containers
-    conts = [MutableSequenceContainer(name=i, data=list(range(i)))
+    conts = [MutableSequenceContainer(name=str(i), data=list(range(i)))
              for i in range(10)]
     dg2 = OrderedDataGroup(name="bar", containers=conts)
     
@@ -47,7 +51,7 @@ def test_ordered_data_group():
     assert root["subgroup"] is subgroup
 
     # Adding it again should fail
-    with pytest.raises(KeyError, match="A group or container with the name"):
+    with pytest.raises(ValueError, match="has a member with name 'subgroup'"):
         root.new_group("subgroup")
 
     # Should also work when explicitly giving the class
@@ -63,3 +67,25 @@ def test_ordered_data_group():
     with pytest.raises(TypeError,
                        match="Argument `Cls` needs to be a subclass"):
         root.new_group("foobar", Cls=MutableSequenceContainer)
+
+def test_group_creation():
+    """Tests whether groups and containers can be created as desired."""
+    root = OrderedDataGroup(name="root")
+
+    # Add a group by name and check it was added
+    foo = root.new_group("foo")
+    assert foo in root
+
+    # Add a container
+    msc = root.new_container("spam", Cls=MutableSequenceContainer,
+                             data=[1, 2, 3])
+    assert msc in root
+
+    # Now test adding groups by path
+    bar = root.new_group("foo/bar")
+    assert "foo/bar" in root
+    assert "bar" in foo
+
+    # Check that intermediate parts not existing leads to errors
+    with pytest.raises(KeyError, match="Could not create OrderedDataGroup at"):
+        root.new_group("some/longer/path")
