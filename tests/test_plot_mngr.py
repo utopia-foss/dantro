@@ -180,7 +180,9 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
     assert pm.plot_info[-1]['plot_cfg_path'] is None
 
 
-    # Test plotting from file path works
+def test_plotting_from_file_path(dm, pm_kwargs):
+    """Test plotting from file path works"""
+    pm = PlotManager(dm=dm, plots_cfg=PLOTS_EXT, **pm_kwargs)
     pm.plot_from_cfg(plots_cfg=PLOTS_EXT_PATH)
 
 
