@@ -575,11 +575,16 @@ class PlotManager:
             
             # ...and loop over all points:
             for cfg, state_no, state_vector in it:
+                # Handle the file extension parameter; it might come from the
+                # given configuration and then needs to be popped such that it
+                # is not propagated to the plot creator.
+                _file_ext = cfg.pop('file_ext', file_ext)
+
                 # Generate the output path
                 out_path = self._parse_out_path(plot_creator,
                                                 name=name,
                                                 out_dir=out_dir,
-                                                file_ext=file_ext,
+                                                file_ext=_file_ext,
                                                 state_no=state_no,
                                                 state_no_max=psp_vol-1,
                                                 state_vector=state_vector,

@@ -18,9 +18,11 @@ from dantro.plot_mngr import PlotManager, PlottingError, PlotConfigError, PlotCr
 # Local constants .............................................................
 # Paths
 PLOTS_EXT_PATH = resource_filename("tests", "cfg/plots_ext.yml")
+PLOTS_EXT2_PATH = resource_filename("tests", "cfg/plots_ext2.yml")
 
 # Configurations
 PLOTS_EXT = load_yml(PLOTS_EXT_PATH)
+PLOTS_EXT2 = load_yml(PLOTS_EXT2_PATH)
 # PLOTS_DECL = load_yml(resource_filename("tests", "cfg/plots_decl.yml"))
 # PLOTS_VEGA = load_yml(resource_filename("tests", "cfg/plots_vega.yml"))
 
@@ -70,7 +72,9 @@ def pm_kwargs(tmpdir) -> dict:
     cik = dict(external=dict(default_ext="pdf",
                              base_module_file_dir=str(tmpdir)))
 
-    return dict(default_creator="external", creator_init_kwargs=cik)
+    return dict(raise_exc=True,
+                default_creator="external",
+                creator_init_kwargs=cik)
 
 @pytest.fixture
 def pcr_ext_kwargs() -> dict:
@@ -228,8 +232,7 @@ def test_sweep(dm, pm_kwargs, pspace_plots):
         # None of them should have a plot config saved
         assert pi['plot_cfg_path'] is None
 
-
-def test_file_ext(dm, pm_kwargs):
+def test_file_ext(dm, pm_kwargs, pcr_ext_kwargs):
     """Check file extension handling"""
     # Without given default extension
     PlotManager(dm=dm, plots_cfg=PLOTS_EXT, out_dir="no1/",
@@ -250,6 +253,9 @@ def test_file_ext(dm, pm_kwargs):
     PlotManager(dm=dm, plots_cfg=PLOTS_EXT, out_dir="no4/",
                 **pm_kwargs).plot_from_cfg()
 
+    # Test sweeping with file_ext parameter set (needs to be popped)
+    pm = PlotManager(dm=dm, plots_cfg=PLOTS_EXT2_PATH, **pm_kwargs)
+    pm.plot_from_cfg(plot_only=["with_file_ext"])
 
 def test_raise_exc(dm, pm_kwargs):
     """Tests that the `raise_exc` argument behaves as desired"""
@@ -260,10 +266,10 @@ def test_raise_exc(dm, pm_kwargs):
         PlotManager(dm=dm, raise_exc=True).plot_from_cfg()
 
 
-    # Test calls to the plot creators
-    pm_log = PlotManager(dm=dm, raise_exc=False, **pm_kwargs)
-    pm_exc = PlotManager(dm=dm, raise_exc=True, **pm_kwargs)
-
+    # Test calls to the plot creators with and without raise_exc
+    pm_exc = PlotManager(dm=dm, **pm_kwargs)
+    pm_log = PlotManager(dm=dm, **pm_kwargs)
+    pm_log.raise_exc = False  # NOTE deactivating this way more convenient
 
     # This should only log
     pm_log.plot(name="logs",
