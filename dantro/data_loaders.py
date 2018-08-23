@@ -87,9 +87,14 @@ class YamlLoaderMixin:
 
 class Hdf5LoaderMixin:
     """Supplies functionality to load hdf5 files into the data manager.
-
+    
     It resolves the hdf5 groups into corresponding data groups and the datasets
     into NumpyDataContainers.
+
+    If `enable_mapping` is set, the _HDF5_DSET_MAP and _HDF5_GROUP_MAP class
+    variables are used to map from a string to a container type. The class
+    variable _HDF5_MAP_FROM_ATTR determines the default value of the attribute
+    to read and use as input string for the mapping. 
     """
 
     # Define the container classes to use when loading data with this mixin
@@ -106,7 +111,7 @@ class Hdf5LoaderMixin:
     _HDF5_MAP_FROM_ATTR = None
 
     @add_loader(TargetCls=OrderedDataGroup, omit_self=False)
-    def _load_hdf5(self, filepath: str, *, TargetCls, load_as_proxy: bool=False, lower_case_keys: bool=False, enable_mapping: bool=True, map_from_attr: str=None, print_params: dict=None) -> OrderedDataGroup:
+    def _load_hdf5(self, filepath: str, *, TargetCls, load_as_proxy: bool=False, lower_case_keys: bool=False, enable_mapping: bool=False, map_from_attr: str=None, print_params: dict=None) -> OrderedDataGroup:
         """Loads the specified hdf5 file into DataGroup and DataContainer-like
         object; this completely recreates the hierarchic structure of the hdf5
         file. The data can be loaded into memory completely, or be loaded as
@@ -131,8 +136,8 @@ class Hdf5LoaderMixin:
                 lower case
             enable_mapping (bool, optional): If true, will use the class
                 variables _HDF5_GROUP_MAP and _HDF5_DSET_MAP to map groups or
-                datasets that have an attribute `container_type` to a custom
-                container class during loading.
+                datasets to a custom container class during loading. Which
+                attribute to read is determined by the `map_from_attr` argument
             map_from_attr (str, optional): From which attribute to read the
                 key that is used in the mapping. If nothing is given, the
                 class variable _HDF5_MAP_FROM_ATTR is used.
@@ -144,6 +149,11 @@ class Hdf5LoaderMixin:
         
         Returns:
             OrderedDataGroup: The root level, corresponding to the file
+        
+        Raises:
+            ValueError: If `enable_mapping`, but no map attribute can be
+                determined from the given argument or the class variable
+                _HDF5_MAP_FROM_ATTR
         """
         
 

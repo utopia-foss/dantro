@@ -539,7 +539,7 @@ def test_hdf5_loader_basics(hdf5_dm):
 def test_hdf5_proxy_loader(hdf5_dm):
     """Tests whether proxy loading of hdf5 data works"""
     hdf5_dm.load('h5proxy', loader='hdf5_proxy', glob_str="**/*.h5",
-                 print_params=dict(level=2), enable_mapping=False)
+                 print_params=dict(level=2))
 
     h5data = hdf5_dm['h5proxy']
 
@@ -574,7 +574,8 @@ def test_hdf5_proxy_loader(hdf5_dm):
 
 def test_hdf5_mapping(hdf5_dm):
     """Tests whether container mapping works as desired"""
-    hdf5_dm.load('h5data', loader='hdf5', glob_str="**/*.h5")
+    hdf5_dm.load('h5data', loader='hdf5', glob_str="**/*.h5",
+                 enable_mapping=True)
 
     # Test that the mapping works
     assert 'h5data/mapping' in hdf5_dm
@@ -592,8 +593,9 @@ def test_hdf5_mapping(hdf5_dm):
     hdf5_dm._HDF5_MAP_FROM_ATTR = None
 
     with pytest.raises(ValueError, match="Could not determine from which"):
-        hdf5_dm.load('no_attr', loader='hdf5', glob_str="**/*.h5")
+        hdf5_dm.load('no_attr', loader='hdf5', glob_str="**/*.h5",
+                     enable_mapping=True)
 
     # Explicitly passing an attribute name should work though
     hdf5_dm.load('with_given_attr', loader='hdf5', glob_str="**/*.h5",
-                 map_from_attr='container_type')
+                 enable_mapping=True, map_from_attr='container_type')
