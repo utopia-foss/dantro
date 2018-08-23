@@ -97,10 +97,10 @@ class Hdf5LoaderMixin:
     _HDF5_DSET_DEFAULT_CLS = NumpyDataContainer
 
     # The mapping of types to data groups
-    _HDF5_GROUP_MAP = None
+    _HDF5_GROUP_MAP = dict()
 
     # The mapping of types to data containers
-    _HDF5_DSET_MAP = None
+    _HDF5_DSET_MAP = dict()
 
     # The name of the attribute to read for mapping
     _HDF5_MAP_ATTR = 'container_type'
