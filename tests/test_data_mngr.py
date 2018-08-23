@@ -47,7 +47,7 @@ class Hdf5DataManager(Hdf5LoaderMixin, DataManager):
     _HDF5_DSET_DEFAULT_CLS = NumpyTestDC
     _HDF5_DSET_MAP = dict(dummy=DummyDC)
     _HDF5_GROUP_MAP = dict(dummy=DummyGroup)
-    _HDF5_MAP_ATTR = 'container_type'
+    _HDF5_MAP_FROM_ATTR = 'container_type'
 
 # Fixtures --------------------------------------------------------------------
 
@@ -509,7 +509,7 @@ def test_target_path(dm):
 
 # Hdf5LoaderMixin tests -------------------------------------------------------
 
-def test_hdf5_loader(hdf5_dm):
+def test_hdf5_loader_basics(hdf5_dm):
     """Test whether loading of hdf5 data works as desired"""
     hdf5_dm.load('h5data', loader='hdf5', glob_str="**/*.h5",
                  lower_case_keys=True)
@@ -535,19 +535,6 @@ def test_hdf5_loader(hdf5_dm):
 
     # Test that nested loading worked
     assert 'h5data/nested/group1/group11/group111/dset' in hdf5_dm
-
-    # Test that the mapping works
-    assert 'h5data/mapping' in hdf5_dm
-    mp = hdf5_dm['h5data/mapping']
-
-    # Correct mapping should have yielded the custom types
-    assert isinstance(mp['dummy_dset'], DummyDC)
-    assert isinstance(mp['dummy_group'], DummyGroup)
-
-    # Incorrect mapping should have loaded and yielded default types
-    assert isinstance(mp['badmap_dset'], NumpyTestDC)
-    assert isinstance(mp['badmap_group'], OrderedDataGroup)
-
 
 def test_hdf5_proxy_loader(hdf5_dm):
     """Tests whether proxy loading of hdf5 data works"""
@@ -584,3 +571,29 @@ def test_hdf5_proxy_loader(hdf5_dm):
     assert isinstance(h5data['nested/group1/group11/group111/dset'].data,
                       np.ndarray)
     assert h5data['nested/group1/group11/group111/dset'].data_is_proxy is False
+
+def test_hdf5_mapping(hdf5_dm):
+    """Tests whether container mapping works as desired"""
+    hdf5_dm.load('h5data', loader='hdf5', glob_str="**/*.h5")
+
+    # Test that the mapping works
+    assert 'h5data/mapping' in hdf5_dm
+    mp = hdf5_dm['h5data/mapping']
+
+    # Correct mapping should have yielded the custom types
+    assert isinstance(mp['dummy_dset'], DummyDC)
+    assert isinstance(mp['dummy_group'], DummyGroup)
+
+    # Incorrect mapping should have loaded and yielded default types
+    assert isinstance(mp['badmap_dset'], NumpyTestDC)
+    assert isinstance(mp['badmap_group'], OrderedDataGroup)
+
+    # With bad values for which attribute to use, this should fail
+    hdf5_dm._HDF5_MAP_FROM_ATTR = None
+
+    with pytest.raises(ValueError, match="Could not determine from which"):
+        hdf5_dm.load('no_attr', loader='hdf5', glob_str="**/*.h5")
+
+    # Explicitly passing an attribute name should work though
+    hdf5_dm.load('with_given_attr', loader='hdf5', glob_str="**/*.h5",
+                 map_from_attr='container_type')

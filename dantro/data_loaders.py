@@ -103,10 +103,10 @@ class Hdf5LoaderMixin:
     _HDF5_DSET_MAP = None
 
     # The name of the attribute to read for mapping
-    _HDF5_MAP_ATTR = 'container_type'
+    _HDF5_MAP_FROM_ATTR = None
 
     @add_loader(TargetCls=OrderedDataGroup, omit_self=False)
-    def _load_hdf5(self, filepath: str, *, TargetCls, load_as_proxy: bool=False, lower_case_keys: bool=False, enable_mapping: bool=True, print_params: dict=None) -> OrderedDataGroup:
+    def _load_hdf5(self, filepath: str, *, TargetCls, load_as_proxy: bool=False, lower_case_keys: bool=False, enable_mapping: bool=True, map_from_attr: str=None, print_params: dict=None) -> OrderedDataGroup:
         """Loads the specified hdf5 file into DataGroup and DataContainer-like
         object; this completely recreates the hierarchic structure of the hdf5
         file. The data can be loaded into memory completely, or be loaded as
@@ -133,6 +133,9 @@ class Hdf5LoaderMixin:
                 variables _HDF5_GROUP_MAP and _HDF5_DSET_MAP to map groups or
                 datasets that have an attribute `container_type` to a custom
                 container class during loading.
+            map_from_attr (str, optional): From which attribute to read the
+                key that is used in the mapping. If nothing is given, the
+                class variable _HDF5_MAP_FROM_ATTR is used.
             print_params (dict, optional): parameters for the status report
                 level: how verbose to print loading info; possible values are:
                     0: None, 1: on file level, 2: on dataset level
@@ -262,6 +265,22 @@ class Hdf5LoaderMixin:
         DsetCls = self._HDF5_DSET_DEFAULT_CLS
         GroupCls = type(root)
 
+        # Determine from which attribute to read the mapping
+        if not map_from_attr:
+            # No custom value was given; use the class variable, if available
+            if self._HDF5_MAP_FROM_ATTR:
+                map_from_attr = self._HDF5_MAP_FROM_ATTR
+
+            elif enable_mapping:
+                # Mapping was enabled but it is unclear from which attribute
+                # the map should be read. Need to raise an exception
+                raise ValueError("Could not determine from which attribute "
+                                 "to read the mapping. Either set the loader "
+                                 "argument `map_from_attr`, the class "
+                                 "variable _HDF5_MAP_FROM_ATTR, or disable "
+                                 "mapping altogether via the `enable_mapping` "
+                                 "argument.")
+
         # Now recursively go through the hdf5 file and add them to the roo
         with h5.File(filepath, 'r') as h5file:
             if plvl >= 1:
@@ -280,7 +299,7 @@ class Hdf5LoaderMixin:
                                   GroupCls=GroupCls, DsetCls=DsetCls,
                                   GroupMap=self._HDF5_GROUP_MAP,
                                   DsetMap=self._HDF5_DSET_MAP,
-                                  map_attr=self._HDF5_MAP_ATTR)
+                                  map_attr=map_from_attr)
 
         return root
 
