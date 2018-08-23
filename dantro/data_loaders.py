@@ -97,10 +97,10 @@ class Hdf5LoaderMixin:
     _HDF5_DSET_DEFAULT_CLS = NumpyDataContainer
 
     # The mapping of types to data groups
-    _HDF5_GROUP_MAP = dict()
+    _HDF5_GROUP_MAP = None
 
     # The mapping of types to data containers
-    _HDF5_DSET_MAP = dict()
+    _HDF5_DSET_MAP = None
 
     # The name of the attribute to read for mapping
     _HDF5_MAP_ATTR = 'container_type'
@@ -164,7 +164,7 @@ class Hdf5LoaderMixin:
                     attrs = {k:v for k, v in obj.attrs.items()}
 
                     # Determine the class to use for this group
-                    if enable_mapping and attrs.get(map_attr):
+                    if enable_mapping and GroupMap and attrs.get(map_attr):
                         # Try to resolve the mapping
                         try:
                             _GroupCls = GroupMap[attrs[map_attr]]
@@ -217,7 +217,7 @@ class Hdf5LoaderMixin:
                     attrs = {k:v for k, v in obj.attrs.items()}
 
                     # Determine the class to use for this dataset
-                    if enable_mapping and attrs.get(map_attr):
+                    if enable_mapping and DsetMap and attrs.get(map_attr):
                         # Try to resolve the mapping
                         try:
                             _DsetCls = DsetMap[attrs[map_attr]]
