@@ -1,4 +1,4 @@
-"""Test the DataManager"""
+"""Test the DataManager class and the loader functions"""
 
 import os
 import pkg_resources
@@ -33,10 +33,21 @@ class NumpyTestDC(Hdf5ProxyMixin, NumpyDataContainer):
     """A data container class that provides numpy proxy access"""
     pass
 
+class DummyDC(NumpyDataContainer):
+    """A data container class for testing the _HDF5_DSET_MAP"""
+    pass
+
+class DummyGroup(OrderedDataGroup):
+    """A data container class for testing the _HDF5_GROUP_MAP"""
+    pass
+
 class Hdf5DataManager(Hdf5LoaderMixin, DataManager):
     """A DataManager-derived class to test the Hdf5LoaderMixin class"""
-    # Define the class to use for loading the datasets
+    # Define the class to use for loading the datasets and the mappings
     _HDF5_DSET_DEFAULT_CLS = NumpyTestDC
+    _HDF5_DSET_MAP = dict(dummy=DummyDC)
+    _HDF5_GROUP_MAP = dict(dummy=DummyGroup)
+    _HDF5_MAP_FROM_ATTR = 'container_type'
 
 # Fixtures --------------------------------------------------------------------
 
@@ -84,18 +95,22 @@ def hdf5_dm(data_dir) -> Hdf5DataManager:
     # Create a subdirectory for that data
     h5dir = data_dir.mkdir("hdf5_data")
 
-    # Write some basics: a dataset, a group, an attribute
+    # --- Create a file with basic structures: dataset, group, attribute ---
     basic = h5.File(h5dir.join("basic.h5"))
+
     basic.create_dataset("float_dset", data=np.zeros((2,3,4), dtype=float))
     basic.create_dataset("int_dset", data=np.ones((1,2,3), dtype=int))
     basic.create_group("group")
+    basic.create_group("UpperCaseGroup")
     basic.attrs['foo'] = "file level attribute"
     basic['group'].attrs['foo'] = "group level attribute"
     basic['int_dset'].attrs['foo'] = "dset level attribute"
+
     basic.close()
 
-    # Write nested groups
+    # --- Create a file with nested groups ---
     nested = h5.File(h5dir.join("nested.h5"))
+
     nested.create_group('group1')
     nested.create_group('group2')
     nested['group1'].create_group('group11')
@@ -104,8 +119,25 @@ def hdf5_dm(data_dir) -> Hdf5DataManager:
     nested['group2'].create_group('group22')
     nested['group1']['group11'].create_group('group111')
     nested['group1']['group11']['group111'].create_dataset('dset', data=np.random.random(size=(3,4,5)))
+
     nested.close()
 
+    # --- Create a file to test mapping ---
+    mapping = h5.File(h5dir.join("mapping.h5"))
+    
+    mapping.create_group('dummy_group')
+    mapping['dummy_group'].attrs['container_type'] = 'dummy'
+    mapping.create_dataset('dummy_dset', data=np.zeros((1,2)))
+    mapping['dummy_dset'].attrs['container_type'] = 'dummy'
+    
+    mapping.create_group('badmap_group')
+    mapping['badmap_group'].attrs['container_type'] = 'badmap'
+    mapping.create_dataset('badmap_dset', data=np.zeros((1,2)))
+    mapping['badmap_dset'].attrs['container_type'] = 'badmap'
+
+    mapping.close()
+    
+    # Instantiate a data manager for this directory
     return Hdf5DataManager(data_dir, out_dir=None)
 
 # General tests ---------------------------------------------------------------
@@ -477,9 +509,10 @@ def test_target_path(dm):
 
 # Hdf5LoaderMixin tests -------------------------------------------------------
 
-def test_hdf5_loader(hdf5_dm):
+def test_hdf5_loader_basics(hdf5_dm):
     """Test whether loading of hdf5 data works as desired"""
-    hdf5_dm.load('h5data', loader='hdf5', glob_str="**/*.h5")
+    hdf5_dm.load('h5data', loader='hdf5', glob_str="**/*.h5",
+                 lower_case_keys=True)
 
     # Test that both files were loaded
     assert 'h5data/basic' in hdf5_dm
@@ -497,9 +530,11 @@ def test_hdf5_loader(hdf5_dm):
     assert 'foo' in hdf5_dm['h5data/basic/int_dset'].attrs
     assert 'foo' in hdf5_dm['h5data/basic/group'].attrs
 
+    # Test that keys were converted to lower case
+    assert 'uppercasegroup' in hdf5_dm['h5data/basic']
+
     # Test that nested loading worked
     assert 'h5data/nested/group1/group11/group111/dset' in hdf5_dm
-
 
 def test_hdf5_proxy_loader(hdf5_dm):
     """Tests whether proxy loading of hdf5 data works"""
@@ -536,3 +571,31 @@ def test_hdf5_proxy_loader(hdf5_dm):
     assert isinstance(h5data['nested/group1/group11/group111/dset'].data,
                       np.ndarray)
     assert h5data['nested/group1/group11/group111/dset'].data_is_proxy is False
+
+def test_hdf5_mapping(hdf5_dm):
+    """Tests whether container mapping works as desired"""
+    hdf5_dm.load('h5data', loader='hdf5', glob_str="**/*.h5",
+                 enable_mapping=True)
+
+    # Test that the mapping works
+    assert 'h5data/mapping' in hdf5_dm
+    mp = hdf5_dm['h5data/mapping']
+
+    # Correct mapping should have yielded the custom types
+    assert isinstance(mp['dummy_dset'], DummyDC)
+    assert isinstance(mp['dummy_group'], DummyGroup)
+
+    # Incorrect mapping should have loaded and yielded default types
+    assert isinstance(mp['badmap_dset'], NumpyTestDC)
+    assert isinstance(mp['badmap_group'], OrderedDataGroup)
+
+    # With bad values for which attribute to use, this should fail
+    hdf5_dm._HDF5_MAP_FROM_ATTR = None
+
+    with pytest.raises(ValueError, match="Could not determine from which"):
+        hdf5_dm.load('no_attr', loader='hdf5', glob_str="**/*.h5",
+                     enable_mapping=True)
+
+    # Explicitly passing an attribute name should work though
+    hdf5_dm.load('with_given_attr', loader='hdf5', glob_str="**/*.h5",
+                 enable_mapping=True, map_from_attr='container_type')
