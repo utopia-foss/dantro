@@ -266,7 +266,7 @@ class Hdf5LoaderMixin:
         fstr1 = print_params.get('fstr1', "  Loading {name:} ... ")
         fstr2 = print_params.get('fstr2', "  Loading {name:} - {key:} ...")
 
-        # Initialise the root group
+        # Initialize the root group
         log.debug("Loading hdf5 file %s into %s ...",
                   filepath, TargetCls.__name__)
         root = TargetCls()

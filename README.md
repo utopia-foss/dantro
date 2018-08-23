@@ -1,6 +1,6 @@
 # dantro
 
-The `dantro` package — from *data* and *dentro* (gr., for tree) – is a Python package to work with hierarchically organised data.
+The `dantro` package — from *data* and *dentro* (gr., for tree) – is a Python package to work with hierarchically organized data.
 It allows loading possibly heterogeneous data into a tree-like structure that can be conveniently handled for data manipulation, analysis, plotting, ... you name it.
 
 It emerged as an abstraction of the [`deval`](https://ts-gitlab.iup.uni-heidelberg.de/yunus/deval) package and focusses on the loading of data and supplying convenient classes to work with.
@@ -25,7 +25,7 @@ While being developed alongside the [Utopia project](https://ts-gitlab.iup.uni-h
 * the ways to process data,
 * or the ways to plot data.
 
-A common approach is to just use the package to strictly define a common interface and outsource all specialisations to the projects that need to use it.
+A common approach is to just use the package to strictly define a common interface and outsource all specializations to the projects that need to use it.
 However, this can result in needing to write (and re-write!) a lot of code outside of this package, which can become hard to maintain.
 
 In order to avoid this, `dantro` not only supplies an interface, but also provides classes that can be easily customised to fit the needs of a certain use case.
@@ -44,7 +44,7 @@ class MyDataManager(YamlLoaderMixin, DataManager):
     pass  # Done here. Nothing else to do.
 ```
 
-This concept is extended also to ways how `DataContainer` classes can be specialised.
+This concept is extended also to ways how `DataContainer` classes can be specialized.
 
 ### Modules
 Before diving deeper, an overview over all `dantro` modules:
@@ -223,7 +223,7 @@ dm.load("some_data",       # where to load the data to
 ```
 
 #### Using a pre-defined load configuration
-For a known structure of output data, it makes sense to pre-define the configuration somewhere. It can then be passed to the `DataManager` during initialisation.
+For a known structure of output data, it makes sense to pre-define the configuration somewhere. It can then be passed to the `DataManager` during initialization.
 
 Again, an example from `utopya`:
 ```yaml
@@ -304,7 +304,7 @@ A brief usage example:
 dm = DataManager(data_dir="/path/to/the/data/to/plot", load_cfg=load_cfg)
 dm.load_from_cfg()
 
-# Initialise a plot manager and provide it with that data manager
+# Initialize a plot manager and provide it with that data manager
 pm = PlotManager(dm=dm)
 
 # Perform a single plot:
@@ -314,9 +314,9 @@ pm.plot("my_plot",            # name of the plot
         module=".basic", plot_func="lineplot", y="vectors/values")
 ```
 
-Like the `DataManager`, the `PlotManager` also provides a `plot_from_cfg` method, which allows passing a pre-existing configuration to generate multiple plotss.
+Like the `DataManager`, the `PlotManager` also provides a `plot_from_cfg` method, which allows passing a pre-existing configuration to generate multiple plots.
 
-This is illustrated with examples using the `ExternalPlotCreator`. This is a class that makes it easy to use external scripts to create plots.
+This is illustrated with examples using the `ExternalPlotCreator`, a class that makes it easy to use external scripts to create plots.
 Multiple ways of loading a plotting function are supplied:
 * It allows importing external scripts that receive a `DataManager` and an `out_path` as arguments.
 * All other arguments of the configuration are passed along

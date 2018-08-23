@@ -100,7 +100,7 @@ def pspace_plots() -> dict:
 
 def test_init(dm, tmpdir):
     """Tests initialisation"""
-    # Test different ways to initialise
+    # Test different ways to initialize
     # Only with DataManager; will then later have to pass configuration
     PlotManager(dm=dm)
 

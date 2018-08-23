@@ -32,7 +32,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def __init__(self, *, name: str, data):
-        """Initialise the AbstractDataContainer, which holds the bare essentials of what a data container should have.
+        """Initialize the AbstractDataContainer, which holds the bare essentials of what a data container should have.
         
         Args:
             name (str): The name of this container
@@ -57,7 +57,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
         # Caching variables
         self._logstr = None
 
-        log.debug("Initialising %s ...", self.logstr)
+        log.debug("Initializing %s ...", self.logstr)
 
     # .........................................................................
     # Properties
@@ -236,7 +236,7 @@ class AbstractDataProxy(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def __init__(self, obj):
-        """Initialise the proxy object, being supplied with the object that
+        """Initialize the proxy object, being supplied with the object that
         this proxy is to be proxy for.
         """
 
@@ -277,7 +277,7 @@ class AbstractPlotCreator(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def __init__(self, name: str, *, dm, **plot_cfg):
-        """Initialise the PlotCreator, given a data manager, the plot name, and
+        """Initialize the PlotCreator, given a data manager, the plot name, and
         the default plot configuration.
         """
 

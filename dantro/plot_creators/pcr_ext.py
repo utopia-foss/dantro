@@ -28,7 +28,7 @@ class ExternalPlotCreator(BasePlotCreator):
     # .........................................................................
 
     def __init__(self, name: str, *, base_module_file_dir: str=None, **parent_kwargs):
-        """Initialise an ExternalPlotCreator.
+        """Initialize an ExternalPlotCreator.
         
         Args:
             name (str): The name of this plot
@@ -153,7 +153,7 @@ class ExternalPlotCreator(BasePlotCreator):
         if not os.path.isabs(path):
             if not self.base_module_file_dir:
                 raise ValueError("Need to specify `base_module_file_dir` "
-                                 "during initialisation to use relative paths "
+                                 "during initialization to use relative paths "
                                  "for `module_file` argument!")
 
             path = os.path.join(self.base_module_file_dir, path)

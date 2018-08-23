@@ -18,7 +18,7 @@ class OrderedDataGroup(BaseDataGroup, collections.abc.MutableMapping):
     """
     
     def __init__(self, *, name: str, containers: list=None, **kwargs):
-        """Initialise a OrderedDataGroup from the list of given containers.
+        """Initialize a OrderedDataGroup from the list of given containers.
         
         Args:
             name (str): The name of this group
@@ -28,7 +28,7 @@ class OrderedDataGroup(BaseDataGroup, collections.abc.MutableMapping):
 
         log.debug("OrderedDataGroup.__init__ called.")
 
-        # Initialise with parent method, which will call .add(*containers)
+        # Initialize with parent method, which will call .add(*containers)
         super().__init__(name=name, containers=containers,
                          StorageCls=collections.OrderedDict, **kwargs)
 
