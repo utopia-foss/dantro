@@ -304,7 +304,7 @@ A brief usage example:
 dm = DataManager(data_dir="/path/to/the/data/to/plot", load_cfg=load_cfg)
 dm.load_from_cfg()
 
-# Initialise a plot manager and provide it with that data manager
+# Initialize a plot manager and provide it with that data manager
 pm = PlotManager(dm=dm)
 
 # Perform a single plot:

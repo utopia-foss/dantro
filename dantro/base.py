@@ -35,7 +35,7 @@ class UnexpectedTypeWarning(UserWarning):
 class AttrsMixin:
     """This Mixin class supplies the `attrs` property getter and setter and the private `_attrs` attribute.
 
-    Hereby, the setter function will initialise a BaseDataAttrs-derived object
+    Hereby, the setter function will initialize a BaseDataAttrs-derived object
     and store it as an attribute.
     This relays the checking of the correct attribute format to the actual
     BaseDataAttrs-derived class.
@@ -233,7 +233,7 @@ class CheckDataMixin:
             raise TypeError(msg)
 
         elif self.DATA_UNEXPECTED_ACTION == 'warn':
-            warnings.warn(msg + "\nInitialisation will work, but be informed "
+            warnings.warn(msg + "\nInitialization will work, but be informed "
                           "that there might be errors at runtime.",
                           UnexpectedTypeWarning)
         
@@ -262,7 +262,7 @@ class BaseDataProxy(dantro.abc.AbstractDataProxy):
 
     @abc.abstractmethod
     def __init__(self, obj):
-        """Initialise a proxy object for the given object."""
+        """Initialize a proxy object for the given object."""
         super().__init__(obj)
         log.debug("Initialising %s for %s ...", self.classname, type(obj))
 
@@ -280,13 +280,13 @@ class BaseDataAttrs(MappingAccessMixin, dantro.abc.AbstractDataAttrs):
     """
 
     def __init__(self, attrs: dict=None, **dc_kwargs):
-        """Initialise a DataAttributes object.
+        """Initialize a DataAttributes object.
         
         Args:
             attrs (dict, optional): The attributes to store
             **dc_kwargs: Further kwargs to the parent DataContainer
         """
-        # Make sure it is a dict; initialise empty if empty
+        # Make sure it is a dict; initialize empty if empty
         attrs = dict(attrs) if attrs else {}
 
         # Store them via the parent method.
@@ -313,7 +313,7 @@ class BaseDataContainer(PathMixin, AttrsMixin, dantro.abc.AbstractDataContainer)
 
     @abc.abstractmethod
     def __init__(self, *, name: str, data, attrs=None):
-        """Initialise a BaseDataContainer, which can store data and attributes.
+        """Initialize a BaseDataContainer, which can store data and attributes.
         
         Args:
             name (str): The name of this data container
@@ -375,7 +375,7 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
     """
 
     def __init__(self, *, name: str, containers: list=None, attrs=None, StorageCls=dict):
-        """Initialise a BaseDataGroup, which can store other containers and attributes.
+        """Initialize a BaseDataGroup, which can store other containers and attributes.
         
         Args:
             name (str): The name of this data container

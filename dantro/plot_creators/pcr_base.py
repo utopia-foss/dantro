@@ -66,7 +66,7 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
         self._dm = dm
         self._plot_cfg = plot_cfg
 
-        # Initialise property-managed attributes
+        # Initialize property-managed attributes
         self._logstr = None
         self._default_ext = None
 
@@ -86,7 +86,7 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
                              "".format(self.logstr, default_ext,
                                        self.DEFAULT_EXT))
 
-        log.debug("%s initialised.", self.logstr)
+        log.debug("%s initialized.", self.logstr)
 
     # .........................................................................
     # Properties

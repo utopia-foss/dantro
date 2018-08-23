@@ -89,7 +89,7 @@ class PlotManager:
                 Available keys for `path`: `name`, `date`, `ext`
                 Additionally, for `sweep`: `state_no`, `state_vector`, `state`
             creator_init_kwargs (Dict[str, dict], optional): If given, these
-                kwargs are passed to the initialisation calls of the respective
+                kwargs are passed to the initialization calls of the respective
                 creator classes.
             default_creator (str, optional): If given, a plot without explicit
                 `creator` declaration will use this creator as default.
@@ -104,7 +104,7 @@ class PlotManager:
         """
         # TODO consider making it possible to pass classes for plot creators
 
-        # Initialise attributes and store arguments
+        # Initialize attributes and store arguments
         self._plot_info = []
 
         # Public
@@ -140,7 +140,7 @@ class PlotManager:
                                            [k for k in self.CREATORS.keys()]))
         self._default_creator = default_creator
 
-        log.debug("%s initialised.", self.__class__.__name__)
+        log.debug("%s initialized.", self.__class__.__name__)
 
     # .........................................................................
     # Properties
@@ -360,21 +360,21 @@ class PlotManager:
 
     def plot_from_cfg(self, *, plots_cfg: Union[dict, str]=None, plot_only: List[str]=None, out_dir: str=None, **update_plots_cfg) -> None:
         """Create multiple plots from a configuration, either a given one or
-        the one passed during initialisation.
+        the one passed during initialization.
         
         This is mostly a wrapper around the plot function, allowing additional
         ways of how to configure and create plots.
         
         Args:
             plots_cfg (dict, optional): The plots configuration to use. If not
-                given, the one specified during initialisation is used. If a
+                given, the one specified during initialization is used. If a
                 string is given, will assume it is a path and load the file.
             plot_only (List[str], optional): If given, create only those plots
                 from the resulting configuration that match these names. This
                 will lead to the `enabled` key being ignored, regardless of its
                 value.
             out_dir (str, optional): A different output directory; will use the
-                one passed at initialisation if the given argument evaluates to
+                one passed at initialization if the given argument evaluates to
                 False.
             **update_plots_cfg: If given, it is used to update the plots_cfg
                 recursively. Note that on the top level the _names_ of the
@@ -388,7 +388,7 @@ class PlotManager:
         if not plots_cfg:
             if not self._plots_cfg and not update_plots_cfg:
                 e_msg = ("Got empty `plots_cfg` and `plots_cfg` given at "
-                         "initialisation was also empty. Nothing to plot.")
+                         "initialization was also empty. Nothing to plot.")
 
                 if self.raise_exc:
                     raise PlotConfigError(e_msg)
@@ -397,7 +397,7 @@ class PlotManager:
                 return
 
             log.debug("No new plots configuration given; will use plots "
-                      "configuration given at initialisation.")
+                      "configuration given at initialization.")
             plots_cfg = self._plots_cfg
 
         elif isinstance(plots_cfg, str):
@@ -481,16 +481,16 @@ class PlotManager:
             name (str): The name of this plot
             creator (str, optional): The name of the creator to use. Has to be
                 part of the CREATORS class variable. If not given, the argument
-                `default_creator` given at initialisation will be used.
+                `default_creator` given at initialization will be used.
             out_dir (str, optional): If given, will use this directory as out
                 directory. If not, will use the default value given at
-                initialisation.
+                initialization.
             file_ext (str, optional): The file extension to use, including the
                 leading dot!
             from_pspace (ParamSpace, optional): If given, execute a parameter
                 sweep over these parameters, re-using the same creator instance
             save_plot_cfg (bool, optional): Whether to save the plot config.
-                If not given, uses the default value from initialisation.
+                If not given, uses the default value from initialization.
             **plot_cfg: The plot configuration to pass on to the plot creator.
         
         Returns:
@@ -507,7 +507,7 @@ class PlotManager:
         if not out_dir:
             if not self._out_dir:
                 raise PlotConfigError("No `out_dir` specified here and at "
-                                      "initialisation; cannot perform plot.")
+                                      "initialization; cannot perform plot.")
 
             out_dir = self._out_dir
 
@@ -516,7 +516,7 @@ class PlotManager:
             if not self._default_creator:
                 raise InvalidCreator("No `creator` argument given and no "
                                      "`default_creator` specified during "
-                                     "initialisation; cannot perform plot!")
+                                     "initialization; cannot perform plot!")
 
             creator = self._default_creator
 
@@ -524,7 +524,7 @@ class PlotManager:
         if save_plot_cfg is None:
             save_plot_cfg = self.save_plot_cfg
 
-        # Instantiate the creator class, also passing initialisation kwargs
+        # Instantiate the creator class, also passing initialization kwargs
         init_kwargs = self._cckwargs.get(creator, {})
         plot_creator = self.CREATORS[creator](name=name, dm=self._dm,
                                               **init_kwargs)

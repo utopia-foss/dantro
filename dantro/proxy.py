@@ -21,7 +21,7 @@ class Hdf5DataProxy(BaseDataProxy):
     """
 
     def __init__(self, obj: h5.Dataset):
-        """Initialises a proxy object for Hdf5 datasets.
+        """Initializes a proxy object for Hdf5 datasets.
         
         Args:
             obj (h5.Dataset): The dataset object to be proxy for

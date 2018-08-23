@@ -25,7 +25,7 @@ class MutableSequenceContainer(CheckDataMixin, ItemAccessMixin, CollectionMixin,
 
 
     def __init__(self, *, name: str, data, **dc_kwargs):
-        """Initialise a MutableSequenceContainer, storing data that is sequence-like.
+        """Initialize a MutableSequenceContainer, storing data that is sequence-like.
         
         Args:
             name (str): The name of this container
@@ -35,7 +35,7 @@ class MutableSequenceContainer(CheckDataMixin, ItemAccessMixin, CollectionMixin,
 
         log.debug("MutableSequenceContainer.__init__ called.")
 
-        # Initialise with parent method
+        # Initialize with parent method
         super().__init__(name=name, data=data, **dc_kwargs)
 
         # Done.
@@ -73,7 +73,7 @@ class MutableMappingContainer(CheckDataMixin, MappingAccessMixin, BaseDataContai
     DATA_UNEXPECTED_ACTION = 'warn'
 
     def __init__(self, *, name: str, data=None, **dc_kwargs):
-        """Initialise a MutableMappingContainer, storing mapping data.
+        """Initialize a MutableMappingContainer, storing mapping data.
         
         NOTE: There is no check if the given data is actually a mapping!
         
@@ -90,7 +90,7 @@ class MutableMappingContainer(CheckDataMixin, MappingAccessMixin, BaseDataContai
         if data is None:
             data = {}
 
-        # Initialise with parent method
+        # Initialize with parent method
         super().__init__(name=name, data=data, **dc_kwargs)
 
         # Done.

@@ -25,7 +25,7 @@ setup(name='dantro',
       long_description=("With dantro, hierarchical data can be loaded and "
                         "conveniently handled, preserving the tree-like "
                         "structure. It aims at being abstract enough to be "
-                        "used as a basis for more specialised data container "
+                        "used as a basis for more specialized data container "
                         "classes."),
       author="Yunus Sevinchan, Benjamin Herdeanu",
       author_email=("Yunus Sevinchan "

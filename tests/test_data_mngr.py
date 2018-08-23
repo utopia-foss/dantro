@@ -144,14 +144,14 @@ def hdf5_dm(data_dir) -> Hdf5DataManager:
 
 def test_init(data_dir):
     """Test the initialisation of a DataManager"""
-    # Initialise via path to yaml file
+    # Initialize via path to yaml file
     dm = DataManager(data_dir, out_dir=None, load_cfg=LOAD_CFG_PATH)
 
     # Assert that only the data directory is available
     assert dm.dirs['data'] == data_dir
     assert dm.dirs['out'] is False
 
-    # Initialise via dict and with default out dir
+    # Initialize via dict and with default out dir
     dm = DataManager(data_dir,
                      load_cfg=dict(test=dict(loader="yaml", glob_str="*.yml")))
 

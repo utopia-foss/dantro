@@ -71,10 +71,10 @@ class DataManager(OrderedDataGroup):
     _DATA_GROUP_CLASSES = None
 
     # .........................................................................
-    # Initialisation
+    # Initialization
 
     def __init__(self, data_dir: str, *, name: str=None, load_cfg: Union[dict, str]=None, out_dir: Union[str, bool]="_output/{date:}", create_groups: List[Union[str, dict]]=None):
-        """Initialises a DataManager object.
+        """Initializes a DataManager object.
         
         Args:
             data_dir (str): the directory the data can be found in. If this is
@@ -93,7 +93,7 @@ class DataManager(OrderedDataGroup):
                 the name of the data manager. If set to False, the output
                 directory is not created.
             create_groups (List[Union[str, dict]], optional): If given, these
-                groups will be created after initialisation. If the list
+                groups will be created after initialization. If the list
                 entries are strings, the default group class will be used; if
                 they are dicts, the `name` key specifies the name of the group
                 and the `Cls` key specifies the type. If a string is given
@@ -106,12 +106,12 @@ class DataManager(OrderedDataGroup):
             basename = os.path.basename(os.path.abspath(data_dir))
             name = "{}_Manager".format(basename.replace(" ", "_"))
         
-        log.info("Initialising %s '%s'...", self.classname, name)
+        log.info("Initializing %s '%s'...", self.classname, name)
 
-        # Initialise as a data group via parent class
+        # Initialize as a data group via parent class
         super().__init__(name=name)
 
-        # Initialise directories
+        # Initialize directories
         self.dirs = self._init_dirs(data_dir=data_dir, out_dir=out_dir)
 
         # If a specific value for the load configuration was given, store it
@@ -126,7 +126,7 @@ class DataManager(OrderedDataGroup):
 
         elif load_cfg:
             # Assume this is already a mapping and store it as the default
-            log.debug("Using the given %s as default load configuration.",
+            log.debug("Using the given %s as default load config.",
                       type(load_cfg))
             self.load_cfg = load_cfg
 
@@ -142,10 +142,10 @@ class DataManager(OrderedDataGroup):
                     self.new_group(spec)
 
         # Done
-        log.debug("%s initialised.", self.logstr)
+        log.debug("%s initialized.", self.logstr)
 
     def _init_dirs(self, *, data_dir: str, out_dir: Union[str, bool]) -> dict:
-        """Initialises the directories managed by this DataManager and returns
+        """Initializes the directories managed by this DataManager and returns
         a dictionary that stores the absolute paths to these directories.
         
         If they do not exist, they will be created.
@@ -236,7 +236,7 @@ class DataManager(OrderedDataGroup):
         
         Args:
             load_cfg (dict, optional): The load configuration to use. If not
-                given, the one specified during initialisation is used.
+                given, the one specified during initialization is used.
             update_load_cfg (dict, optional): If given, it is used to update
                 the load configuration recursively
             exists_action (str, optional): The behaviour upon existing data.
@@ -253,7 +253,7 @@ class DataManager(OrderedDataGroup):
         # Determine which load configuration to use
         if not load_cfg:
             log.debug("No new load configuration given; will use load "
-                      "configuration given at initialisation.")
+                      "configuration given at initialization.")
             load_cfg = self.load_cfg
 
         # Make sure to work on a copy, be it on the defaults or on the passed
