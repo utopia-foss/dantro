@@ -99,8 +99,6 @@ class DataManager(OrderedDataGroup):
                 and the `Cls` key specifies the type. If a string is given
                 instead of a type, the lookup happens from the
                 _DATA_GROUP_CLASSES variable.
-                NOTE that currently it is not possible to create _paths_, only
-                names.
         """
 
         # Find a name if none was given
