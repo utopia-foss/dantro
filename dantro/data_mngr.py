@@ -64,6 +64,9 @@ class DataManager(OrderedDataGroup):
     the data.
     """
 
+    # Use a base load configuration to start with
+    _BASE_LOAD_CFG = None
+
     # Define as class variable what should be the default group type
     _DATA_GROUP_DEFAULT_CLS = OrderedDataGroup
 
@@ -114,21 +117,20 @@ class DataManager(OrderedDataGroup):
         # Initialize directories
         self.dirs = self._init_dirs(data_dir=data_dir, out_dir=out_dir)
 
-        # If a specific value for the load configuration was given, store it
-        # and use it as the default for the `load_from_cfg` method
-        self.load_cfg = {}
+        # Start out with the default load configuration or, if not given, with
+        # an empty one
+        self.load_cfg = {} if not self._BASE_LOAD_CFG else self._BASE_LOAD_CFG
 
-        if load_cfg and isinstance(load_cfg, str):
+        # Resolve string arguments
+        if isinstance(load_cfg, str):
             # Assume this is the path to a configuration file and load it
             log.debug("Loading the default load config from a path:\n  %s",
                       load_cfg)
-            self.load_cfg = tools.load_yml(load_cfg)
+            load_cfg = tools.load_yml(load_cfg)
 
-        elif load_cfg:
-            # Assume this is already a mapping and store it as the default
-            log.debug("Using the given %s as default load config.",
-                      type(load_cfg))
-            self.load_cfg = load_cfg
+        # If given, use it to recursively update the base
+        if load_cfg:
+            self.load_cfg = tools.recursive_update(self.load_cfg, load_cfg)
 
         # Create groups, if the create_groups argument is given
         if create_groups:
