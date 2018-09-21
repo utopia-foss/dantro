@@ -303,7 +303,7 @@ class DataManager(OrderedDataGroup):
         if print_tree:
             print("{:tree}".format(self))
 
-    def load(self, entry_name: str, *, loader: str, glob_str: Union[str, List[str]], target_group: str=None, target_path: str=None, print_tree: bool=False, **load_params) -> None:
+    def load(self, entry_name: str, *, loader: str, glob_str: Union[str, List[str]], target_group: str=None, target_path: str=None, print_tree: bool=False, load_as_attr: bool=False, **load_params) -> None:
         """Performs a single load operation.
         
         Args:
@@ -323,6 +323,10 @@ class DataManager(OrderedDataGroup):
                 Available keys are: basename, match (if `path_regex` is given)
             print_tree (bool, optional): Whether to print the tree at the end
                 of the loading operation.
+            load_as_attr (bool, optional): If True, the loaded entry will be
+                added not as a new DataContainer or DataGroup, but as an
+                attribute to an (already existing) object at `target_path`.
+                The name of the attribute will be the `entry_name`.
             **load_params: Further loading parameters, all optional!
                 ignore (list): The exact file names in this list will be
                     ignored during loading. Paths are seen as elative to the
@@ -337,6 +341,7 @@ class DataManager(OrderedDataGroup):
                     overwrite_nowarn.
                     With *_nowarn values, no warning is given if an entry
                     already existed.
+                    Note that this is ignored when `load_as_attr` is given.
                 progress_indicator (bool): Whether to print a progress
                     indicator or not. Default: True
                 parallel (bool): If True, data is loaded in parallel.
@@ -345,6 +350,9 @@ class DataManager(OrderedDataGroup):
         
         Returns:
             None
+        
+        Raises:
+            ValueError: Description
         """
 
         def glob_match_single(glob_str: Union[str, List[str]]) -> bool:
@@ -370,7 +378,22 @@ class DataManager(OrderedDataGroup):
         log.info("Loading data entry '%s' ...", entry_name)
 
         # Parse the arguments that result in the target path
-        if target_group:
+        if load_as_attr:
+            if not target_path:
+                raise ValueError("With `load_as_attr`, the `target_path` "
+                                 "argument needs to be given.")
+
+            # The target path should not be adjusted, as it points to the
+            # object to store the loaded data as attribute in.
+            log.debug("Will load this entry as attribute to the target path "
+                      "'%s' ...", target_path)
+
+            # To communicate the attribute name, store it in the load_as_attr
+            # variable; otherwise it would require passing two arguments to
+            # _load
+            load_as_attr = entry_name
+
+        elif target_group:
             if target_path:
                 raise ValueError("Received both arguments `target_group` and "
                                  "`target_path`; make sure to only pass one "
@@ -387,17 +410,16 @@ class DataManager(OrderedDataGroup):
             else:
                 target_path = entry_name + "/{basename:}"
 
+        # else: target_path was given
+        
         # ...and check that it is working.
         check_target_path(target_path)
-
-        # else: target_path was given
-
-        log.info("Loading entry '%s' ...", entry_name)
 
         # Try loading the data and handle specific DataManagerErrors
         try:
             self._load(target_path=target_path, loader=loader,
-                       glob_str=glob_str, **load_params)
+                       glob_str=glob_str, load_as_attr=load_as_attr,
+                       **load_params)
 
         except RequiredDataMissingError:
             raise
@@ -423,7 +445,7 @@ class DataManager(OrderedDataGroup):
     # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     # Helpers for loading and storing data
 
-    def _load(self, *, target_path: str, loader: str, glob_str: Union[str, List[str]], ignore: List[str]=None, required: bool=False, path_regex: str=None, exists_action: str='raise', progress_indicator: bool=True, parallel: bool=False, **loader_kwargs) -> None:
+    def _load(self, *, target_path: str, loader: str, glob_str: Union[str, List[str]], load_as_attr: Union[str, None], ignore: List[str]=None, required: bool=False, path_regex: str=None, exists_action: str='raise', progress_indicator: bool=True, parallel: bool=False, **loader_kwargs) -> None:
         """Helper function that loads a data entry to the specified path.
         
         Args:
@@ -433,6 +455,9 @@ class DataManager(OrderedDataGroup):
             loader (str): The loader to use
             glob_str (Union[str, List[str]]): A glob string or a list of glob
                 strings to match files in the data directory
+            load_as_attr (Union[str, None]): If a string, the entry will be
+                loaded into the object at `target_path` under a new attribute
+                with this name.
             ignore (List[str], optional): The exact file names in this list
                 will be ignored during loading. Paths are seen as elative to the data directory.
             required (bool, optional): If True, will raise an error if no files
@@ -445,6 +470,7 @@ class DataManager(OrderedDataGroup):
                 overwrite_nowarn.
                 With *_nowarn values, no warning is given if an entry already
                 existed.
+                Note that this is ignored if `load_as_attr` is given.
             progress_indicator (bool, optional): Whether to print a progress
                 indicator or not
             parallel (bool, optional): If True, data is loaded in parallel -
@@ -453,6 +479,7 @@ class DataManager(OrderedDataGroup):
         
         Raises:
             NotImplementedError: For `parallel == True`
+            ValueError: Description
         """
 
         def resolve_loader(loader: str) -> Tuple[Callable, str, Callable]:
@@ -599,7 +626,8 @@ class DataManager(OrderedDataGroup):
                 fps['match'] = _match
 
             # Parse the format string to generate the file path
-            log.debug("Parsing format string '%s' to generate target path ...",      target_path)
+            log.debug("Parsing format string '%s' to generate target path ...",
+                      target_path)
             log.debug("  kwargs: %s", fps)
             target_path = target_path.format(**fps)
 
@@ -658,25 +686,52 @@ class DataManager(OrderedDataGroup):
                                  "skip_nowarn, overwrite, overwrite_nowarn."
                                  "".format(exists_action))
 
-        def store(obj: Union[BaseDataGroup, BaseDataContainer], *, target_path: List[str]) -> None:
+        def store(obj: Union[BaseDataGroup, BaseDataContainer], *, target_path: List[str], as_attr: Union[str, None]) -> None:
             """Store the given `obj` at the supplied `path`.
-
+            
             Note that this will automatically overwrite, assuming that all
             checks have been made prior to the call to this function.
             
             Args:
                 obj (Union[BaseDataGroup, BaseDataContainer]): Object to store
                 target_path (List[str]): The path to store the object at
-            
-            Returns:
-                None
+                as_attr (Union[str, None]): If a string, store the object in
+                    the attributes of the container or group at target_path
             
             Raises:
                 ExistingDataError: If non-group-like data already existed at
                     that path
-            """
 
-            # Extract a target group path and a base name
+            """
+            # First, handle the (easy) case where the object is to be stored
+            # as the attribute at the target_path
+            if as_attr:
+                if PATH_JOIN_CHAR.join(target_path) not in self:
+                    raise MissingDataError("In order to store the object {} "
+                                           "at the target path '{}', a group "
+                                           "or container already needs to "
+                                           "exist at that location within {}."
+                                           "".format(obj.logstr, target_path,
+                                                     self.logstr))
+
+                # Object exists there, load it and check whether an attribute
+                # with that name already exists
+                target = self[target_path]
+
+                if as_attr in target.attrs:
+                    raise ExistingDataError("An attribute with the name '{}' "
+                                            "already exists in {}!"
+                                            "".format(as_attr, target.logstr))
+
+                # All checks passed. Can store it now
+                target.attrs[as_attr] = obj
+                log.info("Stored %s as attribute '%s' of %s.",
+                          obj.classname, as_attr, target.logstr)
+
+                # Done here. Return.
+                return
+
+            # Extract a target group path and a base name from path list
             group_path = target_path[:-1]
             basename = target_path[-1]
 
@@ -719,6 +774,8 @@ class DataManager(OrderedDataGroup):
             group.add(obj)
             
             # Done
+            log.debug("Successfully stored %s at '%s'.",
+                      _data.logstr, PATH_JOIN_CHAR.join(target_path))
 
         # End of helper functions . . . . . . . . . . . . . . . . . . . . . . .
         # Get the loader function
@@ -754,24 +811,33 @@ class DataManager(OrderedDataGroup):
             _target_path = prepare_target_path(target_path, filepath=file,
                                                path_sre=path_sre)
 
-            # Check if it is to be skipped
-            if skip_path(_target_path, exists_action=exists_action):
-                log.debug("Skipping file '%s' ...", file)
-                continue
+            # Distinguish regular loading and loading as attribute
+            if not load_as_attr:
+                # Check if it is to be skipped
+                if skip_path(_target_path, exists_action=exists_action):
+                    log.debug("Skipping file '%s' ...", file)
+                    continue
 
-            # Prepare the target class, which will be filled by the load func
-            _TargetCls = lambda **kws: TargetCls(name=_target_path[-1], **kws)
-            # This assures that the name is already correct
+                # Prepare the target class, which will be filled by the load
+                # function; this assures that the name is already correct
+                _TargetCls = lambda **kws: TargetCls(name=_target_path[-1],
+                                                     **kws)
+
+            else:
+                # For loading as attribute, the exists_action is not valid;
+                # that check is thus not needed. Also, the target class name
+                # does not come from the target path but from that argument
+                _TargetCls = lambda **kws: TargetCls(name=load_as_attr, **kws)
 
             # Get the data
             _data = load_func(file, TargetCls=_TargetCls, **loader_kwargs)
+            log.info("Successfully loaded file '%s' into %s.",
+                      file, _data.logstr)
             
             # If this succeeded, store the data
-            store(_data, target_path=_target_path)
-
-            # Done with this file
-            log.debug("Successfully loaded '%s' and stored at '%s' as %s.",
-                      file, PATH_JOIN_CHAR.join(_target_path), _data.logstr)
+            store(_data, target_path=_target_path, as_attr=load_as_attr)
+            
+            # Done with this file. Go to next iteration
 
         # Clear the line to get rid of the load indicator, if there was one
         if progress_indicator:

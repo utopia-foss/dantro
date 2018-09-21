@@ -453,6 +453,19 @@ def test_loading_regex(dm):
                 path_regex='([abc]*)\w+.yml',
                 target_path='sub_foobar/{match:}')
 
+def test_load_as_attr(dm):
+    """Check whether loading into attributes of existing objects works"""
+    # Create a group to load into
+    grp = dm.new_group("a_group")
+    dm.load('loaded_attr', loader='yaml', glob_str="foobar.yml",
+            target_path='a_group', load_as_attr=True)
+
+    assert 'loaded_attr' in grp.attrs
+
+    # Test cases with wrong arguments
+    with pytest.raises(dantro.data_mngr.MissingDataError, match="foo"):
+        dm.load('foo', loader='yaml', glob_str="foobar.yml",
+                target_path='nonexisting_group', load_as_attr=True)
 
 def test_target_path(dm):
     """Check whether the `target_path` argument works as desired"""
