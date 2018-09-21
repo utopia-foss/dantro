@@ -67,6 +67,9 @@ class DataManager(OrderedDataGroup):
     # Use a base load configuration to start with
     _BASE_LOAD_CFG = None
 
+    # Define some default groups (same syntax create_groups argument)
+    _DEFAULT_GROUPS = None
+
     # Define as class variable what should be the default group type
     _DATA_GROUP_DEFAULT_CLS = OrderedDataGroup
 
@@ -132,9 +135,17 @@ class DataManager(OrderedDataGroup):
         if load_cfg:
             self.load_cfg = tools.recursive_update(self.load_cfg, load_cfg)
 
-        # Create groups, if the create_groups argument is given
-        if create_groups:
-            for spec in create_groups:
+        # Create default groups, as specified in the _DEFAULT_GROUPS class
+        # variable and the create_groups argument
+        if self._DEFAULT_GROUPS or create_groups:
+            # Parse both into a new list to iterate over
+            specs = self._DEFAULT_GROUPS if self._DEFAULT_GROUPS else []
+            if create_groups:
+                specs += create_groups
+
+            log.debug("Creating %d empty groups from defaults and/or given "
+                      "initialization arguments ...", len(specs))
+            for spec in specs:
                 if isinstance(spec, dict):
                     # Got a more elaborate group specification
                     self.new_group(**spec) 
