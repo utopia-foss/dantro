@@ -90,6 +90,7 @@ class YamlLoaderMixin:
 class PickleLoaderMixin:
     """Supplies functionality to load pickled python objects"""
 
+    # Define the load function such that it can be set in a flexible way
     _PICKLE_LOAD_FUNC = pkl.load
 
     @add_loader(TargetCls=ObjectContainer, omit_self=False)
