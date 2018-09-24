@@ -125,10 +125,6 @@ class CollectionMixin:
         """Iterates over the items."""
         return iter(self.data)
 
-    def _format_info(self) -> str:
-        """A __format__ helper function: returns info about the items"""
-        return str(len(self)) + " items"
-
 
 class ItemAccessMixin:
     """This Mixin class implements the methods needed for getting, setting,
@@ -293,13 +289,10 @@ class BaseDataAttrs(MappingAccessMixin, dantro.abc.AbstractDataAttrs):
         super().__init__(data=attrs, **dc_kwargs)
 
         log.debug("BaseDataAttrs.__init__ finished.")
-    
-    # .........................................................................
-    # Magic methods and iterators for convenient dict-like access
 
     def _format_info(self) -> str:
         """A __format__ helper function: returns info about these attributes"""
-        return str(len(self)) + " attributes"
+        return "{} attributes".format(len(self))
 
 
 # -----------------------------------------------------------------------------
@@ -353,8 +346,10 @@ class BaseDataContainer(PathMixin, AttrsMixin, dantro.abc.AbstractDataContainer)
         """
         return True
 
-    # .........................................................................
-    # Methods needed for data container conversion
+    def _format_info(self) -> str:
+        """A __format__ helper function: returns info about the items"""
+        return "{} stored, {} attributes".format(type(self.data),
+                                                 len(self.attrs))
 
     def convert_to(self, TargetCls, **target_init_kwargs):
         """With this method, a TargetCls object can be created from this
@@ -726,15 +721,19 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         return self.data.values()
 
     def items(self):
-        """Returns an iterator over the (name, data container) tuple of this group."""
+        """Returns an iterator over the (name, data container) tuple of this
+        group."""
         return self.data.items()
 
     def get(self, key, default=None):
-        """Return the container at `key`, or `default` if container with name `key` is not available."""
+        """Return the container at `key`, or `default` if container with name
+        `key` is not available."""
         return self.data.get(key, default)
 
     def setdefault(self, key, default=None):
-        """If `key` is in the dictionary, return its value. If not, insert `key` with a value of `default` and return `default`. `default` defaults to None."""
+        """If `key` is in the dictionary, return its value. If not, insert
+        `key` with a value of `default` and return `default`. `default`
+        defaults to None."""
         if key in self:
             return self[key]
         # else: not available
@@ -745,8 +744,9 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
     # Formatting
 
     def _format_info(self) -> str:
-        """A __format__ helper function: returns an info string that is used to characterise this object. Does NOT include name and classname!"""
-        return str(len(self)) + " members"
+        """A __format__ helper function: returns an info string that is used
+        to characterise this object. Does NOT include name and classname!"""
+        return "{} members, {} attributes".format(len(self), len(self.attrs))
 
     def _format_tree(self) -> str:
         """Returns a multi-line string tree representation of this group."""
@@ -754,7 +754,17 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
     def _tree_repr(self, level: int=0, info_fstr="<{:cls_name,info}>", info_ratio: float=0.5) -> str:
         """Recursively creates a multi-line string tree representation of this
-        group. This is used by, e.g., the _format_tree method."""
+        group. This is used by, e.g., the _format_tree method.
+        
+        Args:
+            level (int, optional): The depth within the tree
+            info_fstr (str, optional): The format string for the info string
+            info_ratio (float, optional): The width ratio of the whole line
+                width that the info string takes
+        
+        Returns:
+            str: The (multi-line) tree representation of this group
+        """
         # Mark symbols
         first_mark = r' └┬'
         base_mark =  r'  ├'
@@ -821,8 +831,6 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         lines.append("")
         return "\n".join(lines)
 
-
-
     # .........................................................................
     # Conversion
     
@@ -832,4 +840,3 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
                   TargetCls.__name__)
         return TargetCls(name=self.name, data=self.data, attrs=self.attrs,
                          **target_init_kwargs)
-
