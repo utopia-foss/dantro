@@ -2,6 +2,7 @@
 
 import os
 import pkg_resources
+import pickle as pkl
 
 import numpy as np
 import h5py as h5
@@ -12,7 +13,7 @@ from dantro.container import NumpyDataContainer
 from dantro.group import OrderedDataGroup
 from dantro.mixins import Hdf5ProxyMixin
 import dantro.data_mngr
-from dantro.data_loaders import YamlLoaderMixin, Hdf5LoaderMixin
+from dantro.data_loaders import YamlLoaderMixin, PickleLoaderMixin, Hdf5LoaderMixin
 from dantro.tools import write_yml
 
 # Local constants
@@ -28,6 +29,10 @@ class DataManager(YamlLoaderMixin, dantro.data_mngr.DataManager):
     # A (bad) load function for testing
     def _load_bad_loadfunc(self):
         pass
+
+class PklDataManager(PickleLoaderMixin, DataManager):
+    """A data manager that is able to load pickled files"""
+    pass
 
 class NumpyTestDC(Hdf5ProxyMixin, NumpyDataContainer):
     """A data container class that provides numpy proxy access"""
@@ -84,6 +89,26 @@ def data_dir(tmpdir) -> str:
 def dm(data_dir) -> DataManager:
     """Returns a DataManager without load configuration"""
     return DataManager(data_dir, out_dir=None)
+
+@pytest.fixture
+def pkl_dm(data_dir) -> PklDataManager:
+    """Pickles some objects to test the pickle loading function"""
+    # Create a subdirectory for the pickles
+    pkl_dir = data_dir.mkdir("pickles")
+
+    # Define objects to dump
+    to_dump = [
+        ("a_dict",      dict(foo="bar", baz=123)),
+        ("a_list",      [1, 2, 3]),
+        ("int_arr",     np.ones((2,3,4), dtype=int))
+    ]
+
+    # Create the pickles
+    for name, obj in to_dump:
+        with open(pkl_dir.join(name + '.pkl'), mode='wb') as pkl_file:
+            pkl.dump(obj, pkl_file)
+
+    return PklDataManager(data_dir, out_dir=None)
 
 @pytest.fixture
 def hdf5_dm(data_dir) -> Hdf5DataManager:
@@ -547,6 +572,13 @@ def test_target_path(dm):
     assert 'barfoo_group/foobar' in dm
     assert 'barfoo_group/lamo' in dm
     assert 'barfoo_group/also_lamo' in dm
+
+
+# PickleLoaderMixin tests -----------------------------------------------------
+
+def test_pkl_loader(pkl_dm):
+    """Tests the pickle loader"""
+    pkl_dm.load('pkls', loader='pickle', glob_str="pickles/*.pkl")
 
 
 # Hdf5LoaderMixin tests -------------------------------------------------------
