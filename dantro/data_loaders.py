@@ -90,26 +90,26 @@ class YamlLoaderMixin:
 class PickleLoaderMixin:
     """Supplies functionality to load pickled python objects"""
 
-    _PICKLE_MODULE = pkl
+    _PICKLE_LOAD_FUNC = pkl.load
 
     @add_loader(TargetCls=ObjectContainer, omit_self=False)
     def _load_pickle(self, filepath: str, *, TargetCls: type, **pkl_kwargs) -> ObjectContainer:
         """Load a pickled object.
+
+        This uses the load function defined under the _PICKLE_LOAD_FUNC class
+        variable, which defaults to the pickle.load function.
         
         Args:
-            filepath (str): Where to load the yaml file from
+            filepath (str): Where the pickle-dumped file is located
             TargetCls (type): The class constructor
-            **pkl_kwargs: Passed on to pickle.load function
+            **pkl_kwargs: Passed on to the load function
         
         Returns:
-            ObjectContainer: The unpickled file
+            ObjectContainer: The unpickled file, stored in a dantro container
         """
-        # Get the pickle module from the class variable
-        pkl = self._PICKLE_MODULE
-
-        # Open file in binary mode and unpickle
+        # Open file in binary mode and unpickle with the given load function
         with open(filepath, mode='rb') as f:
-            obj = pkl.load(f, **pkl_kwargs)
+            obj = self._PICKLE_LOAD_FUNC(f, **pkl_kwargs)
 
         # Populate the target container with the object
         return TargetCls(data=obj, attrs=dict(filepath=filepath))
