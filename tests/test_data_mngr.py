@@ -455,17 +455,46 @@ def test_loading_regex(dm):
 
 def test_load_as_attr(dm):
     """Check whether loading into attributes of existing objects works"""
+
     # Create a group to load into
     grp = dm.new_group("a_group")
+
+    # Load and store as attribute of that group
     dm.load('loaded_attr', loader='yaml', glob_str="foobar.yml",
             target_path='a_group', load_as_attr=True)
-
     assert 'loaded_attr' in grp.attrs
 
-    # Test cases with wrong arguments
-    with pytest.raises(dantro.data_mngr.MissingDataError, match="foo"):
-        dm.load('foo', loader='yaml', glob_str="foobar.yml",
+    # Use target_path with regex
+    grp.new_group("data0")
+    grp.new_group("data1")
+    grp.new_group("data2")
+    
+    dm.load('data', loader='yaml', glob_str="merged/data*.yml",
+            path_regex='merged/data(\d+).yml',
+            target_path='a_group/data{match:}', load_as_attr=True)
+    
+    assert "data" in grp['data0'].attrs
+    assert "data" in grp['data1'].attrs
+    assert "data" in grp['data2'].attrs
+
+    # Test that the correct exceptions are being raised
+    # Attribute already existing
+    with pytest.raises(dantro.data_mngr.ExistingDataError,
+                       match="attribute with the name 'loaded_attr' already"):
+        dm.load('loaded_attr', loader='yaml', glob_str="lamo.yml",
+                target_path='a_group', load_as_attr=True)
+
+    # Group not yet existing
+    with pytest.raises(dantro.data_mngr.RequiredDataMissingError,
+                       match="a group or container already needs to exist"):
+        dm.load('foo', loader='yaml', glob_str="lamo.yml",
                 target_path='nonexisting_group', load_as_attr=True)
+
+    # No target path given
+    with pytest.raises(ValueError,
+                       match="With `load_as_attr`, the `target_path`"):
+        dm.load('foo', loader='yaml', glob_str="lamo.yml",
+                target_path=None, load_as_attr=True)
 
 def test_target_path(dm):
     """Check whether the `target_path` argument works as desired"""

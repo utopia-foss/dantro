@@ -411,7 +411,7 @@ class DataManager(OrderedDataGroup):
                 target_path = entry_name + "/{basename:}"
 
         # else: target_path was given
-        
+
         # ...and check that it is working.
         check_target_path(target_path)
 
@@ -701,23 +701,29 @@ class DataManager(OrderedDataGroup):
             Raises:
                 ExistingDataError: If non-group-like data already existed at
                     that path
-
+                RequiredDataMissingError: If storing as attribute was selected
+                    but there was no object at the given target_path 
             """
             # First, handle the (easy) case where the object is to be stored
             # as the attribute at the target_path
             if as_attr:
-                if PATH_JOIN_CHAR.join(target_path) not in self:
-                    raise MissingDataError("In order to store the object {} "
-                                           "at the target path '{}', a group "
-                                           "or container already needs to "
-                                           "exist at that location within {}."
-                                           "".format(obj.logstr, target_path,
-                                                     self.logstr))
+                # Try to load the object at the target path
+                try:
+                    target = self[target_path]
 
-                # Object exists there, load it and check whether an attribute
-                # with that name already exists
-                target = self[target_path]
+                except KeyError as err:
+                    raise RequiredDataMissingError("In order to store the "
+                                                   "object {} at the target "
+                                                   "path '{}', a group or "
+                                                   "container already needs "
+                                                   "to exist at that location "
+                                                   "within {}."
+                                                   "".format(obj.logstr,
+                                                             target_path,
+                                                             self.logstr)
+                                                   ) from err
 
+                # Check whether an attribute with that name already exists
                 if as_attr in target.attrs:
                     raise ExistingDataError("An attribute with the name '{}' "
                                             "already exists in {}!"
@@ -725,7 +731,7 @@ class DataManager(OrderedDataGroup):
 
                 # All checks passed. Can store it now
                 target.attrs[as_attr] = obj
-                log.info("Stored %s as attribute '%s' of %s.",
+                log.debug("Stored %s as attribute '%s' of %s.",
                           obj.classname, as_attr, target.logstr)
 
                 # Done here. Return.
@@ -831,7 +837,7 @@ class DataManager(OrderedDataGroup):
 
             # Get the data
             _data = load_func(file, TargetCls=_TargetCls, **loader_kwargs)
-            log.info("Successfully loaded file '%s' into %s.",
+            log.debug("Successfully loaded file '%s' into %s.",
                       file, _data.logstr)
             
             # If this succeeded, store the data
