@@ -413,14 +413,14 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
             KeyError: If no such key can be found
         """
         if not isinstance(key, list):
-            # Assuming this is a string ...
+            # Assuming this is a string, i.e.: the only other type allowed
             key = key.split(PATH_JOIN_CHAR)
 
         # Can be sure that this is a list now
         try:
             # If there is more than one entry, need to call this recursively
             if len(key) > 1:
-                return self.data[key[0]][PATH_JOIN_CHAR.join(key[1:])]
+                return self.data[key[0]][key[1:]]
             # else: end of recursion
             return self.data[key[0]]
 
@@ -454,7 +454,7 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
         # Depending on length of the key sequence, start recursion or not
         if len(key) > 1:
-            self.data[key[0]][PATH_JOIN_CHAR.join(key[1:])] = val
+            self.data[key[0]][key[1:]] = val
             return
         
         # else: end of recursion, i.e. the path led to an item of this group
@@ -514,18 +514,22 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
         log.debug("Added %d container(s) to %s.", len(conts), self.logstr)
 
-    def new_container(self, path: str, *, Cls: type, **kwargs):
+    def new_container(self, path: Union[str, list], *, Cls: type, **kwargs):
         """Creates a new container of class `Cls` and adds it at the given path
         relative to this group.
-
+        
         Args:
-            path (str): Where to add the container. Note that the intermediates
-                of this path need to already exist.
+            path (Union[str, list]): Where to add the container. Note that the
+                intermediates of this path need to already exist.
             Cls (type): The class of the container to add
             **kwargs: kwargs to pass on to Cls.__init__
-
+        
         Returns:
             Cls: the created container
+        
+        Raises:
+            KeyError: Description
+            TypeError: Description
         """
         # Check the class to create the container with
         if not inspect.isclass(Cls):
@@ -539,16 +543,19 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
                             "".format(Cls))
         # Class is checked now
 
-        # Check whether recursion is needed
-        if PATH_JOIN_CHAR not in path:
-            # Nope. Can create the container and return
-            cont = Cls(name=path, **kwargs)
+        # Make sure the path is a list
+        if not isinstance(path, list):
+            path = path.split(PATH_JOIN_CHAR)
+
+        # Check whether recursion ends here, i.e.: the path ends here
+        if len(path) == 1:
+            # Yes, and it's a string: create container, add, return
+            cont = Cls(name=path[0], **kwargs)
             self.add(cont)
             return cont
 
         # Recursive branch: need to split off the front section and continue
-        spath = path.split(PATH_JOIN_CHAR)
-        grp_name, new_path = spath[0], PATH_JOIN_CHAR.join(spath[1:])
+        grp_name, new_path = path[0], path[1:]
 
         try:
             return self[grp_name].new_container(new_path, Cls=Cls, **kwargs)
@@ -557,16 +564,17 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
             raise KeyError("Could not create {} at '{}'! Check that all "
                            "intermediate groups have already been created. "
                            "Entries available in {}: {}"
-                           "".format(Cls.__name__, path, self.logstr,
+                           "".format(Cls.__name__,
+                                     PATH_JOIN_CHAR.join(path), self.logstr,
                                      ", ".join([k for k in self.keys()]))
                            ) from err
 
-    def new_group(self, path: str, *, Cls: type=None, **kwargs):
+    def new_group(self, path: Union[str, list], *, Cls: type=None, **kwargs):
         """Creates a new group at the given path.
         
         Args:
-            path (str): The path to create the group at. Note that the whole
-                intermediate path needs to already exist.
+            path (Union[str, list]): The path to create the group at. Note
+                that the whole intermediate path needs to already exist.
             Cls (type, optional): If given, use this type to create the
                 group. If not given, uses the type of this instance.
             **kwargs: Passed on to Cls.__init__
@@ -695,7 +703,7 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
             # If the target element exists and is a group, continue recursively
             if (key_seq[0] in self
                 and isinstance(self[key_seq[0]], BaseDataGroup)):
-                return PATH_JOIN_CHAR.join(key_seq[1:]) in self[key_seq[0]]
+                return key_seq[1:] in self[key_seq[0]]
 
             # else: does not exist or is not a group
             return False
