@@ -352,7 +352,8 @@ class DataManager(OrderedDataGroup):
             None
         
         Raises:
-            ValueError: Description
+            ValueError: Upon invalid combination of target_group and
+                target_path arguments
         """
 
         def glob_match_single(glob_str: Union[str, List[str]]) -> bool:
