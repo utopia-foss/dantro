@@ -356,7 +356,6 @@ class BaseDataContainer(PathMixin, AttrsMixin, dantro.abc.AbstractDataContainer)
     # .........................................................................
     # Methods needed for data container conversion
 
-    @abc.abstractmethod
     def convert_to(self, TargetCls, **target_init_kwargs):
         """With this method, a TargetCls object can be created from this
         particular container instance.
@@ -364,6 +363,9 @@ class BaseDataContainer(PathMixin, AttrsMixin, dantro.abc.AbstractDataContainer)
         Conversion might not be possible if TargetCls requires more information
         than is available in this container.
         """
+        log.debug("Converting %s to %s ...", self.logstr, TargetCls.__name__)
+        return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
+                         **target_init_kwargs)
 
 
 # -----------------------------------------------------------------------------
