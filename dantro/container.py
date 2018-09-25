@@ -165,6 +165,7 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
                               data=self.data.copy(),
                               attrs={k:v for k, v in self.attrs})
 
+    # .........................................................................
     # Disallow usage of some unary functions (added by NumbersMixin) which
     # don't make sense with the np.ndarray data
 

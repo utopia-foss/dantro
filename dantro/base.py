@@ -427,7 +427,7 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         except (KeyError, IndexError) as err:
             raise KeyError("No key or key sequence '{}' in {}! "
                            "Available keys at top level: {}"
-                           "".format(PATH_JOIN_CHAR.join(key), self.logstr,
+                           "".format(key, self.logstr,
                                      ", ".join([k for k in self.keys()]))
                            ) from err
 
