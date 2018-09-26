@@ -28,8 +28,11 @@ log.debug("Determined TTY_COLS: %d, IS_A_TTY: %d", TTY_COLS, IS_A_TTY)
 
 # Set custom constructors for paramspace package
 yaml.add_constructor(u'!pspace', psp_constrs.pspace)
-yaml.add_constructor(u'!pdim', psp_constrs.pdim_enabled_only)
+yaml.add_constructor(u'!pdim', psp_constrs.pdim)
 yaml.add_constructor(u'!pdim-default', psp_constrs.pdim_get_default)
+# TODO consider moving these directly into the load_yml function such that
+#      they are not automatically attached to the yaml module, which could
+#      lead to interference with other packages that use dantro
 
 
 def load_yml(path: str) -> dict:
