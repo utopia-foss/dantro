@@ -2,6 +2,12 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.3.2
+- !18 With the `paramspace` yaml constructors having changed, it became necessary to change their usage in dantro. This should result in no changes to the behaviour of dantro.
+
+## v0.3.1
+- !16 Restrict matplotlib dependency to use version 2.2.3 until potential downstream issues (reg. dependencies of matplotlib) are resolved.
+
 ## v0.3
 - !14 and #20: Extend the HDF5 loader to have the ability to load into custom container classes. The class is selected by a customaizable attribute of the group or dataset and a mapping from that attribute's value to a type.
 - #10: Use American English in docstrings and logging messages
