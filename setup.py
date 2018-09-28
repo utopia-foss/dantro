@@ -9,7 +9,7 @@ install_deps = [
     'pandas>=0.21',
     'matplotlib==2.2.3',  # FIXME should use matplotlib3 and above
     'PyYAML>=3.12,<4.0',  # FIXME once safe_* is supported by paramspace
-    'paramspace>=1.0.1'
+    'paramspace>=1.1.1,<2.0'  # TODO Update. Should not be too large an issue.
     ]
 test_deps = ['pytest>=3.4.0', 'pytest-cov>=2.5.1', 'tox>=3.1.2']
 
