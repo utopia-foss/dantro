@@ -2,6 +2,9 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.3.3
+- !19 Restrict `paramspace` version to <2.0 in order to transition to a higher version in a more controlled manner.
+
 ## v0.3.2
 - !18 With the `paramspace` yaml constructors having changed, it became necessary to change their usage in dantro. This should result in no changes to the behaviour of dantro.
 
