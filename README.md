@@ -13,8 +13,8 @@ While being developed alongside the [Utopia project](https://ts-gitlab.iup.uni-h
 
 #### Further reading
 * [`CHANGELOG.md`](CHANGELOG.md)
-* _(link to documentation)_
-* ...
+* _more links to follow here_
+<!-- TODO Add link to documentation -->
 
 ## Package structure
 
@@ -83,7 +83,7 @@ If the project you want to use `dantro` with uses a virtual environment, enter i
 
 Before being able to install `dantro`, one external dependency that is not on the python package index, needs to be installed, `paramspace`:
 ```
-$ pip install git+ssh://git@ts-gitlab.iup.uni-heidelberg.de:10022/yunus/paramspace.git
+$ pip install git+ssh://git@ts-gitlab.iup.uni-heidelberg.de:10022/yunus/paramspace.git@release/v2.x
 ```
 
 After that, installation of `dantro` can happen directly via `pip`:

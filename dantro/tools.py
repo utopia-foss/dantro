@@ -5,11 +5,7 @@ import subprocess
 import collections
 import logging
 
-import paramspace.yaml_constructors as psp_constrs
-
-import yaml
-
-# Local constants
+# Get a logger instance
 log = logging.getLogger(__name__)
 
 # Terminal, TTY-related
@@ -23,17 +19,12 @@ else:
     TTY_COLS = int(TTY_COLS)
 log.debug("Determined TTY_COLS: %d, IS_A_TTY: %d", TTY_COLS, IS_A_TTY)
 
+# Import yaml and configure
+from paramspace import yaml
+yaml.default_flow_style = False
+
 # -----------------------------------------------------------------------------
 # Loading from / writing to files
-
-# Set custom constructors for paramspace package
-yaml.add_constructor(u'!pspace', psp_constrs.pspace)
-yaml.add_constructor(u'!pdim', psp_constrs.pdim)
-yaml.add_constructor(u'!pdim-default', psp_constrs.pdim_get_default)
-# TODO consider moving these directly into the load_yml function such that
-#      they are not automatically attached to the yaml module, which could
-#      lead to interference with other packages that use dantro
-
 
 def load_yml(path: str) -> dict:
     """Loads a yaml file from a path
@@ -51,7 +42,6 @@ def load_yml(path: str) -> dict:
 
     return d
 
-
 def write_yml(d: dict, *, path: str):
     """Write a dict as a yaml file to a path
     
@@ -62,7 +52,8 @@ def write_yml(d: dict, *, path: str):
     log.debug("Dumping %s to YAML file... target:\n  %s", type(d), path)
 
     with open(path, 'w') as yaml_file:
-        yaml.dump(d, stream=yaml_file, default_flow_style=False)
+        yaml.dump(d, stream=yaml_file)
+
 
 # -----------------------------------------------------------------------------
 # Dictionary operations
@@ -95,6 +86,7 @@ def recursive_update(d: dict, u: dict) -> dict:
             # Not a mapping -> create one
             d = {k: u[k]}
     return d
+
 
 # -----------------------------------------------------------------------------
 # Terminal messaging

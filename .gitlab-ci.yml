@@ -34,7 +34,7 @@ before_script:
   # - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config' # FIXME turn this on again
   ##
   ## NOTE: Now have ssh access to the GitLab. Install paramspace
-  - pip3 install git+ssh://git@ts-gitlab.iup.uni-heidelberg.de:10022/yunus/paramspace@release/v1.1
+  - pip3 install git+ssh://git@ts-gitlab.iup.uni-heidelberg.de:10022/yunus/paramspace@release/v2.x
 
 
 # -----------------------------------------------------------------------------
