@@ -373,6 +373,15 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
     NOTE: This is still an abstract class and needs to be subclassed.
     """
+    # Define which class to use in the new_group method. If None, the type of
+    # this instance is used
+    _NEW_GROUP_CLS = None
+
+    # Define the types that are allowed to be stored in this group. If None,
+    # the dantro base classes are allowed
+    _ALLOWED_CONT_TYPES = None
+
+    # .........................................................................
 
     def __init__(self, *, name: str, containers: list=None, attrs=None, StorageCls=dict):
         """Initialize a BaseDataGroup, which can store other containers and attributes.
@@ -490,32 +499,54 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
     def add(self, *conts, overwrite: bool=False):
         """Add the given containers to this group."""
         for cont in conts:
-            if not isinstance(cont, (BaseDataGroup, BaseDataContainer)):
-                raise TypeError("Can only add BaseDataGroup- or "
-                                "BaseDataContainer-derived objects to {}, "
-                                "got {}!".format(self.logstr, type(cont)))
-
-            # else: is of correct type
-            # Get the name and check if one like this already exists
-            if cont.name in self:
-                if not overwrite:
-                    raise ValueError("{} already has a member with "
-                                     "name '{}', cannot add {}."
-                                     "".format(self.logstr, cont.name, cont))
-                log.debug("Overwriting member '%s' of %s ...",
-                          cont.name, self.logstr)
-                old_cont = self[cont.name]
-            
-            else:
-                old_cont = None
-
-            # Write to data, assuring that the name is that of the container
-            self.data[cont.name] = cont
-
-            # Re-link
-            self._link_child(new_child=cont, old_child=old_cont)
+            self._add_cont(cont=cont, overwrite=overwrite)
 
         log.debug("Added %d container(s) to %s.", len(conts), self.logstr)
+
+    def _add_cont(self, *, cont, overwrite: bool):
+        """Private helper method to add a container to this group."""
+        # Check the allowed types
+        if (self._ALLOWED_CONT_TYPES is None
+            and not isinstance(cont, (BaseDataGroup, BaseDataContainer))):
+            raise TypeError("Can only add BaseDataGroup- or "
+                            "BaseDataContainer-derived objects to {}, got {}!"
+                            "".format(self.logstr, type(cont)))
+
+        elif (self._ALLOWED_CONT_TYPES is not None
+              and not isinstance(cont, self._ALLOWED_CONT_TYPES)):
+            raise TypeError("Can only add objects derived from the following "
+                            "classes: {}. Got: {}"
+                            "".format(self._ALLOWED_CONT_TYPES, type(cont)))
+
+        # else: is of correct type
+        # Check if one like this already exists
+        if cont.name in self:
+            if not overwrite:
+                raise ValueError("{} already has a member with name '{}', "
+                                 "cannot add {}."
+                                 "".format(self.logstr, cont.name, cont))
+            log.debug("A member '%s' of %s already exists and will be "
+                      "overwritten ...", cont.name, self.logstr)
+            old_cont = self[cont.name]
+        
+        else:
+            old_cont = None
+
+        # Allow for subclasses to perform further custom checks on the
+        # container object before adding it
+        self._check_cont(cont)
+
+        # Write to data, assuring that the name matches that of the container
+        # and then re-link the containers
+        self.data[cont.name] = cont
+        self._link_child(new_child=cont, old_child=old_cont)
+
+    def _check_cont(self, cont) -> bool:
+        """Can be used by a subclass to check a container before adding it to
+        this group. Is called by _add_cont before checking whether the object
+        exists or not.
+        """
+        pass
 
     def new_container(self, path: str, *, Cls: type, **kwargs):
         """Creates a new container of class `Cls` and adds it at the given path
@@ -571,7 +602,9 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
             path (str): The path to create the group at. Note that the whole
                 intermediate path needs to already exist.
             Cls (type, optional): If given, use this type to create the
-                group. If not given, uses the type of this instance.
+                group. If not given, uses the class specified in the
+                _NEW_GROUP_CLS class variable or, as last resort, the type of
+                this instance.
             **kwargs: Passed on to Cls.__init__
         
         Returns:
@@ -582,10 +615,10 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         """
         # If no Cls is given, use this instance's type
         if Cls is None:
-            Cls = type(self)
+            Cls = self._NEW_GROUP_CLS if self._NEW_GROUP_CLS else type(self)
 
         # Need to catch the case where a non-group class was given
-        elif inspect.isclass(Cls) and not issubclass(Cls, BaseDataGroup):
+        if inspect.isclass(Cls) and not issubclass(Cls, BaseDataGroup):
             raise TypeError("Argument `Cls` needs to be a subclass of "
                             "BaseDataGroup, was '{}'.".format(Cls))
 

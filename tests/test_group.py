@@ -2,7 +2,7 @@
 
 import pytest
 
-from dantro.group import OrderedDataGroup
+from dantro.group import OrderedDataGroup, ParamSpaceGroup
 from dantro.container import MutableSequenceContainer
 
 # Fixtures --------------------------------------------------------------------
@@ -89,3 +89,38 @@ def test_group_creation():
     # Check that intermediate parts not existing leads to errors
     with pytest.raises(KeyError, match="Could not create OrderedDataGroup at"):
         root.new_group("some/longer/path")
+
+    # Set the allowed container types of the bar group differently
+    bar._ALLOWED_CONT_TYPES = (MutableSequenceContainer,)
+
+    # ... this should now fail
+    with pytest.raises(TypeError, match="Can only add objects derived from"):
+        bar.new_group("baz")
+
+    # While adding a MutableSequenceContainer should work
+    bar.new_container("eggs", Cls=MutableSequenceContainer, data=[1, 2, 3])
+
+# ParamSpaceGroup -------------------------------------------------------------
+
+def test_pspace_group_basics():
+    """Tests the ParamSpaceGroup"""
+    psp_grp = ParamSpaceGroup(name="mv")
+
+    # Populate the group with some entries
+    # These should work
+    psp_grp.new_group("00")
+    psp_grp.new_group("01")
+    psp_grp.new_group("02")
+
+    # These should not, as is asserted by ParamSpaceStateGroup.__init__
+    with pytest.raises(ValueError, match="need names that have a string"):
+        psp_grp.new_group("123")
+
+    with pytest.raises(ValueError, match="representible as integers"):
+        psp_grp.new_group("foo")
+
+    with pytest.raises(ValueError, match="be positive when converted to"):
+        psp_grp.new_group("-1")
+
+
+    # Assert that 
