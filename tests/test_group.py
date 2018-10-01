@@ -108,9 +108,9 @@ def test_pspace_group_basics():
 
     # Populate the group with some entries
     # These should work
-    psp_grp.new_group("00")
-    psp_grp.new_group("01")
-    psp_grp.new_group("02")
+    grp00 = psp_grp.new_group("00")
+    grp01 = psp_grp.new_group("01")
+    grp02 = psp_grp.new_group("02")
 
     # These should not, as is asserted by ParamSpaceStateGroup.__init__
     with pytest.raises(ValueError, match="need names that have a string"):
@@ -123,4 +123,27 @@ def test_pspace_group_basics():
         psp_grp.new_group("-1")
 
 
-    # Assert that 
+    # Assert item access via integers works
+    assert psp_grp[0] is grp00 is psp_grp["00"]
+    assert psp_grp[1] is grp01 is psp_grp["01"]
+    assert psp_grp[2] is grp02 is psp_grp["02"]
+    
+    assert 0 in psp_grp
+    assert 1 in psp_grp
+    assert 2 in psp_grp
+
+
+    # Check the corresponding error messages
+    with pytest.raises(KeyError, match="cannot be negative!"):
+        psp_grp[-1]
+
+    with pytest.raises(KeyError, match="cannot be larger than 99!"):
+        psp_grp[100]
+
+
+    # With a new ParamSpaceGroup, check setting of _num_digs attribute
+    psp_grp2 = ParamSpaceGroup(name="foo")
+    assert psp_grp2._num_digs == 0
+
+    psp_grp2.new_group("00000")
+    assert psp_grp2._num_digs == 5

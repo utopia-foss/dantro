@@ -155,10 +155,9 @@ class ParamSpaceGroup(OrderedDataGroup):
         if not len(self) or self._num_digs == 0:
             self._num_digs = len(cont.name)
             log.debug("Set _num_digs to %d.", self._num_digs)
-            return
 
-        # else: check the name against the already set number of digits
-        if len(cont.name) != self._num_digs:
+        # Check the name against the already set number of digits
+        elif len(cont.name) != self._num_digs:
             raise ValueError("Containers added to {} need names that have a "
                              "string representation of same length: for this "
                              "instance, a zero-padded integer of width {}. "
@@ -191,21 +190,7 @@ class ParamSpaceGroup(OrderedDataGroup):
         Note that the ParamSpaceGroup only allows its members to have keys of
         the same length.
         """
-        # If the number of digits is not yet known, but there are already
-        # entries present, find out and set the ._num_digs attribute
-        if self._num_digs == 0 and len(self) > 0:
-            key_lengths = [len(k) for k in self.keys()]
-
-            # Assert they are all the same; which should be ensured by the .add
-            # method anyway ...
-            if not (key_lengths.count(key_lengths[0]) == len(key_lengths)):
-                raise RuntimeError("Key lengths were not of the same length. "
-                                   "This should not have happened! Did you "
-                                   "add entries via the private API?")
-
-            self._num_digs = key_lengths[0]
-
-        # Now, the number of digits is known. Check the requested state number
+        # Check the requested state number to improve error messages
         if state_no < 0:
             raise KeyError("State numbers cannot be negative! {} is negative."
                            "".format(state_no))
