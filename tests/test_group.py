@@ -2,11 +2,20 @@
 
 import pytest
 
-from dantro.group import OrderedDataGroup, ParamSpaceGroup
+from paramspace import ParamSpace, ParamDim
+
+from dantro.group import OrderedDataGroup, ParamSpaceGroup, ParamSpaceStateGroup
 from dantro.container import MutableSequenceContainer
 
 # Fixtures --------------------------------------------------------------------
 
+@pytest.fixture()
+def pspace():
+    """Used to setup a small pspace object to be tested on."""
+    return ParamSpace(dict(foo="bar",
+                           p0=ParamDim(default=0, values=[1, 2]),
+                           p1=ParamDim(default=0, values=[1, 2, 3]),
+                           p2=ParamDim(default=0, values=[1, 2, 3, 4, 5])))
 
 # Tests -----------------------------------------------------------------------
 
@@ -102,15 +111,21 @@ def test_group_creation():
 
 # ParamSpaceGroup -------------------------------------------------------------
 
-def test_pspace_group_basics():
+def test_pspace_group_basics(pspace):
     """Tests the ParamSpaceGroup"""
     psp_grp = ParamSpaceGroup(name="mv")
+
+    # Check the _num_digs attribute
+    assert psp_grp._num_digs == 0
 
     # Populate the group with some entries
     # These should work
     grp00 = psp_grp.new_group("00")
     grp01 = psp_grp.new_group("01")
     grp02 = psp_grp.new_group("02")
+    grp99 = psp_grp.new_group("99")
+
+    assert psp_grp._num_digs == 2
 
     # These should not, as is asserted by ParamSpaceStateGroup.__init__
     with pytest.raises(ValueError, match="need names that have a string"):
@@ -121,6 +136,13 @@ def test_pspace_group_basics():
 
     with pytest.raises(ValueError, match="be positive when converted to"):
         psp_grp.new_group("-1")
+
+
+    # Check that only ParamSpaceStateGroups can be added and they are default
+    with pytest.raises(TypeError, match="Can only add objects derived from"):
+        psp_grp.new_group("foo", Cls=OrderedDataGroup)
+
+    assert type(psp_grp.new_group("42")) is ParamSpaceStateGroup
 
 
     # Assert item access via integers works
@@ -141,9 +163,20 @@ def test_pspace_group_basics():
         psp_grp[100]
 
 
-    # With a new ParamSpaceGroup, check setting of _num_digs attribute
-    psp_grp2 = ParamSpaceGroup(name="foo")
-    assert psp_grp2._num_digs == 0
+    # Check that a parameter space can be associated
+    # ... which needs be of the correct type
+    with pytest.raises(TypeError, match="needs to be a ParamSpace-derived"):
+        psp_grp.pspace = "foo"
 
-    psp_grp2.new_group("00000")
-    assert psp_grp2._num_digs == 5
+    psp_grp.pspace = pspace
+    assert psp_grp.attrs['pspace'] == pspace
+
+    # ... which cannot be changed
+    with pytest.raises(RuntimeError, match="was already set, cannot set it"):
+        psp_grp.pspace = "bar"
+
+
+def test_pspace_group_pspace(pspace):
+    """Tests the pspace-related behaviour of the ParamSpaceGroup"""
+    psp_grp = ParamSpaceGroup(name="mv", pspace=pspace)
+

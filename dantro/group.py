@@ -104,11 +104,13 @@ class ParamSpaceGroup(OrderedDataGroup):
 
     # .........................................................................
 
-    def __init__(self, *, name: str, containers: list=None, **kwargs):
+    def __init__(self, *, name: str, pspace: ParamSpace=None, containers: list=None, **kwargs):
         """Initialize a OrderedDataGroup from the list of given containers.
         
         Args:
             name (str): The name of this group.
+            pspace (ParamSpace, optional): Can already pass a ParamSpace object
+                here.
             containers (list, optional): A list of containers to add, which
                 need to be ParamSpaceStateGroup objects.
             **kwargs: Further initialisation kwargs, e.g. `attrs` ...
@@ -118,6 +120,10 @@ class ParamSpaceGroup(OrderedDataGroup):
 
         # Initialize with parent method, which will call .add(*containers)
         super().__init__(name=name, containers=containers, **kwargs)
+
+        # If given, associate the parameter space object
+        if pspace is not None:
+            self.pspace = pspace
 
         # Private attribute needed for state access via strings
         self._num_digs = 0
@@ -129,11 +135,35 @@ class ParamSpaceGroup(OrderedDataGroup):
     # Properties ..............................................................
 
     @property
-    def pspace(self) -> ParamSpace:
+    def pspace(self) -> Union[ParamSpace, None]:
         """Reads the entry named _PSPGRP_PSPACE_ATTR_NAME in .attrs and
         returns a ParamSpace object, if available there.
+        
+        Returns:
+            Union[ParamSpace, None]: The associated parameter space, or None,
+                if there is none associated yet.
         """
-        return self.attrs[self._PSPGRP_PSPACE_ATTR_NAME]
+        return self.attrs.get(self._PSPGRP_PSPACE_ATTR_NAME, None)
+
+    @pspace.setter
+    def pspace(self, val: ParamSpace):
+        """If not already set, sets the entry in the attributes that is
+        accessed by the .pspace property
+        """
+        if self.pspace is not None:
+            raise RuntimeError("The attribute for the parameter space of this "
+                               "{} was already set, cannot set it again!"
+                               "".format(self.logstr))
+
+        
+        elif not isinstance(val, ParamSpace):
+            raise TypeError("The attribute for the parameter space of {} "
+                            "needs to be a ParamSpace-derived object, was {}!"
+                            "".format(self.logstr, type(val)))
+
+        # Checked it, now set it
+        self.attrs[self._PSPGRP_PSPACE_ATTR_NAME] = val
+        log.debug("Associated %s with %s", val, self.logstr)
 
 
     # Item access .............................................................
