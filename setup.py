@@ -8,7 +8,7 @@ install_deps = [
     'numpy>=1.14',
     'matplotlib==2.2.3',  # FIXME should use matplotlib3 and above
     'xarray>=0.10.9',
-    'paramspace>=2.0'
+    'paramspace>=2.0.0rc3' # TODO move to released version once ready
     ]
 test_deps = ['pytest>=3.4.0', 'pytest-cov>=2.5.1', 'tox>=3.1.2']
 
