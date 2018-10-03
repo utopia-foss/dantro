@@ -1,0 +1,71 @@
+# Possible data selectors of the ParamSpaceGroup
+---
+# The following selects _only_ a field and does not change the subspace
+field_only:
+  field:
+    - foo
+    - bar
+    - randints
+
+non_numeric:
+  field:
+    - cfg  
+
+# .............................................................................
+
+# This selector shows the short syntax of selecting a subspace
+# The result is an xarray with two named dimensions, p1 and p2. Dimension p0
+# no longer has an extend and is thus squeezed away. Each entry in the xarray
+# is the corresponding data at the cfg key
+subspace_selector:
+  subspace:
+    p0:
+      idx: 1
+    p1:
+      mask: [true, false, true]
+    p2:
+      mask: !slice [2]
+  
+  field:
+    - foo
+    - bar
+    - randints
+
+# There is a short syntax available for the subsace selector
+short_syntax:
+  subspace:
+    p0: 1
+    p1: [true, false, true]
+    p2: !slice [2]
+
+  field: foo/bar/randints
+
+# The names of the dimensions need not be those of the parameter dimensions
+renaming:
+  subspace:
+    param0:
+      name: [p0]  # anything that ParamSpace can extract the name from
+      idx: 1
+    param1:
+      name: [p1]
+      mask: [true, false, true]
+    param2:
+      name: [p2]
+      mask: !slice [2]
+
+  field: foo/bar/randints
+
+
+# .............................................................................
+
+# It is possible to access entries that are deeper down in the hierarchy, even
+# within containers... basically, as long as item access is possible.
+
+
+
+
+# .............................................................................
+# TODO Features to add
+#    - selecting multiple fields to load into variables
+#    - dtype specification
+#    - 

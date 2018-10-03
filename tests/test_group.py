@@ -1,11 +1,28 @@
 """Test BaseDataGroup-derived classes"""
 
+from pkg_resources import resource_filename
+
 import pytest
+
+import numpy as np
+import xarray as xr
 
 from paramspace import ParamSpace, ParamDim
 
-from dantro.group import OrderedDataGroup, ParamSpaceGroup, ParamSpaceStateGroup
-from dantro.container import MutableSequenceContainer
+
+# Import the dantro objects to test here
+from dantro.group import OrderedDataGroup
+from dantro.group import ParamSpaceGroup, ParamSpaceStateGroup
+
+from dantro.container import MutableSequenceContainer, MutableMappingContainer
+from dantro.container import NumpyDataContainer
+
+from dantro.tools import load_yml
+
+# Local paths -----------------------------------------------------------------
+
+SELECTOR_PATH = resource_filename('tests', 'cfg/selectors.yml')
+
 
 # Fixtures --------------------------------------------------------------------
 
@@ -16,6 +33,37 @@ def pspace():
                            p0=ParamDim(default=0, values=[1, 2]),
                            p1=ParamDim(default=0, values=[1, 2, 3]),
                            p2=ParamDim(default=0, values=[1, 2, 3, 4, 5])))
+
+@pytest.fixture()
+def psp_grp(pspace):
+    """Setup and populate a ParamSpaceGroup"""
+    psp_grp = ParamSpaceGroup(name="mv", pspace=pspace)
+
+    # Iterate over the parameter space and add groups to the ParamSpaceGroup
+    for params, state_no_str in pspace.iterator(with_info='state_no_str'):
+        grp = psp_grp.new_group(state_no_str)
+
+        # Add the parameters as container to the group
+        grp.add(MutableMappingContainer(name="cfg", data=params))
+
+        # Create some paths that can be used for testing
+        grp.new_group("foo")
+        grp.new_group("foo/bar")
+
+        # And add a numpy dataset with random data of same size
+        randints = np.random.randint(10, size=(3,4,5))
+        grp["foo/bar"].add(NumpyDataContainer(name="randints", data=randints,
+                                              attrs=dict(foo="bar")))
+
+    return psp_grp
+
+@pytest.fixture()
+def selectors() -> dict:
+    """Returns the dict of selectors, where each key is a selector
+    specification
+    """
+    return load_yml(SELECTOR_PATH)
+
 
 # Tests -----------------------------------------------------------------------
 
@@ -109,6 +157,7 @@ def test_group_creation():
     # While adding a MutableSequenceContainer should work
     bar.new_container("eggs", Cls=MutableSequenceContainer, data=[1, 2, 3])
 
+
 # ParamSpaceGroup -------------------------------------------------------------
 
 def test_pspace_group_basics(pspace):
@@ -176,7 +225,45 @@ def test_pspace_group_basics(pspace):
         psp_grp.pspace = "bar"
 
 
-def test_pspace_group_pspace(pspace):
+def test_pspace_group_pspace(psp_grp, selectors):
     """Tests the pspace-related behaviour of the ParamSpaceGroup"""
-    psp_grp = ParamSpaceGroup(name="mv", pspace=pspace)
+    pgrp = psp_grp
+    
+    # They should match in size
+    assert len(pgrp) == pgrp.pspace.volume
+
+    # Test that loading on all scenarios works.
+    data = dict()
+    for name, sel in selectors.items():
+        print("Now selecting data for selector '{}' ...".format(name))
+
+        # Get the data
+        _data = pgrp.select(**sel)
+        print("  got data:\n", _data, "\n\n\n")
+
+        # Save to dict of all data
+        data[name] = _data
+
+        # And make some general tests
+        # Should be a DataArray
+        assert isinstance(_data, xr.DataArray)
+
+        # The 0th dimension specifies the variable
+        assert _data.dims[0] == "variable"
+
+        # Check the variable name corresponds to the field
+        if not isinstance(sel['field'], str):
+            # Regular syntax
+            assert _data.coords['variable'][0] == sel['field'][-1]
+
+        else:
+            # Short syntax
+            assert _data.coords['variable'][0] == sel['field'].split("/")[-1]
+
+        # The following dimensions correspond to the parameter space
+        # TODO should these actually be in front?!
+        assert _data.shape[1:1+pgrp.pspace.num_dims] == pgrp.pspace.shape
+        assert _data.dims[1:1+pgrp.pspace.num_dims] == tuple(pgrp.pspace.dims.keys())
+
+    # Now test specific cases more explicitly.
 

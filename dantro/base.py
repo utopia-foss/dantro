@@ -55,14 +55,9 @@ class AttrsMixin:
     @attrs.setter
     def attrs(self, new_attrs):
         """Setter method for the container `attrs` attribute."""
-        # Decide which class to use for attributes
-        if self._ATTRS_CLS is not None:
-            # Use the pre-defined one
-            AttrsCls = self._ATTRS_CLS
-        else:
-            # Use a default
-            AttrsCls = BaseDataAttrs
-
+        # Decide which class to use for attributes, custom or default
+        AttrsCls = self._ATTRS_CLS if self._ATTRS_CLS else BaseDataAttrs
+        
         # Perform the initialisation
         log.debug("Using %s for attributes of %s",
                   AttrsCls.__name__, self.logstr)

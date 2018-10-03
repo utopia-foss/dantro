@@ -1,12 +1,18 @@
 """In this module, BaseDataContainer specialisations that group data containers are implemented."""
 
-import collections
+import copy
 import logging
-from typing import Union
+import collections
+from typing import Union, List
+
+import numpy as np
+import numpy.ma
+import xarray as xr
 
 from paramspace import ParamSpace
 
-from dantro.base import BaseDataGroup
+from dantro.base import BaseDataGroup, PATH_JOIN_CHAR
+from dantro.tools import recursive_call
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -233,3 +239,126 @@ class ParamSpaceGroup(OrderedDataGroup):
 
         # Everything ok. Generate the zero-padded string.
         return "{sno:0{digs:d}d}".format(sno=state_no, digs=self._num_digs)
+
+
+    # Data access .............................................................
+    # TODO a select_multiple function that allows selecting multiple data
+    #      fields in one iteration over parameter space ...
+
+    def select(self, *, field: Union[str, List[str]], subspace: dict=None) -> xr.DataArray:
+        """Selects a multi-dimensional slab of this ParamSpaceGroup and returns
+        it as an xarray.DataArray with labelled dimensions.
+        
+        Args:
+            field (Union[str, List[str]]): The field of data to select. Should
+                be path or a list of strings that points to an entry in the
+                data tree.
+            subspace (dict, optional): Selector for a subspace of the
+                parameter space.
+        
+        Raises:
+            ValueError: If no ParamSpace was associated with this group
+        
+        Returns:
+            xr.DataArray: The selected data.
+        """
+        if self.pspace is None:
+            raise ValueError("Cannot get data from {} without having a "
+                             "parameter space associated!".format(self.logstr))
+
+        # Pre-process arguments
+        # Process field argument to be a list
+        if isinstance(field, str):
+            field = field.split(PATH_JOIN_CHAR)
+        
+        elif not isinstance(field, list):
+            field = list(field)
+
+        # Generate a name from the field that can be used to identify it
+        var_name = field[-1]
+        # TODO When specifying multiple fields, the dict-keys could be names!
+        
+
+        # TODO add log messages here
+
+
+        # Work on a copy of the parameter space and apply the subspace masks
+        psp = copy.deepcopy(self.pspace)
+
+        if subspace is not None:
+            pass
+            # TODO implement!
+            # TODO should warn if defaulting would occur!
+            # TODO should update dimension names, if necessary
+
+
+        # Now, the data needs to be collected from each point in this subspace.
+        data_pts = []
+
+        # The most convenient and reliable merging can happen if the arrays
+        # are merged directly using the xarray.merge feature.
+        # To that end, the data needs to be collected and stored in separate
+        # DataArrays which all have the first N dimensions matching to those of
+        # the parameter subspace, but only with a single entry, namely that for
+        # the specific parameter space coordinate that data is associated with.
+
+        log.info("Collecting data from %d points in parameter space ...",
+                 psp.volume)
+
+        # Go over the parameter space...
+        for state_no, coords in psp.iterator(with_info=('state_no',
+                                                        'current_coords'),
+                                             omit_pt=True):
+            # Select the corresponding state group
+            grp = self[state_no]
+            # TODO informative error message if not available
+
+            # Within that group, select a container using getitem
+            cont = grp[field]
+
+            # Now, an xr.DataArray has to be created from that container.
+            if hasattr(cont, "to_xarray"):
+                arr = cont.to_xarray(name=var_name)
+                # TODO These do not actually exist, but should be implemented.
+                #      They could also read in other meta data and already
+                #      label the axes appropriately
+
+            else:
+                # For data without a specialized export function, access the
+                # `data` attribute and extract the attributes manually ...
+                data = cont.data
+                attrs = {k:v for k,v in cont.attrs.items()}
+
+                # Use those to construct an xr.DataArray from it
+                arr = xr.DataArray(data, name=var_name, attrs=attrs)
+
+            # Now add the additional named dimensions with coordinates in front
+            # and set their coordinates ...
+            arr = arr.expand_dims(coords.keys())
+            # NOTE While this creates a non-shallow copy of the data, there is
+            #      no other way of doing this: a copy can only be avoided if
+            #      the DataArray can re-use the existing array data – for the
+            #      changes it needs to do to expand the dims, however, it will
+            #      necessarily need to create a copy of the original array.
+            #      Thus, we might as well let xarray take care of that instead
+            #      of bothering with that ourselves ...
+
+            arr = arr.assign_coords(**{k: [v] for k, v in coords.items()})
+            # NOTE This creates a shallow (!) copy of the DataArray object.
+
+            # Array is ready now. Append to list of data points
+            data_pts.append(arr)
+
+        # All data points collected.
+        # TODO consider warning if there are a high number of points. Also,
+        #      it would be great if this could be parallelized ... via dask?!
+        # TODO With multiple fields, there should be warnings if there would
+        #      be a large amount of broadcasting needed ...
+
+        # Merge now...
+        log.info("Merging data arrays from %d points ...", len(data_pts))
+        return xr.merge(data_pts).to_array()
+        # TODO Consider giving a name here, e.g. the field?
+
+
+    # Helper methods for data access ..........................................

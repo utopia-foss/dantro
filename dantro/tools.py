@@ -164,3 +164,24 @@ def center_in_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str="·", spaci
     spacing = " " * spacing
     return fill_line(spacing + s + spacing, num_cols=num_cols,
                      fill_char=fill_char, align='centre')
+
+
+# Misc ------------------------------------------------------------------------
+
+def recursive_call(obj, *, func, n):
+    """Recursively calls func n times on obj.
+    
+    Args:
+        obj: The object to call func on
+        func: The function to call
+        n (int): How many times to call func
+    
+    Returns:
+        The result of n recursive calls of func on obj.
+    """
+    if n > 0:
+        # Recursive branch
+        return recursive_call(func(obj), n=n-1, func=func)
+
+    # End of recursion
+    return obj
