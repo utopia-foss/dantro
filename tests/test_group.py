@@ -50,8 +50,14 @@ def psp_grp(pspace):
         grp.new_group("foo")
         grp.new_group("foo/bar")
 
-        # And add a numpy dataset with random data of same size
+        # Add two numpy dataset: symbolising state number and some random data
+        state_no = int(state_no_str)
+        state =  state_no * np.ones((3,4,5), dtype=int)
         randints = np.random.randint(10, size=(3,4,5))
+
+
+        grp["foo/bar"].add(NumpyDataContainer(name="state", data=state,
+                                              attrs=dict(state_no=state_no)))
         grp["foo/bar"].add(NumpyDataContainer(name="randints", data=randints,
                                               attrs=dict(foo="bar")))
 
@@ -228,42 +234,72 @@ def test_pspace_group_basics(pspace):
 def test_pspace_group_pspace(psp_grp, selectors):
     """Tests the pspace-related behaviour of the ParamSpaceGroup"""
     pgrp = psp_grp
+    psp = pgrp.pspace
     
     # They should match in size
-    assert len(pgrp) == pgrp.pspace.volume
+    assert len(pgrp) == psp.volume
 
     # Test that loading on all scenarios works.
-    data = dict()
+    dsets = dict()
     for name, sel in selectors.items():
-        print("Now selecting data for selector '{}' ...".format(name))
+        print("Now selecting data with selector '{}' ...".format(name))
 
         # Get the data
-        _data = pgrp.select(**sel)
-        print("  got data:\n", _data, "\n\n\n")
+        dset = pgrp.select(**sel)
+        print("  got data:\n", dset, "\n\n\n")
 
-        # Save to dict of all data
-        data[name] = _data
+        # Save to dict of all datasets
+        dsets[name] = dset
 
         # And make some general tests
-        # Should be a DataArray
-        assert isinstance(_data, xr.DataArray)
+        # Should be a Dataset
+        assert isinstance(dset, xr.Dataset)
+
+        # As the dataset has unordered dimensions, it is easier (& equivalent)
+        # to use the array created from that to perform the remaining checks.
+        arr = dset.to_array()
+        assert 7 >= len(arr.dims) >= 4
 
         # The 0th dimension specifies the variable
-        assert _data.dims[0] == "variable"
-
-        # Check the variable name corresponds to the field
-        if not isinstance(sel['field'], str):
-            # Regular syntax
-            assert _data.coords['variable'][0] == sel['field'][-1]
-
-        else:
-            # Short syntax
-            assert _data.coords['variable'][0] == sel['field'].split("/")[-1]
+        assert arr.dims[0] == "variable"
 
         # The following dimensions correspond to the parameter space
-        # TODO should these actually be in front?!
-        assert _data.shape[1:1+pgrp.pspace.num_dims] == pgrp.pspace.shape
-        assert _data.dims[1:1+pgrp.pspace.num_dims] == tuple(pgrp.pspace.dims.keys())
+        assert arr.shape[1:1 + psp.num_dims] == psp.shape
+        assert arr.dims[1:1 + psp.num_dims] == tuple(psp.dims.keys())
 
     # Now test specific cases more explicitly.
+    state = dsets['single_field'].state
+    mf = dsets['multi_field']
+    wdt = dsets['with_dtype']
+    cfg = dsets['non_numeric'].cfg
 
+    # TODO check for structured data?
+
+    # Positions match
+    states = state.mean(['dim_0', 'dim_1', 'dim_2'])
+    assert states[0,0,0] == 16
+    assert states[1,0,0] == 17
+    assert states[0,1,0] == 19
+    assert states[0,0,1] == 28
+
+    # Access via loc
+    assert states.loc[dict(p0=1, p1=1, p2=1)] == 16
+    assert states.loc[dict(p0=1, p1=1, p2=2)] == 28
+
+    # TODO Check if attributes were merged?
+
+    # Custom names work
+    assert list(mf.data_vars) == ["state", "randints", "config"]
+
+    # Dimensions match
+    assert len(mf.state.dims) == 6
+    assert len(mf.randints.dims) == 6
+    assert len(mf.config.dims) == 3
+
+    # dtype was converted
+    assert wdt.state.dtype == "uint8"
+    assert wdt.randints.dtype == "float32"
+
+    # config accessible by converting to python scalar
+    assert isinstance(cfg[0,0,0].item(), dict)
+    assert cfg[0,0,0].item() == dict(foo="bar", p0=1, p1=1, p2=1)

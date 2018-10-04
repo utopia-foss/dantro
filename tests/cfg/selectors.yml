@@ -1,15 +1,42 @@
 # Possible data selectors of the ParamSpaceGroup
 ---
 # The following selects _only_ a field and does not change the subspace
-field_only:
+single_field:
   field:
     - foo
     - bar
-    - randints
+    - state
 
 non_numeric:
   field:
-    - cfg  
+    - cfg
+
+short_field_syntax:
+  field: foo/bar/randints
+
+# Can also select multiple fields, which will then be named after the given key
+multi_field:
+  fields:
+    state: foo/bar/state
+    randints:
+      - foo
+      - bar
+      - randints
+    config: # renaming here
+      path: cfg
+
+# And specify further arguments, e.g. the dtype
+with_dtype:
+  fields:
+    state:
+      path: foo/bar/state
+      dtype: uint8
+    randints:
+      path:
+        - foo
+        - bar
+        - randints
+      dtype: float32
 
 # .............................................................................
 
@@ -41,7 +68,7 @@ short_syntax:
   field: foo/bar/randints
 
 # The names of the dimensions need not be those of the parameter dimensions
-renaming:
+subspace_renaming:
   subspace:
     param0:
       name: [p0]  # anything that ParamSpace can extract the name from
