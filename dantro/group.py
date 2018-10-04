@@ -1,4 +1,4 @@
-"""In this module, BaseDataContainer specialisations that group data containers are implemented."""
+"""In this module, BaseDataContainer specialisations are implemented."""
 
 import copy
 import logging
@@ -13,7 +13,6 @@ from paramspace import ParamSpace
 
 from dantro.base import BaseDataGroup, PATH_JOIN_CHAR
 from dantro.container import NumpyDataContainer
-from dantro.tools import recursive_call
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -418,11 +417,7 @@ class ParamSpaceGroup(OrderedDataGroup):
         psp = copy.deepcopy(self.pspace)
 
         if subspace is not None:
-            pass
-            # TODO implement!
-            # TODO should warn if defaulting would occur!
-            # TODO should update dimension names, if necessary
-
+            psp.activate_subspace(**subspace)
 
         # Now, the data needs to be collected from each point in this subspace.
         data_pts = {field_name: [] for field_name in fields.keys()}

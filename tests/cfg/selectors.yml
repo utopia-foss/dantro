@@ -32,11 +32,17 @@ with_dtype:
       path: foo/bar/state
       dtype: uint8
     randints:
-      path:
-        - foo
-        - bar
-        - randints
+      path: [foo, bar, randints]
       dtype: float32
+
+# There can be renaming of dimensions (done before returning)
+dim_renaming:
+  rename_dims:
+    p0: param0
+    p1: param1
+    p2: param2
+
+  field: foo/bar/randints
 
 # This selector shows the syntax of selecting a subspace to iterate over. This
 # can happen in three ways: by integer index, by setting a boolean mask, or by
@@ -44,18 +50,18 @@ with_dtype:
 subspace_selector:
   subspace:
     p0:
-      idx: [1]
+      loc: [1]
     p1:
-      mask: [true, false, true]
+      loc: !slice [2.5]
     p2:
-      loc: [5,3,1]
+      idx: [1, 3, 4]
   
   field:
     - foo
     - bar
     - randints
 
-# There is a short syntax available for the subsace selector, defaulting to idx
+# There is a short syntax available for the subsace selector, defaulting to loc
 short_syntax:
   subspace:
     p0: 1
@@ -64,31 +70,6 @@ short_syntax:
 
   field: foo/bar/randints
 
-# The names of the dimensions need not be those of the parameter dimensions
-dim_renaming:
-  subspace:
-    p0:
-      idx: 1
-    p1:
-      mask: [true, false, true]
-    p2:
-      mask: !slice [2]
-
-  rename_dims:
-    p0: param0
-    p1: param1
-
-  field: foo/bar/randints
-
-
-# .............................................................................
-
 # It is possible to access entries that are deeper down in the hierarchy, even
 # within containers... basically, as long as item access is possible.
-
-
-
-
-# .............................................................................
-# TODO Features to add
-#    - access subspaces of data
+# TODO

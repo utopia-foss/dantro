@@ -264,8 +264,9 @@ def test_pspace_group_select(psp_grp, selectors):
         assert arr.dims[0] == "variable"
 
         # The following dimensions correspond to the parameter space
-        assert arr.shape[1:1 + psp.num_dims] == psp.shape
-        assert arr.dims[1:1 + psp.num_dims] == tuple(psp.dims.keys())
+        if "subspace" not in sel:
+            assert arr.shape[1:1 + psp.num_dims] == psp.shape
+            assert arr.dims[1:1 + psp.num_dims] == tuple(psp.dims.keys())
 
     # Now test specific cases more explicitly.
     state = dsets['single_field'].state
