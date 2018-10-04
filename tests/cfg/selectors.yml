@@ -38,13 +38,34 @@ with_dtype:
         - randints
       dtype: float32
 
-# .............................................................................
-
-# This selector shows the short syntax of selecting a subspace
-# The result is an xarray with two named dimensions, p1 and p2. Dimension p0
-# no longer has an extend and is thus squeezed away. Each entry in the xarray
-# is the corresponding data at the cfg key
+# This selector shows the syntax of selecting a subspace to iterate over. This
+# can happen in three ways: by integer index, by setting a boolean mask, or by
+# specifying locations.
 subspace_selector:
+  subspace:
+    p0:
+      idx: [1]
+    p1:
+      mask: [true, false, true]
+    p2:
+      loc: [5,3,1]
+  
+  field:
+    - foo
+    - bar
+    - randints
+
+# There is a short syntax available for the subsace selector, defaulting to idx
+short_syntax:
+  subspace:
+    p0: 1
+    p1: [1, 2]
+    p2: !slice [2]
+
+  field: foo/bar/randints
+
+# The names of the dimensions need not be those of the parameter dimensions
+dim_renaming:
   subspace:
     p0:
       idx: 1
@@ -52,33 +73,10 @@ subspace_selector:
       mask: [true, false, true]
     p2:
       mask: !slice [2]
-  
-  field:
-    - foo
-    - bar
-    - randints
 
-# There is a short syntax available for the subsace selector
-short_syntax:
-  subspace:
-    p0: 1
-    p1: [true, false, true]
-    p2: !slice [2]
-
-  field: foo/bar/randints
-
-# The names of the dimensions need not be those of the parameter dimensions
-subspace_renaming:
-  subspace:
-    param0:
-      name: [p0]  # anything that ParamSpace can extract the name from
-      idx: 1
-    param1:
-      name: [p1]
-      mask: [true, false, true]
-    param2:
-      name: [p2]
-      mask: !slice [2]
+  rename_dims:
+    p0: param0
+    p1: param1
 
   field: foo/bar/randints
 
@@ -93,6 +91,4 @@ subspace_renaming:
 
 # .............................................................................
 # TODO Features to add
-#    - selecting multiple fields to load into variables
-#    - dtype specification
-#    - 
+#    - access subspaces of data

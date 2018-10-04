@@ -246,7 +246,7 @@ class ParamSpaceGroup(OrderedDataGroup):
     # TODO a select_multiple function that allows selecting multiple data
     #      fields in one iteration over parameter space ...
 
-    def select(self, *, field: Union[str, List[str]]=None, fields: Dict[str, List[str]]=None, subspace: dict=None) -> xr.Dataset:
+    def select(self, *, field: Union[str, List[str]]=None, fields: Dict[str, List[str]]=None, subspace: dict=None, rename_dims: dict=None) -> xr.Dataset:
         """Selects a multi-dimensional slab of this ParamSpaceGroup and returns
         it as an xarray.Dataset with labelled dimensions.
         
@@ -438,6 +438,7 @@ class ParamSpaceGroup(OrderedDataGroup):
                  psp.volume)
 
         # Go over the parameter space...
+        # TODO Could use np.nditer here instead?
         for state_no, coords in psp.iterator(with_info=('state_no',
                                                         'current_coords'),
                                              omit_pt=True):

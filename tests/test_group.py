@@ -277,14 +277,14 @@ def test_pspace_group_select(psp_grp, selectors):
 
     # Positions match
     states = state.mean(['dim_0', 'dim_1', 'dim_2'])
-    assert states[0,0,0] == 16
-    assert states[1,0,0] == 17
-    assert states[0,1,0] == 19
-    assert states[0,0,1] == 28
+    assert states[0,0,0] == 31
+    assert states[0,0,1] == 32
+    assert states[0,1,0] == 37
+    assert states[1,0,0] == 55
 
     # Access via loc
-    assert states.loc[dict(p0=1, p1=1, p2=1)] == 16
-    assert states.loc[dict(p0=1, p1=1, p2=2)] == 28
+    assert states.loc[dict(p0=1, p1=1, p2=1)] == 31
+    assert states.loc[dict(p0=1, p1=1, p2=2)] == 32
 
     # TODO Check if attributes were merged?
 
