@@ -231,11 +231,11 @@ def test_pspace_group_basics(pspace):
         psp_grp.pspace = "bar"
 
 
-def test_pspace_group_pspace(psp_grp, selectors):
+def test_pspace_group_select(psp_grp, selectors):
     """Tests the pspace-related behaviour of the ParamSpaceGroup"""
     pgrp = psp_grp
     psp = pgrp.pspace
-    
+
     # They should match in size
     assert len(pgrp) == psp.volume
 
@@ -303,3 +303,23 @@ def test_pspace_group_pspace(psp_grp, selectors):
     # config accessible by converting to python scalar
     assert isinstance(cfg[0,0,0].item(), dict)
     assert cfg[0,0,0].item() == dict(foo="bar", p0=1, p1=1, p2=1)
+
+
+    # Test the rest of the .select interface
+    with pytest.raises(ValueError, match="Need to specify one of the arg"):
+        pgrp.select()
+    
+    with pytest.raises(ValueError, match="Can only specify either of the arg"):
+        pgrp.select(field="foo", fields="foo")
+
+    with pytest.raises(TypeError, match="needs to be a dict, but was"):
+        pgrp.select(fields="foo")
+
+    with pytest.raises(ValueError, match="invalid key in the 'foo' entry"):
+        pgrp.select(fields=dict(foo=dict(invalid_key="spam")))
+
+    with pytest.raises(ValueError, match="without having a parameter space"):
+        ParamSpaceGroup(name="without_pspace").select()
+
+    with pytest.raises(ValueError, match="Make sure the data was fully"):
+        ParamSpaceGroup(name="without_pspace", pspace=psp).select(field="cfg")

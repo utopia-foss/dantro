@@ -315,10 +315,11 @@ class ParamSpaceGroup(OrderedDataGroup):
                 elif isinstance(field, dict):
                     # Assert there are no invalid entries
                     if any([k not in ('path', 'dtype') for k in field.keys()]):
-                        raise ValueError("There was an unrecognized key in "
-                                         "the fields dict. Allowed keys: "
-                                         "'path', 'dtype'. Given dict: {}"
-                                         "".format(field))
+                        raise ValueError("There was an invalid key in the "
+                                         "'{}' entry of the fields dict. "
+                                         "Allowed keys: 'path', 'dtype'. "
+                                         "Given dict: {}"
+                                         "".format(name, field))
 
                 else:
                     # Assume this is a sequence, make sure path is a list
@@ -445,7 +446,8 @@ class ParamSpaceGroup(OrderedDataGroup):
                 grp = self[state_no]
 
             except KeyError as err:
-                # TODO consider not to bother ... missing data might be ok.
+                # TODO consider not to bother ... missing data might be ok?!
+                # TODO use custom exception class, e.g. from DataManager?
                 raise ValueError("No state {} available in {}! Make sure the "
                                  "data was fully loaded."
                                  "".format(state_no, self.logstr)) from err
