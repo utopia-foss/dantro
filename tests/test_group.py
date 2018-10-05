@@ -261,7 +261,7 @@ def test_pspace_group_select(psp_grp, selectors):
         # As the dataset has unordered dimensions, it is easier (& equivalent)
         # to use the array created from that to perform the remaining checks.
         arr = dset.to_array()
-        assert 7 >= len(arr.dims) >= 4
+        assert 9 >= len(arr.dims) >= 4
 
         # The 0th dimension specifies the variable
         assert arr.dims[0] == "variable"

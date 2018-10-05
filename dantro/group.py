@@ -243,7 +243,7 @@ class ParamSpaceGroup(OrderedDataGroup):
 
     # Data access .............................................................
 
-    def select(self, *, field: Union[str, List[str]]=None, fields: Dict[str, List[str]]=None, subspace: dict=None) -> xr.Dataset:
+    def select(self, *, field: Union[str, List[str]]=None, fields: Dict[str, List[str]]=None, subspace: dict=None, method: str='merge', **kwargs) -> xr.Dataset:
         """Selects a multi-dimensional slab of this ParamSpaceGroup and the
         specified fields and returns them bundled into an xarray.Dataset with
         labelled dimensions and coordinates.
@@ -263,6 +263,13 @@ class ParamSpaceGroup(OrderedDataGroup):
             subspace (dict, optional): Selector for a subspace of the
                 parameter space. Adheres to the ParamSpace.activate_subspace
                 signature.
+            method (str, optional): How to combine the selected datasets.
+                    * 'concat': concatenate sequentially along all parameter
+                      space dimensions. This can preserve the data type but
+                      it does not work if one data point is missing.
+                    * 'merge': merge always works, even if data points are
+                      missing, but will convert all dtypes to float.
+            **kwargs: Passed along either to xr.concat or xr.merge
         
         Raises:
             ValueError: If no ParamSpace was associated with this group
@@ -353,7 +360,6 @@ class ParamSpaceGroup(OrderedDataGroup):
                 return self[state_no]
 
             except KeyError as err:
-                # TODO consider not to bother ... missing data might be ok?!
                 # TODO use custom exception class, e.g. from DataManager?
                 raise ValueError("No state {} available in {}! Make sure the "
                                  "data was fully loaded."
@@ -469,13 +475,26 @@ class ParamSpaceGroup(OrderedDataGroup):
         log.info("Collecting data for %d fields from %d points in parameter "
                  "space ...", len(fields), psp.volume)
 
-        dsets = []
+        # Gather them in a multi-dimensional array
+        dsets = np.zeros(psp.shape, dtype="object")
+        dsets.fill(dict())  # these are ignore in xr.merge
+
+        # Prepare the iterators
         psp_it = psp.iterator(with_info=('state_no', 'current_coords'),
                               omit_pt=True)
+        arr_it = np.nditer(dsets, flags=('multi_index', 'refs_ok'))
 
-        for _state_no, _coords in psp_it:
+        for (_state_no, _coords), _ in zip(psp_it, arr_it):
             # Select the corresponding state group
-            _state_grp = get_state_grp(_state_no)
+            try:
+                _state_grp = get_state_grp(_state_no)
+
+            except ValueError:
+                if method == 'merge':
+                    # In merge, this will mereley lead to a NaN ...
+                    log.warning("Missing state group:  %d", _state_no)
+                    continue
+                raise
 
             # Get the variables for all fields
             _vars = {k: get_var(_state_grp, **f) for k, f in fields.items()}
@@ -486,26 +505,57 @@ class ParamSpaceGroup(OrderedDataGroup):
             # ... and expand its dimensions to accomodate the point in pspace
             _dset = expand_dset_dims(_dset, coords=_coords)
 
-            # Store it in the list of datasets
-            dsets.append(_dset)
+            # Store it in the array of datasets
+            dsets[arr_it.multi_index] = _dset
 
-        # All data points collected.
+        
+        # All data points collected now.  . . . . . . . . . . . . . . . . . . .
         # TODO consider warning if there are a high number of points. Also,
         #      it would be great if this could be parallelized ... via dask?!
         # TODO With multiple fields, there should be warnings if there would
         #      be a large amount of broadcasting needed ...
 
-        # Finally, merge all the datasets together into a dataset with
+        # Finally, combine all the datasets together into a dataset with
         # potentially non-homogeneous data type. This will have at least the
         # dimensions given by the parameter space aligned, but there could
         # be potentially more dimensions!
-        log.info("Merging datasets ...")
 
-        dset = xr.merge(dsets)
-        log.info("Merge successful.")
-        log.debug("Result of merge operation:  %s", str(dset))
+        # Distinguish the two methods
+        # Merging . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        if method in ['merge']:
+            log.info("Combining datasets by merging ...")
+            # TODO consider warning?!
 
-        # Done.
+            dset = xr.merge(dsets.flat)
+
+            log.info("Merge successful.")
+            return dset
+
+        elif method not in ['concat']:
+            raise ValueError("Invalid value for argument `method`: '{}'. Can "
+                             "be: 'concat' (default), 'merge'".format(method))
+
+
+        # Concatenation . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        log.info("Combining datasets by concatenation along %d dimensions ...",
+                 len(dsets.shape))
+
+        # Go over all dimensions and concatenate
+        # This effectively reduces the dsets array by one dimension in each
+        # iteration by applying the xr.concat function along the axis
+        for dim_idx, dim_name in enumerate(reversed(psp.dims.keys())):
+            log.debug("Concatenating along axis '%s' (idx: %d) ...",
+                      dim_name, dim_idx)
+
+            # NOTE np.apply_along_axis would be what is desired here, but that
+            #      function unfortunately tries to cast objects to np.arrays
+            #      which is not what we want here at all!
+            # TODO some form of apply_along_axis function
+            raise NotImplementedError
+
+        # TODO if this fails, there should be an error message indicating that
+        #      a `merge` might be needed.
         return dset
+
 
     # Helper methods for data access ..........................................

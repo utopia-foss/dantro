@@ -45,6 +45,16 @@ with_dim_names:
       path: foo/bar/randints
       dims: [d0, d1, d2]
 
+# ... which may partly go along other dimensions
+mixed_dim_names:
+  fields:
+    state:
+      path: foo/bar/state
+      dims: [t, d0, d1]
+    randints:
+      path: foo/bar/randints
+      dims: [t, d2, d3]
+
 # This selector shows the syntax of selecting a subspace to iterate over. This
 # can happen in three ways: by integer index, by setting a boolean mask, or by
 # specifying locations.
