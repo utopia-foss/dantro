@@ -290,6 +290,12 @@ class BaseDataAttrs(MappingAccessMixin, dantro.abc.AbstractDataAttrs):
         log.debug("BaseDataAttrs.__init__ finished.")
     
     # .........................................................................
+    
+    def as_dict(self) -> dict:
+        """Returns a shallow copy of the attributes as a dict"""
+        return {k:v for k, v in self.items()}
+
+    # .........................................................................
     # Magic methods and iterators for convenient dict-like access
 
     def _format_info(self) -> str:

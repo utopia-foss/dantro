@@ -236,6 +236,9 @@ def test_pspace_group_select(psp_grp, selectors):
     pgrp = psp_grp
     psp = pgrp.pspace
 
+    import warnings
+    warnings.filterwarnings('error', category=FutureWarning)
+
     # They should match in size
     assert len(pgrp) == psp.volume
 
@@ -246,7 +249,7 @@ def test_pspace_group_select(psp_grp, selectors):
 
         # Get the data
         dset = pgrp.select(**sel)
-        print("  got data:\n", dset, "\n\n\n")
+        print("  got data:", dset, "\n\n\n")
 
         # Save to dict of all datasets
         dsets[name] = dset
@@ -263,8 +266,13 @@ def test_pspace_group_select(psp_grp, selectors):
         # The 0th dimension specifies the variable
         assert arr.dims[0] == "variable"
 
-        # The following dimensions correspond to the parameter space
-        if "subspace" not in sel:
+        # The following dimensions correspond to the parameter space's dims
+        assert arr.dims[1] == "p0"
+        assert arr.dims[2] == "p1"
+        assert arr.dims[3] == "p2"
+
+        # Can only check the actual shape in this for-loop without subspace
+        if not sel.get('subspace'):
             assert arr.shape[1:1 + psp.num_dims] == psp.shape
             assert arr.dims[1:1 + psp.num_dims] == tuple(psp.dims.keys())
 
@@ -273,6 +281,7 @@ def test_pspace_group_select(psp_grp, selectors):
     mf = dsets['multi_field']
     wdt = dsets['with_dtype']
     cfg = dsets['non_numeric'].cfg
+    sub = dsets['subspace'].state  # TODO
 
     # TODO check for structured data?
 
@@ -287,7 +296,7 @@ def test_pspace_group_select(psp_grp, selectors):
     assert states.loc[dict(p0=1, p1=1, p2=1)] == 31
     assert states.loc[dict(p0=1, p1=1, p2=2)] == 32
 
-    # TODO Check if attributes were merged?
+    # TODO Check what happened to attributes
 
     # Custom names work
     assert list(mf.data_vars) == ["state", "randints", "config"]
@@ -304,6 +313,9 @@ def test_pspace_group_select(psp_grp, selectors):
     # config accessible by converting to python scalar
     assert isinstance(cfg[0,0,0].item(), dict)
     assert cfg[0,0,0].item() == dict(foo="bar", p0=1, p1=1, p2=1)
+
+
+    # TODO check the subspace-data
 
 
     # Test the rest of the .select interface

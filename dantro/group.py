@@ -12,7 +12,7 @@ import xarray as xr
 from paramspace import ParamSpace
 
 from dantro.base import BaseDataGroup, PATH_JOIN_CHAR
-from dantro.container import NumpyDataContainer
+from dantro.container import NumpyDataContainer, XrContainer
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -242,29 +242,47 @@ class ParamSpaceGroup(OrderedDataGroup):
 
 
     # Data access .............................................................
-    # TODO a select_multiple function that allows selecting multiple data
-    #      fields in one iteration over parameter space ...
 
-    def select(self, *, field: Union[str, List[str]]=None, fields: Dict[str, List[str]]=None, subspace: dict=None, rename_dims: dict=None) -> xr.Dataset:
-        """Selects a multi-dimensional slab of this ParamSpaceGroup and returns
-        it as an xarray.Dataset with labelled dimensions.
+    def select(self, *, field: Union[str, List[str]]=None, fields: Dict[str, List[str]]=None, subspace: dict=None) -> xr.Dataset:
+        """Selects a multi-dimensional slab of this ParamSpaceGroup and the
+        specified fields and returns them bundled into an xarray.Dataset with
+        labelled dimensions and coordinates.
         
         Args:
-            field (Union[str, List[str]]): The field of data to select. Should
-                be path or a list of strings that points to an entry in the
-                data tree.
+            field (Union[str, List[str]], optional): The field of data to
+                select. Should be path or a list of strings that points to an
+                entry in the data tree. To select multiple fields, do not pass
+                this argument but use the `fields` argument.
+            fields (Dict[str, List[str]], optional): A dict specifying the
+                fields that are to be loaded into the dataset. Keys will be
+                the names of the resulting variables, while values should
+                specify the path to the field in the data tree. Thus, they can
+                be strings, lists of strings or dicts with the `path` key
+                present. In the latter case, a dtype can be specified via the
+                `dtype` key in the dict.
             subspace (dict, optional): Selector for a subspace of the
-                parameter space.
+                parameter space. Adheres to the ParamSpace.activate_subspace
+                signature.
         
         Raises:
             ValueError: If no ParamSpace was associated with this group
         
         Returns:
-            xr.Dataset: The selected data.
+            xr.Dataset: The selected hyperslab of the parameter space, holding
+                the desired fields.
         """
 
         def parse_fields(*, field, fields) -> dict:
-            """Parses the field and fields arguments into a uniform dict"""
+            """Parses the field and fields arguments  into a uniform dict
+
+            Return value is a dict of the following structure:
+            <var_name_1>:
+              path: <list of strings>
+              dtype: <str, optional>
+              dims: <list of strings, optional>
+            <var_name_2>:
+              ...
+            """
 
             if field is not None and fields is not None:
                 raise ValueError("Can only specify either of the arguments "
@@ -285,8 +303,9 @@ class ParamSpaceGroup(OrderedDataGroup):
                     kwargs = {}
 
                 elif isinstance(field, dict):
-                    path = field.pop('path')
-                    kwargs = field
+                    path = field['path']
+                    kwargs = {k:v for k, v in field if k != "path"}
+                    # Not using .pop here in order to not change the dict.
 
                     if isinstance(path, str):
                         path = path.split(PATH_JOIN_CHAR)
@@ -295,7 +314,7 @@ class ParamSpaceGroup(OrderedDataGroup):
                     path = list(field)
                     kwargs = {}
 
-                # Create the fields dict
+                # Create the fields dict, carrying over all other arguments
                 fields = dict()
                 fields[path[-1]] = dict(path=path, **kwargs)
 
@@ -312,92 +331,120 @@ class ParamSpaceGroup(OrderedDataGroup):
                     fields[name] = dict(path=field.split(PATH_JOIN_CHAR))
 
                 elif isinstance(field, dict):
-                    # Assert there are no invalid entries
-                    if any([k not in ('path', 'dtype') for k in field.keys()]):
+                    # Already is a dict.
+                    # Need only assert there are no invalid entries
+                    if any([k not in ('path', 'dtype', 'dims')
+                            for k in field.keys()]):
                         raise ValueError("There was an invalid key in the "
                                          "'{}' entry of the fields dict. "
-                                         "Allowed keys: 'path', 'dtype'. "
-                                         "Given dict: {}"
+                                         "Allowed keys: 'path', 'dtype', "
+                                         "'dims'. Given dict: {}"
                                          "".format(name, field))
 
                 else:
-                    # Assume this is a sequence, make sure path is a list
+                    # Assume this is a sequence, but better make sure ...
                     fields[name] = dict(path=list(field))
 
             return fields
 
-        def get_expaned_arr(*, grp, var_name: str, path: List[str], coords: dict, dtype: str=None) -> xr.DataArray:
-            """Helper function to get a field from a group and create an
-            expanded xr.DataArray from it.
+        def get_state_grp(state_no: int) -> ParamSpaceStateGroup:
+            """Returns the group corresponding to the given state"""
+            try:
+                return self[state_no]
+
+            except KeyError as err:
+                # TODO consider not to bother ... missing data might be ok?!
+                # TODO use custom exception class, e.g. from DataManager?
+                raise ValueError("No state {} available in {}! Make sure the "
+                                 "data was fully loaded."
+                                 "".format(state_no, self.logstr)) from err
+
+        def get_var(state_grp: ParamSpaceStateGroup, *, path: List[str], dtype: str=None, dims: List[str]=None) -> Union[xr.Variable, xr.DataArray]:
+            """Extracts the field specified by the given path and returns it as
+            either an xr.Variable or (for supported containers) directly as an
+            xr.DataArray.
+            
+            We are using xr.Variables as defaults here, as they provide higher
+            performance than xr.DataArrays; the latter have to be frequently
+            unpacked and restructured in the merge operations.
             
             Args:
-                grp: The group to search the field in
-                var_name (str): The name of this field
-                path (List[str]): The path to the field to get the data from
-                coords (dict): The coordinates of the current point
-                dtype (str, optional): The dtype to set.
+                state_grp (ParamSpaceStateGroup): The group to search `path` in
+                path (List[str]): The path to a data container.
+                dtype (str, optional): The desired dtype for the data.
+                dims (List[str], optional): A list of dimension names for the
+                    extracted data. If not given, will name them manually as
+                    dim_0, dim_1, ...
             
             Returns:
-                xr.DataArray: An expanded array
+                Union[xr.Variable, xr.DataArray]: The extracted data, which
+                    can be either a data array (if the path led to an
+                    xarray-interface supporting container) or an xr.Variable
+                    (if not).
             """
-            # Within that group, select a container using getitem
-            cont = grp[path]
+            # First, get the desired container
+            cont = state_grp[path]
+            
+            # Shortcut: specialised containers might already supply all the
+            # information, including coordinates. In that case, return it as
+            # a data array.
+            if isinstance(cont, XrContainer):
+                return cont.to_array()
+                # TODO should the dims and dtype argument be handled here?!
 
-            # Now, an xr.DataArray has to be created from that container.
-            if hasattr(cont, "to_xarray"):
-                arr = cont.to_xarray(name=var_name)
-                # TODO These do not actually exist, but should be implemented.
-                #      They could also read in other meta data and already
-                #      label the axes appropriately
+            # If this was not the case, xr.Variable will have to be constructed
+            # manually.
+            # The only pre-requisite for the data is that it is np.array-like,
+            # which is always possible; worst case: scalar of dtype "object".
+            data = np.array(cont.data)
+            # Can now assume data to comply to np.array interface
 
-            else:
-                # For data without a specialized export function, access the
-                # `data` attribute and extract the attributes manually ...
-                
-                # Still need to distinguish numeric containers and others:
-                if isinstance(cont, NumpyDataContainer): # TODO generalise?
-                    # Can take the data directly
-                    data = cont.data
-                    dims = None
+            # Generate dimension names, if not explicitly given.
+            if dims is None:
+                dims = ["dim_{}".format(i) for i in range(len(data.shape))]
 
-                else:
-                    # Need to wrap it in a list such that xarray does not try
-                    # to resolve it somehow ... and later drop that dimension
-                    data = [cont.data]
-                    dims = ['__tmp']  # FIXME ugly
-                
-                # Get the attributes
-                attrs = {k:v for k,v in cont.attrs.items()}
+            # Check the dtype and convert, if needed
+            if dtype and data.dtype != dtype:
+                log.debug("Converting data from '%s' with dtype %s to %s ...",
+                          "/".join(path), data.dtype, dtype)
+                data = data.astype(dtype)
 
-                # Use those to construct an xr.DataArray from it
-                arr = xr.DataArray(data, name=var_name, dims=dims, attrs=attrs)
+            # Use those to construct an xr.Variable, carrying over attributes
+            return xr.Variable(dims, data, attrs=cont.attrs.as_dict())
 
+        def expand_dset_dims(dset: xr.Dataset, *, coords: dict) -> xr.Dataset:
+            """Expands the given dataset such that the new coordinates can be
+            accomodated. Old coordinates stay intact.
+            
+            Note that this needs to create a copy of the data.
+            
+            Args:
+                dset (xr.Dataset): The dataset to expand
+                coords (dict): The coordinates of the current point, used to
+                    expand the dimensions of the dataset.
+            
+            Returns:
+                xr.Dataset: The expanded dataset
+            """
             # Now add the additional named dimensions with coordinates in front
-            # and set their coordinates ...
-            arr = arr.expand_dims(coords.keys())
+            dset = dset.expand_dims(coords.keys())
             # NOTE While this creates a non-shallow copy of the data, there is
             #      no other way of doing this: a copy can only be avoided if
-            #      the DataArray can re-use the existing array data – for the
+            #      the DataArray can re-use the existing variables – for the
             #      changes it needs to do to expand the dims, however, it will
-            #      necessarily need to create a copy of the original array.
+            #      necessarily need to create a copy of the original data.
             #      Thus, we might as well let xarray take care of that instead
             #      of bothering with that ourselves ...
 
-            arr = arr.assign_coords(**{k: [v] for k, v in coords.items()})
-            # NOTE This creates a shallow (!) copy of the DataArray object.
+            # ...and assign coordinates to them.
+            dset = dset.assign_coords(**{k: [v] for k, v in coords.items()})
+            # NOTE This creates only a shallow copy of the dataset. Thus, all
+            #      already existing coordinates are carried over.
 
-            # Now, for object arrays, the temporary dimension can be dropped
-            if '__tmp' in arr.dims:
-                arr = arr.isel(dict(__tmp=0))
+            return dset
 
-            # Finally, set the dtype
-            if dtype is not None:
-                arr = arr.astype(dtype)
-                # NOTE for non-float dtypes, this will get lost in the merge!
-                # TODO Find a better strategy for doing this!
-
-            return arr
-
+        # End of definition of helper functions.
+        # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         # Some initial checks
 
@@ -410,49 +457,37 @@ class ParamSpaceGroup(OrderedDataGroup):
         # it can be handled uniformly below.
         fields = parse_fields(field=field, fields=fields)
 
-        # TODO add log messages here
-
-
         # Work on a copy of the parameter space and apply the subspace masks
         psp = copy.deepcopy(self.pspace)
 
         if subspace is not None:
             psp.activate_subspace(**subspace)
 
-        # Now, the data needs to be collected from each point in this subspace.
-        data_pts = {field_name: [] for field_name in fields.keys()}
+        # Now, the data needs to be collected from each point in this subspace
+        # and associated with the correct coordinate, such that the datasets
+        # can later be merged and aligned by that coordinate.
+        log.info("Collecting data for %d fields from %d points in parameter "
+                 "space ...", len(fields), psp.volume)
 
-        # The most convenient and reliable merging can happen if the arrays
-        # are merged directly using the xarray.merge feature.
-        # To that end, the data needs to be collected and stored in separate
-        # DataArrays which all have the first N dimensions matching to those of
-        # the parameter subspace, but only with a single entry, namely that for
-        # the specific parameter space coordinate that data is associated with.
+        dsets = []
+        psp_it = psp.iterator(with_info=('state_no', 'current_coords'),
+                              omit_pt=True)
 
-        log.info("Collecting data from %d points in parameter space ...",
-                 psp.volume)
-
-        # Go over the parameter space...
-        # TODO Could use np.nditer here instead?
-        for state_no, coords in psp.iterator(with_info=('state_no',
-                                                        'current_coords'),
-                                             omit_pt=True):
+        for _state_no, _coords in psp_it:
             # Select the corresponding state group
-            try:
-                grp = self[state_no]
+            _state_grp = get_state_grp(_state_no)
 
-            except KeyError as err:
-                # TODO consider not to bother ... missing data might be ok?!
-                # TODO use custom exception class, e.g. from DataManager?
-                raise ValueError("No state {} available in {}! Make sure the "
-                                 "data was fully loaded."
-                                 "".format(state_no, self.logstr)) from err
+            # Get the variables for all fields
+            _vars = {k: get_var(_state_grp, **f) for k, f in fields.items()}
 
-            # For each desired field ...
-            for var_name, field in fields.items():
-                arr = get_expaned_arr(grp=grp, var_name=var_name, **field,
-                                      coords=coords)
-                data_pts[var_name].append(arr)
+            # Construct a dataset from that
+            _dset = xr.Dataset(_vars)
+
+            # ... and expand its dimensions to accomodate the point in pspace
+            _dset = expand_dset_dims(_dset, coords=_coords)
+
+            # Store it in the list of datasets
+            dsets.append(_dset)
 
         # All data points collected.
         # TODO consider warning if there are a high number of points. Also,
@@ -460,30 +495,17 @@ class ParamSpaceGroup(OrderedDataGroup):
         # TODO With multiple fields, there should be warnings if there would
         #      be a large amount of broadcasting needed ...
 
-        # Merge now...
-        log.info("Merging data arrays from %d points and %d field(s) ...",
-                 psp.volume, len(fields))
-        merged_dsets = []
-
-        for var_name, _data_pts in data_pts.items():
-            log.debug("Merging arrays of field '%s' ...", var_name)
-            merged_dset = xr.merge(_data_pts)
-
-            # Get the new variable's array out of the newly created dataset
-            # and check if it was configured to change its dtype
-            var_arr = merged_dset[var_name]
-            dtype = fields[var_name].get('dtype')
-
-            if dtype is not None and dtype != var_arr.dtype:
-                merged_dset[var_name] = var_arr.astype(dtype)
-
-            merged_dsets.append(merged_dset)
-
         # Finally, merge all the datasets together into a dataset with
         # potentially non-homogeneous data type. This will have at least the
         # dimensions given by the parameter space aligned, but there could
         # be potentially more dimensions!
-        return xr.merge(merged_dsets)
+        log.info("Merging datasets ...")
 
+        dset = xr.merge(dsets)
+        log.info("Merge successful.")
+        log.debug("Result of merge operation:  %s", str(dset))
+
+        # Done.
+        return dset
 
     # Helper methods for data access ..........................................

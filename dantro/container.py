@@ -214,3 +214,11 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
         """Truncated to the nearest integer toward 0"""
         raise NotImplementedError("__trunc__ not supported for {}!"
                                   "".format(self.logstr))
+
+
+# .............................................................................
+
+class XrContainer(BaseDataContainer):
+
+    def __init__(self, **kwargs):
+        raise NotImplementedError
