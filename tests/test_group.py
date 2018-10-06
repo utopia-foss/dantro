@@ -1,5 +1,6 @@
 """Test BaseDataGroup-derived classes"""
 
+import copy
 from pkg_resources import resource_filename
 
 import pytest
@@ -47,19 +48,39 @@ def psp_grp(pspace):
         grp.add(MutableMappingContainer(name="cfg", data=params))
 
         # Create some paths that can be used for testing
-        grp.new_group("foo")
-        grp.new_group("foo/bar")
+        grp.new_group("testdata")
+        farrs = grp.new_group("testdata/fixedsize")
+        rarrs = grp.new_group("testdata/randsize")
 
         # Add two numpy dataset: symbolising state number and some random data
         state_no = int(state_no_str)
         state =  state_no * np.ones((3,4,5), dtype=int)
         randints = np.random.randint(10, size=(3,4,5))
 
+        farrs.add(NumpyDataContainer(name="state", data=state,
+                                     attrs=dict(state_no=state_no)))
+        farrs.add(NumpyDataContainer(name="randints", data=randints,
+                                     attrs=dict(foo="bar")))
 
-        grp["foo/bar"].add(NumpyDataContainer(name="state", data=state,
-                                              attrs=dict(state_no=state_no)))
-        grp["foo/bar"].add(NumpyDataContainer(name="randints", data=randints,
-                                              attrs=dict(foo="bar")))
+        # Add some non-uniform data sets
+        # 3d with last dimension differing in length
+        randlen = np.ones((3, 4, np.random.randint(10, 50)))
+        rarrs.add(NumpyDataContainer(name="randlen", data=randlen))
+
+        # 3d but of different shape in all directions
+        randshape = np.ones(np.random.randint(1, 10, size=3))
+        rarrs.add(NumpyDataContainer(name="randshape", data=randshape))
+
+    return psp_grp
+
+@pytest.fixture()
+def psp_grp_missing_data(psp_grp):
+    """A ParamSpaceGroup with some states missing"""
+    psp_grp = copy.deepcopy(psp_grp)
+
+    for state_no in (12, 38, 39, 52, 59, 66):
+        if state_no in psp_grp:
+            del psp_grp[state_no]
 
     return psp_grp
 
@@ -231,9 +252,10 @@ def test_pspace_group_basics(pspace):
         psp_grp.pspace = "bar"
 
 
-def test_pspace_group_select(psp_grp, selectors):
+def test_pspace_group_select(psp_grp, psp_grp_missing_data, selectors):
     """Tests the pspace-related behaviour of the ParamSpaceGroup"""
     pgrp = psp_grp
+    pgrp_m = psp_grp_missing_data
     psp = pgrp.pspace
 
     import warnings
@@ -318,7 +340,31 @@ def test_pspace_group_select(psp_grp, selectors):
     # TODO check the subspace-data
 
 
-    # Test the rest of the .select interface
+    # Tess with missing state data ............................................
+    # test all selectors and assert that concat is not working but merge is.
+    dsets_m = dict()
+    
+    for name, sel in selectors.items():
+        print("Now selecting data with selector '{}' ...".format(name))
+
+        sel = copy.deepcopy(sel)
+        sel.pop('method', None)
+
+        # With concat, it should fail
+        with pytest.raises(ValueError, match=""):
+            pgrp_m.select(**sel, method='concat')
+
+        # With merge, it should succeed
+        dset = pgrp_m.select(**sel, method='merge')
+        print("  got data:", dset, "\n\n\n")
+
+        dsets_m[name] = dset
+
+        # ...but dtype should always be float
+        # TODO
+
+
+    # Test the rest of the .select interface ..................................
     with pytest.raises(ValueError, match="Need to specify one of the arg"):
         pgrp.select()
     

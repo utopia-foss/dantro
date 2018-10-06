@@ -213,6 +213,15 @@ class ParamSpaceGroup(OrderedDataGroup):
         # Use the parent method to return the value
         return super().__getitem__(key)
 
+    def __delitem__(self, key: Union[str, int]):
+        """Adjusts the parent method to allow item deletion by int key"""
+        if isinstance(key, int):
+            # Generate a padded string to access the state
+            key = self._padded_id_from_int(key)
+
+        # Use the parent method to return the value
+        return super().__delitem__(key)
+
     def __contains__(self, key: Union[str, int]) -> bool:
         """Adjusts the parent method to allow checking for integers"""
         if isinstance(key, int):
@@ -410,6 +419,8 @@ class ParamSpaceGroup(OrderedDataGroup):
             if dims is None:
                 dims = ["dim_{}".format(i) for i in range(len(data.shape))]
 
+            # TODO might need to add trivial indices here?!
+
             # Check the dtype and convert, if needed
             if dtype and data.dtype != dtype:
                 log.debug("Converting data from '%s' with dtype %s to %s ...",
@@ -478,7 +489,7 @@ class ParamSpaceGroup(OrderedDataGroup):
 
         # Gather them in a multi-dimensional array
         dsets = np.zeros(psp.shape, dtype="object")
-        dsets.fill(dict())  # these are ignore in xr.merge
+        dsets.fill(dict())  # these are ignored in xr.merge
 
         # Prepare the iterators
         psp_it = psp.iterator(with_info=('state_no', 'current_coords'),
@@ -510,11 +521,9 @@ class ParamSpaceGroup(OrderedDataGroup):
             dsets[arr_it.multi_index] = _dset
 
         
-        # All data points collected now.  . . . . . . . . . . . . . . . . . . .
+        # All data points collected now.
         # TODO consider warning if there are a high number of points. Also,
         #      it would be great if this could be parallelized ... via dask?!
-        # TODO With multiple fields, there should be warnings if there would
-        #      be a large amount of broadcasting needed ...
 
         # Finally, combine all the datasets together into a dataset with
         # potentially non-homogeneous data type. This will have at least the
@@ -525,7 +534,7 @@ class ParamSpaceGroup(OrderedDataGroup):
         # Merging . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         if method in ['merge']:
             log.info("Combining datasets by merging ...")
-            # TODO consider warning?!
+            # TODO consider warning about dtype changes?!
 
             dset = xr.merge(dsets.flat)
 

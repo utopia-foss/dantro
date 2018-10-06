@@ -3,8 +3,8 @@
 # The following selects _only_ a field and does not change the subspace
 single_field:
   field:
-    - foo
-    - bar
+    - testdata
+    - fixedsize
     - state
 
 non_numeric:
@@ -12,47 +12,64 @@ non_numeric:
     - cfg
 
 short_field_syntax:
-  field: foo/bar/randints
+  field: testdata/fixedsize/randints
+
+simple_merge:
+  field: testdata/fixedsize/randints
+  method: merge
 
 # Can also select multiple fields, which will then be named after the given key
 multi_field:
   fields:
-    state: foo/bar/state
+    state: testdata/fixedsize/state
     randints:
-      - foo
-      - bar
+      - testdata
+      - fixedsize
       - randints
     config: # renaming here
       path: cfg
+
+# ...and this should work with merge, too
+multi_field_merge:
+  fields:
+    state: testdata/fixedsize/state
+    randints:
+      - testdata
+      - fixedsize
+      - randints
+    config: # renaming here
+      path: cfg
+
+  method: merge
 
 # And specify further arguments, e.g. the dtype
 with_dtype:
   fields:
     state:
-      path: foo/bar/state
+      path: testdata/fixedsize/state
       dtype: uint8
     randints:
-      path: [foo, bar, randints]
+      path: [testdata, fixedsize, randints]
       dtype: float32
 
 # Can specify custom dimension names
 with_dim_names:
   fields:
     state:
-      path: foo/bar/state
+      path: testdata/fixedsize/state
       dims: [d0, d1, d2]
     randints:
-      path: foo/bar/randints
+      path: testdata/fixedsize/randints
       dims: [d0, d1, d2]
 
 # ... which may partly go along other dimensions
 mixed_dim_names:
   fields:
     state:
-      path: foo/bar/state
+      path: testdata/fixedsize/state
       dims: [t, d0, d1]
     randints:
-      path: foo/bar/randints
+      path: testdata/fixedsize/randints
       dims: [t, d2, d3]
 
 # This selector shows the syntax of selecting a subspace to iterate over. This
@@ -67,7 +84,7 @@ subspace:
     p2:
       idx: [1, 3, 4]
   
-  field: foo/bar/state
+  field: testdata/fixedsize/state
 
 # There is a short syntax available for the subsace selector, defaulting to loc
 short_syntax:
@@ -76,7 +93,13 @@ short_syntax:
     p1: [1, 2]
     p2: !slice [2]
 
-  field: foo/bar/state
+  field: testdata/fixedsize/state
+
+# With data of non-uniform size, concatenation is not possible
+# merge_randlen:
+#   field: testdata/randsize/randlen
+#   method: merge
+# FIXME This does not work due to missing labels along data dimensions
 
 # It is possible to access entries that are deeper down in the hierarchy, even
 # within containers... basically, as long as item access is possible.
