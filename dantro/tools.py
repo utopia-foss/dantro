@@ -5,6 +5,8 @@ import subprocess
 import collections
 import logging
 
+import numpy as np
+
 # Get a logger instance
 log = logging.getLogger(__name__)
 
@@ -165,3 +167,46 @@ def center_in_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str="·", spaci
     return fill_line(spacing + s + spacing, num_cols=num_cols,
                      fill_char=fill_char, align='centre')
 
+
+# -----------------------------------------------------------------------------
+# Numerics
+
+def apply_along_axis(func, axis: int, arr: np.ndarray, *args, **kwargs) -> np.ndarray:
+    """This is like numpy's function of the same name, but does not try to
+    cast the results of func to an np.ndarray but tries to keep them as dtype
+    object. Thus, the return value of this function will always have one fewer
+    dimension then the input array.
+
+    This goes along the equivalent formulation of np.apply_along_axis, outlined
+    in their documentation of the function.
+    """
+    # Get the shapes of the outer and inner iteration; both are tuples!
+    shape_outer, shape_inner = arr.shape[:axis], arr.shape[axis+1:]
+    num_outer = len(shape_outer)
+
+    # These together give the shape of the output array
+    out = np.zeros(shape_outer + shape_inner, dtype='object')
+    out.fill(None)
+
+    log.debug("apply_along_axis called")
+    log.debug("  input array:     %s, %s", arr.shape, arr.dtype)
+    log.debug("  axis to reduce:  %d", axis)
+    log.debug("  output will be:  %s, %s", out.shape, out.dtype)
+
+    # Now loop over the output array and at each position fill it with the
+    # result of the function call.
+    it = np.nditer(out, flags=('refs_ok', 'multi_index'))
+    for _ in it:
+        midx = it.multi_index
+
+        # Build selector, which has the ellipsis at position `axis`, thus one
+        # dimension higher than the out array and matching the input `arr`.
+        sel = tuple(midx[:num_outer]) + (Ellipsis,) + tuple(midx[num_outer:])
+        log.debug("  midx: %s  -->  selector: %s", midx, sel)
+
+        # Apply function to selected parts of array, then write to the current
+        # point in the iteration over the output array.
+        out[midx] = func(arr[sel], *args, **kwargs)
+
+    log.debug("  finished iteration, returning output array...")
+    return out

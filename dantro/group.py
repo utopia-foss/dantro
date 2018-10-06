@@ -11,8 +11,9 @@ import xarray as xr
 
 from paramspace import ParamSpace
 
-from dantro.base import BaseDataGroup, PATH_JOIN_CHAR
-from dantro.container import NumpyDataContainer, XrContainer
+from .tools import apply_along_axis
+from .base import BaseDataGroup, PATH_JOIN_CHAR
+from .container import NumpyDataContainer, XrContainer
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -243,7 +244,7 @@ class ParamSpaceGroup(OrderedDataGroup):
 
     # Data access .............................................................
 
-    def select(self, *, field: Union[str, List[str]]=None, fields: Dict[str, List[str]]=None, subspace: dict=None, method: str='merge', **kwargs) -> xr.Dataset:
+    def select(self, *, field: Union[str, List[str]]=None, fields: Dict[str, List[str]]=None, subspace: dict=None, method: str='concat', **kwargs) -> xr.Dataset:
         """Selects a multi-dimensional slab of this ParamSpaceGroup and the
         specified fields and returns them bundled into an xarray.Dataset with
         labelled dimensions and coordinates.
@@ -543,19 +544,27 @@ class ParamSpaceGroup(OrderedDataGroup):
         # Go over all dimensions and concatenate
         # This effectively reduces the dsets array by one dimension in each
         # iteration by applying the xr.concat function along the axis
-        for dim_idx, dim_name in enumerate(reversed(psp.dims.keys())):
+        # NOTE np.apply_along_axis would be what is desired here, but that
+        #      function unfortunately tries to cast objects to np.arrays which
+        #      is not what we want here at all! Thus, there is one implemented
+        #      in dantro.tools ...
+        idcs_and_names = list(enumerate(psp.dims.keys()))
+        for dim_idx, dim_name in reversed(idcs_and_names):
             log.debug("Concatenating along axis '%s' (idx: %d) ...",
                       dim_name, dim_idx)
 
-            # NOTE np.apply_along_axis would be what is desired here, but that
-            #      function unfortunately tries to cast objects to np.arrays
-            #      which is not what we want here at all!
-            # TODO some form of apply_along_axis function
-            raise NotImplementedError
+            try:
+                dsets = apply_along_axis(xr.concat, axis=dim_idx, arr=dsets,
+                                         dim=dim_name)
+            except Exception as err:
+                raise
+                # TODO if this fails, there should be an error message
+                # indicating that a `merge` might be needed.
 
-        # TODO if this fails, there should be an error message indicating that
-        #      a `merge` might be needed.
-        return dset
+        log.info("Concatenation successful.")
+
+        # Need to extract the single item from the now scalar dsets array
+        return dsets.item()
 
 
     # Helper methods for data access ..........................................
