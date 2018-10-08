@@ -253,7 +253,7 @@ class ParamSpaceGroup(OrderedDataGroup):
 
     # Data access .............................................................
 
-    def select(self, *, field: Union[str, List[str]]=None, fields: Dict[str, List[str]]=None, subspace: dict=None, method: str='concat', **kwargs) -> xr.Dataset:
+    def select(self, *, field: Union[str, List[str]]=None, fields: Dict[str, List[str]]=None, subspace: dict=None, method: str='concat', add_idx_labels: bool=False, **kwargs) -> xr.Dataset:
         """Selects a multi-dimensional slab of this ParamSpaceGroup and the
         specified fields and returns them bundled into an xarray.Dataset with
         labelled dimensions and coordinates.
@@ -321,7 +321,7 @@ class ParamSpaceGroup(OrderedDataGroup):
 
                 elif isinstance(field, dict):
                     path = field['path']
-                    kwargs = {k:v for k, v in field if k != "path"}
+                    kwargs = {k:v for k, v in field.items() if k != "path"}
                     # Not using .pop here in order to not change the dict.
 
                     if isinstance(path, str):
@@ -470,6 +470,13 @@ class ParamSpaceGroup(OrderedDataGroup):
             raise ValueError("Cannot get data from {} without having a "
                              "parameter space associated!".format(self.logstr))
 
+        elif method not in ('concat', 'merge'):
+            raise ValueError("Invalid value for argument `method`: '{}'. Can "
+                             "be: 'concat' (default), 'merge'".format(method))
+
+        elif add_idx_labels:
+            raise NotImplementedError("add_idx_labels")
+
         # Pre-process arguments . . . . . . . . . . . . . . . . . . . . . . . .
         # From field and fields arguments, generate a fields dict, such that
         # it can be handled uniformly below.
@@ -541,11 +548,6 @@ class ParamSpaceGroup(OrderedDataGroup):
             log.info("Merge successful.")
             return dset
 
-        elif method not in ['concat']:
-            raise ValueError("Invalid value for argument `method`: '{}'. Can "
-                             "be: 'concat' (default), 'merge'".format(method))
-
-
         # Concatenation . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         log.info("Combining datasets by concatenation along %d dimensions ...",
                  len(dsets.shape))
@@ -565,10 +567,12 @@ class ParamSpaceGroup(OrderedDataGroup):
             try:
                 dsets = apply_along_axis(xr.concat, axis=dim_idx, arr=dsets,
                                          dim=dim_name)
-            except Exception as err:
-                raise
-                # TODO if this fails, there should be an error message
-                # indicating that a `merge` might be needed.
+            except ValueError as err:
+                raise ValueError("Alignment of arrays failed; see below. "
+                                 "Either enable the trivial dimension labels "
+                                 "via the `add_idx_labels` argument or select "
+                                 "`method=merge`. Careful: The latter will "
+                                 "lead to float dtypes!") from err
 
         log.info("Concatenation successful.")
 

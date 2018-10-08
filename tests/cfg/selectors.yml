@@ -14,6 +14,10 @@ non_numeric:
 short_field_syntax:
   field: testdata/fixedsize/randints
 
+full_single_field_syntax:
+  field:
+    path: testdata/fixedsize/randints
+
 simple_merge:
   field: testdata/fixedsize/randints
   method: merge

@@ -1,6 +1,5 @@
 """Test BaseDataGroup-derived classes"""
 
-import copy
 from pkg_resources import resource_filename
 
 import pytest
@@ -75,10 +74,8 @@ def psp_grp(pspace):
 
 @pytest.fixture()
 def psp_grp_missing_data(psp_grp):
-    """A ParamSpaceGroup with some states missing"""
-    psp_grp = copy.deepcopy(psp_grp)
-
-    for state_no in (12, 38, 39, 52, 59, 66):
+    """A ParamSpaceGroup with some states missing"""    
+    for state_no in (12, 31, 38, 39, 52, 59, 66):
         if state_no in psp_grp:
             del psp_grp[state_no]
 
@@ -252,10 +249,9 @@ def test_pspace_group_basics(pspace):
         psp_grp.pspace = "bar"
 
 
-def test_pspace_group_select(psp_grp, psp_grp_missing_data, selectors):
+def test_pspace_group_select(psp_grp, selectors):
     """Tests the pspace-related behaviour of the ParamSpaceGroup"""
     pgrp = psp_grp
-    pgrp_m = psp_grp_missing_data
     psp = pgrp.pspace
 
     import warnings
@@ -339,30 +335,9 @@ def test_pspace_group_select(psp_grp, psp_grp_missing_data, selectors):
 
     # TODO check the subspace-data
 
-
-    # Tess with missing state data ............................................
-    # test all selectors and assert that concat is not working but merge is.
-    dsets_m = dict()
-    
-    for name, sel in selectors.items():
-        print("Now selecting data with selector '{}' ...".format(name))
-
-        sel = copy.deepcopy(sel)
-        sel.pop('method', None)
-
-        # With concat, it should fail
-        with pytest.raises(ValueError, match=""):
-            pgrp_m.select(**sel, method='concat')
-
-        # With merge, it should succeed
-        dset = pgrp_m.select(**sel, method='merge')
-        print("  got data:", dset, "\n\n\n")
-
-        dsets_m[name] = dset
-
-        # ...but dtype should always be float
-        # TODO
-
+    # Non-uniformly sized datasets will require a merge
+    with pytest.raises(ValueError, match="Alignment of arrays failed; see"):
+        pgrp.select(field="testdata/randsize/randlen", method="concat")
 
     # Test the rest of the .select interface ..................................
     with pytest.raises(ValueError, match="Need to specify one of the arg"):
@@ -382,3 +357,39 @@ def test_pspace_group_select(psp_grp, psp_grp_missing_data, selectors):
 
     with pytest.raises(ValueError, match="Make sure the data was fully"):
         ParamSpaceGroup(name="without_pspace", pspace=psp).select(field="cfg")
+
+
+def test_pspace_group_select_missing_data(selectors, psp_grp_missing_data):
+    """Test the .select method with missing state data"""
+    pgrp = psp_grp_missing_data
+
+    # test all selectors and assert that concat is not working but merge is.
+    dsets = dict()
+    
+    for name, sel in selectors.items():
+        print("Now selecting data with selector '{}' ...".format(name))
+        sel.pop('method', None)
+
+        # With concat, it should fail
+        with pytest.raises(ValueError, match="No state (\d+) available in"):
+            pgrp.select(**sel, method='concat')
+
+        # With merge, it should succeed
+        dset = pgrp.select(**sel, method='merge')
+        print("  got data:", dset, "\n\n\n")
+        dsets[name] = dset
+
+    # Get some to check explicitly
+    state = dsets['single_field'].state
+    mf = dsets['multi_field']
+    wdt = dsets['with_dtype']
+    cfg = dsets['non_numeric'].cfg
+    sub = dsets['subspace'].state  # TODO
+
+    # dtype should always be float, even if explicitly specified
+    assert wdt.state.dtype == "float64"  # instead of uint8
+    assert wdt.randints.dtype == "float32"
+
+    # Test exceptions . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    with pytest.raises(ValueError, match="Invalid value for argument `method"):
+        pgrp.select(field="cfg", method="some_invalid_method")
