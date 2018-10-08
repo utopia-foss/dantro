@@ -253,7 +253,7 @@ class ParamSpaceGroup(OrderedDataGroup):
 
     # Data access .............................................................
 
-    def select(self, *, field: Union[str, List[str]]=None, fields: Dict[str, List[str]]=None, subspace: dict=None, method: str='concat', add_idx_labels: bool=False, **kwargs) -> xr.Dataset:
+    def select(self, *, field: Union[str, List[str]]=None, fields: Dict[str, List[str]]=None, subspace: dict=None, method: str='concat', idx_as_label: bool=False, **kwargs) -> xr.Dataset:
         """Selects a multi-dimensional slab of this ParamSpaceGroup and the
         specified fields and returns them bundled into an xarray.Dataset with
         labelled dimensions and coordinates.
@@ -279,7 +279,12 @@ class ParamSpaceGroup(OrderedDataGroup):
                       it does not work if one data point is missing.
                     * 'merge': merge always works, even if data points are
                       missing, but will convert all dtypes to float.
-            **kwargs: Passed along either to xr.concat or xr.merge
+            idx_as_label (bool, optional): If true, adds the trivial indices
+                as labels for those dimensions where coordinate labels were not
+                extractable from the loaded field. This allows merging for data
+                with different extends in an unlabelled dimension.
+            **kwargs: Passed along either to xr.concat or xr.merge, depending
+                on the method argument.
         
         Raises:
             ValueError: If no ParamSpace was associated with this group
@@ -427,8 +432,19 @@ class ParamSpaceGroup(OrderedDataGroup):
                           "/".join(path), data.dtype, dtype)
                 data = data.astype(dtype)
 
-            # Use those to construct an xr.Variable, carrying over attributes
-            return xr.Variable(dims, data, attrs=cont.attrs.as_dict())
+            # Get the attributes
+            attrs = cont.attrs.as_dict()
+
+            # Check whether indices are to be added (var from outer scope!)
+            if not idx_as_label:
+                # Can use these to construct an xr.Variable
+                return xr.Variable(dims, data, attrs=attrs)
+
+            # else: will need to be a DataArray; Variable does not hold coords
+            # For each dimension, add trivial coordinates
+            coords = {d: range(data.shape[i]) for i, d in enumerate(dims)}
+
+            return xr.DataArray(data, dims=dims, coords=coords, attrs=attrs)
 
         def expand_dset_dims(dset: xr.Dataset, *, coords: dict) -> xr.Dataset:
             """Expands the given dataset such that the new coordinates can be
@@ -461,6 +477,48 @@ class ParamSpaceGroup(OrderedDataGroup):
 
             return dset
 
+        def combine(*, method: str, dsets: np.ndarray, psp: ParamSpace) -> xr.Dataset:
+            """Tries to combine the given datasets either by concatenation or
+            by merging and returns a combined xr.Dataset
+            """
+            # NOTE change for valid `method` value is carried out before this
+            #      function is called.
+
+            # Merging . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+            if method in ['merge']:
+                log.info("Combining datasets by merging ...")
+                # TODO consider warning about dtype changes?!
+
+                dset = xr.merge(dsets.flat)
+
+                log.info("Merge successful.")
+                return dset
+
+            # else: Concatenation . . . . . . . . . . . . . . . . . . . . . . .
+            log.info("Combining datasets by concatenation along %d "
+                     "dimensions ...", len(dsets.shape))
+
+            # Go over all dimensions and concatenate
+            # This effectively reduces the dsets array by one dimension in each
+            # iteration by applying the xr.concat function along the axis
+            # NOTE np.apply_along_axis would be what is desired here, but that
+            #      function unfortunately tries to cast objects to np.arrays
+            #      which is not what we want here at all! Thus, there is one
+            #      implemented in dantro.tools ...
+            idcs_and_names = list(enumerate(psp.dims.keys()))
+            for dim_idx, dim_name in reversed(idcs_and_names):
+                log.debug("Concatenating along axis '%s' (idx: %d) ...",
+                          dim_name, dim_idx)
+
+                dsets = apply_along_axis(xr.concat, axis=dim_idx, arr=dsets,
+                                         dim=dim_name)
+
+            log.info("Concatenation successful.")
+
+            # Need to extract the single item from the now scalar dsets array
+            return dsets.item()
+
+
         # End of definition of helper functions.
         # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -473,9 +531,6 @@ class ParamSpaceGroup(OrderedDataGroup):
         elif method not in ('concat', 'merge'):
             raise ValueError("Invalid value for argument `method`: '{}'. Can "
                              "be: 'concat' (default), 'merge'".format(method))
-
-        elif add_idx_labels:
-            raise NotImplementedError("add_idx_labels")
 
         # Pre-process arguments . . . . . . . . . . . . . . . . . . . . . . . .
         # From field and fields arguments, generate a fields dict, such that
@@ -537,47 +592,18 @@ class ParamSpaceGroup(OrderedDataGroup):
         # dimensions given by the parameter space aligned, but there could
         # be potentially more dimensions!
 
-        # Distinguish the two methods
-        # Merging . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        if method in ['merge']:
-            log.info("Combining datasets by merging ...")
-            # TODO consider warning about dtype changes?!
+        try:
+            combined_dset = combine(method=method, dsets=dsets, psp=psp)
 
-            dset = xr.merge(dsets.flat)
+        except ValueError as err:
+            raise ValueError("Combination of datasets failed; see below. This "
+                             "is probably due to a failure of alignment, "
+                             "which can be resolved by adding trivial "
+                             "coordinates (i.e.: the indices) to unlabelled "
+                             "dimensions by setting the `idx_as_label` "
+                             "argument to True.") from err
 
-            log.info("Merge successful.")
-            return dset
-
-        # Concatenation . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        log.info("Combining datasets by concatenation along %d dimensions ...",
-                 len(dsets.shape))
-
-        # Go over all dimensions and concatenate
-        # This effectively reduces the dsets array by one dimension in each
-        # iteration by applying the xr.concat function along the axis
-        # NOTE np.apply_along_axis would be what is desired here, but that
-        #      function unfortunately tries to cast objects to np.arrays which
-        #      is not what we want here at all! Thus, there is one implemented
-        #      in dantro.tools ...
-        idcs_and_names = list(enumerate(psp.dims.keys()))
-        for dim_idx, dim_name in reversed(idcs_and_names):
-            log.debug("Concatenating along axis '%s' (idx: %d) ...",
-                      dim_name, dim_idx)
-
-            try:
-                dsets = apply_along_axis(xr.concat, axis=dim_idx, arr=dsets,
-                                         dim=dim_name)
-            except ValueError as err:
-                raise ValueError("Alignment of arrays failed; see below. "
-                                 "Either enable the trivial dimension labels "
-                                 "via the `add_idx_labels` argument or select "
-                                 "`method=merge`. Careful: The latter will "
-                                 "lead to float dtypes!") from err
-
-        log.info("Concatenation successful.")
-
-        # Need to extract the single item from the now scalar dsets array
-        return dsets.item()
+        return combined_dset
 
 
     # Helper methods for data access ..........................................

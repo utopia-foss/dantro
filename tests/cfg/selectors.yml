@@ -1,4 +1,8 @@
-# Possible data selectors of the ParamSpaceGroup
+# Test data selectors of the ParamSpaceGroup
+# 
+# NOTE: All selectors here should be valid, i.e.: the loading should work.
+#       Edge cases and expected failures should be tested directly in the
+#       pytest definition in test_group.py
 ---
 # The following selects _only_ a field and does not change the subspace
 single_field:
@@ -91,7 +95,7 @@ subspace:
   field: testdata/fixedsize/state
 
 # There is a short syntax available for the subsace selector, defaulting to loc
-short_syntax:
+subspace_short_syntax:
   subspace:
     p0: 1
     p1: [1, 2]
@@ -99,11 +103,26 @@ short_syntax:
 
   field: testdata/fixedsize/state
 
-# With data of non-uniform size, concatenation is not possible
-# merge_randlen:
-#   field: testdata/randsize/randlen
-#   method: merge
-# FIXME This does not work due to missing labels along data dimensions
+# With data of non-uniform size, dimensions need be fully labelled
+randlen_concat:
+  field: testdata/randsize/randlen
+  method: concat
+  idx_as_label: true
+
+randlen_merge:
+  field: testdata/randsize/randlen
+  method: merge
+  idx_as_label: true
+
+randshape_concat:
+  field: testdata/randsize/randshape
+  method: concat
+  idx_as_label: true
+
+randshape_merge:
+  field: testdata/randsize/randshape
+  method: merge
+  idx_as_label: true
 
 # It is possible to access entries that are deeper down in the hierarchy, even
 # within containers... basically, as long as item access is possible.

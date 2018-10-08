@@ -63,7 +63,7 @@ def psp_grp(pspace):
 
         # Add some non-uniform data sets
         # 3d with last dimension differing in length
-        randlen = np.ones((3, 4, np.random.randint(10, 50)))
+        randlen = np.ones((3, 4, np.random.randint(10, 30)))
         rarrs.add(NumpyDataContainer(name="randlen", data=randlen))
 
         # 3d but of different shape in all directions
@@ -299,7 +299,7 @@ def test_pspace_group_select(psp_grp, selectors):
     mf = dsets['multi_field']
     wdt = dsets['with_dtype']
     cfg = dsets['non_numeric'].cfg
-    sub = dsets['subspace'].state  # TODO
+    sub = dsets['subspace'].state
 
     # TODO check for structured data?
 
@@ -358,9 +358,12 @@ def test_pspace_group_select(psp_grp, selectors):
     with pytest.raises(ValueError, match="Make sure the data was fully"):
         ParamSpaceGroup(name="without_pspace", pspace=psp).select(field="cfg")
 
-    # Non-uniformly sized datasets will require a merge
-    with pytest.raises(ValueError, match="Alignment of arrays failed; see"):
+    # Non-uniformly sized datasets will require trivial index labels
+    with pytest.raises(ValueError, match="Combination of datasets failed;"):
         pgrp.select(field="testdata/randsize/randlen", method="concat")
+    
+    with pytest.raises(ValueError, match="Combination of datasets failed;"):
+        pgrp.select(field="testdata/randsize/randlen", method="merge")
 
 
 def test_pspace_group_select_missing_data(selectors, psp_grp_missing_data):
@@ -388,7 +391,7 @@ def test_pspace_group_select_missing_data(selectors, psp_grp_missing_data):
     mf = dsets['multi_field']
     wdt = dsets['with_dtype']
     cfg = dsets['non_numeric'].cfg
-    sub = dsets['subspace'].state  # TODO
+    sub = dsets['subspace'].state
 
     # dtype should always be float, even if explicitly specified
     assert wdt.state.dtype == "float64"  # instead of uint8
