@@ -332,12 +332,12 @@ def test_pspace_group_select(psp_grp, selectors):
     assert isinstance(cfg[0,0,0].item(), dict)
     assert cfg[0,0,0].item() == dict(foo="bar", p0=1, p1=1, p2=1)
 
+    # check the subspace shape and coordinats
+    assert sub.shape == (1,2,3,3,4,5)
+    assert list(sub.coords['p0']) == [1]
+    assert list(sub.coords['p1']) == [1,2]
+    assert list(sub.coords['p2']) == [1,3,4]
 
-    # TODO check the subspace-data
-
-    # Non-uniformly sized datasets will require a merge
-    with pytest.raises(ValueError, match="Alignment of arrays failed; see"):
-        pgrp.select(field="testdata/randsize/randlen", method="concat")
 
     # Test the rest of the .select interface ..................................
     with pytest.raises(ValueError, match="Need to specify one of the arg"):
@@ -357,6 +357,10 @@ def test_pspace_group_select(psp_grp, selectors):
 
     with pytest.raises(ValueError, match="Make sure the data was fully"):
         ParamSpaceGroup(name="without_pspace", pspace=psp).select(field="cfg")
+
+    # Non-uniformly sized datasets will require a merge
+    with pytest.raises(ValueError, match="Alignment of arrays failed; see"):
+        pgrp.select(field="testdata/randsize/randlen", method="concat")
 
 
 def test_pspace_group_select_missing_data(selectors, psp_grp_missing_data):
