@@ -184,13 +184,14 @@ class Hdf5LoaderMixin:
 
                         except KeyError:
                             # Fall back to default
-                            log.warn("Could not find a mapping from "
-                                     "map attribute %s='%s' to a DataGroup "
-                                     "class. Available keys: %s. Falling back "
-                                     "to default class %s...",
-                                     map_attr, attrs[map_attr],
-                                     ", ".join([k for k in GroupMap.keys()]),
-                                     GroupCls.__name__)
+                            log.warning("Could not find a mapping from map "
+                                        "attribute %s='%s' to a DataGroup "
+                                        "class. Available keys: %s. Falling "
+                                        "back to default class %s...",
+                                        map_attr, attrs[map_attr],
+                                        ", ".join([k
+                                                   for k in GroupMap.keys()]),
+                                        GroupCls.__name__)
                             _GroupCls = GroupCls
                     
                     else:
@@ -237,14 +238,13 @@ class Hdf5LoaderMixin:
 
                         except KeyError:
                             # Fall back to default
-                            log.warn("Could not find a mapping from "
-                                     "map attribute %s='%s' to a "
-                                     "DataContainer class. Available "
-                                     "keys: %s. Falling back to default "
-                                     "class %s...",
-                                     map_attr, attrs[map_attr],
-                                     ", ".join([k for k in DsetMap.keys()]),
-                                     DsetCls.__name__)
+                            log.warning("Could not find a mapping from map "
+                                        "attribute %s='%s' to a DataContainer "
+                                        "class. Available keys: %s. Falling "
+                                        "back to default class %s...",
+                                        map_attr, attrs[map_attr],
+                                        ", ".join([k for k in DsetMap.keys()]),
+                                        DsetCls.__name__)
                             _DsetCls = DsetCls
                     
                     else:
@@ -255,10 +255,10 @@ class Hdf5LoaderMixin:
                     target.add(_DsetCls(name=key, data=data, attrs=attrs))
 
                 else:
-                    warnings.warn("Object {} is neither a dataset nor a "
-                                  "group, but of type {}. Cannot load this!"
-                                  "".format(key, type(obj)),
-                                  NotImplementedError)
+                    raise NotImplementedError("Object {} is neither a dataset "
+                                              "nor a group, but of type {}. "
+                                              "Cannot load this!"
+                                              "".format(key, type(obj)))
 
         # Prepare print format strings
         print_params = print_params if print_params else {}
