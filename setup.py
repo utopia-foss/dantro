@@ -7,7 +7,7 @@ install_deps = [
     'h5py>=2.7.0',
     'numpy>=1.14',
     'matplotlib==2.2.3',  # FIXME should use matplotlib3 and above
-    'paramspace>=2.0'
+    'paramspace>=2.0rc4'  # FIXME use release version once ready
     ]
 test_deps = ['pytest>=3.4.0', 'pytest-cov>=2.5.1', 'tox>=3.1.2']
 
