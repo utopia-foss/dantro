@@ -95,6 +95,7 @@ subspace:
   field: testdata/fixedsize/state
 
 # There is a short syntax available for the subsace selector, defaulting to loc
+# Note that this should _not_ suggest to select the same as the selector above.
 subspace_short_syntax:
   subspace:
     p0: 1

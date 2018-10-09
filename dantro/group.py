@@ -287,7 +287,12 @@ class ParamSpaceGroup(OrderedDataGroup):
                 on the method argument.
         
         Raises:
-            ValueError: If no ParamSpace was associated with this group
+            ValueError: Raised in multiple scenarios:
+                * If no ParamSpace was associated with this group
+                * For wrong argument values
+                * If the data to select cannot be extracted with the given
+                  argument values
+                * Exceptions passed on from xarray
         
         Returns:
             xr.Dataset: The selected hyperslab of the parameter space, holding
