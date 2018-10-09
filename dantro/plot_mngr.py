@@ -438,6 +438,10 @@ class PlotManager:
             plots_cfg = {k:v for k, v in plots_cfg.items()
                          if v.pop('enabled', True)}
 
+        # Throw out entries that start with an underscore
+        plots_cfg = {k:v for k, v in plots_cfg.items()
+                     if not k.startswith("_")}
+
         # Determine and create the plot directory to use
         if not out_dir:
             out_dir = self._out_dir

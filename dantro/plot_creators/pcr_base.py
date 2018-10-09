@@ -61,6 +61,8 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
                 build the output path.
             **plot_cfg: The default plot configuration
         """
+        log.debug("BasePlotCreator.__init__ called.")
+
         # Store arguments as private attributes
         self._name = name
         self._dm = dm
@@ -86,7 +88,7 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
                              "".format(self.logstr, default_ext,
                                        self.DEFAULT_EXT))
 
-        log.debug("%s initialized.", self.logstr)
+        log.debug("BasePlotCreator.__init__ finished.")
 
     # .........................................................................
     # Properties

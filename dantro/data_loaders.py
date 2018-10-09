@@ -20,11 +20,13 @@ If `self` is required, `omit_self=False` may be given to the decorator.
 import warnings
 import logging
 
+import pickle as pkl
+
 import numpy as np
 import h5py as h5
 
 from dantro.base import BaseDataGroup, BaseDataContainer
-from dantro.container import MutableMappingContainer, NumpyDataContainer
+from dantro.container import ObjectContainer, MutableMappingContainer, NumpyDataContainer
 from dantro.group import OrderedDataGroup
 from dantro.proxy import Hdf5DataProxy
 import dantro.tools as tools
@@ -63,16 +65,16 @@ class YamlLoaderMixin:
     """Supplies functionality to load yaml files in the data manager"""
 
     @add_loader(TargetCls=MutableMappingContainer)
-    def _load_yaml(filepath: str, *, TargetCls) -> MutableMappingContainer:
+    def _load_yaml(filepath: str, *, TargetCls: type) -> MutableMappingContainer:
         """Load a yaml file from the given path and creates a container to
         store that data in.
         
         Args:
             filepath (str): Where to load the yaml file from
-            TargetCls (TYPE): The MutableMappingContainer class
+            TargetCls (type): The class constructor
         
         Returns:
-            MutableMappingContainer: The loaded yaml file
+            MutableMappingContainer: The loaded yaml file as a container
         """
         # Load the dict
         d = tools.load_yml(filepath)
@@ -82,6 +84,39 @@ class YamlLoaderMixin:
 
     # Also make available under `yml`
     _load_yml = _load_yaml
+
+# -----------------------------------------------------------------------------
+
+class PickleLoaderMixin:
+    """Supplies functionality to load pickled python objects"""
+
+    # Define the load function such that it can be set in a flexible way
+    _PICKLE_LOAD_FUNC = pkl.load
+
+    @add_loader(TargetCls=ObjectContainer, omit_self=False)
+    def _load_pickle(self, filepath: str, *, TargetCls: type, **pkl_kwargs) -> ObjectContainer:
+        """Load a pickled object.
+
+        This uses the load function defined under the _PICKLE_LOAD_FUNC class
+        variable, which defaults to the pickle.load function.
+        
+        Args:
+            filepath (str): Where the pickle-dumped file is located
+            TargetCls (type): The class constructor
+            **pkl_kwargs: Passed on to the load function
+        
+        Returns:
+            ObjectContainer: The unpickled file, stored in a dantro container
+        """
+        # Open file in binary mode and unpickle with the given load function
+        with open(filepath, mode='rb') as f:
+            obj = self._PICKLE_LOAD_FUNC(f, **pkl_kwargs)
+
+        # Populate the target container with the object
+        return TargetCls(data=obj, attrs=dict(filepath=filepath))
+
+    # Also make available under `pkl`
+    _load_pkl = _load_pickle
 
 # -----------------------------------------------------------------------------
 
@@ -111,7 +146,7 @@ class Hdf5LoaderMixin:
     _HDF5_MAP_FROM_ATTR = None
 
     @add_loader(TargetCls=OrderedDataGroup, omit_self=False)
-    def _load_hdf5(self, filepath: str, *, TargetCls, load_as_proxy: bool=False, lower_case_keys: bool=False, enable_mapping: bool=False, map_from_attr: str=None, print_params: dict=None) -> OrderedDataGroup:
+    def _load_hdf5(self, filepath: str, *, TargetCls: type, load_as_proxy: bool=False, lower_case_keys: bool=False, enable_mapping: bool=False, map_from_attr: str=None, print_params: dict=None) -> OrderedDataGroup:
         """Loads the specified hdf5 file into DataGroup and DataContainer-like
         object; this completely recreates the hierarchic structure of the hdf5
         file. The data can be loaded into memory completely, or be loaded as

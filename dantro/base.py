@@ -125,10 +125,6 @@ class CollectionMixin:
         """Iterates over the items."""
         return iter(self.data)
 
-    def _format_info(self) -> str:
-        """A __format__ helper function: returns info about the items"""
-        return str(len(self)) + " items"
-
 
 class ItemAccessMixin:
     """This Mixin class implements the methods needed for getting, setting,
@@ -293,13 +289,10 @@ class BaseDataAttrs(MappingAccessMixin, dantro.abc.AbstractDataAttrs):
         super().__init__(data=attrs, **dc_kwargs)
 
         log.debug("BaseDataAttrs.__init__ finished.")
-    
-    # .........................................................................
-    # Magic methods and iterators for convenient dict-like access
 
     def _format_info(self) -> str:
         """A __format__ helper function: returns info about these attributes"""
-        return str(len(self)) + " attributes"
+        return "{} attributes".format(len(self))
 
 
 # -----------------------------------------------------------------------------
@@ -353,10 +346,11 @@ class BaseDataContainer(PathMixin, AttrsMixin, dantro.abc.AbstractDataContainer)
         """
         return True
 
-    # .........................................................................
-    # Methods needed for data container conversion
+    def _format_info(self) -> str:
+        """A __format__ helper function: returns info about the items"""
+        return "{} stored, {} attributes".format(type(self.data),
+                                                 len(self.attrs))
 
-    @abc.abstractmethod
     def convert_to(self, TargetCls, **target_init_kwargs):
         """With this method, a TargetCls object can be created from this
         particular container instance.
@@ -364,6 +358,9 @@ class BaseDataContainer(PathMixin, AttrsMixin, dantro.abc.AbstractDataContainer)
         Conversion might not be possible if TargetCls requires more information
         than is available in this container.
         """
+        log.debug("Converting %s to %s ...", self.logstr, TargetCls.__name__)
+        return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
+                         **target_init_kwargs)
 
 
 # -----------------------------------------------------------------------------
@@ -416,21 +413,21 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
             KeyError: If no such key can be found
         """
         if not isinstance(key, list):
-            # Assuming this is a string ...
+            # Assuming this is a string, i.e.: the only other type allowed
             key = key.split(PATH_JOIN_CHAR)
 
         # Can be sure that this is a list now
         try:
             # If there is more than one entry, need to call this recursively
             if len(key) > 1:
-                return self.data[key[0]][PATH_JOIN_CHAR.join(key[1:])]
+                return self.data[key[0]][key[1:]]
             # else: end of recursion
             return self.data[key[0]]
 
         except (KeyError, IndexError) as err:
             raise KeyError("No key or key sequence '{}' in {}! "
                            "Available keys at top level: {}"
-                           "".format(PATH_JOIN_CHAR.join(key), self.logstr,
+                           "".format(key, self.logstr,
                                      ", ".join([k for k in self.keys()]))
                            ) from err
 
@@ -457,7 +454,7 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
         # Depending on length of the key sequence, start recursion or not
         if len(key) > 1:
-            self.data[key[0]][PATH_JOIN_CHAR.join(key[1:])] = val
+            self.data[key[0]][key[1:]] = val
             return
         
         # else: end of recursion, i.e. the path led to an item of this group
@@ -517,18 +514,22 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
         log.debug("Added %d container(s) to %s.", len(conts), self.logstr)
 
-    def new_container(self, path: str, *, Cls: type, **kwargs):
+    def new_container(self, path: Union[str, list], *, Cls: type, **kwargs):
         """Creates a new container of class `Cls` and adds it at the given path
         relative to this group.
-
+        
         Args:
-            path (str): Where to add the container. Note that the intermediates
-                of this path need to already exist.
+            path (Union[str, list]): Where to add the container. Note that the
+                intermediates of this path need to already exist.
             Cls (type): The class of the container to add
             **kwargs: kwargs to pass on to Cls.__init__
-
+        
         Returns:
             Cls: the created container
+        
+        Raises:
+            KeyError: Description
+            TypeError: Description
         """
         # Check the class to create the container with
         if not inspect.isclass(Cls):
@@ -542,16 +543,19 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
                             "".format(Cls))
         # Class is checked now
 
-        # Check whether recursion is needed
-        if PATH_JOIN_CHAR not in path:
-            # Nope. Can create the container and return
-            cont = Cls(name=path, **kwargs)
+        # Make sure the path is a list
+        if not isinstance(path, list):
+            path = path.split(PATH_JOIN_CHAR)
+
+        # Check whether recursion ends here, i.e.: the path ends here
+        if len(path) == 1:
+            # Yes, and it's a string: create container, add, return
+            cont = Cls(name=path[0], **kwargs)
             self.add(cont)
             return cont
 
         # Recursive branch: need to split off the front section and continue
-        spath = path.split(PATH_JOIN_CHAR)
-        grp_name, new_path = spath[0], PATH_JOIN_CHAR.join(spath[1:])
+        grp_name, new_path = path[0], path[1:]
 
         try:
             return self[grp_name].new_container(new_path, Cls=Cls, **kwargs)
@@ -560,16 +564,17 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
             raise KeyError("Could not create {} at '{}'! Check that all "
                            "intermediate groups have already been created. "
                            "Entries available in {}: {}"
-                           "".format(Cls.__name__, path, self.logstr,
+                           "".format(Cls.__name__,
+                                     PATH_JOIN_CHAR.join(path), self.logstr,
                                      ", ".join([k for k in self.keys()]))
                            ) from err
 
-    def new_group(self, path: str, *, Cls: type=None, **kwargs):
+    def new_group(self, path: Union[str, list], *, Cls: type=None, **kwargs):
         """Creates a new group at the given path.
         
         Args:
-            path (str): The path to create the group at. Note that the whole
-                intermediate path needs to already exist.
+            path (Union[str, list]): The path to create the group at. Note
+                that the whole intermediate path needs to already exist.
             Cls (type, optional): If given, use this type to create the
                 group. If not given, uses the type of this instance.
             **kwargs: Passed on to Cls.__init__
@@ -698,7 +703,7 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
             # If the target element exists and is a group, continue recursively
             if (key_seq[0] in self
                 and isinstance(self[key_seq[0]], BaseDataGroup)):
-                return PATH_JOIN_CHAR.join(key_seq[1:]) in self[key_seq[0]]
+                return key_seq[1:] in self[key_seq[0]]
 
             # else: does not exist or is not a group
             return False
@@ -724,15 +729,19 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         return self.data.values()
 
     def items(self):
-        """Returns an iterator over the (name, data container) tuple of this group."""
+        """Returns an iterator over the (name, data container) tuple of this
+        group."""
         return self.data.items()
 
     def get(self, key, default=None):
-        """Return the container at `key`, or `default` if container with name `key` is not available."""
+        """Return the container at `key`, or `default` if container with name
+        `key` is not available."""
         return self.data.get(key, default)
 
     def setdefault(self, key, default=None):
-        """If `key` is in the dictionary, return its value. If not, insert `key` with a value of `default` and return `default`. `default` defaults to None."""
+        """If `key` is in the dictionary, return its value. If not, insert
+        `key` with a value of `default` and return `default`. `default`
+        defaults to None."""
         if key in self:
             return self[key]
         # else: not available
@@ -743,8 +752,9 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
     # Formatting
 
     def _format_info(self) -> str:
-        """A __format__ helper function: returns an info string that is used to characterise this object. Does NOT include name and classname!"""
-        return str(len(self)) + " members"
+        """A __format__ helper function: returns an info string that is used
+        to characterise this object. Does NOT include name and classname!"""
+        return "{} members, {} attributes".format(len(self), len(self.attrs))
 
     def _format_tree(self) -> str:
         """Returns a multi-line string tree representation of this group."""
@@ -752,7 +762,17 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
     def _tree_repr(self, level: int=0, info_fstr="<{:cls_name,info}>", info_ratio: float=0.5) -> str:
         """Recursively creates a multi-line string tree representation of this
-        group. This is used by, e.g., the _format_tree method."""
+        group. This is used by, e.g., the _format_tree method.
+        
+        Args:
+            level (int, optional): The depth within the tree
+            info_fstr (str, optional): The format string for the info string
+            info_ratio (float, optional): The width ratio of the whole line
+                width that the info string takes
+        
+        Returns:
+            str: The (multi-line) tree representation of this group
+        """
         # Mark symbols
         first_mark = r' └┬'
         base_mark =  r'  ├'
@@ -819,8 +839,6 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         lines.append("")
         return "\n".join(lines)
 
-
-
     # .........................................................................
     # Conversion
     
@@ -830,4 +848,3 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
                   TargetCls.__name__)
         return TargetCls(name=self.name, data=self.data, attrs=self.attrs,
                          **target_init_kwargs)
-

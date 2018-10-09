@@ -15,6 +15,31 @@ log = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 # General container specialisations
 
+class ObjectContainer(ItemAccessMixin, BaseDataContainer):
+    """Generically stores a Python object"""
+
+    def __init__(self, *, name: str, data, **dc_kwargs):
+        """Initialize an ObjectContainer, storing any Python object.
+        
+        Args:
+            name (str): The name of this container
+            data (list): The object to store
+            **dc_kwargs: Additional arguments for container initialization
+        """
+
+        log.debug("ObjectContainer.__init__ called.")
+
+        # Initialize with parent method
+        super().__init__(name=name, data=data, **dc_kwargs)
+
+        # Done.
+        log.debug("ObjectContainer.__init__ finished.")
+
+    def _format_info(self) -> str:
+        """A __format__ helper function: returns info about the stored data"""
+        return "stored type: " + str(type(self.data))
+
+
 class MutableSequenceContainer(CheckDataMixin, ItemAccessMixin, CollectionMixin, BaseDataContainer, MutableSequence):
     """The MutableSequenceContainer stores data that is sequence-like"""
 
@@ -30,7 +55,7 @@ class MutableSequenceContainer(CheckDataMixin, ItemAccessMixin, CollectionMixin,
         Args:
             name (str): The name of this container
             data (list): The sequence-like data to store
-            **dc_kwargs: Description
+            **dc_kwargs: Additional arguments for container initialization
         """
 
         log.debug("MutableSequenceContainer.__init__ called.")
@@ -53,16 +78,6 @@ class MutableSequenceContainer(CheckDataMixin, ItemAccessMixin, CollectionMixin,
         """
         self.data.insert(idx, val)
 
-    def convert_to(self, TargetCls, **target_init_kwargs):
-        """With this method, a TargetCls object can be created from this
-        particular container instance.
-        
-        Conversion might not be possible if TargetCls requires more information
-        than is available in this container.
-        """
-        return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
-                         **target_init_kwargs)
-
 
 class MutableMappingContainer(CheckDataMixin, MappingAccessMixin, BaseDataContainer, MutableMapping):
     """The MutableMappingContainer stores mutable mapping data, e.g. dicts"""
@@ -75,13 +90,11 @@ class MutableMappingContainer(CheckDataMixin, MappingAccessMixin, BaseDataContai
     def __init__(self, *, name: str, data=None, **dc_kwargs):
         """Initialize a MutableMappingContainer, storing mapping data.
         
-        NOTE: There is no check if the given data is actually a mapping!
-        
         Args:
             name (str): The name of this container
             data: The mapping-like data to store. If not given, an empty dict
                 is created
-            **dc_kwargs: Additional arguments for container initialisation
+            **dc_kwargs: Additional arguments for container initialization
         """
 
         log.debug("MutableMappingContainer.__init__ called.")
@@ -95,16 +108,6 @@ class MutableMappingContainer(CheckDataMixin, MappingAccessMixin, BaseDataContai
 
         # Done.
         log.debug("MutableMappingContainer.__init__ finished.")
-
-    def convert_to(self, TargetCls, **target_init_kwargs):
-        """With this method, a TargetCls object can be created from this
-        particular container instance.
-        
-        Conversion might not be possible if TargetCls requires more information
-        than is available in this container.
-        """
-        return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
-                         **target_init_kwargs)
 
 
 # -----------------------------------------------------------------------------
@@ -122,7 +125,7 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
     DATA_UNEXPECTED_ACTION = 'raise'
 
     def __init__(self, *, name: str, data: np.ndarray, **dc_kwargs):
-        """Initialize a NumpyDataContainer, storing data that is like a numpy.ndarray.
+        """Initialize a NumpyDataContainer, storing data that is ndarray-like.
         
         Arguments:
             name (str): The name of this container
@@ -152,16 +155,6 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
         """
         return "{}, shape {}".format(self.dtype, self.shape)
 
-    def convert_to(self, TargetCls, **target_init_kwargs):
-        """With this method, a TargetCls object can be created from this
-        particular container instance.
-        
-        Conversion might not be possible if TargetCls requires more information
-        than is available in this container.
-        """
-        return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
-                         **target_init_kwargs)
-
     def copy(self):
         """Return a copy of this NumpyDataContainer.
 
@@ -172,6 +165,7 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
                               data=self.data.copy(),
                               attrs={k:v for k, v in self.attrs})
 
+    # .........................................................................
     # Disallow usage of some unary functions (added by NumbersMixin) which
     # don't make sense with the np.ndarray data
 

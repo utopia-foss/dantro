@@ -1,9 +1,11 @@
 """Test BaseDataGroup-derived classes"""
 
+import numpy as np
+
 import pytest
 
 from dantro.group import OrderedDataGroup
-from dantro.container import MutableSequenceContainer
+from dantro.container import MutableSequenceContainer, NumpyDataContainer
 
 # Fixtures --------------------------------------------------------------------
 
@@ -89,3 +91,21 @@ def test_group_creation():
     # Check that intermediate parts not existing leads to errors
     with pytest.raises(KeyError, match="Could not create OrderedDataGroup at"):
         root.new_group("some/longer/path")
+
+def test_list_item_access():
+    """Tests that passing lists with arbitrary content along __getitem__ works
+    as desired ...
+    """
+
+    root = OrderedDataGroup(name="root")
+    one = root.new_group("one")
+    two = one.new_group("two")
+    two.add(NumpyDataContainer(name="arr", data=np.zeros((2,3,4))))
+    # Path created: root/one/two/arr
+
+    # Test that regular item access is possible
+    arr = root["one/two/arr"]
+
+    # Test that access via a list-type path is possible
+    sliced_arr = root[["one", "two", "arr", slice(None, 2)]]
+    assert sliced_arr.shape == arr[slice(None, 2)].shape
