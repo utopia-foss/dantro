@@ -454,7 +454,7 @@ def test_loading_regex(dm):
     # This should raise a warning for the `abcdef` entry
     with pytest.warns(dantro.data_mngr.NoMatchWarning):
         dm.load('sub_foobar', loader='yaml', glob_str="sub/*.yml",
-                path_regex='sub/abc(\d+).yml',
+                path_regex=r'sub/abc(\d+).yml',
                 target_path='sub_foobar/{match:}',
                 print_tree=True)
 
@@ -475,7 +475,7 @@ def test_loading_regex(dm):
     with pytest.raises(dantro.data_mngr.ExistingDataError,
                        match="Path 'sub_foobar/abc' already exists."):
         dm.load('bad_sub_foobar', loader='yaml', glob_str="sub/*.yml",
-                path_regex='([abc]*)\w+.yml',
+                path_regex=r'([abc]*)\w+.yml',
                 target_path='sub_foobar/{match:}')
 
 def test_load_as_attr(dm):
@@ -531,11 +531,11 @@ def test_target_path(dm):
 
     # Check whether loading into a matched group will work
     dm.load('merged_cfg', loader='yaml', glob_str="merged/cfg*.yml",
-            path_regex='merged/cfg(\d+).yml',
+            path_regex=r'merged/cfg(\d+).yml',
             target_path='merged/foo{match:}/cfg')
     
     dm.load('merged_data', loader='yaml', glob_str="merged/data*.yml",
-            path_regex='merged/data(\d+).yml',
+            path_regex=r'merged/data(\d+).yml',
             target_path='merged/foo{match:}/data')
 
     # Assert that the loaded data has the desired form

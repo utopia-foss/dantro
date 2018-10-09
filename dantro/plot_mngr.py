@@ -575,7 +575,7 @@ class PlotManager:
             out_dir = self._parse_out_dir(out_dir, name=name)
 
             # Create the iterator
-            it = from_pspace.all_points(with_info=('state_no', 'state_vector'))
+            it = from_pspace.iterator(with_info=('state_no', 'state_vector'))
             
             # ...and loop over all points:
             for cfg, state_no, state_vector in it:
