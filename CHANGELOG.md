@@ -2,6 +2,17 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.4 _(WIP)_
+- !17 implements some changes necessary for allowing a smooth transition of `deeevoLab` from `deval` to `dantro`, as implemented in yunus/deeevoLab!52. The changes involve:
+   - Adding an `ObjectContainer` class that can hold arbitrary objects.
+   - Improving the item access interface by allowing lists as arguments, not only strings; this reduces split-and-join operations and makes the interface more versatile.
+   - Improvements to the `BaseDataManager`:
+      - The default load configuration can now be set via class variables
+      - It is now possible to load an entry into the `attrs` of a group or container.
+      - Add a `PickleLoaderMixin` to load pickled objects into an `ObjectContainer`.
+   - Miscellaneous minor improvements to features, code formatting, and documentation.
+- !22 resolves issues that created two kinds of deprecation warnings.
+
 ## v0.3.3
 - !19 Restrict `paramspace` version to <2.0 in order to transition to a higher version in a more controlled manner.
 
