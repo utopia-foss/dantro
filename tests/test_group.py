@@ -63,11 +63,11 @@ def psp_grp(pspace):
 
         # Add some non-uniform data sets
         # 3d with last dimension differing in length
-        randlen = np.ones((3, 4, np.random.randint(10, 30)))
+        randlen = np.ones((3, 4, np.random.randint(10, 30)), dtype="uint8")
         rarrs.add(NumpyDataContainer(name="randlen", data=randlen))
 
         # 3d but of different shape in all directions
-        randshape = np.ones(np.random.randint(1, 10, size=3))
+        randshape = np.ones(np.random.randint(1, 10, size=3), dtype="uint8")
         rarrs.add(NumpyDataContainer(name="randshape", data=randshape))
 
     return psp_grp
@@ -300,6 +300,8 @@ def test_pspace_group_select(psp_grp, selectors):
     wdt = dsets['with_dtype']
     cfg = dsets['non_numeric'].cfg
     sub = dsets['subspace'].state
+    rs_merge = dsets['randshape_merge'].randshape
+    rs_concat = dsets['randshape_concat'].randshape
 
     # TODO check for structured data?
 
@@ -324,9 +326,13 @@ def test_pspace_group_select(psp_grp, selectors):
     assert len(mf.randints.dims) == 6
     assert len(mf.config.dims) == 3
 
-    # dtype was converted
+    # dtype was converted (with default method, i.e.: concat)
     assert wdt.state.dtype == "uint8"
     assert wdt.randints.dtype == "float32"
+
+    # for arrays that needed alignment, the dtype cannot be preserved
+    assert rs_concat.dtype == "float64"
+    assert rs_merge.dtype == "float64"
 
     # config accessible by converting to python scalar
     assert isinstance(cfg[0,0,0].item(), dict)

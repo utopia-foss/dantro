@@ -115,12 +115,16 @@ randlen_merge:
   idx_as_label: true
 
 randshape_concat:
-  field: testdata/randsize/randshape
+  field:
+    path: testdata/randsize/randshape
+    dtype: uint8
   method: concat
   idx_as_label: true
 
 randshape_merge:
-  field: testdata/randsize/randshape
+  field:
+    path: testdata/randsize/randshape
+    dtype: uint8
   method: merge
   idx_as_label: true
 

@@ -568,12 +568,13 @@ class ParamSpaceGroup(OrderedDataGroup):
                     # In merge, this will mereley lead to a NaN ...
                     log.warning("Missing state group:  %d", _state_no)
                     continue
+                # ...but for concatenation, it will result in an error.
                 raise
 
             # Get the variables for all fields
             _vars = {k: get_var(_state_grp, **f) for k, f in fields.items()}
 
-            # Construct a dataset from that
+            # Construct a dataset from that ...
             _dset = xr.Dataset(_vars)
 
             # ... and expand its dimensions to accomodate the point in pspace
