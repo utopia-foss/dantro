@@ -10,6 +10,7 @@ NOTE: These classes are not meant to be instantiated.
 """
 
 import abc
+import copy
 import logging
 import warnings
 import inspect
@@ -362,18 +363,7 @@ class BaseDataContainer(PathMixin, AttrsMixin, dantro.abc.AbstractDataContainer)
         """A __format__ helper function: returns info about the items"""
         return "{} stored, {} attributes".format(type(self.data),
                                                  len(self.attrs))
-
-    def convert_to(self, TargetCls, **target_init_kwargs):
-        """With this method, a TargetCls object can be created from this
-        particular container instance.
         
-        Conversion might not be possible if TargetCls requires more information
-        than is available in this container.
-        """
-        log.debug("Converting %s to %s ...", self.logstr, TargetCls.__name__)
-        return TargetCls(name=self.name, attrs=self.attrs, data=self.data,
-                         **target_init_kwargs)
-
 
 # -----------------------------------------------------------------------------
 
@@ -617,7 +607,17 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
     def recursive_update(self, other):
         """Recursively updates the contents of this data group with the entries
-        of the given data group"""
+        of the given data group
+        
+        NOTE This will create shallow copies of those elements in `other` that
+        are added to this object.
+        
+        Args:
+            other (BaseDataGroup): The group to update with
+        
+        Raises:
+            TypeError: If `other` was of invalid type
+        """
 
         if not isinstance(other, BaseDataGroup):
             raise TypeError("Can only update {} with objects of classes that "
@@ -636,10 +636,16 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
                     # Continue recursion
                     self[name].recursive_update(obj)
                 else:
+                    # Can add the object, but need to detach the parent first
+                    # and thus need to work on a copy
+                    obj = copy.copy(obj)
+                    obj.parent = None
                     self.add(obj)
 
             else:
-                # Not a group; add it to this group
+                # Not a group; add a shallow copy
+                obj = copy.copy(obj)
+                obj.parent = None
                 self.add(obj)
 
         log.debug("Finished recursive update of %s.", self.logstr)
@@ -757,14 +763,11 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         return self.data.get(key, default)
 
     def setdefault(self, key, default=None):
-        """If `key` is in the dictionary, return its value. If not, insert
-        `key` with a value of `default` and return `default`. `default`
-        defaults to None."""
-        if key in self:
-            return self[key]
-        # else: not available
-        self.data[key] = default
-        return default
+        """This method is not supported for a data group"""
+        raise NotImplementedError("setdefault is not supported by {}! Use the "
+                                  "`add` method or `new_group` and "
+                                  "`new_container` to add elements."
+                                  "".format(self.classname))
 
     # .........................................................................
     # Formatting
@@ -856,13 +859,3 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         # Highest level; join the lines together and return that string
         lines.append("")
         return "\n".join(lines)
-
-    # .........................................................................
-    # Conversion
-    
-    def convert_to(self, TargetCls, **target_init_kwargs):
-        """Convert this BaseDataGroup to TargetCls by passing data and attrs"""
-        log.debug("Converting %s '%s' to %s ...", self.classname, self.name,
-                  TargetCls.__name__)
-        return TargetCls(name=self.name, data=self.data, attrs=self.attrs,
-                         **target_init_kwargs)
