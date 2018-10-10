@@ -8,6 +8,8 @@ import dantro.mixins
 import dantro.container
 import dantro.group
 
+from .test_data_mngr import NumpyTestDC
+
 # Class definitions -----------------------------------------------------------
 
 
@@ -16,7 +18,7 @@ import dantro.group
 
 # Tests -----------------------------------------------------------------------
 
-def test_path():
+def test_PathMixin():
     """Tests the PathMixin class using the OrderedDataGroup"""
     root = dtr.group.OrderedDataGroup(name="root")
     foo = root.new_group("foo")
@@ -41,7 +43,7 @@ def test_path():
     with pytest.raises(ValueError, match="A parent was already associated"):
         bar.parent = root
 
-def test_item_access():
+def test_ItemAccessMixin():
     """Tests the ItemAccessMixin using the ObjectContainer"""
     obj = dtr.container.ObjectContainer(name="obj", data=dict())
 
@@ -83,7 +85,7 @@ def test_item_access():
         root[['obj', 'foo', 'spam']]    
 
 
-def test_mapping_access():
+def test_MappingAccessMixin():
     """Tests the MappingAccessMixin using MutableMappingContainer"""
     mmc = dtr.container.MutableMappingContainer(name="map",
                                                 data=dict(foo="bar",
@@ -96,3 +98,5 @@ def test_mapping_access():
     assert mmc.get('foo') == "bar"
     assert mmc.get('spam') == "eggs"
     assert mmc.get('baz', "buz") == "buz"
+
+

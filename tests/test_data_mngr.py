@@ -632,6 +632,9 @@ def test_hdf5_proxy_loader(hdf5_dm):
     assert h5data['basic/int_dset'].data_is_proxy
     assert h5data['basic/float_dset'].data_is_proxy
 
+    str(h5data['basic/int_dset'].proxy)
+    str(h5data['basic/float_dset'].proxy)
+
     # Test the resolve method, that will not change the proxy status of the
     # container the proxy is used in
     assert h5data['basic/int_dset'].data_is_proxy
@@ -641,6 +644,7 @@ def test_hdf5_proxy_loader(hdf5_dm):
     # Test that automatic resolution (by accessing data attribute) works
     assert isinstance(h5data['basic/float_dset'].data, np.ndarray)
     assert h5data['basic/float_dset'].data_is_proxy is False
+    assert h5data['basic/float_dset'].proxy is None
     
     assert isinstance(h5data['nested/group1/group11/group111/dset'].data,
                       np.ndarray)
