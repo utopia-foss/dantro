@@ -56,12 +56,9 @@ class AttrsMixin:
     def attrs(self, new_attrs):
         """Setter method for the container `attrs` attribute."""
         # Decide which class to use for attributes
-        if self._ATTRS_CLS is not None:
-            # Use the pre-defined one
-            AttrsCls = self._ATTRS_CLS
-        else:
-            # Use a default
-            AttrsCls = BaseDataAttrs
+        AttrsCls = (BaseDataAttrs
+                    if self._ATTRS_CLS is None
+                    else self._ATTRS_CLS)
 
         # Perform the initialisation
         log.debug("Using %s for attributes of %s",
@@ -86,19 +83,22 @@ class PathMixin:
     def parent(self, cont):
         """Associate a parent object with this container."""
         if self.parent is not None and cont is not None:
-            log.warning("A parent was already associated with %s '%s'! Will "
-                        "ignore this assignment.", self.classname, self.name)
-        else:
-            log.debug("Setting %s as parent of %s ...",
-                      cont.logstr if cont else None, self.logstr)
-            self._parent = cont
+            raise ValueError("A parent was already associated with {cls:} "
+                             "'{}'! Instead of manually setting the parent, "
+                             "use the functions supplied to manipulate "
+                             "members of this {cls:}."
+                             "".format(self.name, cls=self.classname))
+        
+        log.debug("Setting %s as parent of %s ...",
+                  cont.logstr if cont else None, self.logstr)
+        self._parent = cont
 
     @property
     def path(self) -> str:
         """Return the path to get to this container"""
         if self.parent is None:
             # At the top or no parent associated -> no reasonable path to give
-            return PATH_JOIN_CHAR
+            return self.name
         # else: not at the top, also need the parent's path
         return self.parent.path + PATH_JOIN_CHAR + self.name
 
@@ -128,20 +128,32 @@ class CollectionMixin:
 
 class ItemAccessMixin:
     """This Mixin class implements the methods needed for getting, setting,
-    and deleting items. It relays all calls forward to the data attribute.
+    and deleting items. It relays all calls forward to the data attribute, but
+    if given a list (passed down from above), it extracts it
     """
 
     def __getitem__(self, key):
         """Returns an item."""
+        key = self.__item_convert_key(key)
         return self.data[key]
 
     def __setitem__(self, key, val):
         """Sets an item."""
+        key = self.__item_convert_key(key)
         self.data[key] = val
 
     def __delitem__(self, key):
         """Deletes an item"""
+        key = self.__item_convert_key(key)
         del self.data[key]
+
+    def __item_convert_key(self, key):
+        """If given something that is not a list, just return that key"""
+        if isinstance(key, list):
+            if len(key) > 1:
+                return tuple(key)
+            return key[0]
+        return key
 
 
 class MappingAccessMixin(ItemAccessMixin, CollectionMixin):
@@ -292,7 +304,7 @@ class BaseDataAttrs(MappingAccessMixin, dantro.abc.AbstractDataAttrs):
 
     def _format_info(self) -> str:
         """A __format__ helper function: returns info about these attributes"""
-        return "{} attributes".format(len(self))
+        return "{} attribute(s)".format(len(self))
 
 
 # -----------------------------------------------------------------------------
@@ -371,13 +383,16 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
     NOTE: This is still an abstract class and needs to be subclassed.
     """
 
-    def __init__(self, *, name: str, containers: list=None, attrs=None, StorageCls=dict):
-        """Initialize a BaseDataGroup, which can store other containers and attributes.
+    def __init__(self, *, name: str, containers: list=None, attrs=None, StorageCls: type=dict):
+        """Initialize a BaseDataGroup, which can store other containers and
+        attributes.
         
         Args:
             name (str): The name of this data container
-            data (TYPE): The data to store in this container
+            containers (list, optional): The containers to store in this group
             attrs (None, optional): A mapping that is stored as attributes
+            StorageCls (type, optional): in which type of object to store the
+                containers.
         """
         log.debug("BaseDataGroup.__init__ called.")
 
@@ -454,6 +469,7 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
         # Depending on length of the key sequence, start recursion or not
         if len(key) > 1:
+            print(key, self.data)
             self.data[key[0]][key[1:]] = val
             return
         
@@ -478,6 +494,8 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         if len(key) > 1:
             # Continue recursion
             del self.data[key[0]][key[1:]]
+            return
+
         # else: end of recursion: delete and unlink this container
         cont = self.data[key[0]]
         del self.data[key[0]]
