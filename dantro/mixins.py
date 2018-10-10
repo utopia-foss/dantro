@@ -198,7 +198,7 @@ class UnaryOperationsMixin():
 
 
 class NumbersMixin(UnaryOperationsMixin):
-    """This Mixin class implements the methods needed for calculating with numbers
+    """This mixin implements the methods needed for calculating with numbers.
     """
 
     def __add__(self, other):
@@ -383,6 +383,7 @@ def apply_func_to_copy(obj, func, other=None):
     """
     # Work on a copy
     new = obj.copy()
+
     # Change the data of the new object
     if other is None:
         new._data = func(new.data)
@@ -391,6 +392,7 @@ def apply_func_to_copy(obj, func, other=None):
             new._data = func(new.data, other.data)
         else:
             new._data = func(new.data, other)
+
     return new
 
 
@@ -408,4 +410,5 @@ def apply_func_inplace(obj, func, other=None):
             func(obj._data, other.data)
         else:
             func(obj._data, other)
+            
     return obj

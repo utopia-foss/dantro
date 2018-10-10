@@ -1,6 +1,7 @@
 """Test BaseDataGroup-derived classes"""
 
 from pkg_resources import resource_filename
+import numpy as np
 
 import pytest
 
@@ -23,6 +24,7 @@ from dantro.tools import load_yml
 
 SELECTOR_PATH = resource_filename('tests', 'cfg/selectors.yml')
 
+from dantro.container import MutableSequenceContainer, NumpyDataContainer
 
 # Fixtures --------------------------------------------------------------------
 
@@ -180,6 +182,24 @@ def test_group_creation():
 
     # While adding a MutableSequenceContainer should work
     bar.new_container("eggs", Cls=MutableSequenceContainer, data=[1, 2, 3])
+
+def test_list_item_access():
+    """Tests that passing lists with arbitrary content along __getitem__ works
+    as desired ...
+    """
+
+    root = OrderedDataGroup(name="root")
+    one = root.new_group("one")
+    two = one.new_group("two")
+    two.add(NumpyDataContainer(name="arr", data=np.zeros((2,3,4))))
+    # Path created: root/one/two/arr
+
+    # Test that regular item access is possible
+    arr = root["one/two/arr"]
+
+    # Test that access via a list-type path is possible
+    sliced_arr = root[["one", "two", "arr", slice(None, 2)]]
+    assert sliced_arr.shape == arr[slice(None, 2)].shape
 
 
 # ParamSpaceGroup -------------------------------------------------------------
@@ -406,3 +426,4 @@ def test_pspace_group_select_missing_data(selectors, psp_grp_missing_data):
     # Test exceptions . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     with pytest.raises(ValueError, match="Invalid value for argument `method"):
         pgrp.select(field="cfg", method="some_invalid_method")
+

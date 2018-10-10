@@ -20,9 +20,6 @@ class DummyContainer(ItemAccessMixin, BaseDataContainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def convert_to(self, TargetCls, **target_init_kwargs):
-        return
-
     def _format_info(self):
         return "dummy"
 
@@ -137,13 +134,6 @@ def test_mutuable_sequence_container():
     # This should not work:
     with pytest.raises(AttributeError):
         msc3.insert(len(msc3), ("!",))
-
-    # Conversion ..............................................................
-    # To itself
-    msc1c = msc1.convert_to(MutableSequenceContainer)
-
-    # Ensure that it is a shallow copy
-    assert msc1c.data is msc1.data
 
     # Properties ..............................................................
     # strings

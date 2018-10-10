@@ -2,6 +2,7 @@
 
 import os
 import pkg_resources
+import pickle as pkl
 
 import numpy as np
 import h5py as h5
@@ -12,7 +13,7 @@ from dantro.container import NumpyDataContainer
 from dantro.group import OrderedDataGroup
 from dantro.mixins import Hdf5ProxyMixin
 import dantro.data_mngr
-from dantro.data_loaders import YamlLoaderMixin, Hdf5LoaderMixin
+from dantro.data_loaders import YamlLoaderMixin, PickleLoaderMixin, Hdf5LoaderMixin
 from dantro.tools import write_yml
 
 # Local constants
@@ -28,6 +29,10 @@ class DataManager(YamlLoaderMixin, dantro.data_mngr.DataManager):
     # A (bad) load function for testing
     def _load_bad_loadfunc(self):
         pass
+
+class PklDataManager(PickleLoaderMixin, DataManager):
+    """A data manager that is able to load pickled files"""
+    pass
 
 class NumpyTestDC(Hdf5ProxyMixin, NumpyDataContainer):
     """A data container class that provides numpy proxy access"""
@@ -84,6 +89,26 @@ def data_dir(tmpdir) -> str:
 def dm(data_dir) -> DataManager:
     """Returns a DataManager without load configuration"""
     return DataManager(data_dir, out_dir=None)
+
+@pytest.fixture
+def pkl_dm(data_dir) -> PklDataManager:
+    """Pickles some objects to test the pickle loading function"""
+    # Create a subdirectory for the pickles
+    pkl_dir = data_dir.mkdir("pickles")
+
+    # Define objects to dump
+    to_dump = [
+        ("a_dict",      dict(foo="bar", baz=123)),
+        ("a_list",      [1, 2, 3]),
+        ("int_arr",     np.ones((2,3,4), dtype=int))
+    ]
+
+    # Create the pickles
+    for name, obj in to_dump:
+        with open(pkl_dir.join(name + '.pkl'), mode='wb') as pkl_file:
+            pkl.dump(obj, pkl_file)
+
+    return PklDataManager(data_dir, out_dir=None)
 
 @pytest.fixture
 def hdf5_dm(data_dir) -> Hdf5DataManager:
@@ -429,7 +454,7 @@ def test_loading_regex(dm):
     # This should raise a warning for the `abcdef` entry
     with pytest.warns(dantro.data_mngr.NoMatchWarning):
         dm.load('sub_foobar', loader='yaml', glob_str="sub/*.yml",
-                path_regex='sub/abc(\d+).yml',
+                path_regex=r'sub/abc(\d+).yml',
                 target_path='sub_foobar/{match:}',
                 print_tree=True)
 
@@ -450,9 +475,51 @@ def test_loading_regex(dm):
     with pytest.raises(dantro.data_mngr.ExistingDataError,
                        match="Path 'sub_foobar/abc' already exists."):
         dm.load('bad_sub_foobar', loader='yaml', glob_str="sub/*.yml",
-                path_regex='([abc]*)\w+.yml',
+                path_regex=r'([abc]*)\w+.yml',
                 target_path='sub_foobar/{match:}')
 
+def test_load_as_attr(dm):
+    """Check whether loading into attributes of existing objects works"""
+
+    # Create a group to load into
+    grp = dm.new_group("a_group")
+
+    # Load and store as attribute of that group
+    dm.load('loaded_attr', loader='yaml', glob_str="foobar.yml",
+            target_path='a_group', load_as_attr=True)
+    assert 'loaded_attr' in grp.attrs
+
+    # Use target_path with regex
+    grp.new_group("data0")
+    grp.new_group("data1")
+    grp.new_group("data2")
+    
+    dm.load('data', loader='yaml', glob_str="merged/data*.yml",
+            path_regex='merged/data(\d+).yml',
+            target_path='a_group/data{match:}', load_as_attr=True)
+    
+    assert "data" in grp['data0'].attrs
+    assert "data" in grp['data1'].attrs
+    assert "data" in grp['data2'].attrs
+
+    # Test that the correct exceptions are being raised
+    # Attribute already existing
+    with pytest.raises(dantro.data_mngr.ExistingDataError,
+                       match="attribute with the name 'loaded_attr' already"):
+        dm.load('loaded_attr', loader='yaml', glob_str="lamo.yml",
+                target_path='a_group', load_as_attr=True)
+
+    # Group not yet existing
+    with pytest.raises(dantro.data_mngr.RequiredDataMissingError,
+                       match="a group or container already needs to exist"):
+        dm.load('foo', loader='yaml', glob_str="lamo.yml",
+                target_path='nonexisting_group', load_as_attr=True)
+
+    # No target path given
+    with pytest.raises(ValueError,
+                       match="With `load_as_attr`, the `target_path`"):
+        dm.load('foo', loader='yaml', glob_str="lamo.yml",
+                target_path=None, load_as_attr=True)
 
 def test_target_path(dm):
     """Check whether the `target_path` argument works as desired"""
@@ -464,11 +531,11 @@ def test_target_path(dm):
 
     # Check whether loading into a matched group will work
     dm.load('merged_cfg', loader='yaml', glob_str="merged/cfg*.yml",
-            path_regex='merged/cfg(\d+).yml',
+            path_regex=r'merged/cfg(\d+).yml',
             target_path='merged/foo{match:}/cfg')
     
     dm.load('merged_data', loader='yaml', glob_str="merged/data*.yml",
-            path_regex='merged/data(\d+).yml',
+            path_regex=r'merged/data(\d+).yml',
             target_path='merged/foo{match:}/data')
 
     # Assert that the loaded data has the desired form
@@ -505,6 +572,13 @@ def test_target_path(dm):
     assert 'barfoo_group/foobar' in dm
     assert 'barfoo_group/lamo' in dm
     assert 'barfoo_group/also_lamo' in dm
+
+
+# PickleLoaderMixin tests -----------------------------------------------------
+
+def test_pkl_loader(pkl_dm):
+    """Tests the pickle loader"""
+    pkl_dm.load('pkls', loader='pickle', glob_str="pickles/*.pkl")
 
 
 # Hdf5LoaderMixin tests -------------------------------------------------------
@@ -558,6 +632,9 @@ def test_hdf5_proxy_loader(hdf5_dm):
     assert h5data['basic/int_dset'].data_is_proxy
     assert h5data['basic/float_dset'].data_is_proxy
 
+    str(h5data['basic/int_dset'].proxy)
+    str(h5data['basic/float_dset'].proxy)
+
     # Test the resolve method, that will not change the proxy status of the
     # container the proxy is used in
     assert h5data['basic/int_dset'].data_is_proxy
@@ -567,6 +644,7 @@ def test_hdf5_proxy_loader(hdf5_dm):
     # Test that automatic resolution (by accessing data attribute) works
     assert isinstance(h5data['basic/float_dset'].data, np.ndarray)
     assert h5data['basic/float_dset'].data_is_proxy is False
+    assert h5data['basic/float_dset'].proxy is None
     
     assert isinstance(h5data['nested/group1/group11/group111/dset'].data,
                       np.ndarray)
