@@ -12,6 +12,7 @@
       - Add a `PickleLoaderMixin` to load pickled objects into an `ObjectContainer`.
    - Miscellaneous minor improvements to features, code formatting, and documentation.
 - !22 resolves issues that created two kinds of deprecation warnings.
+- #26 Test coverage of mixin classes improved; minor bug fixes.
 
 ## v0.3.3
 - !19 Restrict `paramspace` version to <2.0 in order to transition to a higher version in a more controlled manner.
