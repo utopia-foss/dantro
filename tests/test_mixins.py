@@ -1,5 +1,7 @@
 """Tests the mixin classes in the base and mixin modules."""
 
+import copy
+
 import pytest
 
 import dantro as dtr
@@ -100,3 +102,24 @@ def test_MappingAccessMixin():
     assert mmc.get('baz', "buz") == "buz"
 
 
+@pytest.mark.skip("Does not currently work")
+def test_numeric_mixins():
+    """Tests UnaryOperationsMixin and NumbersMixin"""
+    # Define a test class using the NumbersMixin, which inherits the
+    # UnaryOperationsMixin
+    class Num(dtr.mixins.NumbersMixin):
+        def __init__(self, data):
+            self._data = data
+
+        @property
+        def data(self):
+            return self._data
+
+        def copy(self):
+            return Num(copy.deepcopy(self.data))
+
+    num = Num(1.23)
+    assert num.data == 1.23
+
+    # Test each function
+    assert num.__neg__() == -1.23
