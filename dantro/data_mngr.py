@@ -936,8 +936,7 @@ class DataManager(OrderedDataGroup):
         if path[0] not in base_group:
             log.debug("Creating group '%s' in %s ...",
                       path[0], base_group.logstr)
-            grp = GroupCls(name=path[0])
-            base_group.add(grp)
+            base_group.new_group(path[0])
 
         # path[0] is now created
         # Check whether to continue recursion
