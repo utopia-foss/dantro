@@ -192,7 +192,7 @@ class Hdf5LoaderMixin:
         """
         
 
-        def recursively_load_hdf5(src, target: BaseDataGroup, *, load_as_proxy: bool, lower_case_keys: bool, enable_mapping: bool, GroupCls: BaseDataGroup, DsetCls: BaseDataContainer, GroupMap: dict, DsetMap: dict, map_attr: str):
+        def recursively_load_hdf5(src, target: BaseDataGroup, *, load_as_proxy: bool, lower_case_keys: bool, enable_mapping: bool, DsetCls: BaseDataContainer, GroupMap: dict, DsetMap: dict, map_attr: str):
             """Recursively loads the data from the source hdf5 file into the 
             target DataGroup object.
             If given, each group or dataset is checked whether an attribute
@@ -222,26 +222,26 @@ class Hdf5LoaderMixin:
                             log.warning("Could not find a mapping from map "
                                         "attribute %s='%s' to a DataGroup "
                                         "class. Available keys: %s. Falling "
-                                        "back to default class %s...",
+                                        "back to default class ...",
                                         map_attr, attrs[map_attr],
                                         ", ".join([k
-                                                   for k in GroupMap.keys()]),
-                                        GroupCls.__name__)
-                            _GroupCls = GroupCls
+                                                   for k in GroupMap.keys()]))
+                            _GroupCls = None
                     
                     else:
-                        # Use the default
-                        _GroupCls = GroupCls
+                        # Use the default of the target container
+                        _GroupCls = None
 
                     # Create and add the group, passing the attributes
-                    target.add(_GroupCls(name=key, attrs=attrs))
+                    target.new_group(path=key, Cls=_GroupCls,
+                                     attrs=attrs)
 
                     # Continue recursion
                     recursively_load_hdf5(obj, target[key],
                                           load_as_proxy=load_as_proxy,
                                           lower_case_keys=lower_case_keys,
                                           enable_mapping=enable_mapping,
-                                          GroupCls=GroupCls, DsetCls=DsetCls,
+                                          DsetCls=DsetCls,
                                           GroupMap=GroupMap, DsetMap=DsetMap,
                                           map_attr=map_attr)
 
@@ -287,7 +287,8 @@ class Hdf5LoaderMixin:
                         _DsetCls = DsetCls
 
                     # Now create and add the dataset, passing data and attrs
-                    target.add(_DsetCls(name=key, data=data, attrs=attrs))
+                    target.new_container(path=key, Cls=_DsetCls,
+                                         data=data, attrs=attrs)
 
                 else:
                     raise NotImplementedError("Object {} is neither a dataset "
@@ -308,7 +309,6 @@ class Hdf5LoaderMixin:
 
         # Get the classes to use for groups and/or containers
         DsetCls = self._HDF5_DSET_DEFAULT_CLS
-        GroupCls = type(root)
 
         # Determine from which attribute to read the mapping
         if not map_from_attr:
@@ -341,7 +341,7 @@ class Hdf5LoaderMixin:
                                   load_as_proxy=load_as_proxy,
                                   lower_case_keys=lower_case_keys,
                                   enable_mapping=enable_mapping,
-                                  GroupCls=GroupCls, DsetCls=DsetCls,
+                                  DsetCls=DsetCls,
                                   GroupMap=self._HDF5_GROUP_MAP,
                                   DsetMap=self._HDF5_DSET_MAP,
                                   map_attr=map_from_attr)
