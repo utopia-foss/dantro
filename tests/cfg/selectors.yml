@@ -1,0 +1,134 @@
+# Test data selectors of the ParamSpaceGroup
+# 
+# NOTE: All selectors here should be valid, i.e.: the loading should work.
+#       Edge cases and expected failures should be tested directly in the
+#       pytest definition in test_group.py
+---
+# The following selects _only_ a field and does not change the subspace
+single_field:
+  field:
+    - testdata
+    - fixedsize
+    - state
+
+non_numeric:
+  field:
+    - cfg
+
+short_field_syntax:
+  field: testdata/fixedsize/randints
+
+full_single_field_syntax:
+  field:
+    path: testdata/fixedsize/randints
+
+simple_merge:
+  field: testdata/fixedsize/randints
+  method: merge
+
+# Can also select multiple fields, which will then be named after the given key
+multi_field:
+  fields:
+    state: testdata/fixedsize/state
+    randints:
+      - testdata
+      - fixedsize
+      - randints
+    config: # renaming here
+      path: cfg
+
+# ...and this should work with merge, too
+multi_field_merge:
+  fields:
+    state: testdata/fixedsize/state
+    randints:
+      - testdata
+      - fixedsize
+      - randints
+    config: # renaming here
+      path: cfg
+
+  method: merge
+
+# And specify further arguments, e.g. the dtype
+with_dtype:
+  fields:
+    state:
+      path: testdata/fixedsize/state
+      dtype: uint8
+    randints:
+      path: [testdata, fixedsize, randints]
+      dtype: float32
+
+# Can specify custom dimension names
+with_dim_names:
+  fields:
+    state:
+      path: testdata/fixedsize/state
+      dims: [d0, d1, d2]
+    randints:
+      path: testdata/fixedsize/randints
+      dims: [d0, d1, d2]
+
+# ... which may partly go along other dimensions
+mixed_dim_names:
+  fields:
+    state:
+      path: testdata/fixedsize/state
+      dims: [t, d0, d1]
+    randints:
+      path: testdata/fixedsize/randints
+      dims: [t, d2, d3]
+
+# This selector shows the syntax of selecting a subspace to iterate over. This
+# can happen in three ways: by integer index, by setting a boolean mask, or by
+# specifying locations.
+subspace:
+  subspace:
+    p0:
+      loc: [1]
+    p1:
+      loc: !slice [2.5]
+    p2:
+      idx: [1, 3, 4]
+  
+  field: testdata/fixedsize/state
+
+# There is a short syntax available for the subsace selector, defaulting to loc
+# Note that this should _not_ suggest to select the same as the selector above.
+subspace_short_syntax:
+  subspace:
+    p0: 1
+    p1: [1, 2]
+    p2: !slice [2]
+
+  field: testdata/fixedsize/state
+
+# With data of non-uniform size, dimensions need be fully labelled
+randlen_concat:
+  field: testdata/randsize/randlen
+  method: concat
+  idx_as_label: true
+
+randlen_merge:
+  field: testdata/randsize/randlen
+  method: merge
+  idx_as_label: true
+
+randshape_concat:
+  field:
+    path: testdata/randsize/randshape
+    dtype: uint8
+  method: concat
+  idx_as_label: true
+
+randshape_merge:
+  field:
+    path: testdata/randsize/randshape
+    dtype: uint8
+  method: merge
+  idx_as_label: true
+
+# It is possible to access entries that are deeper down in the hierarchy, even
+# within containers... basically, as long as item access is possible.
+# TODO
