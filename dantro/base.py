@@ -815,9 +815,13 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
     def _format_info(self) -> str:
         """A __format__ helper function: returns an info string that is used
         to characterise this object. Does NOT include name and classname!"""
-        return "{} members, {} attribute{}".format(len(self), len(self.attrs),
-                                                   ("s" if len(self.attrs) != 1
-                                                    else ""))
+        return "{} member{}, {} attribute{}".format(len(self),
+                                                    ("s" if len(self) != 1
+                                                     else "")
+                                                    len(self.attrs),
+                                                    ("s"
+                                                     if len(self.attrs) != 1
+                                                     else ""))
 
     def _format_tree(self) -> str:
         """Returns a multi-line string tree representation of this group."""
