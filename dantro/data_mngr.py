@@ -342,6 +342,10 @@ class DataManager(OrderedDataGroup):
                     With *_nowarn values, no warning is given if an entry
                     already existed.
                     Note that this is ignored when `load_as_attr` is given.
+                unpack_data (bool, optional): If True, and load_as_attr is
+                    active, not the DataContainer or DataGroup itself will be
+                    stored in the attribute, but the content of its .data
+                    attribute.
                 progress_indicator (bool): Whether to print a progress
                     indicator or not. Default: True
                 parallel (bool): If True, data is loaded in parallel.
@@ -446,7 +450,7 @@ class DataManager(OrderedDataGroup):
     # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     # Helpers for loading and storing data
 
-    def _load(self, *, target_path: str, loader: str, glob_str: Union[str, List[str]], load_as_attr: Union[str, None], ignore: List[str]=None, required: bool=False, path_regex: str=None, exists_action: str='raise', progress_indicator: bool=True, parallel: bool=False, **loader_kwargs) -> None:
+    def _load(self, *, target_path: str, loader: str, glob_str: Union[str, List[str]], load_as_attr: Union[str, None], ignore: List[str]=None, required: bool=False, path_regex: str=None, exists_action: str='raise', unpack_data: bool=False, progress_indicator: bool=True, parallel: bool=False, **loader_kwargs) -> None:
         """Helper function that loads a data entry to the specified path.
         
         Args:
@@ -472,6 +476,9 @@ class DataManager(OrderedDataGroup):
                 With *_nowarn values, no warning is given if an entry already
                 existed.
                 Note that this is ignored if `load_as_attr` is given.
+            unpack_data (bool, optional): If True, and load_as_attr is active,
+                not the DataContainer or DataGroup itself will be stored in
+                the attribute, but the content of its .data attribute.
             progress_indicator (bool, optional): Whether to print a progress
                 indicator or not
             parallel (bool, optional): If True, data is loaded in parallel -
@@ -687,7 +694,7 @@ class DataManager(OrderedDataGroup):
                                  "skip_nowarn, overwrite, overwrite_nowarn."
                                  "".format(exists_action))
 
-        def store(obj: Union[BaseDataGroup, BaseDataContainer], *, target_path: List[str], as_attr: Union[str, None]) -> None:
+        def store(obj: Union[BaseDataGroup, BaseDataContainer], *, target_path: List[str], as_attr: Union[str, None], unpack_data: bool) -> None:
             """Store the given `obj` at the supplied `path`.
             
             Note that this will automatically overwrite, assuming that all
@@ -730,8 +737,13 @@ class DataManager(OrderedDataGroup):
                                             "already exists in {}!"
                                             "".format(as_attr, target.logstr))
 
-                # All checks passed. Can store it now
-                target.attrs[as_attr] = obj
+                # All checks passed. Can store it now, either directly or with
+                # unpacking of its data ...
+                if not unpack_data:
+                    target.attrs[as_attr] = obj
+                else:
+                    target.attrs[as_attr] = obj.data
+                    
                 log.debug("Stored %s as attribute '%s' of %s.",
                           obj.classname, as_attr, target.logstr)
 
@@ -842,7 +854,8 @@ class DataManager(OrderedDataGroup):
                       file, _data.logstr)
             
             # If this succeeded, store the data
-            store(_data, target_path=_target_path, as_attr=load_as_attr)
+            store(_data, target_path=_target_path,
+                  as_attr=load_as_attr, unpack_data=unpack_data)
             
             # Done with this file. Go to next iteration
 
