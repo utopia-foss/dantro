@@ -37,7 +37,8 @@ class ObjectContainer(ItemAccessMixin, BaseDataContainer):
 
     def _format_info(self) -> str:
         """A __format__ helper function: returns info about the stored data"""
-        return "stored type: " + str(type(self.data))
+        return "{} stored, {}".format(type(self.data).__name__,
+                                      super()._format_info())
 
 
 class MutableSequenceContainer(CheckDataMixin, ItemAccessMixin, CollectionMixin, BaseDataContainer, MutableSequence):
@@ -153,7 +154,8 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
         In this case, the dtype and shape of the stored data is returned. Note
         that this relies on the ForwardAttrsToDataMixin.
         """
-        return "{}, shape {}".format(self.dtype, self.shape)
+        return "{}, shape {}, {}".format(self.dtype, self.shape,
+                                         super()._format_info())
 
     def copy(self):
         """Return a copy of this NumpyDataContainer.
