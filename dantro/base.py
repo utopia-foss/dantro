@@ -817,7 +817,7 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         to characterise this object. Does NOT include name and classname!"""
         return "{} member{}, {} attribute{}".format(len(self),
                                                     ("s" if len(self) != 1
-                                                     else "")
+                                                     else ""),
                                                     len(self.attrs),
                                                     ("s"
                                                      if len(self.attrs) != 1
