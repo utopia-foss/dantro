@@ -507,7 +507,7 @@ def test_load_as_attr(dm):
     grp.new_group("data2")
     
     dm.load('data', loader='yaml', glob_str="merged/data*.yml",
-            path_regex='merged/data(\d+).yml',
+            path_regex=r'merged/data(\d+).yml',
             target_path='a_group/data{match:}', load_as_attr=True)
     
     assert "data" in grp['data0'].attrs

@@ -404,7 +404,7 @@ def test_pspace_group_select_missing_data(selectors, psp_grp_missing_data):
         sel.pop('method', None)
 
         # With concat, it should fail
-        with pytest.raises(ValueError, match="No state (\d+) available in"):
+        with pytest.raises(ValueError, match=r"No state (\d+) available in"):
             pgrp.select(**sel, method='concat')
 
         # With merge, it should succeed
