@@ -10,7 +10,7 @@ import warnings
 from typing import Union, Callable, List, Tuple
 
 from dantro.base import PATH_JOIN_CHAR, BaseDataContainer, BaseDataGroup
-from dantro.group import OrderedDataGroup
+from dantro.groups import OrderedDataGroup
 import dantro.tools as tools
 
 # Local constants

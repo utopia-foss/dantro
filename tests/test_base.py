@@ -33,7 +33,7 @@ def test_BaseDataAttrs():
 
 def test_BaseDataGroup():
     """Tests the BaseDataGroup using OrderedDataGroup"""
-    root = dtr.group.OrderedDataGroup(name="root")
+    root = dtr.groups.OrderedDataGroup(name="root")
     foo = root.new_group("foo")
     bar = foo.new_group("bar")
     bar.add(dtr.container.ObjectContainer(name="obj", data=dict(test=123)))
@@ -44,7 +44,7 @@ def test_BaseDataGroup():
 
     # Setting should not work
     with pytest.raises(ValueError, match="cannot carry out __setitem__"):
-        root['baz'] = dtr.group.OrderedDataGroup(name="baz")
+        root['baz'] = dtr.groups.OrderedDataGroup(name="baz")
 
     # Put passing on the __item__ calls to the object beneath should work
     assert root['foo/bar/obj/test'] == 123
@@ -55,7 +55,7 @@ def test_BaseDataGroup():
     baz1 = foo.new_group('baz')
     assert foo['baz'] is baz1
     
-    baz2 = dtr.group.OrderedDataGroup(name="baz")
+    baz2 = dtr.groups.OrderedDataGroup(name="baz")
     foo.add(baz2, overwrite=True)
     assert foo['baz'] is baz2
 
@@ -66,7 +66,7 @@ def test_BaseDataGroup():
 
 
     # Recursive update
-    root2 = dtr.group.OrderedDataGroup(name="root")
+    root2 = dtr.groups.OrderedDataGroup(name="root")
     foo2 = root2.new_group("foo")
     spam = foo2.new_group("spam")
     sth = foo2.new_container("sth", Cls=dtr.container.ObjectContainer,
