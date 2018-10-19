@@ -54,7 +54,11 @@ class NetworkGroup(BaseDataGroup):
                 properties.
             **graph_kwargs: Further initialisation kwargs for the graph.
         """
+
+        log.debug("Create a networkx graph.")
+
         # Check whether the node and edge containers are available
+        log.debug("Check whether the node and edge container are available.")
         vtx_cont = self[self._NWG_node_container]
         edge_cont = self[self._NWG_edge_container]
 
@@ -68,6 +72,7 @@ class NetworkGroup(BaseDataGroup):
 
         # Gather additional containers that could be used as node or edge
         # attributes
+        log.debug("Gather node and edge attribute container")
         vtx_props = {name: cont for name, cont in self.items()
                      if cont.attrs.get(self._NWG_attr_is_node_property)}
         
@@ -76,6 +81,7 @@ class NetworkGroup(BaseDataGroup):
 
 
         # Create a networkx graph corresponding to the graph properties.
+        log.debug("Create a networkx graph object.")
         if not directed and not parallel_edges:
             g = nx.Graph(**graph_kwargs)
         elif directed and not parallel_edges:
@@ -85,17 +91,15 @@ class NetworkGroup(BaseDataGroup):
         else:
             g = nx.MultiGraph(**graph_kwargs)
 
-        # Add nodes to the graph
+        # Add nodes and edges to the graph
+        log.debug("Add nodes and edges to the graph.")
         g.add_nodes_from(vtx_cont)
-
-        # Set node properties
-        if with_node_properties:
-            nx.set_node_attributes(g, vtx_props)
-
-        # Add edges to the graph
         g.add_edges_from(edge_cont)
 
-        # Set edge properties
+        # Set node and edge properties
+        log.debug("Set node and edge properties.")
+        if with_node_properties:
+            nx.set_node_attributes(g, vtx_props)
         if with_edge_properties:
             nx.set_edges_attributes(g, edge_props)
 
