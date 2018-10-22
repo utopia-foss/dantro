@@ -2,3 +2,4 @@
 
 from .ordered import OrderedDataGroup
 from .paramspace import ParamSpaceStateGroup, ParamSpaceGroup
+from .network import NetworkGroup

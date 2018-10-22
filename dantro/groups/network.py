@@ -6,13 +6,16 @@ import networkx as nx
 from ..base import BaseDataGroup
 from ..container import NumpyDataContainer
 
+# Local constants
+log = logging.getLogger(__name__)
+
 class NetworkGroup(BaseDataGroup):
     """The NetworkGroup class manages groups of network data containers."""
 
     # Define, as class variables, in which containers or attributes to find the
     # info on the nodes and edges.
-    _NWG_node_container = "_vertices"
-    _NWG_edge_container = "_edges"
+    _NWG_node_container = "vertices"
+    _NWG_edge_container = "edges"
     _NWG_attr_directed = "directed"
     _NWG_attr_parallel = "parallel"
     _NWG_attr_is_node_property = "is_node_property"
@@ -89,7 +92,7 @@ class NetworkGroup(BaseDataGroup):
         elif not directed and parallel_edges:
             g = nx.MultiGraph(**graph_kwargs)
         else:
-            g = nx.MultiGraph(**graph_kwargs)
+            g = nx.MultiDiGraph(**graph_kwargs)
 
         # Add nodes and edges to the graph
         log.debug("Add nodes and edges to the graph.")

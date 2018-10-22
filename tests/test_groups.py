@@ -7,13 +7,14 @@ import pytest
 
 import numpy as np
 import xarray as xr
+import networkx as nx
 
 from paramspace import ParamSpace, ParamDim
 
 
 # Import the dantro objects to test here
 from dantro.groups import OrderedDataGroup
-from dantro.groups import ParamSpaceGroup, ParamSpaceStateGroup
+from dantro.groups import ParamSpaceGroup, ParamSpaceStateGroup, NetworkGroup
 
 from dantro.container import MutableSequenceContainer, MutableMappingContainer
 from dantro.container import NumpyDataContainer
@@ -23,6 +24,7 @@ from dantro.tools import load_yml
 # Local paths -----------------------------------------------------------------
 
 SELECTOR_PATH = resource_filename('tests', 'cfg/selectors.yml')
+NW_GRP_PATH = resource_filename('tests', 'cfg/nw_grps.yml')
 
 from dantro.container import MutableSequenceContainer, NumpyDataContainer
 
@@ -90,6 +92,25 @@ def selectors() -> dict:
     """
     return load_yml(SELECTOR_PATH)
 
+@pytest.fixture()
+def nw_grp_cfgs() -> dict:
+    """Returns the dict of NetworkGroup configurations"""
+    return load_yml(NW_GRP_PATH)
+
+@pytest.fixture()
+def nw_grps(nw_grp_cfgs) -> dict:
+    """Creates a NetworkGroup to be tested below"""
+    grps = dict()
+    for name, cfg in nw_grp_cfgs.items():
+        grps[name] = NetworkGroup(name=name, attrs=cfg["attrs"])
+
+        grps[name].new_container("vertices", Cls=NumpyDataContainer,
+                          data=cfg["vertices"])
+
+        grps[name].new_container("edges", Cls=NumpyDataContainer,
+                          data=cfg["edges"])
+
+    return (grps, nw_grp_cfgs)
 
 # Tests -----------------------------------------------------------------------
 
@@ -427,3 +448,43 @@ def test_pspace_group_select_missing_data(selectors, psp_grp_missing_data):
     with pytest.raises(ValueError, match="Invalid value for argument `method"):
         pgrp.select(field="cfg", method="some_invalid_method")
 
+
+# NetworkGroup ----------------------------------------------------------------
+
+def test_network_group_basics(nw_grps):
+    """Test the NetworkGroup"""
+    
+    # Get the groups and their corresponding configurations
+    (grps, cfgs) = nw_grps
+
+    for name, grp in grps.items():
+        # Get the config
+        cfg = cfgs[name]
+
+        # Get the attributes and ...
+        attrs = cfg["attrs"]
+        directed = attrs["directed"]
+        parallel = attrs["parallel"]
+
+        # ... create the graph
+        nw = grp.create_graph(directed=directed, parallel_edges=parallel)
+
+        # Check that the network is not empty and (not) directed
+        assert(nx.is_empty(nw) == False)
+        assert(nx.is_directed(nw) == directed)
+
+        # Check the data type of the network
+        if (not directed and not parallel):
+            assert(type(nw) == nx.Graph)
+        elif (directed and not parallel):
+            assert(type(nw) == nx.DiGraph)
+        elif (not directed and parallel):
+            assert(type(nw) == nx.MultiGraph)
+        else:
+            assert(type(nw) == nx.MultiDiGraph)
+
+        
+        # Check that the vertices given in the config coincide with
+        # the ones stored inside of the network
+        assert([(n == v) for n, v in zip(nx.nodes(nw), cfg["vertices"])])
+    
