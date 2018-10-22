@@ -79,10 +79,14 @@ class ExternalPlotCreator(BasePlotCreator):
                                             module_file=module_file)
         
         # Now have the plotting function
+        # Prepare the arguments (the data manager is added to args there)
+        args, kwargs = self._prepare_plot_func_args(out_path=out_path,
+                                                    **func_kwargs)
+
         # Call it
         log.info("Calling plotting function '%s'...", plot_func.__name__)
 
-        plot_func(self.dm, out_path=out_path, **func_kwargs)
+        plot_func(*args, **kwargs)
 
         log.info("Plotting function returned.")
 
@@ -170,3 +174,21 @@ class ExternalPlotCreator(BasePlotCreator):
 
         # Now, it is loaded
         return mod
+
+    def _prepare_plot_func_args(self, *args, **kwargs) -> tuple:
+        """Prepares the args and kwargs passed to the plot function.
+        
+        The passed args and kwargs are carried over, while the positional
+        arguments are prepended with passing of the data manager.
+
+        When subclassing this function, the parent method (this one) should
+        still be called to maintain base functionality.
+        
+        Args:
+            *args: Additional args
+            **kwargs: Additional kwargs
+        
+        Returns:
+            tuple: (args: tuple, kwargs: dict)
+        """
+        return ((self.dm,) + args, kwargs)

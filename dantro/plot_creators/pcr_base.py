@@ -9,6 +9,9 @@ the BasePlotCreator (which still remains abstract).
 import os
 import copy
 import logging
+from typing import Union
+
+from paramspace import ParamSpace
 
 import dantro.abc
 import dantro.tools as tools
@@ -138,6 +141,7 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
 
         self._default_ext = val
 
+
     # .........................................................................
     # Main API functions
 
@@ -169,6 +173,7 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
         # Now call the plottig function with these arguments
         return self._plot(out_path=out_path, **cfg)
 
+
     # .........................................................................
     # Helpers
 
@@ -178,6 +183,19 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
         behaviour.
         """
         return self.default_ext
+
+    def _prepare_cfg(self, *, plot_cfg: dict, pspace: Union[ParamSpace, dict]) -> tuple:
+        """Prepares the plot configuration for the PlotManager.
+
+        This function is called by the plot manager before the first plot
+        is created.
+        
+        The base implementation just passes the given arguments through.
+        However, it can be re-implemented by derived classes to change the
+        behaviour of the plot manager, e.g. by converting a plot configuration
+        to a parameter space.
+        """
+        return plot_cfg, pspace
 
     def _prepare_path(self, out_path: str) -> None:
         """Prepares the output path, creating directories if needed, then

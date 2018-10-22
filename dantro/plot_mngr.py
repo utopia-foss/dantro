@@ -290,7 +290,7 @@ class PlotManager:
                 raise PlotCreatorError(e_msg) from err
             
             # else: just log it
-            log.error(e_msg + " {}: {}".format(err.__class__.__name__, err))
+            log.error(e_msg + "\n{}: {}".format(err.__class__.__name__, err))
 
         else:
             log.debug("Plot creator call returned.")
@@ -471,7 +471,7 @@ class PlotManager:
                  len(plots_cfg))
 
 
-    def plot(self, name: str, *, creator: str=None, out_dir: str=None, file_ext: str=None, from_pspace: ParamSpace=None, save_plot_cfg: bool=None, **plot_cfg) -> pcr.BasePlotCreator:
+    def plot(self, name: str, *, creator: str=None, out_dir: str=None, file_ext: str=None, from_pspace: ParamSpace=None, save_plot_cfg: bool=None, creator_init_kwargs: dict=None, **plot_cfg) -> pcr.BasePlotCreator:
         """Create plot(s) from a single configuration entry.
         
         A call to this function creates a single PlotCreator, which is also
@@ -495,6 +495,9 @@ class PlotManager:
                 sweep over these parameters, re-using the same creator instance
             save_plot_cfg (bool, optional): Whether to save the plot config.
                 If not given, uses the default value from initialization.
+            creator_init_kwargs (dict, optional): Passed to the plot creator
+                during initialization. Note that the arguments given at
+                initialization of the PlotManager are updated by this.
             **plot_cfg: The plot configuration to pass on to the plot creator.
         
         Returns:
@@ -528,12 +531,21 @@ class PlotManager:
         if save_plot_cfg is None:
             save_plot_cfg = self.save_plot_cfg
 
-        # Instantiate the creator class, also passing initialization kwargs
+        # Parse initialization kwargs
         init_kwargs = self._cckwargs.get(creator, {})
+        if creator_init_kwargs:
+            log.debug("Recursively updating creator initialization kwargs ...")
+            init_kwargs = tools.recursive_update(copy.deepcopy(init_kwargs),
+                                                 creator_init_kwargs)
+        
+        # Instantiate the creator class, also passing initialization kwargs
         plot_creator = self.CREATORS[creator](name=name, dm=self._dm,
                                               **init_kwargs)
+        log.debug("Initialized creator: %s", plot_creator.logstr)
 
-        log.debug("Resolved creator: %s", plot_creator.classname)
+        # Let the creator process arguments
+        plot_cfg, from_pspace = plot_creator._prepare_cfg(plot_cfg=plot_cfg,
+                                                          pspace=from_pspace)
 
         # Distinguish single calls and parameter sweeps
         if not from_pspace:
@@ -542,8 +554,7 @@ class PlotManager:
             # Generate the output path
             out_dir = self._parse_out_dir(out_dir, name=name)
             out_path = self._parse_out_path(plot_creator, name=name,
-                                             out_dir=out_dir,
-                                             file_ext=file_ext)
+                                            out_dir=out_dir, file_ext=file_ext)
 
             # Call the plot creator to perform the plot, using the private
             # method to perform exception handling
