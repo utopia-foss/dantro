@@ -2,6 +2,7 @@
 
 from pkg_resources import resource_filename
 import numpy as np
+from typing import Union
 
 import pytest
 
@@ -98,7 +99,7 @@ def nw_grp_cfgs() -> dict:
     return load_yml(NW_GRP_PATH)
 
 @pytest.fixture()
-def nw_grps(nw_grp_cfgs) -> dict:
+def nw_grps(nw_grp_cfgs) -> Union[dict, dict]:
     """Creates a NetworkGroup to be tested below"""
     grps = dict()
     for name, cfg in nw_grp_cfgs.items():
@@ -484,7 +485,7 @@ def test_network_group_basics(nw_grps):
             assert(type(nw) == nx.MultiDiGraph)
 
         
-        # Check that the vertices given in the config coincide with
+        # Check that the vertices and edges given in the config coincide with
         # the ones stored inside of the network
         assert([(n == v) for n, v in zip(nx.nodes(nw), cfg["vertices"])])
-    
+        assert([(e == e_cfg) for e, e_cfg in zip(nx.edges(nw), cfg["edges"])])
