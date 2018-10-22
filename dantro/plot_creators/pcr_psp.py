@@ -27,13 +27,22 @@ class MultiversePlotCreator(ExternalPlotCreator):
     # Where the `ParamSpaceGroup` object is expected within the data manager
     PSGRP_PATH = None
 
+    def __init__(self, *args, psgrp_path: str=None, **kwargs):
+        """Initialize a MultiversePlotCreator"""
+        super().__init__(*args, **kwargs)
+
+        if psgrp_path:
+            self.PSGRP_PATH = psgrp_path
+
     @property
     def psgrp(self) -> ParamSpaceGroup:
         """Retrieves the parameter space group associated with this plot
         creator by looking up a certain path in the data manager.
         """
         if self.PSGRP_PATH is None:
-            raise ValueError("Need to specify the class variable PSGRP_PATH!")
+            raise ValueError("Missing class variable PSGRP_PATH! Either set "
+                             "it directly or pass the `psgrp_path` argument "
+                             "to the __init__ function.")
 
         # Retrieve the parameter space group
         return self.dm[self.PSGRP_PATH]
@@ -48,20 +57,18 @@ class MultiversePlotCreator(ExternalPlotCreator):
             **kwargs: Passed along to parent method
         
         Returns:
-            tuple: Description
-        
-        Raises:
-            ValueError: Description
+            tuple: The (args, kwargs) tuple for calling the plot function
         """
-        if self.PSGRP_PATH is None:
-            raise ValueError("Need to specify the class variable PSGRP_PATH!")
-
         # Select the multiverse data
         mv_data = self.psgrp.select(**select)
 
-        # Let the parent function do its thing
-        return super()._prep_plot_func_args(*args, mv_data=mv_data, **kwargs)
+        # Let the parent function, implemented in ExternalPlotCreator, do its
+        # thing. This will return the (args, kwargs) tuple
+        return super()._prepare_plot_func_args(*args, **kwargs,
+                                               mv_data=mv_data)
 
+
+# -----------------------------------------------------------------------------
 
 class UniversePlotCreator(ExternalPlotCreator):
     """A UniversePlotCreator is an ExternalPlotCreator that allows looping of
@@ -70,9 +77,12 @@ class UniversePlotCreator(ExternalPlotCreator):
     # Where the `ParamSpaceGroup` object is expected within the data manager
     PSGRP_PATH = None
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, psgrp_path: str=None, **kwargs):
         """Initialize a UniversePlotCreator"""
         super().__init__(*args, **kwargs)
+
+        if psgrp_path:
+            self.PSGRP_PATH = psgrp_path
 
         # Add custom attributes
         self._state_map = None
@@ -83,7 +93,9 @@ class UniversePlotCreator(ExternalPlotCreator):
         creator by looking up a certain path in the data manager.
         """
         if self.PSGRP_PATH is None:
-            raise ValueError("Need to specify the class variable PSGRP_PATH!")
+            raise ValueError("Missing class variable PSGRP_PATH! Either set "
+                             "it directly or pass the `psgrp_path` argument "
+                             "to the __init__ function.")
 
         # Retrieve the parameter space group
         return self.dm[self.PSGRP_PATH]
@@ -92,7 +104,7 @@ class UniversePlotCreator(ExternalPlotCreator):
     def state_map(self) -> xr.DataArray:
         """Returns the temporarily stored state mapping"""
         if self._state_map is None:
-            raise RuntimeError("No state mapping was provided; this should "
+            raise RuntimeError("No state mapping was stored yet; this should "
                                "not have happened!")
         return self._state_map
 
@@ -214,6 +226,8 @@ class UniversePlotCreator(ExternalPlotCreator):
         # Select the corresponding universe from the ParamSpaceGroup
         uni_data = self.psgrp[uni_id]
 
-        # Let the parent function do its thing
-        return super()._prep_plot_func_args(*args, uni_data=uni_data,
-                                            coords=_coords, **kwargs)
+        # Let the parent function, implemented in ExternalPlotCreator, do its
+        # thing. This will return the (args, kwargs) tuple
+        return super()._prepare_plot_func_args(*args, **kwargs,
+                                               uni_data=uni_data,
+                                               coords=_coords)
