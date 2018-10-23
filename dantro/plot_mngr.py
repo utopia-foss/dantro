@@ -50,19 +50,19 @@ class PlotManager:
 
     CREATORS = pcr.ALL
     DEFAULT_OUT_FSTRS = dict(date="%y%m%d-%H%M%S",
-                         state_no="{no:0{digits:d}d}",
-                         state="{key:}_{val:}",
-                         state_key_join_char="-",
-                         state_join_char="__",
-                         state_val_replace_chars=[("/", "-")],
-                         state_vector_join_char="-",
-                         # final fstr for single plot and config path
-                         path="{name:}{ext:}",
-                         plot_cfg="{name:}_cfg.yml",
-                         # and for sweep
-                         sweep="{name:}/{state_no:}-{state:}{ext:}",
-                         plot_cfg_sweep="{name:}/sweep_cfg.yml",
-                         )
+                             state_no="{no:0{digits:d}d}",
+                             state="{name:}_{val:}",
+                             state_name_replace_chars=[], # (".", "-")
+                             state_val_replace_chars=[("/", "-")],
+                             state_join_char="__",
+                             state_vector_join_char="-",
+                             # final fstr for single plot and config path
+                             path="{name:}{ext:}",
+                             plot_cfg="{name:}_cfg.yml",
+                             # and for sweep
+                             sweep="{name:}/{state_no:}__{state:}{ext:}",
+                             plot_cfg_sweep="{name:}/sweep_cfg.yml",
+                             )
 
     def __init__(self, *, dm: DataManager, plots_cfg: Union[dict, str]=None, out_dir: Union[str, None]="{date:}/", out_fstrs: dict=None, creator_init_kwargs: Dict[str, dict]=None, default_creator: str=None, save_plot_cfg: bool=True, raise_exc: bool=False):
         """Initialize the PlotManager
@@ -208,14 +208,14 @@ class PlotManager:
         Returns:
             str: The fully parsed output path for this plot
         """
-        def parse_state_pair(name: tuple, dim: ParamDim, *, fstrs: dict) -> Tuple[str]:
+        def parse_state_pair(name: str, dim: ParamDim, *, fstrs: dict) -> Tuple[str]:
             """Helper method to create a state pair"""
             # Parse the name
-            name = fstrs['state_key_join_char'].join(name)
+            for search, replace in fstrs['state_name_replace_chars']:
+                name = name.replace(search, replace)
 
             # Parse the value
             val = str(dim.current_value)
-
             for search, replace in fstrs['state_val_replace_chars']:
                 val = val.replace(search, replace)
             
@@ -258,7 +258,7 @@ class PlotManager:
                            for name, dim in dims.items()]
 
             sjc = fstrs['state_join_char']
-            keys['state'] = sjc.join([fstrs['state'].format(key=k, val=v)
+            keys['state'] = sjc.join([fstrs['state'].format(name=k, val=v)
                                       for k, v in state_pairs])
 
             # state vector
