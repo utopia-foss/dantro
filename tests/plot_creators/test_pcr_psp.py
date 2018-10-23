@@ -219,6 +219,15 @@ def test_UniversePlotCreator(init_kwargs):
     args, kwargs = upc._prepare_plot_func_args(**cfg)
     assert kwargs['uni'].name == "00"
 
+    # Giving a pspace also works
+    pspace = ParamSpace(dict(foo=ParamDim(default=0, range=[5])))
+    cfg, psp = upc._prepare_cfg(plot_cfg=dict(universes='all'),
+                                pspace=pspace)
+
+    assert not cfg
+    assert isinstance(psp, ParamSpace)
+    assert psp.num_dims == 1
+
     # Fails (in paramspace) if such a coordinate is not available
     with pytest.raises(ValueError, match="Could not select a universe for"):
         upc._prepare_cfg(plot_cfg=dict(universes=dict(p0=[-1])),

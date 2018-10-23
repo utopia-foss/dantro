@@ -157,8 +157,18 @@ class UniversePlotCreator(ExternalPlotCreator):
                                  "the `universes` argument are: 'all', "
                                  "'single', 'first', 'random', or 'any'.")
 
+            # Set a flag to carry information to _prepare_plot_func_args
             self._without_pspace = True
-            return plot_cfg, None
+
+            # Distinguish cases where plot_cfg was given and those were not
+            if pspace is not None:
+                # There was a recursive update step; return the plot config
+                # as parameter space
+                return dict(), ParamSpace(plot_cfg)
+
+            else:
+                # Only need to return the plot configuration
+                return plot_cfg, None
 
         # Parse it such that it is a valid subspace selector
         if isinstance(unis, str):
