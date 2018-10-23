@@ -3,6 +3,7 @@ ExternalPlotCreator and providing additional functionality for data that is
 stored in a ParamSpaceGroup.
 """
 
+import copy
 import logging
 from typing import Union
 
@@ -113,12 +114,13 @@ class UniversePlotCreator(ExternalPlotCreator):
         to iterate over multiple universes via a parameter space.
 
         This is implemented in the following way:
-            1. Extracts the `uni` key from the configuration and parses it
+            1. Extracts the `universes` key from the configuration and parses
+               it, ensuring it is a valid dict for subspace specification
             2. Creates a new ParamSpace object that additionally contains the
                parameter dimensions corresponding to the universes. These are
                stored in a _coords dict inside the returned plot configuration.
-            3. Apply the parsed `uni` key to activate a subspace of the newly
-               created parameter space.
+            3. Apply the parsed `universes` key to activate a subspace of the
+               newly created parameter space.
             4. As a mapping from coordinates to state numbers is needed, the
                corresponding active state mapping is saved as an attribute to
                the plot creator, such that it is available later when
@@ -129,32 +131,62 @@ class UniversePlotCreator(ExternalPlotCreator):
         # the steps below will lead to additional paramspace dimensions
         if pspace is not None:
             plot_cfg = recursive_update(copy.deepcopy(pspace._dict), plot_cfg)
-            # FIXME usage of internal API
+            # FIXME internal API usage
 
         # Now have the plot config
         # Identify those keys that specify which universes to loop over
         try:
-            uni = plot_cfg['uni']
+            unis = plot_cfg['universes']
         
         except KeyError as err:
-            raise ValueError("Missing argument `uni`!") from err
+            raise ValueError("Missing required keyword-argument `universes` "
+                             "in plot configuration!") from err
 
-        # Parse it such that it is a valid subspace selector
-        if uni in ['all']:
-            # Equivalent to an empty dict
-            uni = dict()
-
-        elif not isinstance(uni, dict):
-            raise TypeError("Need parameter `uni` to be either the string "
-                            "'all' or a dictionary of subspace selectors, but "
-                            "got: {} {}".format(type(uni), uni))
-
-        # else: was a dict, can be used as a subspace selector
-        # Get the parameter space
+        # Get the parameter space, as it might be needed for certain values of
+        # the `universes` argument
         psp = self.psgrp.pspace
 
+        # Parse it such that it is a valid subspace selector
+        if isinstance(unis, str):
+            if unis in ['all']:
+                # is equivalent to an empty specifier -> empty dict
+                unis = dict()
+
+            elif unis in ['single', 'first', 'random', 'any']:
+                # Find the state number from the universes available in the
+                # parameter space group. Then retrieve the coordinates from
+                # the corresponding parameter space state map
+
+                # Create a list of universe IDs
+                uni_ids = [int(_id) for _id in self.psgrp.keys()]
+
+                # Select the first or a random ID
+                if unis in ['single', 'first']:
+                    uni_id = min(uni_ids)
+                else:
+                    uni_id = np.random.choice(uni_ids)
+
+                # Now retrieve the point from the state map
+                smap = psp.state_map
+                point = smap.where(smap == uni_id, drop=True)
+
+                # And find its coordinates
+                unis = {k: c.item() for k, c in point.coords.items()}
+
+            else:
+                raise ValueError("Invalid value for `universes` argument. Got "
+                                 "'{}', but expected one of: 'all', 'single', "
+                                 "'first', 'random', or 'any'.".format(unis))
+
+        elif not isinstance(unis, dict):
+            raise TypeError("Need parameter `universes` to be either a "
+                            "string or a dictionary of subspace selectors, "
+                            "but got: {} {}.".format(type(unis), unis))
+
+        # else: was a dict, can be used as a subspace selector
+
         # Ensure that no invalid dimension names were selected
-        for pdim_name in uni:
+        for pdim_name in unis.keys():
             if pdim_name not in psp.dims.keys():
                 raise ValueError("No parameter dimension '{}' was available "
                                  "in the parameter space associated with {}! "
@@ -169,15 +201,18 @@ class UniversePlotCreator(ExternalPlotCreator):
             _pdim = copy.deepcopy(pdim)
 
             # Make sure the name is the same as in the parameter space
-            _pdim.name = name
+            _pdim._name = name
+            # FIXME internal API usage
 
             # Adjust the order to put them in front in the parameter space
             if _pdim.order == np.inf:
                 # Explicitly need to set a value
-                _pdim.order = -1e6
+                _pdim._order = -1e6
+                # FIXME internal API usage
             else:
                 # Decrement the given order value by a large enough value
-                _pdim.order -= 1e9
+                _pdim._order -= 1e9
+                # FIXME internal API usage
 
             # Now store it in the dict
             coords[name] = _pdim
@@ -192,8 +227,8 @@ class UniversePlotCreator(ExternalPlotCreator):
         # Convert the whole dict to a parameter space, the "multi plot config"
         mpc = ParamSpace(plot_cfg)
 
-        # Activate only a certain subspace, given by the `uni` specification
-        mpc.activate_subspace(**uni)
+        # Activate only a certain subspace
+        mpc.activate_subspace(**unis)
 
         # Now, retrieve the mapping for the active subspace and store it as an
         # attribute of the plot creator
@@ -203,7 +238,7 @@ class UniversePlotCreator(ExternalPlotCreator):
         # in there now.
         return {}, mpc
 
-    def _prepare_plot_func_args(self, *args, _coords: dict, _state_map: xr.DataArray, **kwargs) -> tuple:
+    def _prepare_plot_func_args(self, *args, _coords: dict, **kwargs) -> tuple:
         """Prepares the arguments for the plot function and implements the
         special arguments required for ParamSpaceGroup-like data: selection of
         a single universe from the given coordinates.
@@ -221,7 +256,7 @@ class UniversePlotCreator(ExternalPlotCreator):
         # Given the coordinates, retrieve the data for a single universe from
         # the state map. As _coords is created by the _prepare_cfg method, it
         # can be assumed that it unambiguously selects a universe ID
-        uni_id = self.state_map.sel(**_coords)
+        uni_id = self.state_map.sel(**_coords).item()
 
         # Select the corresponding universe from the ParamSpaceGroup
         uni_data = self.psgrp[uni_id]
