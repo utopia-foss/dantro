@@ -549,7 +549,7 @@ class PlotManager:
 
         # Distinguish single calls and parameter sweeps
         if not from_pspace:
-            log.info("Performing plot '%s' ...", name)
+            log.info("Performing '%s' plot ...", name)
 
             # Generate the output path
             out_dir = self._parse_out_dir(out_dir, name=name)
@@ -568,7 +568,7 @@ class PlotManager:
                                   save=save_plot_cfg,
                                   target_dir=os.path.dirname(out_path))
             
-            log.info("Finished plot '%s'.", name)
+            log.info("Finished '%s' plot.", name)
 
         else:
             # If it is not already a ParamSpace, create one
