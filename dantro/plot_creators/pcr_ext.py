@@ -84,11 +84,11 @@ class ExternalPlotCreator(BasePlotCreator):
                                                     **func_kwargs)
 
         # Call it
-        log.info("Calling plotting function '%s'...", plot_func.__name__)
+        log.debug("Calling plotting function '%s'...", plot_func.__name__)
 
         plot_func(*args, **kwargs)
 
-        log.info("Plotting function returned.")
+        log.debug("Plotting function returned.")
 
     def _resolve_plot_func(self, *, plot_func: Union[str, Callable], module: str=None, module_file: str=None) -> Callable:
         """

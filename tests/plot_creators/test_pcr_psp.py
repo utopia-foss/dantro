@@ -139,7 +139,7 @@ def test_UniversePlotCreator(init_kwargs):
         assert '_coords' in cfg
         args, kwargs = upc._prepare_plot_func_args(**cfg)
 
-        assert 'uni_data' in kwargs
+        assert 'uni' in kwargs
         assert 'coords' in kwargs
         assert '_coords' not in kwargs
         assert len(kwargs['coords']) == 3
@@ -154,7 +154,7 @@ def test_UniversePlotCreator(init_kwargs):
     
     for cfg in psp:
         args, kwargs = upc._prepare_plot_func_args(**cfg)
-        assert kwargs['uni_data'].name == '31'  # first non-default
+        assert kwargs['uni'].name == '31'  # first non-default
     
 
     # 'random'/'any' universe
@@ -165,7 +165,7 @@ def test_UniversePlotCreator(init_kwargs):
     
     for cfg in psp:
         args, kwargs = upc._prepare_plot_func_args(**cfg)
-        assert 31 <= int(kwargs['uni_data'].name) <= 71
+        assert 31 <= int(kwargs['uni'].name) <= 71
 
 
     # Assert correct error messages

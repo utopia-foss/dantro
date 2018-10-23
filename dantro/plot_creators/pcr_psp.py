@@ -136,7 +136,7 @@ class UniversePlotCreator(ExternalPlotCreator):
         # Now have the plot config
         # Identify those keys that specify which universes to loop over
         try:
-            unis = plot_cfg['universes']
+            unis = plot_cfg.pop('universes')
         
         except KeyError as err:
             raise ValueError("Missing required keyword-argument `universes` "
@@ -259,10 +259,9 @@ class UniversePlotCreator(ExternalPlotCreator):
         uni_id = self.state_map.sel(**_coords).item()
 
         # Select the corresponding universe from the ParamSpaceGroup
-        uni_data = self.psgrp[uni_id]
+        uni = self.psgrp[uni_id]
 
         # Let the parent function, implemented in ExternalPlotCreator, do its
         # thing. This will return the (args, kwargs) tuple
         return super()._prepare_plot_func_args(*args, **kwargs,
-                                               uni_data=uni_data,
-                                               coords=_coords)
+                                               uni=uni, coords=_coords)

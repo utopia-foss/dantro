@@ -567,6 +567,8 @@ class PlotManager:
                                   out_path=out_path, plot_cfg=plot_cfg,
                                   save=save_plot_cfg,
                                   target_dir=os.path.dirname(out_path))
+            
+            log.info("Finished plot '%s'.", name)
 
         else:
             # If it is not already a ParamSpace, create one
@@ -578,8 +580,7 @@ class PlotManager:
             psp_vol = from_pspace.volume
             psp_dims = from_pspace.dims
 
-            log.info("Performing plot '%s' from parameter space ...", name)
-            log.info("  Volume:  %d", psp_vol)
+            log.info("Performing %d '%s' plots ...", psp_vol, name)
 
             # Parse the output directory, such that all plots are together in
             # one directory even if the timestamp varies
@@ -589,7 +590,7 @@ class PlotManager:
             it = from_pspace.iterator(with_info=('state_no', 'state_vector'))
             
             # ...and loop over all points:
-            for cfg, state_no, state_vector in it:
+            for n, (cfg, state_no, state_vector) in enumerate(it):
                 # Handle the file extension parameter; it might come from the
                 # given configuration and then needs to be popped such that it
                 # is not propagated to the plot creator.
@@ -619,11 +620,16 @@ class PlotManager:
                                       save=False, # TODO check if reasonable
                                       target_dir=os.path.dirname(out_path))
 
+                log.info("  Finished plot {n:{d:}d} / {v:}."
+                         "".format(n=n+1, d=len(str(psp_vol)), v=psp_vol))
+
             # Save the plot configuration alongside, if configured to do so
             if save_plot_cfg:
                 self._save_plot_cfg(from_pspace, name=name,
                                     creator_name=creator,
                                     target_dir=out_dir, is_sweep=True)
+
+            log.info("Finished all '%s' plots.", name)
 
         # Done now. Return the plot creator.
         return creator
