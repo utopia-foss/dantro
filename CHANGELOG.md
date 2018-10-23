@@ -17,6 +17,7 @@
 - !22 resolves issues that created two kinds of deprecation warnings.
 - #26 Test coverage of mixin classes improved; minor bug fixes.
 - !26 Implenents the `unpack_data` feature of `DataManager.load` and allows the `YamlLoaderMixin` to load data into an `ObjectContainer`
+- #31/!28 implement two new plot creators, based on `ExternalPlotCreator` that make it more convenient to plot data from `ParamSpaceGroup`s.
 
 ## v0.3.3
 - !19 Restrict `paramspace` version to <2.0 in order to transition to a higher version in a more controlled manner.

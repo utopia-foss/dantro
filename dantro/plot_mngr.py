@@ -50,19 +50,19 @@ class PlotManager:
 
     CREATORS = pcr.ALL
     DEFAULT_OUT_FSTRS = dict(date="%y%m%d-%H%M%S",
-                         state_no="{no:0{digits:d}d}",
-                         state="{key:}_{val:}",
-                         state_key_join_char="-",
-                         state_join_char="__",
-                         state_val_replace_chars=[("/", "-")],
-                         state_vector_join_char="-",
-                         # final fstr for single plot and config path
-                         path="{name:}{ext:}",
-                         plot_cfg="{name:}_cfg.yml",
-                         # and for sweep
-                         sweep="{name:}/{state_no:}-{state:}{ext:}",
-                         plot_cfg_sweep="{name:}/sweep_cfg.yml",
-                         )
+                             state_no="{no:0{digits:d}d}",
+                             state="{name:}_{val:}",
+                             state_name_replace_chars=[], # (".", "-")
+                             state_val_replace_chars=[("/", "-")],
+                             state_join_char="__",
+                             state_vector_join_char="-",
+                             # final fstr for single plot and config path
+                             path="{name:}{ext:}",
+                             plot_cfg="{name:}_cfg.yml",
+                             # and for sweep
+                             sweep="{name:}/{state_no:}__{state:}{ext:}",
+                             plot_cfg_sweep="{name:}/sweep_cfg.yml",
+                             )
 
     def __init__(self, *, dm: DataManager, plots_cfg: Union[dict, str]=None, out_dir: Union[str, None]="{date:}/", out_fstrs: dict=None, creator_init_kwargs: Dict[str, dict]=None, default_creator: str=None, save_plot_cfg: bool=True, raise_exc: bool=False):
         """Initialize the PlotManager
@@ -208,14 +208,14 @@ class PlotManager:
         Returns:
             str: The fully parsed output path for this plot
         """
-        def parse_state_pair(name: tuple, dim: ParamDim, *, fstrs: dict) -> Tuple[str]:
+        def parse_state_pair(name: str, dim: ParamDim, *, fstrs: dict) -> Tuple[str]:
             """Helper method to create a state pair"""
             # Parse the name
-            name = fstrs['state_key_join_char'].join(name)
+            for search, replace in fstrs['state_name_replace_chars']:
+                name = name.replace(search, replace)
 
             # Parse the value
             val = str(dim.current_value)
-
             for search, replace in fstrs['state_val_replace_chars']:
                 val = val.replace(search, replace)
             
@@ -258,7 +258,7 @@ class PlotManager:
                            for name, dim in dims.items()]
 
             sjc = fstrs['state_join_char']
-            keys['state'] = sjc.join([fstrs['state'].format(key=k, val=v)
+            keys['state'] = sjc.join([fstrs['state'].format(name=k, val=v)
                                       for k, v in state_pairs])
 
             # state vector
@@ -290,7 +290,7 @@ class PlotManager:
                 raise PlotCreatorError(e_msg) from err
             
             # else: just log it
-            log.error(e_msg + " {}: {}".format(err.__class__.__name__, err))
+            log.error(e_msg + "\n{}: {}".format(err.__class__.__name__, err))
 
         else:
             log.debug("Plot creator call returned.")
@@ -471,7 +471,7 @@ class PlotManager:
                  len(plots_cfg))
 
 
-    def plot(self, name: str, *, creator: str=None, out_dir: str=None, file_ext: str=None, from_pspace: ParamSpace=None, save_plot_cfg: bool=None, **plot_cfg) -> pcr.BasePlotCreator:
+    def plot(self, name: str, *, creator: str=None, out_dir: str=None, file_ext: str=None, from_pspace: ParamSpace=None, save_plot_cfg: bool=None, creator_init_kwargs: dict=None, **plot_cfg) -> pcr.BasePlotCreator:
         """Create plot(s) from a single configuration entry.
         
         A call to this function creates a single PlotCreator, which is also
@@ -495,6 +495,9 @@ class PlotManager:
                 sweep over these parameters, re-using the same creator instance
             save_plot_cfg (bool, optional): Whether to save the plot config.
                 If not given, uses the default value from initialization.
+            creator_init_kwargs (dict, optional): Passed to the plot creator
+                during initialization. Note that the arguments given at
+                initialization of the PlotManager are updated by this.
             **plot_cfg: The plot configuration to pass on to the plot creator.
         
         Returns:
@@ -528,22 +531,30 @@ class PlotManager:
         if save_plot_cfg is None:
             save_plot_cfg = self.save_plot_cfg
 
-        # Instantiate the creator class, also passing initialization kwargs
+        # Parse initialization kwargs
         init_kwargs = self._cckwargs.get(creator, {})
+        if creator_init_kwargs:
+            log.debug("Recursively updating creator initialization kwargs ...")
+            init_kwargs = tools.recursive_update(copy.deepcopy(init_kwargs),
+                                                 creator_init_kwargs)
+        
+        # Instantiate the creator class, also passing initialization kwargs
         plot_creator = self.CREATORS[creator](name=name, dm=self._dm,
                                               **init_kwargs)
+        log.debug("Initialized creator: %s", plot_creator.logstr)
 
-        log.debug("Resolved creator: %s", plot_creator.classname)
+        # Let the creator process arguments
+        plot_cfg, from_pspace = plot_creator._prepare_cfg(plot_cfg=plot_cfg,
+                                                          pspace=from_pspace)
 
         # Distinguish single calls and parameter sweeps
         if not from_pspace:
-            log.info("Performing plot '%s' ...", name)
+            log.info("Performing '%s' plot ...", name)
 
             # Generate the output path
             out_dir = self._parse_out_dir(out_dir, name=name)
             out_path = self._parse_out_path(plot_creator, name=name,
-                                             out_dir=out_dir,
-                                             file_ext=file_ext)
+                                            out_dir=out_dir, file_ext=file_ext)
 
             # Call the plot creator to perform the plot, using the private
             # method to perform exception handling
@@ -556,6 +567,8 @@ class PlotManager:
                                   out_path=out_path, plot_cfg=plot_cfg,
                                   save=save_plot_cfg,
                                   target_dir=os.path.dirname(out_path))
+            
+            log.info("Finished '%s' plot.", name)
 
         else:
             # If it is not already a ParamSpace, create one
@@ -567,8 +580,7 @@ class PlotManager:
             psp_vol = from_pspace.volume
             psp_dims = from_pspace.dims
 
-            log.info("Performing plot '%s' from parameter space ...", name)
-            log.info("  Volume:  %d", psp_vol)
+            log.info("Performing %d '%s' plots ...", psp_vol, name)
 
             # Parse the output directory, such that all plots are together in
             # one directory even if the timestamp varies
@@ -578,7 +590,7 @@ class PlotManager:
             it = from_pspace.iterator(with_info=('state_no', 'state_vector'))
             
             # ...and loop over all points:
-            for cfg, state_no, state_vector in it:
+            for n, (cfg, state_no, state_vector) in enumerate(it):
                 # Handle the file extension parameter; it might come from the
                 # given configuration and then needs to be popped such that it
                 # is not propagated to the plot creator.
@@ -608,11 +620,16 @@ class PlotManager:
                                       save=False, # TODO check if reasonable
                                       target_dir=os.path.dirname(out_path))
 
+                log.info("  Finished plot {n:{d:}d} / {v:}."
+                         "".format(n=n+1, d=len(str(psp_vol)), v=psp_vol))
+
             # Save the plot configuration alongside, if configured to do so
             if save_plot_cfg:
                 self._save_plot_cfg(from_pspace, name=name,
                                     creator_name=creator,
                                     target_dir=out_dir, is_sweep=True)
+
+            log.info("Finished all '%s' plots.", name)
 
         # Done now. Return the plot creator.
         return creator

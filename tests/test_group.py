@@ -32,7 +32,7 @@ from dantro.container import MutableSequenceContainer, NumpyDataContainer
 def pspace():
     """Used to setup a small pspace object to be tested on."""
     return ParamSpace(dict(foo="bar",
-                           p0=ParamDim(default=0, values=[1, 2]),
+                           p0=ParamDim(default=0, values=[1, 2], order=0),
                            p1=ParamDim(default=0, values=[1, 2, 3]),
                            p2=ParamDim(default=0, values=[1, 2, 3, 4, 5])))
 
