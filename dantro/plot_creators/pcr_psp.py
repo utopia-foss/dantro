@@ -87,6 +87,7 @@ class UniversePlotCreator(ExternalPlotCreator):
 
         # Add custom attributes
         self._state_map = None
+        self._without_pspace = False
 
     @property
     def psgrp(self) -> ParamSpaceGroup:
@@ -145,6 +146,19 @@ class UniversePlotCreator(ExternalPlotCreator):
         # Get the parameter space, as it might be needed for certain values of
         # the `universes` argument
         psp = self.psgrp.pspace
+
+        # If there was no parameter space available in the first place, only
+        # the default point is available, which should be handled differently
+        if psp.num_dims == 0:
+            if unis not in ['all', 'single', 'first', 'random', 'any']:
+                raise ValueError("Could not select a universe for plotting "
+                                 "because no parameter space was available. "
+                                 "For these cases, the only valid values for "
+                                 "the `universes` argument are: 'all', "
+                                 "'single', 'first', 'random', or 'any'.")
+
+            self._without_pspace = True
+            return plot_cfg, None
 
         # Parse it such that it is a valid subspace selector
         if isinstance(unis, str):
@@ -238,7 +252,7 @@ class UniversePlotCreator(ExternalPlotCreator):
         # in there now.
         return {}, mpc
 
-    def _prepare_plot_func_args(self, *args, _coords: dict, **kwargs) -> tuple:
+    def _prepare_plot_func_args(self, *args, _coords: dict=None, **kwargs) -> tuple:
         """Prepares the arguments for the plot function and implements the
         special arguments required for ParamSpaceGroup-like data: selection of
         a single universe from the given coordinates.
@@ -253,6 +267,13 @@ class UniversePlotCreator(ExternalPlotCreator):
         Returns:
             tuple: (args, kwargs) for the plot function
         """
+        # Need to distinguish between cases with or without pspace given
+        if self._without_pspace:
+            # Only the default universe is available; pass that one
+            uni = self.psgrp[0]
+            return super()._prepare_plot_func_args(*args, **kwargs, uni=uni)
+
+        # else: this is a parameter sweep
         # Given the coordinates, retrieve the data for a single universe from
         # the state map. As _coords is created by the _prepare_cfg method, it
         # can be assumed that it unambiguously selects a universe ID
@@ -263,5 +284,4 @@ class UniversePlotCreator(ExternalPlotCreator):
 
         # Let the parent function, implemented in ExternalPlotCreator, do its
         # thing. This will return the (args, kwargs) tuple
-        return super()._prepare_plot_func_args(*args, **kwargs,
-                                               uni=uni, coords=_coords)
+        return super()._prepare_plot_func_args(*args, **kwargs, uni=uni)

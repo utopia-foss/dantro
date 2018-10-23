@@ -8,6 +8,7 @@ import xarray as xr
 from paramspace import ParamDim, ParamSpace
 
 from dantro.data_mngr import DataManager
+from dantro.group import ParamSpaceGroup
 from dantro.plot_creators import UniversePlotCreator, MultiversePlotCreator
 
 
@@ -70,19 +71,19 @@ def test_MultiversePlotCreator(init_kwargs):
 def test_UniversePlotCreator(init_kwargs):
     """Assert the UniversePlotCreator behaves correctly"""
     # Initialization works
-    upc = UniversePlotCreator("init", **init_kwargs)
+    upc = UniversePlotCreator("test", **init_kwargs)
 
     # Properties work
     assert upc.psgrp == init_kwargs['dm']['mv']
 
     # Check the error messages
     with pytest.raises(ValueError, match="Missing class variable PSGRP_PATH"):
-        _upc = UniversePlotCreator("init", **init_kwargs)
+        _upc = UniversePlotCreator("test", **init_kwargs)
         _upc.PSGRP_PATH = None
         _upc.psgrp
 
     with pytest.raises(RuntimeError, match="No state mapping was stored yet"):
-        UniversePlotCreator("init", **init_kwargs).state_map
+        UniversePlotCreator("test", **init_kwargs).state_map
 
 
     # Check that _prepare_cfg, where most of the actions happen, does what it
@@ -140,9 +141,8 @@ def test_UniversePlotCreator(init_kwargs):
         args, kwargs = upc._prepare_plot_func_args(**cfg)
 
         assert 'uni' in kwargs
-        assert 'coords' in kwargs
+        assert 'coords' not in kwargs
         assert '_coords' not in kwargs
-        assert len(kwargs['coords']) == 3
 
 
     # Check the more elaborate string arguments
@@ -191,4 +191,35 @@ def test_UniversePlotCreator(init_kwargs):
     # Fails with a _coords already part of plots config
     with pytest.raises(ValueError, match="may _not_ contain the key '_coords"):
         upc._prepare_cfg(plot_cfg=dict(universes='all', _coords="foo"),
+                         pspace=None)
+
+
+    # Check that a ParamSpaceGroup with only the default causes no issues
+    dm = init_kwargs['dm']
+    pspace = ParamSpace(dict(foo="bar"))
+    mvd = dm.new_group("mv_default", Cls=ParamSpaceGroup, pspace=pspace)
+    mvd.new_group("00")
+    upc = UniversePlotCreator("test2", dm=dm, psgrp_path="mv_default")
+
+    assert upc._without_pspace is False
+
+    # 'all' universes
+    cfg, psp = upc._prepare_cfg(plot_cfg=dict(universes='all'), pspace=None)
+    assert psp is None
+    assert upc._without_pspace
+
+    args, kwargs = upc._prepare_plot_func_args(**cfg)
+    assert kwargs['uni'].name == "00"
+
+    # 'single'/'first' universe
+    cfg, psp = upc._prepare_cfg(plot_cfg=dict(universes='first'), pspace=None)
+    assert psp is None
+    assert upc._without_pspace
+
+    args, kwargs = upc._prepare_plot_func_args(**cfg)
+    assert kwargs['uni'].name == "00"
+
+    # Fails (in paramspace) if such a coordinate is not available
+    with pytest.raises(ValueError, match="Could not select a universe for"):
+        upc._prepare_cfg(plot_cfg=dict(universes=dict(p0=[-1])),
                          pspace=None)
