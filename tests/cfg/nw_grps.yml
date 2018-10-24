@@ -5,6 +5,9 @@ basic_dir_par: &base
            [2,4],
            [4,2],
            [0,3]]
+  test_vertex_prop: [2, 53, 54, 654, 7]
+  test_edge_prop: ["a", "b", "c", "d", "e"]
+  
   attrs:
     directed: True
     parallel: True

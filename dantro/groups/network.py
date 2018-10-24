@@ -99,10 +99,16 @@ class NetworkGroup(BaseDataGroup):
         g.add_nodes_from(vtx_cont)
         g.add_edges_from(edge_cont)
 
-        # Set node and edge properties
-        log.debug("Set node and edge properties.")
+        # Set node properties
         if with_node_properties:
-            nx.set_node_attributes(g, vtx_props)
+            log.debug("Set node properties")
+            for name, cont in vtx_props.items():
+                # Create a dictionary with the node as key 
+                # and the property as value
+                props = {v: p for v,p in zip(vtx_cont, cont.data)}
+                nx.set_node_attributes(g, props, name=name)
+
+        # Set edge properties
         if with_edge_properties:
             nx.set_edges_attributes(g, edge_props)
 

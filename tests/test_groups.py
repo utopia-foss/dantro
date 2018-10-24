@@ -105,11 +105,19 @@ def nw_grps(nw_grp_cfgs) -> Union[dict, dict]:
     for name, cfg in nw_grp_cfgs.items():
         grps[name] = NetworkGroup(name=name, attrs=cfg["attrs"])
 
+        # Add vertices and edges from config
         grps[name].new_container("vertices", Cls=NumpyDataContainer,
                           data=cfg["vertices"])
 
         grps[name].new_container("edges", Cls=NumpyDataContainer,
                           data=cfg["edges"])
+
+        # Add vertex and edge properties to the NetworkGroup
+        grps[name].new_container("vertex_prop", Cls=NumpyDataContainer,
+                          data=cfg["test_vertex_prop"], attrs={"is_node_property": True})
+
+        grps[name].new_container("edge_prop", Cls=NumpyDataContainer,
+                          data=cfg["test_edge_prop"], attrs={"is_edge_property": True})
 
     return (grps, nw_grp_cfgs)
 
@@ -452,9 +460,35 @@ def test_pspace_group_select_missing_data(selectors, psp_grp_missing_data):
 
 # NetworkGroup ----------------------------------------------------------------
 
+def basic_network_creation(nw, cfg):
+    # Get the attributes
+    attrs = cfg["attrs"]
+    directed = attrs["directed"]
+    parallel = attrs["parallel"]
+
+    # Check that the network is not empty, (not) directed ...
+    assert(nx.is_empty(nw) == False)
+    assert(nx.is_directed(nw) == directed)
+
+    # Check the data type of the network
+    if (not directed and not parallel):
+        assert(type(nw) == nx.Graph)
+    elif (directed and not parallel):
+        assert(type(nw) == nx.DiGraph)
+    elif (not directed and parallel):
+        assert(type(nw) == nx.MultiGraph)
+    else:
+        assert(type(nw) == nx.MultiDiGraph)
+
+    # Check that the vertices and edges given in the config coincide with
+    # the ones stored inside of the network
+    for v in cfg["vertices"]:
+        assert(v in nx.nodes(nw))
+    for e in cfg["edges"]:
+        assert(tuple(e) in nx.edges(nw))
+
 def test_network_group_basics(nw_grps):
     """Test the NetworkGroup"""
-    
     # Get the groups and their corresponding configurations
     (grps, cfgs) = nw_grps
 
@@ -462,30 +496,56 @@ def test_network_group_basics(nw_grps):
         # Get the config
         cfg = cfgs[name]
 
-        # Get the attributes and ...
+        # Get the attributes
         attrs = cfg["attrs"]
         directed = attrs["directed"]
         parallel = attrs["parallel"]
 
-        # ... create the graph
+        ### Case: Graph without any vertex or edge properties
+        # Create the graph without any vertex or edge properties
         nw = grp.create_graph(directed=directed, parallel_edges=parallel)
 
-        # Check that the network is not empty and (not) directed
-        assert(nx.is_empty(nw) == False)
-        assert(nx.is_directed(nw) == directed)
+        basic_network_creation(nw, cfg)
 
-        # Check the data type of the network
-        if (not directed and not parallel):
-            assert(type(nw) == nx.Graph)
-        elif (directed and not parallel):
-            assert(type(nw) == nx.DiGraph)
-        elif (not directed and parallel):
-            assert(type(nw) == nx.MultiGraph)
-        else:
-            assert(type(nw) == nx.MultiDiGraph)
+        # Check that there are no vertex or edge properties
+        for v in nw.nodes():
+            with pytest.raises(KeyError):
+                nw[v]["test_vertex_prop"]
 
+        for e in nw.edges():
+            with pytest.raises(KeyError):
+                nw[e]["test_edge_prop"]
+
+
+        # ### Case: Graph with vertex and edge properties
+        # # Create a new graph with vertex and edge properties
+        # nw_p = grp.create_graph(directed=directed, parallel_edges=parallel,
+        #                         with_node_properties=True,
+        #                         with_edge_properties=True)
         
-        # Check that the vertices and edges given in the config coincide with
-        # the ones stored inside of the network
-        assert([(n == v) for n, v in zip(nx.nodes(nw), cfg["vertices"])])
-        assert([(e == e_cfg) for e, e_cfg in zip(nx.edges(nw), cfg["edges"])])
+        # TODO
+
+        ### Case: Graph with vertex but no edge properties
+        # nw_p = grp.create_graph(directed=directed, parallel_edges=parallel,
+        #                         with_node_properties=True,
+        #                         with_edge_properties=False)
+
+        # basic_network_creation(nw_p, cfg)
+
+        # TODO
+
+        # Test that the vertex properties are set correctly
+        # but that there are no edge properties
+
+        # TODO
+
+        for e in nw_p.edges():
+            with pytest.raises(KeyError):
+                nw_p[e]["test_edge_prop"]
+
+        # ### Case: Graph with no vertex but edge properties
+        # nw_p = grp.create_graph(directed=directed, parallel_edges=parallel,
+        #                         with_node_properties=False,
+        #                         with_edge_properties=True)
+
+        # TODO
