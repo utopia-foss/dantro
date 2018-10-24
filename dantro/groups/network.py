@@ -102,15 +102,17 @@ class NetworkGroup(BaseDataGroup):
 
 
     def set_node_properties(self, g):
-        # Gather additional containers that could be used as node attributes
-        log.debug("Gather node and edge attribute container")
-
+        # Get the vertex container
         vtx_cont = self[self._NWG_node_container]
+
+        # Gather additional containers that could be used as node attributes
+        log.debug("Gather node attribute container.")
 
         vtx_props = {name: cont for name, cont in self.items()
                      if cont.attrs.get(self._NWG_attr_is_node_property)}
 
-        log.debug("Set node properties")
+        log.debug("Set node properties.")
+
         for name, cont in vtx_props.items():
             # Create a dictionary with the node as key 
             # and the property as value
@@ -119,9 +121,31 @@ class NetworkGroup(BaseDataGroup):
 
 
     def set_edge_properties(self, g):
+        # Get the edge container 
+        edge_cont = self[self._NWG_edge_container]
+
         # Gather additional containers that could be used as edge attributes
+        log.debug("Gather edge attribute container.")
+
         edge_props = {name: cont for name, cont in self.items()
                       if cont.attrs.get(self._NWG_attr_is_edge_property)}
 
-        nx.set_edges_attributes(g, edge_props)
-
+        log.debug("Set edge properties.")
+        
+        # In the case of multigraphs edges can be parallel, thus, it is not
+        # sufficient any more to characterize them via their source and target.
+        # An additional edge key is necessary to correctly set edge attributes.
+        if type(g) == nx.MultiDiGraph or type(g) == nx.MultiGraph:
+            for name, cont in edge_props.items():
+                # Create a dictionary with the node as key 
+                # and the property as value
+                props = {(s, t, k) : {name: p} for 
+                        s, t, p in zip(edge_cont[:,0], edge_cont[:,1], g.edge_key_dict_factory(), cont.data)}
+                nx.set_edge_attributes(g, props)
+        else:
+            for name, cont in edge_props.items():
+                # Create a dictionary with the node as key 
+                # and the property as value
+                props = {(s, t) : {name: p} for 
+                        s, t, p in zip(edge_cont[:,0], edge_cont[:,1], cont.data)}
+                nx.set_edge_attributes(g, props)
