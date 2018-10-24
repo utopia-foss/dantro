@@ -73,16 +73,6 @@ class NetworkGroup(BaseDataGroup):
         if parallel_edges is None:
             parallel_edges = self.attrs[self._NWG_attr_parallel]
 
-        # Gather additional containers that could be used as node or edge
-        # attributes
-        log.debug("Gather node and edge attribute container")
-        vtx_props = {name: cont for name, cont in self.items()
-                     if cont.attrs.get(self._NWG_attr_is_node_property)}
-        
-        edge_props = {name: cont for name, cont in self.items()
-                      if cont.attrs.get(self._NWG_attr_is_edge_property)}
-
-
         # Create a networkx graph corresponding to the graph properties.
         log.debug("Create a networkx graph object.")
         if not directed and not parallel_edges:
@@ -101,16 +91,37 @@ class NetworkGroup(BaseDataGroup):
 
         # Set node properties
         if with_node_properties:
-            log.debug("Set node properties")
-            for name, cont in vtx_props.items():
-                # Create a dictionary with the node as key 
-                # and the property as value
-                props = {v: p for v,p in zip(vtx_cont, cont.data)}
-                nx.set_node_attributes(g, props, name=name)
+            self.set_node_properties(g)          
 
         # Set edge properties
         if with_edge_properties:
-            nx.set_edges_attributes(g, edge_props)
+            self.set_edge_properties(g)
 
         # Return the graph
         return g
+
+
+    def set_node_properties(self, g):
+        # Gather additional containers that could be used as node attributes
+        log.debug("Gather node and edge attribute container")
+
+        vtx_cont = self[self._NWG_node_container]
+
+        vtx_props = {name: cont for name, cont in self.items()
+                     if cont.attrs.get(self._NWG_attr_is_node_property)}
+
+        log.debug("Set node properties")
+        for name, cont in vtx_props.items():
+            # Create a dictionary with the node as key 
+            # and the property as value
+            props = {v: p for v, p in zip(vtx_cont, cont.data)}
+            nx.set_node_attributes(g, props, name=name)
+
+
+    def set_edge_properties(self, g):
+        # Gather additional containers that could be used as edge attributes
+        edge_props = {name: cont for name, cont in self.items()
+                      if cont.attrs.get(self._NWG_attr_is_edge_property)}
+
+        nx.set_edges_attributes(g, edge_props)
+
