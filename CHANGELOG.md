@@ -2,7 +2,7 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
-## v0.4 _(WIP)_
+## v0.4.0
 - #24 adds a major new feature, the `ParamSpaceGroup`, which provides easy access to multidimensional datasets, represented by [`xarray.Dataset`](http://xarray.pydata.org/en/stable/data-structures.html#dataset)s.
    - It can be used in place of the group that holds the results of, e.g. simulations, carried out via a [`paramspace`](https://ts-gitlab.iup.uni-heidelberg.de/yunus/paramspace) parameter sweep.
    - Via the `select` function, a hyperslab of the underlying multidimensional data can be selected. The interface of this method is build with yaml configurations in mind, such that it can be used, e.g. in plot creators.
