@@ -26,6 +26,40 @@ SELECTOR_PATH = resource_filename('tests', 'cfg/selectors.yml')
 
 from dantro.container import MutableSequenceContainer, NumpyDataContainer
 
+# Helper functions ------------------------------------------------------------
+
+def create_test_data(psp_grp: ParamSpaceGroup, *, params: dict, state_no_str: str):
+    """Given a ParamSpaceGroup, adds test data to it"""
+    grp = psp_grp.new_group(state_no_str)
+
+    # Add the parameters as container to the group
+    grp.add(MutableMappingContainer(name="cfg", data=params))
+
+    # Create some paths that can be used for testing
+    grp.new_group("testdata")
+    farrs = grp.new_group("testdata/fixedsize")
+    rarrs = grp.new_group("testdata/randsize")
+
+    # Add two numpy dataset: symbolising state number and some random data
+    state_no = int(state_no_str)
+    state =  state_no * np.ones((3,4,5), dtype=int)
+    randints = np.random.randint(10, size=(3,4,5))
+
+    farrs.add(NumpyDataContainer(name="state", data=state,
+                                 attrs=dict(state_no=state_no)))
+    farrs.add(NumpyDataContainer(name="randints", data=randints,
+                                 attrs=dict(foo="bar")))
+
+    # Add some non-uniform data sets
+    # 3d with last dimension differing in length
+    randlen = np.ones((3, 4, np.random.randint(10, 30)), dtype="uint8")
+    rarrs.add(NumpyDataContainer(name="randlen", data=randlen))
+
+    # 3d but of different shape in all directions
+    randshape = np.ones(np.random.randint(1, 10, size=3), dtype="uint8")
+    rarrs.add(NumpyDataContainer(name="randshape", data=randshape))
+
+
 # Fixtures --------------------------------------------------------------------
 
 @pytest.fixture()
@@ -43,34 +77,7 @@ def psp_grp(pspace):
 
     # Iterate over the parameter space and add groups to the ParamSpaceGroup
     for params, state_no_str in pspace.iterator(with_info='state_no_str'):
-        grp = psp_grp.new_group(state_no_str)
-
-        # Add the parameters as container to the group
-        grp.add(MutableMappingContainer(name="cfg", data=params))
-
-        # Create some paths that can be used for testing
-        grp.new_group("testdata")
-        farrs = grp.new_group("testdata/fixedsize")
-        rarrs = grp.new_group("testdata/randsize")
-
-        # Add two numpy dataset: symbolising state number and some random data
-        state_no = int(state_no_str)
-        state =  state_no * np.ones((3,4,5), dtype=int)
-        randints = np.random.randint(10, size=(3,4,5))
-
-        farrs.add(NumpyDataContainer(name="state", data=state,
-                                     attrs=dict(state_no=state_no)))
-        farrs.add(NumpyDataContainer(name="randints", data=randints,
-                                     attrs=dict(foo="bar")))
-
-        # Add some non-uniform data sets
-        # 3d with last dimension differing in length
-        randlen = np.ones((3, 4, np.random.randint(10, 30)), dtype="uint8")
-        rarrs.add(NumpyDataContainer(name="randlen", data=randlen))
-
-        # 3d but of different shape in all directions
-        randshape = np.ones(np.random.randint(1, 10, size=3), dtype="uint8")
-        rarrs.add(NumpyDataContainer(name="randshape", data=randshape))
+        create_test_data(psp_grp, params=params, state_no_str=state_no_str)
 
     return psp_grp
 
@@ -80,6 +87,16 @@ def psp_grp_missing_data(psp_grp):
     for state_no in (12, 31, 38, 39, 52, 59, 66):
         if state_no in psp_grp:
             del psp_grp[state_no]
+
+    return psp_grp
+
+@pytest.fixture()
+def psp_grp_default(pspace):
+    """Setup and populate a ParamSpaceGroup with only the default"""
+    psp_grp = ParamSpaceGroup(name="mv_default",
+                              pspace=ParamSpace(pspace.default))
+
+    create_test_data(psp_grp, params=pspace.default, state_no_str="0")
 
     return psp_grp
 
@@ -427,3 +444,25 @@ def test_pspace_group_select_missing_data(selectors, psp_grp_missing_data):
     with pytest.raises(ValueError, match="Invalid value for argument `method"):
         pgrp.select(field="cfg", method="some_invalid_method")
 
+
+def test_pspace_group_select_default(psp_grp_default, selectors):
+    """Select should also work if only the default universe is present,
+    i.e. without any parameter dimensions defined."""
+    pgrp = psp_grp_default
+
+    assert pgrp.pspace.volume == 0
+
+    # Test that loading on all scenarios (without subspace) works.
+    dsets = dict()
+    for name, sel in selectors.items():
+        if 'subspace' in sel:
+            continue
+            
+        print("Now selecting data with selector '{}' ...".format(name))
+
+        # Get the data
+        dset = pgrp.select(**sel)
+        print("  got data:", dset, "\n\n\n")
+
+        # Save to dict of all datasets
+        dsets[name] = dset
