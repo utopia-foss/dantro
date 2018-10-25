@@ -401,6 +401,11 @@ def test_pspace_group_select(psp_grp, selectors):
     with pytest.raises(ValueError, match="Make sure the data was fully"):
         ParamSpaceGroup(name="without_pspace", pspace=psp).select(field="cfg")
 
+    # Bad subspace dimension names
+    with pytest.raises(KeyError, match="no parameter dimension with name"):
+        pgrp.select(field="testdata/fixedsize/randints",
+                    subspace=dict(invalid_dim_name=[1,2,3]))
+
     # Non-uniformly sized datasets will require trivial index labels
     with pytest.raises(ValueError, match="Combination of datasets failed;"):
         pgrp.select(field="testdata/randsize/randlen", method="concat")
@@ -454,15 +459,19 @@ def test_pspace_group_select_default(psp_grp_default, selectors):
 
     # Test that loading on all scenarios (without subspace) works.
     dsets = dict()
-    for name, sel in selectors.items():
-        if 'subspace' in sel:
-            continue
-            
+    for name, sel in selectors.items():            
         print("Now selecting data with selector '{}' ...".format(name))
 
-        # Get the data
-        dset = pgrp.select(**sel)
-        print("  got data:", dset, "\n\n\n")
+        # Get the data. Distinguish depending on whether subspace selection
+        # takes place or not; if yes, it will fail.
+        if 'subspace' not in sel:
+            # Can just select
+            dset = pgrp.select(**sel)
+
+        else:
+            with pytest.raises(ValueError, match="has no dimensions defined"):
+                dset = pgrp.select(**sel)
 
         # Save to dict of all datasets
+        print("  got data:", dset, "\n\n\n")
         dsets[name] = dset

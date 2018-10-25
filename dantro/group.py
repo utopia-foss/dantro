@@ -545,14 +545,34 @@ class ParamSpaceGroup(OrderedDataGroup):
         # Work on a copy of the parameter space and apply the subspace masks
         psp = copy.deepcopy(self.pspace)
 
-        if subspace is not None:
-            psp.activate_subspace(**subspace)
+        if subspace:
+            # Need the parameter space to be of non-zero volume
+            if psp.volume == 0:
+                raise ValueError("Cannot select a subspace because the "
+                                 "associated parameter space has no "
+                                 "dimensions defined! Remove the `subspace` "
+                                 "argument in the call to this method.")
+
+            try:
+                psp.activate_subspace(**subspace)
+
+            except KeyError as err:
+                raise KeyError("Could not select a subspace because no "
+                               "parameter dimension with name '{}' was found! "
+                               "Make sure your subspace selector contains "
+                               "only valid dimension names: {}"
+                               "".format(str(err), ", ".join(psp.dims.keys()))
+                               ) from err
 
         # Now, the data needs to be collected from each point in this subspace
         # and associated with the correct coordinate, such that the datasets
         # can later be merged and aligned by that coordinate.
-        log.info("Collecting data for %d fields from %d points in parameter "
-                 "space ...", len(fields), psp.volume)
+        if psp.volume > 0:
+            log.info("Collecting data for %d fields from %d points in "
+                     "parameter space ...", len(fields), psp.volume)
+        else:
+            log.info("Collecting data for %d fields from a dimensionless "
+                     "parameter space ...", len(fields))
 
         # Gather them in a multi-dimensional array
         dsets = np.zeros(psp.shape, dtype="object")
