@@ -9,6 +9,8 @@ import pytest
 import numpy as np
 import xarray as xr
 import networkx as nx
+from networkx.classes.multidigraph import MultiDiGraph
+from networkx.classes.multigraph import MultiGraph
 
 from paramspace import ParamSpace, ParamDim
 
@@ -520,9 +522,10 @@ def edge_property_test(nw, cfg, *, no_property: bool=False):
         # In the case of multigraphs edges can be parallel, thus, it is not
         # sufficient any more to characterize them via their source and target.
         # An additional edge key is necessary to correctly set edge attributes.
-        if type(nw) == nx.MultiDiGraph or type(nw) == nx.MultiGraph:
-            for (i, (s, t)), k  in zip(enumerate(cfg["edges"]), nw.edge_key_dict_factory().values()):
-                assert(nw[s][t][k]["test_edge_prop"] == cfg["test_edge_prop"][i])
+        if isinstance(nw, MultiDiGraph) or isinstance(nw, MultiGraph):
+            # TODO This test needs to be written if the functionality 
+            # is implemented
+            pass
         else:
             for i, (s, t)  in enumerate(cfg["edges"]):
                 assert(nw[s][t]["test_edge_prop"] == cfg["test_edge_prop"][i])
@@ -556,40 +559,46 @@ def test_network_group_basics(nw_grps):
 
         ### Case: Graph with vertex and edge properties
         # Create a new graph with vertex and edge properties
-        nw_vp_ep = grp.create_graph(directed=directed, parallel_edges=parallel,
-                                    with_node_properties=True,
-                                    with_edge_properties=True)
+        if parallel:
+            with pytest.raises(NotImplementedError):
+                print("bla")
+                nw_vp_ep = grp.create_graph(directed=directed, parallel_edges=parallel,
+                                            with_node_properties=True,
+                                            with_edge_properties=True)        
+        if not parallel:
+            nw_vp_ep = grp.create_graph(directed=directed, parallel_edges=parallel,
+                                        with_node_properties=True,
+                                        with_edge_properties=True)    
+
+            # Check that the basic graph creation was succesfull
+            basic_network_creation_test(nw_vp_ep, cfg)
+
+            # Test that the vertex properties are set correctly
+            # but that there are no edge properties
+            node_property_test(nw_vp_ep, cfg, no_property=False)
+            edge_property_test(nw_vp_ep, cfg, no_property=False)
+
+        ### Case: Graph with vertex but no edge properties
+        nw_vp = grp.create_graph(directed=directed, parallel_edges=parallel,
+                                with_node_properties=True,
+                                with_edge_properties=False)
+
         
-        # Test the basic network creation 
-        basic_network_creation_test(nw_vp_ep, cfg)
-        
-        # Test that the vertex and edge properties are set correctly
-        node_property_test(nw_vp_ep, cfg, no_property=False)
-        edge_property_test(nw_vp_ep, cfg, no_property=False)
+        # Check that the basic graph creation was succesfull
+        basic_network_creation_test(nw_vp, cfg)
 
+        # Test that the vertex properties are set correctly
+        # but that there are no edge properties
+        node_property_test(nw_vp, cfg, no_property=False)
+        edge_property_test(nw_vp, cfg, no_property=True)
 
-        # ### Case: Graph with vertex but no edge properties
-        # nw_vp = grp.create_graph(directed=directed, parallel_edges=parallel,
-        #                         with_node_properties=True,
-        #                         with_edge_properties=False)
+        for e in nw_vp.edges():
+            with pytest.raises(KeyError):
+                nw_vp[e]["test_edge_prop"]
 
-        
-        # # Check that the basic graph creation was succesfull
-        # basic_network_creation_test(nw_vp, cfg)
-
-        # # Test that the vertex properties are set correctly
-        # # but that there are no edge properties
-        # node_property_test(nw_vp, cfg, no_property=False)
-        # edge_property_test(nw_vp, cfg, no_property=True)
-
-
-        # for e in nw_vp.edges():
-        #     with pytest.raises(KeyError):
-        #         nw_vp[e]["test_edge_prop"]
-
-        # ### Case: Graph with no vertex but edge properties
-        # nw_vp = grp.create_graph(directed=directed, parallel_edges=parallel,
-        #                         with_node_properties=False,
-        #                         with_edge_properties=True)
-
-        # # TODO
+        ### Case: Graph with no vertex but edge properties
+        if parallel:
+            with pytest.raises(NotImplementedError):
+                nw_vp = grp.create_graph(directed=directed, parallel_edges=parallel,
+                                        with_node_properties=False,
+                                        with_edge_properties=True)
