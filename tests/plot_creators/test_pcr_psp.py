@@ -14,7 +14,7 @@ from dantro.plot_creators import UniversePlotCreator, MultiversePlotCreator
 
 # Fixtures --------------------------------------------------------------------
 # Import some from other tests
-from ..test_group import psp_grp
+from ..test_group import psp_grp, psp_grp_default
 
 @pytest.fixture()
 def pspace():
@@ -35,17 +35,17 @@ def init_kwargs(psp_grp, tmpdir) -> dict:
 
 # Tests -----------------------------------------------------------------------
 
-def test_MultiversePlotCreator(init_kwargs):
+def test_MultiversePlotCreator(init_kwargs, psp_grp_default, tmpdir):
     """Assert the MultiversePlotCreator behaves correctly"""
     # Initialization works
-    mpc = MultiversePlotCreator("init", **init_kwargs)
+    mpc = MultiversePlotCreator("test", **init_kwargs)
 
     # Properties work
     assert mpc.psgrp == init_kwargs['dm']['mv']
 
     # Check the error messages
     with pytest.raises(ValueError, match="Missing class variable PSGRP_PATH"):
-        _mpc = MultiversePlotCreator("init", **init_kwargs)
+        _mpc = MultiversePlotCreator("failing", **init_kwargs)
         _mpc.PSGRP_PATH = None
         _mpc.psgrp
 
@@ -66,6 +66,19 @@ def test_MultiversePlotCreator(init_kwargs):
     assert np.all(mv_data.coords['p0'] == [1, 2])
     assert np.all(mv_data.coords['p1'] == [3])
     assert np.all(mv_data.coords['p2'] == [1, 2, 3, 4, 5])
+
+
+    # Check again with a zero-volume parameter space
+    dm = DataManager(tmpdir.join("default"))
+    dm.add(psp_grp_default)
+    assert dm[psp_grp_default.name].pspace.volume == 0
+
+    mpcd = MultiversePlotCreator("default", dm=dm,
+                                 psgrp_path=psp_grp_default.name)
+
+    selector = dict(field="testdata/fixedsize/state")
+    args, kwargs = mpcd._prepare_plot_func_args(select=selector)
+    assert 'mv_data' in kwargs
 
 
 def test_UniversePlotCreator(init_kwargs):
