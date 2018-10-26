@@ -2,6 +2,10 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+
+## v0.5.0 _(WIP)_
+- #33 improves package structure and modularization by creating sub-packages and moving class definitions into separate modules. This changes the import locations from `group` and `container` to `groups` and `containers`; all other import paths should remain valid.
+
 ## v0.4.1
 - #32 fixes bugs that occurred in `ParamSpaceGroup` and `MultiversePlotCreator` if the associated `ParamSpace` had zero volume
 
