@@ -11,7 +11,7 @@ import paramspace as psp
 
 from dantro.tools import load_yml, recursive_update
 from dantro.data_mngr import DataManager
-from dantro.container import NumpyDataContainer as NumpyDC
+from dantro.containers import NumpyDataContainer as NumpyDC
 from dantro.plot_mngr import PlotManager, PlottingError, PlotConfigError, PlotCreatorError, InvalidCreator
 
 
@@ -157,8 +157,10 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
 
 
     # Now, directly using the plot function
-    # If default values were given during init, this should work
-    pm.plot("foo", **pcr_ext_kwargs)
+    # If default values were given during init, this should work.
+    # Also, additional initialisation kwargs for the creator should be passable
+    pm.plot("foo", **pcr_ext_kwargs,
+            creator_init_kwargs=dict(default_ext="pdf"))
     assert_num_plots(pm, 4 + 1)
 
     # Otherwise, without out_dir or creator arguments, not:

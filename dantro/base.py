@@ -17,8 +17,8 @@ import inspect
 from typing import Union, List
 
 import dantro.abc
-from dantro.abc import PATH_JOIN_CHAR
-import dantro.tools as tools
+from .abc import PATH_JOIN_CHAR
+from .tools import TTY_COLS
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -368,8 +368,8 @@ class BaseDataContainer(PathMixin, AttrsMixin, dantro.abc.AbstractDataContainer)
 
     def _format_info(self) -> str:
         """A __format__ helper function: returns info about the items"""
-        return "{} stored, {} attributes".format(type(self.data),
-                                                 len(self.attrs))
+        return "{} attribute{}".format(len(self.attrs),
+                                       "s" if len(self.attrs) != 1 else "")
         
 
 # -----------------------------------------------------------------------------
@@ -815,7 +815,13 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
     def _format_info(self) -> str:
         """A __format__ helper function: returns an info string that is used
         to characterise this object. Does NOT include name and classname!"""
-        return "{} members, {} attributes".format(len(self), len(self.attrs))
+        return "{} member{}, {} attribute{}".format(len(self),
+                                                    ("s" if len(self) != 1
+                                                     else ""),
+                                                    len(self.attrs),
+                                                    ("s"
+                                                     if len(self.attrs) != 1
+                                                     else ""))
 
     def _format_tree(self) -> str:
         """Returns a multi-line string tree representation of this group."""
@@ -848,7 +854,7 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         
         # Calculations
         num_items = len(self)
-        num_cols = tools.TTY_COLS
+        num_cols = TTY_COLS
 
         info_width = int(num_cols * info_ratio)
         name_width = (num_cols - info_width) - (len(offset) + 3 + 1 + 2)       

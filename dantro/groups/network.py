@@ -1,15 +1,18 @@
 """In this module, the NetworkGroup is implemented"""
 
 import logging
+
 import networkx as nx
 from networkx.classes.multidigraph import MultiDiGraph
 from networkx.classes.multigraph import MultiGraph
 
 from ..base import BaseDataGroup
-from ..container import NumpyDataContainer
+from ..containers import NumpyDataContainer
 
 # Local constants
 log = logging.getLogger(__name__)
+
+# -----------------------------------------------------------------------------
 
 class NetworkGroup(BaseDataGroup):
     """The NetworkGroup class manages groups of network data containers."""

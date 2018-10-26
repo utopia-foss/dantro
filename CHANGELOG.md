@@ -2,7 +2,14 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
-## v0.4 _(WIP)_
+
+## v0.5.0 _(WIP)_
+- #33 improves package structure and modularization by creating sub-packages and moving class definitions into separate modules. This changes the import locations from `group` and `container` to `groups` and `containers`; all other import paths should remain valid.
+
+## v0.4.1
+- #32 fixes bugs that occurred in `ParamSpaceGroup` and `MultiversePlotCreator` if the associated `ParamSpace` had zero volume
+
+## v0.4.0
 - #24 adds a major new feature, the `ParamSpaceGroup`, which provides easy access to multidimensional datasets, represented by [`xarray.Dataset`](http://xarray.pydata.org/en/stable/data-structures.html#dataset)s.
    - It can be used in place of the group that holds the results of, e.g. simulations, carried out via a [`paramspace`](https://ts-gitlab.iup.uni-heidelberg.de/yunus/paramspace) parameter sweep.
    - Via the `select` function, a hyperslab of the underlying multidimensional data can be selected. The interface of this method is build with yaml configurations in mind, such that it can be used, e.g. in plot creators.
@@ -16,6 +23,8 @@
    - Miscellaneous minor improvements to features, code formatting, and documentation.
 - !22 resolves issues that created two kinds of deprecation warnings.
 - #26 Test coverage of mixin classes improved; minor bug fixes.
+- !26 Implenents the `unpack_data` feature of `DataManager.load` and allows the `YamlLoaderMixin` to load data into an `ObjectContainer`
+- #31/!28 implement two new plot creators, based on `ExternalPlotCreator` that make it more convenient to plot data from `ParamSpaceGroup`s.
 
 ## v0.3.3
 - !19 Restrict `paramspace` version to <2.0 in order to transition to a higher version in a more controlled manner.

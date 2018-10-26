@@ -9,8 +9,8 @@ import h5py as h5
 import pytest
 
 import dantro.base
-from dantro.container import NumpyDataContainer
-from dantro.group import OrderedDataGroup
+from dantro.containers import NumpyDataContainer, ObjectContainer
+from dantro.groups import OrderedDataGroup
 from dantro.mixins import Hdf5ProxyMixin
 import dantro.data_mngr
 from dantro.data_loaders import YamlLoaderMixin, PickleLoaderMixin, Hdf5LoaderMixin
@@ -256,6 +256,12 @@ def test_loading(dm):
 
     assert 'barbaz' in dm
 
+    # Load with the yaml object loader
+    dm.load('barbaz_obj', loader='yaml_to_object', glob_str="foobar.yml",
+            print_tree=True)
+    assert 'barbaz_obj' in dm
+    assert isinstance(dm['barbaz_obj'], ObjectContainer)
+
     # Load again, this time with more data
     dm.load('all_yaml', loader='yaml', glob_str="*.yml")
 
@@ -489,13 +495,19 @@ def test_load_as_attr(dm):
             target_path='a_group', load_as_attr=True)
     assert 'loaded_attr' in grp.attrs
 
+    # Load and unpack
+    dm.load('unpacked_attr', loader='yaml', glob_str="foobar.yml",
+            target_path='a_group', load_as_attr=True, unpack_data=True)
+    assert 'unpacked_attr' in grp.attrs
+    assert isinstance(grp.attrs['unpacked_attr'], dict)
+
     # Use target_path with regex
     grp.new_group("data0")
     grp.new_group("data1")
     grp.new_group("data2")
     
     dm.load('data', loader='yaml', glob_str="merged/data*.yml",
-            path_regex='merged/data(\d+).yml',
+            path_regex=r'merged/data(\d+).yml',
             target_path='a_group/data{match:}', load_as_attr=True)
     
     assert "data" in grp['data0'].attrs

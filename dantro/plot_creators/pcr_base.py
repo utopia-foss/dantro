@@ -9,10 +9,13 @@ the BasePlotCreator (which still remains abstract).
 import os
 import copy
 import logging
+from typing import Union
 
-import dantro.abc
-import dantro.tools as tools
-from dantro.data_mngr import DataManager
+from paramspace import ParamSpace
+
+from ..abc import AbstractPlotCreator
+from ..tools import recursive_update
+from ..data_mngr import DataManager
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -20,7 +23,7 @@ log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
-class BasePlotCreator(dantro.abc.AbstractPlotCreator):
+class BasePlotCreator(AbstractPlotCreator):
     """The base class for PlotCreators
     
     Note that the `_plot` method remains abstract, thus this class needs to be
@@ -138,6 +141,7 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
 
         self._default_ext = val
 
+
     # .........................................................................
     # Main API functions
 
@@ -160,7 +164,7 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
 
         # Check if a recursive update needs to take place
         if update_plot_cfg:
-            cfg = tools.recursive_update(cfg, update_plot_cfg)
+            cfg = recursive_update(cfg, update_plot_cfg)
 
         # Prepare the output path
         if not self.POSTPONE_PATH_PREPARATION:
@@ -168,6 +172,7 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
 
         # Now call the plottig function with these arguments
         return self._plot(out_path=out_path, **cfg)
+
 
     # .........................................................................
     # Helpers
@@ -178,6 +183,19 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
         behaviour.
         """
         return self.default_ext
+
+    def _prepare_cfg(self, *, plot_cfg: dict, pspace: Union[ParamSpace, dict]) -> tuple:
+        """Prepares the plot configuration for the PlotManager.
+
+        This function is called by the plot manager before the first plot
+        is created.
+        
+        The base implementation just passes the given arguments through.
+        However, it can be re-implemented by derived classes to change the
+        behaviour of the plot manager, e.g. by converting a plot configuration
+        to a parameter space.
+        """
+        return plot_cfg, pspace
 
     def _prepare_path(self, out_path: str) -> None:
         """Prepares the output path, creating directories if needed, then

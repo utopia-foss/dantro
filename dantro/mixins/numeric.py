@@ -1,108 +1,19 @@
-"""This module implements classes that serve as mixins for classes derived from base classes."""
+"""This module implements mixin classes which provide numeric interfaces for
+containers
+"""
 
+import math
+import operator
 import logging
 
 import numpy as np
 
-import dantro.base
-import operator
-import math
-log = logging.getLogger(__name__)
+from ..base import BaseDataContainer
 
 # Local variables
+log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
-# Proxy-related
-
-class ProxyMixin:
-    """This Mixin class overwrites the `data` property to allow proxy objects.
-
-    It should be used to add support for certain proxy types to a container.
-
-    A proxy object is a place keeper for data that is not yet loaded. It will
-    only be loaded if `data` is directly accessed.
-    """
-
-    # If the CheckDataMixin is used, it should also allow proxy data
-    DATA_ALLOW_PROXY = True
-    # NOTE Depending on the order of how the mixins are given, this might
-    # not have an effect. Make sure the proxy mixin is loaded after the
-    # CheckDataMixin or the container class that uses the CheckDataMixin
-
-
-    @property
-    def data(self):
-        """The container data. If the data is a proxy, this call will lead
-        to the resolution of the proxy.
-        
-        Returns:
-            The data stored in this container
-        """
-        # Have to check whether the data might be a proxy. If so, resolve it.
-        if self.data_is_proxy:
-            log.debug("Resolving %s for %s ...",
-                      self.proxy.classname, self.logstr)
-            self._data = self.proxy.resolve()
-
-        # Now, the data should be loaded and can be returned
-        return self._data
-
-    @property
-    def data_is_proxy(self) -> bool:
-        """Returns true, if this is proxy data
-        
-        Returns:
-            bool: Whether the _currently_ stored data is a proxy object
-        """
-        return isinstance(self._data, dantro.base.BaseDataProxy)
-
-    @property
-    def proxy(self) -> dantro.base.BaseDataProxy:
-        """If the data is proxy, returns the proxy data object without using 
-        the .data attribute (which would trigger resolving the proxy); else 
-        returns None.
-        
-        Returns:
-            Union[BaseDataProxy, None]: If the data is proxy, return the
-                proxy object; else None.
-        """
-        if self.data_is_proxy:
-            return self._data
-        return None
-
-
-class Hdf5ProxyMixin(ProxyMixin):
-    """Specialises the ProxyMixin to the capabilities of a Hdf5 Proxy, i.e. it
-    allows access to the cached `dtype` and `shape` properties of the
-    Hdf5DataProxy without resolving the proxy.
-    """
-
-    @property
-    def dtype(self) -> np.dtype:
-        """Returns the NumpyDCs dtype, proxy-aware"""
-        if self.data_is_proxy:
-            return self.proxy.dtype
-        return self.data.dtype
-    
-    @property
-    def shape(self) -> tuple:
-        """Returns the NumpyDCs shape, proxy-aware"""
-        if self.data_is_proxy:
-            return self.proxy.shape
-        return self.data.shape
-
-
-# -----------------------------------------------------------------------------
-# For extending containers
-
-class ForwardAttrsToDataMixin():
-    """This Mixin class implements the method to forward attributes to the data attribute.
-    """
-
-    def __getattr__(self, attr_name):
-        """Forward attributes that were not available in this class to data attribute."""
-        return getattr(self.data, attr_name)
-
 
 class UnaryOperationsMixin():
     """This Mixin class implements the methods needed for unary operations
@@ -369,7 +280,7 @@ def get_data(obj):
         Either the `.data` attribute of a dantro-based object or otherwise the
             object itself.
     """
-    if isinstance(obj, dantro.base.BaseDataContainer):
+    if isinstance(obj, BaseDataContainer):
         return obj.data
     # Not dantro-based, just return the object itself.
     return obj
@@ -388,7 +299,7 @@ def apply_func_to_copy(obj, func, other=None):
     if other is None:
         new._data = func(new.data)
     else:
-        if isinstance(other, dantro.base.BaseDataContainer):
+        if isinstance(other, BaseDataContainer):
             new._data = func(new.data, other.data)
         else:
             new._data = func(new.data, other)
@@ -406,7 +317,7 @@ def apply_func_inplace(obj, func, other=None):
     if other is None:
         func(obj._data)
     else:
-        if isinstance(other, dantro.base.BaseDataContainer):
+        if isinstance(other, BaseDataContainer):
             func(obj._data, other.data)
         else:
             func(obj._data, other)

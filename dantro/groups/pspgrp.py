@@ -2,7 +2,6 @@
 
 import copy
 import logging
-import collections
 from typing import Union, List, Dict
 
 import numpy as np
@@ -11,39 +10,13 @@ import xarray as xr
 
 from paramspace import ParamSpace
 
-from .tools import apply_along_axis
-from .base import BaseDataGroup, PATH_JOIN_CHAR
-from .container import NumpyDataContainer, XrContainer
+from .ordered import OrderedDataGroup
+from ..tools import apply_along_axis
+from ..base import PATH_JOIN_CHAR
+from ..containers import NumpyDataContainer, XrContainer
 
 # Local constants
 log = logging.getLogger(__name__)
-
-# -----------------------------------------------------------------------------
-
-class OrderedDataGroup(BaseDataGroup, collections.abc.MutableMapping):
-    """The OrderedDataGroup class manages groups of data containers, preserving
-    the order in which they were added to this group.
-
-    It uses an OrderedDict to associate containers with this group.
-    """
-    
-    def __init__(self, *, name: str, containers: list=None, **kwargs):
-        """Initialize a OrderedDataGroup from the list of given containers.
-        
-        Args:
-            name (str): The name of this group
-            containers (list, optional): A list of containers to add
-            **kwargs: Further initialisation kwargs, e.g. `attrs` ...
-        """
-
-        log.debug("OrderedDataGroup.__init__ called.")
-
-        # Initialize with parent method, which will call .add(*containers)
-        super().__init__(name=name, containers=containers,
-                         StorageCls=collections.OrderedDict, **kwargs)
-
-        # Done.
-        log.debug("OrderedDataGroup.__init__ finished.")
 
 # -----------------------------------------------------------------------------
 # ParamSpaceGroup and associated classes
@@ -545,14 +518,34 @@ class ParamSpaceGroup(OrderedDataGroup):
         # Work on a copy of the parameter space and apply the subspace masks
         psp = copy.deepcopy(self.pspace)
 
-        if subspace is not None:
-            psp.activate_subspace(**subspace)
+        if subspace:
+            # Need the parameter space to be of non-zero volume
+            if psp.volume == 0:
+                raise ValueError("Cannot select a subspace because the "
+                                 "associated parameter space has no "
+                                 "dimensions defined! Remove the `subspace` "
+                                 "argument in the call to this method.")
+
+            try:
+                psp.activate_subspace(**subspace)
+
+            except KeyError as err:
+                raise KeyError("Could not select a subspace because no "
+                               "parameter dimension with name '{}' was found! "
+                               "Make sure your subspace selector contains "
+                               "only valid dimension names: {}"
+                               "".format(str(err), ", ".join(psp.dims.keys()))
+                               ) from err
 
         # Now, the data needs to be collected from each point in this subspace
         # and associated with the correct coordinate, such that the datasets
         # can later be merged and aligned by that coordinate.
-        log.info("Collecting data for %d fields from %d points in parameter "
-                 "space ...", len(fields), psp.volume)
+        if psp.volume > 0:
+            log.info("Collecting data for %d fields from %d points in "
+                     "parameter space ...", len(fields), psp.volume)
+        else:
+            log.info("Collecting data for %d fields from a dimensionless "
+                     "parameter space ...", len(fields))
 
         # Gather them in a multi-dimensional array
         dsets = np.zeros(psp.shape, dtype="object")

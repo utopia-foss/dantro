@@ -16,11 +16,12 @@ from paramspace import ParamSpace, ParamDim
 
 
 # Import the dantro objects to test here
-from dantro.group import OrderedDataGroup
-from dantro.group import ParamSpaceGroup, ParamSpaceStateGroup
+from dantro.groups import OrderedDataGroup
+from dantro.groups import ParamSpaceGroup, ParamSpaceStateGroup
+from dantro.groups import NetworkGroup
 
-from dantro.container import MutableSequenceContainer, MutableMappingContainer
-from dantro.container import NumpyDataContainer
+from dantro.containers import MutableSequenceContainer, MutableMappingContainer
+from dantro.containers import NumpyDataContainer
 
 from dantro.tools import load_yml
 
@@ -29,7 +30,41 @@ from dantro.tools import load_yml
 SELECTOR_PATH = resource_filename('tests', 'cfg/selectors.yml')
 NW_GRP_PATH = resource_filename('tests', 'cfg/nw_grps.yml')
 
-from dantro.container import MutableSequenceContainer, NumpyDataContainer
+from dantro.containers import MutableSequenceContainer, NumpyDataContainer
+
+# Helper functions ------------------------------------------------------------
+
+def create_test_data(psp_grp: ParamSpaceGroup, *, params: dict, state_no_str: str):
+    """Given a ParamSpaceGroup, adds test data to it"""
+    grp = psp_grp.new_group(state_no_str)
+
+    # Add the parameters as container to the group
+    grp.add(MutableMappingContainer(name="cfg", data=params))
+
+    # Create some paths that can be used for testing
+    grp.new_group("testdata")
+    farrs = grp.new_group("testdata/fixedsize")
+    rarrs = grp.new_group("testdata/randsize")
+
+    # Add two numpy dataset: symbolising state number and some random data
+    state_no = int(state_no_str)
+    state =  state_no * np.ones((3,4,5), dtype=int)
+    randints = np.random.randint(10, size=(3,4,5))
+
+    farrs.add(NumpyDataContainer(name="state", data=state,
+                                 attrs=dict(state_no=state_no)))
+    farrs.add(NumpyDataContainer(name="randints", data=randints,
+                                 attrs=dict(foo="bar")))
+
+    # Add some non-uniform data sets
+    # 3d with last dimension differing in length
+    randlen = np.ones((3, 4, np.random.randint(10, 30)), dtype="uint8")
+    rarrs.add(NumpyDataContainer(name="randlen", data=randlen))
+
+    # 3d but of different shape in all directions
+    randshape = np.ones(np.random.randint(1, 10, size=3), dtype="uint8")
+    rarrs.add(NumpyDataContainer(name="randshape", data=randshape))
+
 
 # Fixtures --------------------------------------------------------------------
 
@@ -37,7 +72,7 @@ from dantro.container import MutableSequenceContainer, NumpyDataContainer
 def pspace():
     """Used to setup a small pspace object to be tested on."""
     return ParamSpace(dict(foo="bar",
-                           p0=ParamDim(default=0, values=[1, 2]),
+                           p0=ParamDim(default=0, values=[1, 2], order=0),
                            p1=ParamDim(default=0, values=[1, 2, 3]),
                            p2=ParamDim(default=0, values=[1, 2, 3, 4, 5])))
 
@@ -48,34 +83,7 @@ def psp_grp(pspace):
 
     # Iterate over the parameter space and add groups to the ParamSpaceGroup
     for params, state_no_str in pspace.iterator(with_info='state_no_str'):
-        grp = psp_grp.new_group(state_no_str)
-
-        # Add the parameters as container to the group
-        grp.add(MutableMappingContainer(name="cfg", data=params))
-
-        # Create some paths that can be used for testing
-        grp.new_group("testdata")
-        farrs = grp.new_group("testdata/fixedsize")
-        rarrs = grp.new_group("testdata/randsize")
-
-        # Add two numpy dataset: symbolising state number and some random data
-        state_no = int(state_no_str)
-        state =  state_no * np.ones((3,4,5), dtype=int)
-        randints = np.random.randint(10, size=(3,4,5))
-
-        farrs.add(NumpyDataContainer(name="state", data=state,
-                                     attrs=dict(state_no=state_no)))
-        farrs.add(NumpyDataContainer(name="randints", data=randints,
-                                     attrs=dict(foo="bar")))
-
-        # Add some non-uniform data sets
-        # 3d with last dimension differing in length
-        randlen = np.ones((3, 4, np.random.randint(10, 30)), dtype="uint8")
-        rarrs.add(NumpyDataContainer(name="randlen", data=randlen))
-
-        # 3d but of different shape in all directions
-        randshape = np.ones(np.random.randint(1, 10, size=3), dtype="uint8")
-        rarrs.add(NumpyDataContainer(name="randshape", data=randshape))
+        create_test_data(psp_grp, params=params, state_no_str=state_no_str)
 
     return psp_grp
 
@@ -85,6 +93,16 @@ def psp_grp_missing_data(psp_grp):
     for state_no in (12, 31, 38, 39, 52, 59, 66):
         if state_no in psp_grp:
             del psp_grp[state_no]
+
+    return psp_grp
+
+@pytest.fixture()
+def psp_grp_default(pspace):
+    """Setup and populate a ParamSpaceGroup with only the default"""
+    psp_grp = ParamSpaceGroup(name="mv_default",
+                              pspace=ParamSpace(pspace.default))
+
+    create_test_data(psp_grp, params=pspace.default, state_no_str="0")
 
     return psp_grp
 
@@ -418,6 +436,11 @@ def test_pspace_group_select(psp_grp, selectors):
     with pytest.raises(ValueError, match="Make sure the data was fully"):
         ParamSpaceGroup(name="without_pspace", pspace=psp).select(field="cfg")
 
+    # Bad subspace dimension names
+    with pytest.raises(KeyError, match="no parameter dimension with name"):
+        pgrp.select(field="testdata/fixedsize/randints",
+                    subspace=dict(invalid_dim_name=[1,2,3]))
+
     # Non-uniformly sized datasets will require trivial index labels
     with pytest.raises(ValueError, match="Combination of datasets failed;"):
         pgrp.select(field="testdata/randsize/randlen", method="concat")
@@ -438,7 +461,7 @@ def test_pspace_group_select_missing_data(selectors, psp_grp_missing_data):
         sel.pop('method', None)
 
         # With concat, it should fail
-        with pytest.raises(ValueError, match="No state (\d+) available in"):
+        with pytest.raises(ValueError, match=r"No state (\d+) available in"):
             pgrp.select(**sel, method='concat')
 
         # With merge, it should succeed
@@ -460,6 +483,32 @@ def test_pspace_group_select_missing_data(selectors, psp_grp_missing_data):
     # Test exceptions . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     with pytest.raises(ValueError, match="Invalid value for argument `method"):
         pgrp.select(field="cfg", method="some_invalid_method")
+
+def test_pspace_group_select_default(psp_grp_default, selectors):
+    """Select should also work if only the default universe is present,
+    i.e. without any parameter dimensions defined."""
+    pgrp = psp_grp_default
+
+    assert pgrp.pspace.volume == 0
+
+    # Test that loading on all scenarios (without subspace) works.
+    dsets = dict()
+    for name, sel in selectors.items():            
+        print("Now selecting data with selector '{}' ...".format(name))
+
+        # Get the data. Distinguish depending on whether subspace selection
+        # takes place or not; if yes, it will fail.
+        if 'subspace' not in sel:
+            # Can just select
+            dset = pgrp.select(**sel)
+
+        else:
+            with pytest.raises(ValueError, match="has no dimensions defined"):
+                dset = pgrp.select(**sel)
+
+        # Save to dict of all datasets
+        print("  got data:", dset, "\n\n\n")
+        dsets[name] = dset
 
 
 # NetworkGroup ----------------------------------------------------------------

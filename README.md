@@ -55,7 +55,7 @@ Before diving deeper, an overview over all `dantro` modules:
    * `BaseDataAttrs`: every container can store metadata in such an instance
    * `BaseDataProxy`: can be a proxy for data, postponing loading to when it is needed
    * `AbstractPlotCreator`: defines the interface between `PlotManager` and `BasePlotCreator` classes (implemented elsewhere, see below)
-* `container` and `group` implement some non-abstract classes for use as containers or groups
+* The `containers` and `groups` sub-packages implement some non-abstract classes that further specialize the use cases for group or containers
 * `mixins` define general purpose mixin classes that can be used when defining a custom data container
 * `data_mngr` defines the `DataManager` class:
    * an extended `BaseDataGroup` which serves as the _root_ of a tree

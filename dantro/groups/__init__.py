@@ -1,5 +1,5 @@
-"""The groups sub-package implementes BaseDataGroup specialisations"""
+"""The groups sub-package implements BaseDataGroup specializations"""
 
 from .ordered import OrderedDataGroup
-from .paramspace import ParamSpaceStateGroup, ParamSpaceGroup
+from .pspgrp import ParamSpaceStateGroup, ParamSpaceGroup
 from .network import NetworkGroup
