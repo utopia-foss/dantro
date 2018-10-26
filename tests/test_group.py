@@ -16,8 +16,8 @@ from paramspace import ParamSpace, ParamDim
 
 
 # Import the dantro objects to test here
-from dantro.groups import OrderedDataGroup
-from dantro.groups import ParamSpaceGroup, ParamSpaceStateGroup, NetworkGroup
+from dantro.group import OrderedDataGroup
+from dantro.group import ParamSpaceGroup, ParamSpaceStateGroup
 
 from dantro.container import MutableSequenceContainer, MutableMappingContainer
 from dantro.container import NumpyDataContainer

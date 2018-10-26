@@ -27,7 +27,7 @@ import h5py as h5
 
 from dantro.base import BaseDataGroup, BaseDataContainer
 from dantro.container import ObjectContainer, MutableMappingContainer, NumpyDataContainer
-from dantro.groups import OrderedDataGroup
+from dantro.group import OrderedDataGroup
 from dantro.proxy import Hdf5DataProxy
 import dantro.tools as tools
 

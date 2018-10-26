@@ -8,7 +8,7 @@ import dantro as dtr
 import dantro.base
 import dantro.mixins
 import dantro.container
-import dantro.groups
+import dantro.group
 
 from .test_data_mngr import NumpyTestDC
 
@@ -22,7 +22,7 @@ from .test_data_mngr import NumpyTestDC
 
 def test_PathMixin():
     """Tests the PathMixin class using the OrderedDataGroup"""
-    root = dtr.groups.OrderedDataGroup(name="root")
+    root = dtr.group.OrderedDataGroup(name="root")
     foo = root.new_group("foo")
     bar = foo.new_group("bar")
 
@@ -66,7 +66,7 @@ def test_ItemAccessMixin():
 
 
     # Passing on to the object works
-    root = dtr.groups.OrderedDataGroup(name="root", containers=[obj])
+    root = dtr.group.OrderedDataGroup(name="root", containers=[obj])
     root['obj/foo'] = "bar"
     assert root['obj/foo'] == "bar"
 

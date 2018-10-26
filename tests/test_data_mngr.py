@@ -10,7 +10,7 @@ import pytest
 
 import dantro.base
 from dantro.container import NumpyDataContainer
-from dantro.groups import OrderedDataGroup
+from dantro.group import OrderedDataGroup
 from dantro.mixins import Hdf5ProxyMixin
 import dantro.data_mngr
 from dantro.data_loaders import YamlLoaderMixin, PickleLoaderMixin, Hdf5LoaderMixin
