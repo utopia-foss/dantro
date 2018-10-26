@@ -11,7 +11,7 @@ import paramspace as psp
 
 from dantro.tools import load_yml, recursive_update
 from dantro.data_mngr import DataManager
-from dantro.container import NumpyDataContainer as NumpyDC
+from dantro.containers import NumpyDataContainer as NumpyDC
 from dantro.plot_mngr import PlotManager, PlottingError, PlotConfigError, PlotCreatorError, InvalidCreator
 
 

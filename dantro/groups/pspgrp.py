@@ -13,7 +13,7 @@ from paramspace import ParamSpace
 from .ordered import OrderedDataGroup
 from ..tools import apply_along_axis
 from ..base import PATH_JOIN_CHAR
-from ..container import NumpyDataContainer, XrContainer
+from ..containers import NumpyDataContainer, XrContainer
 
 # Local constants
 log = logging.getLogger(__name__)

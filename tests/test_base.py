@@ -9,7 +9,7 @@ import pytest
 import dantro as dtr
 import dantro.base
 import dantro.groups
-import dantro.container
+import dantro.containers
 
 # Class definitions -----------------------------------------------------------
 
@@ -37,7 +37,7 @@ def test_BaseDataGroup():
     root = dtr.groups.OrderedDataGroup(name="root")
     foo = root.new_group("foo")
     bar = foo.new_group("bar")
-    bar.add(dtr.container.ObjectContainer(name="obj", data=dict(test=123)))
+    bar.add(dtr.containers.ObjectContainer(name="obj", data=dict(test=123)))
 
     # Test item interface
     assert root['foo'] is foo
@@ -70,7 +70,7 @@ def test_BaseDataGroup():
     root2 = dtr.groups.OrderedDataGroup(name="root")
     foo2 = root2.new_group("foo")
     spam = foo2.new_group("spam")
-    sth = foo2.new_container("sth", Cls=dtr.container.ObjectContainer,
+    sth = foo2.new_container("sth", Cls=dtr.containers.ObjectContainer,
                              data=dict(foo="bar"))
 
     root.recursive_update(root2)

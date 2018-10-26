@@ -26,7 +26,7 @@ import numpy as np
 import h5py as h5
 
 from .base import BaseDataGroup, BaseDataContainer
-from .container import ObjectContainer, MutableMappingContainer, NumpyDataContainer
+from .containers import ObjectContainer, MutableMappingContainer, NumpyDataContainer
 from .groups import OrderedDataGroup
 from .proxy import Hdf5DataProxy
 from .tools import load_yml, fill_line

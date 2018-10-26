@@ -9,7 +9,7 @@ import h5py as h5
 import pytest
 
 import dantro.base
-from dantro.container import NumpyDataContainer, ObjectContainer
+from dantro.containers import NumpyDataContainer, ObjectContainer
 from dantro.groups import OrderedDataGroup
 from dantro.mixins import Hdf5ProxyMixin
 import dantro.data_mngr

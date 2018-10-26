@@ -7,7 +7,7 @@ import pytest
 import dantro as dtr
 import dantro.base
 import dantro.mixins
-import dantro.container
+import dantro.containers
 import dantro.groups
 
 from .test_data_mngr import NumpyTestDC
@@ -47,7 +47,7 @@ def test_PathMixin():
 
 def test_ItemAccessMixin():
     """Tests the ItemAccessMixin using the ObjectContainer"""
-    obj = dtr.container.ObjectContainer(name="obj", data=dict())
+    obj = dtr.containers.ObjectContainer(name="obj", data=dict())
 
     # As ObjectContainer uses the ItemAccessMixin, it should forward all the
     # corresponding syntactic sugar to the dict data
@@ -89,9 +89,9 @@ def test_ItemAccessMixin():
 
 def test_MappingAccessMixin():
     """Tests the MappingAccessMixin using MutableMappingContainer"""
-    mmc = dtr.container.MutableMappingContainer(name="map",
-                                                data=dict(foo="bar",
-                                                          spam="eggs"))
+    mmc = dtr.containers.MutableMappingContainer(name="map",
+                                                 data=dict(foo="bar",
+                                                           spam="eggs"))
 
     assert list(mmc.keys()) == ['foo', 'spam']
     assert list(mmc.values()) == ["bar", "eggs"]

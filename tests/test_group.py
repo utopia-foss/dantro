@@ -15,8 +15,8 @@ from paramspace import ParamSpace, ParamDim
 from dantro.groups import OrderedDataGroup
 from dantro.groups import ParamSpaceGroup, ParamSpaceStateGroup
 
-from dantro.container import MutableSequenceContainer, MutableMappingContainer
-from dantro.container import NumpyDataContainer
+from dantro.containers import MutableSequenceContainer, MutableMappingContainer
+from dantro.containers import NumpyDataContainer
 
 from dantro.tools import load_yml
 
@@ -24,7 +24,7 @@ from dantro.tools import load_yml
 
 SELECTOR_PATH = resource_filename('tests', 'cfg/selectors.yml')
 
-from dantro.container import MutableSequenceContainer, NumpyDataContainer
+from dantro.containers import MutableSequenceContainer, NumpyDataContainer
 
 # Helper functions ------------------------------------------------------------
 
