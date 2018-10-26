@@ -1,6 +1,7 @@
 """Test the BaseDataContainer-derived classes"""
 
 import math
+import operator
 
 import numpy as np
 
