@@ -1,141 +1,20 @@
-"""This module implements loaders mixin classes for use with the DataManager.
+"""Implements loading of Hdf5 files into the dantro data tree"""
 
-All these mixin classes should follow the pattern:
-class LoadernameLoaderMixin:
-
-    @add_loader(TargetCls=TheTargetContainerClass)
-    def _load_loadername(filepath: str, *, TargetCls):
-        # ...
-        return TargetCls(...)
-
-Each `_load_loadername` method gets supplied with path to a file and the
-`TargetCls` argument, which can be called to create an object of the correct
-type and name.
-By default, and to decouple the loader from the container, it should be
-considered to be a staticmethod; in other words: the first positional argument
-should _not_ be `self`!
-If `self` is required, `omit_self=False` may be given to the decorator.
-"""
-
-import warnings
 import logging
-
-import pickle as pkl
 
 import numpy as np
 import h5py as h5
 
-from dantro.base import BaseDataGroup, BaseDataContainer
-from dantro.container import ObjectContainer, MutableMappingContainer, NumpyDataContainer
-from dantro.group import OrderedDataGroup
-from dantro.proxy import Hdf5DataProxy
-import dantro.tools as tools
+from ..base import BaseDataGroup, BaseDataContainer
+from ..containers import NumpyDataContainer
+from ..groups import OrderedDataGroup
+from ..proxy import Hdf5DataProxy
+from ..tools import fill_line
+from ._tools import add_loader
 
 # Local constants
 log = logging.getLogger(__name__)
 
-# -----------------------------------------------------------------------------
-# Decorator to ensure correct loader function signature
-
-def add_loader(*, TargetCls, omit_self: bool=True):
-    """This decorator should be used to specify loader functions.
-    
-    Args:
-        TargetCls: Description
-        omit_self (bool, optional): If True (default), the decorated method
-            will not be supplied with the `self` object instance
-    """
-    def load_func_decorator(func):
-        """This decorator sets the load function's `TargetCls` attribute."""
-        def load_func(instance, *args, **kwargs):
-            """Calls the load function, either as with or without `self`."""
-            if omit_self:
-                return func(*args, **kwargs)
-            # not as static method
-            return func(instance, *args, **kwargs)
-
-        # Set the target class as function attribute 
-        load_func.TargetCls = TargetCls
-        return load_func
-    return load_func_decorator
-
-# -----------------------------------------------------------------------------
-
-class YamlLoaderMixin:
-    """Supplies functionality to load yaml files in the data manager"""
-
-    @add_loader(TargetCls=MutableMappingContainer)
-    def _load_yaml(filepath: str, *, TargetCls: type) -> MutableMappingContainer:
-        """Load a yaml file from the given path and creates a container to
-        store that data in.
-        
-        Args:
-            filepath (str): Where to load the yaml file from
-            TargetCls (type): The class constructor
-        
-        Returns:
-            MutableMappingContainer: The loaded yaml file as a container
-        """
-        # Load the dict
-        d = tools.load_yml(filepath)
-
-        # Populate the target container with the data
-        return TargetCls(data=d, attrs=dict(filepath=filepath))
-    
-    @add_loader(TargetCls=ObjectContainer)
-    def _load_yaml_to_object(filepath: str, *, TargetCls: type) -> ObjectContainer:
-        """Load a yaml file from the given path and creates a container to
-        store that data in.
-        
-        Args:
-            filepath (str): Where to load the yaml file from
-            TargetCls (type): The class constructor
-        
-        Returns:
-            ObjectContainer: The loaded yaml file as a container
-        """
-        # Load the dict
-        d = tools.load_yml(filepath)
-
-        # Populate the target container with the data
-        return TargetCls(data=d, attrs=dict(filepath=filepath))
-
-    # Also make available under `yml`
-    _load_yml = _load_yaml
-    _load_yml_to_object = _load_yaml_to_object
-
-# -----------------------------------------------------------------------------
-
-class PickleLoaderMixin:
-    """Supplies functionality to load pickled python objects"""
-
-    # Define the load function such that it can be set in a flexible way
-    _PICKLE_LOAD_FUNC = pkl.load
-
-    @add_loader(TargetCls=ObjectContainer, omit_self=False)
-    def _load_pickle(self, filepath: str, *, TargetCls: type, **pkl_kwargs) -> ObjectContainer:
-        """Load a pickled object.
-
-        This uses the load function defined under the _PICKLE_LOAD_FUNC class
-        variable, which defaults to the pickle.load function.
-        
-        Args:
-            filepath (str): Where the pickle-dumped file is located
-            TargetCls (type): The class constructor
-            **pkl_kwargs: Passed on to the load function
-        
-        Returns:
-            ObjectContainer: The unpickled file, stored in a dantro container
-        """
-        # Open file in binary mode and unpickle with the given load function
-        with open(filepath, mode='rb') as f:
-            obj = self._PICKLE_LOAD_FUNC(f, **pkl_kwargs)
-
-        # Populate the target container with the object
-        return TargetCls(data=obj, attrs=dict(filepath=filepath))
-
-    # Also make available under `pkl`
-    _load_pkl = _load_pickle
 
 # -----------------------------------------------------------------------------
 
@@ -272,7 +151,7 @@ class Hdf5LoaderMixin:
                     # Progress information on loading this dataset
                     if plvl >= 2:
                         line = fstr2.format(name=target.name, key=key, obj=obj)
-                        print(tools.fill_line(line), end="\r")
+                        print(fill_line(line), end="\r")
 
                     if load_as_proxy:
                         # Instantiate a proxy object
@@ -350,7 +229,7 @@ class Hdf5LoaderMixin:
             if plvl >= 1:
                 # Print information on the level of this file
                 line = fstr1.format(name=root.name, file=filepath)
-                print(tools.fill_line(line), end="\r")
+                print(fill_line(line), end="\r")
 
             # Load the file level attributes, manually re-creating the dict
             root.attrs = {k:v for k, v in h5file.attrs.items()}

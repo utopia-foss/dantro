@@ -9,6 +9,7 @@ AbstractPlotCreator: defines the interface for PlotCreators
 
 import abc
 import collections
+import collections.abc
 from typing import Union
 import logging
 

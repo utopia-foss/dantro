@@ -1,13 +1,15 @@
 """Test the BaseDataContainer-derived classes"""
 
 import math
+import operator
 
 import numpy as np
 
 import pytest
 
-from dantro.base import BaseDataContainer, CheckDataMixin, ItemAccessMixin, UnexpectedTypeWarning
-from dantro.container import MutableSequenceContainer, NumpyDataContainer
+from dantro.base import BaseDataContainer, CheckDataMixin
+from dantro.base import ItemAccessMixin, UnexpectedTypeWarning
+from dantro.containers import MutableSequenceContainer, NumpyDataContainer
 
 # Local constants
 

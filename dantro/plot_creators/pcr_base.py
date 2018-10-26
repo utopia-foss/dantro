@@ -13,9 +13,9 @@ from typing import Union
 
 from paramspace import ParamSpace
 
-import dantro.abc
-import dantro.tools as tools
-from dantro.data_mngr import DataManager
+from ..abc import AbstractPlotCreator
+from ..tools import recursive_update
+from ..data_mngr import DataManager
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
-class BasePlotCreator(dantro.abc.AbstractPlotCreator):
+class BasePlotCreator(AbstractPlotCreator):
     """The base class for PlotCreators
     
     Note that the `_plot` method remains abstract, thus this class needs to be
@@ -164,7 +164,7 @@ class BasePlotCreator(dantro.abc.AbstractPlotCreator):
 
         # Check if a recursive update needs to take place
         if update_plot_cfg:
-            cfg = tools.recursive_update(cfg, update_plot_cfg)
+            cfg = recursive_update(cfg, update_plot_cfg)
 
         # Prepare the output path
         if not self.POSTPONE_PATH_PREPARATION:
