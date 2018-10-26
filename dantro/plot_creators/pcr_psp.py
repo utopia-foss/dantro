@@ -13,7 +13,7 @@ import xarray as xr
 from paramspace import ParamSpace
 
 from .pcr_ext import ExternalPlotCreator
-from ..group import ParamSpaceGroup
+from ..groups import ParamSpaceGroup
 from ..tools import recursive_update
 
 # Local constants

@@ -25,11 +25,11 @@ import pickle as pkl
 import numpy as np
 import h5py as h5
 
-from dantro.base import BaseDataGroup, BaseDataContainer
-from dantro.container import ObjectContainer, MutableMappingContainer, NumpyDataContainer
-from dantro.group import OrderedDataGroup
-from dantro.proxy import Hdf5DataProxy
-import dantro.tools as tools
+from .base import BaseDataGroup, BaseDataContainer
+from .container import ObjectContainer, MutableMappingContainer, NumpyDataContainer
+from .groups import OrderedDataGroup
+from .proxy import Hdf5DataProxy
+from .tools import load_yml, fill_line
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -77,7 +77,7 @@ class YamlLoaderMixin:
             MutableMappingContainer: The loaded yaml file as a container
         """
         # Load the dict
-        d = tools.load_yml(filepath)
+        d = load_yml(filepath)
 
         # Populate the target container with the data
         return TargetCls(data=d, attrs=dict(filepath=filepath))
@@ -95,7 +95,7 @@ class YamlLoaderMixin:
             ObjectContainer: The loaded yaml file as a container
         """
         # Load the dict
-        d = tools.load_yml(filepath)
+        d = load_yml(filepath)
 
         # Populate the target container with the data
         return TargetCls(data=d, attrs=dict(filepath=filepath))
@@ -272,7 +272,7 @@ class Hdf5LoaderMixin:
                     # Progress information on loading this dataset
                     if plvl >= 2:
                         line = fstr2.format(name=target.name, key=key, obj=obj)
-                        print(tools.fill_line(line), end="\r")
+                        print(fill_line(line), end="\r")
 
                     if load_as_proxy:
                         # Instantiate a proxy object
@@ -350,7 +350,7 @@ class Hdf5LoaderMixin:
             if plvl >= 1:
                 # Print information on the level of this file
                 line = fstr1.format(name=root.name, file=filepath)
-                print(tools.fill_line(line), end="\r")
+                print(fill_line(line), end="\r")
 
             # Load the file level attributes, manually re-creating the dict
             root.attrs = {k:v for k, v in h5file.attrs.items()}

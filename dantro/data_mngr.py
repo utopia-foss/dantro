@@ -9,9 +9,9 @@ import logging
 import warnings
 from typing import Union, Callable, List, Tuple
 
-from dantro.base import PATH_JOIN_CHAR, BaseDataContainer, BaseDataGroup
-from dantro.group import OrderedDataGroup
-import dantro.tools as tools
+from .base import PATH_JOIN_CHAR, BaseDataContainer, BaseDataGroup
+from .groups import OrderedDataGroup
+from .tools import fill_line, clear_line, recursive_update, load_yml
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -129,11 +129,11 @@ class DataManager(OrderedDataGroup):
             # Assume this is the path to a configuration file and load it
             log.debug("Loading the default load config from a path:\n  %s",
                       load_cfg)
-            load_cfg = tools.load_yml(load_cfg)
+            load_cfg = load_yml(load_cfg)
 
         # If given, use it to recursively update the base
         if load_cfg:
-            self.load_cfg = tools.recursive_update(self.load_cfg, load_cfg)
+            self.load_cfg = recursive_update(self.load_cfg, load_cfg)
 
         # Create default groups, as specified in the _DEFAULT_GROUPS class
         # variable and the create_groups argument
@@ -274,7 +274,7 @@ class DataManager(OrderedDataGroup):
 
         if update_load_cfg:
             # Recursively update with the given keywords
-            load_cfg = tools.recursive_update(load_cfg, update_load_cfg)
+            load_cfg = recursive_update(load_cfg, update_load_cfg)
             log.debug("Updated the load configuration.")
 
         log.info("Loading %d data entries ...", len(load_cfg))
@@ -824,7 +824,7 @@ class DataManager(OrderedDataGroup):
         for n, file in enumerate(files):
             if progress_indicator:
                 line = "  Loading  {}/{}  ...".format(n+1, len(files))
-                print(tools.fill_line(line), end="\r")
+                print(fill_line(line), end="\r")
 
             # Prepare the target path (a list of strings)
             _target_path = prepare_target_path(target_path, filepath=file,
@@ -861,7 +861,7 @@ class DataManager(OrderedDataGroup):
 
         # Clear the line to get rid of the load indicator, if there was one
         if progress_indicator:
-            tools.clear_line()
+            clear_line()
 
         # Done
         log.debug("Finished loading %d files.", len(files))

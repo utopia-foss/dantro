@@ -8,7 +8,7 @@ import xarray as xr
 from paramspace import ParamDim, ParamSpace
 
 from dantro.data_mngr import DataManager
-from dantro.group import ParamSpaceGroup
+from dantro.groups import ParamSpaceGroup
 from dantro.plot_creators import UniversePlotCreator, MultiversePlotCreator
 
 
