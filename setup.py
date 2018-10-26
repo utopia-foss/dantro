@@ -16,7 +16,7 @@ test_deps = ['pytest>=3.4.0', 'pytest-cov>=2.5.1', 'tox>=3.1.2']
 setup(name='dantro',
       #
       # Set the version
-      version='0.4.1',
+      version='0.5.0-pre.1',
       # NOTE do not forget to set dantro.__init__.__version__!
       #
       # Project info
