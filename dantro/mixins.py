@@ -1,15 +1,15 @@
 """This module implements classes that serve as mixins for classes derived from base classes."""
 
+import math
+import operator
 import logging
 
 import numpy as np
 
-import dantro.base
-import operator
-import math
-log = logging.getLogger(__name__)
+from .base import BaseDataContainer, BaseDataProxy
 
 # Local variables
+log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 # Proxy-related
@@ -54,10 +54,10 @@ class ProxyMixin:
         Returns:
             bool: Whether the _currently_ stored data is a proxy object
         """
-        return isinstance(self._data, dantro.base.BaseDataProxy)
+        return isinstance(self._data, BaseDataProxy)
 
     @property
-    def proxy(self) -> dantro.base.BaseDataProxy:
+    def proxy(self) -> BaseDataProxy:
         """If the data is proxy, returns the proxy data object without using 
         the .data attribute (which would trigger resolving the proxy); else 
         returns None.
@@ -369,7 +369,7 @@ def get_data(obj):
         Either the `.data` attribute of a dantro-based object or otherwise the
             object itself.
     """
-    if isinstance(obj, dantro.base.BaseDataContainer):
+    if isinstance(obj, BaseDataContainer):
         return obj.data
     # Not dantro-based, just return the object itself.
     return obj
@@ -388,7 +388,7 @@ def apply_func_to_copy(obj, func, other=None):
     if other is None:
         new._data = func(new.data)
     else:
-        if isinstance(other, dantro.base.BaseDataContainer):
+        if isinstance(other, BaseDataContainer):
             new._data = func(new.data, other.data)
         else:
             new._data = func(new.data, other)
@@ -406,7 +406,7 @@ def apply_func_inplace(obj, func, other=None):
     if other is None:
         func(obj._data)
     else:
-        if isinstance(other, dantro.base.BaseDataContainer):
+        if isinstance(other, BaseDataContainer):
             func(obj._data, other.data)
         else:
             func(obj._data, other)

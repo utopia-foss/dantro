@@ -5,7 +5,7 @@ import logging
 import numpy as np
 import h5py as h5
 
-from dantro.base import BaseDataProxy
+from .base import BaseDataProxy
 
 # Local variables
 log = logging.getLogger(__name__)

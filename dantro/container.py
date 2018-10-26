@@ -6,8 +6,8 @@ from collections.abc import MutableSequence, MutableMapping
 
 import numpy as np
 
-from dantro.base import BaseDataContainer, ItemAccessMixin, CollectionMixin, MappingAccessMixin, CheckDataMixin
-from dantro.mixins import ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin
+from .base import BaseDataContainer, ItemAccessMixin, CollectionMixin, MappingAccessMixin, CheckDataMixin
+from .mixins import ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin
 
 # Local constants
 log = logging.getLogger(__name__)

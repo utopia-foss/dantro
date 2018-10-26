@@ -17,8 +17,8 @@ import inspect
 from typing import Union, List
 
 import dantro.abc
-from dantro.abc import PATH_JOIN_CHAR
-import dantro.tools as tools
+from .abc import PATH_JOIN_CHAR
+from .tools import TTY_COLS
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -854,7 +854,7 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         
         # Calculations
         num_items = len(self)
-        num_cols = tools.TTY_COLS
+        num_cols = TTY_COLS
 
         info_width = int(num_cols * info_ratio)
         name_width = (num_cols - info_width) - (len(offset) + 3 + 1 + 2)       

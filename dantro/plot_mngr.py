@@ -11,9 +11,10 @@ from typing import Union, List, Dict, Tuple, Callable
 
 from paramspace import ParamSpace, ParamDim
 
-import dantro.tools as tools
-from dantro.data_mngr import DataManager
-import dantro.plot_creators as pcr
+from .data_mngr import DataManager
+from .plot_creators import ALL as ALL_PCRS
+from .plot_creators import BasePlotCreator
+from .tools import load_yml, write_yml, recursive_update
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -48,7 +49,7 @@ class PlotManager:
             strings.
     """
 
-    CREATORS = pcr.ALL
+    CREATORS = ALL_PCRS
     DEFAULT_OUT_FSTRS = dict(date="%y%m%d-%H%M%S",
                              state_no="{no:0{digits:d}d}",
                              state="{name:}_{val:}",
@@ -119,7 +120,7 @@ class PlotManager:
         if isinstance(plots_cfg, str):
             # Interpret as path to yaml file
             log.debug("Loading plots_cfg from file %s ...", plots_cfg)
-            plots_cfg = tools.load_yml(plots_cfg)
+            plots_cfg = load_yml(plots_cfg)
         self._plots_cfg = plots_cfg
 
         # Update the default format strings, if any were given here
@@ -184,7 +185,7 @@ class PlotManager:
         # Return the full path
         return out_dir
 
-    def _parse_out_path(self, creator: pcr.BasePlotCreator, *, name: str, out_dir: str, file_ext: str=None, state_no: int=None, state_no_max: int=None, state_vector: Tuple[int]=None, dims: dict=None) -> str:
+    def _parse_out_path(self, creator: BasePlotCreator, *, name: str, out_dir: str, file_ext: str=None, state_no: int=None, state_no_max: int=None, state_vector: Tuple[int]=None, dims: dict=None) -> str:
         """Given a creator and (optionally) parameter sweep information, a full
         and absolute output path is generated, including the file extension.
         
@@ -192,7 +193,7 @@ class PlotManager:
         plot creator such that it happens as late as possible.
         
         Args:
-            creator (pcr.BasePlotCreator): The creator instance, used to
+            creator (BasePlotCreator): The creator instance, used to
                 extract information on the file extension.
             name (str): The name of the plot
             out_dir (str): The absolute output directory, prepended to all
@@ -349,7 +350,7 @@ class PlotManager:
         save_path = os.path.join(target_dir, fname)
         
         # And save
-        tools.write_yml(d, path=save_path)
+        write_yml(d, path=save_path)
         log.debug("Saved plot configuration for '%s' to: %s", name, save_path)
 
         return save_path
@@ -403,14 +404,14 @@ class PlotManager:
         elif isinstance(plots_cfg, str):
             # Interpret as path to yaml file
             log.debug("Loading plots_cfg from file %s ...", plots_cfg)
-            plots_cfg = tools.load_yml(plots_cfg)
+            plots_cfg = load_yml(plots_cfg)
 
         # Make sure to work on a copy, be it on the defaults or on the passed
         plots_cfg = copy.deepcopy(plots_cfg)
 
         if update_plots_cfg:
             # Recursively update with the given keywords
-            plots_cfg = tools.recursive_update(plots_cfg, update_plots_cfg)
+            plots_cfg = recursive_update(plots_cfg, update_plots_cfg)
             log.debug("Updated the plots configuration.")
 
         # Check the plot configuration for invalid types
@@ -471,7 +472,7 @@ class PlotManager:
                  len(plots_cfg))
 
 
-    def plot(self, name: str, *, creator: str=None, out_dir: str=None, file_ext: str=None, from_pspace: ParamSpace=None, save_plot_cfg: bool=None, creator_init_kwargs: dict=None, **plot_cfg) -> pcr.BasePlotCreator:
+    def plot(self, name: str, *, creator: str=None, out_dir: str=None, file_ext: str=None, from_pspace: ParamSpace=None, save_plot_cfg: bool=None, creator_init_kwargs: dict=None, **plot_cfg) -> BasePlotCreator:
         """Create plot(s) from a single configuration entry.
         
         A call to this function creates a single PlotCreator, which is also
@@ -501,7 +502,7 @@ class PlotManager:
             **plot_cfg: The plot configuration to pass on to the plot creator.
         
         Returns:
-            pcr.BasePlotCreator: The PlotCreator used for these plots
+            BasePlotCreator: The PlotCreator used for these plots
         
         Raises:
             InvalidCreator: If no creator was given and no default specified
@@ -535,7 +536,7 @@ class PlotManager:
         init_kwargs = self._cckwargs.get(creator, {})
         if creator_init_kwargs:
             log.debug("Recursively updating creator initialization kwargs ...")
-            init_kwargs = tools.recursive_update(copy.deepcopy(init_kwargs),
+            init_kwargs = recursive_update(copy.deepcopy(init_kwargs),
                                                  creator_init_kwargs)
         
         # Instantiate the creator class, also passing initialization kwargs
