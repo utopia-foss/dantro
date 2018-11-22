@@ -3,11 +3,11 @@
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
 
-## v0.5.0 _(WIP)_
+## v0.5.0
 - #33 improves package structure and modularization by creating sub-packages and moving class definitions into separate modules. This changes the import locations from `group` and `container` to `groups` and `containers`; all other import paths should remain valid.
 - #29 implements a `NetworkGroup` that stores network data and enables the direct 
-creation of a `networkx` graph object (`Graph`, `DiGraph`, `MultiGraph`, `MultiDiGraph`)
-with or without vertex properties (edge properties not yet implemented).
+creation of a [`NetworkX`](https://networkx.github.io/documentation/stable/reference/classes/index.html) graph object (`Graph`, `DiGraph`, `MultiGraph`, `MultiDiGraph`)
+with or without vertex properties (edge properties not yet implemented) from the data given in the members of the group.
 
 ## v0.4.1
 - #32 fixes bugs that occurred in `ParamSpaceGroup` and `MultiversePlotCreator` if the associated `ParamSpace` had zero volume

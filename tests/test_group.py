@@ -513,76 +513,79 @@ def test_pspace_group_select_default(psp_grp_default, selectors):
 
 # NetworkGroup ----------------------------------------------------------------
 
-def basic_network_creation_test(nw, cfg):
-    # Get the attributes
-    attrs = cfg["attrs"]
-    directed = attrs["directed"]
-    parallel = attrs["parallel"]
-
-    # Check that the network is not empty, (not) directed ...
-    assert(nx.is_empty(nw) == False)
-    assert(nx.is_directed(nw) == directed)
-
-    # Check the data type of the network
-    if (not directed and not parallel):
-        assert(type(nw) == nx.Graph)
-    elif (directed and not parallel):
-        assert(type(nw) == nx.DiGraph)
-    elif (not directed and parallel):
-        assert(type(nw) == nx.MultiGraph)
-    else:
-        assert(type(nw) == nx.MultiDiGraph)
-
-    # Check that the nodes and edges given in the config coincide with
-    # the ones stored inside of the network
-    for v in cfg["nodes"]:
-        assert(v in nx.nodes(nw))
-    for e in cfg["edges"]:
-        assert(tuple(e) in nx.edges(nw))
-
-
-def node_property_test(nw, cfg, *, no_property: bool=False):
-    """Check that the property stored in the node is equal to the property
-    extracted from the config file
-    NOTE: For this assertion to work without problems, the ordering of 
-          the nodes in the config file must not be altered!"""
-    if no_property: 
-        # Check that there is no node test properties
-        for v in nw.nodes():
-            with pytest.raises(KeyError):
-                nw[v]["test_node_prop"]
-    else:
-        for p, p_cfg in zip(nx.get_node_attributes(nw, 
-                                name="test_node_prop").values(),
-                            cfg["test_node_prop"]):
-            assert(p == p_cfg)
-    
-
-def edge_property_test(nw, cfg, *, no_property: bool=False):
-    """Check that the property stored in the node is equal to the property
-    extracted from the config file
-    NOTE: For this assertion to work without problems, the ordering of 
-          the nodes in the config file must not be altered!"""
-    if no_property: 
-        # Check that there is no edge test properties
-        for e in nw.edges():
-            with pytest.raises(KeyError):
-                nw[e]["test_edge_prop"]
-    else:
-        # In the case of multigraphs edges can be parallel, thus, it is not
-        # sufficient any more to characterize them via their source and target.
-        # An additional edge key is necessary to correctly set edge attributes.
-        if isinstance(nw, MultiDiGraph) or isinstance(nw, MultiGraph):
-            # TODO This test needs to be written if the functionality 
-            # is implemented
-            pass
-        else:
-            for i, (s, t)  in enumerate(cfg["edges"]):
-                assert(nw[s][t]["test_edge_prop"] == cfg["test_edge_prop"][i])
-
-
 def test_network_group_basics(nw_grps):
     """Test the NetworkGroup"""
+
+    # Helper functions --------------------------------------------------------
+    def basic_network_creation_test(nw, cfg):
+        # Get the attributes
+        attrs = cfg["attrs"]
+        directed = attrs["directed"]
+        parallel = attrs["parallel"]
+
+        # Check that the network is not empty, (not) directed ...
+        assert(nx.is_empty(nw) == False)
+        assert(nx.is_directed(nw) == directed)
+
+        # Check the data type of the network
+        if (not directed and not parallel):
+            assert(type(nw) == nx.Graph)
+        elif (directed and not parallel):
+            assert(type(nw) == nx.DiGraph)
+        elif (not directed and parallel):
+            assert(type(nw) == nx.MultiGraph)
+        else:
+            assert(type(nw) == nx.MultiDiGraph)
+
+        # Check that the nodes and edges given in the config coincide with
+        # the ones stored inside of the network
+        for v in cfg["nodes"]:
+            assert(v in nx.nodes(nw))
+        for e in cfg["edges"]:
+            assert(tuple(e) in nx.edges(nw))
+
+
+    def node_property_test(nw, cfg, *, no_property: bool=False):
+        """Check that the property stored in the node is equal to the property
+        extracted from the config file
+        NOTE: For this assertion to work without problems, the ordering of 
+            the nodes in the config file must not be altered!"""
+        if no_property: 
+            # Check that there is no node test properties
+            for v in nw.nodes():
+                with pytest.raises(KeyError):
+                    nw[v]["test_node_prop"]
+        else:
+            for p, p_cfg in zip(nx.get_node_attributes(nw, 
+                                    name="test_node_prop").values(),
+                                cfg["test_node_prop"]):
+                assert(p == p_cfg)
+        
+
+    def edge_property_test(nw, cfg, *, no_property: bool=False):
+        """Check that the property stored in the node is equal to the property
+        extracted from the config file
+        NOTE: For this assertion to work without problems, the ordering of 
+            the nodes in the config file must not be altered!"""
+        if no_property: 
+            # Check that there is no edge test properties
+            for e in nw.edges():
+                with pytest.raises(KeyError):
+                    nw[e]["test_edge_prop"]
+        else:
+            # In the case of multigraphs edges can be parallel, thus, it is not
+            # sufficient any more to characterize them via their source and target.
+            # An additional edge key is necessary to correctly set edge attributes.
+            if isinstance(nw, MultiDiGraph) or isinstance(nw, MultiGraph):
+                # TODO This test needs to be written if the functionality 
+                # is implemented
+                pass
+            else:
+                for i, (s, t)  in enumerate(cfg["edges"]):
+                    assert(nw[s][t]["test_edge_prop"] == cfg["test_edge_prop"][i])
+
+
+    # Actual test -------------------------------------------------------------
     # Get the groups and their corresponding configurations
     (grps, cfgs) = nw_grps
 

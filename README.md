@@ -10,6 +10,7 @@ While being developed alongside the [Utopia project](https://ts-gitlab.iup.uni-h
 * A few words about the [package structure](#package-structure)
 * and the [testing framework](#testing-framework)
 * [How to use `dantro`](#how-to-use-dantro) in your own project
+* [Known issues and limitations](#known_issues_and_limitations)
 
 #### Further reading
 * [`CHANGELOG.md`](CHANGELOG.md)
@@ -392,3 +393,7 @@ This will create two _files_, one with `values` over `times`, one with `more_val
 
 #### More creators
 In the future, a `DeclarativePlotCreator` will allow to specify – in a declarative syntax – how the data should be loaded, potentially transformed, and then represented in a plot.
+
+
+## Known issues and limitations
+- The `NetworkGroup` does not yet provide the functionality to set edge properties from the data in the members of the group.
