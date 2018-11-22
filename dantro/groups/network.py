@@ -63,10 +63,37 @@ class NetworkGroup(BaseDataGroup):
 
         log.debug("Creating a networkx graph...")
 
+        # # Assure that either the node or the edge container are provided
+        # # to create a senseful graph.
+        # if node_cont is None and edge_cont is None:
+        #     raise ValueError("Neither node container '{}' nor edge container '{}' "
+        #                     "was available in {}, but need at least one of them "
+        #                     "to construct a graph. Check whether your class variables "
+        #                     "_NWG_node_container and _NWG_edge_container "
+        #                     "have the desired values."
+        #                     "".format(  self._NWG_node_container, 
+        #                                 self._NWG_edge_container, 
+        #                                 self.logstr))  
+
         # Check whether the node and edge containers are available
         log.debug("Checking whether the node and edge container are available...")
-        node_cont = self[self._NWG_node_container]
-        edge_cont = self[self._NWG_edge_container]
+        try:
+            node_cont = self[self._NWG_node_container]
+
+        except KeyError as err:
+            raise KeyError("No container with name '{}' available in {}! "
+                        "Check if the class variable _NWG_node_container "
+                        "is set to the correct value."
+                        "".format(self._NWG_node_container, self.logstr)) from err
+
+        try:
+            edge_cont = self[self._NWG_edge_container]
+
+        except KeyError as err:
+            raise KeyError("No container with name '{}' available in {}! "
+                        "Check if the class variable _NWG_edge_container "
+                        "is set to the correct value."
+                        "".format(self._NWG_edge_container, self.logstr)) from err
 
         # Get info on directed and parallel edges from attributes, if not
         # explicitly given

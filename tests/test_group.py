@@ -124,22 +124,40 @@ def nw_grps(nw_grp_cfgs) -> Union[dict, dict]:
     grps = dict()
     for name, cfg in nw_grp_cfgs.items():
         grps[name] = NetworkGroup(name=name, attrs=cfg["attrs"])
+        
+        # Add nodes and edges from config and check for misspelled keys
+        if name == "wrong_nodes":
+            with pytest.raises(KeyError):
+                grps[name].new_container("nodes", Cls=NumpyDataContainer,
+                                data=cfg["nodes"])
+            break
+        else:
+            grps[name].new_container("nodes", Cls=NumpyDataContainer,
+                            data=cfg["nodes"])
 
-        # Add nodes and edges from config
-        grps[name].new_container("nodes", Cls=NumpyDataContainer,
-                          data=cfg["nodes"])
-
-        grps[name].new_container("edges", Cls=NumpyDataContainer,
-                          data=cfg["edges"])
+        if name == "wrong_edges":
+            with pytest.raises(KeyError):
+                grps[name].new_container("edges", Cls=NumpyDataContainer,
+                            data=cfg["edges"])
+            break
+        else:
+            grps[name].new_container("edges", Cls=NumpyDataContainer,
+                            data=cfg["edges"])
 
         # Add node and edge properties to the NetworkGroup
         grps[name].new_container("test_node_prop", Cls=NumpyDataContainer,
-                          data=cfg["test_node_prop"], 
-                          attrs={"is_node_property": True})
+                        data=cfg["test_node_prop"], 
+                        attrs={"is_node_property": True})
 
         grps[name].new_container("test_edge_prop", Cls=NumpyDataContainer,
-                          data=cfg["test_edge_prop"], 
-                          attrs={"is_edge_property": True})
+                        data=cfg["test_edge_prop"], 
+                        attrs={"is_edge_property": True})
+
+    # Make sure to delete the failed cases from the dictionary
+    if "wrong_nodes" in grps.keys():
+        del grps["wrong_nodes"]
+    if "wrong_edges" in grps.keys():
+        del grps["wrong_edges"]
 
     return (grps, nw_grp_cfgs)
 
@@ -597,7 +615,7 @@ def test_network_group_basics(nw_grps):
         attrs = cfg["attrs"]
         directed = attrs["directed"]
         parallel = attrs["parallel"]
-
+        print(name)
 
         ### Case: Graph without any node or edge properties
         # Create the graph without any node or edge properties
