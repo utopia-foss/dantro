@@ -5,6 +5,9 @@
 
 ## v0.5.0 _(WIP)_
 - #33 improves package structure and modularization by creating sub-packages and moving class definitions into separate modules. This changes the import locations from `group` and `container` to `groups` and `containers`; all other import paths should remain valid.
+- #29 implements a `NetworkGroup` that stores network data and enables the direct 
+creation of a `networkx` graph object (`Graph`, `DiGraph`, `MultiGraph`, `MultiDiGraph`)
+with or without vertex properties (edge properties not yet implemented).
 
 ## v0.4.1
 - #32 fixes bugs that occurred in `ParamSpaceGroup` and `MultiversePlotCreator` if the associated `ParamSpace` had zero volume
