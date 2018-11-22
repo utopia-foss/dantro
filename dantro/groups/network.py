@@ -3,8 +3,6 @@
 import logging
 
 import networkx as nx
-from networkx.classes.multidigraph import MultiDiGraph
-from networkx.classes.multigraph import MultiGraph
 
 from ..base import BaseDataGroup
 from ..containers import NumpyDataContainer
@@ -126,33 +124,14 @@ class NetworkGroup(BaseDataGroup):
 
 
     def set_edge_properties(self, g):
-        # Get the edge container 
-        edge_cont = self[self._NWG_edge_container]
-
-        # Gather additional containers that could be used as edge attributes
-        log.debug("Gather edge attribute container.")
-
-        edge_props = {name: cont for name, cont in self.items()
-                      if cont.attrs.get(self._NWG_attr_is_edge_property)}
-
-        log.debug("Set edge properties.")
         # In the case of multigraphs edges can be parallel, thus, it is not
         # sufficient any more to characterize them via their source and target.
         # An additional edge key is necessary to correctly set edge attributes.
-        if isinstance(g, MultiGraph) or isinstance(g, MultiDiGraph):
-            raise NotImplementedError("Adding edge properties to multigraph "
-                                      "objects is not yet implemented!")
-            
-            # for name, cont in edge_props.items():
-            #     # Create a dictionary with the node as key 
-            #     # and the property as value
-            #     props = {(s, t, k) : {name: p} for 
-            #             s, t, p in zip(edge_cont[:,0], edge_cont[:,1], g.edge_key_dict_factory(), cont.data)}
-            #     nx.set_edge_attributes(g, props)
-        else:
-            for name, cont in edge_props.items():
-                # Create a dictionary with the node as key 
-                # and the property as value
-                props = {(s, t) : {name: p} for 
-                        s, t, p in zip(edge_cont[:,0], edge_cont[:,1], cont.data)}
-                nx.set_edge_attributes(g, props)
+        # Further, in the case of unparallel edges networkx does not keep the
+        # order of the edges internally in the construction of the graph object.
+        # That is why adding edge properties to the correct graph cannot be
+        # trivially done after the graph initialization.
+        # NOTE: Adding edges is not yet implemented due to the complications 
+        #       mentioned directly above.
+        raise NotImplementedError("Adding edge properties to multigraph "
+                                    "objects is not yet implemented!")
