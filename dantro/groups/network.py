@@ -17,7 +17,7 @@ class NetworkGroup(BaseDataGroup):
 
     # Define, as class variables, in which containers or attributes to find the
     # info on the nodes and edges.
-    _NWG_node_container = "vertices"
+    _NWG_node_container = "nodes"
     _NWG_edge_container = "edges"
     _NWG_attr_directed = "directed"
     _NWG_attr_parallel = "parallel"
@@ -65,7 +65,7 @@ class NetworkGroup(BaseDataGroup):
 
         # Check whether the node and edge containers are available
         log.debug("Check whether the node and edge container are available.")
-        vtx_cont = self[self._NWG_node_container]
+        node_cont = self[self._NWG_node_container]
         edge_cont = self[self._NWG_edge_container]
 
         # Get info on directed and parallel edges from attributes, if not
@@ -89,7 +89,7 @@ class NetworkGroup(BaseDataGroup):
 
         # Add nodes and edges to the graph
         log.debug("Add nodes and edges to the graph.")
-        g.add_nodes_from(vtx_cont)
+        g.add_nodes_from(node_cont)
         g.add_edges_from(edge_cont)
 
         # Set node properties
@@ -105,21 +105,21 @@ class NetworkGroup(BaseDataGroup):
 
 
     def set_node_properties(self, g):
-        # Get the vertex container
-        vtx_cont = self[self._NWG_node_container]
+        # Get the node container
+        node_cont = self[self._NWG_node_container]
 
         # Gather additional containers that could be used as node attributes
         log.debug("Gather node attribute container.")
 
-        vtx_props = {name: cont for name, cont in self.items()
+        node_props = {name: cont for name, cont in self.items()
                      if cont.attrs.get(self._NWG_attr_is_node_property)}
 
         log.debug("Set node properties.")
 
-        for name, cont in vtx_props.items():
+        for name, cont in node_props.items():
             # Create a dictionary with the node as key 
             # and the property as value
-            props = {v: p for v, p in zip(vtx_cont, cont.data)}
+            props = {n: p for n, p in zip(node_cont, cont.data)}
             nx.set_node_attributes(g, props, name=name)
 
 
