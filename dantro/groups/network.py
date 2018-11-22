@@ -61,23 +61,23 @@ class NetworkGroup(BaseDataGroup):
             **graph_kwargs: Further initialisation kwargs for the graph.
         """
 
-        log.debug("Create a networkx graph.")
+        log.debug("Creating a networkx graph...")
 
         # Check whether the node and edge containers are available
-        log.debug("Check whether the node and edge container are available.")
+        log.debug("Checking whether the node and edge container are available...")
         node_cont = self[self._NWG_node_container]
         edge_cont = self[self._NWG_edge_container]
 
         # Get info on directed and parallel edges from attributes, if not
         # explicitly given
-        if directed is None:
+        if directed is not None:
             directed = self.attrs[self._NWG_attr_directed]
         
-        if parallel_edges is None:
+        if parallel_edges is not None:
             parallel_edges = self.attrs[self._NWG_attr_parallel]
 
         # Create a networkx graph corresponding to the graph properties.
-        log.debug("Create a networkx graph object.")
+        log.debug("Creating a networkx graph object...")
         if not directed and not parallel_edges:
             g = nx.Graph(**graph_kwargs)
         elif directed and not parallel_edges:
@@ -88,7 +88,7 @@ class NetworkGroup(BaseDataGroup):
             g = nx.MultiDiGraph(**graph_kwargs)
 
         # Add nodes and edges to the graph
-        log.debug("Add nodes and edges to the graph.")
+        log.debug("Adding nodes and edges to the graph...")
         g.add_nodes_from(node_cont)
         g.add_edges_from(edge_cont)
 
@@ -109,12 +109,12 @@ class NetworkGroup(BaseDataGroup):
         node_cont = self[self._NWG_node_container]
 
         # Gather additional containers that could be used as node attributes
-        log.debug("Gather node attribute container.")
+        log.debug("Gathering node attribute container...")
 
         node_props = {name: cont for name, cont in self.items()
                      if cont.attrs.get(self._NWG_attr_is_node_property)}
 
-        log.debug("Set node properties.")
+        log.debug("Setting node properties...")
 
         for name, cont in node_props.items():
             # Create a dictionary with the node as key 
