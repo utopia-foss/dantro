@@ -33,7 +33,7 @@ class NetworkGroup(BaseDataGroup):
         Args:
             name (str): The name of this group
             containers (list, optional): A list of containers to add
-            **kwargs: Further initialisation kwargs, e.g. `attrs` ...
+            **kwargs: Further initialization kwargs, e.g. `attrs` ...
         """
 
         log.debug("NetworkGroup.__init__ called.")
@@ -48,7 +48,7 @@ class NetworkGroup(BaseDataGroup):
     def create_graph(self, *, directed: bool=None, parallel_edges: bool=None,
                      with_node_properties: bool=False,
                      with_edge_properties: bool=False,
-                     **graph_kwargs):
+                     **graph_kwargs) -> nx.Graph:
         """Create a networkx graph object.
         
         Args:
@@ -58,42 +58,33 @@ class NetworkGroup(BaseDataGroup):
                 properties.
             with_edge_properties (bool, optional): Create the graph with edge
                 properties.
-            **graph_kwargs: Further initialisation kwargs for the graph.
+            **graph_kwargs: Further initialization kwargs for the graph.
+            
+        Returns:
+            nx.Graph
         """
 
-        log.debug("Creating a networkx graph...")
-
-        # # Assure that either the node or the edge container are provided
-        # # to create a senseful graph.
-        # if node_cont is None and edge_cont is None:
-        #     raise ValueError("Neither node container '{}' nor edge container '{}' "
-        #                     "was available in {}, but need at least one of them "
-        #                     "to construct a graph. Check whether your class variables "
-        #                     "_NWG_node_container and _NWG_edge_container "
-        #                     "have the desired values."
-        #                     "".format(  self._NWG_node_container, 
-        #                                 self._NWG_edge_container, 
-        #                                 self.logstr))  
-
-        # Check whether the node and edge containers are available
-        log.debug("Checking whether the node and edge container are available...")
+        log.debug("Checking whether node and edge container are available...")
+        
         try:
             node_cont = self[self._NWG_node_container]
 
         except KeyError as err:
             raise KeyError("No container with name '{}' available in {}! "
-                        "Check if the class variable _NWG_node_container "
-                        "is set to the correct value."
-                        "".format(self._NWG_node_container, self.logstr)) from err
+                           "Check if the class variable _NWG_node_container "
+                           "is set to the correct value."
+                           "".format(self._NWG_node_container, self.logstr)
+                           ) from err
 
         try:
             edge_cont = self[self._NWG_edge_container]
 
         except KeyError as err:
             raise KeyError("No container with name '{}' available in {}! "
-                        "Check if the class variable _NWG_edge_container "
-                        "is set to the correct value."
-                        "".format(self._NWG_edge_container, self.logstr)) from err
+                           "Check if the class variable _NWG_edge_container "
+                           "is set to the correct value."
+                           "".format(self._NWG_edge_container, self.logstr)
+                           ) from err
 
         # Get info on directed and parallel edges from attributes, if not
         # explicitly given
@@ -105,12 +96,16 @@ class NetworkGroup(BaseDataGroup):
 
         # Create a networkx graph corresponding to the graph properties.
         log.debug("Creating a networkx graph object...")
+        
         if not directed and not parallel_edges:
             g = nx.Graph(**graph_kwargs)
+            
         elif directed and not parallel_edges:
             g = nx.DiGraph(**graph_kwargs)
+            
         elif not directed and parallel_edges:
             g = nx.MultiGraph(**graph_kwargs)
+            
         else:
             g = nx.MultiDiGraph(**graph_kwargs)
 
@@ -131,7 +126,15 @@ class NetworkGroup(BaseDataGroup):
         return g
 
 
-    def set_node_properties(self, g):
+    def set_node_properties(self, g: nx.Graph):
+        """Set the node properties of the given graph using the containers in
+        this group.
+        
+        Which containers are used for node properties is determined by their
+        container attribute; they have to have a boolean attribute set that has
+        the name that is specified in class variable _NWG_attr_is_node_property.
+        """
+        # TODO Could add an argument to only add a subset of available properties
         # Get the node container
         node_cont = self[self._NWG_node_container]
 
@@ -144,21 +147,28 @@ class NetworkGroup(BaseDataGroup):
         log.debug("Setting node properties...")
 
         for name, cont in node_props.items():
-            # Create a dictionary with the node as key 
-            # and the property as value
+            # Create a dictionary with the node as key and the property as value
             props = {n: p for n, p in zip(node_cont, cont.data)}
             nx.set_node_attributes(g, props, name=name)
 
 
-    def set_edge_properties(self, g):
-        # In the case of multigraphs edges can be parallel, thus, it is not
-        # sufficient any more to characterize them via their source and target.
-        # An additional edge key is necessary to correctly set edge attributes.
-        # Further, in the case of unparallel edges networkx does not keep the
-        # order of the edges internally in the construction of the graph object.
-        # That is why adding edge properties to the correct graph cannot be
-        # trivially done after the graph initialization.
-        # NOTE: Adding edges is not yet implemented due to the complications 
-        #       mentioned directly above.
+    def set_edge_properties(self, g: nx.Graph):
+        """Set the edge properties of the given graph using the containers in
+        this group.
+        
+        Which containers are used for edge properties is determined by their
+        container attribute; they have to have a boolean attribute set that has
+        the name that is specified in class variable _NWG_attr_is_edge_property.
+        
+        NOTE: In the case of multigraphs edges can be parallel. Thus, it is not
+        sufficient any more to characterize them via their source and target.
+        An additional edge ID is necessary to correctly set edge attributes.
+        Further, in the case of unparallel edges, networkx does not keep the
+        order of the edges internally in the construction of the graph object.
+        That is why adding edge properties to the correct graph cannot be
+        trivially done _after_ the graph has been initialized.
+        
+        Due to these complications, this method is currently not implemented!
+        """
         raise NotImplementedError("Adding edge properties to multigraph "
                                     "objects is not yet implemented!")
