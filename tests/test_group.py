@@ -2,11 +2,15 @@
 
 from pkg_resources import resource_filename
 import numpy as np
+from typing import Union
 
 import pytest
 
 import numpy as np
 import xarray as xr
+import networkx as nx
+from networkx.classes.multidigraph import MultiDiGraph
+from networkx.classes.multigraph import MultiGraph
 
 from paramspace import ParamSpace, ParamDim
 
@@ -14,6 +18,7 @@ from paramspace import ParamSpace, ParamDim
 # Import the dantro objects to test here
 from dantro.groups import OrderedDataGroup
 from dantro.groups import ParamSpaceGroup, ParamSpaceStateGroup
+from dantro.groups import NetworkGroup
 
 from dantro.containers import MutableSequenceContainer, MutableMappingContainer
 from dantro.containers import NumpyDataContainer
@@ -23,6 +28,7 @@ from dantro.tools import load_yml
 # Local paths -----------------------------------------------------------------
 
 SELECTOR_PATH = resource_filename('tests', 'cfg/selectors.yml')
+NW_GRP_PATH = resource_filename('tests', 'cfg/nw_grps.yml')
 
 from dantro.containers import MutableSequenceContainer, NumpyDataContainer
 
@@ -107,6 +113,40 @@ def selectors() -> dict:
     """
     return load_yml(SELECTOR_PATH)
 
+@pytest.fixture()
+def nw_grp_cfgs() -> dict:
+    """Returns the dict of NetworkGroup configurations"""
+    return load_yml(NW_GRP_PATH)
+
+@pytest.fixture()
+def nw_grps(nw_grp_cfgs) -> Union[dict, dict]:
+    """Creates a NetworkGroup to be tested below"""
+    grps = dict()
+
+    for name, cfg in nw_grp_cfgs.items():
+        grps[name] = NetworkGroup(name=name, attrs=cfg["attrs"])
+        
+        # Add nodes and edges from config
+        # ... if this is not one of the keys where no nodes should be added:
+        # The wrong_* config entries have the nodes or edges missing.
+        if name != "wrong_nodes":
+            grps[name].new_container('nodes', Cls=NumpyDataContainer,
+                                     data=cfg['nodes'])
+
+        if name != "wrong_edges":
+            grps[name].new_container('edges', Cls=NumpyDataContainer,
+                                     data=cfg['edges'])
+
+        # Add node and edge properties to the NetworkGroup
+        grps[name].new_container('test_node_prop', Cls=NumpyDataContainer,
+                                 data=cfg['test_node_prop'], 
+                                 attrs=dict(is_node_property=True))
+
+        grps[name].new_container('test_edge_prop', Cls=NumpyDataContainer,
+                                 data=cfg['test_edge_prop'], 
+                                 attrs=dict(is_edge_property=True))
+
+    return (grps, nw_grp_cfgs)
 
 # Tests -----------------------------------------------------------------------
 
@@ -475,3 +515,160 @@ def test_pspace_group_select_default(psp_grp_default, selectors):
         # Save to dict of all datasets
         print("  got data:", dset, "\n\n\n")
         dsets[name] = dset
+
+
+# NetworkGroup ----------------------------------------------------------------
+
+def test_network_group_basics(nw_grps):
+    """Test the NetworkGroup"""
+
+    # Helper functions --------------------------------------------------------
+    def basic_network_creation_test(nw, cfg):
+        # Get the attributes
+        attrs = cfg["attrs"]
+        directed = attrs["directed"]
+        parallel = attrs["parallel"]
+
+        # Check that the network is not empty, (not) directed ...
+        assert(nx.is_empty(nw) == False)
+        assert(nx.is_directed(nw) == directed)
+
+        # Check the data type of the network
+        if (not directed and not parallel):
+            assert(type(nw) == nx.Graph)
+        elif (directed and not parallel):
+            assert(type(nw) == nx.DiGraph)
+        elif (not directed and parallel):
+            assert(type(nw) == nx.MultiGraph)
+        else:
+            assert(type(nw) == nx.MultiDiGraph)
+
+        # Check that the nodes and edges given in the config coincide with
+        # the ones stored inside of the network
+        for v in cfg["nodes"]:
+            assert(v in nx.nodes(nw))
+        for e in cfg["edges"]:
+            assert(tuple(e) in nx.edges(nw))
+
+
+    def node_property_test(nw, cfg, *, no_property: bool=False):
+        """Check that the property stored in the node is equal to the property
+        extracted from the config file
+        NOTE: For this assertion to work without problems, the ordering of 
+            the nodes in the config file must not be altered!"""
+        if no_property: 
+            # Check that there is no node test properties
+            for v in nw.nodes():
+                with pytest.raises(KeyError):
+                    nw[v]["test_node_prop"]
+        else:
+            for p, p_cfg in zip(nx.get_node_attributes(nw, 
+                                    name="test_node_prop").values(),
+                                cfg["test_node_prop"]):
+                assert(p == p_cfg)
+        
+
+    def edge_property_test(nw, cfg, *, no_property: bool=False):
+        """Check that the property stored in the node is equal to the property
+        extracted from the config file
+        NOTE: For this assertion to work without problems, the ordering of 
+            the nodes in the config file must not be altered!"""
+        if no_property: 
+            # Check that there is no edge test properties
+            for e in nw.edges():
+                with pytest.raises(KeyError):
+                    nw[e]["test_edge_prop"]
+        else:
+            # In the case of multigraphs edges can be parallel, thus, it is not
+            # sufficient any more to characterize them via their source and target.
+            # An additional edge key is necessary to correctly set edge attributes.
+            if isinstance(nw, MultiDiGraph) or isinstance(nw, MultiGraph):
+                # TODO This test needs to be written if the functionality 
+                # is implemented
+                pass
+            else:
+                for i, (s, t)  in enumerate(cfg["edges"]):
+                    assert(nw[s][t]["test_edge_prop"] == cfg["test_edge_prop"][i])
+
+
+    # Actual test -------------------------------------------------------------
+    # Get the groups and their corresponding configurations
+    (grps, cfgs) = nw_grps
+
+    for name, grp in grps.items():
+        print("Testing configuration {} ...".format(name))
+
+        # Get the config
+        cfg = cfgs[name]
+
+        # Get the attributes
+        attrs = cfg['attrs']
+        directed = attrs['directed']
+        parallel = attrs['parallel']
+
+        ### Case: Graph without any node or edge properties
+        # Create the graph without any node or edge properties
+        # Check the regular cases
+        if name not in ['wrong_nodes', 'wrong_edges']:
+            # This should work
+            nw = grp.create_graph(directed=directed, parallel_edges=parallel)
+
+        # Also test the failing cases
+        elif name == 'wrong_nodes':
+            with pytest.raises(KeyError,
+                               match=r"Check if .* _NWG_node_container"):
+                grp.create_graph()
+
+            # Nothing else to check
+            continue
+
+        elif name == 'wrong_edges':
+            with pytest.raises(KeyError,
+                               match=r"Check if .* _NWG_edge_container"):
+                grp.create_graph()
+
+            # Nothing else to check
+            continue
+
+
+        # Check that the basic graph creation was succesfull
+        basic_network_creation_test(nw, cfg)
+
+        # Check that there are no node or edge properties
+        node_property_test(nw, cfg, no_property=True)
+        edge_property_test(nw, cfg, no_property=True)
+
+
+        ### Case: Graph with node and edge properties
+        # Create a new graph with node and edge properties 
+        # or just edge properties.
+        with pytest.raises(NotImplementedError):
+            grp.create_graph(directed=directed, 
+                             parallel_edges=parallel,
+                             with_node_properties=True,
+                             with_edge_properties=True)        
+
+        with pytest.raises(NotImplementedError):
+            grp.create_graph(directed=directed, 
+                             parallel_edges=parallel,
+                             with_node_properties=False,
+                             with_edge_properties=True)    
+
+
+        ### Case: Graph with node but no edge properties
+        nw_vp = grp.create_graph(directed=directed,
+                                 parallel_edges=parallel,
+                                 with_node_properties=True,
+                                 with_edge_properties=False)
+
+        # Check that the basic graph creation was succesfull
+        basic_network_creation_test(nw_vp, cfg)
+
+        # Test that the node properties are set correctly
+        # but that there are no edge properties
+        node_property_test(nw_vp, cfg, no_property=False)
+        edge_property_test(nw_vp, cfg, no_property=True)
+
+        for e in nw_vp.edges():
+            with pytest.raises(KeyError):
+                nw_vp[e]["test_edge_prop"]

@@ -1,0 +1,59 @@
+# Configuration (including data) for NetworkGroup tests
+---
+basic_dir_par: &base
+  nodes: [0,1,2,3,4]
+  edges: [ [0,1],
+           [3,1],
+           [4,2],
+           [0,3],
+           [2,1]]
+  test_node_prop: [2, 53, 54, 654, 7]
+  test_edge_prop: ["a", "b", "c", "d", "e"]
+  
+  attrs:
+    directed: True
+    parallel: True
+
+basic_ndir_par: 
+  <<: *base
+  attrs:
+    directed: False
+    parallel: True
+
+basic_dir_npar:
+  <<: *base
+  attrs:
+    directed: True
+    parallel: False
+
+basic_ndir_npar:
+  <<: *base
+  attrs:
+    directed: False
+    parallel: False
+
+wrong_edges:
+  nodes: [0,1,2,3,4]
+  edsches: [ [0,1],   # sic!
+          [3,1],
+          [4,2],
+          [0,3],
+          [2,1]]
+  test_node_prop: [2, 53, 54, 654, 7]
+  test_edge_prop: ["a", "b", "c", "d", "e"]
+  attrs:
+    directed: True
+    parallel: False
+
+wrong_nodes:
+  notessss: [0,1,2,3,4]  # sic!
+  edges: [ [0,1],
+          [3,1],
+          [4,2],
+          [0,3],
+          [2,1]]
+  test_node_prop: [2, 53, 54, 654, 7]
+  test_edge_prop: ["a", "b", "c", "d", "e"]
+  attrs:
+    directed: True
+    parallel: False
