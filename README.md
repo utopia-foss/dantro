@@ -8,7 +8,8 @@ While being developed alongside the [Utopia project](https://ts-gitlab.iup.uni-h
 
 #### What you will find in this README
 * A few words about the [package structure](#package-structure)
-* and the [testing framework](#testing-framework)
+* The [testing framework](#testing-framework)
+* [Installation](#installation)
 * [How to use `dantro`](#how-to-use-dantro) in your own project
 * [Known issues and limitations](#known_issues_and_limitations)
 
