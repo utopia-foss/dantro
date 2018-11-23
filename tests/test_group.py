@@ -122,42 +122,29 @@ def nw_grp_cfgs() -> dict:
 def nw_grps(nw_grp_cfgs) -> Union[dict, dict]:
     """Creates a NetworkGroup to be tested below"""
     grps = dict()
+
     for name, cfg in nw_grp_cfgs.items():
         grps[name] = NetworkGroup(name=name, attrs=cfg["attrs"])
         
-        # Add nodes and edges from config and check for misspelled keys
-        if name == "wrong_nodes":
-            with pytest.raises(KeyError):
-                grps[name].new_container("nodes", Cls=NumpyDataContainer,
-                                data=cfg["nodes"])
-            break
-        else:
-            grps[name].new_container("nodes", Cls=NumpyDataContainer,
-                            data=cfg["nodes"])
+        # Add nodes and edges from config
+        # ... if this is not one of the keys where no nodes should be added:
+        # The wrong_* config entries have the nodes or edges missing.
+        if name != "wrong_nodes":
+            grps[name].new_container('nodes', Cls=NumpyDataContainer,
+                                     data=cfg['nodes'])
 
-        if name == "wrong_edges":
-            with pytest.raises(KeyError):
-                grps[name].new_container("edges", Cls=NumpyDataContainer,
-                            data=cfg["edges"])
-            break
-        else:
-            grps[name].new_container("edges", Cls=NumpyDataContainer,
-                            data=cfg["edges"])
+        if name != "wrong_edges":
+            grps[name].new_container('edges', Cls=NumpyDataContainer,
+                                     data=cfg['edges'])
 
         # Add node and edge properties to the NetworkGroup
-        grps[name].new_container("test_node_prop", Cls=NumpyDataContainer,
-                        data=cfg["test_node_prop"], 
-                        attrs={"is_node_property": True})
+        grps[name].new_container('test_node_prop', Cls=NumpyDataContainer,
+                                 data=cfg['test_node_prop'], 
+                                 attrs=dict(is_node_property=True))
 
-        grps[name].new_container("test_edge_prop", Cls=NumpyDataContainer,
-                        data=cfg["test_edge_prop"], 
-                        attrs={"is_edge_property": True})
-
-    # Make sure to delete the failed cases from the dictionary
-    if "wrong_nodes" in grps.keys():
-        del grps["wrong_nodes"]
-    if "wrong_edges" in grps.keys():
-        del grps["wrong_edges"]
+        grps[name].new_container('test_edge_prop', Cls=NumpyDataContainer,
+                                 data=cfg['test_edge_prop'], 
+                                 attrs=dict(is_edge_property=True))
 
     return (grps, nw_grp_cfgs)
 
@@ -502,6 +489,7 @@ def test_pspace_group_select_missing_data(selectors, psp_grp_missing_data):
     with pytest.raises(ValueError, match="Invalid value for argument `method"):
         pgrp.select(field="cfg", method="some_invalid_method")
 
+
 def test_pspace_group_select_default(psp_grp_default, selectors):
     """Select should also work if only the default universe is present,
     i.e. without any parameter dimensions defined."""
@@ -608,18 +596,40 @@ def test_network_group_basics(nw_grps):
     (grps, cfgs) = nw_grps
 
     for name, grp in grps.items():
+        print("Testing configuration {} ...".format(name))
+
         # Get the config
         cfg = cfgs[name]
 
         # Get the attributes
-        attrs = cfg["attrs"]
-        directed = attrs["directed"]
-        parallel = attrs["parallel"]
-        print(name)
+        attrs = cfg['attrs']
+        directed = attrs['directed']
+        parallel = attrs['parallel']
 
         ### Case: Graph without any node or edge properties
         # Create the graph without any node or edge properties
-        nw = grp.create_graph(directed=directed, parallel_edges=parallel)
+        # Check the regular cases
+        if name not in ['wrong_nodes', 'wrong_edges']:
+            # This should work
+            nw = grp.create_graph(directed=directed, parallel_edges=parallel)
+
+        # Also test the failing cases
+        elif name == 'wrong_nodes':
+            with pytest.raises(KeyError,
+                               match=r"Check if .* _NWG_node_container"):
+                grp.create_graph()
+
+            # Nothing else to check
+            continue
+
+        elif name == 'wrong_edges':
+            with pytest.raises(KeyError,
+                               match=r"Check if .* _NWG_edge_container"):
+                grp.create_graph()
+
+            # Nothing else to check
+            continue
+
 
         # Check that the basic graph creation was succesfull
         basic_network_creation_test(nw, cfg)
@@ -634,21 +644,22 @@ def test_network_group_basics(nw_grps):
         # or just edge properties.
         with pytest.raises(NotImplementedError):
             grp.create_graph(directed=directed, 
-                            parallel_edges=parallel,
-                            with_node_properties=True,
-                            with_edge_properties=True)        
+                             parallel_edges=parallel,
+                             with_node_properties=True,
+                             with_edge_properties=True)        
 
         with pytest.raises(NotImplementedError):
             grp.create_graph(directed=directed, 
-                            parallel_edges=parallel,
-                            with_node_properties=False,
-                            with_edge_properties=True)    
+                             parallel_edges=parallel,
+                             with_node_properties=False,
+                             with_edge_properties=True)    
 
 
         ### Case: Graph with node but no edge properties
-        nw_vp = grp.create_graph(directed=directed, parallel_edges=parallel,
-                                with_node_properties=True,
-                                with_edge_properties=False)
+        nw_vp = grp.create_graph(directed=directed,
+                                 parallel_edges=parallel,
+                                 with_node_properties=True,
+                                 with_edge_properties=False)
 
         # Check that the basic graph creation was succesfull
         basic_network_creation_test(nw_vp, cfg)
