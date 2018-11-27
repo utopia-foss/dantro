@@ -99,6 +99,27 @@ class Hdf5LoaderMixin:
             DataContainer, respectively.
             """
 
+            def get_map_attr_value(attrs) -> str:
+                """As the map attribute can be a bytestring, let this function
+                retrieve it as python string.
+
+                This relies on the `map_attr` argument from the outer scope
+                """
+                attr_val = attrs[map_attr]
+
+                # Special case: numpy array of bytestring
+                if isinstance(attr_val, np.ndarray):
+                    # Convert it to a string
+                    attr_val = attr_val.tostring()
+
+                # Still might need to decode it:
+                try:
+                    return attr_val.decode("utf8")
+
+                except AttributeError:
+                    # Nope, is a string without the .decode attribute
+                    return attr_val
+
             # Go through the elements of the source object
             for key, obj in src.items():
                 if lower_case_keys and isinstance(key, str):
@@ -113,7 +134,7 @@ class Hdf5LoaderMixin:
                     if enable_mapping and GroupMap and attrs.get(map_attr):
                         # Try to resolve the mapping
                         try:
-                            _GroupCls = GroupMap[attrs[map_attr]]
+                            _GroupCls = GroupMap[get_map_attr_value(attrs)]
 
                         except KeyError:
                             # Fall back to default
@@ -121,7 +142,7 @@ class Hdf5LoaderMixin:
                                         "attribute %s='%s' to a DataGroup "
                                         "class. Available keys: %s. Falling "
                                         "back to default class ...",
-                                        map_attr, attrs[map_attr],
+                                        map_attr, get_map_attr_value(attrs),
                                         ", ".join([k
                                                    for k in GroupMap.keys()]))
                             _GroupCls = None
@@ -167,7 +188,7 @@ class Hdf5LoaderMixin:
                     if enable_mapping and DsetMap and attrs.get(map_attr):
                         # Try to resolve the mapping
                         try:
-                            _DsetCls = DsetMap[attrs[map_attr]]
+                            _DsetCls = DsetMap[get_map_attr_value(attrs)]
 
                         except KeyError:
                             # Fall back to default
@@ -175,7 +196,7 @@ class Hdf5LoaderMixin:
                                         "attribute %s='%s' to a DataContainer "
                                         "class. Available keys: %s. Falling "
                                         "back to default class %s...",
-                                        map_attr, attrs[map_attr],
+                                        map_attr, get_map_attr_value(attrs),
                                         ", ".join([k for k in DsetMap.keys()]),
                                         DsetCls.__name__)
                             _DsetCls = DsetCls
