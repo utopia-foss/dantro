@@ -162,13 +162,16 @@ class NetworkGroup(BaseDataGroup):
         container attribute; they have to have a boolean attribute set that has
         the name that is specified in the class variable
         _NWG_attr_is_node_attribute.
-
+        
         CAREFUL: This assumes that the groups node container is ordered in the
                  same way as the container that the attributes are read from is
                  ordered. The attribute values are not selected by node ID, but
                  just by their order within the container!
-                 As a consistency check, the length of the node container and
-                 the attribute data is performed.
+                 As a consistency check, the shape of the node container and
+                 the attribute data is compared; it needs to be the same to
+                 not raise an error.
+                 Additionally, the node container shape is checked against the
+                 number of nodes in the graph.
         
         Args:
             g (nx.Graph): The graph object to set the node attributes of
@@ -176,9 +179,22 @@ class NetworkGroup(BaseDataGroup):
                 these containers are used instead of those in this group. This
                 argument can also be used to select only a subset of the
                 containers in this group.
+        
+        Raises:
+            ValueError: If node container size did not match number of nodes or
+                node container shape did not match attribute data shape.
         """
         # Get the node container to associate node IDs
         node_cont = self[self._NWG_node_container]
+
+        # Make sure the network did not change the number of vertices
+        if g.number_of_nodes() != node_cont.shape[0]:
+            raise ValueError("Number of nodes ({}) is not the same as it was "
+                             "when constructing the graph ({}). Refusing to "
+                             "add node attributes, because the association "
+                             "of node IDs and attributes might be wrong!"
+                             "".format(g.number_of_nodes(),
+                                       node_cont.shape[0]))
 
         # Will need to select by attribute if all containers in this group are
         # to be used

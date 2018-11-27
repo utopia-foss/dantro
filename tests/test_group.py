@@ -668,7 +668,7 @@ def test_network_group_basics(nw_grps):
         ### Case: Graph with only node attributes
         # Data can be bad
         if name == "bad_node_attr":
-            with pytest.raises(ValueError, match="Refusing to add these"):
+            with pytest.raises(ValueError, match="do not match in shape:"):
                 grp.create_graph(with_node_attributes=True)
 
             # Nothing else to test
@@ -691,9 +691,16 @@ def test_network_group_basics(nw_grps):
 
         # Test that the node attributes are set correctly
         # but that there are no edge attributes
-        node_attribute_test(nw_vp, cfg, no_attribute=False)
+        node_attribute_test(nw_vp, cfg)
         edge_attribute_test(nw_vp, cfg, no_attribute=True)
 
         for e in nw_vp.edges():
             with pytest.raises(KeyError):
                 nw_vp[e]["test_edge_attr"]
+
+        # Add a single node; now setting attributes should fail
+        nw_vp2 = grp.create_graph()
+        nw_vp2.add_node(42)
+
+        with pytest.raises(ValueError, match=r"Number of nodes .* Refusing"):
+            grp.set_node_attributes(nw_vp2)
