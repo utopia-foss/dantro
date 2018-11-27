@@ -113,7 +113,12 @@ class Hdf5LoaderMixin:
                     attr_val = attr_val.tostring()
 
                 # Still might need to decode it:
-                return attr_val.decode("utf8")
+                try:
+                    return attr_val.decode("utf8")
+
+                except AttributeError:
+                    # Nope, is a string without the .decode attribute
+                    return attr_val
 
             # Go through the elements of the source object
             for key, obj in src.items():
