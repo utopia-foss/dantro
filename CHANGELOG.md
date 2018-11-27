@@ -2,6 +2,8 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.5.1
+- !32 fixes bug in hdf5 loader mixin.
 
 ## v0.5.0
 - #33 improves package structure and modularization by creating sub-packages and moving class definitions into separate modules. This changes the import locations from `group` and `container` to `groups` and `containers`; all other import paths should remain valid.
