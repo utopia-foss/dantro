@@ -3,6 +3,7 @@
 import logging
 
 import networkx as nx
+import networkx.exception
 
 from ..base import BaseDataGroup
 from ..containers import NumpyDataContainer
@@ -109,10 +110,24 @@ class NetworkGroup(BaseDataGroup):
         else:
             g = nx.MultiDiGraph(**graph_kwargs)
 
-        # Add nodes and edges to the graph
-        log.debug("Adding nodes and edges to the graph...")
+        # Add nodes to the graph
+        log.debug("Adding nodes to the graph...")
         g.add_nodes_from(node_cont)
-        g.add_edges_from(edge_cont)
+        
+        # Add edges to the graph
+        log.debug("Adding edges to the graph...")
+        try:
+            g.add_edges_from(edge_cont)
+        
+        except networkx.exception.NetworkXError as err:
+            # Probably the data had an unexpected shape. 
+            # Just try transposing :)
+            try:
+                g.add_edges_from(edge_cont.T)
+            
+            except:
+                # It doesn't work. Give up on it... :(
+                raise err
 
         # Set node properties
         if with_node_properties:

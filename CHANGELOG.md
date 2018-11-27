@@ -2,6 +2,9 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.5.2
+- !33 allows using transposed edge specifications in `NetworkGroup` for creation of an `nx.Graph`
+
 ## v0.5.1
 - !32 fixes bug in hdf5 loader mixin.
 
