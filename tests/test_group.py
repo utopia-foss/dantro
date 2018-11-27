@@ -9,6 +9,7 @@ import pytest
 import numpy as np
 import xarray as xr
 import networkx as nx
+import networkx.exception
 from networkx.classes.multidigraph import MultiDiGraph
 from networkx.classes.multigraph import MultiGraph
 
@@ -523,32 +524,43 @@ def test_network_group_basics(nw_grps):
     """Test the NetworkGroup"""
 
     # Helper functions --------------------------------------------------------
-    def basic_network_creation_test(nw, cfg):
+    def basic_network_creation_test(nw, cfg, *, name: str):
         # Get the attributes
         attrs = cfg["attrs"]
         directed = attrs["directed"]
         parallel = attrs["parallel"]
 
         # Check that the network is not empty, (not) directed ...
-        assert(nx.is_empty(nw) == False)
-        assert(nx.is_directed(nw) == directed)
+        assert nx.is_empty(nw) == False
+        assert nx.is_directed(nw) == directed
 
         # Check the data type of the network
-        if (not directed and not parallel):
-            assert(type(nw) == nx.Graph)
-        elif (directed and not parallel):
-            assert(type(nw) == nx.DiGraph)
-        elif (not directed and parallel):
-            assert(type(nw) == nx.MultiGraph)
+        if not directed and not parallel:
+            assert isinstance(nw, nx.Graph)
+
+        elif directed and not parallel:
+            assert isinstance(nw, nx.DiGraph)
+
+        elif not directed and parallel:
+            assert isinstance(nw, nx.MultiGraph)
+
         else:
-            assert(type(nw) == nx.MultiDiGraph)
+            assert isinstance(nw, nx.MultiDiGraph)
 
         # Check that the nodes and edges given in the config coincide with
         # the ones stored inside of the network
-        for v in cfg["nodes"]:
-            assert(v in nx.nodes(nw))
-        for e in cfg["edges"]:
-            assert(tuple(e) in nx.edges(nw))
+        nodes = cfg["nodes"]
+        edges = cfg["edges"]
+
+        for v in nodes:
+            assert v in nx.nodes(nw)
+        
+        # Need to preprocess the case with transposed edges
+        if name == "transposed_edges":
+            edges = [[edges[0][i], edges[1][i]] for i,_ in enumerate(edges[0])]
+
+        for e in edges:
+            assert tuple(e) in nx.edges(nw)
 
 
     def node_property_test(nw, cfg, *, no_property: bool=False):
@@ -565,7 +577,7 @@ def test_network_group_basics(nw_grps):
             for p, p_cfg in zip(nx.get_node_attributes(nw, 
                                     name="test_node_prop").values(),
                                 cfg["test_node_prop"]):
-                assert(p == p_cfg)
+                assert p == p_cfg
         
 
     def edge_property_test(nw, cfg, *, no_property: bool=False):
@@ -586,9 +598,10 @@ def test_network_group_basics(nw_grps):
                 # TODO This test needs to be written if the functionality 
                 # is implemented
                 pass
+
             else:
                 for i, (s, t)  in enumerate(cfg["edges"]):
-                    assert(nw[s][t]["test_edge_prop"] == cfg["test_edge_prop"][i])
+                    assert nw[s][t]["test_edge_prop"] == cfg["test_edge_prop"][i]
 
 
     # Actual test -------------------------------------------------------------
@@ -609,7 +622,7 @@ def test_network_group_basics(nw_grps):
         ### Case: Graph without any node or edge properties
         # Create the graph without any node or edge properties
         # Check the regular cases
-        if name not in ['wrong_nodes', 'wrong_edges']:
+        if name not in ['wrong_nodes', 'wrong_edges', 'bad_edges']:
             # This should work
             nw = grp.create_graph(directed=directed, parallel_edges=parallel)
 
@@ -630,9 +643,17 @@ def test_network_group_basics(nw_grps):
             # Nothing else to check
             continue
 
+        elif name == 'bad_edges':
+            with pytest.raises(nx.exception.NetworkXError,
+                               match="must be a 2-tuple or 3-tuple."):
+                grp.create_graph()
+
+            # Nothing else to check
+            continue
+
 
         # Check that the basic graph creation was succesfull
-        basic_network_creation_test(nw, cfg)
+        basic_network_creation_test(nw, cfg, name=name)
 
         # Check that there are no node or edge properties
         node_property_test(nw, cfg, no_property=True)
@@ -662,7 +683,7 @@ def test_network_group_basics(nw_grps):
                                  with_edge_properties=False)
 
         # Check that the basic graph creation was succesfull
-        basic_network_creation_test(nw_vp, cfg)
+        basic_network_creation_test(nw_vp, cfg, name=name)
 
         # Test that the node properties are set correctly
         # but that there are no edge properties
