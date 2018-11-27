@@ -2,6 +2,9 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.5.3
+- #35 makes changes to `NetworkGroup` to concur to the NetworkX interface and adds some tweaks to the `set_node_attributes` function.
+
 ## v0.5.2
 - !33 allows using transposed edge specifications in `NetworkGroup` for creation of an `nx.Graph`
 
