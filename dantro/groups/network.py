@@ -151,6 +151,10 @@ class NetworkGroup(BaseDataGroup):
             self.set_edge_attributes(g)
 
         # Return the graph
+        log.info("Successfully created graph (%d node%s, %d edge%s) from %s.",
+                 g.number_of_nodes(), "s" if g.number_of_nodes() != 1 else "",
+                 g.number_of_edges(), "s" if g.number_of_edges() != 1 else "",
+                 self.logstr)
         return g
 
 
@@ -235,6 +239,9 @@ class NetworkGroup(BaseDataGroup):
 
             # Set the attributes using this dictionary
             nx.set_node_attributes(g, attr_dict, name=name)
+
+            # Inform about it
+            log.info("Successfully added node attribute '{}' to graph.", name)
 
 
     def set_edge_attributes(self, g: nx.Graph):
