@@ -6,7 +6,7 @@ from setuptools import setup, find_packages
 install_deps = [
     'h5py>=2.7.0',
     'numpy>=1.14',
-    'matplotlib==2.2.3',  # FIXME should use matplotlib3 and above
+    'matplotlib>=2.2.3',
     'xarray>=0.10.9',
     'networkx>=2.2',
     'paramspace>=2.1.0'
