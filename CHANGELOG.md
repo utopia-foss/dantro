@@ -2,7 +2,7 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
-## v0.5.4
+## v0.5.3
 - !35 allows matplotlib versions larger than the (python2 backwards compatible) version 2.2.3, which is important to keep up with new matplotlib features.
 
 ## v0.5.2
