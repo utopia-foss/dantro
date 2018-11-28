@@ -29,7 +29,7 @@ class NetworkGroup(BaseDataGroup):
     # Define allowed container types
     _ALLOWED_CONT_TYPES = (NumpyDataContainer,)
 
-    def __init__(self, *, name: str,  containers: list=None, **kwargs):
+    def __init__(self, *, name: str, containers: list=None, **kwargs):
         """Initialize a NetworkGroup from the list of given containers.
         
         Args:
@@ -58,7 +58,8 @@ class NetworkGroup(BaseDataGroup):
                 value given by the group attribute with name _NWG_attr_directed
                 is used instead.
             parallel_edges (bool, optional): If true, the graph will allow
-                parallel edges. If not given, the 
+                parallel edges. If not given, the value is tried to be read
+                from the group attribute with name _NWG_attr_parallel.
             with_node_attributes (bool, optional): Additionally load the node
                 attributes into the graph by looking at those containers in
                 this group that have the attribute with name given by class
