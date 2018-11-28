@@ -138,14 +138,14 @@ def nw_grps(nw_grp_cfgs) -> Union[dict, dict]:
             grps[name].new_container('edges', Cls=NumpyDataContainer,
                                      data=cfg['edges'])
 
-        # Add node and edge properties to the NetworkGroup
-        grps[name].new_container('test_node_prop', Cls=NumpyDataContainer,
-                                 data=cfg['test_node_prop'], 
-                                 attrs=dict(is_node_property=True))
+        # Add node and edge attributes to the NetworkGroup
+        grps[name].new_container('test_node_attr', Cls=NumpyDataContainer,
+                                 data=cfg['test_node_attr'], 
+                                 attrs=dict(is_node_attribute=True))
 
-        grps[name].new_container('test_edge_prop', Cls=NumpyDataContainer,
-                                 data=cfg['test_edge_prop'], 
-                                 attrs=dict(is_edge_property=True))
+        grps[name].new_container('test_edge_attr', Cls=NumpyDataContainer,
+                                 data=cfg['test_edge_attr'], 
+                                 attrs=dict(is_edge_attribute=True))
 
     return (grps, nw_grp_cfgs)
 
@@ -563,45 +563,53 @@ def test_network_group_basics(nw_grps):
             assert tuple(e) in nx.edges(nw)
 
 
-    def node_property_test(nw, cfg, *, no_property: bool=False):
+    def node_attribute_test(nw, cfg, *, no_attribute: bool=False):
         """Check that the property stored in the node is equal to the property
-        extracted from the config file
+        extracted from the config file.
+
         NOTE: For this assertion to work without problems, the ordering of 
-            the nodes in the config file must not be altered!"""
-        if no_property: 
-            # Check that there is no node test properties
+              the nodes in the config file must not be altered!
+        """
+        if no_attribute: 
+            # Check that there is no node test attribute
             for v in nw.nodes():
                 with pytest.raises(KeyError):
-                    nw[v]["test_node_prop"]
-        else:
-            for p, p_cfg in zip(nx.get_node_attributes(nw, 
-                                    name="test_node_prop").values(),
-                                cfg["test_node_prop"]):
-                assert p == p_cfg
+                    nw[v]["test_node_attr"]
+
+            return
+
+        # Compare given attribute values with those from the config
+        node_attrs = nx.get_node_attributes(nw, name="test_node_attr")
+
+        for a, a_cfg in zip(node_attrs.values(), cfg["test_node_attr"]):
+            assert a == a_cfg
         
 
-    def edge_property_test(nw, cfg, *, no_property: bool=False):
+    def edge_attribute_test(nw, cfg, *, no_attribute: bool=False):
         """Check that the property stored in the node is equal to the property
-        extracted from the config file
+        extracted from the config file.
+
         NOTE: For this assertion to work without problems, the ordering of 
-            the nodes in the config file must not be altered!"""
-        if no_property: 
-            # Check that there is no edge test properties
+              the nodes in the config file must not be altered!
+        """
+        if no_attribute: 
+            # Check that there is no edge test attributes
             for e in nw.edges():
                 with pytest.raises(KeyError):
-                    nw[e]["test_edge_prop"]
-        else:
-            # In the case of multigraphs edges can be parallel, thus, it is not
-            # sufficient any more to characterize them via their source and target.
-            # An additional edge key is necessary to correctly set edge attributes.
-            if isinstance(nw, MultiDiGraph) or isinstance(nw, MultiGraph):
-                # TODO This test needs to be written if the functionality 
-                # is implemented
-                pass
+                    nw[e]["test_edge_attr"]
+            return
 
-            else:
-                for i, (s, t)  in enumerate(cfg["edges"]):
-                    assert nw[s][t]["test_edge_prop"] == cfg["test_edge_prop"][i]
+        # In the case of multigraphs edges can be parallel, thus, it is not
+        # sufficient any more to characterize them via their source and target.
+        # An additional edge key is necessary to correctly set edge attributes.
+        if isinstance(nw, MultiDiGraph) or isinstance(nw, MultiGraph):
+            # TODO This test needs to be written if the functionality 
+            # is implemented
+            pass
+
+        else:
+            for i, (s, t)  in enumerate(cfg["edges"]):
+                assert nw[s][t]["test_edge_attr"] == cfg["test_edge_attr"][i]
 
 
     # Actual test -------------------------------------------------------------
@@ -616,15 +624,13 @@ def test_network_group_basics(nw_grps):
 
         # Get the attributes
         attrs = cfg['attrs']
-        directed = attrs['directed']
-        parallel = attrs['parallel']
 
-        ### Case: Graph without any node or edge properties
-        # Create the graph without any node or edge properties
+        ### Case: Graph without any node or edge attributes
+        # Create the graph without any node or edge attributes
         # Check the regular cases
         if name not in ['wrong_nodes', 'wrong_edges', 'bad_edges']:
             # This should work
-            nw = grp.create_graph(directed=directed, parallel_edges=parallel)
+            nw = grp.create_graph()
 
         # Also test the failing cases
         elif name == 'wrong_nodes':
@@ -645,7 +651,7 @@ def test_network_group_basics(nw_grps):
 
         elif name == 'bad_edges':
             with pytest.raises(nx.exception.NetworkXError,
-                               match="must be a 2-tuple or 3-tuple."):
+                               match="must be a 2-tuple, 3-tuple or 4-tuple."):
                 grp.create_graph()
 
             # Nothing else to check
@@ -655,41 +661,46 @@ def test_network_group_basics(nw_grps):
         # Check that the basic graph creation was succesfull
         basic_network_creation_test(nw, cfg, name=name)
 
-        # Check that there are no node or edge properties
-        node_property_test(nw, cfg, no_property=True)
-        edge_property_test(nw, cfg, no_property=True)
+        # Check that there are no node or edge attributes
+        node_attribute_test(nw, cfg, no_attribute=True)
+        edge_attribute_test(nw, cfg, no_attribute=True)
 
+        ### Case: Graph with only node attributes
+        # Data can be bad
+        if name == "bad_node_attr":
+            with pytest.raises(ValueError, match="do not match in shape:"):
+                grp.create_graph(with_node_attributes=True)
 
-        ### Case: Graph with node and edge properties
-        # Create a new graph with node and edge properties 
-        # or just edge properties.
+            # Nothing else to test
+            continue
+
+        # else:
+        nw_vp = grp.create_graph(with_node_attributes=True)
+
+        ### Case: Graph with only edge attributes
         with pytest.raises(NotImplementedError):
-            grp.create_graph(directed=directed, 
-                             parallel_edges=parallel,
-                             with_node_properties=True,
-                             with_edge_properties=True)        
+            grp.create_graph(with_edge_attributes=True)
 
+        ### Case: Graph with node and edge attributes
         with pytest.raises(NotImplementedError):
-            grp.create_graph(directed=directed, 
-                             parallel_edges=parallel,
-                             with_node_properties=False,
-                             with_edge_properties=True)    
-
-
-        ### Case: Graph with node but no edge properties
-        nw_vp = grp.create_graph(directed=directed,
-                                 parallel_edges=parallel,
-                                 with_node_properties=True,
-                                 with_edge_properties=False)
+            grp.create_graph(with_node_attributes=True,
+                             with_edge_attributes=True)
 
         # Check that the basic graph creation was succesfull
         basic_network_creation_test(nw_vp, cfg, name=name)
 
-        # Test that the node properties are set correctly
-        # but that there are no edge properties
-        node_property_test(nw_vp, cfg, no_property=False)
-        edge_property_test(nw_vp, cfg, no_property=True)
+        # Test that the node attributes are set correctly
+        # but that there are no edge attributes
+        node_attribute_test(nw_vp, cfg)
+        edge_attribute_test(nw_vp, cfg, no_attribute=True)
 
         for e in nw_vp.edges():
             with pytest.raises(KeyError):
-                nw_vp[e]["test_edge_prop"]
+                nw_vp[e]["test_edge_attr"]
+
+        # Add a single node; now setting attributes should fail
+        nw_vp2 = grp.create_graph()
+        nw_vp2.add_node(42)
+
+        with pytest.raises(ValueError, match=r"Number of nodes .* Refusing"):
+            grp.set_node_attributes(nw_vp2)
