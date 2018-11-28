@@ -6,7 +6,7 @@ from setuptools import setup, find_packages
 install_deps = [
     'h5py>=2.7.0',
     'numpy>=1.14',
-    'matplotlib==2.2.3',  # FIXME should use matplotlib3 and above
+    'matplotlib>=2.2.3',
     'xarray>=0.10.9',
     'networkx>=2.2',
     'paramspace>=2.1.0'
@@ -17,7 +17,7 @@ test_deps = ['pytest>=3.4.0', 'pytest-cov>=2.5.1', 'tox>=3.1.2']
 setup(name='dantro',
       #
       # Set the version
-      version='0.5.2',
+      version='0.5.3',
       # NOTE do not forget to set dantro.__init__.__version__!
       #
       # Project info
