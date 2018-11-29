@@ -71,7 +71,8 @@ class PlotManager:
                  creator_init_kwargs: Dict[str, dict]=None,
                  default_creator: str=None,
                  save_plot_cfg: bool=True,
-                 raise_exc: bool=False):
+                 raise_exc: bool=False,
+                 cfg_exists_action: str='raise'):
         """Initialize the PlotManager
         
         Args:
@@ -105,6 +106,8 @@ class PlotManager:
             raise_exc (bool, optional): Whether to raise exceptions if there
                 are errors raised from the plot creator or errors in the plot
                 configuration. If False, the errors will only be logged.
+            cfg_exists_action (str, optional): Behaviour when a config file
+                already exists. Can be: skip, overwrite, raise.
         
         Raises:
             InvalidCreator: When an invalid default creator was chosen
@@ -121,6 +124,9 @@ class PlotManager:
         # Private or read-only
         self._dm = dm
         self._out_dir = out_dir
+
+        # Parameters to pass through as defaults to member functions
+        self._cfg_exists_action = cfg_exists_action
 
         # Handle plot config
         if isinstance(plots_cfg, str):
@@ -311,7 +317,8 @@ class PlotManager:
 
         return rv
 
-    def _store_plot_info(self, name: str, *, plot_cfg: dict, creator_name: str, save: bool, target_dir: str, **info):
+    def _store_plot_info(self, name: str, *, plot_cfg: dict, creator_name: str,
+                         save: bool, target_dir: str, **info):
         """Stores all plot information in the plot_info list and, if `save` is
         set, also saves it using the _save_plot_cfg method.
         """
@@ -332,8 +339,10 @@ class PlotManager:
         # Append to the plot_info list
         self._plot_info.append(entry)
 
-    def _save_plot_cfg(self, cfg: dict, *, name: str, creator_name: str, target_dir: str, is_sweep: bool=False) -> str:
-        """Saves the given configuration under the top-level entry `name` t, is_sweep=Trueo
+    def _save_plot_cfg(self, cfg: dict, *, name: str, creator_name: str,
+                       target_dir: str, is_sweep: bool=False,
+                       exists_action: str=None) -> str:
+        """Saves the given configuration under the top-level entry `name` to
         a yaml file.
         
         Args:
@@ -341,16 +350,26 @@ class PlotManager:
             name (str): The name of the plot
             creator_name (str): The name of the creator
             target_dir (str): The directory path to store the file in
+            is_sweep (bool, optional): Set if the configuration refers to a
+                plot in sweep mode, for which a different format string is used
+            exists_action (str, optional): What to do if a plot configuration
+                already exists. Can be: overwrite, skip, raise. If None, uses
+                the value 'cfg_exists_action' given during initialization.
         
         Returns:
             str: The path the config was saved at (mainly used for testing)
         """
+        # Resolve default arguments
+        if exists_action is None:
+            exists_action = self._cfg_exists_action
+
         # Build the dict that is to be saved
         d = dict()
         d[name] = copy.deepcopy(cfg)
 
         if not isinstance(cfg, ParamSpace):
             d[name]['creator'] = creator_name
+
         else:
             # FIXME hacky, should not use the internal API!
             d[name]._dict['creator'] = creator_name
@@ -358,13 +377,36 @@ class PlotManager:
         # Generate the filename
         if not is_sweep:
             fname = self.out_fstrs['plot_cfg'].format(name=name)
+
         else:
             fname = self.out_fstrs['plot_cfg_sweep'].format(name=name)
         save_path = os.path.join(target_dir, fname)
         
-        # And save
-        write_yml(d, path=save_path)
-        log.debug("Saved plot configuration for '%s' to: %s", name, save_path)
+        # Try to write
+        try:
+            write_yml(d, path=save_path)
+
+        except FileExistsError:
+            log.debug("Config file already exists at %s!", save_path)
+            
+            if exists_action == 'raise':
+                raise
+
+            elif exists_action == 'skip':
+                log.debug("Skipping ...")
+
+            elif exists_action == 'overwrite':
+                log.debug("Overwriting ...")
+                os.remove(save_path)
+                write_yml(d, path=save_path)
+
+            else:
+                raise ValueError("Invalid value '{}' for argument "
+                                 "`exists_action`!".format(exists_action))
+
+        else:
+            log.debug("Saved plot configuration for '%s' to: %s",
+                      name, save_path)
 
         return save_path
 
