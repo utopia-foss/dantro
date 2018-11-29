@@ -79,7 +79,11 @@ class DataManager(OrderedDataGroup):
     # .........................................................................
     # Initialization
 
-    def __init__(self, data_dir: str, *, name: str=None, load_cfg: Union[dict, str]=None, out_dir: Union[str, bool]="_output/{date:}", create_groups: List[Union[str, dict]]=None):
+    def __init__(self, data_dir: str, *, name: str=None,
+                 load_cfg: Union[dict, str]=None,
+                 out_dir: Union[str, bool]="_output/{timestamp:}",
+                 out_dir_kwargs: dict=None,
+                 create_groups: List[Union[str, dict]]=None):
         """Initializes a DataManager object.
         
         Args:
@@ -95,9 +99,11 @@ class DataManager(OrderedDataGroup):
             out_dir (Union[str, bool], optional): where output is written to.
                 If this is given as a relative path, it is considered relative
                 to the _data directory_. A formatting operation with the keys 
-                `date` and `name` is performed on this, where the latter is
-                the name of the data manager. If set to False, the output
+                `timestamp` and `name` is performed on this, where the latter
+                is the name of the data manager. If set to False, the output
                 directory is not created.
+            out_dir_kwargs (dict, optional): Additional arguments that affect
+                how the output directory is created.
             create_groups (List[Union[str, dict]], optional): If given, these
                 groups will be created after initialization. If the list
                 entries are strings, the default group class will be used; if
@@ -118,7 +124,9 @@ class DataManager(OrderedDataGroup):
         super().__init__(name=name)
 
         # Initialize directories
-        self.dirs = self._init_dirs(data_dir=data_dir, out_dir=out_dir)
+        self.dirs = self._init_dirs(data_dir=data_dir, out_dir=out_dir,
+                                    **(out_dir_kwargs if out_dir_kwargs
+                                       else {}))
 
         # Start out with the default load configuration or, if not given, with
         # an empty one
@@ -157,7 +165,9 @@ class DataManager(OrderedDataGroup):
         # Done
         log.debug("%s initialized.", self.logstr)
 
-    def _init_dirs(self, *, data_dir: str, out_dir: Union[str, bool]) -> dict:
+    def _init_dirs(self, *, data_dir: str, out_dir: Union[str, bool],
+                   timestamp: float=None, timefstr: str="%y%m%d-%H%M%S",
+                   exist_ok: bool=False) -> dict:
         """Initializes the directories managed by this DataManager and returns
         a dictionary that stores the absolute paths to these directories.
         
@@ -170,9 +180,17 @@ class DataManager(OrderedDataGroup):
             out_dir (Union[str, bool]): where output is written to.
                 If this is given as a relative path, it is considered relative
                 to the _data directory_. A formatting operation with the keys 
-                `date` and `name` is performed on this, where the latter is
-                the name of the data manager. If set to False, the output
+                `timestamp` and `name` is performed on this, where the latter
+                is the name of the data manager. If set to False, the output
                 directory is not created.
+            timestamp (float, optional): If given, use this time to generate
+                the `date` format string key. If not, uses the current time.
+            timefstr (str, optional): Format string to use for generating the
+                string representation of the current timestamp
+            exist_ok (bool, optional): Whether the output directory may exist.
+                Note that it only makes sense to set this to True if you can
+                be sure that there will be no file conflicts! Otherwise the
+                errors will just occur at a later stage.
         
         Returns:
             dict: The directories
@@ -190,10 +208,12 @@ class DataManager(OrderedDataGroup):
             log.debug("Received `out_dir` argument:\n  %s", out_dir)
 
             # Make current date and time available for formatting operations
-            datestr = datetime.datetime.now().strftime("%y%m%d-%H%M%S")
+            time = (datetime.datetime.fromtimestamp(timestamp) if timestamp
+                    else datetime.datetime.now())
+            timestr = time.strftime(timefstr)
 
             # Perform a format operation on the output directory
-            out_dir = out_dir.format(name=self.name.lower(), date=datestr)
+            out_dir = out_dir.format(name=self.name.lower(), timestamp=timestr)
 
             # If it is relative, assume it to be relative to the data directory
             if not os.path.isabs(out_dir):
@@ -204,7 +224,8 @@ class DataManager(OrderedDataGroup):
             dirs['out'] = os.path.abspath(out_dir)
 
             # Create the directory
-            os.makedirs(dirs['out'])
+            os.makedirs(dirs['out'], exist_ok=exist_ok)
+
         else:
             dirs['out'] = False
 
