@@ -2,6 +2,11 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.6.0 _(WIP)_
+- #36 and !36 make the `out_dir` of `DataManager` more configurable and adds some other minor tweaks.
+  It renames the format string segment `date` to `timestamp` (to be more general) and adds the `cfg_exists_action` argument to `PlotManager`, which allows to control the behaviour upon.
+  Furthermore, the `read_yml` and `write_yml` functions now allow selecting a file mode.
+
 ## v0.5.3
 - #35 makes changes to `NetworkGroup` to concur to the NetworkX interface and adds some tweaks to the `set_node_attributes` function.
 - !35 allows matplotlib versions larger than the (python2 backwards compatible) version 2.2.3, which is important to keep up with new matplotlib features.
