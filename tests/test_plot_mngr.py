@@ -312,8 +312,8 @@ def test_save_plot_cfg(tmpdir, dm, pm_kwargs):
 
     # 'overwrite'
     pm._save_plot_cfg(**save_kwargs, exists_action='overwrite')
+    assert os.path.getctime(path) > ctime
     ctime = os.path.getctime(path)
-    assert os.path.getmtime(path) > mtime
 
     # 'append'
     pm._save_plot_cfg(**save_kwargs, exists_action='append')
