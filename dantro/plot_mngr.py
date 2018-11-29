@@ -50,7 +50,7 @@ class PlotManager:
     """
 
     CREATORS = ALL_PCRS
-    DEFAULT_OUT_FSTRS = dict(date="%y%m%d-%H%M%S",
+    DEFAULT_OUT_FSTRS = dict(timestamp="%y%m%d-%H%M%S",
                              state_no="{no:0{digits:d}d}",
                              state="{name:}_{val:}",
                              state_name_replace_chars=[], # (".", "-")
@@ -65,7 +65,13 @@ class PlotManager:
                              plot_cfg_sweep="{name:}/sweep_cfg.yml",
                              )
 
-    def __init__(self, *, dm: DataManager, plots_cfg: Union[dict, str]=None, out_dir: Union[str, None]="{date:}/", out_fstrs: dict=None, creator_init_kwargs: Dict[str, dict]=None, default_creator: str=None, save_plot_cfg: bool=True, raise_exc: bool=False):
+    def __init__(self, *, dm: DataManager, plots_cfg: Union[dict, str]=None,
+                 out_dir: Union[str, None]="{timestamp:}/",
+                 out_fstrs: dict=None,
+                 creator_init_kwargs: Dict[str, dict]=None,
+                 default_creator: str=None,
+                 save_plot_cfg: bool=True,
+                 raise_exc: bool=False):
         """Initialize the PlotManager
         
         Args:
@@ -76,18 +82,18 @@ class PlotManager:
             out_dir (Union[str, None], optional): If given, will use this
                 output directory as basis for the output path for each plot.
                 The path can be a format-string; it is evaluated upon call to
-                the plot command. Available keys: `date`, `name`, ...
+                the plot command. Available keys: `timestamp`, `name`, ...
                 For a relative path, this will be relative to the DataManager's
                 output directory. Absolute paths remain absolute.
                 If this argument evaluates to False, the DataManager's output
                 directory will be the output directory.
             out_fstrs (dict, optional): Format strings that define how the
                 output path is generated. The dict given here updates the
-                DEAFULT_OUT_FSTRS class variable which holds the default values
-                Keys: `date` (%-style), `path`, `sweep`, `state`, `plot_cfg`,
-                      `state`, `state_no`, `state_join_char`,
+                DEFAULT_OUT_FSTRS class variable which holds the default values
+                Keys: `timestamp` (%-style), `path`, `sweep`, `state`,
+                      `plot_cfg`, `state`, `state_no`, `state_join_char`,
                       `state_vector_join_char`
-                Available keys for `path`: `name`, `date`, `ext`
+                Available keys for `path`: `name`, `timestamp`, `ext`
                 Additionally, for `sweep`: `state_no`, `state_vector`, `state`
             creator_init_kwargs (Dict[str, dict], optional): If given, these
                 kwargs are passed to the initialization calls of the respective
@@ -161,21 +167,24 @@ class PlotManager:
 
     def _parse_out_dir(self, fstr: str, *, name: str) -> str:
         """Evaluates the format string to create an output directory.
-
+        
         Note that the directories are _not_ created; this is outsourced to the
         plot creator such that it happens as late as possible.
         
         Args:
             fstr (str): The format string to evaluate and create a directory at
+            name (str): Name of the plot
+            timestamp (float, optional): Description
         
         Returns:
             str: The path of the created directory
         """
-        # Get date format string and evaluate
-        date_fstr = self._out_fstrs.get('date', "%y%m%d-%H%M%S")
-        date = time.strftime(date_fstr)
+        # Get date format string and current time and create a string
+        # TODO allow passing a timestamp?
+        timefstr = self._out_fstrs.get('timestamp', "%y%m%d-%H%M%S")
+        timestr = time.strftime(timefstr)
 
-        out_dir = fstr.format(date=date, name=name)
+        out_dir = fstr.format(timestamp=timestr, name=name)
 
         # Make sure it is absolute
         if not os.path.isabs(out_dir):
@@ -185,7 +194,10 @@ class PlotManager:
         # Return the full path
         return out_dir
 
-    def _parse_out_path(self, creator: BasePlotCreator, *, name: str, out_dir: str, file_ext: str=None, state_no: int=None, state_no_max: int=None, state_vector: Tuple[int]=None, dims: dict=None) -> str:
+    def _parse_out_path(self, creator: BasePlotCreator, *, name: str,
+                        out_dir: str, file_ext: str=None, state_no: int=None,
+                        state_no_max: int=None, state_vector: Tuple[int]=None,
+                        dims: dict=None) -> str:
         """Given a creator and (optionally) parameter sweep information, a full
         and absolute output path is generated, including the file extension.
         
@@ -209,7 +221,8 @@ class PlotManager:
         Returns:
             str: The fully parsed output path for this plot
         """
-        def parse_state_pair(name: str, dim: ParamDim, *, fstrs: dict) -> Tuple[str]:
+        def parse_state_pair(name: str, dim: ParamDim, *,
+                             fstrs: dict) -> Tuple[str]:
             """Helper method to create a state pair"""
             # Parse the name
             for search, replace in fstrs['state_name_replace_chars']:
@@ -227,7 +240,7 @@ class PlotManager:
         fstrs = self.out_fstrs
         
         # Evaluate the keys available for both cases
-        keys = dict(date=time.strftime(fstrs['date']), name=name)
+        keys = dict(timestamp=time.strftime(fstrs['timestamp']), name=name)
 
         # Parse file extension and ensure it starts with a dot
         ext = file_ext if file_ext else creator.get_ext()
