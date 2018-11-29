@@ -291,35 +291,34 @@ def test_save_plot_cfg(tmpdir, dm, pm_kwargs):
     pm_kwargs['raise_exc'] = True
     pm = PlotManager(dm=dm, **pm_kwargs)
 
-    save_kwargs = dict(cfg=dict(foo="bar"),
-                       name="cfg_save_test", creator_name="testcreator",
+    save_kwargs = dict(name="cfg_save_test", creator_name="testcreator",
                        target_dir=str(tmpdir))
 
     # First write
-    path = pm._save_plot_cfg(**save_kwargs)
+    path = pm._save_plot_cfg(dict(foo="bar"), **save_kwargs)
     assert os.path.isfile(path)
-    ctime = os.path.getctime(path)
-    mtime = os.path.getmtime(path)
+    fsize = os.path.getsize(path)
 
     # Should raise (default)
     with pytest.raises(FileExistsError, match="cfg_save_test"):
-        pm._save_plot_cfg(**save_kwargs)
+        pm._save_plot_cfg(dict(foo="bar"), **save_kwargs)
 
     # 'skip' and make sure that the modification time was not changed
-    pm._save_plot_cfg(**save_kwargs, exists_action='skip')
-    assert os.path.getctime(path) == ctime
-    assert os.path.getmtime(path) == mtime
+    pm._save_plot_cfg(dict(foo="barz"), **save_kwargs,
+                      exists_action='skip')
+    assert os.path.getsize(path) == fsize  # did not change, because skipped
 
     # 'overwrite'
-    pm._save_plot_cfg(**save_kwargs, exists_action='overwrite')
-    assert os.path.getctime(path) > ctime
-    ctime = os.path.getctime(path)
+    pm._save_plot_cfg(dict(foo="barzz"), **save_kwargs,
+                      exists_action='overwrite')
+    assert os.path.getsize(path) == fsize + 2  # changed, because overwritten
 
     # 'append'
-    pm._save_plot_cfg(**save_kwargs, exists_action='append')
-    assert os.path.getctime(path) > ctime
-    assert os.path.getmtime(path) > mtime
+    pm._save_plot_cfg(dict(foo="barzzz"), **save_kwargs,
+                      exists_action='append')
+    assert os.path.getsize(path) >= 2*fsize   # because appended
 
     # Test error messages
     with pytest.raises(ValueError, match="Invalid value 'invalid' for arg"):
-        pm._save_plot_cfg(**save_kwargs, exists_action='invalid')
+        pm._save_plot_cfg(dict(foo="barzz"), **save_kwargs,
+                          exists_action='invalid')
