@@ -28,33 +28,41 @@ yaml.default_flow_style = False
 # -----------------------------------------------------------------------------
 # Loading from / writing to files
 
-def load_yml(path: str) -> dict:
+def load_yml(path: str, *, mode: str='r') -> dict:
     """Loads a yaml file from a path
     
     Args:
         path (str): The path to the yml file
+        mode (str, optional): Read mode
     
     Returns:
         dict: The parsed dictionary data
     """
-    log.debug("Loading YAML file... path:\n  %s", path)
+    log.debug("Loading YAML file... mode: %s, path:\n  %s", mode, path)
 
-    with open(path, 'r') as yaml_file:
-        d = yaml.load(yaml_file)
+    with open(path, mode) as yaml_file:
+        return yaml.load(yaml_file)
 
-    return d
-
-def write_yml(d: dict, *, path: str):
+def write_yml(d: dict, *, path: str, mode: str='w'):
     """Write a dict as a yaml file to a path
     
     Args:
         d (dict): The dict to convert to dump
         path (str): The path to write the yml file to
+        mode (str, optional): Write mode of the file
     """
-    log.debug("Dumping %s to YAML file... target:\n  %s", type(d), path)
+    log.debug("Dumping %s to YAML file... mode: %s, target:\n  %s",
+              type(d).__name__, mode, path)
 
-    with open(path, 'w') as yaml_file:
+    with open(path, mode) as yaml_file:
+        # Add the yaml '---' prefix
+        yaml_file.write("---\n")
+
+        # Now dump the rest
         yaml.dump(d, stream=yaml_file)
+
+        # Ensure new line
+        yaml_file.write("\n")
 
 
 # -----------------------------------------------------------------------------

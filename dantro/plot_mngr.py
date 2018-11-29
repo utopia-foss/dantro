@@ -340,8 +340,8 @@ class PlotManager:
         self._plot_info.append(entry)
 
     def _save_plot_cfg(self, cfg: dict, *, name: str, creator_name: str,
-                       target_dir: str, is_sweep: bool=False,
-                       exists_action: str=None) -> str:
+                       target_dir: str, exists_action: str=None,
+                       is_sweep: bool=False) -> str:
         """Saves the given configuration under the top-level entry `name` to
         a yaml file.
         
@@ -350,14 +350,18 @@ class PlotManager:
             name (str): The name of the plot
             creator_name (str): The name of the creator
             target_dir (str): The directory path to store the file in
+            exists_action (str, optional): What to do if a plot configuration
+                already exists. Can be: overwrite, skip, append, raise.
+                If None, uses the value 'cfg_exists_action' given during
+                initialization of the PlotManager.
             is_sweep (bool, optional): Set if the configuration refers to a
                 plot in sweep mode, for which a different format string is used
-            exists_action (str, optional): What to do if a plot configuration
-                already exists. Can be: overwrite, skip, raise. If None, uses
-                the value 'cfg_exists_action' given during initialization.
         
         Returns:
             str: The path the config was saved at (mainly used for testing)
+        
+        Raises:
+            ValueError: For invalid `exists_action` argument
         """
         # Resolve default arguments
         if exists_action is None:
@@ -384,9 +388,9 @@ class PlotManager:
         
         # Try to write
         try:
-            write_yml(d, path=save_path)
+            write_yml(d, path=save_path, mode='x')
 
-        except FileExistsError:
+        except FileExistsError as err:
             log.debug("Config file already exists at %s!", save_path)
             
             if exists_action == 'raise':
@@ -395,10 +399,13 @@ class PlotManager:
             elif exists_action == 'skip':
                 log.debug("Skipping ...")
 
+            elif exists_action == 'append':
+                log.debug("Appending ...")
+                write_yml(d, path=save_path, mode='a')
+
             elif exists_action == 'overwrite':
                 log.debug("Overwriting ...")
-                os.remove(save_path)
-                write_yml(d, path=save_path)
+                write_yml(d, path=save_path, mode='w')
 
             else:
                 raise ValueError("Invalid value '{}' for argument "

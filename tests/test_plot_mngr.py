@@ -192,7 +192,8 @@ def test_plots_enabled(dm, pm_kwargs, pcr_ext_kwargs):
     """Tests the handling of `enabled` key in plots configuration"""
     pm = PlotManager(dm=dm, **pm_kwargs,
                      plots_cfg=dict(foo=dict(enabled=False, **pcr_ext_kwargs),
-                                    bar=dict(enabled=True, **pcr_ext_kwargs)))
+                                    bar=dict(enabled=True, **pcr_ext_kwargs)),
+                     cfg_exists_action='skip')
 
     # No plots should be created like this
     pm.plot_from_cfg(plot_only=[])
@@ -263,8 +264,9 @@ def test_file_ext(dm, pm_kwargs, pcr_ext_kwargs):
 
 def test_raise_exc(dm, pm_kwargs):
     """Tests that the `raise_exc` argument behaves as desired"""
-    # Empty plot config should either log and return None
+    # Empty plot config should either log and return None ...
     assert PlotManager(dm=dm, raise_exc=False).plot_from_cfg() is None
+    
     # ... or raise an error
     with pytest.raises(PlotConfigError, match="Got empty `plots_cfg`"):
         PlotManager(dm=dm, raise_exc=True).plot_from_cfg()
@@ -283,3 +285,41 @@ def test_raise_exc(dm, pm_kwargs):
     with pytest.raises(PlottingError, match="During plotting of 'raises'"):
         pm_exc.plot(name="raises",
                     module=".basic", plot_func="lineplot")
+
+def test_save_plot_cfg(tmpdir, dm, pm_kwargs):
+    """Tests saving of the plot configuration"""
+    pm_kwargs['raise_exc'] = True
+    pm = PlotManager(dm=dm, **pm_kwargs)
+
+    save_kwargs = dict(cfg=dict(foo="bar"),
+                       name="cfg_save_test", creator_name="testcreator",
+                       target_dir=str(tmpdir))
+
+    # First write
+    path = pm._save_plot_cfg(**save_kwargs)
+    assert os.path.isfile(path)
+    ctime = os.path.getctime(path)
+    mtime = os.path.getmtime(path)
+
+    # Should raise (default)
+    with pytest.raises(FileExistsError, match="cfg_save_test"):
+        pm._save_plot_cfg(**save_kwargs)
+
+    # 'skip' and make sure that the modification time was not changed
+    pm._save_plot_cfg(**save_kwargs, exists_action='skip')
+    assert os.path.getctime(path) == ctime
+    assert os.path.getmtime(path) == mtime
+
+    # 'overwrite'
+    pm._save_plot_cfg(**save_kwargs, exists_action='overwrite')
+    ctime = os.path.getctime(path)
+    assert os.path.getmtime(path) > mtime
+
+    # 'append'
+    pm._save_plot_cfg(**save_kwargs, exists_action='append')
+    assert os.path.getctime(path) > ctime
+    assert os.path.getmtime(path) > mtime
+
+    # Test error messages
+    with pytest.raises(ValueError, match="Invalid value 'invalid' for arg"):
+        pm._save_plot_cfg(**save_kwargs, exists_action='invalid')
