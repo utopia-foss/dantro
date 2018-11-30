@@ -382,6 +382,10 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
     # Define which class to use in the new_group method. If None, the type of
     # this instance is used
     _NEW_GROUP_CLS = None
+    
+    # Define which class to use in the new_container method. If None, the type
+    # needs to be specified explicitly in the call to new_container
+    _NEW_CONTAINER_CLS = None
 
     # Define the types that are allowed to be stored in this group. If None,
     # the dantro base classes are allowed
@@ -560,23 +564,36 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         """
         pass
 
-    def new_container(self, path: Union[str, list], *, Cls: type, **kwargs):
+    def new_container(self, path: Union[str, list], *,
+                      Cls: type=None, **kwargs):
         """Creates a new container of class `Cls` and adds it at the given path
         relative to this group.
         
         Args:
             path (Union[str, list]): Where to add the container. Note that the
                 intermediates of this path need to already exist.
-            Cls (type): The class of the container to add
+            Cls (type, optional): The class of the container to add. If None,
+                the _NEW_CONTAINER_CLS class variable's value is used; if not
+                given, this will raise a ValueError.
             **kwargs: kwargs to pass on to Cls.__init__
         
         Returns:
             Cls: the created container
         
         Raises:
-            KeyError: Description
-            TypeError: Description
+            KeyError: When intermediate groups to `path` are missing
+            TypeError: When the given Cls is invalid
         """
+        # Resolve the Cls argument, if possible from the class variable
+        if Cls is None:
+            if self._NEW_CONTAINER_CLS is None:
+                raise ValueError("Got neither argument `Cls` nor class "
+                                 "variable _NEW_CONTAINER_CLS, at least one "
+                                 "of which is needed to determine the type "
+                                 "of the new container!")
+
+            Cls = self._NEW_CONTAINER_CLS
+
         # Check the class to create the container with
         if not inspect.isclass(Cls):
             raise TypeError("Argument `Cls` needs to be a class, but "

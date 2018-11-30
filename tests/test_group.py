@@ -222,6 +222,16 @@ def test_group_creation():
                              data=[1, 2, 3])
     assert msc in root
 
+    # Should raise an error withou Cls given
+    with pytest.raises(ValueError, match="Got neither argument `Cls` nor"):
+        root.new_container("spam2", Cls=None, data=[1, 2, 3])
+
+    # Set the class variable and try again
+    root._NEW_CONTAINER_CLS = MutableSequenceContainer
+    msc2 = root.new_container("spam2", data=[1, 2, 3])
+    assert msc2 in root
+    assert isinstance(msc2, MutableSequenceContainer)
+
     # Now test adding groups by path
     bar = root.new_group("foo/bar")
     assert "foo/bar" in root
