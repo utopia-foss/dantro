@@ -148,8 +148,12 @@ class Hdf5LoaderMixin:
                             _GroupCls = None
                     
                     else:
-                        # Use the default of the target container
+                        # Use the default of the target group
                         _GroupCls = None
+                        # None value will lead to new_group determining the
+                        # type of this group. Unlike for datasets, this is
+                        # always possible, because the type of the target
+                        # group is used as fallback type.
 
                     # Create and add the group, passing the attributes
                     target.new_group(path=key, Cls=_GroupCls,
@@ -202,8 +206,14 @@ class Hdf5LoaderMixin:
                             _DsetCls = DsetCls
                     
                     else:
-                        # Use the default
-                        _DsetCls = DsetCls
+                        # If the target group supplies a default container
+                        # type, use that one; otherwise fall back to default.
+                        if target._NEW_CONTAINER_CLS is not None:
+                            _DsetCls = None
+                            # Leads to new_container taking care of the type
+
+                        else:
+                            _DsetCls = DsetCls
 
                     # Now create and add the dataset, passing data and attrs
                     target.new_container(path=key, Cls=_DsetCls,
