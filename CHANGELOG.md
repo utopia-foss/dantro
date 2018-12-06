@@ -2,14 +2,16 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
-## v0.6.0 _(WIP)_
+## v0.6.0
 - #36 and !36 make the `out_dir` of `DataManager` more configurable and adds some other minor tweaks.
   It renames the format string segment `date` to `timestamp` (to be more general) and adds the `cfg_exists_action` argument to `PlotManager`, which allows to control the behaviour upon.
   Furthermore, the `read_yml` and `write_yml` functions now allow selecting a file mode.
-- !37 Adds the ability to specify a default type for the `new_container`
+- !37 adds the ability to specify a default type for the `new_container`
   function of `BaseDataGroup`. This choice is also respected by the HDF5
   loader, thus allowing a parent group to specify its childrens' type and not
   requiring them to use the mapping feature to be loaded as a custom type.
+- !38 removes the edge and node attribute related features from `NetworkGroup`,
+  because they do not work in a general enough manner.
 
 ## v0.5.3
 - #35 makes changes to `NetworkGroup` to concur to the NetworkX interface and adds some tweaks to the `set_node_attributes` function.
