@@ -7,8 +7,6 @@ basic_dir_par: &base
           [4,2],
           [0,3],
           [2,1]]
-  test_node_attr: [2, 53, 54, 654, 7]
-  test_edge_attr: ["a", "b", "c", "d", "e"]
   attrs:
     directed: True
     parallel: True
@@ -31,10 +29,6 @@ basic_ndir_npar:
     directed: False
     parallel: False
 
-bad_node_attr:
-  <<: *base
-  test_node_attr: [foo, bar]  # mismatch to number of nodes
-
 wrong_edges:
   nodes: [0,1,2,3,4]
   edsches: [[0,1],   # sic!
@@ -42,9 +36,6 @@ wrong_edges:
             [4,2],
             [0,3],
             [2,1]]
-  
-  test_node_attr: [2, 53, 54, 654, 7]
-  test_edge_attr: ["a", "b", "c", "d", "e"]
   attrs:
     directed: True
     parallel: True
@@ -56,8 +47,6 @@ wrong_nodes:
           [4,2],
           [0,3],
           [2,1]]
-  test_node_attr: [2, 53, 54, 654, 7]
-  test_edge_attr: ["a", "b", "c", "d", "e"]
   attrs:
     directed: True
     parallel: True
