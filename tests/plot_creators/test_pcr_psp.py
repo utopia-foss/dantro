@@ -99,24 +99,24 @@ def test_UniversePlotCreator(init_kwargs):
         UniversePlotCreator("test", **init_kwargs).state_map
 
 
-    # Check that _prepare_cfg, where most of the actions happen, does what it
+    # Check that prepare_cfg, where most of the actions happen, does what it
     # should do.
     # `uni` argument not given
     with pytest.raises(ValueError, match="Missing required keyword-argument"):
-        upc._prepare_cfg(plot_cfg=dict(), pspace=None)
+        upc.prepare_cfg(plot_cfg=dict(), pspace=None)
 
     # wrong `uni` type
     with pytest.raises(TypeError, match="Need parameter `universes` to be "):
-        upc._prepare_cfg(plot_cfg=dict(universes=[1,2,3]), pspace=None)
+        upc.prepare_cfg(plot_cfg=dict(universes=[1,2,3]), pspace=None)
 
     # wrong `uni` string value
     with pytest.raises(ValueError, match="Invalid value for `universes` arg"):
-        upc._prepare_cfg(plot_cfg=dict(universes='invalid'), pspace=None)
+        upc.prepare_cfg(plot_cfg=dict(universes='invalid'), pspace=None)
 
 
     # Now, with valid arguments
     # "all" universes
-    cfg, psp = upc._prepare_cfg(plot_cfg=dict(universes='all'), pspace=None)
+    cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes='all'), pspace=None)
 
     assert not cfg
     assert isinstance(psp, ParamSpace)
@@ -135,7 +135,7 @@ def test_UniversePlotCreator(init_kwargs):
 
     # Having given a parameter space, those dimensions are used as well
     pspace = ParamSpace(dict(foo="bar", v0=ParamDim(default=-1, range=[5])))
-    cfg, psp = upc._prepare_cfg(plot_cfg=dict(universes='all'), pspace=pspace)
+    cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes='all'), pspace=pspace)
 
     assert psp.num_dims == 3 + 1
     assert psp.default['foo'] == "bar"
@@ -143,7 +143,7 @@ def test_UniversePlotCreator(init_kwargs):
 
     # Give custom coordinates
     unis = dict(p0=[2], p1=slice(1.5, 3.5))
-    cfg, psp = upc._prepare_cfg(plot_cfg=dict(universes=unis), pspace=None)
+    cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes=unis), pspace=None)
 
     assert psp.num_dims == 3
     assert psp.volume == 1 * 2 * 5
@@ -160,7 +160,7 @@ def test_UniversePlotCreator(init_kwargs):
 
     # Check the more elaborate string arguments
     # 'single'/'first' universe
-    cfg, psp = upc._prepare_cfg(plot_cfg=dict(universes='first'), pspace=None)
+    cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes='first'), pspace=None)
 
     assert psp.num_dims == 3
     assert psp.volume == 1 * 1 * 1
@@ -171,7 +171,7 @@ def test_UniversePlotCreator(init_kwargs):
     
 
     # 'random'/'any' universe
-    cfg, psp = upc._prepare_cfg(plot_cfg=dict(universes='any'), pspace=None)
+    cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes='any'), pspace=None)
 
     assert psp.num_dims == 3
     assert psp.volume == 1 * 1 * 1
@@ -184,26 +184,26 @@ def test_UniversePlotCreator(init_kwargs):
     # Assert correct error messages
     # Fails with invalid dimension name
     with pytest.raises(ValueError, match="No parameter dimension 'foo'"):
-        upc._prepare_cfg(plot_cfg=dict(universes=dict(p0=[2],
-                                                      p1=slice(1.5, 3.5),
-                                                      foo=slice(10))),
+        upc.prepare_cfg(plot_cfg=dict(universes=dict(p0=[2],
+                                                     p1=slice(1.5, 3.5),
+                                                     foo=slice(10))),
                          pspace=None)
 
     # Fails (in paramspace) if such a coordinate is not available
     with pytest.raises(KeyError, match="is not available as coordinate of"):
-        upc._prepare_cfg(plot_cfg=dict(universes=dict(p0=[-1],
-                                                      p1=slice(1.5, 3.5))),
+        upc.prepare_cfg(plot_cfg=dict(universes=dict(p0=[-1],
+                                                     p1=slice(1.5, 3.5))),
                          pspace=None)
     
     # Fails (in paramspace) if dimension would be squeezed away
     with pytest.raises(ValueError, match="'p0' would be totally masked"):
-        upc._prepare_cfg(plot_cfg=dict(universes=dict(p0=slice(10, None),
-                                                      p1=slice(1.5, 3.5))),
+        upc.prepare_cfg(plot_cfg=dict(universes=dict(p0=slice(10, None),
+                                                     p1=slice(1.5, 3.5))),
                          pspace=None)
 
     # Fails with a _coords already part of plots config
     with pytest.raises(ValueError, match="may _not_ contain the key '_coords"):
-        upc._prepare_cfg(plot_cfg=dict(universes='all', _coords="foo"),
+        upc.prepare_cfg(plot_cfg=dict(universes='all', _coords="foo"),
                          pspace=None)
 
 
@@ -217,7 +217,7 @@ def test_UniversePlotCreator(init_kwargs):
     assert upc._without_pspace is False
 
     # 'all' universes
-    cfg, psp = upc._prepare_cfg(plot_cfg=dict(universes='all'), pspace=None)
+    cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes='all'), pspace=None)
     assert psp is None
     assert upc._without_pspace
 
@@ -225,7 +225,7 @@ def test_UniversePlotCreator(init_kwargs):
     assert kwargs['uni'].name == "00"
 
     # 'single'/'first' universe
-    cfg, psp = upc._prepare_cfg(plot_cfg=dict(universes='first'), pspace=None)
+    cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes='first'), pspace=None)
     assert psp is None
     assert upc._without_pspace
 
@@ -234,8 +234,7 @@ def test_UniversePlotCreator(init_kwargs):
 
     # Giving a pspace also works
     pspace = ParamSpace(dict(foo=ParamDim(default=0, range=[5])))
-    cfg, psp = upc._prepare_cfg(plot_cfg=dict(universes='all'),
-                                pspace=pspace)
+    cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes='all'), pspace=pspace)
 
     assert not cfg
     assert isinstance(psp, ParamSpace)
@@ -243,5 +242,4 @@ def test_UniversePlotCreator(init_kwargs):
 
     # Fails (in paramspace) if such a coordinate is not available
     with pytest.raises(ValueError, match="Could not select a universe for"):
-        upc._prepare_cfg(plot_cfg=dict(universes=dict(p0=[-1])),
-                         pspace=None)
+        upc.prepare_cfg(plot_cfg=dict(universes=dict(p0=[-1])), pspace=None)

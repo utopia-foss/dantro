@@ -19,10 +19,13 @@ from dantro.plot_mngr import PlotManager, PlottingError, PlotConfigError, PlotCr
 # Paths
 PLOTS_EXT_PATH = resource_filename("tests", "cfg/plots_ext.yml")
 PLOTS_EXT2_PATH = resource_filename("tests", "cfg/plots_ext2.yml")
+PLOTS_AUTO_DETECT_PATH = resource_filename("tests",
+                                           "cfg/plots_auto_detect.yml")
 
 # Configurations
 PLOTS_EXT = load_yml(PLOTS_EXT_PATH)
 PLOTS_EXT2 = load_yml(PLOTS_EXT2_PATH)
+PLOTS_AUTO_DETECT = load_yml(PLOTS_AUTO_DETECT_PATH)
 # PLOTS_DECL = load_yml(resource_filename("tests", "cfg/plots_decl.yml"))
 # PLOTS_VEGA = load_yml(resource_filename("tests", "cfg/plots_vega.yml"))
 
@@ -167,8 +170,12 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
     with pytest.raises(ValueError, match="No `out_dir` specified"):
         PlotManager(dm=dm, out_dir=None).plot("foo")
     
-    with pytest.raises(ValueError, match="No `creator` argument"):
+    with pytest.raises(ValueError, match="No `creator` argument given"):
         PlotManager(dm=dm).plot("foo")
+    
+    with pytest.raises(ValueError, match="nor auto-detection enabled."):
+        PlotManager(dm=dm, auto_detect_creator=False).plot("foo")
+        # Same as the above case
 
 
     # Assert that config files were created
@@ -322,3 +329,20 @@ def test_save_plot_cfg(tmpdir, dm, pm_kwargs):
     with pytest.raises(ValueError, match="Invalid value 'invalid' for arg"):
         pm._save_plot_cfg(dict(foo="barzz"), **save_kwargs,
                           exists_action='invalid')
+
+def test_auto_detect_creator(dm):
+    """Tests the auto-detection feature"""
+    pm = PlotManager(dm=dm, auto_detect_creator=True)
+
+    # This should work
+    pc = pm.plot(name="pcr_ext", **PLOTS_AUTO_DETECT["pcr_ext"])
+    assert type(pc) is pm.CREATORS['external']
+
+    # No matching candidate
+    with pytest.raises(InvalidCreator, match="declared itself a candidate!"):
+        pm.plot(name="fail", **PLOTS_AUTO_DETECT["fail"])
+
+    # Too many candidates
+    pm.CREATORS["also_external"] = pm.CREATORS['external']
+    with pytest.raises(InvalidCreator, match="could not unambiguously"):
+        pm.plot(name="ambiguous", **PLOTS_AUTO_DETECT["ambiguous"])

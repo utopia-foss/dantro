@@ -1,0 +1,29 @@
+# Configuration #3 for PlotManager test with "external" plot creator
+# This file is used for the auto-detect feature
+---
+pcr_ext: &pcr_ext
+  # Specify the module to find the function in
+  module: .basic  # relative to the dantro.plot_creators.ext_funcs subpackage
+
+  # And the name of the plot function within that package
+  plot_func: lineplot
+
+  # The PlotManager handles the file_ext argument. This config is to make
+  # sure that parameter is popped
+  file_ext: png
+
+  # The data manager is passed to that function as first positional argument.
+  # Also, the generated output path is passed as `out_path` keyword argument.
+
+  # All further kwargs on this level are passed on to that function.
+  x: vectors/times
+  y: vectors/values
+
+  fmt: go-
+
+fail:
+  foo: bar
+  bar: baz
+
+ambiguous:
+  <<: *pcr_ext

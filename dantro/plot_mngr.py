@@ -70,6 +70,7 @@ class PlotManager:
                  out_fstrs: dict=None,
                  creator_init_kwargs: Dict[str, dict]=None,
                  default_creator: str=None,
+                 auto_detect_creator: bool=False,
                  save_plot_cfg: bool=True,
                  raise_exc: bool=False,
                  cfg_exists_action: str='raise'):
@@ -101,6 +102,10 @@ class PlotManager:
                 creator classes.
             default_creator (str, optional): If given, a plot without explicit
                 `creator` declaration will use this creator as default.
+            auto_detect_creator (bool, optional): If true, and no default
+                creator is given, will try to automatically deduce the creator
+                using the given plot arguments. All creators registered with
+                this PlotManager instance are candidates.
             save_plot_cfg (bool, optional): If True, the plot configuration is
                 saved to a yaml file alongside the created plot.
             raise_exc (bool, optional): Whether to raise exceptions if there
@@ -124,6 +129,7 @@ class PlotManager:
         # Private or read-only
         self._dm = dm
         self._out_dir = out_dir
+        self._auto_detect_creator = auto_detect_creator
 
         # Parameters to pass through as defaults to member functions
         self._cfg_exists_action = cfg_exists_action
@@ -293,7 +299,105 @@ class PlotManager:
 
         return out_path
 
-    def _call_plot_creator(self, plot_creator: Callable, *, out_path: str, name: str, creator: str, **plot_cfg):
+    def _get_plot_creator(self, creator: Union[str, None],
+                          *, name: str, init_kwargs: dict,
+                          from_pspace: ParamSpace=None,
+                          plot_cfg: dict) -> BasePlotCreator:
+        """Determines which plot creator to use by looking at the given
+        arguments. If set, tries to auto-detect from the arguments, which
+        creator is to be used.
+
+        Then, sets up the corresponding creator and returns it.
+        """ 
+        # If no creator is given, check if a default one can be used
+        if creator is None:
+            # Find other ways to determine the name of the creator
+            if self._default_creator:
+                # Just use the default
+                creator = self._default_creator
+
+            elif self._auto_detect_creator:
+                # Can try to auto-detect from the arguments, which creator
+                # could uniquely fit to the arguments
+                log.debug("Attempting auto-detection of creator ...")
+
+                # If a ParamSpace plot is to be made, detect feasibility by
+                # using its default parameters
+                cfg = plot_cfg if not from_pspace else from_pspace.default
+
+                # (name, plot creator) tuples for each candidate
+                pc_candidates = []
+                
+                # Go over all registered plot creators
+                for pc_name in self.CREATORS.keys():
+                    try:
+                        # Instantiate them by calling this function recursively
+                        pc = self._get_plot_creator(pc_name, name=name,
+                                                    init_kwargs=init_kwargs,
+                                                    from_pspace=from_pspace,
+                                                    plot_cfg=plot_cfg)
+                        # NOTE Cannot call a class method here, because some
+                        #      creators might need the actual arguments in
+                        #      order to work properly
+
+                    except:
+                        # Failed to initialize for whatever reason, thus not
+                        # a candidate
+                        continue
+
+                    # Successfully initialized. Check if it's a candidate for
+                    # this plot configuration
+                    if pc.can_plot(pc_name, **cfg):
+                        log.debug("Plot creator '%s' declared itself a "
+                                  "candidate.", pc_name)
+                        pc_candidates.append((pc_name, pc))
+
+                # If there is more than one candidate, cannot decide
+                if len(pc_candidates) > 1:
+                    pcc_names = [n for n, _ in pc_candidates]
+                    raise InvalidCreator("Tried to auto-detect a plot creator "
+                                         "for plot '{}' but could not "
+                                         "unambiguously do so! There were {} "
+                                         "plot creators declaring themselves "
+                                         "as candidates: {}"
+                                         "".format(name, len(pc_candidates),
+                                                   ", ".join(pcc_names)))
+                elif len(pc_candidates) < 1:
+                    pc_names = ", ".join([k for k in self.CREATORS.keys()])
+                    raise InvalidCreator("Tried to auto-detect a plot creator "
+                                         "for plot '{}' but none of the "
+                                         "available creators ({}) declared "
+                                         "itself a candidate!"
+                                         "".format(name, pc_names))
+
+                # else: there was only one, use that
+                pc_name, pc = pc_candidates[0]
+                log.debug("Auto-detected plot creator: %s", pc.logstr)
+
+                # As it is already initialized, can just return it
+                return pc
+
+            else:
+                raise InvalidCreator("No `creator` argument given and neither "
+                                     "`default_creator` specified during "
+                                     "initialization nor auto-detection "
+                                     "enabled. Cannot plot!")
+
+        # Parse initialization kwargs, based on the defaults set in __init__
+        pc_kwargs = self._cckwargs.get(creator, {})
+        if init_kwargs:
+            log.debug("Recursively updating creator initialization kwargs ...")
+            pc_kwargs = recursive_update(copy.deepcopy(pc_kwargs), init_kwargs)
+        
+        # Instantiate the creator class
+        pc = self.CREATORS[creator](name=name, dm=self._dm, **pc_kwargs)
+
+        log.debug("Initialized %s.", pc.logstr)
+        return pc
+
+    def _call_plot_creator(self, plot_creator: Callable,
+                           *, out_path: str, name: str, creator: str,
+                           **plot_cfg):
         """Calls the plot creator and manages exceptions"""
         try:
             rv = plot_creator(out_path=out_path, **plot_cfg)
@@ -317,8 +421,9 @@ class PlotManager:
 
         return rv
 
-    def _store_plot_info(self, name: str, *, plot_cfg: dict, creator_name: str,
-                         save: bool, target_dir: str, **info):
+    def _store_plot_info(self, name: str,
+                         *, plot_cfg: dict, creator_name: str, save: bool,
+                         target_dir: str, **info):
         """Stores all plot information in the plot_info list and, if `save` is
         set, also saves it using the _save_plot_cfg method.
         """
@@ -339,9 +444,9 @@ class PlotManager:
         # Append to the plot_info list
         self._plot_info.append(entry)
 
-    def _save_plot_cfg(self, cfg: dict, *, name: str, creator_name: str,
-                       target_dir: str, exists_action: str=None,
-                       is_sweep: bool=False) -> str:
+    def _save_plot_cfg(self, cfg: dict,
+                       *, name: str, creator_name: str, target_dir: str,
+                       exists_action: str=None, is_sweep: bool=False) -> str:
         """Saves the given configuration under the top-level entry `name` to
         a yaml file.
         
@@ -421,7 +526,11 @@ class PlotManager:
     # .........................................................................
     # Plotting
 
-    def plot_from_cfg(self, *, plots_cfg: Union[dict, str]=None, plot_only: List[str]=None, out_dir: str=None, **update_plots_cfg) -> None:
+    def plot_from_cfg(self, *,
+                      plots_cfg: Union[dict, str]=None,
+                      plot_only: List[str]=None,
+                      out_dir: str=None,
+                      **update_plots_cfg) -> None:
         """Create multiple plots from a configuration, either a given one or
         the one passed during initialization.
         
@@ -523,7 +632,7 @@ class PlotManager:
             if isinstance(cfg, ParamSpace):
                 # Is a parameter space. Use the corresponding call signature
                 self.plot(plot_name, out_dir=out_dir,
-                          creator=cfg.pop('creator'), from_pspace=cfg)
+                          creator=cfg.pop('creator', None), from_pspace=cfg)
             
             else:
                 # Just a dict. Use the regular call
@@ -533,8 +642,10 @@ class PlotManager:
         log.info("Successfully performed plots for %d configuration(s).",
                  len(plots_cfg))
 
-
-    def plot(self, name: str, *, creator: str=None, out_dir: str=None, file_ext: str=None, from_pspace: ParamSpace=None, save_plot_cfg: bool=None, creator_init_kwargs: dict=None, **plot_cfg) -> BasePlotCreator:
+    def plot(self, name: str,
+             *, creator: str=None, out_dir: str=None, file_ext: str=None,
+             from_pspace: ParamSpace=None, save_plot_cfg: bool=None,
+             creator_init_kwargs: dict=None, **plot_cfg) -> BasePlotCreator:
         """Create plot(s) from a single configuration entry.
         
         A call to this function creates a single PlotCreator, which is also
@@ -581,34 +692,19 @@ class PlotManager:
 
             out_dir = self._out_dir
 
-        # If no creator is given, use the default one
-        if creator is None:
-            if not self._default_creator:
-                raise InvalidCreator("No `creator` argument given and no "
-                                     "`default_creator` specified during "
-                                     "initialization; cannot perform plot!")
-
-            creator = self._default_creator
-
         # Whether to save the plot config
         if save_plot_cfg is None:
             save_plot_cfg = self.save_plot_cfg
 
-        # Parse initialization kwargs
-        init_kwargs = self._cckwargs.get(creator, {})
-        if creator_init_kwargs:
-            log.debug("Recursively updating creator initialization kwargs ...")
-            init_kwargs = recursive_update(copy.deepcopy(init_kwargs),
-                                                 creator_init_kwargs)
-        
-        # Instantiate the creator class, also passing initialization kwargs
-        plot_creator = self.CREATORS[creator](name=name, dm=self._dm,
-                                              **init_kwargs)
-        log.debug("Initialized creator: %s", plot_creator.logstr)
+        # Get the plot creator, either by name or using auto-detect feature
+        plot_creator = self._get_plot_creator(creator, name=name,
+                                              init_kwargs=creator_init_kwargs,
+                                              from_pspace=from_pspace, 
+                                              plot_cfg=plot_cfg)
 
         # Let the creator process arguments
-        plot_cfg, from_pspace = plot_creator._prepare_cfg(plot_cfg=plot_cfg,
-                                                          pspace=from_pspace)
+        plot_cfg, from_pspace = plot_creator.prepare_cfg(plot_cfg=plot_cfg,
+                                                         pspace=from_pspace)
 
         # Distinguish single calls and parameter sweeps
         if not from_pspace:
@@ -694,5 +790,5 @@ class PlotManager:
 
             log.info("Finished all '%s' plots.", name)
 
-        # Done now. Return the plot creator.
-        return creator
+        # Done now. Return the plot creator object
+        return plot_creator
