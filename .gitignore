@@ -1,4 +1,8 @@
+# Ignore files created by test system
 .coverage
 .pytest_cache
 .tox
 
+# Ignore documentation build directory and auto-generated API reference
+doc/_build
+doc/api
