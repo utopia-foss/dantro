@@ -1,8 +1,7 @@
 ---
-image: python
-
 stages:
   - test
+  - build
 
 # To install the necessary python environment, access to private repositories
 # is required. By adding a deploy key to selected jobs, the pull from these
@@ -50,3 +49,26 @@ test:py37:
   stage: test
   script:
     - tox -e py37
+
+
+# -----------------------------------------------------------------------------
+
+build:doc:
+  image: python:3.6
+  stage: build
+  script:
+    # Install dependencies
+    - pip install .[doc_deps]
+    #
+    # Make documentation
+    - cd doc
+    - make doc
+
+  artifacts:
+    expire_in: 3h
+    paths:
+      - doc/_build/html
+
+
+# -----------------------------------------------------------------------------
+# TODO Deploy documentation to static web server (only on master)
