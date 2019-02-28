@@ -27,10 +27,15 @@ class ExternalPlotCreator(BasePlotCreator):
     # For relative module imports, see the following as the base package
     BASE_PKG = "dantro.plot_creators.ext_funcs"
 
-    # For auto-detection if this plot creator is valid, check the plot function
-    # signature according to a number of parameters configured below.
-    # See https://docs.python.org/3/library/inspect.html#inspect.Parameter.kind
-    # for information on the naming.
+    # Configuration for the PlotManager's auto-detection feature ..............
+
+    # Whether to ignore function attributes (e.g. `creator_name`) when
+    # deciding whether a plot function is to be used with this creator
+    _AD_IGNORE_FUNC_ATTRS = False
+
+    # The parameters below are for inspecting the plot function signature. See
+    # https://docs.python.org/3/library/inspect.html#inspect.Parameter.kind
+    # for more information on the specification for argument kinds.
 
     # Exactly how many POSITIONAL_ONLY arguments to allow; -1 to not check
     _AD_NUM_POSITIONAL_ONLY = -1
@@ -133,7 +138,8 @@ class ExternalPlotCreator(BasePlotCreator):
         log.debug("Checking if %s can plot the given configuration ...",
                   self.logstr)
 
-        # Gather the arguments needed for plot function resolution
+        # Gather the arguments needed for plot function resolution and remove
+        # those that are None
         pf_kwargs = dict(plot_func=cfg.get('plot_func'),
                          module=cfg.get('module'),
                          module_file=cfg.get('module_file'))
@@ -152,11 +158,13 @@ class ExternalPlotCreator(BasePlotCreator):
         # else: was able to resolve a plotting function
 
         # The function might have an attribute that specifies the name of the
-        # creator to use.
-        if hasattr(pf, "creator") and pf.creator == creator_name:
-            log.debug("The plot function declared itself suitable for this "
-                      "plot creator.")
-            return True
+        # creator to use
+        if not self._AD_IGNORE_FUNC_ATTRS:
+            if hasattr(pf, "creator_name") and pf.creator_name == creator_name:
+                log.debug("The plot function's desired creator name '%s' "
+                          "matches the name under which %s is known to the "
+                          "PlotManager.", creator_name, self.classname)
+                return True
 
         # Check that function's signature and decide accordingly
         return self._valid_plot_func_signature(inspect.signature(pf))
@@ -302,7 +310,7 @@ class ExternalPlotCreator(BasePlotCreator):
         # Check the number of positional arguments is as expected
         if self._AD_NUM_POSITIONAL_ONLY >= 0:
             if len(pbk[Param.POSITIONAL_ONLY]) != self._AD_NUM_POSITIONAL_ONLY:
-                errs.append("Expected {} positional-only argument but the "
+                errs.append("Expected {} POSITIONAL_ONLY argument(s) but the "
                             "plot function allowed {}: {}. Change the plot "
                             "function signature to only take the expected "
                             "number of positional-only arguments."
@@ -314,7 +322,7 @@ class ExternalPlotCreator(BasePlotCreator):
         if self._AD_NUM_POSITIONAL_OR_KEYWORD >= 0:
             if (   len(pbk[Param.POSITIONAL_OR_KEYWORD])
                 != self._AD_NUM_POSITIONAL_OR_KEYWORD):
-                errs.append("Expected {} 'positional or keyword' arguments "
+                errs.append("Expected {} POSITIONAL_OR_KEYWORD argument(s) "
                             "but the plot function allowed {}: {}. Make sure "
                             "the `*` is set to specify the beginning of the "
                             "keyword-only arguments section of the signature."
@@ -337,8 +345,8 @@ class ExternalPlotCreator(BasePlotCreator):
 
         # Check that the required keyword-only arguments are available
         if not all([p in sig.parameters for p in self._AD_KEYWORD_ONLY]):
-            errs.append("Did not find all of the expected keyword-only "
-                        "parameters ({}) in the plot function!"
+            errs.append("Did not find all of the expected KEYWORD_ONLY "
+                        "arguments ({}) in the plot function!"
                         "".format(", ".join(self._AD_KEYWORD_ONLY)))
 
         # Decide how to continue
@@ -356,3 +364,30 @@ class ExternalPlotCreator(BasePlotCreator):
                       "\n  - ".join(errs))
 
         return is_valid
+
+# -----------------------------------------------------------------------------
+
+class is_plot_func:
+    """This is a decorator class declaring the decorated function as a
+    plotting function to use with ExternalPlotCreator-derived plot creators
+    """
+
+    def __init__(self, *, creator_name: str=None):
+        """Initialize the decorator. Note that the function to be decorated is
+        not passed to this method.
+        
+        Args:
+            creator_name (str, optional): The name of the plot creator to use
+        """
+        self.creator_name = creator_name
+
+    def __call__(self, func: Callable):
+        """If there are decorator arguments, __call__() is only called
+        once, as part of the decoration process and expects as only argument
+        the function to be decorated.
+        """
+        # Do not actually wrap the function, but add attributes to it
+        func.creator_name = self.creator_name
+
+        # Return the function, now with attributes set
+        return func

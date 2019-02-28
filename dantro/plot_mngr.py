@@ -407,14 +407,15 @@ class PlotManager:
             rv = None
 
             # Generate error message
-            e_msg = ("During plotting of '{}', an error occurred in the "
-                     "plot creator '{}'!".format(name, creator))
+            e_msg = ("During plotting with {}, a {} occurred: {}"
+                     "".format(plot_creator.logstr,
+                               err.__class__.__name__, err))
 
             if self.raise_exc:
                 raise PlotCreatorError(e_msg) from err
             
             # else: just log it
-            log.error(e_msg + "\n{}: {}".format(err.__class__.__name__, err))
+            log.error(e_msg)
 
         else:
             log.debug("Plot creator call returned.")

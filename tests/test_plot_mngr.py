@@ -19,13 +19,12 @@ from dantro.plot_mngr import PlotManager, PlottingError, PlotConfigError, PlotCr
 # Paths
 PLOTS_EXT_PATH = resource_filename("tests", "cfg/plots_ext.yml")
 PLOTS_EXT2_PATH = resource_filename("tests", "cfg/plots_ext2.yml")
-PLOTS_AUTO_DETECT_PATH = resource_filename("tests",
-                                           "cfg/plots_auto_detect.yml")
+AUTO_DETECT_PATH = resource_filename("tests", "cfg/auto_detect.yml")
 
 # Configurations
 PLOTS_EXT = load_yml(PLOTS_EXT_PATH)
 PLOTS_EXT2 = load_yml(PLOTS_EXT2_PATH)
-PLOTS_AUTO_DETECT = load_yml(PLOTS_AUTO_DETECT_PATH)
+PLOTS_AUTO_DETECT = load_yml(AUTO_DETECT_PATH)
 # PLOTS_DECL = load_yml(resource_filename("tests", "cfg/plots_decl.yml"))
 # PLOTS_VEGA = load_yml(resource_filename("tests", "cfg/plots_vega.yml"))
 
@@ -289,7 +288,7 @@ def test_raise_exc(dm, pm_kwargs):
                 module=".basic", plot_func="lineplot")
     
     # While this one should raise
-    with pytest.raises(PlottingError, match="During plotting of 'raises'"):
+    with pytest.raises(PlottingError, match=r"During plotting with .* 'rais"):
         pm_exc.plot(name="raises",
                     module=".basic", plot_func="lineplot")
 
