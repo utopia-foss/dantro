@@ -1,11 +1,4 @@
-"""This module holds the abstract base classes needed for dantro:
-
-AbstractDataContainer: define a general data container interface
-AbstractDataGroup: define a Mapping-like group interface
-AbstractDataAttr: define a dict-like attribute interface to both of the above
-AbstractDataProxy: define the interface for creation and resolution of proxies
-AbstractPlotCreator: defines the interface for PlotCreators
-"""
+"""This module holds the abstract base classes needed for dantro"""
 
 import abc
 import collections
@@ -263,21 +256,7 @@ class AbstractDataProxy(metaclass=abc.ABCMeta):
 # -----------------------------------------------------------------------------
 
 class AbstractPlotCreator(metaclass=abc.ABCMeta):
-    """This class defines the interface for PlotCreator classes.
-
-    Abstract methods here:
-      * __init__: pass the data manager and the plot configuration
-      * __call__: Wrapper around the _plot method, which can update the config.
-      * plot:     This method receives the fully parsed plot configuration and
-                  then performs the plot.
-      * get_ext:  Used by PlotManager to retrieve the desired file extension
-      * prepare_cfg:   Pre-processes the plot configuration
-      * can_plot: Whether this plot creator can be used to create a plot with
-                  a certain configuration.
-      * _prepare_path: Creates the output path; can be subclassed to change
-                  behaviour, i.e. to postpone directory creation as far as
-                  possible
-    """
+    """This class defines the interface for PlotCreator classes"""
 
     @abc.abstractmethod
     def __init__(self, name: str, *, dm, **plot_cfg):

@@ -301,22 +301,46 @@ class PlotManager:
 
     def _get_plot_creator(self, creator: Union[str, None],
                           *, name: str, init_kwargs: dict,
-                          from_pspace: ParamSpace=None,
-                          plot_cfg: dict) -> BasePlotCreator:
+                          from_pspace: ParamSpace=None, plot_cfg: dict,
+                          auto_detect: bool=None) -> BasePlotCreator:
         """Determines which plot creator to use by looking at the given
         arguments. If set, tries to auto-detect from the arguments, which
         creator is to be used.
-
+        
         Then, sets up the corresponding creator and returns it.
-        """ 
+
+        This method is called from the plot() method.
+        
+        Args:
+            creator (Union[str, None]): The name of the creator to be found.
+                Can be None, if no argument was given to the plot method.
+            name (str): The name of the plot
+            init_kwargs (dict): Additional creator initialization parameters
+            from_pspace (ParamSpace, optional): If the plot is to be creatd
+                from a parameter space, that parameter space.
+            plot_cfg (dict): The plot configuration
+            auto_detect (bool, optional): Whether to auto-detect the creator.
+                If none, the value given at initialization is used.
+        
+        Returns:
+            BasePlotCreator: The selected creator object, fully initialized.
+        
+        Raises:
+            InvalidCreator: If the ``creator`` argument was invalid or auto-
+                detection failed.
+        """
         # If no creator is given, check if a default one can be used
         if creator is None:
+            # Combine auto-detect related settings
+            auto_detect = (auto_detect if auto_detect is not None
+                           else self._auto_detect_creator)
+
             # Find other ways to determine the name of the creator
             if self._default_creator:
                 # Just use the default
                 creator = self._default_creator
 
-            elif self._auto_detect_creator:
+            elif auto_detect:
                 # Can try to auto-detect from the arguments, which creator
                 # could uniquely fit to the arguments
                 log.debug("Attempting auto-detection of creator ...")
@@ -646,7 +670,8 @@ class PlotManager:
     def plot(self, name: str,
              *, creator: str=None, out_dir: str=None, file_ext: str=None,
              from_pspace: ParamSpace=None, save_plot_cfg: bool=None,
-             creator_init_kwargs: dict=None, **plot_cfg) -> BasePlotCreator:
+             auto_detect_creator: bool=None, creator_init_kwargs: dict=None,
+             **plot_cfg) -> BasePlotCreator:
         """Create plot(s) from a single configuration entry.
         
         A call to this function creates a single PlotCreator, which is also
@@ -670,6 +695,9 @@ class PlotManager:
                 sweep over these parameters, re-using the same creator instance
             save_plot_cfg (bool, optional): Whether to save the plot config.
                 If not given, uses the default value from initialization.
+            auto_detect_creator (bool, optional): Whether to attempt auto-
+                detection of the ``creator`` argument. If given, this argument
+                overwrites the value given at PlotManager initialization.
             creator_init_kwargs (dict, optional): Passed to the plot creator
                 during initialization. Note that the arguments given at
                 initialization of the PlotManager are updated by this.
@@ -679,8 +707,10 @@ class PlotManager:
             BasePlotCreator: The PlotCreator used for these plots
         
         Raises:
-            InvalidCreator: If no creator was given and no default specified
             PlotConfigError: If no out directory was specified here or at init
+        
+        No Longer Raises:
+            InvalidCreator: If no creator was given and no default specified
         
         """
         log.debug("Preparing plot '%s' ...", name)
@@ -701,7 +731,8 @@ class PlotManager:
         plot_creator = self._get_plot_creator(creator, name=name,
                                               init_kwargs=creator_init_kwargs,
                                               from_pspace=from_pspace, 
-                                              plot_cfg=plot_cfg)
+                                              plot_cfg=plot_cfg,
+                                              auto_detect=auto_detect_creator)
 
         # Let the creator process arguments
         plot_cfg, from_pspace = plot_creator.prepare_cfg(plot_cfg=plot_cfg,

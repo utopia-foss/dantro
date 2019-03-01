@@ -265,7 +265,10 @@ class DataManager(OrderedDataGroup):
     # .........................................................................
     # Loading data
 
-    def load_from_cfg(self, *, load_cfg: dict=None, update_load_cfg: dict=None, exists_action: str='raise', print_tree: bool=False) -> None:
+    def load_from_cfg(self, *, load_cfg: dict=None,
+                      update_load_cfg: dict=None,
+                      exists_action: str='raise',
+                      print_tree: bool=False) -> None:
         """Load multiple data entries using the specified load configuration.
         
         Args:
@@ -324,15 +327,18 @@ class DataManager(OrderedDataGroup):
         if print_tree:
             print("{:tree}".format(self))
 
-    def load(self, entry_name: str, *, loader: str, glob_str: Union[str, List[str]], target_group: str=None, target_path: str=None, print_tree: bool=False, load_as_attr: bool=False, **load_params) -> None:
+    def load(self, entry_name: str, *, loader: str,
+             glob_str: Union[str, List[str]], target_group: str=None,
+             target_path: str=None, print_tree: bool=False,
+             load_as_attr: bool=False, **load_params) -> None:
         """Performs a single load operation.
         
         Args:
             entry_name (str): Name of this entry; will also be the name of the
-                created group or container, unless `target_basename` is given
+                created group or container, unless ``target_basename`` is given
             loader (str): The name of the loader to use
             glob_str (Union[str, List[str]]): A glob string or a list of glob
-                strings by which to identify the files within `data_dir` that
+                strings by which to identify the files within ``data_dir`` that
                 are to be loaded using the given loader function
             target_group (str, optional): If given, the files to be loaded will
                 be stored in this group. This may only be given if the argument
@@ -341,14 +347,16 @@ class DataManager(OrderedDataGroup):
                 can be a format string. It is evaluated for each file that has
                 been matched. If it is not given, the content is loaded to a
                 group with the name of this entry at the root level.
-                Available keys are: basename, match (if `path_regex` is given)
+                Available keys are: ``basename``, ``match`` (if ``path_regex``
+                is used, see ``**load_params``)
             print_tree (bool, optional): Whether to print the tree at the end
                 of the loading operation.
             load_as_attr (bool, optional): If True, the loaded entry will be
                 added not as a new DataContainer or DataGroup, but as an
-                attribute to an (already existing) object at `target_path`.
-                The name of the attribute will be the `entry_name`.
+                attribute to an (already existing) object at ``target_path``.
+                The name of the attribute will be the ``entry_name``.
             **load_params: Further loading parameters, all optional!
+
                 ignore (list): The exact file names in this list will be
                     ignored during loading. Paths are seen as elative to the
                     data directory of the data manager.
@@ -361,9 +369,9 @@ class DataManager(OrderedDataGroup):
                     Can be: raise (default), skip, skip_nowarn, overwrite,
                     overwrite_nowarn.
                     With *_nowarn values, no warning is given if an entry
-                    already existed.
-                    Note that this is ignored when `load_as_attr` is given.
-                unpack_data (bool, optional): If True, and load_as_attr is
+                    already existed. Note that this is ignored when
+                    the ``load_as_attr`` argument is given.
+                unpack_data (bool, optional): If True, and ``load_as_attr`` is
                     active, not the DataContainer or DataGroup itself will be
                     stored in the attribute, but the content of its .data
                     attribute.
@@ -377,8 +385,8 @@ class DataManager(OrderedDataGroup):
             None
         
         Raises:
-            ValueError: Upon invalid combination of target_group and
-                target_path arguments
+            ValueError: Upon invalid combination of ``target_group`` and
+                ``target_path`` arguments
         """
 
         def glob_match_single(glob_str: Union[str, List[str]]) -> bool:
