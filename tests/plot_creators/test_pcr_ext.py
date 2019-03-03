@@ -6,7 +6,8 @@ from pkg_resources import resource_filename
 import pytest
 
 from dantro.tools import load_yml
-from dantro.plot_creators import ExternalPlotCreator
+from dantro.plot_creators import ExternalPlotCreator, UniversePlotCreator
+from dantro.plot_creators import is_plot_func
 
 # Load configuration files
 PLOTS_AUTO_DETECT = load_yml(resource_filename("tests", "cfg/auto_detect.yml"))
@@ -111,6 +112,60 @@ def test_can_plot(init_kwargs, tmp_module):
     assert not epc.can_plot("external", plot_func="some_func")
     assert not epc.can_plot("external", plot_func="some_func", module="foo")
     assert not epc.can_plot("external", plot_func="some_func", module_file=".")
+
+    # Test the decorator . . . . . . . . . . . . . . . . . . . . . . . . . . . 
+    # Define a shortcut
+    def declared_pf_by_attrs(func, pc=epc, creator_name="external"):
+        return pc._declared_plot_func_by_attrs(func, creator_name)
+
+    # Define some functions to test
+    @is_plot_func(creator_name="external")
+    def pfdec_name():
+        pass
+    
+    @is_plot_func(creator_type=ExternalPlotCreator)
+    def pfdec_type():
+        pass
+    
+    @is_plot_func(creator_type=ExternalPlotCreator, creator_name="foo")
+    def pfdec_type_and_name():
+        pass
+    
+    @is_plot_func(creator_type=UniversePlotCreator)
+    def pfdec_subtype():
+        pass
+    
+    @is_plot_func(creator_name="universe")
+    def pfdec_subtype_name():
+        pass
+
+    @is_plot_func(creator_type=int)
+    def pfdec_bad_type():
+        pass
+
+    @is_plot_func(creator_name="i_do_not_exist")
+    def pfdec_bad_name():
+        pass
+
+    assert declared_pf_by_attrs(pfdec_name)
+    assert declared_pf_by_attrs(pfdec_type)
+    assert declared_pf_by_attrs(pfdec_type_and_name)
+    assert not declared_pf_by_attrs(pfdec_subtype)
+    assert not declared_pf_by_attrs(pfdec_subtype_name)
+    assert not declared_pf_by_attrs(pfdec_bad_type)
+    assert not declared_pf_by_attrs(pfdec_bad_name)
+
+    # Also test for a derived class
+    upc = UniversePlotCreator("can_plot", **init_kwargs)
+
+    assert not declared_pf_by_attrs(pfdec_name, upc, "universe")
+    assert declared_pf_by_attrs(pfdec_type, upc, "universe")
+    assert declared_pf_by_attrs(pfdec_type_and_name, upc, "universe")
+    assert declared_pf_by_attrs(pfdec_subtype, upc, "universe")
+    assert declared_pf_by_attrs(pfdec_subtype_name, upc, "universe")
+    assert not declared_pf_by_attrs(pfdec_bad_type, upc, "universe")
+    assert not declared_pf_by_attrs(pfdec_bad_name, upc, "universe")
+
 
     # Test the _valid_plot_func_signature method . . . . . . . . . . . . . . .
     def valid_sig(func, throw: bool=False) -> bool:

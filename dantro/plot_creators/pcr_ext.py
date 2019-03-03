@@ -160,10 +160,7 @@ class ExternalPlotCreator(BasePlotCreator):
         # The function might have an attribute that specifies the name of the
         # creator to use
         if not self._AD_IGNORE_FUNC_ATTRS:
-            if hasattr(pf, "creator_name") and pf.creator_name == creator_name:
-                log.debug("The plot function's desired creator name '%s' "
-                          "matches the name under which %s is known to the "
-                          "PlotManager.", creator_name, self.classname)
+            if self._declared_plot_func_by_attrs(pf, creator_name):
                 return True
 
         # Check that function's signature and decide accordingly
@@ -277,6 +274,39 @@ class ExternalPlotCreator(BasePlotCreator):
         """
         return ((self.dm,) + args, kwargs)
 
+    def _declared_plot_func_by_attrs(self, pf: Callable,
+                                     creator_name: str) -> bool:
+        """Checks whether the given function has attributes set that declare
+        it as a plotting function that is to be used with this creator.
+        
+        Args:
+            pf (Callable): The plot function to check attributes of
+            creator_name (str): The name under which this creator type is
+                registered to the PlotManager.
+        
+        Returns:
+            bool: Whether the plot function attributes declare the given plot
+                function as suitable for working with this specific creator.
+        """
+        
+        if hasattr(pf, 'creator_type') and pf.creator_type is not None:
+            if isinstance(self, pf.creator_type):
+                log.debug("The desired type of the plot function, %s, is the "
+                          "same or a parent type of this %s.",
+                          pf.creator_type, self.logstr)
+                return True
+
+        if hasattr(pf, 'creator_name') and pf.creator_name == creator_name:
+            log.debug("The plot function's desired creator name '%s' "
+                      "matches the name under which %s is known to the "
+                      "PlotManager.", pf.creator_name, self.classname)
+            return True
+
+        log.debug("Checked plot function attributes, but neither the type "
+                  "nor the creator name were specified or matched this "
+                  "creator.")
+        return False
+
     def _valid_plot_func_signature(self, sig: inspect.Signature,
                                    raise_if_invalid: bool=False) -> bool:
         """Determines whether the plot function signature is valid
@@ -372,14 +402,20 @@ class is_plot_func:
     plotting function to use with ExternalPlotCreator-derived plot creators
     """
 
-    def __init__(self, *, creator_name: str=None):
+    def __init__(self, *, creator_type: type=None, creator_name: str=None,
+                 **additional_attributes):
         """Initialize the decorator. Note that the function to be decorated is
         not passed to this method.
         
         Args:
+            creator_type (type, optional): The type of plot creator to use
             creator_name (str, optional): The name of the plot creator to use
+            **additional_attributes: Additional attributes to add to the
+                plot function
         """
-        self.creator_name = creator_name
+        self.pf_attrs = dict(creator_type=creator_type,
+                             creator_name=creator_name,
+                             **additional_attributes)
 
     def __call__(self, func: Callable):
         """If there are decorator arguments, __call__() is only called
@@ -387,7 +423,8 @@ class is_plot_func:
         the function to be decorated.
         """
         # Do not actually wrap the function, but add attributes to it
-        func.creator_name = self.creator_name
+        for k, v in self.pf_attrs.items():
+            setattr(func, k, v)
 
         # Return the function, now with attributes set
         return func
