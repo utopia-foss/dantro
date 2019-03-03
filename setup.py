@@ -2,7 +2,7 @@
 
 from setuptools import setup, find_packages
 
-# Dependency lists
+# Dependency lists ............................................................
 install_deps = [
     'h5py>=2.7.0',
     'numpy>=1.14',
@@ -14,21 +14,46 @@ install_deps = [
 test_deps = ['pytest>=3.4.0', 'pytest-cov>=2.5.1', 'tox>=3.1.2']
 doc_deps = ['sphinx>=1.8', 'sphinx_rtd_theme']
 
+# .............................................................................
 
+# A function to extract version number from __init__.py
+def find_version(*file_paths) -> str:
+    """Tries to extract a version from the given path sequence"""
+    import os, re, codecs
+
+    def read(*parts):
+        """Reads a file from the given path sequence, relative to this file"""
+        here = os.path.abspath(os.path.dirname(__file__))
+        with codecs.open(os.path.join(here, *parts), 'r') as fp:
+            return fp.read()
+
+    # Read the file and match the __version__ string
+    file = read(*file_paths)
+    match = re.search(r"^__version__\s?=\s?['\"]([^'\"]*)['\"]", file, re.M)
+    if match:
+        return match.group(1)
+    raise RuntimeError("Unable to find version string in " + str(file_paths))
+
+
+# .............................................................................
 setup(
     name='dantro',
     #
-    # Set the version
-    version='0.7.0rc1',
-    # NOTE do not forget to set dantro.__init__.__version__!
+    # Set the version from dantro.__version__
+    version=find_version('dantro', '__init__.py'),
     #
     # Project info
-    description="Loading and handling hierarchical data",
-    long_description=("With dantro, hierarchical data can be loaded and "
-                      "conveniently handled, preserving the tree-like "
-                      "structure. It aims at being abstract enough to be "
-                      "used as a basis for more specialized data container "
-                      "classes."),
+    description="Loads, handles, and plots hierarchically structured data",
+    long_description=("With dantro, hierarchically structured data can be "
+                      "loaded into a uniform data structure, a so-called data "
+                      "tree. Furthermore, dantro provides capabilities to "
+                      "generically create plots from that data. "
+                      "The whole package aims at implementing an abstract "
+                      "interface that allows specializing the provided "
+                      "classes to the needs to the data that is to be "
+                      "worked with. At the same time, it already provides "
+                      "useful functionality, which makes specialization "
+                      "easier."),
     author="Utopia Developers",
     author_email=("Yunus Sevinchan <Yunus.Sevinchan@iup.uni.heidelberg.de>"),
     licence='MIT',

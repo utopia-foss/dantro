@@ -17,6 +17,25 @@ import sys
 sys.path.insert(0, os.path.abspath('../dantro'))
 
 
+# A function to extract version number from __init__.py -----------------------
+def find_version(*file_paths) -> str:
+    """Tries to extract a version from the given path sequence"""
+    import os, re, codecs
+
+    def read(*parts):
+        """Reads a file from the given path sequence, relative to this file"""
+        here = os.path.abspath(os.path.dirname(__file__))
+        with codecs.open(os.path.join(here, *parts), 'r') as fp:
+            return fp.read()
+
+    # Read the file and match the __version__ string
+    file = read(*file_paths)
+    match = re.search(r"^__version__\s?=\s?['\"]([^'\"]*)['\"]", file, re.M)
+    if match:
+        return match.group(1)
+    raise RuntimeError("Unable to find version string in " + str(file_paths))
+
+
 # -- Project information -----------------------------------------------------
 
 project = 'dantro'
@@ -24,9 +43,9 @@ copyright = '2019, Utopia Developers'
 author = 'Utopia Developers'
 
 # The short X.Y version
-version = '0.7'
+version = find_version('..', 'dantro', '__init__.py')
 # The full version, including alpha/beta/rc tags
-release = '0.7.0rc1'
+release = find_version('..', 'dantro', '__init__.py')
 
 
 # -- General configuration ---------------------------------------------------
