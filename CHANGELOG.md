@@ -4,6 +4,7 @@
 
 ## v0.7.0
 - #43 Add a Sphinx-based documentation, currently containing only the API reference
+- With #40 and !41, the `PlotManager` can auto-detect which plot creator is to be used; this allows to leave out the `creator` key in the plot configuration and thus simplifies the configuration of a plot.
 
 
 ## v0.6.0

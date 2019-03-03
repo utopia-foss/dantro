@@ -22,7 +22,12 @@ log = logging.getLogger(__name__)
 # ParamSpaceGroup and associated classes
 
 class ParamSpaceStateGroup(OrderedDataGroup):
-    """A ParamSpaceStateGroup is meant as the member of the ParamSpaceGroup."""
+    """A ParamSpaceStateGroup is a member of the ParamSpaceGroup.
+
+    It extends the OrderedDataGroup only by checking whether the name of the
+    group is a valid parameter space state, i.e. whether it is representable
+    as a positive integer.
+    """
 
     # The child class should not be of the same type as this class.
     _NEW_GROUP_CLS = OrderedDataGroup
@@ -226,10 +231,16 @@ class ParamSpaceGroup(OrderedDataGroup):
 
     # Data access .............................................................
 
-    def select(self, *, field: Union[str, List[str]]=None, fields: Dict[str, List[str]]=None, subspace: dict=None, method: str='concat', idx_as_label: bool=False, **kwargs) -> xr.Dataset:
+    def select(self, *,
+               field: Union[str, List[str]]=None,
+               fields: Dict[str, List[str]]=None,
+               subspace: dict=None,
+               method: str='concat',
+               idx_as_label: bool=False,
+               **kwargs) -> xr.Dataset:
         """Selects a multi-dimensional slab of this ParamSpaceGroup and the
-        specified fields and returns them bundled into an xarray.Dataset with
-        labelled dimensions and coordinates.
+        specified fields and returns them bundled into an ``xarray.Dataset``
+        with labelled dimensions and coordinates.
         
         Args:
             field (Union[str, List[str]], optional): The field of data to
@@ -247,11 +258,13 @@ class ParamSpaceGroup(OrderedDataGroup):
                 parameter space. Adheres to the ParamSpace.activate_subspace
                 signature.
             method (str, optional): How to combine the selected datasets.
-                    * 'concat': concatenate sequentially along all parameter
+
+                    - ``concat``: concatenate sequentially along all parameter
                       space dimensions. This can preserve the data type but
                       it does not work if one data point is missing.
-                    * 'merge': merge always works, even if data points are
+                    - ``merge``: merge always works, even if data points are
                       missing, but will convert all dtypes to float.
+
             idx_as_label (bool, optional): If true, adds the trivial indices
                 as labels for those dimensions where coordinate labels were not
                 extractable from the loaded field. This allows merging for data
@@ -261,11 +274,12 @@ class ParamSpaceGroup(OrderedDataGroup):
         
         Raises:
             ValueError: Raised in multiple scenarios:
-                * If no ParamSpace was associated with this group
-                * For wrong argument values
-                * If the data to select cannot be extracted with the given
+
+                - If no ParamSpace was associated with this group
+                - For wrong argument values
+                - If the data to select cannot be extracted with the given
                   argument values
-                * Exceptions passed on from xarray
+                - Exceptions passed on from xarray
         
         Returns:
             xr.Dataset: The selected hyperslab of the parameter space, holding

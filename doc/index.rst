@@ -9,7 +9,15 @@ Welcome to dantro's documentation!
 .. toctree::
    :maxdepth: 1
 
-   API Reference <api/dantro>
+   API Reference <api/modules>
+
+
+.. toctree::
+   :caption: Plotting
+   :maxdepth: 1
+   :glob:
+   
+   plotting/*
 
 
 Indices and tables

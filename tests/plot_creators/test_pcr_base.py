@@ -12,7 +12,7 @@ class MockPlotCreator(BasePlotCreator):
 
     EXTENSIONS = ("one", "two", "ext")
 
-    def _plot(self, out_path: str=None, **cfg):
+    def plot(self, out_path: str=None, **cfg):
         """Does nothing but writing the content of cfg to a file at out_path"""
         with open(out_path, "w") as f:
             f.write(str(cfg))

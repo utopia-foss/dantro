@@ -19,7 +19,7 @@ setup(
     name='dantro',
     #
     # Set the version
-    version='0.7.0rc0',
+    version='0.7.0rc1',
     # NOTE do not forget to set dantro.__init__.__version__!
     #
     # Project info
