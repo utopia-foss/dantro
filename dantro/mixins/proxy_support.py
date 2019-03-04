@@ -67,6 +67,12 @@ class ProxyMixin:
             return self._data
         return None
 
+    def _format_info(self) -> str:
+        """Adds an indicator to whether data is proxy to the info string"""
+        if self.data_is_proxy:
+            return "proxy, " + super()._format_info()
+        return super()._format_info()
+
 
 class Hdf5ProxyMixin(ProxyMixin):
     """Specialises the ProxyMixin to the capabilities of a Hdf5 Proxy, i.e. it

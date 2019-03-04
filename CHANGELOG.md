@@ -6,6 +6,7 @@
 - #43 Add a Sphinx-based documentation, currently containing only the API reference
 - With #40 and !41, the `PlotManager` can auto-detect which plot creator is to be used; this allows to leave out the `creator` key in the plot configuration and thus simplifies the configuration of a plot.
 - #44 makes the dantro version number single-sourced in `dantro/__init__.py`
+- !39 makes minor improvements to info strings
 
 
 ## v0.6.0
