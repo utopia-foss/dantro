@@ -37,8 +37,11 @@ class Hdf5DataProxy(BaseDataProxy):
         self.dtype = obj.dtype
 
     def __str__(self) -> str:
-        """An info string that can be used to represent this object."""
-        return "{shape:}, {dtype:}".format(shape=self.shape, dtype=self.dtype)
+        """An info string that can be used to represent this object without
+        resolving the proxy data.
+        """
+        return "{shape:}, {dtype:}".format(shape=self.shape,
+                                           dtype=self.dtype)
 
     def resolve(self) -> np.ndarray:
         """Resolve the data of this proxy by opening the hdf5 file and loading
@@ -47,5 +50,8 @@ class Hdf5DataProxy(BaseDataProxy):
         Returns:
             np.ndarray: The dataset that this proxy was placeholder for
         """
+        log.debug("Resolving HDF5 proxy... Name: %s,  File: %s",
+                  self.name, self.fname)
+
         with h5.File(self.fname, 'r') as h5file:
             return np.array(h5file[self.name])
