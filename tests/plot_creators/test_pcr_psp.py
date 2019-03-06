@@ -24,7 +24,8 @@ def pspace():
     return ParamSpace(dict(foo="bar",
                            p0=ParamDim(default=0, values=[1, 2], order=0),
                            p1=ParamDim(default=0, values=[1, 2, 3]),
-                           p2=ParamDim(default=0, values=[1, 2, 3, 4, 5])))
+                           p2=ParamDim(default=0, values=[1, 2, 3, 4, 5]),
+                           a=dict(a0=ParamDim(default=0, range=[4]))))
 
 @pytest.fixture
 def init_kwargs(psp_grp, tmpdir) -> dict:
@@ -59,11 +60,13 @@ def test_MultiversePlotCreator(init_kwargs, psp_grp_default, tmpdir):
 
     # Check the lengths are correct
     assert mv_data.dims['p0'] == 2
+    assert mv_data.dims['a0'] == 4
     assert mv_data.dims['p1'] == 1
     assert mv_data.dims['p2'] == 5
 
     # Check the coordinates are correct
     assert np.all(mv_data.coords['p0'] == [1, 2])
+    assert np.all(mv_data.coords['a0'] == [0, 1, 2, 3])
     assert np.all(mv_data.coords['p1'] == [3])
     assert np.all(mv_data.coords['p2'] == [1, 2, 3, 4, 5])
 
@@ -120,24 +123,24 @@ def test_UniversePlotCreator(init_kwargs):
 
     assert not cfg
     assert isinstance(psp, ParamSpace)
-    assert psp.volume == 2 * 3 * 5
-    assert [k for k in psp.dims.keys()] == ['p0', 'p1', 'p2']
-    assert psp.num_dims == 3
+    assert [k for k in psp.dims.keys()] == ['p0', 'a0', 'p1', 'p2']
+    assert psp.volume == 2 * 4 * 3 * 5     # in this order
+    assert psp.num_dims == 4
     assert '_coords' in psp.default
-    assert len(psp.default['_coords']) == 3
+    assert len(psp.default['_coords']) == 4
 
     # Parameter dimensions have very negative order values
     assert all([pdim.order <= -1e6 for pdim in psp.dims.values()])
 
     # State map should now be set
     assert isinstance(upc.state_map, xr.DataArray)
-    assert upc.state_map.dims == ('p0', 'p1', 'p2')
+    assert upc.state_map.dims == ('p0', 'a0', 'p1', 'p2')
 
     # Having given a parameter space, those dimensions are used as well
     pspace = ParamSpace(dict(foo="bar", v0=ParamDim(default=-1, range=[5])))
     cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes='all'), pspace=pspace)
 
-    assert psp.num_dims == 3 + 1
+    assert psp.num_dims == 4 + 1
     assert psp.default['foo'] == "bar"
     assert psp.default['v0'] == -1
 
@@ -145,8 +148,8 @@ def test_UniversePlotCreator(init_kwargs):
     unis = dict(p0=[2], p1=slice(1.5, 3.5))
     cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes=unis), pspace=None)
 
-    assert psp.num_dims == 3
-    assert psp.volume == 1 * 2 * 5
+    assert psp.num_dims == 4
+    assert psp.volume == 1 * 4 * 2 * 5
 
     # Now check the plot function arguments are correctly parsed
     for cfg in psp:
@@ -162,23 +165,24 @@ def test_UniversePlotCreator(init_kwargs):
     # 'single'/'first' universe
     cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes='first'), pspace=None)
 
-    assert psp.num_dims == 3
-    assert psp.volume == 1 * 1 * 1
+    assert psp.num_dims == 4
+    assert psp.volume == 1 * 1 * 1 * 1
     
     for cfg in psp:
         args, kwargs = upc._prepare_plot_func_args(**cfg)
-        assert kwargs['uni'].name == '31'  # first non-default
+        assert kwargs['uni'].name == '151'  # first non-default
     
 
     # 'random'/'any' universe
     cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes='any'), pspace=None)
 
-    assert psp.num_dims == 3
-    assert psp.volume == 1 * 1 * 1
+    assert psp.num_dims == 4
+    assert psp.volume == 1 * 1 * 1 * 1
     
     for cfg in psp:
         args, kwargs = upc._prepare_plot_func_args(**cfg)
-        assert 31 <= int(kwargs['uni'].name) <= 71
+        # ID is >= first possible ID and smaller than maximum ID
+        assert 151 <= int(kwargs['uni'].name) < (3 * 4 * 5 * 6)
 
 
     # Assert correct error messages
