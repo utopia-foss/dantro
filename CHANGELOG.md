@@ -8,6 +8,8 @@
 - #44 makes the dantro version number single-sourced in `dantro/__init__.py`
 - !39 makes minor improvements to info strings
 
+## v0.6.1
+- !44 Fixes a bug where the association of parameter dimensions in `UniversePlotCreator` was wrong and could lead to failing plots.
 
 ## v0.6.0
 - #36 and !36 make the `out_dir` of `DataManager` more configurable and adds some other minor tweaks.

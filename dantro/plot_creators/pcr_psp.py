@@ -232,25 +232,27 @@ class UniversePlotCreator(ExternalPlotCreator):
                                            ", ".join([n for n in psp.dims])))
 
         # Copy parameter dimension objects for each coordinate
+        # As the parameter space with the coordinates has a different
+        # hierarchy than psp, the ordering has to be manually adjusted to be
+        # the same as in the original psp.
         coords = dict()
-        for name, pdim in psp.dims.items():
-            # Use a copy, to be safe
+        for dim_num, (name, pdim) in enumerate(psp.dims.items()):
+            # Need to use a copy, as it will need to be changed
             _pdim = copy.deepcopy(pdim)
 
             # Make sure the name is the same as in the parameter space
             _pdim._name = name
             # FIXME internal API usage
 
-            # Adjust the order to put them in front in the parameter space
-            if _pdim.order == np.inf:
-                # Explicitly need to set a value
-                _pdim._order = -1e6
-                # FIXME internal API usage
-            else:
-                # Decrement the given order value by a large enough value
-                _pdim._order -= 1e9
-                # FIXME internal API usage
-
+            # Adjust the order to put them in front in the parameter space, but
+            # keep the ordering the same as in `psp`.
+            # NOTE The actual _order attribute does no longer play a role, as
+            #      the psp.dims are already sorted according to those values.
+            #      We just need to generate an offset to those parameter dims
+            #      that might be defined in the plot configuration ...
+            _pdim._order = -100000000 + dim_num
+            # FIXME internal API usage
+            
             # Now store it in the dict
             coords[name] = _pdim
 
