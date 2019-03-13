@@ -325,7 +325,7 @@ class DataManager(OrderedDataGroup):
 
         # Finally, print the tree
         if print_tree:
-            print("{:tree}".format(self))
+            print(self.tree)
 
     def load(self, entry_name: str, *, loader: str,
              glob_str: Union[str, List[str]], target_group: str=None,
@@ -474,7 +474,7 @@ class DataManager(OrderedDataGroup):
         log.debug("Entry '%s' successfully loaded.", entry_name)
 
         if print_tree:
-            print("{:tree}".format(self))
+            print(self.tree)
     
     # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     # Helpers for loading and storing data
