@@ -8,6 +8,7 @@
 - #44 makes the dantro version number single-sourced in `dantro/__init__.py`
 - !39 makes minor improvements to info strings
 - #51 adds a `tree` property to `BaseDataGroup`, which returns the tree representation string of that group.
+- #54 Let HDF5 loader automatically convert encoded strings into python strings
 
 ## v0.6.1
 - !44 Fixes a bug where the association of parameter dimensions in `UniversePlotCreator` was wrong and could lead to failing plots.
