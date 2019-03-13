@@ -129,6 +129,8 @@ def hdf5_dm(data_dir) -> Hdf5DataManager:
     basic.create_group("UpperCaseGroup")
     basic.attrs['foo'] = "file level attribute"
     basic['group'].attrs['foo'] = "group level attribute"
+    basic['group'].attrs['encoded_str'] = bytes("encoded string", "utf8")
+    basic['group'].attrs['encoded_arr'] = np.array(["foo", "bar"], dtype="S3")
     basic['int_dset'].attrs['foo'] = "dset level attribute"
 
     basic.close()
@@ -154,6 +156,13 @@ def hdf5_dm(data_dir) -> Hdf5DataManager:
     mapping['dummy_group'].attrs['container_type'] = 'dummy'
     mapping.create_dataset('dummy_dset', data=np.zeros((1,2)))
     mapping['dummy_dset'].attrs['container_type'] = 'dummy'
+    
+    mapping.create_dataset('another_dummy', data=np.zeros((2,3,4)))
+    mapping['another_dummy'].attrs['container_type'] = bytes("dummy", 'utf8')
+    
+    mapping.create_dataset('one_more_dummy', data=np.zeros((2,3,4)))
+    mapping['one_more_dummy'].attrs['container_type'] = np.array("dummy",
+                                                                 dtype='S5')
     
     mapping.create_group('badmap_group')
     mapping['badmap_group'].attrs['container_type'] = 'badmap'
@@ -674,6 +683,8 @@ def test_hdf5_mapping(hdf5_dm):
     # Correct mapping should have yielded the custom types
     assert isinstance(mp['dummy_dset'], DummyDC)
     assert isinstance(mp['dummy_group'], DummyGroup)
+    assert isinstance(mp['another_dummy'], DummyDC)
+    assert isinstance(mp['one_more_dummy'], DummyDC)
 
     # Incorrect mapping should have loaded and yielded default types
     assert isinstance(mp['badmap_dset'], NumpyTestDC)
@@ -689,3 +700,23 @@ def test_hdf5_mapping(hdf5_dm):
     # Explicitly passing an attribute name should work though
     hdf5_dm.load('with_given_attr', loader='hdf5', glob_str="**/*.h5",
                  enable_mapping=True, map_from_attr='container_type')
+
+def test_hdf5_bytestring_conversion(hdf5_dm):
+    """Tests whether bytestrings are decoded during loading"""
+    hdf5_dm.load('decode_enabled', loader='hdf5', glob_str="**/*.h5")
+
+    # Test that strings are loaded as unicode strings
+    grp = hdf5_dm['decode_enabled/basic/group']
+    assert isinstance(grp.attrs['encoded_str'], str)
+    assert grp.attrs['encoded_arr'].dtype.kind == 'U'
+
+    # When deactivated, the bytestring should be loaded
+    # Enable the mapping to make sure that also works with decoding deactivated
+    hdf5_dm._HDF5_DECODE_ATTR_BYTESTRINGS = False
+    hdf5_dm.load('decode_disabled', loader='hdf5', glob_str="**/*.h5",
+                 enable_mapping=True)
+
+    # Test that strings are NOT loaded as unicode strings
+    grp = hdf5_dm['decode_disabled/basic/group']
+    assert isinstance(grp.attrs['encoded_str'], bytes)
+    assert grp.attrs['encoded_arr'].dtype.kind == 'S'
