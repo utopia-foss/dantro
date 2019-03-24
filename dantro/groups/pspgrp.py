@@ -41,9 +41,6 @@ class ParamSpaceStateGroup(OrderedDataGroup):
             containers (list, optional): A list of containers to add
             **kwargs: Further initialisation kwargs, e.g. `attrs` ...
         """
-
-        log.debug("ParamSpaceStateGroup.__init__ called.")
-
         # Assert that the name is valid, i.e. convertible to an integer
         try:
             int(name)
@@ -61,7 +58,6 @@ class ParamSpaceStateGroup(OrderedDataGroup):
         super().__init__(name=name, containers=containers, **kwargs)
 
         # Done.
-        log.debug("ParamSpaceStateGroup.__init__ finished.")
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -89,7 +85,8 @@ class ParamSpaceGroup(OrderedDataGroup):
 
     # .........................................................................
 
-    def __init__(self, *, name: str, pspace: ParamSpace=None, containers: list=None, **kwargs):
+    def __init__(self, *, name: str, pspace: ParamSpace=None,
+                 containers: list=None, **kwargs):
         """Initialize a OrderedDataGroup from the list of given containers.
         
         Args:
@@ -100,9 +97,6 @@ class ParamSpaceGroup(OrderedDataGroup):
                 need to be ParamSpaceStateGroup objects.
             **kwargs: Further initialisation kwargs, e.g. `attrs` ...
         """
-
-        log.debug("ParamSpaceGroup.__init__ called.")
-
         # Initialize with parent method, which will call .add(*containers)
         super().__init__(name=name, containers=containers, **kwargs)
 
@@ -114,8 +108,6 @@ class ParamSpaceGroup(OrderedDataGroup):
         self._num_digs = 0
 
         # Done.
-        log.debug("ParamSpaceGroup.__init__ finished.")
-
 
     # Properties ..............................................................
 
@@ -148,6 +140,7 @@ class ParamSpaceGroup(OrderedDataGroup):
 
         # Checked it, now set it
         self.attrs[self._PSPGRP_PSPACE_ATTR_NAME] = val
+
         log.debug("Associated %s with %s", val, self.logstr)
 
 
@@ -372,7 +365,10 @@ class ParamSpaceGroup(OrderedDataGroup):
                                  "data was fully loaded."
                                  "".format(state_no, self.logstr)) from err
 
-        def get_var(state_grp: ParamSpaceStateGroup, *, path: List[str], dtype: str=None, dims: List[str]=None) -> Union[xr.Variable, xr.DataArray]:
+        def get_var(state_grp: ParamSpaceStateGroup, *,
+                    path: List[str],
+                    dtype: str=None,
+                    dims: List[str]=None) -> Union[xr.Variable, xr.DataArray]:
             """Extracts the field specified by the given path and returns it as
             either an xr.Variable or (for supported containers) directly as an
             xr.DataArray.
@@ -469,7 +465,8 @@ class ParamSpaceGroup(OrderedDataGroup):
 
             return dset
 
-        def combine(*, method: str, dsets: np.ndarray, psp: ParamSpace) -> xr.Dataset:
+        def combine(*, method: str,
+                    dsets: np.ndarray, psp: ParamSpace) -> xr.Dataset:
             """Tries to combine the given datasets either by concatenation or
             by merging and returns a combined xr.Dataset
             """

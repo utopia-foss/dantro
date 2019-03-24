@@ -25,12 +25,8 @@ class OrderedDataGroup(BaseDataGroup, collections.abc.MutableMapping):
             containers (list, optional): A list of containers to add
             **kwargs: Further initialisation kwargs, e.g. `attrs` ...
         """
-
-        log.debug("OrderedDataGroup.__init__ called.")
-
         # Initialize with parent method, which will call .add(*containers)
         super().__init__(name=name, containers=containers,
                          StorageCls=collections.OrderedDict, **kwargs)
 
         # Done.
-        log.debug("OrderedDataGroup.__init__ finished.")
