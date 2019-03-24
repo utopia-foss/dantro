@@ -17,6 +17,9 @@ log = logging.getLogger(__name__)
 class NetworkGroup(BaseDataGroup):
     """The NetworkGroup class manages groups of network data containers."""
 
+    # Define allowed member container types
+    _ALLOWED_CONT_TYPES = (NumpyDataContainer,)
+
     # Define, as class variables, in which containers or attributes to find the
     # info on the nodes and edges.
     _NWG_node_container = "nodes"
@@ -24,22 +27,8 @@ class NetworkGroup(BaseDataGroup):
     _NWG_attr_directed = "directed"
     _NWG_attr_parallel = "parallel"
 
-    # Define allowed container types
-    _ALLOWED_CONT_TYPES = (NumpyDataContainer,)
 
-
-    def __init__(self, *, name: str, containers: list=None, **kwargs):
-        """Initialize a NetworkGroup from the list of given containers.
-        
-        Args:
-            name (str): The name of this group
-            containers (list, optional): A list of containers to add
-            **kwargs: Further initialization kwargs, e.g. `attrs` ...
-        """
-        # Initialize with parent method, which will call .add(*containers)
-        super().__init__(name=name, containers=containers, **kwargs)
-
-        # Done.
+    # .........................................................................
 
     def create_graph(self, *, directed: bool=None, parallel_edges: bool=None,
                      **graph_kwargs) -> nx.Graph:

@@ -19,9 +19,6 @@ class DummyContainer(ItemAccessMixin, BaseDataContainer):
 
     NOTE: the methods have not the correct functionality!
     """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     def _format_info(self):
         return "dummy"
 

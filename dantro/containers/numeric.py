@@ -5,7 +5,8 @@ import logging
 
 import numpy as np
 
-from ..base import BaseDataContainer, ItemAccessMixin, CheckDataMixin
+from ..base import BaseDataContainer
+from ..mixins import ItemAccessMixin, CheckDataMixin
 from ..mixins import ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin
 
 # Local constants
@@ -32,7 +33,8 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin,
         Arguments:
             name (str): The name of this container
             data (np.ndarray): The numpy data to store
-            **dc_kwargs: Additional arguments for container initialisation
+            **dc_kwargs: Additional arguments for container initialization,
+                passed on to parent method
         """
         # To be a bit more tolerant, allow lists as data argument
         if isinstance(data, list):

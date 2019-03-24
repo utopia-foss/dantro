@@ -7,7 +7,8 @@ of the AbstractDataGroup and the BaseDataContainer.
 In turn, the BaseDataContainer uses the BaseDataAttrs class as an attribute and
 thereby extends the AbstractDataContainer class.
 
-NOTE: These classes are not meant to be instantiated.
+NOTE: These classes are not meant to be instantiated but used as a basis to
+implement more specialized BaseDataGroup- or BaseDataContainer-derived classes.
 """
 
 import abc
@@ -322,11 +323,8 @@ class BaseDataContainer(PathMixin, AttrsMixin,
                         dantro.abc.AbstractDataContainer):
     """The BaseDataContainer extends the abstract base class by the ability to
     hold attributes and be path-aware.
-
-    NOTE: This is still an abstract class and needs to be subclassed.
     """
 
-    @abc.abstractmethod
     def __init__(self, *, name: str, data, attrs=None):
         """Initialize a BaseDataContainer, which can store data and attributes.
         
@@ -345,6 +343,8 @@ class BaseDataContainer(PathMixin, AttrsMixin,
 
         # Store the attributes object
         self.attrs = attrs
+
+        # Done.
 
     def _check_data(self, data, *, name: str) -> bool:
         """This method can be used to check the data provided to __init__.
@@ -375,8 +375,12 @@ class BaseDataContainer(PathMixin, AttrsMixin,
 class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
     """The BaseDataGroup serves as base group for all data groups.
 
-    NOTE: This is still an abstract class and needs to be subclassed.
+    It implements all functionality expected of a group, which is much more
+    than what is expected of a general container.
     """
+    # The mapping type that is used to store the members of this group.
+    _STORAGE_CLS = dict
+
     # Define which class to use in the new_group method. If None, the type of
     # this instance is used
     _NEW_GROUP_CLS = None
@@ -391,28 +395,27 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
     # .........................................................................
 
-    def __init__(self, *, name: str, containers: list=None, attrs=None,
-                 StorageCls: type=dict):
+    def __init__(self, *, name: str, containers: list=None, attrs=None):
         """Initialize a BaseDataGroup, which can store other containers and
         attributes.
         
         Args:
             name (str): The name of this data container
-            containers (list, optional): The containers to store in this group
+            containers (list, optional): The containers that are to be stored
+                as members of this group. If given, these are added one by one
+                using the `.add` method.
             attrs (None, optional): A mapping that is stored as attributes
-            StorageCls (type, optional): in which type of object to store the
-                containers.
         """
-        # Prepare the storage class that is used as `data` attribute
-        data = StorageCls()
+        # Prepare the storage class that is used to store the members
+        data = self._STORAGE_CLS()
 
-        # Basic initialisation via parent method
+        # Perform basic initialization via parent method
         super().__init__(name=name, data=data)
 
-        # Store the attributes object
+        # Store the attributes
         self.attrs = attrs
 
-        # Now fill the storage
+        # Now add the members
         if containers is not None:
             self.add(*containers)
 
