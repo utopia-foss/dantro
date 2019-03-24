@@ -48,8 +48,10 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
         self._name = name
         self._data = data
 
-        # Caching variables
+        # Set caching variables
         self._logstr = None
+
+        # Done.
 
     # .........................................................................
     # Properties
@@ -68,8 +70,11 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
     def logstr(self) -> str:
         """Returns the classname and name of this object; a combination often
         used in logging..."""
-        if not self._logstr:
+        # Store the cache value, if not already happened
+        if self._logstr is None:
             self._logstr = "{} '{}'".format(self.classname, self.name)
+
+        # Return the cache value
         return self._logstr
 
     @property

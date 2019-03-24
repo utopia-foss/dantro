@@ -4,7 +4,7 @@ import logging
 
 import numpy as np
 
-from ..base import BaseDataProxy
+from ..abc import AbstractDataProxy
 
 # Local variables
 log = logging.getLogger(__name__)
@@ -51,16 +51,16 @@ class ProxyMixin:
         Returns:
             bool: Whether the _currently_ stored data is a proxy object
         """
-        return isinstance(self._data, BaseDataProxy)
+        return isinstance(self._data, AbstractDataProxy)
 
     @property
-    def proxy(self) -> BaseDataProxy:
+    def proxy(self) -> AbstractDataProxy:
         """If the data is proxy, returns the proxy data object without using 
         the .data attribute (which would trigger resolving the proxy); else 
         returns None.
         
         Returns:
-            Union[BaseDataProxy, None]: If the data is proxy, return the
+            Union[AbstractDataProxy, None]: If the data is proxy, return the
                 proxy object; else None.
         """
         if self.data_is_proxy:

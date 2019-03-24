@@ -8,7 +8,8 @@ import numpy as np
 import pytest
 
 from dantro.base import BaseDataContainer, CheckDataMixin
-from dantro.base import ItemAccessMixin, UnexpectedTypeWarning
+from dantro.base import ItemAccessMixin
+from dantro.mixins.base import UnexpectedTypeWarning
 from dantro.containers import MutableSequenceContainer, NumpyDataContainer
 
 # Local constants
@@ -19,9 +20,6 @@ class DummyContainer(ItemAccessMixin, BaseDataContainer):
 
     NOTE: the methods have not the correct functionality!
     """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     def _format_info(self):
         return "dummy"
 

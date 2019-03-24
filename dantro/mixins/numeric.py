@@ -8,7 +8,7 @@ import logging
 
 import numpy as np
 
-from ..base import BaseDataContainer
+from ..abc import AbstractDataContainer
 
 # Local variables
 log = logging.getLogger(__name__)
@@ -280,7 +280,7 @@ def get_data(obj):
         Either the `.data` attribute of a dantro-based object or otherwise the
             object itself.
     """
-    if isinstance(obj, BaseDataContainer):
+    if isinstance(obj, AbstractDataContainer):
         return obj.data
     # Not dantro-based, just return the object itself.
     return obj
@@ -299,7 +299,7 @@ def apply_func_to_copy(obj, func, other=None):
     if other is None:
         new._data = func(new.data)
     else:
-        if isinstance(other, BaseDataContainer):
+        if isinstance(other, AbstractDataContainer):
             new._data = func(new.data, other.data)
         else:
             new._data = func(new.data, other)
@@ -317,7 +317,7 @@ def apply_func_inplace(obj, func, other=None):
     if other is None:
         func(obj._data)
     else:
-        if isinstance(other, BaseDataContainer):
+        if isinstance(other, AbstractDataContainer):
             func(obj._data, other.data)
         else:
             func(obj._data, other)
