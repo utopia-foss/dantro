@@ -8,7 +8,8 @@ import numpy as np
 import pytest
 
 from dantro.base import BaseDataContainer, CheckDataMixin
-from dantro.base import ItemAccessMixin, UnexpectedTypeWarning
+from dantro.base import ItemAccessMixin
+from dantro.mixins.base import UnexpectedTypeWarning
 from dantro.containers import MutableSequenceContainer, NumpyDataContainer
 
 # Local constants
