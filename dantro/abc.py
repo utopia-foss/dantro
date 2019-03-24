@@ -51,8 +51,6 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
         # Caching variables
         self._logstr = None
 
-        log.debug("Initializing %s ...", self.logstr)
-
     # .........................................................................
     # Properties
 

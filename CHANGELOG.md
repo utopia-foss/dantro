@@ -9,6 +9,7 @@
 - !39 makes minor improvements to info strings
 - #51 adds a `tree` property to `BaseDataGroup`, which returns the tree representation string of that group.
 - #54 Let HDF5 loader automatically convert encoded strings into python strings
+- #60 Removes unnecessary log messages upon entering/exiting a data container's or group's `__init__` method.
 
 ## v0.6.1
 - !44 Fixes a bug where the association of parameter dimensions in `UniversePlotCreator` was wrong and could lead to failing plots.

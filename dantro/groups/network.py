@@ -36,15 +36,10 @@ class NetworkGroup(BaseDataGroup):
             containers (list, optional): A list of containers to add
             **kwargs: Further initialization kwargs, e.g. `attrs` ...
         """
-
-        log.debug("NetworkGroup.__init__ called.")
-
         # Initialize with parent method, which will call .add(*containers)
         super().__init__(name=name, containers=containers, **kwargs)
 
         # Done.
-        log.debug("NetworkGroup.__init__ finished.")
-
 
     def create_graph(self, *, directed: bool=None, parallel_edges: bool=None,
                      **graph_kwargs) -> nx.Graph:

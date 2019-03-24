@@ -22,14 +22,10 @@ class ObjectContainer(ItemAccessMixin, BaseDataContainer):
             data (list): The object to store
             **dc_kwargs: Additional arguments for container initialization
         """
-
-        log.debug("ObjectContainer.__init__ called.")
-
         # Initialize with parent method
         super().__init__(name=name, data=data, **dc_kwargs)
 
         # Done.
-        log.debug("ObjectContainer.__init__ finished.")
 
     def _format_info(self) -> str:
         """A __format__ helper function: returns info about the stored data"""
@@ -37,7 +33,9 @@ class ObjectContainer(ItemAccessMixin, BaseDataContainer):
                                       super()._format_info())
 
 
-class MutableSequenceContainer(CheckDataMixin, ItemAccessMixin, CollectionMixin, BaseDataContainer, MutableSequence):
+class MutableSequenceContainer(CheckDataMixin, ItemAccessMixin,
+                               CollectionMixin, BaseDataContainer,
+                               MutableSequence):
     """The MutableSequenceContainer stores data that is sequence-like"""
 
     # Specify expected data types for this container class
@@ -47,21 +45,18 @@ class MutableSequenceContainer(CheckDataMixin, ItemAccessMixin, CollectionMixin,
 
 
     def __init__(self, *, name: str, data, **dc_kwargs):
-        """Initialize a MutableSequenceContainer, storing data that is sequence-like.
+        """Initialize a MutableSequenceContainer, storing data that is
+        sequence-like.
         
         Args:
             name (str): The name of this container
             data (list): The sequence-like data to store
             **dc_kwargs: Additional arguments for container initialization
         """
-
-        log.debug("MutableSequenceContainer.__init__ called.")
-
         # Initialize with parent method
         super().__init__(name=name, data=data, **dc_kwargs)
 
         # Done.
-        log.debug("MutableSequenceContainer.__init__ finished.")
 
     def insert(self, idx: int, val) -> None:
         """Insert an item at a given position. The first argument is the index 
@@ -76,7 +71,8 @@ class MutableSequenceContainer(CheckDataMixin, ItemAccessMixin, CollectionMixin,
         self.data.insert(idx, val)
 
 
-class MutableMappingContainer(CheckDataMixin, MappingAccessMixin, BaseDataContainer, MutableMapping):
+class MutableMappingContainer(CheckDataMixin, MappingAccessMixin,
+                              BaseDataContainer, MutableMapping):
     """The MutableMappingContainer stores mutable mapping data, e.g. dicts"""
 
     # Specify expected data types for this container class
@@ -93,9 +89,6 @@ class MutableMappingContainer(CheckDataMixin, MappingAccessMixin, BaseDataContai
                 is created
             **dc_kwargs: Additional arguments for container initialization
         """
-
-        log.debug("MutableMappingContainer.__init__ called.")
-
         # Supply a default value for the data, if none was given
         if data is None:
             data = {}
@@ -104,5 +97,3 @@ class MutableMappingContainer(CheckDataMixin, MappingAccessMixin, BaseDataContai
         super().__init__(name=name, data=data, **dc_kwargs)
 
         # Done.
-        log.debug("MutableMappingContainer.__init__ finished.")
-

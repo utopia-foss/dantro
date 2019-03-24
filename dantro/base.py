@@ -1,4 +1,5 @@
-"""This module implements the base classes of dantro based on the abstract classes.
+"""This module implements the base classes of dantro, based on the abstract
+classes.
 
 The base classes are classes that combine features of the abstract classes. For
 example, the data group gains attribute functionality by being a combination
@@ -34,7 +35,8 @@ class UnexpectedTypeWarning(UserWarning):
 
 
 class AttrsMixin:
-    """This Mixin class supplies the `attrs` property getter and setter and the private `_attrs` attribute.
+    """This Mixin class supplies the `attrs` property getter and setter and
+    the private `_attrs` attribute.
 
     Hereby, the setter function will initialize a BaseDataAttrs-derived object
     and store it as an attribute.
@@ -279,7 +281,8 @@ class BaseDataProxy(dantro.abc.AbstractDataProxy):
 class BaseDataAttrs(MappingAccessMixin, dantro.abc.AbstractDataAttrs):
     """A class to store attributes that belong to a data container.
 
-    This implements a dict-like interface and serves as default attribute class.
+    This implements a dict-like interface and serves as default attribute
+    class.
 
     NOTE: Unlike the other base classes, this can already be instantiated. That
     is required as it is needed in BaseDataContainer where no previous
@@ -298,8 +301,6 @@ class BaseDataAttrs(MappingAccessMixin, dantro.abc.AbstractDataAttrs):
 
         # Store them via the parent method.
         super().__init__(data=attrs, **dc_kwargs)
-
-        log.debug("BaseDataAttrs.__init__ finished.")
     
     # .........................................................................
     
@@ -317,7 +318,8 @@ class BaseDataAttrs(MappingAccessMixin, dantro.abc.AbstractDataAttrs):
 
 # -----------------------------------------------------------------------------
 
-class BaseDataContainer(PathMixin, AttrsMixin, dantro.abc.AbstractDataContainer):
+class BaseDataContainer(PathMixin, AttrsMixin,
+                        dantro.abc.AbstractDataContainer):
     """The BaseDataContainer extends the abstract base class by the ability to
     hold attributes and be path-aware.
 
@@ -333,8 +335,6 @@ class BaseDataContainer(PathMixin, AttrsMixin, dantro.abc.AbstractDataContainer)
             data: The data to store in this container
             attrs (None, optional): A mapping that is stored as attributes
         """
-        log.debug("BaseDataContainer.__init__ called.")
-
         # Supply the data to the _check_data method, which can be adjusted
         # to test the provided data. In this base class, the method does
         # nothing and serves only as a placeholder
@@ -345,8 +345,6 @@ class BaseDataContainer(PathMixin, AttrsMixin, dantro.abc.AbstractDataContainer)
 
         # Store the attributes object
         self.attrs = attrs
-
-        log.debug("BaseDataContainer.__init__ finished.")
 
     def _check_data(self, data, *, name: str) -> bool:
         """This method can be used to check the data provided to __init__.
@@ -393,7 +391,8 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
     # .........................................................................
 
-    def __init__(self, *, name: str, containers: list=None, attrs=None, StorageCls: type=dict):
+    def __init__(self, *, name: str, containers: list=None, attrs=None,
+                 StorageCls: type=dict):
         """Initialize a BaseDataGroup, which can store other containers and
         attributes.
         
@@ -404,8 +403,6 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
             StorageCls (type, optional): in which type of object to store the
                 containers.
         """
-        log.debug("BaseDataGroup.__init__ called.")
-
         # Prepare the storage class that is used as `data` attribute
         data = StorageCls()
 
@@ -419,7 +416,7 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         if containers is not None:
             self.add(*containers)
 
-        log.debug("BaseDataGroup.__init__ finished.")
+        # Done.
 
     # .........................................................................
     # Item access
@@ -456,7 +453,8 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
                                      ", ".join([k for k in self.keys()]))
                            ) from err
 
-    def __setitem__(self, key: Union[str, List[str]], val: BaseDataContainer) -> None:
+    def __setitem__(self, key: Union[str, List[str]],
+                    val: BaseDataContainer) -> None:
         """This method is used to allow access to the content of containers of
         this group. For adding an element to this group, use the `add` method!
         
@@ -711,7 +709,8 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
     # Linking
 
     # For correct child-parent linking, some helper methods
-    def _link_child(self, *, new_child: BaseDataContainer, old_child: BaseDataContainer=None):
+    def _link_child(self, *, new_child: BaseDataContainer,
+                    old_child: BaseDataContainer=None):
         """Links the new_child to this class, unlinking the old one.
 
         This method should be called from any method that changes which items
@@ -849,7 +848,8 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         """Returns a multi-line string tree representation of this group."""
         return self._tree_repr()
 
-    def _tree_repr(self, level: int=0, info_fstr="<{:cls_name,info}>", info_ratio: float=0.5) -> str:
+    def _tree_repr(self, level: int=0, info_fstr="<{:cls_name,info}>",
+                   info_ratio: float=0.5) -> str:
         """Recursively creates a multi-line string tree representation of this
         group. This is used by, e.g., the _format_tree method.
         
