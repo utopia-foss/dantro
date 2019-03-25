@@ -8,6 +8,9 @@ import inspect
 from collections import defaultdict
 from typing import Callable, Union, List
 
+import matplotlib.pyplot as plt
+
+from ..tools import load_yml, recursive_update
 from .pcr_base import BasePlotCreator
 
 
@@ -57,7 +60,7 @@ class ExternalPlotCreator(BasePlotCreator):
     # Main API functions, required by PlotManager
 
     def __init__(self, name: str, *, base_module_file_dir: str=None,
-                 **parent_kwargs):
+                 style: dict=None, **parent_kwargs):
         """Initialize an ExternalPlotCreator.
         
         Args:
@@ -65,7 +68,15 @@ class ExternalPlotCreator(BasePlotCreator):
             base_module_file_dir (str, optional): If given, `module_file`
                 arguments to the `_plot` method that are relative paths will
                 be seen relative to this directory
+            style (dict, optional): The default style context defintion to
+                enter before calling the plot function. This can be used to
+                specify the aesthetics of a plot. It is evaluated here once,
+                stored as attribute, and can be updated when the plot method
+                is called.
             **parent_kwargs: Passed to the parent __init__
+        
+        Raises:
+            ValueError: On invalid `base_module_file_dir` argument
         """
         super().__init__(name, **parent_kwargs)
 
@@ -83,8 +94,16 @@ class ExternalPlotCreator(BasePlotCreator):
 
         self.base_module_file_dir = base_module_file_dir
 
+        # Parse default RC parameters
+        self._default_rc_params = None
+
+        if style is not None:
+            self._default_rc_params = self._prepare_style_context(**style)
+            
+
     def plot(self, *, out_path: str, plot_func: Union[str, Callable],
-             module: str=None, module_file: str=None, **func_kwargs):
+             module: str=None, module_file: str=None, style: dict=None,
+             **func_kwargs):
         """Performs the plot operation by calling a specified plot function.
         
         The plot function is specified by its name, which is interpreted as a
@@ -101,6 +120,19 @@ class ExternalPlotCreator(BasePlotCreator):
             module_file (str, optional): Path to the file to load and look for
                 the `plot_func` in. If `base_module_file_dir` is given, this
                 can also be a path relative to that directory.
+            style (dict, optional): Parameters that determine the aesthetics of
+                the created plot; basically matplotlib rcParams. From them, a
+                style context is entered before calling the plot function.
+                Valid keys:
+                    - `base_style` (str, List[str], optional) names of valid
+                        matplotlib styles
+                    - `rc_file` (str, optional) path to a YAML RC parameter
+                        file that is used to update the base style
+                    - `ignore_defaults` (bool, optional) Whether to ignore the
+                        default style passed to the __init__ method
+                    - further parameters will update the RC parameter dict yet
+                        again. Need be valid matplotlib RC parameters in order
+                        to have any effect.
             **func_kwargs: Passed to the imported function
         """
         # Get the plotting function
@@ -113,10 +145,21 @@ class ExternalPlotCreator(BasePlotCreator):
         args, kwargs = self._prepare_plot_func_args(out_path=out_path,
                                                     **func_kwargs)
 
-        # Call it
-        log.debug("Calling plotting function '%s'...", plot_func.__name__)
+        # Generate a style dictionary
+        rc_params = self._prepare_style_context(**(style if style else {}))
+        
+        # Determine whether to call with or without style context
+        if rc_params:
+            log.debug("Calling plotting function '%s' in style context ...",
+                      plot_func.__name__)
 
-        plot_func(*args, **kwargs)
+            # Enter the style context
+            with plt.rc_context(rc=rc_params):
+                plot_func(*args, **kwargs)
+
+        else:
+            log.debug("Calling plotting function '%s' ...", plot_func.__name__)
+            plot_func(*args, **kwargs)
 
         log.debug("Plotting function returned.")
 
@@ -273,6 +316,89 @@ class ExternalPlotCreator(BasePlotCreator):
             tuple: (args: tuple, kwargs: dict)
         """
         return ((self.dm,) + args, kwargs)
+
+    def _prepare_style_context(self, *, base_style: Union[str, List[str]]=None,
+                               rc_file: str=None, ignore_defaults: bool=False,
+                               **update_rc_params) -> dict:
+        """Builds a dictionary with rcparams for use in a matplotlib rc context
+        
+        Args:
+            base_style (Union[str, List[str]], optional): The matplotlib
+                style to use as a basis for the generated rc parameters dict.
+            rc_file (str, optional): path to a YAML file containing rc
+                parameters. These are used to update those of the base styles.
+            ignore_defaults (bool, optional): Whether to ignore the rc
+                parameters that were given to the __init__ method
+            **update_rc_params: All further parameters update those that are
+                already provided by base_style and/or rc_file arguments.
+        
+        Returns:
+            dict: The rc parameters dictionary, a valid dict to enter a
+                matplotlib style context with
+        
+        Raises:
+            ValueError: On invalid arguments
+        """
+        # Determine what to base this
+        if self._default_rc_params and not ignore_defaults:
+            log.debug("Composing RC parameters based on defaults ...")
+            rc_dict = self._default_rc_params
+
+        else:
+            log.debug("Composing RC parameters ...")
+            rc_dict = dict()
+
+        # Make sure base_style is a list of strings
+        if not base_style:
+            base_style = []
+
+        elif isinstance(base_style, str):
+            base_style = [base_style]
+
+        elif not isinstance(base_style, (list, tuple)):
+            raise TypeError("Argument `base_style` need be None, a string, "
+                            "or a list of strings, was of type {} with "
+                            "value '{}'!".format(type(base_style), base_style))
+
+        # Now, base_style definitely is an iterable.
+        # Use it to initially populate the RC dict
+        if base_style:
+            log.debug("Using base styles: %s", ", ".join(base_style))
+
+            # Iterate over it and populate the rc_dict
+            for style_name in base_style:
+                # If the base_style key is given, load a dictionary with the
+                # corresponding rc_params
+                if style_name not in plt.style.available:
+                    raise ValueError("Style '{}' is not a valid matplotlib "
+                                     "style. Available styles: {}"
+                                     "".format(style_name,
+                                               ", ".join(plt.style.available)))
+
+                rc_dict = recursive_update(rc_dict,
+                                           plt.style.library[style_name])
+        
+        # If a `rc_file` is specifed update the `rc_dict`
+        if rc_file:
+            path_to_rc = os.path.expanduser(rc_file)
+
+            if not os.path.isabs(path_to_rc):
+                raise ValueError("Argument `rc_file` needs to be an absolute "
+                                 "path, was not! Got: {}".format(path_to_rc))
+
+            elif not os.path.exists(path_to_rc):
+                raise ValueError("No file was found at path {} specified by "
+                                 "argument `rc_file`!".format(path_to_rc))
+
+            log.debug("Loading RC parameters from file %s ...", path_to_rc)
+            rc_dict = recursive_update(rc_dict, load_yml(path_to_rc))
+
+        # If any other rc_params are specified, update the `rc_dict` with them
+        if update_rc_params:
+            log.debug("Recursively updating RC parameters...")
+            rc_dict = recursive_update(rc_dict, update_rc_params)
+
+        return rc_dict
 
     def _declared_plot_func_by_attrs(self, pf: Callable,
                                      creator_name: str) -> bool:
