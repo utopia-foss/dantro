@@ -4,8 +4,10 @@ import inspect
 from pkg_resources import resource_filename
 
 import pytest
+import copy
+import matplotlib.pyplot as plt
 
-from dantro.tools import load_yml
+from dantro.tools import load_yml, recursive_update
 from dantro.plot_creators import ExternalPlotCreator, UniversePlotCreator
 from dantro.plot_creators import is_plot_func
 
@@ -38,6 +40,19 @@ def tmp_module(tmpdir) -> str:
 
     return path
 
+@pytest.fixture
+def tmp_rc_file(tmpdir) -> str:
+    """Creates a temporary yaml file with matplotlib rcParams"""
+    rc_paramaters = (
+        "figure.dpi: 10 \n"
+        "axes.grid: True\n"
+        )
+
+    path = tmpdir.join("test_rc_file.yml")
+    path.write(rc_paramaters)
+
+    return path
+
 # Tests -----------------------------------------------------------------------
 
 def test_init(init_kwargs, tmpdir):
@@ -56,6 +71,107 @@ def test_init(init_kwargs, tmpdir):
     with pytest.raises(ValueError, match="does not exists or does not point"):
         ExternalPlotCreator("init", **init_kwargs,
                             base_module_file_dir=tmpdir.join("foo.bar"))
+
+def test_style_context(init_kwargs, tmp_rc_file):
+    """Tests if the style context has been set"""
+    # .. Test _prepare_style_context directly .................................
+    epc = ExternalPlotCreator("direct", **init_kwargs)
+    psc = epc._prepare_style_context
+
+    # String for base_style
+    assert psc(base_style="classic")["_internal.classic_mode"]
+
+    # Update order for bsae style
+    base_style = ["classic", "dark_background"]
+    assert psc(base_style=base_style)["figure.facecolor"] == "black"
+    assert psc(base_style=base_style[::-1])["figure.facecolor"] == "0.75"
+
+    # Invalid base_style value
+    with pytest.raises(ValueError, match="Style 'foo' is not a valid"):
+        psc(base_style="foo")
+
+    # Invalid base_style type
+    with pytest.raises(TypeError, match="Argument `base_style` need be"):
+        psc(base_style=123)
+
+    # Bad RC path
+    with pytest.raises(ValueError, match="needs to be an absolute path"):
+        psc(rc_file="foo.yml")
+
+    with pytest.raises(ValueError, match="No file was found at path"):
+        psc(rc_file="/foo.yml")
+
+    # .. Integration tests ....................................................
+    # Style dict for use in the test
+    style = {"base_style" : ["classic", "dark_background"], 
+             "rc_file" : tmp_rc_file, "font.size" : 2.0}
+
+    # Test plot function to check wether the given style context is entered
+    def test_plot_func(*args, expected_rc_params: dict=None, **_):
+        """Compares the entries of a dictionary with rc_params and the
+        currently used rcParams oft matplotlib"""
+        if expected_rc_params is None:
+            # Get the defaults
+            expected_rc_params = plt.rcParamsDefault
+
+        # Compare the used rcParams with the expected value
+        for key, expected_val in expected_rc_params.items():
+            print("Testing rc parameter '{}' ...".format(key))
+            assert plt.rcParams[key] == expected_val
+
+        print("All RC parameters matched.", end="\n\n")
+    
+    # .. Without style given to init ..........................................
+    epc = ExternalPlotCreator("without_defaults", **init_kwargs)
+
+    # Without defaults, the cache attribute should be empty
+    assert epc._default_rc_params is None
+
+    # Call the plot method of the creator which internally calls the plot_func
+    # in a given rc_context to test if the style is set correctly:
+    # No style given, should use defaults
+    epc.plot(out_path="test_path", plot_func=test_plot_func)
+
+    # Style given
+    epc.plot(out_path="test_path", plot_func=test_plot_func, style=style,
+             expected_rc_params=epc._prepare_style_context(**style))
+
+    # Custom style
+    test_style = recursive_update(epc._prepare_style_context(**style), 
+                                  {"font.size" : 20.0})
+    epc.plot(out_path="test_path", plot_func=test_plot_func, style=test_style,
+             expected_rc_params=epc._prepare_style_context(**test_style))
+
+    # Ignoring defaults should also work (but have no effect)
+    epc.plot(out_path="test_path", plot_func=test_plot_func,
+             style=dict(**test_style, ignore_defaults=True),
+             expected_rc_params=epc._prepare_style_context(**test_style))
+
+    # .. With style given to init .............................................
+    # Initialize plot creators with and without a default style 
+    epc = ExternalPlotCreator("with_defaults", **init_kwargs, style=style)
+
+    # Check wether the default style contains the correct parameters, this
+    # should serve as a test for the _prepare_style_context method 
+    assert epc._default_rc_params["axes.facecolor"] == "black"
+    assert epc._default_rc_params["figure.dpi"] == 10
+    assert epc._default_rc_params["axes.grid"]
+    assert epc._default_rc_params["font.size"] == 2.0
+
+    # No style given, should use the `style` passed to init
+    epc.plot(out_path="test_path", plot_func=test_plot_func,
+             expected_rc_params=epc._prepare_style_context(**style))
+
+    # Style given, should update the style given at init
+    update_style = recursive_update(epc._prepare_style_context(**style),
+                                    {"font.size" : 20.0})
+    epc.plot(out_path="test_path", plot_func=test_plot_func,
+             style=update_style,
+             expected_rc_params=epc._prepare_style_context(**update_style))
+
+    # Ignore the defaults and nothing passed; should use matplotlib defaults
+    epc.plot(out_path="test_path", plot_func=test_plot_func,
+             style=dict(ignore_defaults=True))
 
 
 def test_resolve_plot_func(init_kwargs, tmpdir, tmp_module):

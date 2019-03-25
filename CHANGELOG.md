@@ -8,10 +8,11 @@
 - #44 makes the dantro version number single-sourced in `dantro/__init__.py`
 - !39 makes minor improvements to info strings
 - #51 adds a `tree` property to `BaseDataGroup`, which returns the tree representation string of that group.
-- #54 Let HDF5 loader automatically convert encoded strings into python strings
-- #60 Removes unnecessary log messages upon entering/exiting a data container's or group's `__init__` method.
-- #61 Makes `BaseDataContainer.__init__` non-abstract, which is not only more convenient but also more consistent (`BaseDataGroup` is not abstract either.)
+- #54 lets HDF5 loader automatically convert encoded strings into python strings
+- #60 removes unnecessary log messages upon entering/exiting a data container's or group's `__init__` method.
+- #61 makes `BaseDataContainer.__init__` non-abstract, which is not only more convenient but also more consistent (`BaseDataGroup` is not abstract either.)
    - Resolved in !53, which also improved modularization of the `mixins` module
+- #46 allows the `ExternalPlotCreator` to enter a matplotlib RC parameter context in which a certain style is set.
 
 ## v0.6.1
 - !44 Fixes a bug where the association of parameter dimensions in `UniversePlotCreator` was wrong and could lead to failing plots.
