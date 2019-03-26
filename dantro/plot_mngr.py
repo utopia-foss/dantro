@@ -65,7 +65,9 @@ class PlotManager:
                              plot_cfg_sweep="{name:}/sweep_cfg.yml",
                              )
 
-    def __init__(self, *, dm: DataManager, plots_cfg: Union[dict, str]=None,
+    def __init__(self, *, dm: DataManager, base_cfg: Union[dict, str]=None,
+                 update_base_cfg: Union[dict, str]=None,
+                 plots_cfg: Union[dict, str]=None,
                  out_dir: Union[str, None]="{timestamp:}/",
                  out_fstrs: dict=None,
                  creator_init_kwargs: Dict[str, dict]=None,
@@ -75,10 +77,40 @@ class PlotManager:
                  raise_exc: bool=False,
                  cfg_exists_action: str='raise'):
         """Initialize the PlotManager
-        
+
+        The initialization comes with three (optional) hierarchical levels to 
+        make the configuration of plots versatile, flexible, and avoid copy-
+        paste of configurations:
+        The first two result in a so-called "base" configuration, a collection
+        of available, but disabled plot configs.
+        The third specifies the default plots, which can use the `based_on`
+        feature to base their configuration on any of the configurations from
+        the base plot configuration.
+
+        Specifically:
+
+            1. The `base_cfg` contains a set of plot configurations that form
+                a repertoire of configurations. These are not performed by
+                default, but can be imported.
+            2. The `update_base_cfg` contains plot configurations that are
+                possibly derived from the base repertoire. This happens in the
+                following way: First by recursive update of existing entries,
+                and second by resolving the `based_on: a_base_plot` again by
+                recursive update.
+            3. The `plots_cfg` holds enabled plot configurations, possibly
+                derived from the base configuration using the `based_on` 
+                feature, e.g. `based_on: a_base_plot`; this happens by
+                recursive update.
+
         Args:
             dm (DataManager): The DataManager-derived object to read the plot
                 data from.
+            base_cfg (Union[dict, str], optional): The default base config or a
+                path to a yaml-file to import. The base config defines a set of 
+                available, but disabled plots configs.
+            update_base_cfg (Union[dict, str], optional): An update config to
+                the base config or a path to a yaml-file to import which
+                recursively updates the base_cfg.
             plots_cfg (Union[dict, str], optional): The default plots config or
                 a path to a yaml-file to import
             out_dir (Union[str, None], optional): If given, will use this
@@ -116,6 +148,7 @@ class PlotManager:
         
         Raises:
             InvalidCreator: When an invalid default creator was chosen
+            KeyError: Upon bad `based_on` in `update_base_cfg`
         """
         # TODO consider making it possible to pass classes for plot creators
 
@@ -134,7 +167,43 @@ class PlotManager:
         # Parameters to pass through as defaults to member functions
         self._cfg_exists_action = cfg_exists_action
 
-        # Handle plot config
+        # Handle base config
+        if isinstance(base_cfg, str):
+            # Interpret as path to yaml file
+            log.debug("Loading base_cfg from file %s ...", base_cfg)
+            self._base_cfg = load_yml(base_cfg)
+        else:
+            self._base_cfg = copy.deepcopy(base_cfg)
+
+        # Handle the update of base config
+        if isinstance(update_base_cfg, str):
+            # Interpret as path to yaml file
+            log.debug("Loading update_base_cfg from file %s ...",
+                      update_base_cfg)
+            update_base_cfg = load_yml(update_base_cfg)
+
+        # Resolve based_on in update_base_cfg
+        if update_base_cfg:
+            # First, make a recursive update of the existing based_on
+            self._base_cfg = recursive_update(self._base_cfg, update_base_cfg)
+            # Now, potentially existing `based_on` entries from either of
+            # these configurations are part of the _base_cfg
+            # Now, resolve these `based_on` keys...
+            for pcfg_name, pcfg in self._base_cfg.items():
+                based_on = pcfg.pop('based_on', None)
+                
+                if based_on:
+                    if based_on not in self._base_cfg:
+                        raise KeyError("No base plot configuration named '{}' "
+                                       "available to use during resolution of "
+                                       "`update_base_cfg`! Available: {}"
+                                       "".format(based_on,
+                                                 ", ".join(self._base_cfg)))
+
+                    new_pcfg = recursive_update(self._base_cfg[based_on], pcfg)
+                    self._base_cfg[pcfg_name] = new_pcfg
+
+        # Handle plots config
         if isinstance(plots_cfg, str):
             # Interpret as path to yaml file
             log.debug("Loading plots_cfg from file %s ...", plots_cfg)
@@ -173,6 +242,11 @@ class PlotManager:
     def plot_info(self) -> List[dict]:
         """Returns a list of dicts with info on all plots"""
         return self._plot_info
+
+    @property
+    def base_cfg(self) -> dict:
+        """Returns a deep copy of the base configuration"""
+        return copy.deepcopy(self._base_cfg)
 
     # .........................................................................
     # Helpers
@@ -671,7 +745,7 @@ class PlotManager:
              *, creator: str=None, out_dir: str=None, file_ext: str=None,
              from_pspace: ParamSpace=None, save_plot_cfg: bool=None,
              auto_detect_creator: bool=None, creator_init_kwargs: dict=None,
-             **plot_cfg) -> BasePlotCreator:
+             based_on: str=None, **plot_cfg) -> BasePlotCreator:
         """Create plot(s) from a single configuration entry.
         
         A call to this function creates a single PlotCreator, which is also
@@ -701,18 +775,46 @@ class PlotManager:
             creator_init_kwargs (dict, optional): Passed to the plot creator
                 during initialization. Note that the arguments given at
                 initialization of the PlotManager are updated by this.
+            based_on (str, optional): The key of a entry in the base config
+                that should be used as the basis of this plot. The given plot
+                configuration is then used to recursively update (a copy of)
+                that base configuration.
             **plot_cfg: The plot configuration to pass on to the plot creator.
         
         Returns:
             BasePlotCreator: The PlotCreator used for these plots
         
         Raises:
-            PlotConfigError: If no out directory was specified here or at init
-        
-        No Longer Raises:
-            InvalidCreator: If no creator was given and no default specified
-        
+            PlotConfigError: If no out directory was specified here or at
+                initialization.
         """
+        def resolve_based_on(cfg, based_on: str=None):
+            """Resolves the based_on reference in a plot_cfg
+
+            Args:
+                cfg: the plot_cfg
+                based_on: the already extracted based_on value
+
+            Returns:
+                plot_cfg (dict): The derived plot_cfg
+
+            Raises:
+                KeyError: If based_on value not a key in self._base_cfg
+            """
+            if not based_on:
+                return cfg
+
+            if based_on not in self.base_cfg.keys():
+                raise KeyError("No plot configuration named '{}' available "
+                               "in the base configuration! Was referenced "
+                               "from plot '{}'. Available base plot "
+                               "configurations: {}"
+                               "".format(based_on, name,
+                                         ", ".join(self._base_cfg.keys())))
+
+            return recursive_update(self.base_cfg[based_on], cfg)
+
+
         log.debug("Preparing plot '%s' ...", name)
 
         # Check that the output directory is given
@@ -726,6 +828,7 @@ class PlotManager:
         # Whether to save the plot config
         if save_plot_cfg is None:
             save_plot_cfg = self.save_plot_cfg
+
 
         # Get the plot creator, either by name or using auto-detect feature
         plot_creator = self._get_plot_creator(creator, name=name,
@@ -746,6 +849,9 @@ class PlotManager:
             out_dir = self._parse_out_dir(out_dir, name=name)
             out_path = self._parse_out_path(plot_creator, name=name,
                                             out_dir=out_dir, file_ext=file_ext)
+
+            # Derive the plot_cfg using based_on
+            plot_cfg = resolve_based_on(plot_cfg, based_on)
 
             # Call the plot creator to perform the plot, using the private
             # method to perform exception handling
@@ -797,11 +903,21 @@ class PlotManager:
                                                 state_vector=state_vector,
                                                 dims=psp_dims)
 
+                # Derive the plot_cfg using based_on
+                based_on = cfg.pop("based_on", None)
+                cfg = resolve_based_on(cfg, based_on)
+
                 # Call the plot creator to perform the plot, using the private
                 # method to perform exception handling
                 self._call_plot_creator(plot_creator,
                                         out_path=out_path, **cfg, **plot_cfg,
                                         name=name, creator=creator)
+                # NOTE The **plot_cfg is passed here in order to not loose any
+                # arguments that might have been passed to it. While `cfg`
+                # _should_ hold all the arguments from the parameter space
+                # iteration, there might be more arguments in `plot_cfg`;
+                # rather than disallowing this, we pass them on and forward
+                # responsibility downstream ...
 
                 # Store plot information
                 self._store_plot_info(name=name, creator_name=creator,
