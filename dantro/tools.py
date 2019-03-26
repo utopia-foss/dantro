@@ -218,3 +218,22 @@ def apply_along_axis(func, axis: int, arr: np.ndarray, *args, **kwargs) -> np.nd
 
     log.debug("  finished iteration, returning output array...")
     return out
+
+# -----------------------------------------------------------------------------
+# rc_context
+
+class DoNothingContext:
+    """A context manager that ... does nothing.
+    """
+
+    def __init__(self):
+        pass
+
+    def __enter__(self):
+        """Called upon entering the context using the `with` statement"""
+        pass
+
+    def __exit__(self, *args):
+        """Called upon exiting the context, with *args representing exceptions etc"""
+        pass
+
