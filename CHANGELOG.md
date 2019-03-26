@@ -13,6 +13,7 @@
 - #61 makes `BaseDataContainer.__init__` non-abstract, which is not only more convenient but also more consistent (`BaseDataGroup` is not abstract either.)
    - Resolved in !53, which also improved modularization of the `mixins` module
 - #46 allows the `ExternalPlotCreator` to enter a matplotlib RC parameter context in which a certain style is set.
+- #47 adds the `XrDataContainer`, which stores data as an [`xarray.DataArray`](http://xarray.pydata.org/en/stable/data-structures.html#dataarray) and associated dimension labels and coordinates by looking at the container attributes
 
 ## v0.6.1
 - !44 Fixes a bug where the association of parameter dimensions in `UniversePlotCreator` was wrong and could lead to failing plots.
