@@ -49,8 +49,6 @@ class AttrsMixin:
                              "in order to use the AttrsMixin!")
 
         # Perform the initialisation
-        log.debug("Using %s for attributes of %s ...",
-                  self._ATTRS_CLS.__name__, self.logstr)
         self._attrs = self._ATTRS_CLS(name='attrs', attrs=new_attrs)
 
 

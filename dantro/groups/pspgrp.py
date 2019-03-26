@@ -13,7 +13,7 @@ from paramspace import ParamSpace
 from .ordered import OrderedDataGroup
 from ..tools import apply_along_axis
 from ..base import PATH_JOIN_CHAR
-from ..containers import NumpyDataContainer, XrContainer
+from ..containers import NumpyDataContainer, XrDataContainer
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -397,7 +397,7 @@ class ParamSpaceGroup(OrderedDataGroup):
             # Shortcut: specialised containers might already supply all the
             # information, including coordinates. In that case, return it as
             # a data array.
-            if isinstance(cont, XrContainer):
+            if isinstance(cont, XrDataContainer):
                 return cont.to_array()
                 # TODO should the dims and dtype argument be handled here?!
 
