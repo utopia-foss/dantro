@@ -1,0 +1,9 @@
+# Configuration for PlotHelper test
+---
+set_title:
+  title: Test Title
+  size: 5
+  color: red
+
+setup_figure:
+  figsize: [5,5]

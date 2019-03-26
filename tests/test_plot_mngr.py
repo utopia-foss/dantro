@@ -14,7 +14,6 @@ from dantro.data_mngr import DataManager
 from dantro.containers import NumpyDataContainer as NumpyDC
 from dantro.plot_mngr import PlotManager, PlottingError, PlotConfigError, PlotCreatorError, InvalidCreator
 
-
 # Local constants .............................................................
 # Paths
 PLOTS_EXT_PATH = resource_filename("tests", "cfg/plots_ext.yml")
@@ -102,7 +101,6 @@ def pspace_plots() -> dict:
                                           plot_func="lineplot",
                                           # kwargs to the plot function
                                           y=y_pdim)))
-
 
 # Tests -----------------------------------------------------------------------
 

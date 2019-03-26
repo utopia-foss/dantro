@@ -10,8 +10,9 @@ from typing import Callable, Union, List
 
 import matplotlib.pyplot as plt
 
-from ..tools import load_yml, recursive_update
+from ..tools import load_yml, recursive_update, DoNothingContext
 from .pcr_base import BasePlotCreator
+from .pcr_ext_modules.plot_helper import PlotHelper, PlotHelperWarning
 
 
 # Local constants
@@ -103,7 +104,7 @@ class ExternalPlotCreator(BasePlotCreator):
 
     def plot(self, *, out_path: str, plot_func: Union[str, Callable],
              module: str=None, module_file: str=None, style: dict=None,
-             **func_kwargs):
+             helpers: dict=None, **func_kwargs):
         """Performs the plot operation by calling a specified plot function.
         
         The plot function is specified by its name, which is interpreted as a
@@ -133,6 +134,8 @@ class ExternalPlotCreator(BasePlotCreator):
                     - further parameters will update the RC parameter dict yet
                         again. Need be valid matplotlib RC parameters in order
                         to have any effect.
+            helpers (dict, optional): helper configuration passed to PlotHelper
+                initialization if enabled
             **func_kwargs: Passed to the imported function
         """
         # Get the plotting function
@@ -141,27 +144,60 @@ class ExternalPlotCreator(BasePlotCreator):
                                             module_file=module_file)
         
         # Now have the plotting function
-        # Prepare the arguments (the data manager is added to args there)
-        args, kwargs = self._prepare_plot_func_args(out_path=out_path,
-                                                    **func_kwargs)
-
         # Generate a style dictionary
         rc_params = self._prepare_style_context(**(style if style else {}))
-        
-        # Determine whether to call with or without style context
-        if rc_params:
-            log.debug("Calling plotting function '%s' in style context ...",
-                      plot_func.__name__)
 
-            # Enter the style context
-            with plt.rc_context(rc=rc_params):
+        # Get style context
+        if rc_params:
+            log.debug("Using custom style context ...")
+            context = plt.rc_context(rc=rc_params)
+        else:
+            context = DoNothingContext()
+
+        # Check if PlotHelper is to be used
+        if getattr(plot_func, "use_helper", False):
+            # Initialize a PlotHelper instance that will take care of figure
+            # setup, invoking helper-functions and saving the figure
+            hlpr = PlotHelper(out_path=out_path,
+                              enabled_helpers_defaults=plot_func.enabled_helpers,
+                              helper_defaults=plot_func.helper_defaults,
+                              **(helpers if helpers else {}))
+            
+            # Prepare the arguments (the data manager is added to args there)
+            args, kwargs = self._prepare_plot_func_args(hlpr=hlpr,
+                                                        **func_kwargs)
+            # NOTE out_path not needed here; PlotHelper takes care of that
+
+            # Enter the context (either a style context or DoNothingContext)
+            with context:
+                hlpr.setup_figure()
+                log.debug("Calling plotting function '%s' ...",
+                          plot_func.__name__)
                 plot_func(*args, **kwargs)
+                hlpr.invoke_all()
+                hlpr.save_figure()
 
         else:
-            log.debug("Calling plotting function '%s' ...", plot_func.__name__)
-            plot_func(*args, **kwargs)
+            # Call only the plot function
+            # Warn, if helper arguments were still passed ...
+            if helpers:
+                raise PlotHelperWarning("The key 'helpers' was found in the "
+                                        "configuration of plot '{}' but usage "
+                                        "of the PlotHelper is not supported "
+                                        "by plot function '{}'! Arguments "
+                                        "will be ignored."
+                                        "".format(self.name,
+                                                  plot_func.__name__))
 
-        log.debug("Plotting function returned.")
+            # Prepare the arguments (the data manager is added to args there)
+            args, kwargs = self._prepare_plot_func_args(out_path=out_path,
+                                                        **func_kwargs)
+
+            # Enter the context (either a style context or DoNothingContext)
+            with context:
+                log.debug("Calling plotting function '%s' ...",
+                          plot_func.__name__)
+                plot_func(*args, **kwargs)
 
     def can_plot(self, creator_name: str, **cfg) -> bool:
         """Whether this plot creator is able to make a plot for the given plot
@@ -529,6 +565,8 @@ class is_plot_func:
     """
 
     def __init__(self, *, creator_type: type=None, creator_name: str=None,
+                 use_helper: bool=True, enabled_helpers: list=None,
+                 helper_defaults: Union[dict, str]=None,
                  **additional_attributes):
         """Initialize the decorator. Note that the function to be decorated is
         not passed to this method.
@@ -536,11 +574,25 @@ class is_plot_func:
         Args:
             creator_type (type, optional): The type of plot creator to use
             creator_name (str, optional): The name of the plot creator to use
+            use_helper (bool, optional): Whether to use a PlotHelper
+            enabled_helpers (list, optional): Key strings for helpers that
+                are enabled by default
+            helper_defaults (Union[dict, str], optional): Default
+                configurations for helpers in enabled_helpers
             **additional_attributes: Additional attributes to add to the
                 plot function
         """
+        if isinstance(helper_defaults, str):
+            # Interpret as path to yaml file
+            log.debug("Loading helper defaults from file %s ...",
+                      helper_defaults)
+            helper_defaults = load_yml(helper_defaults)
+
         self.pf_attrs = dict(creator_type=creator_type,
                              creator_name=creator_name,
+                             use_helper=use_helper,
+                             enabled_helpers=enabled_helpers,
+                             helper_defaults=helper_defaults,
                              **additional_attributes)
 
     def __call__(self, func: Callable):
