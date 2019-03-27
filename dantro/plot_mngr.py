@@ -730,8 +730,7 @@ class PlotManager:
             # on the type of the config
             if isinstance(cfg, ParamSpace):
                 # Is a parameter space. Use the corresponding call signature
-                self.plot(plot_name, out_dir=out_dir,
-                          creator=cfg.pop('creator', None), from_pspace=cfg)
+                self.plot(plot_name, out_dir=out_dir, from_pspace=cfg)
             
             else:
                 # Just a dict. Use the regular call
@@ -741,11 +740,104 @@ class PlotManager:
         log.info("Successfully performed plots for %d configuration(s).",
                  len(plots_cfg))
 
-    def plot(self, name: str,
-             *, creator: str=None, out_dir: str=None, file_ext: str=None,
-             from_pspace: ParamSpace=None, save_plot_cfg: bool=None,
-             auto_detect_creator: bool=None, creator_init_kwargs: dict=None,
-             based_on: str=None, **plot_cfg) -> BasePlotCreator:
+    def plot(self, name: str, *, based_on: str=None,
+             from_pspace: ParamSpace=None, **plot_cfg) -> BasePlotCreator:
+        """Create plot(s) from a single configuration entry.
+        
+        A call to this function resolves the `based_on` feature and passes the
+        derived plot configuration to self._plot(), which actually carries out
+        the plots.
+        
+        Note that more than one plot can result from a single configuration
+        entry, e.g. when plots were configured that have more dimensions than
+        representable in a single file.        
+        
+        Args:
+            name (str): The name of this plot
+            based_on (str, optional): The key of a entry in the base config
+                that should be used as the basis of this plot. The given plot
+                configuration is then used to recursively update (a copy of)
+                that base configuration.
+            from_pspace (ParamSpace, optional): If given, execute a parameter
+                sweep over these parameters, re-using the same creator instance
+            **plot_cfg: The plot configuration, including some parameters that
+                the plot creator already evaluates (and consequently: does not
+                pass on to the plot creator)
+        
+        Returns:
+            BasePlotCreator: The PlotCreator used for these plots
+        """
+        def resolve_based_on(cfg: dict, based_on: str=None):
+            """Resolves the based_on reference in a plot_cfg
+            
+            Args:
+                cfg (dict): The configuration to update
+                based_on (str, optional): The name of the base plot config to
+                    use for updating
+            
+            Returns:
+                plot_cfg (dict): The derived plot configuration
+            
+            Raises:
+                KeyError: If based_on value not a key in self._base_cfg
+            """
+            if not based_on:
+                return cfg
+
+            if based_on not in self.base_cfg.keys():
+                raise KeyError("No plot configuration named '{}' available "
+                               "in the base configuration! Was referenced "
+                               "from plot '{}'. Available base plot "
+                               "configurations: {}"
+                               "".format(based_on, name,
+                                         ", ".join(self._base_cfg.keys())))
+
+            return recursive_update(self.base_cfg[based_on], cfg)
+
+        # Derive the plot_cfg using based_on
+        plot_cfg = resolve_based_on(plot_cfg, based_on)
+        
+        # Check if the plot configuration needs to be derived from a pspace
+        if not from_pspace:
+            # Nope, can just invoke the helper
+            return self._plot(name, from_pspace=from_pspace, **plot_cfg)
+
+        # Ok, it's more complicated now, as the config is in from_pspace, and
+        # (partly) in plot_cfg. Urgh.
+        # NOTE creator needs to be singled out below because _plot is not able
+        #      to extract it from whatever `from_pspace` is.
+
+        # Distinguish between dict-like and actual ParamSpace objects
+        if isinstance(from_pspace, dict):
+            # Can just directly do the update
+            from_pspace = resolve_based_on(from_pspace,
+                                           from_pspace.pop("based_on", None))
+            creator = from_pspace.pop("creator", None)
+
+        else:
+            # Should already be a ParamSpace. If so, will need to extract the
+            # underlying dict to be able to do a recursive update
+            pspace_plot_cfg = copy.deepcopy(from_pspace._dict)
+            # FIXME Should not use private API here!
+
+            # Resolve `based_on`
+            based_on = pspace_plot_cfg.pop("based_on", None)
+            pspace_plot_cfg = resolve_based_on(pspace_plot_cfg, based_on)
+
+            # Extract info, then re-create the ParamSpace with the updated cfg
+            creator = pspace_plot_cfg.pop("creator", None)
+            from_pspace = ParamSpace(pspace_plot_cfg)
+
+        # Now have all the information extracted / removed from from_pspace to
+        # be ready to call _plot
+        return self._plot(name, creator=creator, from_pspace=from_pspace,
+                          **plot_cfg) # **plot_cfg is anything remaining ...
+
+    def _plot(self, name: str, *, creator: str=None, out_dir: str=None,
+              from_pspace: ParamSpace=None,
+              file_ext: str=None, save_plot_cfg: bool=None,
+              auto_detect_creator: bool=None, creator_init_kwargs: dict=None, 
+              **plot_cfg) -> BasePlotCreator:
         """Create plot(s) from a single configuration entry.
         
         A call to this function creates a single PlotCreator, which is also
@@ -775,10 +867,6 @@ class PlotManager:
             creator_init_kwargs (dict, optional): Passed to the plot creator
                 during initialization. Note that the arguments given at
                 initialization of the PlotManager are updated by this.
-            based_on (str, optional): The key of a entry in the base config
-                that should be used as the basis of this plot. The given plot
-                configuration is then used to recursively update (a copy of)
-                that base configuration.
             **plot_cfg: The plot configuration to pass on to the plot creator.
         
         Returns:
@@ -788,32 +876,6 @@ class PlotManager:
             PlotConfigError: If no out directory was specified here or at
                 initialization.
         """
-        def resolve_based_on(cfg, based_on: str=None):
-            """Resolves the based_on reference in a plot_cfg
-
-            Args:
-                cfg: the plot_cfg
-                based_on: the already extracted based_on value
-
-            Returns:
-                plot_cfg (dict): The derived plot_cfg
-
-            Raises:
-                KeyError: If based_on value not a key in self._base_cfg
-            """
-            if not based_on:
-                return cfg
-
-            if based_on not in self.base_cfg.keys():
-                raise KeyError("No plot configuration named '{}' available "
-                               "in the base configuration! Was referenced "
-                               "from plot '{}'. Available base plot "
-                               "configurations: {}"
-                               "".format(based_on, name,
-                                         ", ".join(self._base_cfg.keys())))
-
-            return recursive_update(self.base_cfg[based_on], cfg)
-
 
         log.debug("Preparing plot '%s' ...", name)
 
@@ -828,7 +890,6 @@ class PlotManager:
         # Whether to save the plot config
         if save_plot_cfg is None:
             save_plot_cfg = self.save_plot_cfg
-
 
         # Get the plot creator, either by name or using auto-detect feature
         plot_creator = self._get_plot_creator(creator, name=name,
@@ -849,9 +910,6 @@ class PlotManager:
             out_dir = self._parse_out_dir(out_dir, name=name)
             out_path = self._parse_out_path(plot_creator, name=name,
                                             out_dir=out_dir, file_ext=file_ext)
-
-            # Derive the plot_cfg using based_on
-            plot_cfg = resolve_based_on(plot_cfg, based_on)
 
             # Call the plot creator to perform the plot, using the private
             # method to perform exception handling
@@ -902,10 +960,6 @@ class PlotManager:
                                                 state_no_max=psp_vol-1,
                                                 state_vector=state_vector,
                                                 dims=psp_dims)
-
-                # Derive the plot_cfg using based_on
-                based_on = cfg.pop("based_on", None)
-                cfg = resolve_based_on(cfg, based_on)
 
                 # Call the plot creator to perform the plot, using the private
                 # method to perform exception handling
