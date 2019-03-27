@@ -142,7 +142,12 @@ class Hdf5LoaderMixin:
                 # Check for data loaded as array of bytestring
                 if isinstance(attr_val, np.ndarray):
                     if attr_val.dtype.kind in ['S', 'a']:
-                        return attr_val.astype('U')
+                        attr_val = attr_val.astype('U')
+
+                        # If it is of size 1, convert it directly to python str
+                        if attr_val.size == 1:
+                            return str(attr_val)
+                        return attr_val
 
                 # ... or as bytes
                 elif isinstance(attr_val, bytes):
@@ -162,6 +167,7 @@ class Hdf5LoaderMixin:
                     # Extract attributes manually
                     attrs = {k: decode_bytestrings(v)
                              for k, v in obj.attrs.items()}
+                    print(attrs)
 
                     # Determine the class to use for this group
                     if enable_mapping and GroupMap and attrs.get(map_attr):
