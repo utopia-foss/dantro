@@ -1,20 +1,23 @@
 """Test the plot helper module"""
 
+import builtins
 from pkg_resources import resource_filename
 
 import pytest
 
 from dantro.tools import load_yml
-from dantro.plot_creators.pcr_ext_modules.plot_helper import PlotHelper, PlotHelperWarning
-from dantro.plot_creators.pcr_ext import ExternalPlotCreator, is_plot_func
 from dantro.data_mngr import DataManager
+from dantro.plot_creators import ExternalPlotCreator
+from dantro.plot_creators import PlotHelper, PlotHelperWarning, is_plot_func
 
 # Local constants
 # Paths
 CFG_HELPER_PATH = resource_filename("tests", "cfg/helper_cfg.yml")
+CFG_HELPER_FUNCS_PATH = resource_filename("tests", "cfg/helper_funcs.yml")
 
 # Configurations
 CFG_HELPER = load_yml(CFG_HELPER_PATH)
+CFG_HELPER_FUNCS = load_yml(CFG_HELPER_FUNCS_PATH)
 ENABLED = ['set_title']
 
 
@@ -155,4 +158,44 @@ def test_plot_helper(ph_init, epc_init):
     epc.plot(out_path=hlpr.out_path, plot_func=plot3)
 
 
+def test_helper_functions(tmpdir):
+    """Test all helper functions directly"""
+    ph = PlotHelper(out_path=tmpdir.join("test_plot.pdf"))
+    ph.setup_figure()
 
+    # Keep track of tested helpers
+    tested_helpers = set()
+
+    # Go over the helpers to be tested
+    for i, test_cfg in enumerate(CFG_HELPER_FUNCS):
+        # There is a single key that is used to identify the helper
+        helper_name = [k for k in test_cfg if not k.startswith("_")][0]
+
+        # Get helper function and kwargs to test
+        hlpr_func = getattr(ph, '_hlpr_' + helper_name)
+        hlpr_kwargs = test_cfg[helper_name]
+
+        print("Testing '{}' helper with the following parameters:\n  {}"
+              "".format(helper_name, hlpr_kwargs))
+
+        # Find out if it was set to raise
+        if not test_cfg.get('_raises', None):
+            # Should pass
+            hlpr_func(**hlpr_kwargs)
+
+        else:
+            # Should fail
+            # Determine exception type
+            exc_type = Exception
+            if isinstance(test_cfg['_raises'], str):
+                exc_type = getattr(builtins, test_cfg['_raises'])
+
+            # Test
+            with pytest.raises(exc_type, match=test_cfg.get('_match')):
+                hlpr_func(**hlpr_kwargs)
+
+        tested_helpers.add(helper_name)
+        print("  Test successful.\n")
+
+    # Make sure all available helpers were tested
+    assert all([h in tested_helpers for h in ph._AVAILABLE_HELPERS])

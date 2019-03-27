@@ -3,6 +3,8 @@
 import os
 import copy
 import logging
+from typing import Union, Callable
+
 import matplotlib.pyplot as plt
 
 from dantro.tools import recursive_update
@@ -75,8 +77,8 @@ class PlotHelper:
     def fig(self):
         """Returns the current figure"""
         if not self._fig:
-            raise ValueError("No figure initialized! Use 'setup_figure' to "
-                             "create a figure instance first.")
+            raise ValueError("No figure initialized! Use the `setup_figure` "
+                             "method to create a figure instance first.")
         return self._fig
 
     @property
@@ -268,11 +270,147 @@ class PlotHelper:
     # .........................................................................
     # Helper Methods
 
-    def _hlpr_set_title(self, *, title: str, **title_kwargs):
-        """Set the plot title.
+    def _hlpr_set_title(self, *, title: str=None, **title_kwargs):
+        """Set the title of the current axis
         
         Args:
-            title (str): Title to be set
-            **title_kwargs: Passed to matplotlib.pyplot.axis.set_title
+            title (str, optional): The title to be set
+            **title_kwargs: Passed on to plt.set_title
         """
-        self.ax.set_title(title, **title_kwargs)
+        if title:
+            self.ax.set_title(title, **title_kwargs)
+
+    def _hlpr_set_labels(self, *,
+                         x: Union[str, dict]=None,
+                         y: Union[str, dict]=None):
+        """Set the x and y label of the current axis
+        
+        Args:
+            x (Union[str, dict], optional): Either the label as a string or
+                a dict with key `label`, where all further keys are passed on
+                to plt.set_xlabel
+            y (Union[str, dict], optional): Either the label as a string or
+                a dict with key `label`, where all further keys are passed on
+                to plt.set_ylabel
+        """
+
+        def set_label(func: Callable, *, label: str=None, **label_kwargs):
+            # NOTE Can be extended here in the future to do more clever things
+            return func(label, label_kwargs)
+
+        if x:
+            x = x if not isinstance(x, str) else dict(label=x)
+            set_label(self.ax.set_xlabel, **x)
+
+        if y:
+            y = y if not isinstance(y, str) else dict(label=y)
+            set_label(self.ax.set_ylabel, **y)
+
+    def _hlpr_set_limits(self, *, x: tuple=None, y: tuple=None):
+        """Set the x and y limit for the current axis
+        
+        x and y can have the following shapes:
+            None, [None, None]
+            [0, 100]
+            [None, 100]
+            [0, None]
+        
+        Args:
+            x (tuple, optional): Should be a 2-sized tuple; entries can be None
+                which is equivalent to not setting it, i.e.: letting matplotlib
+                determine the limit
+            y (tuple, optional): Should be a 2-sized tuple; entries can be None
+                which is equivalent to not setting it, i.e.: letting matplotlib
+                determine the limit
+        """
+        def parse_limit_args(arg):
+            if not isinstance(arg, (tuple, list)):
+                raise TypeError("Argument for set_limits helper needs to be "
+                                "a list or a tuple, but was of type {} with "
+                                "value '{}'"
+                                "".format(type(arg), arg))
+
+            elif len(arg) != 2:
+                raise ValueError("Argument for set_limits helper needs to be "
+                                 "a list or tuple of length 2, but was {}!"
+                                 "".format(arg))
+
+            # Can unpack now
+            lower, upper = arg
+
+            # Can be extended here in the future to do more clever things
+
+            # Pack back
+            return (lower, upper)
+
+        if x is not None:
+            self.ax.set_xlim(*parse_limit_args(x))
+        
+        if y is not None:
+            self.ax.set_ylim(*parse_limit_args(y))
+
+    def _hlpr_set_legend(self, *, use_legend: bool=True, **legend_kwargs):
+        """Set a legend for the current axis"""
+        if use_legend:
+            handles, labels = self.ax.get_legend_handles_labels()
+            self.ax.legend(handles, labels, **legend_kwargs)
+
+    def _hlpr_set_hv_lines(self, *, hlines: list=None, vlines: list=None):
+        """Set one or multiple horizontal or vertical lines.
+        
+        Args:
+            hlines (list, optional): list of numeric positions of the lines or
+                or list of dicts with key `pos` determining the position, key
+                `limits` determining the relative limits of the line, and all
+                additional arguments being passed on to the matplotlib
+                function.
+            vlines (list, optional): list of numeric positions of the lines or
+                or list of dicts with key `pos` determining the position, key
+                `limits` determining the relative limits of the line, and all
+                additional arguments being passed on to the matplotlib
+                function.
+        """
+
+        def set_line(func: Callable, *, pos: float, limits: tuple=(0., 1.),
+                     **line_kwargs):
+            """Helper function to invoke the matplotlib function that sets 
+            a horizontal or vertical line."""
+            try:
+                pos = float(pos)
+            
+            except Exception as err:
+                raise ValueError("Got non-numeric value '{}' for `pos` "
+                                 "argument in set_hv_lines helper!"
+                                 "".format(pos))
+
+            func(pos, *limits, **line_kwargs)
+
+        if hlines is not None:
+            for line_spec in hlines:
+                if isinstance(line_spec, dict):
+                    set_line(self.ax.axhline, **line_spec)
+                else:
+                    set_line(self.ax.axhline, pos=line_spec)
+        
+        if vlines is not None:
+            for line_spec in vlines:
+                if isinstance(line_spec, dict):
+                    set_line(self.ax.axvline, **line_spec)
+                else:
+                    set_line(self.ax.axvline, pos=line_spec)
+
+    def _hlpr_set_scale(self, *,
+                        x: Union[str, dict]=None,
+                        y: Union[str, dict]=None):
+        """Set a scale for the current axis"""
+
+        def set_scale(func: Callable, *, scale: str=None, **scale_kwargs):
+            func(scale, **scale_kwargs)
+
+        if x:
+            x = x if not isinstance(x, str) else dict(scale=x)
+            set_scale(self.ax.set_xscale, **x)
+
+        if y:
+            y = y if not isinstance(y, str) else dict(scale=y)
+            set_scale(self.ax.set_yscale, **x)
