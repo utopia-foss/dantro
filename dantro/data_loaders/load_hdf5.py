@@ -110,27 +110,6 @@ class Hdf5LoaderMixin:
             or DataContainer, respectively.
             """
 
-            def get_map_attr_value(attrs) -> str:
-                """As the map attribute can be a bytestring, let this function
-                retrieve it as python string.
-
-                This relies on the `map_attr` argument from the outer scope
-                """
-                attr_val = attrs[map_attr]
-
-                # Special case: numpy array of bytestring
-                if isinstance(attr_val, np.ndarray):
-                    # Convert it to a string
-                    attr_val = attr_val.tostring() 
-
-                # Still might need to decode it:
-                try:
-                    return attr_val.decode('utf8')
-
-                except AttributeError:
-                    # Nope, is a string without the .decode attribute
-                    return attr_val
-
             def decode_bytestrings(attr_val) -> str:
                 """Checks whether the given attribute value is or contains byte
                 strings and if so, decodes it to a python string.
@@ -144,10 +123,10 @@ class Hdf5LoaderMixin:
                     if attr_val.dtype.kind in ['S', 'a']:
                         attr_val = attr_val.astype('U')
 
-                        # If it is of size 1, convert it directly to python str
-                        if attr_val.size == 1:
-                            return str(attr_val)
-                        return attr_val
+                    # If it is of size 1, convert it directly to python str
+                    if attr_val.size == 1:
+                        return str(attr_val.item())
+                    return attr_val
 
                 # ... or as bytes
                 elif isinstance(attr_val, bytes):
@@ -167,21 +146,21 @@ class Hdf5LoaderMixin:
                     # Extract attributes manually
                     attrs = {k: decode_bytestrings(v)
                              for k, v in obj.attrs.items()}
-                    print(attrs)
 
                     # Determine the class to use for this group
                     if enable_mapping and GroupMap and attrs.get(map_attr):
                         # Try to resolve the mapping
                         try:
-                            _GroupCls = GroupMap[get_map_attr_value(attrs)]
+                            _GroupCls = GroupMap[attrs[map_attr]]
 
                         except KeyError:
                             # Fall back to default
                             log.warning("Could not find a mapping from map "
-                                        "attribute %s='%s' to a DataGroup "
-                                        "class. Available keys: %s. Falling "
-                                        "back to default class ...",
-                                        map_attr, get_map_attr_value(attrs),
+                                        "attribute %s='%s' (type %s) to a "
+                                        "DataGroup class. Available keys: %s. "
+                                        "Falling back to default class ...",
+                                        map_attr, attrs[map_attr],
+                                        type(attrs[map_attr]),
                                         ", ".join([k
                                                    for k in GroupMap.keys()]))
                             _GroupCls = None
@@ -225,21 +204,24 @@ class Hdf5LoaderMixin:
                         data = np.array(obj)
 
                     # Extract attributes manually
-                    attrs = {k:v for k, v in obj.attrs.items()}
+                    attrs = {k: decode_bytestrings(v)
+                             for k, v in obj.attrs.items()}
 
                     # Determine the class to use for this dataset
                     if enable_mapping and DsetMap and attrs.get(map_attr):
                         # Try to resolve the mapping
                         try:
-                            _DsetCls = DsetMap[get_map_attr_value(attrs)]
+                            _DsetCls = DsetMap[attrs[map_attr]]
 
                         except KeyError:
                             # Fall back to default
                             log.warning("Could not find a mapping from map "
-                                        "attribute %s='%s' to a DataContainer "
-                                        "class. Available keys: %s. Falling "
-                                        "back to default class %s...",
-                                        map_attr, get_map_attr_value(attrs),
+                                        "attribute %s='%s' (type %s) to a "
+                                        "DataContainer class. Available keys: "
+                                        "%s. "
+                                        "Falling back to default class %s...",
+                                        map_attr, attrs[map_attr],
+                                        type(attrs[map_attr]),
                                         ", ".join([k for k in DsetMap.keys()]),
                                         DsetCls.__name__)
                             _DsetCls = DsetCls
