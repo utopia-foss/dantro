@@ -57,7 +57,9 @@
     hlines: [1,2,3]
     vlines: []
 - set_hv_lines:
-    hlines: ~
+    hlines:
+      - 1.23
+      - pos: 123
     vlines:
       - 1.23
       - pos: 123
