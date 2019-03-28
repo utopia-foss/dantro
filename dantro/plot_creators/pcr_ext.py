@@ -565,7 +565,7 @@ class is_plot_func:
 
     def __init__(self, *, creator_type: type=None, creator_name: str=None,
                  use_helper: bool=True, helper_defaults: Union[dict, str]=None,
-                 **additional_attributes):
+                 add_attributes: dict=None):
         """Initialize the decorator. Note that the function to be decorated is
         not passed to this method.
         
@@ -576,7 +576,7 @@ class is_plot_func:
             helper_defaults (Union[dict, str], optional): Default
                 configurations for helpers; these are automatically considered
                 to be enabled
-            **additional_attributes: Additional attributes to add to the
+            add_attributes: Additional attributes to add to the
                 plot function
         """
         if isinstance(helper_defaults, str):
@@ -589,7 +589,7 @@ class is_plot_func:
                              creator_name=creator_name,
                              use_helper=use_helper,
                              helper_defaults=helper_defaults,
-                             **additional_attributes)
+                             **(add_attributes if add_attributes else {}))
 
     def __call__(self, func: Callable):
         """If there are decorator arguments, __call__() is only called
