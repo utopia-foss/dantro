@@ -64,4 +64,4 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin,
         log.debug("Creating copy of %s ...", self.logstr)
         return self.__class__(name=self.name + "_copy",
                               data=self.data.copy(),
-                              attrs={k:v for k, v in self.attrs})
+                              attrs={k:v for k, v in self.attrs.items()})

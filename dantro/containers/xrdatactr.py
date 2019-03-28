@@ -84,6 +84,25 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
         if self._XRC_INHERIT_CONTAINER_ATTRIBUTES:
             self._inherit_attrs()
 
+    def _format_info(self) -> str:
+        """A __format__ helper function: returns info about the item
+
+        In this case, the dtype and shape of the stored data is returned. Note
+        that this relies on the ForwardAttrsToDataMixin.
+        """
+        return "{}, shape {}, {}".format(self.dtype, self.shape,
+                                         super()._format_info())
+
+    def copy(self):
+        """Return a copy of this object.
+
+        NOTE that this will also create copies of the stored data.
+        """
+        log.debug("Creating copy of %s ...", self.logstr)
+        return self.__class__(name=self.name + "_copy",
+                              data=self.data.copy(),
+                              attrs=self.data.attrs)
+
     # Helper Methods ..........................................................
 
     def _set_dim_names(self) -> None:
