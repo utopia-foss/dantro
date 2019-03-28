@@ -159,7 +159,7 @@ class ExternalPlotCreator(BasePlotCreator):
             # Initialize a PlotHelper instance that will take care of figure
             # setup, invoking helper-functions and saving the figure
             hlpr = PlotHelper(out_path=out_path,
-                              enabled_helpers_defaults=plot_func.enabled_helpers,
+                              enabled_helpers=plot_func.enabled_helpers,
                               helper_defaults=plot_func.helper_defaults,
                               **(helpers if helpers else {}))
             
