@@ -131,6 +131,8 @@ def hdf5_dm(data_dir) -> Hdf5DataManager:
     basic['group'].attrs['foo'] = "group level attribute"
     basic['group'].attrs['encoded_str'] = bytes("encoded string", "utf8")
     basic['group'].attrs['encoded_arr'] = np.array(["foo", "bar"], dtype="S3")
+    basic['group'].attrs['encoded_arra'] = np.array(["foo", "bar"], dtype="a")
+    basic['group'].attrs['encoded_arrb'] = np.array([b"foo", b"bar"])
     basic['int_dset'].attrs['foo'] = "dset level attribute"
 
     basic.close()

@@ -1,21 +1,23 @@
 """Test the plot helper module"""
 
+import builtins
 from pkg_resources import resource_filename
 
 import pytest
 
 from dantro.tools import load_yml
-from dantro.plot_creators.pcr_ext_modules.plot_helper import PlotHelper, PlotHelperWarning
-from dantro.plot_creators.pcr_ext import ExternalPlotCreator, is_plot_func
 from dantro.data_mngr import DataManager
+from dantro.plot_creators import ExternalPlotCreator
+from dantro.plot_creators import PlotHelper, PlotHelperWarning, is_plot_func
 
 # Local constants
 # Paths
 CFG_HELPER_PATH = resource_filename("tests", "cfg/helper_cfg.yml")
+CFG_HELPER_FUNCS_PATH = resource_filename("tests", "cfg/helper_funcs.yml")
 
 # Configurations
 CFG_HELPER = load_yml(CFG_HELPER_PATH)
-ENABLED = ['set_title']
+CFG_HELPER_FUNCS = load_yml(CFG_HELPER_FUNCS_PATH)
 
 
 # Fixtures --------------------------------------------------------------------
@@ -30,8 +32,7 @@ def init_kwargs(dm) -> dict:
 @pytest.fixture
 def ph_init(tmpdir) -> PlotHelper:
     """Plot Helper for testing methods directly"""
-    ph = PlotHelper(out_path=tmpdir, enabled_helpers_defaults=ENABLED,
-                    **CFG_HELPER)
+    ph = PlotHelper(out_path=tmpdir, helper_defaults=CFG_HELPER)
     return ph
 
 @pytest.fixture
@@ -61,7 +62,7 @@ def plot2(dm: DataManager, *, hlpr: PlotHelper):
     # Call the plot function
     hlpr.ax.plot(*args)
 
-@is_plot_func(creator_name='external', enabled_helpers=['set_title'],
+@is_plot_func(creator_name='external',
               helper_defaults={'set_title': {'title': "Title"}})
 def plot3(dm: DataManager, *, hlpr: PlotHelper):
     """Test plot with helper defaults in decorator.
@@ -86,7 +87,7 @@ def test_plot_helper(ph_init, epc_init):
     # test init
     # trying to configure helper that is not available
     with pytest.raises(ValueError, match="No helper with name 'foo'"):
-        PlotHelper(out_path="test_path", **{'foo': {}})
+        PlotHelper(out_path="test_path", update_helper_cfg={'foo': {}})
 
     # This should initialize correctly
     hlpr = ph_init
@@ -105,16 +106,16 @@ def test_plot_helper(ph_init, epc_init):
     with pytest.raises(ValueError, match="Figure is already initialized!"):
         hlpr.setup_figure()
 
-    hlpr.provide_cfg('set_title', **{'title': "overwritten"})
+    hlpr.provide_defaults('set_title', title="overwritten")
     assert hlpr.cfg['set_title']['title'] == "overwritten"
-    hlpr.provide_cfg('save_figure', **{'foo': 42})
+    hlpr.provide_defaults('save_figure', foo=42)
     assert hlpr.cfg['save_figure']['foo'] == 42
-    hlpr.provide_cfg('save_figure', **{'foo': 24})
+    hlpr.provide_defaults('save_figure', foo=24)
     assert hlpr.cfg['save_figure']['foo'] == 24
 
     # trying to provide cfg for unavailable helper
     with pytest.raises(ValueError, match="No helper with name 'foo'"):
-        hlpr.provide_cfg('foo')
+        hlpr.provide_defaults('foo')
 
     with pytest.raises(ValueError, match="No helper with name 'foo'"):
         hlpr.mark_enabled('foo')
@@ -132,16 +133,23 @@ def test_plot_helper(ph_init, epc_init):
     hlpr.mark_enabled('set_title')
     assert 'set_title' in hlpr.enabled_helpers
 
+    # invoke a helper that might be disabled
+    hlpr.mark_disabled('set_title')
+    assert 'set_title' not in hlpr.enabled_helpers
+
+    hlpr.invoke_helper('set_title')  # will do nothing
+    hlpr.invoke_helper('set_title', enabled=True)
+    assert 'set_title' not in hlpr.enabled_helpers
+
     # invoke already enabled helper without disabling
-    with pytest.raises(PlotHelperWarning, match="The already enabled helper "
-                                                "'set_title' was invoked."):
-        hlpr.invoke_helpers('set_title', mark_disabled_after_use=False,
-                            **{'set_title': {'size': 10}})
+    hlpr.mark_enabled('set_title')
+    hlpr.invoke_helpers('set_title', mark_disabled_after_use=False,
+                        set_title=dict(size=10))
     assert 'set_title' in hlpr.enabled_helpers
 
     # trying to invoke helper that is not available
     with pytest.raises(ValueError, match="No helper with name 'foo'"):
-        hlpr.invoke_helpers(*['set_title', 'foo'])
+        hlpr.invoke_helpers('set_title', 'foo')
 
     hlpr.invoke_all()
     hlpr.save_figure()
@@ -155,4 +163,44 @@ def test_plot_helper(ph_init, epc_init):
     epc.plot(out_path=hlpr.out_path, plot_func=plot3)
 
 
+def test_helper_functions(tmpdir):
+    """Test all helper functions directly"""
+    ph = PlotHelper(out_path=tmpdir.join("test_plot.pdf"))
+    ph.setup_figure()
 
+    # Keep track of tested helpers
+    tested_helpers = set()
+
+    # Go over the helpers to be tested
+    for i, test_cfg in enumerate(CFG_HELPER_FUNCS):
+        # There is a single key that is used to identify the helper
+        helper_name = [k for k in test_cfg if not k.startswith("_")][0]
+
+        # Get helper function and kwargs to test
+        hlpr_func = getattr(ph, '_hlpr_' + helper_name)
+        hlpr_kwargs = test_cfg[helper_name]
+
+        print("Testing '{}' helper with the following parameters:\n  {}"
+              "".format(helper_name, hlpr_kwargs))
+
+        # Find out if it was set to raise
+        if not test_cfg.get('_raises', None):
+            # Should pass
+            hlpr_func(**hlpr_kwargs)
+
+        else:
+            # Should fail
+            # Determine exception type
+            exc_type = Exception
+            if isinstance(test_cfg['_raises'], str):
+                exc_type = getattr(builtins, test_cfg['_raises'])
+
+            # Test
+            with pytest.raises(exc_type, match=test_cfg.get('_match')):
+                hlpr_func(**hlpr_kwargs)
+
+        tested_helpers.add(helper_name)
+        print("  Test successful.\n")
+
+    # Make sure all available helpers were tested
+    assert all([h in tested_helpers for h in ph._AVAILABLE_HELPERS])

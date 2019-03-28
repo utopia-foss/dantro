@@ -321,6 +321,15 @@ def test_numpy_data_container():
     with pytest.raises(ValueError):
         bool(ndc1)
 
+    # Test copy
+    ndc = NumpyDataContainer(name="oof", data=np.array(l1))
+    ndc_copy = ndc.copy()
+    assert ndc_copy.data is not ndc.data
+    assert np.all(ndc_copy.data == ndc.data)
+
+    # Test string representation
+    assert ndc._format_info().startswith(str(ndc.dtype))
+
 def test_xr_data_container():
     """Tests whether the __init__method behaves as desired"""
     
@@ -477,3 +486,11 @@ def test_xr_data_container():
     assert ('foo', 'bar') in xrdc.data.attrs.items()
     assert 'dims' not in xrdc.data.attrs
     assert 'coords__time' not in xrdc.data.attrs
+
+    # Copying .................................................................
+    xrdc_copy = xrdc.copy()
+    assert xrdc_copy.data is not xrdc.data
+    assert np.all(xrdc_copy.data == xrdc.data)
+
+    # String representation ...................................................
+    assert xrdc._format_info().startswith(str(xrdc.dtype))

@@ -16,6 +16,7 @@
 - #46 allows the `ExternalPlotCreator` to enter a matplotlib RC parameter context in which a certain style is set.
 - #47 adds the `XrDataContainer`, which stores data as an [`xarray.DataArray`](http://xarray.pydata.org/en/stable/data-structures.html#dataarray) and associated dimension labels and coordinates by looking at the container attributes
 - #45 implements the `PlotHelper`, which provides a configuration-accessible interface for matplotlib functions invoked via `ExternalPlotCreator`.
+- #62 implements `PlotHelper` functions to set title, labels, limits, scale, legend, horizontal and vertical lines.
 
 ## v0.6.1
 - !44 Fixes a bug where the association of parameter dimensions in `UniversePlotCreator` was wrong and could lead to failing plots.
