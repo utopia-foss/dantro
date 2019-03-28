@@ -398,7 +398,7 @@ class ParamSpaceGroup(OrderedDataGroup):
             # information, including coordinates. In that case, return it as
             # a data array.
             if isinstance(cont, XrDataContainer):
-                return cont.to_array()
+                return cont.data
                 # TODO should the dims and dtype argument be handled here?!
 
             # If this was not the case, xr.Variable will have to be constructed
