@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 
 from dantro.tools import recursive_update
 
+# Public constants
 log = logging.getLogger(__name__)
 
 class PlotHelperWarning(UserWarning):
@@ -21,13 +22,13 @@ class PlotHelper:
     accessing matplotlib utilities through the plot configuration.
     """
 
-    def __init__(self, *, out_path: str, enabled_helpers_defaults: list=None,
+    def __init__(self, *, out_path: str, enabled_helpers: list=None,
                  helper_defaults: dict=None, **helper_cfg):
         """Initialize a Plot Helper.
         
         Args:
             out_path (str): path to store the created figure
-            enabled_helpers_defaults (list, optional): Names of enabled helpers
+            enabled_helpers (list, optional): Names of enabled helpers
             helper_defaults (dict, optional): Helper configuration
             **helper_cfg: External helper configuration with which the
                 defaults are updated
@@ -39,8 +40,14 @@ class PlotHelper:
         # Determine available and enabled helpers
         self._AVAILABLE_HELPERS = [attr_name[6:] for attr_name in dir(self)
                                    if attr_name.startswith('_hlpr_')]
-        self._enabled = enabled_helpers_defaults if enabled_helpers_defaults else []
-        self._cfg = helper_defaults if helper_defaults else {}
+
+        # Set the attribute that keeps track of enabled helpers
+        self._enabled = []
+        if enabled_helpers:
+            self._enabled += enabled_helpers  # NOTE += leads to copies
+
+        # Store (a copy of) the configuration
+        self._cfg = copy.deepcopy(helper_defaults) if helper_defaults else {}
 
         # Update defaults with helper_cfg
         if helper_cfg:

@@ -33,8 +33,7 @@ def init_kwargs(dm) -> dict:
 @pytest.fixture
 def ph_init(tmpdir) -> PlotHelper:
     """Plot Helper for testing methods directly"""
-    ph = PlotHelper(out_path=tmpdir, enabled_helpers_defaults=ENABLED,
-                    **CFG_HELPER)
+    ph = PlotHelper(out_path=tmpdir, enabled_helpers=ENABLED, **CFG_HELPER)
     return ph
 
 @pytest.fixture
