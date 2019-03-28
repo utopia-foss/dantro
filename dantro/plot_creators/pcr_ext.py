@@ -159,9 +159,8 @@ class ExternalPlotCreator(BasePlotCreator):
             # Initialize a PlotHelper instance that will take care of figure
             # setup, invoking helper-functions and saving the figure
             hlpr = PlotHelper(out_path=out_path,
-                              enabled_helpers=plot_func.enabled_helpers,
                               helper_defaults=plot_func.helper_defaults,
-                              **(helpers if helpers else {}))
+                              update_helper_cfg=helpers)
             
             # Prepare the arguments (the data manager is added to args there)
             args, kwargs = self._prepare_plot_func_args(hlpr=hlpr,
@@ -565,8 +564,7 @@ class is_plot_func:
     """
 
     def __init__(self, *, creator_type: type=None, creator_name: str=None,
-                 use_helper: bool=True, enabled_helpers: list=None,
-                 helper_defaults: Union[dict, str]=None,
+                 use_helper: bool=True, helper_defaults: Union[dict, str]=None,
                  **additional_attributes):
         """Initialize the decorator. Note that the function to be decorated is
         not passed to this method.
@@ -575,10 +573,9 @@ class is_plot_func:
             creator_type (type, optional): The type of plot creator to use
             creator_name (str, optional): The name of the plot creator to use
             use_helper (bool, optional): Whether to use a PlotHelper
-            enabled_helpers (list, optional): Key strings for helpers that
-                are enabled by default
             helper_defaults (Union[dict, str], optional): Default
-                configurations for helpers in enabled_helpers
+                configurations for helpers; these are automatically considered
+                to be enabled
             **additional_attributes: Additional attributes to add to the
                 plot function
         """
@@ -591,7 +588,6 @@ class is_plot_func:
         self.pf_attrs = dict(creator_type=creator_type,
                              creator_name=creator_name,
                              use_helper=use_helper,
-                             enabled_helpers=enabled_helpers,
                              helper_defaults=helper_defaults,
                              **additional_attributes)
 
