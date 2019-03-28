@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 
 
 # Define version variable
-__version__ = '0.7.0rc8'
+__version__ = '0.7.0rc9'
 
 
 # Make manager classes available

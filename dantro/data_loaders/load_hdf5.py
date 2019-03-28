@@ -9,7 +9,7 @@ from ..base import BaseDataGroup, BaseDataContainer
 from ..containers import NumpyDataContainer
 from ..groups import OrderedDataGroup
 from ..proxy import Hdf5DataProxy
-from ..tools import fill_line
+from ..tools import fill_line, decode_bytestrings
 from ._tools import add_loader
 
 # Local constants
@@ -120,36 +120,13 @@ class Hdf5LoaderMixin:
 
                 return attr_val
 
-            def decode_bytestrings(attr_val) -> str:
-                """Checks whether the given attribute value is or contains byte
-                strings and if so, decodes it to a python string.
-                """
+            def decode_attr_val(attr_val) -> str:
+                """Wrapper around decode_bytestrings"""
                 # If feature not activated, return without doing anything
                 if not self._HDF5_DECODE_ATTR_BYTESTRINGS:
                     return attr_val
 
-                # Check for data loaded as array of bytestring
-                if isinstance(attr_val, np.ndarray):
-                    if attr_val.dtype.kind in ['S', 'a']:
-                        attr_val = attr_val.astype('U')
-
-                    # If it is of dtype object, decode all bytes objects
-                    if attr_val.dtype == np.dtype('object'):
-                        def decode_if_bytes(val):
-                            if isinstance(val, bytes):
-                                return val.decode('utf8')
-                            return val
-
-                        # Apply element-wise
-                        attr_val = np.vectorize(decode_if_bytes)(attr_val)
-
-                # ... or as bytes
-                elif isinstance(attr_val, bytes):
-                    # Decode bytestring to unicode
-                    attr_val = attr_val.decode('utf8')
-
-                print("out", attr_val, type(attr_val))
-                return attr_val
+                return decode_bytestrings(attr_val)
 
             # Go through the elements of the source object
             for key, obj in src.items():
@@ -159,7 +136,7 @@ class Hdf5LoaderMixin:
                 if isinstance(obj, h5.Group):
                     # Need to continue recursion
                     # Extract attributes manually
-                    attrs = {k: decode_bytestrings(v)
+                    attrs = {k: decode_attr_val(v)
                              for k, v in obj.attrs.items()}
 
                     # Determine the class to use for this group
@@ -220,7 +197,7 @@ class Hdf5LoaderMixin:
                         data = np.array(obj)
 
                     # Extract attributes manually
-                    attrs = {k: decode_bytestrings(v)
+                    attrs = {k: decode_attr_val(v)
                              for k, v in obj.attrs.items()}
 
                     # Determine the class to use for this dataset
