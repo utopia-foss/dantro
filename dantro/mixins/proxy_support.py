@@ -40,6 +40,7 @@ class ProxyMixin:
             log.debug("Resolving %s for %s ...",
                       self.proxy.classname, self.logstr)
             self._data = self.proxy.resolve()
+            self._postprocess_proxy_resolution()
 
         # Now, the data should be loaded and can be returned
         return self._data
@@ -67,6 +68,9 @@ class ProxyMixin:
             return self._data
         return None
 
+    def _postprocess_proxy_resolution(self):
+        pass
+
     def _format_info(self) -> str:
         """Adds an indicator to whether data is proxy to the info string"""
         if self.data_is_proxy:
@@ -76,7 +80,7 @@ class ProxyMixin:
 
 class Hdf5ProxyMixin(ProxyMixin):
     """Specialises the ProxyMixin to the capabilities of a Hdf5 Proxy, i.e. it
-    allows access to the cached `dtype` and `shape` properties of the
+    allows access to the cached `dtype`, `shape` and `ndim` properties of the
     Hdf5DataProxy without resolving the proxy.
     """
 
@@ -94,6 +98,12 @@ class Hdf5ProxyMixin(ProxyMixin):
             return self.proxy.shape
         return self.data.shape
 
+    @property
+    def ndim(self) -> int:
+        """Returns the NumpyDCs ndim, proxy-aware"""
+        if self.data_is_proxy:
+            return self.proxy.ndim
+        return self.data.ndim
 
 # -----------------------------------------------------------------------------
 # For extending containers

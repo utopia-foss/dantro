@@ -35,6 +35,7 @@ class Hdf5DataProxy(BaseDataProxy):
         # Extract some further information of the dataset
         self.shape = obj.shape
         self.dtype = obj.dtype
+        self.ndim = len(self.shape)
 
     def __str__(self) -> str:
         """An info string that can be used to represent this object without

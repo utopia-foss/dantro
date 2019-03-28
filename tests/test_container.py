@@ -376,7 +376,7 @@ def test_xr_data_container():
                         attrs=dict(dims=[123, "foo"]))
 
     # Bad dimension name
-    with pytest.raises(ValueError, match="exceeds the rank \(2\) of"):
+    with pytest.raises(ValueError, match="exceeds the rank \(2\)"):
         XrDataContainer(name="xrdc_dims_3", data=[[1,2,3], [4,5,6]],
                         attrs=dict(dim_name__10="foo"))
 
