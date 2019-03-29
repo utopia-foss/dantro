@@ -5,14 +5,17 @@ import operator
 
 import numpy as np
 import xarray as xr
+import h5py as h5
 
 import pytest
 
 from dantro.base import BaseDataContainer, CheckDataMixin
 from dantro.base import ItemAccessMixin
 from dantro.mixins.base import UnexpectedTypeWarning
+from dantro.mixins.proxy_support import Hdf5ProxyMixin
 from dantro.containers import MutableSequenceContainer
 from dantro.containers import NumpyDataContainer, XrDataContainer
+from dantro.proxy import Hdf5DataProxy
 
 # Local constants
 
@@ -26,7 +29,15 @@ class DummyContainer(ItemAccessMixin, BaseDataContainer):
         return "dummy"
 
 # Fixtures --------------------------------------------------------------------
+@pytest.fixture
+def tmp_h5_dset(tmpdir) -> h5.Dataset:
+    """Creates a temporary hdf5 dataset"""
 
+    test_file = h5.File(tmpdir.join("test_h5_file.hdf5"))
+    # Create a h5 dataset
+    dset = test_file.create_dataset("init", data=np.zeros(shape=(1, 2, 3), 
+                                                        dtype = int))
+    return dset
 
 # Tests -----------------------------------------------------------------------
 
@@ -330,7 +341,7 @@ def test_numpy_data_container():
     # Test string representation
     assert ndc._format_info().startswith(str(ndc.dtype))
 
-def test_xr_data_container():
+def test_xr_data_container(tmp_h5_dset):
     """Tests whether the __init__method behaves as desired"""
     
     # Basic initialization of Numpy ndarray-like data
@@ -494,3 +505,56 @@ def test_xr_data_container():
 
     # String representation ...................................................
     assert xrdc._format_info().startswith(str(xrdc.dtype))
+
+
+    # Proxysupport ............................................................
+
+    # class with hdf5proxysupport (proxies need to have ndim, shape, dtype)
+    class Hdf5ProxyXrDataContainer(Hdf5ProxyMixin, XrDataContainer):
+        pass
+    
+    # Check that proxy support isenabled now
+    assert Hdf5ProxyXrDataContainer.DATA_ALLOW_PROXY == True
+
+    # Create a proxy
+    proxy = Hdf5DataProxy(obj=tmp_h5_dset)
+
+    # Create a XrDataContainer with proxy support
+    pxrdc = Hdf5ProxyXrDataContainer(name="xrdc", data=proxy, 
+                                     attrs=dict(foo="bar", dims=['x','y', 'z'],
+                                            coords__x=['1 m'], 
+                                            coords__z=['1 cm', '2 cm', '3 cm']))
+    
+    # Initialize another one directly without using the proxy
+    pxrdc_direct = Hdf5ProxyXrDataContainer(name="xrdc", data=tmp_h5_dset[()], 
+                                     attrs=dict(foo="bar", dims=['x','y', 'z'],
+                                            coords__x=['1 m'], 
+                                            coords__z=['1 cm', '2 cm', '3 cm']))
+    
+    # Check that the _data member is now a proxy
+    assert isinstance(pxrdc._data, Hdf5DataProxy)
+
+    # Make a copy
+    pxrdc_copy = pxrdc.copy()
+
+    # Check that after copying it is still a proxy
+    assert isinstance(pxrdc_copy._data, Hdf5DataProxy)
+
+    # Check wether the fundamental attributes are correct
+    assert pxrdc.shape == (1, 2, 3)
+    assert pxrdc.dtype == int
+    assert pxrdc.ndim == 3
+
+    # ... should not have resolved the proxy
+    assert isinstance(pxrdc._data, Hdf5DataProxy)
+
+    # Resolve the proxy by calling the data property
+    pxrdc.data
+
+    # Now the data should be an xarray
+    assert isinstance(pxrdc._data, xr.DataArray)
+
+    # ... and check that it is the same as the XrDataContainer initialized
+    # without proxy
+    assert np.all(pxrdc.data == pxrdc_direct.data)
+    assert pxrdc.attrs == pxrdc_direct.attrs

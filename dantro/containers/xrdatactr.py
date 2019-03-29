@@ -5,6 +5,7 @@ from typing import Union, List, Dict
 
 import numpy as np
 import xarray as xr
+import copy
 
 from ..base import BaseDataContainer, ItemAccessMixin, CheckDataMixin
 from ..mixins import ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin
@@ -59,6 +60,7 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
     # .........................................................................
 
     def __init__(self, *, name: str, data: Union[np.ndarray, xr.DataArray],
+                 dims=None, coords=None, resolve_attrs = True,
                  **dc_kwargs):
         """Initialize a XrDataContainer and extract dimension and coordinate
         labels.
@@ -83,11 +85,31 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
         # container attributes and a mapping from coordinate number (as int)
         # to dimenasion name
         log.debug("Extracting metadata for labelling %s ...", self.logstr)
-        self._dim_name_map, int_to_dim_map = self._extract_dim_names()
-        self._dim_to_coords_map = self._extract_coords(int_to_dim_map)
+        # Empty dict for mapping from dimension number to dimension name
+        int_to_dim_map = {}
+        
+        # If dims are not given extract the mapping from the attributes
+        if dims is None:
+            dims, int_to_dim_map = self._extract_dim_names()
+
+        # Save cache variable
+        self._dim_name_map = dims
+
+        # If coords are not given get them fro the attributes, needs a mapping
+        # from dimension number to dimension name
+        if coords is None:
+            if int_to_dim_map:
+                coords = self._extract_coords(int_to_dim_map)
+            else:
+                int_to_dim_map={dnum : "dim_{:d}".format(dnum) 
+                                for dnum in range(self.ndim)}
+                coords = self._extract_coords(int_to_dim_map)
+
+        # Save cache variable
+        self._dim_to_coords_map = coords
 
         # Check if the passed data is a proxy
-        if not isinstance(self._data, AbstractDataProxy):
+        if not isinstance(self._data, AbstractDataProxy) and resolve_attrs:
             # Make sure that the _data member is an xarray
             self._data = xr.DataArray(self._data)
             # Apply the metadata to the xarray
@@ -111,8 +133,11 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
         """
         log.debug("Creating copy of %s ...", self.logstr)
         return self.__class__(name=self.name + "_copy",
-                              data=self.data.copy(),
-                              attrs=self.data.attrs)
+                              data=copy.deepcopy(self._data),
+                              dims=self._dim_name_map,
+                              coords=self._dim_to_coords_map,
+                              resolve_attrs=False,
+                              attrs=copy.deepcopy(self.attrs))
 
     # Helper Methods ..........................................................
 
@@ -376,7 +401,8 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
 
     def _postprocess_proxy_resolution(self):
         """
-            Only used with proxies
+            Only used with proxies (ProxyMixin). Casts the _data after
+            resolution of the proxy to an xarray and sets the metadata
         """
         # make sure that the data is cast into an xrDataArray
         self._data = xr.DataArray(self._data)

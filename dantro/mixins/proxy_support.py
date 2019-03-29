@@ -40,7 +40,9 @@ class ProxyMixin:
             log.debug("Resolving %s for %s ...",
                       self.proxy.classname, self.logstr)
             self._data = self.proxy.resolve()
-            self._postprocess_proxy_resolution()
+            # postprocess the resolved proxy with optional method
+            if hasattr(self, '_postprocess_proxy_resolution'):
+                self._postprocess_proxy_resolution()
 
         # Now, the data should be loaded and can be returned
         return self._data
@@ -67,9 +69,6 @@ class ProxyMixin:
         if self.data_is_proxy:
             return self._data
         return None
-
-    def _postprocess_proxy_resolution(self):
-        pass
 
     def _format_info(self) -> str:
         """Adds an indicator to whether data is proxy to the info string"""
