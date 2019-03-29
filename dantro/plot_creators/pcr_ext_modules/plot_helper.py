@@ -414,4 +414,4 @@ class PlotHelper:
 
         if y:
             y = y if not isinstance(y, str) else dict(scale=y)
-            set_scale(self.ax.set_yscale, **x)
+            set_scale(self.ax.set_yscale, **y)
