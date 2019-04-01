@@ -5,6 +5,7 @@ import copy
 import logging
 from typing import Union, Callable
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 from dantro.tools import recursive_update
@@ -12,8 +13,6 @@ from dantro.tools import recursive_update
 # Public constants
 log = logging.getLogger(__name__)
 
-class PlotHelperWarning(UserWarning):
-    pass
 
 # -----------------------------------------------------------------------------
 
@@ -63,9 +62,12 @@ class PlotHelper:
                                  "".format(helper_name,
                                            ", ".join(self._AVAILABLE_HELPERS)))
 
-        # Initialize remaining attributes
+        # Store the output path of the figure
         self._out_path = out_path
+
+        # Initialize attributes that are set at a later point
         self._fig = None
+        self._animation_update = None
 
     # .........................................................................
     # Properties
@@ -82,9 +84,10 @@ class PlotHelper:
     @property
     def fig(self):
         """Returns the current figure"""
-        if not self._fig:
-            raise ValueError("No figure initialized! Use the `setup_figure` "
-                             "method to create a figure instance first.")
+        if self._fig is None:
+            raise ValueError("No figure initialized or already closed! Use "
+                             "the `setup_figure` method to create a figure "
+                             "instance.")
         return self._fig
 
     @property
@@ -103,6 +106,15 @@ class PlotHelper:
     def out_path(self) -> str:
         """Returns the output path of the plot"""
         return self._out_path
+
+    @property
+    def animation_update(self) -> Callable:
+        """Returns the animation update generator callable"""
+        if self._animation_update is None:
+            raise ValueError("No animation update generator was registered "
+                             "with the PlotHelper! Cannot perform animation "
+                             "update.")
+        return self._animation_update
     
 
     # .........................................................................
@@ -122,7 +134,12 @@ class PlotHelper:
     def save_figure(self):
         """Saves and closes the current figure"""
         self.fig.savefig(self.out_path, **self.cfg.get('save_figure', {}))
+        self.close_figure()
+
+    def close_figure(self):
+        """Closes the figure and disassociated it from the helper"""
         plt.close(self.fig)
+        self._fig = None
 
     def invoke_helper(self, helper_name: str, *,
                       mark_disabled_after_use: bool=True,
@@ -243,6 +260,18 @@ class PlotHelper:
         for helper_name in helper_names:
             self._check_helper_name(helper_name)
             self._cfg[helper_name]['enabled'] = False
+
+    def register_animation_update(self, update_func: Callable):
+        """Registers a generator used for animations.
+        
+        Args:
+            update_func (Callable): Generator object over which is iterated
+                over to create an animation. This needs
+        """
+        self._animation_update = update_func
+
+    # .........................................................................
+    # Private support methods
 
     def _check_helper_name(self, helper_name: str, *, raise_exception=True):
         """Makes sure the given helper name is valid

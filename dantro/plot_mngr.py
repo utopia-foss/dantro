@@ -106,8 +106,9 @@ class PlotManager:
             dm (DataManager): The DataManager-derived object to read the plot
                 data from.
             base_cfg (Union[dict, str], optional): The default base config or a
-                path to a yaml-file to import. The base config defines a set of 
-                available, but disabled plots configs.
+                path to a yaml-file to import. The base config defines a set
+                of plot configuration that other plot configurations can
+                declare themselves `based_on`.
             update_base_cfg (Union[dict, str], optional): An update config to
                 the base config or a path to a yaml-file to import which
                 recursively updates the base_cfg.
@@ -182,7 +183,7 @@ class PlotManager:
                       update_base_cfg)
             update_base_cfg = load_yml(update_base_cfg)
 
-        # Resolve based_on in update_base_cfg
+        # Perform update of base config: recursive + resolution of `based_on`
         if update_base_cfg:
             # First, make a recursive update of the existing based_on
             self._base_cfg = recursive_update(self._base_cfg, update_base_cfg)
@@ -200,10 +201,12 @@ class PlotManager:
                                        "".format(based_on,
                                                  ", ".join(self._base_cfg)))
 
-                    new_pcfg = recursive_update(self._base_cfg[based_on], pcfg)
-                    self._base_cfg[pcfg_name] = new_pcfg
+                    # Need to work on a deep copy of the original base config
+                    # in order to not get any mutability issues
+                    bcfg = copy.deepcopy(self._base_cfg[based_on])
+                    self._base_cfg[pcfg_name] = recursive_update(bcfg, pcfg)
 
-        # Handle plots config
+        # Handle default plots configuration
         if isinstance(plots_cfg, str):
             # Interpret as path to yaml file
             log.debug("Loading plots_cfg from file %s ...", plots_cfg)
@@ -211,17 +214,15 @@ class PlotManager:
         self._plots_cfg = plots_cfg
 
         # Update the default format strings, if any were given here
+        self._out_fstrs = self.DEFAULT_OUT_FSTRS
         if out_fstrs:
-            # Update defaults
-            d = copy.deepcopy(self.DEFAULT_OUT_FSTRS)
-            d.update(out_fstrs)
-            self._out_fstrs = d
-        else:
-            # Use defaults
-            self._out_fstrs = self.DEFAULT_OUT_FSTRS
+            self._out_fstrs = recursive_update(copy.deepcopy(self._out_fstrs),
+                                               out_fstrs)
 
+        # Store creator init kwargs
         self._cckwargs = creator_init_kwargs if creator_init_kwargs else {}
 
+        # Store default creator name
         if default_creator and default_creator not in self.CREATORS:
             raise InvalidCreator("No such creator '{}' available, only: {}"
                                  "".format(default_creator,
@@ -457,7 +458,8 @@ class PlotManager:
                                          "for plot '{}' but could not "
                                          "unambiguously do so! There were {} "
                                          "plot creators declaring themselves "
-                                         "as candidates: {}"
+                                         "as candidates: {}. Consider "
+                                         "specifying the creator explicitly."
                                          "".format(name, len(pc_candidates),
                                                    ", ".join(pcc_names)))
                 elif len(pc_candidates) < 1:
@@ -465,7 +467,12 @@ class PlotManager:
                     raise InvalidCreator("Tried to auto-detect a plot creator "
                                          "for plot '{}' but none of the "
                                          "available creators ({}) declared "
-                                         "itself a candidate!"
+                                         "itself a candidate! This might also "
+                                         "be due to a plot configuration that"
+                                         "the candidate plot creators could "
+                                         "not interpret. Consider specifying "
+                                         "the creator explicitly to find out "
+                                         "why auto-detection failed."
                                          "".format(name, pc_names))
 
                 # else: there was only one, use that
