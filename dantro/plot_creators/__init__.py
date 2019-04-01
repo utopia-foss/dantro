@@ -12,7 +12,7 @@ from dantro.plot_creators.pcr_vega import VegaPlotCreator
 
 # Make some associated objects easier to import
 from dantro.plot_creators.pcr_ext import is_plot_func
-from dantro.plot_creators.pcr_ext import PlotHelper, PlotHelperWarning
+from dantro.plot_creators.pcr_ext import PlotHelper
 
 # And gather them into a dictionary that gives names to each of them
 ALL = dict(external=ExternalPlotCreator,

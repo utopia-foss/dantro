@@ -1,6 +1,10 @@
-"""This module implements the ExternalPlotCreator class"""
+"""This module implements the ExternalPlotCreator class, which specialises on 
+creating matplotlib-based plots. These are accessed via 'external' modules
+being imported and plot functions defined in these modules being invoked.
+"""
 
 import os
+import copy
 import logging
 import importlib
 import importlib.util
@@ -8,11 +12,15 @@ import inspect
 from collections import defaultdict
 from typing import Callable, Union, List
 
+import matplotlib as mpl
+mpl.use("Agg")  # TODO Remove this. Should not be necessary!
+import matplotlib.animation
 import matplotlib.pyplot as plt
 
 from ..tools import load_yml, recursive_update, DoNothingContext
 from .pcr_base import BasePlotCreator
-from .pcr_ext_modules.plot_helper import PlotHelper, PlotHelperWarning
+from .pcr_ext_modules.movie_writers import FileWriter
+from .pcr_ext_modules.plot_helper import PlotHelper
 
 
 # Local constants
@@ -104,7 +112,7 @@ class ExternalPlotCreator(BasePlotCreator):
 
     def plot(self, *, out_path: str, plot_func: Union[str, Callable],
              module: str=None, module_file: str=None, style: dict=None,
-             helpers: dict=None, **func_kwargs):
+             helpers: dict=None, animation: dict=None, **func_kwargs):
         """Performs the plot operation by calling a specified plot function.
         
         The plot function is specified by its name, which is interpreted as a
@@ -136,6 +144,7 @@ class ExternalPlotCreator(BasePlotCreator):
                         to have any effect.
             helpers (dict, optional): helper configuration passed to PlotHelper
                 initialization if enabled
+            animation (dict, optional): animation configuration
             **func_kwargs: Passed to the imported function
         """
         # Get the plotting function
@@ -156,6 +165,7 @@ class ExternalPlotCreator(BasePlotCreator):
 
         # Check if PlotHelper is to be used
         if getattr(plot_func, "use_helper", False):
+
             # Initialize a PlotHelper instance that will take care of figure
             # setup, invoking helper-functions and saving the figure
             hlpr = PlotHelper(out_path=out_path,
@@ -165,28 +175,45 @@ class ExternalPlotCreator(BasePlotCreator):
             # Prepare the arguments (the data manager is added to args there)
             args, kwargs = self._prepare_plot_func_args(hlpr=hlpr,
                                                         **func_kwargs)
-            # NOTE out_path not needed here; PlotHelper takes care of that
 
-            # Enter the context (either a style context or DoNothingContext)
-            with context:
-                hlpr.setup_figure()
-                log.debug("Calling plotting function '%s' ...",
-                          plot_func.__name__)
-                plot_func(*args, **kwargs)
-                hlpr.invoke_all()
-                hlpr.save_figure()
+            # Prepare animation parameters
+            animation = copy.deepcopy(animation) if animation else {}
+
+            # Check if an animation is to be done
+            if animation and animation.pop('enabled', False):
+                # Let the helper method do the rest
+                self._perform_animation(hlpr=hlpr, context=context,
+                                        plot_func=plot_func,
+                                        plot_args=args, plot_kwargs=kwargs,
+                                        **animation)
+
+            else:
+                # No animation to be done.
+                # Enter the context (either style context or DoNothingContext)
+                with context:
+                    hlpr.setup_figure()
+                    log.debug("Calling plotting function '%s' ...",
+                              plot_func.__name__)
+                    plot_func(*args, **kwargs)
+                    hlpr.invoke_all()
+                    hlpr.save_figure()
 
         else:
             # Call only the plot function
-            # Warn, if helper arguments were still passed ...
+            # Do not allow helper or animation parameters
             if helpers:
-                raise PlotHelperWarning("The key 'helpers' was found in the "
-                                        "configuration of plot '{}' but usage "
-                                        "of the PlotHelper is not supported "
-                                        "by plot function '{}'! Arguments "
-                                        "will be ignored."
-                                        "".format(self.name,
-                                                  plot_func.__name__))
+                raise ValueError("The key 'helpers' was found in the "
+                                 "configuration of plot '{}' but usage of the "
+                                 "PlotHelper is not supported by plot "
+                                 "function '{}'!"
+                                 "".format(self.name, plot_func.__name__))
+
+            if animation:
+                raise ValueError("The key 'animation' was found in the "
+                                 "configuration of plot '{}' but the "
+                                 "animation feature is only available when "
+                                 "using the PlotHelper for plot function '{}'!"
+                                 "".format(self.name, plot_func.__name__))
 
             # Prepare the arguments (the data manager is added to args there)
             args, kwargs = self._prepare_plot_func_args(out_path=out_path,
@@ -197,6 +224,7 @@ class ExternalPlotCreator(BasePlotCreator):
                 log.debug("Calling plotting function '%s' ...",
                           plot_func.__name__)
                 plot_func(*args, **kwargs)
+            # Done.
 
     def can_plot(self, creator_name: str, **cfg) -> bool:
         """Whether this plot creator is able to make a plot for the given plot
@@ -435,6 +463,101 @@ class ExternalPlotCreator(BasePlotCreator):
 
         return rc_dict
 
+    def _perform_animation(self, *, hlpr: PlotHelper, context,
+                           plot_func: Callable,
+                           plot_args: tuple, plot_kwargs: dict,
+                           writer: str,
+                           writer_kwargs: dict=None,
+                           animation_update_kwargs: dict=None):
+        """Prepares the Writer and checks for valid animation config.
+        
+        Args:
+            hlpr (PlotHelper): The plot helper
+            context: The context to enter before starting animation
+            plot_func (Callable): plotting function which is to be animated
+            plot_args (tuple): passed to plot_func
+            plot_kwargs (dict): passed to plot_func
+            writer (str): name of movie writer with which the frames are saved
+            writer_kwargs (dict, optional): A dict of writer parameters. These
+                are associated with the chosen writer via the top level key
+                in `writer_kwargs`. Each dictionary container has three further
+                keys queried, all optional:
+                    - ``init``: passed to Writer.__init__ method
+                    - ``saving``: passed to Writer.saving method
+                    - ``grab_frame``: passed to Writer.grab_frame method
+            animation_update_kwargs (dict, optional): Passed to the animation
+                update generator call.
+        
+        Raises:
+            ValueError: - animation not supported by plot_func
+                        - writer not available
+        """
+        # Check that the plot function actually supports animation
+        if not getattr(plot_func, "supports_animation", False):
+            raise ValueError("Plotting function '{}' was not marked as "
+                             "supporting an animation! To do so, add the "
+                             "`supports_animation` flag to the plot function "
+                             "decorator.".format(plot_func.__name__))
+
+        # Get the kwargs for __init__, saving, and grab_frame of the writer
+        writer_name = writer
+        writer_cfg = (writer_kwargs.get(writer_name, {})
+                      if writer_kwargs else {})
+
+        # Need to extract `dpi`, because matplotlib interface wants it as
+        # positional argument. Damn you, matplotlib.
+        dpi = writer_cfg.get('saving', {}).pop('dpi', 96)
+
+        # Retrieve the writer: Either from matplotlib or dantro's FileWriter
+        if mpl.animation.writers.is_available(writer_name):
+            wCls = mpl.animation.writers[writer_name]
+            writer = wCls(**writer_cfg.get('init', {}))
+
+        else:
+            writers_avail = mpl.animation.writers.list()
+            raise ValueError("The writer '{}' is not available on your "
+                             "system! Available writers: {}"
+                             "".format(writer_name, ", ".join(writers_avail)))
+
+        # Now got the writer.
+        # Can enter the context and perform animation now
+        log.debug("Performing animation of plot function '%s' using "
+                  "writer %s ...", plot_func.__name__, writer_name)
+
+        with context:
+            hlpr.setup_figure()
+
+            # Call the plot function
+            plot_func(*plot_args, **plot_kwargs)
+            # NOTE This plot is NOT saved as the first frame in order to allow
+            #      the animation update generator be a more general method.
+
+            # Invoke all helper functions to have the aesthetics set
+            hlpr.invoke_all()
+
+            # Enter context manager of movie writer
+            with writer.saving(hlpr.fig, hlpr.out_path, dpi,
+                               **writer_cfg.get('saving', {})):
+                
+                # Create the iterator for the animation
+                anim_it = hlpr.animation_update(**(animation_update_kwargs
+                                                   if animation_update_kwargs
+                                                   else {}))
+
+                # Create generator and perform the iteration. The return value
+                # of the generator currently is ignored.
+                for frame_no, _ in enumerate(anim_it):
+                    # This already has created the new frame
+                    # Grab it; the writer takes care of saving it
+                    writer.grab_frame(**writer_cfg.get('grab_frame', {}))
+            
+            # Exited 'saving' conext
+            # Make sure the figure is closed
+            hlpr.close_figure()
+        
+        # Exited externally given context. Done now.
+        log.debug("Animation finished after %s frames.", frame_no + 1)
+
     def _declared_plot_func_by_attrs(self, pf: Callable,
                                      creator_name: str) -> bool:
         """Checks whether the given function has attributes set that declare
@@ -556,6 +679,7 @@ class ExternalPlotCreator(BasePlotCreator):
 
         return is_valid
 
+
 # -----------------------------------------------------------------------------
 
 class is_plot_func:
@@ -565,7 +689,7 @@ class is_plot_func:
 
     def __init__(self, *, creator_type: type=None, creator_name: str=None,
                  use_helper: bool=True, helper_defaults: Union[dict, str]=None,
-                 add_attributes: dict=None):
+                 supports_animation=False, add_attributes: dict=None):
         """Initialize the decorator. Note that the function to be decorated is
         not passed to this method.
         
@@ -581,14 +705,23 @@ class is_plot_func:
         """
         if isinstance(helper_defaults, str):
             # Interpret as path to yaml file
-            log.debug("Loading helper defaults from file %s ...",
-                      helper_defaults)
-            helper_defaults = load_yml(helper_defaults)
+            fpath = os.path.expanduser(helper_defaults)
+
+            # Should be absolute
+            if not os.path.isabs(fpath):
+                raise ValueError("`helper_defaults` string argument was a "
+                                 "relative path: {}, but needs to be either a "
+                                 "dict or an absolute path (~ allowed)."
+                                 "".format(fpath))
+            
+            log.debug("Loading helper defaults from file %s ...", fpath)
+            helper_defaults = load_yml(fpath)
 
         self.pf_attrs = dict(creator_type=creator_type,
                              creator_name=creator_name,
                              use_helper=use_helper,
                              helper_defaults=helper_defaults,
+                             supports_animation=supports_animation,
                              **(add_attributes if add_attributes else {}))
 
     def __call__(self, func: Callable):

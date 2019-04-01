@@ -365,3 +365,29 @@ def test_can_plot(init_kwargs, tmp_module):
     with pytest.raises(ValueError,
                        match="Expected 42 POSITIONAL_ONLY argument\(s\) but"):
         valid_sig(valid_func_2, True)
+
+
+def test_decorator(tmpdir):
+    """Test the is_plot_func decorator"""
+    # Needs no arguments
+    is_plot_func()
+
+    # Can take some specific ones, though, without checks
+    is_plot_func(creator_type=ExternalPlotCreator,
+                 creator_name="foo",
+                 use_helper=True,
+                 helper_defaults=dict(),
+                 supports_animation=True,
+                 add_attributes=dict())
+
+    # Helper_defaults can be an absolute path
+    is_plot_func(helper_defaults=tmpdir.join("foo.yml"))
+
+    # User is expaned (but file is missing)
+    with pytest.raises(FileNotFoundError, match="No such file or directory"):
+        is_plot_func(helper_defaults="~/something/something.yml")
+
+    # Relative path not allowed
+    with pytest.raises(ValueError, match="was a relative path: some/rel"):
+        is_plot_func(helper_defaults="some/relative/path")
+

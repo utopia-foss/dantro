@@ -4,21 +4,23 @@ import builtins
 from pkg_resources import resource_filename
 
 import pytest
+import os
 
 from dantro.tools import load_yml
 from dantro.data_mngr import DataManager
 from dantro.plot_creators import ExternalPlotCreator
-from dantro.plot_creators import PlotHelper, PlotHelperWarning, is_plot_func
+from dantro.plot_creators import PlotHelper, is_plot_func
 
 # Local constants
 # Paths
 CFG_HELPER_PATH = resource_filename("tests", "cfg/helper_cfg.yml")
 CFG_HELPER_FUNCS_PATH = resource_filename("tests", "cfg/helper_funcs.yml")
+CFG_ANIM_PATH = resource_filename("tests", "cfg/anim_cfg.yml")
 
 # Configurations
 CFG_HELPER = load_yml(CFG_HELPER_PATH)
 CFG_HELPER_FUNCS = load_yml(CFG_HELPER_FUNCS_PATH)
-
+CFG_ANIM = load_yml(CFG_ANIM_PATH)
 
 # Fixtures --------------------------------------------------------------------
 # Import some from other tests
@@ -48,7 +50,7 @@ def plot1(dm: DataManager, *, out_path: str):
     """Test plot that does nothing"""
     pass
 
-@is_plot_func(creator_name='external')
+@is_plot_func(creator_name='external', supports_animation=True)
 def plot2(dm: DataManager, *, hlpr: PlotHelper):
     """Test plot that uses different PlotHelper methods.
     
@@ -63,7 +65,8 @@ def plot2(dm: DataManager, *, hlpr: PlotHelper):
     hlpr.ax.plot(*args)
 
 @is_plot_func(creator_name='external',
-              helper_defaults={'set_title': {'title': "Title"}})
+              helper_defaults={'set_title': {'title': "Title"}},
+              supports_animation=True)
 def plot3(dm: DataManager, *, hlpr: PlotHelper):
     """Test plot with helper defaults in decorator.
     
@@ -71,16 +74,33 @@ def plot3(dm: DataManager, *, hlpr: PlotHelper):
         dm (DataManager): The data manager from which to retrieve the data
         hlpr (PlotHelper): Description
     """
+    x_data = dm['vectors/times']
+    y_data = dm['vectors/values']
+
     # Assemble the arguments
-    args = [[1,2], [1,2]]
+    args = [x_data[-1], y_data[-1]]
 
     # Call the plot function
     hlpr.ax.plot(*args)
 
+    # define update generator for possible animations
+    def update():
+        for i in range(5):
+            hlpr.ax.clear()
+            hlpr.ax.plot(x_data[:i+1], y_data[:i+1])
+            yield
+
+    hlpr.register_animation_update(update)
+
+@is_plot_func(creator_name='external')
+def plot4(dm: DataManager, *, hlpr:PlotHelper):
+    """Test plot that does nothing"""
+    pass
+
 
 # Tests -----------------------------------------------------------------------
 
-def test_plot_helper(ph_init, epc_init):
+def test_plot_helper(ph_init, epc_init, tmpdir):
     """Tests the Plot Helper"""
     # test PlotHelper methods directly ........................................
 
@@ -94,7 +114,7 @@ def test_plot_helper(ph_init, epc_init):
     assert hlpr.cfg == CFG_HELPER
 
     # trying to get figure instance before initialization
-    with pytest.raises(ValueError, match="No figure initialized!"):
+    with pytest.raises(ValueError, match="No figure initialized or already"):
         hlpr.fig()
 
     # setup_figure should find configured figsize in helper config
@@ -157,11 +177,83 @@ def test_plot_helper(ph_init, epc_init):
     # test PlotHelper in ExternalPlotCreator ..................................
     # call the plot method of the External Plot Creator using plot functions
     # with different decorators 'is_plot_func'
+
     epc = epc_init
     epc.plot(out_path=hlpr.out_path, plot_func=plot1)
     epc.plot(out_path=hlpr.out_path, plot_func=plot2)
     epc.plot(out_path=hlpr.out_path, plot_func=plot3)
+    epc.plot(out_path=hlpr.out_path, plot_func=plot4)
 
+    # Check errors and warnings
+    with pytest.raises(ValueError, match="'animation' was found"):
+        epc.plot(out_path=hlpr.out_path, plot_func=plot1,
+                 animation=dict(foo="bar"))
+
+    with pytest.raises(ValueError, match="'helpers' was found in the"):
+        epc.plot(out_path=hlpr.out_path, plot_func=plot1,
+                 helpers=dict(foo="bar"))
+
+    
+def test_animation(epc_init, tmpdir):
+    """Test the animation feature"""
+    epc = epc_init
+
+    # Test error messages . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    # plot function does not support animation
+    with pytest.raises(ValueError, match="'plot4' was not marked as "
+                                         "supporting an animation!"):
+        epc.plot(out_path=tmpdir, plot_func=plot4,
+                 animation=CFG_ANIM['complete'])
+
+    # no generator defined in plot function
+    with pytest.raises(ValueError, match="No animation update generator"):
+        epc.plot(out_path=tmpdir, plot_func=plot2,
+                 animation=CFG_ANIM['complete'])
+
+    # missing writer
+    with pytest.raises(TypeError,
+                       match="missing 1 required keyword-only argument: 'wri"):
+        epc.plot(out_path=tmpdir, plot_func=plot3,
+                 animation=CFG_ANIM['missing_writer'])
+    
+    # unavailable writer
+    with pytest.raises(ValueError, match="'foo' is not available"):
+        epc.plot(out_path=tmpdir, plot_func=plot3,
+                 animation=CFG_ANIM['unavailable_writer'])
+    
+    # Test behaviour . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    # this should work correctly
+    epc.plot(out_path=tmpdir.join("basic.pdf"), plot_func=plot3,
+             animation=CFG_ANIM['complete'])
+
+    # check if all frames were saved
+    files_in_plot_dir = os.listdir(tmpdir.join("basic"))
+    assert '0000000.pdf' in files_in_plot_dir
+    assert '0000001.pdf' in files_in_plot_dir
+    assert '0000002.pdf' in files_in_plot_dir
+    assert '0000003.pdf' in files_in_plot_dir
+    assert '0000004.pdf' in files_in_plot_dir
+
+    # test that no animation is created when marked as disabled
+    # this should work correctly
+    epc.plot(out_path=tmpdir.join("not_enabled.pdf"), plot_func=plot3,
+             animation=CFG_ANIM['not_enabled'])
+    assert tmpdir.join("not_enabled.pdf").isfile()
+
+
+    # test some more in an automated fashion
+    for i, anim_cfg in enumerate(CFG_ANIM['should_work']):
+        print("Testing 'should_work' animation config #{} ...\n  {}"
+              "".format(i, anim_cfg))
+        epc.plot(out_path=tmpdir.join(str(i) + ".pdf"), plot_func=plot3,
+                 animation=dict(enabled=True, **anim_cfg))
+    
+    for i, anim_cfg in enumerate(CFG_ANIM['should_not_work']):
+        print("Testing 'should_not_work' animation config #{} ...\n  {}"
+              "".format(i, anim_cfg))
+        with pytest.raises(Exception):
+            epc.plot(out_path=tmpdir.join(str(i) + ".pdf"), plot_func=plot3,
+                     animation=dict(enabled=True, **anim_cfg))
 
 def test_helper_functions(tmpdir):
     """Test all helper functions directly"""
