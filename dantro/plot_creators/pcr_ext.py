@@ -19,8 +19,8 @@ import matplotlib.pyplot as plt
 
 from ..tools import load_yml, recursive_update, DoNothingContext
 from .pcr_base import BasePlotCreator
-from .pcr_ext_modules.movie_writers import FileWriter
-from .pcr_ext_modules.plot_helper import PlotHelper
+from ._pcr_ext_modules.movie_writers import FileWriter
+from ._pcr_ext_modules.plot_helper import PlotHelper
 
 
 # Local constants
@@ -38,6 +38,9 @@ class ExternalPlotCreator(BasePlotCreator):
 
     # For relative module imports, see the following as the base package
     BASE_PKG = "dantro.plot_creators.ext_funcs"
+
+    # Which plot helper class to use
+    PLOT_HELPER_CLS = PlotHelper
 
     # Configuration for the PlotManager's auto-detection feature ..............
 
@@ -108,7 +111,6 @@ class ExternalPlotCreator(BasePlotCreator):
 
         if style is not None:
             self._default_rc_params = self._prepare_style_context(**style)
-            
 
     def plot(self, *, out_path: str, plot_func: Union[str, Callable],
              module: str=None, module_file: str=None, style: dict=None,
@@ -165,12 +167,11 @@ class ExternalPlotCreator(BasePlotCreator):
 
         # Check if PlotHelper is to be used
         if getattr(plot_func, "use_helper", False):
-
             # Initialize a PlotHelper instance that will take care of figure
             # setup, invoking helper-functions and saving the figure
-            hlpr = PlotHelper(out_path=out_path,
-                              helper_defaults=plot_func.helper_defaults,
-                              update_helper_cfg=helpers)
+            hlpr = self.PLOT_HELPER_CLS(out_path=out_path,
+                                        helper_defaults=plot_func.helper_defaults,
+                                        update_helper_cfg=helpers)
             
             # Prepare the arguments (the data manager is added to args there)
             args, kwargs = self._prepare_plot_func_args(hlpr=hlpr,
@@ -195,7 +196,7 @@ class ExternalPlotCreator(BasePlotCreator):
                     log.debug("Calling plotting function '%s' ...",
                               plot_func.__name__)
                     plot_func(*args, **kwargs)
-                    hlpr.invoke_all()
+                    hlpr.invoke_enabled(axes='all')
                     hlpr.save_figure()
 
         else:
@@ -532,8 +533,8 @@ class ExternalPlotCreator(BasePlotCreator):
             # NOTE This plot is NOT saved as the first frame in order to allow
             #      the animation update generator be a more general method.
 
-            # Invoke all helper functions to have the aesthetics set
-            hlpr.invoke_all()
+            # Invoke all enabled helper functions on all axes
+            hlpr.invoke_enabled(axes='all')
 
             # Enter context manager of movie writer
             with writer.saving(hlpr.fig, hlpr.out_path, dpi,

@@ -11,12 +11,28 @@
   _match: Unknown property invalid_param
 
 # .............................................................................
+- set_suptitle: {}
+- set_suptitle:
+    title: foo
+- set_suptitle:
+    title: foo
+    invalid_param: 123
+  _raises: true
+  _match: Unknown property invalid_param
+
+# .............................................................................
 - set_labels: {}
 - set_labels:
     x: foo
     y:
       label: bar
       fontsize: 20
+- set_labels:
+    x: foo
+    y:
+      label: bar
+      fontsize: 20
+    only_label_outer: true
 - set_labels:
     x: foo
     y:
