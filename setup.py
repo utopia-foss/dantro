@@ -7,7 +7,7 @@ install_deps = [
     'h5py>=2.7.0',
     'numpy>=1.14',
     'matplotlib>=2.2.3',
-    'xarray>=0.10.9',
+    'xarray>=0.12.1',
     'networkx>=2.2',
     'paramspace>=2.1.0'
     ]
