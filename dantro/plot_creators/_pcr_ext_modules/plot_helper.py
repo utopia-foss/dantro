@@ -3,6 +3,7 @@
 import os
 import copy
 import logging
+import inspect
 from itertools import product
 from typing import Union, Callable, Tuple, List, Dict, Generator
 
@@ -132,27 +133,24 @@ class PlotHelper:
     _SPECIAL_CFG_KEYS = ('setup_figure', 'save_figure')
 
     def __init__(self, *, out_path: str, helper_defaults: dict=None,
-                 update_helper_cfg: dict=None):
+                 update_helper_cfg: dict=None, raise_on_error: bool=True):
         """Initialize a Plot Helper with a certain configuration.
-
+        
         This configuration is the so-called "base" configuration and is not
         axis-specific. There is the possibility to specify axis-specific
         configuration entries.
-
+        
         All entries in the helper configuration are deemed 'enabled' unless
         they explicitly specify `enabled: false` in their configuration.
         
         Args:
             out_path (str): path to store the created figure
-            default_enabled_helpers (list, optional): Names of enabled helpers
             helper_defaults (dict, optional): The basic configuration of the
                 helpers.
-            **update_helper_cfg: A configuration used to update the existing
-                helper config
-        
-        Raises:
-            ValueError: When a configuration is provided for a helper that
-                does not exist.
+            update_helper_cfg (dict, optional): A configuration used to update
+                the existing helper defaults
+            raise_on_error (bool, optional): Whether to raise on an exception
+                created on helper invocation or just log the error
         """
         # Determine available helper methods, store it as tuple
         self._AVAILABLE_HELPERS = [attr_name[6:] for attr_name in dir(self)
@@ -180,8 +178,9 @@ class PlotHelper:
         # be compiled once the figure is created.
         self._cfg = None
 
-        # Store the output path of the figure
+        # Store the other attributes
         self._out_path = out_path
+        self._raise_on_error = raise_on_error
 
         # Initialize attributes that are set at a later point
         self._fig = None
@@ -489,7 +488,28 @@ class PlotHelper:
                 # Invoke helper
                 log.debug("Invoking helper function '%s' on axis %s ...",
                           helper_name, self.ax_coords)
-                helper(**helper_params)
+
+                try:
+                    helper(**helper_params)
+
+                except Exception as exc:
+                    # Build an informative error message
+                    hp_params = "\n".join(["   {}: {}".format(k, repr(v))
+                                           for k, v in helper_params.items()])
+                    hp_doc = inspect.getdoc(helper)
+
+                    msg = ("A {} was raised during invocation of the '{}' "
+                           "helper: {}.\n\nIt was invoked with the following "
+                           "arguments:\n{}\n\nMake sure these arguments were "
+                           "valid. You may want to consult the helper's "
+                           "docstring:\n\n{}"
+                           "".format(exc.__class__.__name__, helper_name, exc,
+                                     hp_params, hp_doc))
+
+                    # Either log or raise
+                    if self._raise_on_error:
+                        raise ValueError(msg) from exc
+                    log.error(msg)
 
                 if mark_disabled_after_use:
                     self.mark_disabled(helper_name)
@@ -806,48 +826,90 @@ class PlotHelper:
         if only_label_outer:
             self.ax.label_outer()
 
-    def _hlpr_set_limits(self, *, x: tuple=None, y: tuple=None):
+    def _hlpr_set_limits(self, *,
+                         x: Union[tuple, dict]=None,
+                         y: Union[tuple, dict]=None):
         """Set the x and y limit for the current axis
         
         x and y can have the following shapes:
-            None, [None, None]
-            [0, 100]
-            [None, 100]
-            [0, None]
+            None           Limits are not set
+            tuple, list    Specify lower and upper values
+            dict           expecting keys `lower` and/or `upper`
+
+        Each entries of the tuple or dict values can be:
+            None           Set automatically / do not set
+            numeric        Set to this value explicitly
+            min            Set to the data minimum value on that axis
+            max            Set to the data maximum value on that axis
         
         Args:
-            x (tuple, optional): Should be a 2-sized tuple; entries can be None
-                which is equivalent to not setting it, i.e.: letting matplotlib
-                determine the limit
-            y (tuple, optional): Should be a 2-sized tuple; entries can be None
-                which is equivalent to not setting it, i.e.: letting matplotlib
-                determine the limit
+            x (Union[tuple, dict], optional): Set the x-axis limits. For valid
+                argument values, see above.
+            y (Union[tuple, dict], optional): Set the y-axis limits. For valid
+                argument values, see above.
         """
-        def parse_limit_args(arg):
-            if not isinstance(arg, (tuple, list)):
+        def parse_args(args: Union[tuple, dict], *, ax):
+            """Parses the limit arguments."""
+
+            def parse_arg(arg: Union[float, str]) -> Union[float, None]:
+                """Parses a single limit argument to either be float or None"""
+                if not isinstance(arg, str):
+                    # Nothing to parse
+                    return arg
+
+                if arg == 'min':
+                    arg = ax.get_data_interval()[0]
+                elif arg == 'max':
+                    arg = ax.get_data_interval()[1]
+                else:
+                    raise ValueError("Got an invalid str-type argument '{}' "
+                                     "to set_limits helper. Allowed: min, max."
+                                     "".format(arg))
+
+                # Check that it is finite
+                if not np.isfinite(arg):
+                    raise ValueError("Could not get a finite value from the "
+                                     "axis data to use for setting axis "
+                                     "limits to 'min' or 'max', presumably "
+                                     "because the axis is still empty.")
+
+                return arg
+
+            # Special case: dict
+            if isinstance(args, dict):
+                # Make sure there are only allowed keys
+                if [k for k in args.keys() if k not in ('lower', 'upper')]:
+                    raise ValueError("There are invalid keys present in a "
+                                     "dict-type argument to set_limits! Only "
+                                     "accepting keys 'lower' and 'upper', but "
+                                     "got: {}".format(args))
+
+                # Unpack into tuple
+                args = (args.get('lower', None), args.get('upper', None))
+
+
+            # Make sure it is a list or tuple of size 2
+            if not isinstance(args, (tuple, list)):
                 raise TypeError("Argument for set_limits helper needs to be "
-                                "a list or a tuple, but was of type {} with "
-                                "value '{}'"
-                                "".format(type(arg), arg))
+                                "a dict, list, or a tuple, but was of type {} "
+                                "with value '{}'!"
+                                "".format(type(args), args))
 
-            elif len(arg) != 2:
+            if len(args) != 2:
                 raise ValueError("Argument for set_limits helper needs to be "
-                                 "a list or tuple of length 2, but was {}!"
-                                 "".format(arg))
+                                 "a list or tuple of length 2 or a dict with "
+                                 "keys 'upper' and/or 'lower', but was {}!"
+                                 "".format(args))
 
-            # Can unpack now
-            lower, upper = arg
+            # Parse and return
+            return (parse_arg(args[0]), parse_arg(args[1]))
 
-            # Can be extended here in the future to do more clever things
-
-            # Pack back
-            return (lower, upper)
-
+        # Now set the limits, using the helper functions defined above
         if x is not None:
-            self.ax.set_xlim(*parse_limit_args(x))
+            self.ax.set_xlim(*parse_args(x, ax=self.ax.xaxis))
         
         if y is not None:
-            self.ax.set_ylim(*parse_limit_args(y))
+            self.ax.set_ylim(*parse_args(y, ax=self.ax.yaxis))
 
     def _hlpr_set_legend(self, *, use_legend: bool=True, **legend_kwargs):
         """Set a legend for the current axis"""
@@ -899,9 +961,9 @@ class PlotHelper:
                 else:
                     set_line(self.ax.axvline, pos=line_spec)
 
-    def _hlpr_set_scale(self, *,
-                        x: Union[str, dict]=None,
-                        y: Union[str, dict]=None):
+    def _hlpr_set_scales(self, *,
+                         x: Union[str, dict]=None,
+                         y: Union[str, dict]=None):
         """Set a scale for the current axis"""
 
         def set_scale(func: Callable, *, scale: str=None, **scale_kwargs):
