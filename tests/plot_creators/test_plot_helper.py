@@ -339,7 +339,15 @@ def test_invocation(hlpr):
     # Invocation via private method takes into account enabled state
     hlpr._invoke_helper('set_title') # nothing happens
 
-    # Save the figure
+    # Check that a helpful error message is generated
+    with pytest.raises(ValueError, match="was raised during invocation of"):
+        hlpr.invoke_helper('set_title', invalid_key="something")
+
+    # But it can also be just logged
+    hlpr._raise_on_error = False
+    hlpr.invoke_helper('set_title', another_invalid_key="something else")
+
+    # Finally, save and close the figure
     hlpr.save_figure()
 
 
@@ -536,27 +544,38 @@ def test_animation(epc, tmpdir):
 
 def test_helper_functions(hlpr):
     """Test all helper functions directly"""
-    hlpr.setup_figure()
+    def call_helper(helper_name, test_cfg: dict):
+        hlpr_func = getattr(hlpr, '_hlpr_' + helper_name)
+        hlpr_kwargs = test_cfg[helper_name]
+
+        hlpr_func(**hlpr_kwargs)
 
     # Keep track of tested helpers
     tested_helpers = set()
 
     # Go over the helpers to be tested
     for i, test_cfg in enumerate(CFG_HELPER_FUNCS):
+        # Always work on a new figure
+        hlpr.setup_figure()
+
         # There is a single key that is used to identify the helper
-        helper_name = [k for k in test_cfg if not k.startswith("_")][0]
+        helper_names = [k for k in test_cfg if not k.startswith("_")]
 
-        # Get helper function and kwargs to test
-        hlpr_func = getattr(hlpr, '_hlpr_' + helper_name)
-        hlpr_kwargs = test_cfg[helper_name]
+        print("Testing helper(s) {} with the following parameters:\n  {}"
+              "".format(helper_names, test_cfg))
 
-        print("Testing '{}' helper with the following parameters:\n  {}"
-              "".format(helper_name, hlpr_kwargs))
+        # Make sure the axis is empty
+        hlpr.ax.clear()
 
-        # Find out if it was set to raise
+        # Can do some plotting beforehand ...
+        if test_cfg.get('_plot_values'):
+            hlpr.ax.plot(test_cfg['_plot_values'])
+
+        # Find out if this config was set to raise
         if not test_cfg.get('_raises', None):
             # Should pass
-            hlpr_func(**hlpr_kwargs)
+            for helper_name in helper_names:
+                call_helper(helper_name, test_cfg)
 
         else:
             # Should fail
@@ -567,10 +586,15 @@ def test_helper_functions(hlpr):
 
             # Test
             with pytest.raises(exc_type, match=test_cfg.get('_match')):
-                hlpr_func(**hlpr_kwargs)
+                for helper_name in helper_names:
+                    call_helper(helper_name, test_cfg)
 
-        tested_helpers.add(helper_name)
+        for helper_name in helper_names:
+            tested_helpers.add(helper_name)
         print("  Test successful.\n")
 
     # Make sure all available helpers were tested
     assert all([h in tested_helpers for h in hlpr.available_helpers])
+
+    # Close the figure
+    hlpr.close_figure()

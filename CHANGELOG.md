@@ -19,6 +19,7 @@
 - #62 implements `PlotHelper` functions to set title, labels, limits, scale, legend, horizontal and vertical lines.
 - #64 adds the possibility to conveniently create animations when using the `ExternalPlotCreator` in combination with the `PlotHelper`
 - #68 makes the `PlotHelper` work axis-specific and thus allow defining helpers for different axes of a figure with subplots.
+- !72 extends `PlotHelper` capabilities and improves error messages
 
 ## v0.6.1
 - !44 Fixes a bug where the association of parameter dimensions in `UniversePlotCreator` was wrong and could lead to failing plots.
