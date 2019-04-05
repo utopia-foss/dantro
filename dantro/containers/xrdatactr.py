@@ -183,6 +183,11 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
                                          "".format(dim_num, attr_name,
                                                    self.data.ndim, self.data))
 
+                    # Make sure the attribute value is a string
+                    if isinstance(attr_val, np.ndarray):
+                        # Need be single item and already decoded
+                        attr_val = attr_val.item()
+
                     # All good now. Add it to the dimension name mapping
                     dim_name_map["dim_{:d}".format(dim_num)] = attr_val
         
@@ -223,7 +228,7 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
             # Check if there is an attribute available to use
             coords = self.attrs.get(self._XRC_COORDS_ATTR_PREFIX + dim_name,
                                     None)
-            if not coords:
+            if coords is None:
                 return
 
             # Determine the mode to interpret the attribute values
@@ -246,7 +251,7 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
                 # and use the length of the data dimension as number of steps
                 start, step = coords
                 stop = start + (step * len(self.data[dim_name]))
-                coords = list(range(start, stop, step))
+                coords = list(range(int(start), int(stop), int(step)))
 
             elif mode in ['linked', 'from_path']:
                 raise NotImplementedError("Linked datasets for coordinates "
