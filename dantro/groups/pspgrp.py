@@ -449,7 +449,7 @@ class ParamSpaceGroup(OrderedDataGroup):
                 xr.Dataset: The expanded dataset
             """
             # Now add the additional named dimensions with coordinates in front
-            dset = dset.expand_dims(coords.keys())
+            dset = dset.expand_dims(dim=list(coords.keys()))
             # NOTE While this creates a non-shallow copy of the data, there is
             #      no other way of doing this: a copy can only be avoided if
             #      the DataArray can re-use the existing variables – for the
