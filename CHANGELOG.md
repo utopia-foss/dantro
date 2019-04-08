@@ -6,6 +6,7 @@
 - #43 Add a Sphinx-based documentation, currently containing only the API reference
 - With #40 and !41, the `PlotManager` can auto-detect which plot creator is to be used; this allows to leave out the `creator` key in the plot configuration and thus simplifies the configuration of a plot.
 - #63 greatly extends the configuration capabilities of the `PlotManager`: There now is a so-called "base" configuration, which plot configurations can use to base their parameters on; this is done via the `based_on` key.
+   - #69 Allows `based_on` to be a sequence of base configuration names that are accumulated and then used as basis for the new plot.
 - #44 makes the dantro version number single-sourced in `dantro/__init__.py`
 - !39 makes minor improvements to info strings
 - #51 adds a `tree` property to `BaseDataGroup`, which returns the tree representation string of that group.
