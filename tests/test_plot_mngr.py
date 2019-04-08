@@ -231,16 +231,36 @@ def test_plotting_based_on(dm, pm_kwargs):
         assert pi['out_path']
         assert os.path.exists(pi['out_path'])
 
+    # Check sequence of strings
+    d = pm._resolve_based_on(cfg=dict(foo="test", something="something"),
+                             based_on=('foo', 'bar'))
+    assert d['foo'] == "test"
+    assert d['bar'] == "bar"
+    assert d['spam'] == "bar"
+    assert d['something'] == "something"
+
+    # Also during initialization
+    pm2 = PlotManager(dm=dm, base_cfg=BASE_EXT,
+                      update_base_cfg=dict(baz=dict(based_on=('foo', 'bar'),
+                                                    foo="test",
+                                                    something="something")),
+                      **pm_kwargs)
+    baz = pm2._base_cfg['baz']
+    assert baz['foo'] == "test"
+    assert baz['bar'] == "bar"
+    assert baz['spam'] == "bar"
+    assert baz['something'] == "something"
+
 
     # Check invalid specifications and that they create no plots
-    with pytest.raises(KeyError, match="No plot configuration named 'invalid"):
+    with pytest.raises(KeyError, match="No base plot config(.*) 'invalid"):
         update_plots_cfg = {'invalid_based_on': {'based_on': 'invalid_key'}}
         pm.plot_from_cfg(plot_only=["invalid_based_on"],
                          **update_plots_cfg)
     assert_num_plots(pm, 5)  # No new plots
 
     # Bad based_on during resolution
-    with pytest.raises(KeyError, match="No plot configuration named 'bad_"):
+    with pytest.raises(KeyError, match="No base plot config(.*) 'bad_"):
         pm.plot(name="foo", based_on="bad_based_on")
     assert_num_plots(pm, 5)  # No new plots
 

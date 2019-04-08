@@ -37,3 +37,12 @@ disabled_base_func:
   # that now follow to a file
   foo: bar
   spam: eggs
+
+foo:
+  foo: bar
+  spam: eggs
+
+bar:
+  bar: bar
+  spam: bar
+
