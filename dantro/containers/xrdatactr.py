@@ -1,7 +1,7 @@
 """This module implements specialisations of the BaseDataContainer class."""
 
 import logging
-from typing import Union, List, Dict
+from typing import Union, List, Dict, Tuple, Sequence
 
 import numpy as np
 import xarray as xr
@@ -60,7 +60,8 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
     # .........................................................................
 
     def __init__(self, *, name: str, data: Union[np.ndarray, xr.DataArray],
-                 dims=None, coords=None, resolve_attrs = True,
+                 dims: Sequence[str]=None, coords: dict=None,
+                 extract_metadata: bool=True, apply_metadata: bool=True,
                  **dc_kwargs):
         """Initialize a XrDataContainer and extract dimension and coordinate
         labels.
@@ -69,7 +70,18 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
             name (str): which name to give to the XrDataContainer
             data (Union[np.ndarray, xr.DataArray]): The data to store; anything
                 that an xr.DataArray can take
-            **dc_kwargs: passed to parent parent (BaseDataContainer.__init__)
+            dims (Sequence[str], optional): The dimension names.
+            coords (dict, optional): The coordinates. The keys of this dict
+                have to correspond to the dimension names.
+            extract_metadata (bool, optional): If True, missing ``dims`` or
+                ``coords`` arguments are tried to be populated from the
+                container attributes.
+            apply_metadata (bool, optional): Whether to apply the extracted
+                or passed ``dims`` and ``coords`` to the underlying data.
+                This might not be desired in cases where the given ``data``
+                already is a labelled ``xr.DataArray`` or where the data is a
+                proxy and the labelling should be postponed.
+            **dc_kwargs: passed to parent
         """
         # To be a bit more tolerant, allow lists as data argument
         if isinstance(data, list):
@@ -81,40 +93,18 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
         super().__init__(name=name, data=data, **dc_kwargs)
         # NOTE The _data attribute is now set, but will be changed again below!
 
-        # Now, extract dimension names, coordinates, and attributes from the
-        # container attributes and a mapping from coordinate number (as int)
-        # to dimenasion name
-        log.debug("Extracting metadata for labelling %s ...", self.logstr)
-        # Empty dict for mapping from dimension number to dimension name
-        int_to_dim_map = {}
-        
-        # If dims are not given extract the mapping from the attributes
-        if dims is None:
-            dims, int_to_dim_map = self._extract_dim_names()
-
-        # Save cache variable
-        self._dim_name_map = dims
-
-        # If coords are not given get them fro the attributes, needs a mapping
-        # from dimension number to dimension name
-        if coords is None:
-            if int_to_dim_map:
-                coords = self._extract_coords(int_to_dim_map)
-            else:
-                int_to_dim_map={dnum : "dim_{:d}".format(dnum) 
-                                for dnum in range(self.ndim)}
-                coords = self._extract_coords(int_to_dim_map)
-
-        # Save cache variable
+        # Set up cache attributes with given arguments
+        self._dim_names = dims
         self._dim_to_coords_map = coords
 
-        # Check if the passed data is a proxy
-        if not isinstance(self._data, AbstractDataProxy) and resolve_attrs:
-            # Make sure that the _data member is an xarray
-            self._data = xr.DataArray(self._data)
-            # Apply the metadata to the xarray
-            self._apply_metadata(self._dim_name_map, self._dim_to_coords_map)
-            
+        # If metadata is to be extracted from container attributes, do so now
+        if extract_metadata:
+            self._extract_metadata()
+
+        # Apply the metadata, if set to do so (and not a proxy, which would not
+        # allow it) ...
+        if apply_metadata and not isinstance(self._data, AbstractDataProxy):
+            self._apply_metadata()
 
 
     def _format_info(self) -> str:
@@ -127,127 +117,167 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
                                          super()._format_info())
 
     def copy(self):
-        """Return a copy of this object.
-
-        NOTE that this will also create copies of the stored data.
+        """Return a new object with a deep copy of the data.
+        
+        Returns:
+            XrDataContainer: A deep copy of this object.
         """
         log.debug("Creating copy of %s ...", self.logstr)
+
         return self.__class__(name=self.name + "_copy",
                               data=copy.deepcopy(self._data),
-                              dims=self._dim_name_map,
+                              attrs=copy.deepcopy(self.attrs),
+                              # Carry over cache attributes, needed for proxy
+                              dims=self._dim_names,
                               coords=self._dim_to_coords_map,
-                              resolve_attrs=False,
-                              attrs=copy.deepcopy(self.attrs))
+                              # No need to extract or apply; if it is a proxy,
+                              # the metadata is passed; if it is an xarray, it
+                              # is already labelled and passed via `data`
+                              extract_metadata=False,
+                              apply_metadata=False)
 
-    # Helper Methods ..........................................................
+    # Methods to extract and apply metadata ...................................
 
-    def _extract_dim_names(self) -> None:
-        """Extract the dimension names from the container attributes. This can
-        be done in two ways:
+    def _extract_metadata(self):
+        """Extracts metadata from the container attributes and stores them
+        in the ``_dim_names`` and ``_dim_to_coords_map`` cache attributes.
+        """
+        log.debug("Extracting metadata for labelling %s ...", self.logstr)
+        
+        # If dims are not given extract the mapping from the attributes
+        if self._dim_names is None:
+            self._dim_names = self._extract_dim_names()
 
-            1. A list of dimension names specified in an attribute with the
-               name specified in _XRC_DIMS_ATTR class attribute
+        # If coords are not given get them fro the attributes, needs a mapping
+        # from dimension number to dimension name
+        if self._dim_to_coords_map is None:
+            self._dim_to_coords_map = self._extract_coords()
+
+    def _extract_dim_names(self) -> Tuple[Union[str, None]]:
+        """Extract the dimension names from the container attributes.
+        
+        This can be done in two ways:
+            1. A list of dimension names was specified in an attribute with the
+               name specified in the _XRC_DIMS_ATTR class attribute
             2. One by one via container attributes that start with the string
                prefix defined in _XRC_DIM_NAME_PREFIX. This can be used if
                not all dimension names are available. Note that this will also
                _not_ be used if option 1 is used!
+        
+        Returns:
+            Tuple[Union[str, None]]: The dimension names or None as placeholder
+        
+        Raises:
+            TypeError: Attribute found at _XRC_DIMS_ATTR was a string, was not
+                iterable or was not a sequence of strings
+            ValueError: Length mismatch of attribute found at _XRC_DIMS_ATTR
+                and the data.
         """
         def is_iterable(obj) -> bool:
+            """Tries whether the given object is iterable."""
             try:
-                _ = (e for e in obj)
+                (e for e in obj)
             except:
                 return False
             return True
-
-        # The dimensions name mapping (old_name -> new_name)
-        dim_name_map = dict()
-        int_to_name_map = dict()
         
+        # The dimension names sequence to populate. None's are placeholders and
+        # are only resolved when applying the dimension names.
+        dim_names = [None] * self.ndim
+
         # Distinguish two cases: All dimension names given directly as a list
         # or they are given separately, one by one
         if self._XRC_DIMS_ATTR in self.attrs:
-            dims = self.attrs[self._XRC_DIMS_ATTR]
+            dims_attr = self.attrs[self._XRC_DIMS_ATTR]
 
             # Make sure it is an iterable of strings and of the right length
-            if not is_iterable(dims):
+            if isinstance(dims_attr, str):
+                raise TypeError("Attribute '{}' of {} needs to be a sequence "
+                                "of strings, but not directly a string! "
+                                "Got: {}"
+                                "".format(self._XRC_DIMS_ATTR, self.logstr,
+                                          repr(dims_attr)))
+            
+            elif not is_iterable(dims_attr):
                 raise TypeError("Attribute '{}' of {} needs to be an "
                                 "iterable, but was {} with value '{}'!"
                                 "".format(self._XRC_DIMS_ATTR, self.logstr,
-                                          type(dims), dims))
+                                          type(dims_attr), dims_attr))
 
-            elif not all([isinstance(d, str) for d in dims]):
-                raise ValueError("Attribute '{}' of {} needs to be an "
-                                 "iterable of strings, but was of types {}!"
-                                 "".format(self._XRC_DIMS_ATTR, self.logstr,
-                                           [type(d) for d in dims]))
-
-            elif len(dims) != self.ndim:
+            elif len(dims_attr) != self.ndim:
                 raise ValueError("Number of given dimension names does not "
                                  "match the rank of '{}'! Names given: {}. "
                                  "Rank: {}"
-                                 "".format(self.logstr, dims, self.ndim))
+                                 "".format(self.logstr, dims_attr, self.ndim))
 
-            # ... and populate dimension name mapping
-            for dim_num, dim_name in enumerate(dims):
-                dim_name_map["dim_{}".format(dim_num)] = dim_name
-                int_to_name_map[dim_num]= dim_name
-        
-        else:
-            log.debug("Checking container attributes for the dimension name "
-                      "prefix '%s' ...", self._XRC_DIM_NAME_PREFIX)
+            # Data seems ok.
+            # Create the sequence of dimension name, potentially needing to do
+            # some further processing ...
+            for dim_num, dim_name in enumerate(dims_attr):
+                # Might be a numpy scalar or 1-sized array; resolve that
+                if isinstance(dim_name, np.ndarray):
+                    dim_name = dim_name.item()
 
-            # Need a mapping from the dimension number to the specified name
-            int_to_name_map = dict()
+                if not isinstance(dim_name, str):
+                    raise TypeError("Dimension names for {} need to be "
+                                    "strings, got {} with value '{}' for "
+                                    "dimension {}!"
+                                    "".format(self.logstr, type(dim_name),
+                                              dim_name, dim_num))
 
-            for attr_name, attr_val in self.attrs.items():
-                if attr_name.startswith(self._XRC_DIM_NAME_PREFIX):
-                    # Extract the integer dimension number
-                    dim_num_str = attr_name.split(self._XRC_DIM_NAME_PREFIX)[1]
-                    try:
-                        dim_num = int(dim_num_str)
-                    
-                    except ValueError as err:
-                        raise ValueError("Could not extract the dimension "
-                                         "number from the container attribute "
-                                         "named '{}'! Take care that the part "
-                                         "after the prefix ('{}') can be "
-                                         "converted to an integer."
-                                         "".format(attr_name,
-                                                   self._XRC_DIM_NAME_PREFIX)
-                                         ) from err
+                dim_names[dim_num] = dim_name
 
-                    # Make sure its valid
-                    if dim_num < 0 or dim_num >= self.ndim:
-                        raise ValueError("The dimension number {:d} extracted "
-                                         "from attribute '{}' exceeds the "
-                                         "rank ({})!"
-                                         "".format(dim_num, attr_name,
-                                                   self.ndim))
+        # Have a populated list of dimension names now, all strings
+        # There might be additionally specified dimension names that overwrite
+        # the names given here...
+        log.debug("Checking container attributes for the dimension name "
+                  "prefix '%s' ...", self._XRC_DIM_NAME_PREFIX)
 
-                    # Make sure the attribute value is a string
-                    if isinstance(attr_val, np.ndarray):
-                        # Need be single item and already decoded
-                        attr_val = attr_val.item()
+        # Go over all attributes and check for the prefix
+        for attr_name, attr_val in self.attrs.items():
+            if attr_name.startswith(self._XRC_DIM_NAME_PREFIX):
+                # Extract the integer dimension number
+                try:
+                    dim_num = int(attr_name[len(self._XRC_DIM_NAME_PREFIX):])
+                
+                except ValueError as err:
+                    raise ValueError("Could not extract the dimension "
+                                     "number from the container attribute "
+                                     "named '{}'! Take care that the part "
+                                     "after the prefix ('{}') can be "
+                                     "converted to an integer."
+                                     "".format(attr_name,
+                                               self._XRC_DIM_NAME_PREFIX)
+                                     ) from err
 
-                    # All good now. Add it to the dimension number to
-                    # name mapping
-                    int_to_name_map[dim_num] = attr_val
+                # Make sure its valid
+                if dim_num < 0 or dim_num >= self.ndim:
+                    raise ValueError("The dimension number {:d} extracted "
+                                     "from attribute '{}' of {} exceeds "
+                                     "the rank ({}) of the data!"
+                                     "".format(dim_num, attr_name,
+                                               self.logstr, self.ndim))
 
-            # make sure that every dimension of the dataset is covered in the 
-            # dim_name_map not only the ones specified in self.attrs (for use
-            # by _extract_coords)
-            for d_num in range(self.ndim):
-                if d_num in int_to_name_map.keys():
-                    dim_name_map["dim_{:d}".format(d_num)] = int_to_name_map[d_num]
-                else:
-                    dim_name_map["dim_{:d}".format(d_num)] = "dim_{:d}".format(d_num)
-                    int_to_name_map[d_num] = "dim_{:d}".format(d_num)
+                # Make sure the attribute value is a string
+                if isinstance(attr_val, np.ndarray):
+                    # Need be single item and already decoded
+                    attr_val = attr_val.item()
 
-        # Return the map
-        return dim_name_map, int_to_name_map
+                if not isinstance(attr_val, str):
+                    raise TypeError("Dimension names need be strings, but the "
+                                    "attribute '{}' provided {} with value "
+                                    "'{}'!"
+                                    "".format(attr_name, type(attr_val),
+                                              attr_val))
+
+                # All good now. Write it to the dim name list
+                dim_names[dim_num] = attr_val
+
+        # Store the dimension names in the cache attribute
+        return tuple(dim_names)
         
     
-    def _extract_coords(self, int_to_dim_names: dict) -> None:
+    def _extract_coords(self) -> dict:
         """Extract the coordinates to the dimensions using container attributes
         
         This is done by iterating over the dimension names of the DataArray
@@ -274,16 +304,21 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
         The resulting number of coordinates for a dimension always need to
         match the length of that dimension.
 
-        Arguments:
-            dim_names (dict): A dictionary of the dimension names
+        NOTE This expects that self._dim_names is already set.
 
+        Returns:
+            dict: The (dim_name -> coords) mapping
+        
+        Raises:
+            ValueError: On invalid coordinates mode or (with strict attribute
+                checking) on superfluous coordinate-setting attributes.
         """
         def extract_coords_from_attr(dim_name: str, dim_num: int):
             """Sets coordinates for a single dimension with the given name"""
             # Check if there is an attribute available to use
-            coords = self.attrs.get(self._XRC_COORDS_ATTR_PREFIX + dim_name,
+            cargs = self.attrs.get(self._XRC_COORDS_ATTR_PREFIX + dim_name,
                                     None)
-            if coords is None:
+            if cargs is None:
                 return
             
             # Determine the mode to interpret the attribute values
@@ -294,17 +329,17 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
 
             # Distinguish by mode
             if mode in ['list', 'values']:
-                # Nothing to do
-                pass
+                # The attribute value are the coordinates
+                coords = cargs
 
             elif mode in ['arange', 'range', 'rangeexpr', 'range_expr']:
                 # Interpret values as a range expression
-                coords = np.arange(*coords)
+                coords = np.arange(*cargs)
 
             elif mode in ['start_and_step']:
                 # Interpret as integer start and step of range expression
                 # and use the length of the data dimension as number of steps
-                start, step = coords
+                start, step = cargs
 
                 stop = start + (step * self.shape[dim_num])
                 coords = list(range(int(start), int(stop), int(step)))
@@ -328,35 +363,51 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
             return coords
            
         # Dict to save the mapping from dim_names to coordinates
-        dim_to_coord = {}
-        # Get the  coordinates for all available dimensions
-        for dim_num, dim_name in int_to_dim_names.items():
+        coords_map = dict()
+
+        # Get the coordinates for all labelled (!) dimensions
+        for dim_num, dim_name in enumerate(self._dim_names):
+            # If not labelled, not expecting a coordinate here
+            if dim_name is None:
+                continue
+
+            # Otherwise, try to extract a coordinate and store it if found
             coords = extract_coords_from_attr(dim_name, dim_num)
             if coords is not None:
-                dim_to_coord[dim_name] = coords
+                coords_map[dim_name] = coords
 
-        # Can return now, if no strict attribute checking should take place
-        if not self._XRC_STRICT_ATTR_CHECKING:
-            return dim_to_coord
+        # Optionally, perform strict attribute checking
+        if self._XRC_STRICT_ATTR_CHECKING:
+            # Determine the prefixes that are to be checked
+            prefixes = [self._XRC_COORDS_ATTR_PREFIX,
+                        self._XRC_COORDS_MODE_ATTR_PREFIX]
+            
+            for attr_name in self.attrs.keys():
+                for prefix in prefixes:
+                    # See whether there are matching attributes that were not
+                    # already extracted above
+                    if (    attr_name.startswith(prefix)
+                        and attr_name[len(prefix):] not in coords_map):
+                        dim_names_avail = [d for d in self._dim_names
+                                           if d is not None]
+                        raise ValueError("Got superfluous container attribute "
+                                         "'{}' that does not match a labelled "
+                                         "dimension! Available names: {}. "
+                                         "Either remove the attribute or turn "
+                                         "strict attribute checking off."
+                                         "".format(attr_name,
+                                                   ", ".join(dim_names_avail)))
+            
+        # All good. Return it.
+        return coords_map
 
-        # Determine the prefixes that are to be checked
-        prefixes = [self._XRC_COORDS_ATTR_PREFIX,
-                    self._XRC_COORDS_MODE_ATTR_PREFIX]
-        
-        for attr_name in self.attrs:
-            for prefix in prefixes:
-                if (    attr_name.startswith(prefix)
-                    and attr_name.split(prefix)[1] 
-                        not in int_to_dim_names.values()):
-                    raise ValueError("Got superfluous container attribute "
-                                     "'{}' that does not match a dimension "
-                                     "name! Available dimensions: {}"
-                                     "".format(attr_name, 
-                                               int_to_dim_names.values()))
-        return dim_to_coord
+    def _inherit_attrs(self):
+        """Carry over container attributes to the xr.DataArray attributes
 
-    def _inherit_attrs(self) -> None:
-        """Carry over all remainig container attributes to the xr.DataArray"""
+        This does not include container attributes that are used for extracting
+        metadata; it makes no sense to have them in the attributes of the
+        already labelled xr.DataArray
+        """
         def skip(attr_name: str) -> bool:
             return (   attr_name == self._XRC_DIMS_ATTR
                     or attr_name.startswith(self._XRC_DIM_NAME_PREFIX)
@@ -364,54 +415,51 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
                     or attr_name.startswith(self._XRC_COORDS_MODE_ATTR_PREFIX))
 
         for attr_name, attr_val in self.attrs.items():
-            if skip(attr_name):
-                continue
-
-            self.data.attrs[attr_name] = attr_val
+            if not skip(attr_name):
+                self.data.attrs[attr_name] = attr_val
     
-    def _apply_metadata(self, dim_to_name_map: dict, 
-                        dim_to_coord_map: dict) -> None:
-        """writes the metadata to the xarray
-        
-        Arguments:
-            dim_to_name_map {dict} -- A map from the default dimension names to 
-                                      the ones specified in the attrs
-            dim_to_coord_map {dict} -- A map from dimension names to the
-                                       coordinates belonging to this dimension
-        
-        Returns:
-            None -- 
-        """
-        # Add some information to the data array
-        self._data.name = self.path
-        # Set the dimension names
-        log.debug("Renaming dimensions using map: %s", dim_to_name_map)
-        self._data = self._data.rename(dim_to_name_map)
+    def _apply_metadata(self):
+        """Applies the cached metadata to the underlying xr.DataArray"""
+        # Make sure that data is an xarray
+        if not isinstance(self.data, xr.DataArray):
+            self._data = xr.DataArray(self.data)
 
-        log.debug("Renaming dimensions using map: %s", dim_to_coord_map)
-        # Set the coordinates for every dimension
-        if dim_to_coord_map:
-            for dim_name, coords in dim_to_coord_map.items():
+        # Carry over the name
+        self.data.name = self.name
+
+        # Set the dimension names
+        if self._dim_names:
+            # Create a mapping from old to new names, then apply it
+            new_names = {old: new
+                         for old, new in zip(self.data.dims, self._dim_names)
+                         if new is not None}
+            
+            log.debug("Renaming dimensions:  %s", new_names)
+            self._data = self.data.rename(new_names)
+
+        # Set the coordinates
+        if self._dim_to_coords_map:
+            log.debug("Associating coordinates:  %s", self._dim_to_coords_map)
+
+            for dim_name, coords in self._dim_to_coords_map.items():
                 try:
-                    self._data.coords[dim_name] = coords
+                    self.data.coords[dim_name] = coords
                 
                 except Exception as err:
                     raise ValueError("Could not associate coordinates for "
-                                        "dimension '{}' due to {}: {}"
-                                        "".format(dim_name,
-                                                err.__class__.__name__, err)
-                                        ) from err
-            # Now write the rest of the attributes of the dataset to the xarray
-            if self._XRC_INHERIT_CONTAINER_ATTRIBUTES:
-                self._inherit_attrs()
+                                     "dimension '{}' due to {}: {}"
+                                     "".format(dim_name,
+                                               err.__class__.__name__, err)
+                                     ) from err
+        
+        # Now write the rest of the attributes of the dataset to the xarray
+        if self._XRC_INHERIT_CONTAINER_ATTRIBUTES:
+            self._inherit_attrs()
 
     def _postprocess_proxy_resolution(self):
+        """Only invoked from ``ProxyMixin``s, which have to be added to the
+        class specifically, this function takes care to apply the potentially
+        existing metadata to the resolved proxy.
         """
-            Only used with proxies (ProxyMixin). Casts the _data after
-            resolution of the proxy to an xarray and sets the metadata
-        """
-        # make sure that the data is cast into an xrDataArray
-        self._data = xr.DataArray(self._data)
-        # apply the metadata
-        self._apply_metadata(self._dim_name_map, self._dim_to_coords_map)
+        self._apply_metadata()
 

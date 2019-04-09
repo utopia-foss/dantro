@@ -380,22 +380,43 @@ def test_xr_data_container(tmp_h5_dset):
         xrdc = XrDataContainer(name="xrdc_dims_mismatch", data=[1,2,4],
                                attrs=dict(dim_name__mismatch='first_dim'))
 
-    # With a dimension name list given, the other attributes are ignored
+    # With a dimension name list given, the other attributes overwrite the
+    # ones given in the list
     xrdc = XrDataContainer(name="xrdc_dims_3", data=[[1,2,3], [4,5,6]],
                            attrs=dict(dims=['first_dim', 'second_dim'],
                                       dim_name__0="foo"))
-    assert 'foo' not in xrdc.data.dims
+    assert xrdc.data.dims == ('foo', 'second_dim')
+
+    # Pathological cases: attribute is an iterable of scalar numpy arrays
+    xrdc = XrDataContainer(name="xrdc_dims_3", data=[[1,2,3], [4,5,6]],
+                           attrs=dict(dims=[np.array('first_dim', dtype='U'),
+                                            np.array(['second_dim'])]))
+    assert xrdc.data.dims == ('first_dim', 'second_dim')
+
+    xrdc = XrDataContainer(name="xrdc_dims_3", data=[[1,2,3], [4,5,6]],
+                           attrs=dict(dim_name__0=np.array('first_dim',
+                                                           dtype='U'),
+                                      dim_name__1=np.array(['second_dim'])))
+    assert xrdc.data.dims == ('first_dim', 'second_dim')
 
     # Bad dimension name attribute type
+    with pytest.raises(TypeError, match="sequence of strings, but not"):
+        XrDataContainer(name="xrdc", data=[[1,2,3], [4,5,6]],
+                        attrs=dict(dims="13"))
+    
     with pytest.raises(TypeError, match="needs to be an iterable"):
         XrDataContainer(name="xrdc", data=[[1,2,3], [4,5,6]],
                         attrs=dict(dims=123))
 
-    with pytest.raises(ValueError, match="needs to be an iterable of strings"):
+    with pytest.raises(TypeError, match="need to be strings, got"):
         XrDataContainer(name="xrdc", data=[[1,2,3], [4,5,6]],
-                        attrs=dict(dims=[123, "foo"]))
+                        attrs=dict(dims=["foo", 123]))
 
-    # Bad dimension name
+    with pytest.raises(TypeError, match="need be strings, but the attribute"):
+        XrDataContainer(name="xrdc", data=[[1,2,3], [4,5,6]],
+                        attrs=dict(dim_name__0=123))
+
+    # Bad dimension number
     with pytest.raises(ValueError, match="exceeds the rank \(2\)"):
         XrDataContainer(name="xrdc_dims_3", data=[[1,2,3], [4,5,6]],
                         attrs=dict(dim_name__10="foo"))
