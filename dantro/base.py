@@ -37,7 +37,6 @@ class BaseDataProxy(dantro.abc.AbstractDataProxy):
     @abc.abstractmethod
     def __init__(self, obj):
         """Initialize a proxy object for the given object."""
-        super().__init__(obj)
         log.debug("Initialising %s for %s ...", self.classname, type(obj))
 
 
@@ -132,8 +131,9 @@ class BaseDataContainer(PathMixin, AttrsMixin,
 
     def _format_info(self) -> str:
         """A __format__ helper function: returns info about the items"""
-        return "{} attribute{}".format(len(self.attrs),
-                                       "s" if len(self.attrs) != 1 else "")
+        return ("{} attribute{}"
+                "".format(len(self.attrs),
+                          "s" if len(self.attrs) != 1 else ""))
         
 
 # -----------------------------------------------------------------------------
@@ -607,14 +607,12 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
     def _format_info(self) -> str:
         """A __format__ helper function: returns an info string that is used
-        to characterise this object. Does NOT include name and classname!"""
-        return "{} member{}, {} attribute{}".format(len(self),
-                                                    ("s" if len(self) != 1
-                                                     else ""),
-                                                    len(self.attrs),
-                                                    ("s"
-                                                     if len(self.attrs) != 1
-                                                     else ""))
+        to characterise this object. Does NOT include name and classname!
+        """
+        return ("{} member{}, {} attribute{}"
+                "".format(len(self), "s" if len(self) != 1 else "",
+                          len(self.attrs), "s" if len(self.attrs) != 1 else "")
+                )
 
     def _format_tree(self) -> str:
         """Returns a multi-line string tree representation of this group."""

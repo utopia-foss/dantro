@@ -16,6 +16,7 @@
    - Resolved in !53, which also improved modularization of the `mixins` module
 - #46 allows the `ExternalPlotCreator` to enter a matplotlib RC parameter context in which a certain style is set.
 - #47 adds the `XrDataContainer`, which stores data as an [`xarray.DataArray`](http://xarray.pydata.org/en/stable/data-structures.html#dataarray) and associated dimension labels and coordinates by looking at the container attributes
+   - #66 implements proxy support for `XrDataContainer`
 - #45 implements the `PlotHelper`, which provides a configuration-accessible interface for matplotlib functions invoked via `ExternalPlotCreator`.
 - #62 implements `PlotHelper` functions to set title, labels, limits, scale, legend, horizontal and vertical lines.
 - #64 adds the possibility to conveniently create animations when using the `ExternalPlotCreator` in combination with the `PlotHelper`

@@ -237,17 +237,13 @@ class AbstractDataProxy(metaclass=abc.ABCMeta):
         this proxy is to be proxy for.
         """
 
-    @abc.abstractmethod
-    def __str__(self) -> str:
-        """An info string to represent the proxied data"""
-
     @property
     def classname(self) -> str:
         """Returns this proxy's class name"""
         return self.__class__.__name__
 
     @abc.abstractmethod
-    def resolve(self):
+    def resolve(self, *, astype: type=None):
         """Get the data that this proxy is a placeholder for and return it.
 
         Note that this method does not place the resolved data in the

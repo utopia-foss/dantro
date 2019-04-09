@@ -5,14 +5,17 @@ import operator
 
 import numpy as np
 import xarray as xr
+import h5py as h5
 
 import pytest
 
 from dantro.base import BaseDataContainer, CheckDataMixin
 from dantro.base import ItemAccessMixin
 from dantro.mixins.base import UnexpectedTypeWarning
+from dantro.mixins.proxy_support import Hdf5ProxyMixin
 from dantro.containers import MutableSequenceContainer
 from dantro.containers import NumpyDataContainer, XrDataContainer
+from dantro.proxy import Hdf5DataProxy
 
 # Local constants
 
@@ -27,6 +30,15 @@ class DummyContainer(ItemAccessMixin, BaseDataContainer):
 
 # Fixtures --------------------------------------------------------------------
 
+@pytest.fixture
+def tmp_h5_dset(tmpdir) -> h5.Dataset:
+    """Creates a temporary hdf5 dataset"""
+
+    test_file = h5.File(tmpdir.join("test_h5_file.hdf5"))
+    # Create a h5 dataset
+    dset = test_file.create_dataset("init", data=np.zeros(shape=(1, 2, 3), 
+                                                          dtype=int))
+    return dset
 
 # Tests -----------------------------------------------------------------------
 
@@ -330,7 +342,7 @@ def test_numpy_data_container():
     # Test string representation
     assert ndc._format_info().startswith(str(ndc.dtype))
 
-def test_xr_data_container():
+def test_xr_data_container(tmp_h5_dset):
     """Tests whether the __init__method behaves as desired"""
     
     # Basic initialization of Numpy ndarray-like data
@@ -369,23 +381,44 @@ def test_xr_data_container():
         xrdc = XrDataContainer(name="xrdc_dims_mismatch", data=[1,2,4],
                                attrs=dict(dim_name__mismatch='first_dim'))
 
-    # With a dimension name list given, the other attributes are ignored
+    # With a dimension name list given, the other attributes overwrite the
+    # ones given in the list
     xrdc = XrDataContainer(name="xrdc_dims_3", data=[[1,2,3], [4,5,6]],
                            attrs=dict(dims=['first_dim', 'second_dim'],
                                       dim_name__0="foo"))
-    assert 'foo' not in xrdc.data.dims
+    assert xrdc.data.dims == ('foo', 'second_dim')
+
+    # Pathological cases: attribute is an iterable of scalar numpy arrays
+    xrdc = XrDataContainer(name="xrdc_dims_3", data=[[1,2,3], [4,5,6]],
+                           attrs=dict(dims=[np.array('first_dim', dtype='U'),
+                                            np.array(['second_dim'])]))
+    assert xrdc.data.dims == ('first_dim', 'second_dim')
+
+    xrdc = XrDataContainer(name="xrdc_dims_3", data=[[1,2,3], [4,5,6]],
+                           attrs=dict(dim_name__0=np.array('first_dim',
+                                                           dtype='U'),
+                                      dim_name__1=np.array(['second_dim'])))
+    assert xrdc.data.dims == ('first_dim', 'second_dim')
 
     # Bad dimension name attribute type
+    with pytest.raises(TypeError, match="sequence of strings, but not"):
+        XrDataContainer(name="xrdc", data=[[1,2,3], [4,5,6]],
+                        attrs=dict(dims="13"))
+    
     with pytest.raises(TypeError, match="needs to be an iterable"):
         XrDataContainer(name="xrdc", data=[[1,2,3], [4,5,6]],
                         attrs=dict(dims=123))
 
-    with pytest.raises(ValueError, match="needs to be an iterable of strings"):
+    with pytest.raises(TypeError, match="need to be strings, got"):
         XrDataContainer(name="xrdc", data=[[1,2,3], [4,5,6]],
-                        attrs=dict(dims=[123, "foo"]))
+                        attrs=dict(dims=["foo", 123]))
 
-    # Bad dimension name
-    with pytest.raises(ValueError, match="exceeds the rank \(2\) of"):
+    with pytest.raises(TypeError, match="need be strings, but the attribute"):
+        XrDataContainer(name="xrdc", data=[[1,2,3], [4,5,6]],
+                        attrs=dict(dim_name__0=123))
+
+    # Bad dimension number
+    with pytest.raises(ValueError, match="exceeds the rank \(2\)"):
         XrDataContainer(name="xrdc_dims_3", data=[[1,2,3], [4,5,6]],
                         attrs=dict(dim_name__10="foo"))
 
@@ -494,3 +527,76 @@ def test_xr_data_container():
 
     # String representation ...................................................
     assert xrdc._format_info().startswith(str(xrdc.dtype))
+
+
+    # Proxysupport ............................................................
+
+    # class with hdf5proxysupport (proxies need to have ndim, shape, dtype)
+    class Hdf5ProxyXrDC(Hdf5ProxyMixin, XrDataContainer):
+        pass
+    
+    # Check that proxy support isenabled now
+    assert Hdf5ProxyXrDC.DATA_ALLOW_PROXY == True
+
+    # Create a proxy
+    proxy = Hdf5DataProxy(obj=tmp_h5_dset)
+
+    # Create a XrDataContainer with proxy support
+    pxrdc = Hdf5ProxyXrDC(name="xrdc", data=proxy, 
+                          attrs=dict(foo="bar", dims=['x','y', 'z'],
+                                     coords__x=['1 m'], 
+                                     coords__z=['1 cm', '2 cm', '3 cm']))
+    
+    # Initialize another one directly without using the proxy
+    pxrdc_direct = Hdf5ProxyXrDC(name="xrdc", data=tmp_h5_dset[()], 
+                                 attrs=dict(foo="bar", dims=['x', 'y', 'z'],
+                                            coords__x=['1 m'], 
+                                            coords__z=['1 cm', '2 cm', '3 cm'])
+                                 )
+    
+    # Check that the _data member is now a proxy
+    assert isinstance(pxrdc._data, Hdf5DataProxy)
+
+    # Support mixin should also give the same result
+    assert pxrdc.data_is_proxy
+
+    # And the info string should contain the word "proxy"
+    assert "proxy" in pxrdc._format_info()
+
+    # Make a copy of the container
+    pxrdc_copy = pxrdc.copy()
+
+    # Check that after copying it is still a proxy
+    assert isinstance(pxrdc_copy._data, Hdf5DataProxy)
+
+    # Check wether the fundamental attributes are correct
+    assert pxrdc.shape == (1, 2, 3)
+    assert pxrdc.dtype == int
+    assert pxrdc.ndim == 3
+    assert pxrdc.size == 6
+    assert pxrdc.chunks is None
+
+    # ... should not have resolved the proxy
+    assert isinstance(pxrdc._data, Hdf5DataProxy)
+
+    # Resolve the proxy by calling the data property
+    pxrdc.data
+    assert not pxrdc.data_is_proxy
+
+    # Now the data should be an xarray
+    assert isinstance(pxrdc._data, xr.DataArray)
+
+    # Format string should not contain proxy now
+    assert "proxy" not in pxrdc._format_info()
+
+    # ... and check that it is the same as the XrDataContainer initialized
+    # without proxy
+    assert np.all(pxrdc.data == pxrdc_direct.data)
+    assert pxrdc.attrs == pxrdc_direct.attrs
+
+    # All properties should also be the same
+    assert pxrdc.shape == pxrdc_direct.shape
+    assert pxrdc.dtype == pxrdc_direct.dtype
+    assert pxrdc.ndim == pxrdc_direct.ndim
+    assert pxrdc.size == pxrdc_direct.size
+    assert pxrdc.chunks == pxrdc_direct.chunks

@@ -1,6 +1,7 @@
 """This module implements a BaseDataProxy specialization for Hdf5 data."""
 
 import logging
+from typing import Union
 
 import numpy as np
 import h5py as h5
@@ -29,29 +30,91 @@ class Hdf5DataProxy(BaseDataProxy):
         super().__init__(obj)
 
         # Information to later resolve the data
-        self.fname = obj.file.filename
-        self.name = obj.name
+        self._fname = obj.file.filename
+        self._name = obj.name  # is the full path
 
-        # Extract some further information of the dataset
-        self.shape = obj.shape
-        self.dtype = obj.dtype
+        # If file objects need be kept in scope, this is the list to store them
+        self._h5files = []
 
-    def __str__(self) -> str:
-        """An info string that can be used to represent this object without
-        resolving the proxy data.
-        """
-        return "{shape:}, {dtype:}".format(shape=self.shape,
-                                           dtype=self.dtype)
+        # Extract some further information from the dataset before, basically
+        # all information that can be known without loading the data
+        self._shape = obj.shape
+        self._dtype = obj.dtype
+        self._ndim = obj.ndim
+        self._size = obj.size
+        self._chunks = obj.chunks
 
-    def resolve(self) -> np.ndarray:
+    def resolve(self, *, astype: type=None) -> Union[np.array, h5.Dataset]:
         """Resolve the data of this proxy by opening the hdf5 file and loading
-        the dataset into a numpy array.
+        the dataset into a numpy array or a type specified by `astype`
+        
+        Args:
+            astype (type, optional): As which type to return the data from the
+                dataset this object is proxy for. If None, will return as
+                np.array. For `h5py.Dataset`, the h5py.File object stays in
+                memory until the proxy is deleted.
         
         Returns:
-            np.ndarray: The dataset that this proxy was placeholder for
+            Union[np.array, h5.Dataset] ... or 
         """
-        log.debug("Resolving HDF5 proxy... Name: %s,  File: %s",
-                  self.name, self.fname)
+        # By default, return as numpy array
+        astype = astype if astype is not None else np.array
 
-        with h5.File(self.fname, 'r') as h5file:
-            return np.array(h5file[self.name])
+        # Distinguish between the desired return type
+        if astype is h5.Dataset:
+            log.debug("Resolving %s as h5py.Dataset from dataset %s in file "
+                      "at %s ...",
+                      self.classname, self._name, self._fname)
+
+            # Open the file and keep it in scope
+            h5file = h5.File(self._fname, 'r')
+            self._h5files.append(h5file)
+
+            # Return the dataset object, which remains valid until the file
+            # object is closed, i.e. the proxy goes out of scope
+            return h5file[self._name]
+
+        else:
+            log.debug("Resolving %s as %s.%s from dataset %s in "
+                      "file at %s ...", self.classname,
+                      astype.__module__, astype.__name__,
+                      self._name, self._fname)
+
+            with h5.File(self._fname, 'r') as h5file:
+                return astype(h5file[self._name])
+
+
+    # Proper garbage collection ...............................................
+
+    def __del__(self):
+        """Make sure all potentially still open h5py.File objects are closed"""
+        for f in self._h5files:
+            f.close()
+
+
+    # Properties to access information without resolving ......................
+
+    @property
+    def shape(self):
+        """The cached shape of the dataset, accessible without resolving"""
+        return self._shape
+
+    @property
+    def dtype(self):
+        """The cached dtype of the dataset, accessible without resolving"""
+        return self._dtype
+
+    @property
+    def ndim(self):
+        """The cached ndim of the dataset, accessible without resolving"""
+        return self._ndim
+
+    @property
+    def size(self):
+        """The cached size of the dataset, accessible without resolving"""
+        return self._size
+
+    @property
+    def chunks(self):
+        """The cached chunks of the dataset, accessible without resolving"""
+        return self._chunks
