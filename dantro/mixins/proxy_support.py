@@ -1,6 +1,7 @@
 """This module implements mixins that provide proxy support"""
 
 import logging
+import warnings
 
 import numpy as np
 
@@ -32,6 +33,9 @@ class ProxyMixin:
     # Whether to retain the proxy object after resolving
     PROXY_RETAIN = False
 
+    # Behaviour upon failure of reinstating a proxy
+    PROXY_REINSTATE_FAIL_ACTION = 'raise'  # or:  warn, log_warning, log_debug
+
     # Make sure the attribute where a retained proxy is stored is available
     _retained_proxy = None
 
@@ -59,6 +63,7 @@ class ProxyMixin:
 
             # Postprocess the resolved proxy with optional method
             if hasattr(self, '_postprocess_proxy_resolution'):
+                log.debug("Calling proxy resolution postprocessing ...")
                 self._postprocess_proxy_resolution()
 
         # Now, the data should be loaded and can be returned
@@ -86,6 +91,44 @@ class ProxyMixin:
         if self.data_is_proxy:
             return self._data
         return self._retained_proxy
+
+    def reinstate_proxy(self):
+        """Re-instate a previously retained proxy object, discarding _data."""
+        if self.data_is_proxy:
+            return
+
+        if self._retained_proxy is None:
+            msg = ("Could not reinstate a proxy for {} because there was no "
+                   "proxy retained. Was there one in the first place? Make "
+                   "sure the `PROXY_RETAIN` class variable is set to True. "
+                   "To control the behaviour of this message, change the "
+                   "PROXY_REINSTATE_FAIL_ACTION class variable."
+                   "".format(self.logstr))
+            action = self.PROXY_REINSTATE_FAIL_ACTION
+            
+            if action == 'raise':
+                raise ValueError(msg)
+
+            elif action == 'warn':
+                warnings.warn(msg, RuntimeWarning)
+
+            elif action in ('log_warning', 'log_warn'):
+                log.warning(msg)
+
+            elif action == 'log_debug':
+                log.debug(msg)
+
+            else:
+                raise ValueError("Invalid PROXY_REINSTATE_FAIL_ACTION value "
+                                 "'{}'! Possible values: raise, warn, "
+                                 "log_warning, log_debug".format(action))
+
+        else:
+            # All good. Reinstate the proxy
+            self._data = self._retained_proxy
+            log.debug("Reinstated %s for data of %s.",
+                      self.proxy.classname, self.logstr)
+
 
     def _format_info(self) -> str:
         """Adds an indicator to whether data is proxy to the info string"""

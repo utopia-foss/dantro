@@ -42,7 +42,7 @@ def tmp_h5_dset(tmpdir) -> h5.Dataset:
 
 # Tests -----------------------------------------------------------------------
 
-def test_init():
+def test_basics():
     """Tests initialisation of the DummyContainer class"""
     # Simple init
     dc = DummyContainer(name="dummy", data="foo")
@@ -58,7 +58,7 @@ def test_init():
         DummyContainer(name="a/name/with/the/PATH_JOIN_CHAR", data="foo")
 
 
-def test_check_data_mixin():
+def test_CheckDataMixin():
     """Checks the CheckDataMixin class."""
     # Define some test classes ................................................
 
@@ -113,7 +113,7 @@ def test_check_data_mixin():
         TestContainerE(name="foo", data="bar")
 
 
-def test_mutuable_sequence_container():
+def test_MutableSequenceContainer():
     """Tests whether the __init__ method behaves as desired"""
     # Basic initialisation of sequence-like data
     msc1 = MutableSequenceContainer(name="foo", data=["bar", "baz"])
@@ -160,7 +160,7 @@ def test_mutuable_sequence_container():
             "{:illegal_formatspec}".format(msc)
 
 
-def test_numpy_data_container():
+def test_NumpyDataContainer():
     """Tests whether the __init__method behaves as desired"""
     # Basic initialization of Numpy ndarray-like data
     ndc1 = NumpyDataContainer(name="oof", data=np.array([1,2,3]))
@@ -342,8 +342,8 @@ def test_numpy_data_container():
     # Test string representation
     assert ndc._format_info().startswith(str(ndc.dtype))
 
-def test_xr_data_container(tmp_h5_dset):
-    """Tests whether the __init__method behaves as desired"""
+def test_XrDataContainer():
+    """Tests the XrDataContainer"""
     
     # Basic initialization of Numpy ndarray-like data
     xrdc = XrDataContainer(name="xrdc", data=np.array([1,2,3]))
@@ -529,30 +529,29 @@ def test_xr_data_container(tmp_h5_dset):
     assert xrdc._format_info().startswith(str(xrdc.dtype))
 
 
-    # Proxysupport ............................................................
+def test_XrDataContainer_proxy_support(tmp_h5_dset):
+    """Test proxy support for XrDataContainer"""
 
-    # class with hdf5proxysupport (proxies need to have ndim, shape, dtype)
+    # Specialize a class with proxy support
     class Hdf5ProxyXrDC(Hdf5ProxyMixin, XrDataContainer):
         pass
+
+    # Some attributes to initialize containers
+    attrs = dict(foo="bar", dims=['x','y', 'z'],
+                 coords__x=['1 m'], coords__z=['1 cm', '2 cm', '3 cm'])
     
     # Check that proxy support isenabled now
-    assert Hdf5ProxyXrDC.DATA_ALLOW_PROXY == True
+    assert Hdf5ProxyXrDC.DATA_ALLOW_PROXY
 
     # Create a proxy
     proxy = Hdf5DataProxy(obj=tmp_h5_dset)
 
     # Create a XrDataContainer with proxy support
-    pxrdc = Hdf5ProxyXrDC(name="xrdc", data=proxy, 
-                          attrs=dict(foo="bar", dims=['x','y', 'z'],
-                                     coords__x=['1 m'], 
-                                     coords__z=['1 cm', '2 cm', '3 cm']))
+    pxrdc = Hdf5ProxyXrDC(name="xrdc", data=proxy, attrs=attrs)
     
     # Initialize another one directly without using the proxy
-    pxrdc_direct = Hdf5ProxyXrDC(name="xrdc", data=tmp_h5_dset[()], 
-                                 attrs=dict(foo="bar", dims=['x', 'y', 'z'],
-                                            coords__x=['1 m'], 
-                                            coords__z=['1 cm', '2 cm', '3 cm'])
-                                 )
+    pxrdc_direct = Hdf5ProxyXrDC(name="xrdc", data=tmp_h5_dset[()],
+                                 attrs=attrs)
     
     # Check that the _data member is now a proxy
     assert isinstance(pxrdc._data, Hdf5DataProxy)
@@ -600,3 +599,61 @@ def test_xr_data_container(tmp_h5_dset):
     assert pxrdc.ndim == pxrdc_direct.ndim
     assert pxrdc.size == pxrdc_direct.size
     assert pxrdc.chunks == pxrdc_direct.chunks
+
+
+    # Test re-instatement .....................................................
+
+    # Create a new proxy object
+    proxy = Hdf5DataProxy(obj=tmp_h5_dset)
+
+    # With retainment enabled, it should be retained after resolution
+    pxrdc = Hdf5ProxyXrDC(name="xrdc", data=proxy, attrs=attrs)
+    pxrdc.PROXY_RETAIN = True
+    assert pxrdc.data_is_proxy
+    assert pxrdc._retained_proxy is None
+
+    pxrdc.data
+    assert not pxrdc.data_is_proxy
+    assert pxrdc._retained_proxy is proxy
+
+    # ... allowing to reinstate the proxy, releasing the data
+    pxrdc.reinstate_proxy()
+    assert pxrdc.data_is_proxy
+
+    # If it is already a proxy, nothing happens
+    pxrdc.reinstate_proxy()
+    assert pxrdc.data_is_proxy
+
+
+    # With retainment disabled (default), it should not be retained
+    pxrdc = Hdf5ProxyXrDC(name="xrdc", data=proxy, attrs=attrs)
+    assert not pxrdc.PROXY_RETAIN
+    assert pxrdc.data_is_proxy
+    assert pxrdc._retained_proxy is None
+
+    pxrdc.data
+    assert not pxrdc.data_is_proxy
+    assert pxrdc._retained_proxy is None
+
+
+    # Thus, reinstatement cannot work
+    with pytest.raises(ValueError, match="Could not reinstate a proxy for"):
+        pxrdc.reinstate_proxy()
+
+    # Test all the different fail actions
+    pxrdc.PROXY_REINSTATE_FAIL_ACTION = 'warn'
+    with pytest.warns(RuntimeWarning, match="Could not reinstate"):
+        pxrdc.reinstate_proxy()
+
+    pxrdc.PROXY_REINSTATE_FAIL_ACTION = 'log_warn'
+    pxrdc.reinstate_proxy()
+
+    pxrdc.PROXY_REINSTATE_FAIL_ACTION = 'log_warning'
+    pxrdc.reinstate_proxy()
+
+    pxrdc.PROXY_REINSTATE_FAIL_ACTION = 'log_debug'
+    pxrdc.reinstate_proxy()
+
+    with pytest.raises(ValueError, match="Invalid PROXY_REINSTATE_FAIL_"):
+        pxrdc.PROXY_REINSTATE_FAIL_ACTION = 'bad_value'
+        pxrdc.reinstate_proxy()
