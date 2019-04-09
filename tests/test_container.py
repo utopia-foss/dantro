@@ -29,6 +29,7 @@ class DummyContainer(ItemAccessMixin, BaseDataContainer):
         return "dummy"
 
 # Fixtures --------------------------------------------------------------------
+
 @pytest.fixture
 def tmp_h5_dset(tmpdir) -> h5.Dataset:
     """Creates a temporary hdf5 dataset"""
@@ -36,7 +37,7 @@ def tmp_h5_dset(tmpdir) -> h5.Dataset:
     test_file = h5.File(tmpdir.join("test_h5_file.hdf5"))
     # Create a h5 dataset
     dset = test_file.create_dataset("init", data=np.zeros(shape=(1, 2, 3), 
-                                                        dtype = int))
+                                                          dtype=int))
     return dset
 
 # Tests -----------------------------------------------------------------------
@@ -531,31 +532,38 @@ def test_xr_data_container(tmp_h5_dset):
     # Proxysupport ............................................................
 
     # class with hdf5proxysupport (proxies need to have ndim, shape, dtype)
-    class Hdf5ProxyXrDataContainer(Hdf5ProxyMixin, XrDataContainer):
+    class Hdf5ProxyXrDC(Hdf5ProxyMixin, XrDataContainer):
         pass
     
     # Check that proxy support isenabled now
-    assert Hdf5ProxyXrDataContainer.DATA_ALLOW_PROXY == True
+    assert Hdf5ProxyXrDC.DATA_ALLOW_PROXY == True
 
     # Create a proxy
     proxy = Hdf5DataProxy(obj=tmp_h5_dset)
 
     # Create a XrDataContainer with proxy support
-    pxrdc = Hdf5ProxyXrDataContainer(name="xrdc", data=proxy, 
-                                     attrs=dict(foo="bar", dims=['x','y', 'z'],
-                                            coords__x=['1 m'], 
-                                            coords__z=['1 cm', '2 cm', '3 cm']))
+    pxrdc = Hdf5ProxyXrDC(name="xrdc", data=proxy, 
+                          attrs=dict(foo="bar", dims=['x','y', 'z'],
+                                     coords__x=['1 m'], 
+                                     coords__z=['1 cm', '2 cm', '3 cm']))
     
     # Initialize another one directly without using the proxy
-    pxrdc_direct = Hdf5ProxyXrDataContainer(name="xrdc", data=tmp_h5_dset[()], 
-                                     attrs=dict(foo="bar", dims=['x','y', 'z'],
+    pxrdc_direct = Hdf5ProxyXrDC(name="xrdc", data=tmp_h5_dset[()], 
+                                 attrs=dict(foo="bar", dims=['x', 'y', 'z'],
                                             coords__x=['1 m'], 
-                                            coords__z=['1 cm', '2 cm', '3 cm']))
+                                            coords__z=['1 cm', '2 cm', '3 cm'])
+                                 )
     
     # Check that the _data member is now a proxy
     assert isinstance(pxrdc._data, Hdf5DataProxy)
 
-    # Make a copy
+    # Support mixin should also give the same result
+    assert pxrdc.data_is_proxy
+
+    # And the info string should contain the word "proxy"
+    assert "proxy" in pxrdc._format_info()
+
+    # Make a copy of the container
     pxrdc_copy = pxrdc.copy()
 
     # Check that after copying it is still a proxy
@@ -565,17 +573,30 @@ def test_xr_data_container(tmp_h5_dset):
     assert pxrdc.shape == (1, 2, 3)
     assert pxrdc.dtype == int
     assert pxrdc.ndim == 3
+    assert pxrdc.size == 6
+    assert pxrdc.chunks is None
 
     # ... should not have resolved the proxy
     assert isinstance(pxrdc._data, Hdf5DataProxy)
 
     # Resolve the proxy by calling the data property
     pxrdc.data
+    assert not pxrdc.data_is_proxy
 
     # Now the data should be an xarray
     assert isinstance(pxrdc._data, xr.DataArray)
+
+    # Format string should not contain proxy now
+    assert "proxy" not in pxrdc._format_info()
 
     # ... and check that it is the same as the XrDataContainer initialized
     # without proxy
     assert np.all(pxrdc.data == pxrdc_direct.data)
     assert pxrdc.attrs == pxrdc_direct.attrs
+
+    # All properties should also be the same
+    assert pxrdc.shape == pxrdc_direct.shape
+    assert pxrdc.dtype == pxrdc_direct.dtype
+    assert pxrdc.ndim == pxrdc_direct.ndim
+    assert pxrdc.size == pxrdc_direct.size
+    assert pxrdc.chunks == pxrdc_direct.chunks

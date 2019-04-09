@@ -669,9 +669,13 @@ def test_hdf5_proxy_loader(hdf5_dm):
     assert h5data['basic/float_dset'].data_is_proxy is False
     assert h5data['basic/float_dset'].proxy is None
     
+    # However, when set to retain, the proxy object is retained
+    h5data['nested/group1/group11/group111/dset'].PROXY_RETAIN = True
+    op = h5data['nested/group1/group11/group111/dset'].proxy
     assert isinstance(h5data['nested/group1/group11/group111/dset'].data,
                       np.ndarray)
     assert h5data['nested/group1/group11/group111/dset'].data_is_proxy is False
+    assert h5data['nested/group1/group11/group111/dset'].proxy is op
 
 def test_hdf5_mapping(hdf5_dm):
     """Tests whether container mapping works as desired"""
