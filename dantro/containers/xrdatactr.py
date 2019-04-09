@@ -224,6 +224,11 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
                                          "".format(dim_num, attr_name,
                                                    self.ndim))
 
+                    # Make sure the attribute value is a string
+                    if isinstance(attr_val, np.ndarray):
+                        # Need be single item and already decoded
+                        attr_val = attr_val.item()
+
                     # All good now. Add it to the dimension number to
                     # name mapping
                     int_to_name_map[dim_num] = attr_val
@@ -237,7 +242,7 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
                 else:
                     dim_name_map["dim_{:d}".format(d_num)] = "dim_{:d}".format(d_num)
                     int_to_name_map[d_num] = "dim_{:d}".format(d_num)
-        
+
         # Return the map
         return dim_name_map, int_to_name_map
         
@@ -278,7 +283,7 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
             # Check if there is an attribute available to use
             coords = self.attrs.get(self._XRC_COORDS_ATTR_PREFIX + dim_name,
                                     None)
-            if not coords:
+            if coords is None:
                 return
             
             # Determine the mode to interpret the attribute values
@@ -300,8 +305,9 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
                 # Interpret as integer start and step of range expression
                 # and use the length of the data dimension as number of steps
                 start, step = coords
+
                 stop = start + (step * self.shape[dim_num])
-                coords = list(range(start, stop, step))
+                coords = list(range(int(start), int(stop), int(step)))
 
             elif mode in ['linked', 'from_path']:
                 raise NotImplementedError("Linked datasets for coordinates "

@@ -6,6 +6,7 @@
 - #43 Add a Sphinx-based documentation, currently containing only the API reference
 - With #40 and !41, the `PlotManager` can auto-detect which plot creator is to be used; this allows to leave out the `creator` key in the plot configuration and thus simplifies the configuration of a plot.
 - #63 greatly extends the configuration capabilities of the `PlotManager`: There now is a so-called "base" configuration, which plot configurations can use to base their parameters on; this is done via the `based_on` key.
+   - #69 Allows `based_on` to be a sequence of base configuration names that are accumulated and then used as basis for the new plot.
 - #44 makes the dantro version number single-sourced in `dantro/__init__.py`
 - !39 makes minor improvements to info strings
 - #51 adds a `tree` property to `BaseDataGroup`, which returns the tree representation string of that group.
@@ -17,6 +18,9 @@
 - #47 adds the `XrDataContainer`, which stores data as an [`xarray.DataArray`](http://xarray.pydata.org/en/stable/data-structures.html#dataarray) and associated dimension labels and coordinates by looking at the container attributes
 - #45 implements the `PlotHelper`, which provides a configuration-accessible interface for matplotlib functions invoked via `ExternalPlotCreator`.
 - #62 implements `PlotHelper` functions to set title, labels, limits, scale, legend, horizontal and vertical lines.
+- #64 adds the possibility to conveniently create animations when using the `ExternalPlotCreator` in combination with the `PlotHelper`
+- #68 makes the `PlotHelper` work axis-specific and thus allow defining helpers for different axes of a figure with subplots.
+- !72 extends `PlotHelper` capabilities and improves error messages
 
 ## v0.6.1
 - !44 Fixes a bug where the association of parameter dimensions in `UniversePlotCreator` was wrong and could lead to failing plots.

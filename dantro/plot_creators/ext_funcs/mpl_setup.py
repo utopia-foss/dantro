@@ -2,8 +2,7 @@
 
 import logging
 
-import matplotlib
-matplotlib.use("Agg")
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 

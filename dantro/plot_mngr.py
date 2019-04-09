@@ -106,8 +106,9 @@ class PlotManager:
             dm (DataManager): The DataManager-derived object to read the plot
                 data from.
             base_cfg (Union[dict, str], optional): The default base config or a
-                path to a yaml-file to import. The base config defines a set of 
-                available, but disabled plots configs.
+                path to a yaml-file to import. The base config defines a set
+                of plot configuration that other plot configurations can
+                declare themselves `based_on`.
             update_base_cfg (Union[dict, str], optional): An update config to
                 the base config or a path to a yaml-file to import which
                 recursively updates the base_cfg.
@@ -182,28 +183,43 @@ class PlotManager:
                       update_base_cfg)
             update_base_cfg = load_yml(update_base_cfg)
 
-        # Resolve based_on in update_base_cfg
+        # Perform update of base config: recursive + resolution of `based_on`
         if update_base_cfg:
             # First, make a recursive update of the existing based_on
             self._base_cfg = recursive_update(self._base_cfg, update_base_cfg)
             # Now, potentially existing `based_on` entries from either of
             # these configurations are part of the _base_cfg
-            # Now, resolve these `based_on` keys...
+            # Resolve these `based_on` keys ...
             for pcfg_name, pcfg in self._base_cfg.items():
                 based_on = pcfg.pop('based_on', None)
+
+                if not based_on:
+                    continue
+
+                elif isinstance(based_on, str):
+                    based_on = (based_on,)
                 
-                if based_on:
-                    if based_on not in self._base_cfg:
+                # Now a sequence of strings; go over all these and build a dict
+                # that will be the base that is to be recursively updated with
+                # the given update config.
+                bcfg = dict()
+                for _based_on in based_on:
+                    if _based_on not in self._base_cfg:
                         raise KeyError("No base plot configuration named '{}' "
                                        "available to use during resolution of "
                                        "`update_base_cfg`! Available: {}"
-                                       "".format(based_on,
+                                       "".format(_based_on,
                                                  ", ".join(self._base_cfg)))
 
-                    new_pcfg = recursive_update(self._base_cfg[based_on], pcfg)
-                    self._base_cfg[pcfg_name] = new_pcfg
+                    # Need to work on a deep copy of the original base config
+                    # entry in order to not get any mutability issues
+                    _bcfg = copy.deepcopy(self._base_cfg[_based_on])
+                    bcfg = recursive_update(bcfg, _bcfg)
+                
+                # Finally, apply the given update and store as attribute
+                self._base_cfg[pcfg_name] = recursive_update(bcfg, pcfg)
 
-        # Handle plots config
+        # Handle default plots configuration
         if isinstance(plots_cfg, str):
             # Interpret as path to yaml file
             log.debug("Loading plots_cfg from file %s ...", plots_cfg)
@@ -211,17 +227,15 @@ class PlotManager:
         self._plots_cfg = plots_cfg
 
         # Update the default format strings, if any were given here
+        self._out_fstrs = self.DEFAULT_OUT_FSTRS
         if out_fstrs:
-            # Update defaults
-            d = copy.deepcopy(self.DEFAULT_OUT_FSTRS)
-            d.update(out_fstrs)
-            self._out_fstrs = d
-        else:
-            # Use defaults
-            self._out_fstrs = self.DEFAULT_OUT_FSTRS
+            self._out_fstrs = recursive_update(copy.deepcopy(self._out_fstrs),
+                                               out_fstrs)
 
+        # Store creator init kwargs
         self._cckwargs = creator_init_kwargs if creator_init_kwargs else {}
 
+        # Store default creator name
         if default_creator and default_creator not in self.CREATORS:
             raise InvalidCreator("No such creator '{}' available, only: {}"
                                  "".format(default_creator,
@@ -372,6 +386,50 @@ class PlotManager:
         out_path = os.path.join(out_dir, out_path)
 
         return out_path
+    
+    def _resolve_based_on(self, *, cfg: dict,
+                          based_on: Union[str, Tuple[str]]=None,
+                          work_on_deepcopy: bool=True) -> dict:
+        """Resolves the based_on reference in a plot_cfg
+        
+        Args:
+            cfg (dict): The plot configuration that will be used to recursively
+                update the specified base configurations.
+            based_on (Union[str, Tuple[str]], optional): The name or names of
+                the base configuration entries to use for updating
+            work_on_deepcopy (bool, optional): Whether to work on a deepcopy
+        
+        Returns:
+            plot_cfg (dict): The derived plot configuration
+        
+        Raises:
+            KeyError: If based_on value not a key in self._base_cfg
+        """
+        if not based_on:
+            return cfg
+
+        elif isinstance(based_on, str):
+            based_on = (based_on,)
+
+        # Copy, if needed
+        if work_on_deepcopy:
+            cfg = copy.deepcopy(cfg)
+
+        # Resolve the list of based_on entries
+        base_cfg = dict()
+        for _based_on in based_on:
+            if _based_on not in self.base_cfg.keys():
+                raise KeyError("No base plot configuration named '{}' "
+                               "available! Choose from: {}"
+                               "".format(_based_on,
+                                         ", ".join(self._base_cfg.keys())))
+
+            # Do the recursive update. The base_cfg property already returns
+            # a deep copy of the base configuration ...
+            base_cfg = recursive_update(base_cfg, self.base_cfg[_based_on])
+
+        # As final step, update the base configuration with everything 
+        return recursive_update(base_cfg, cfg)
 
     def _get_plot_creator(self, creator: Union[str, None],
                           *, name: str, init_kwargs: dict,
@@ -457,7 +515,8 @@ class PlotManager:
                                          "for plot '{}' but could not "
                                          "unambiguously do so! There were {} "
                                          "plot creators declaring themselves "
-                                         "as candidates: {}"
+                                         "as candidates: {}. Consider "
+                                         "specifying the creator explicitly."
                                          "".format(name, len(pc_candidates),
                                                    ", ".join(pcc_names)))
                 elif len(pc_candidates) < 1:
@@ -465,7 +524,12 @@ class PlotManager:
                     raise InvalidCreator("Tried to auto-detect a plot creator "
                                          "for plot '{}' but none of the "
                                          "available creators ({}) declared "
-                                         "itself a candidate!"
+                                         "itself a candidate! This might also "
+                                         "be due to a plot configuration that"
+                                         "the candidate plot creators could "
+                                         "not interpret. Consider specifying "
+                                         "the creator explicitly to find out "
+                                         "why auto-detection failed."
                                          "".format(name, pc_names))
 
                 # else: there was only one, use that
@@ -740,8 +804,10 @@ class PlotManager:
         log.info("Successfully performed plots for %d configuration(s).",
                  len(plots_cfg))
 
-    def plot(self, name: str, *, based_on: str=None,
-             from_pspace: ParamSpace=None, **plot_cfg) -> BasePlotCreator:
+    def plot(self, name: str, *,
+             based_on: Union[str, Tuple[str]]=None,
+             from_pspace: Union[dict, ParamSpace]=None,
+             **plot_cfg) -> BasePlotCreator:
         """Create plot(s) from a single configuration entry.
         
         A call to this function resolves the `based_on` feature and passes the
@@ -754,12 +820,15 @@ class PlotManager:
         
         Args:
             name (str): The name of this plot
-            based_on (str, optional): The key of a entry in the base config
-                that should be used as the basis of this plot. The given plot
-                configuration is then used to recursively update (a copy of)
-                that base configuration.
-            from_pspace (ParamSpace, optional): If given, execute a parameter
-                sweep over these parameters, re-using the same creator instance
+            based_on (Union[str, Tuple[str]], optional): A key or a sequence
+                of keys of entries in the base config that should be used as
+                the basis of this plot.
+                The given plot configuration is then used to recursively
+                update (a copy of) those base configuration entries.
+            from_pspace (Union[dict, ParamSpace], optional): If given, execute
+                a parameter sweep over these parameters, re-using the same
+                creator instance. If this is a dict, a ParamSpace is created
+                from it.
             **plot_cfg: The plot configuration, including some parameters that
                 the plot creator already evaluates (and consequently: does not
                 pass on to the plot creator)
@@ -767,35 +836,8 @@ class PlotManager:
         Returns:
             BasePlotCreator: The PlotCreator used for these plots
         """
-        def resolve_based_on(cfg: dict, based_on: str=None):
-            """Resolves the based_on reference in a plot_cfg
-            
-            Args:
-                cfg (dict): The configuration to update
-                based_on (str, optional): The name of the base plot config to
-                    use for updating
-            
-            Returns:
-                plot_cfg (dict): The derived plot configuration
-            
-            Raises:
-                KeyError: If based_on value not a key in self._base_cfg
-            """
-            if not based_on:
-                return cfg
-
-            if based_on not in self.base_cfg.keys():
-                raise KeyError("No plot configuration named '{}' available "
-                               "in the base configuration! Was referenced "
-                               "from plot '{}'. Available base plot "
-                               "configurations: {}"
-                               "".format(based_on, name,
-                                         ", ".join(self._base_cfg.keys())))
-
-            return recursive_update(self.base_cfg[based_on], cfg)
-
         # Derive the plot_cfg using based_on
-        plot_cfg = resolve_based_on(plot_cfg, based_on)
+        plot_cfg = self._resolve_based_on(cfg=plot_cfg, based_on=based_on)
         
         # Check if the plot configuration needs to be derived from a pspace
         if not from_pspace:
@@ -810,8 +852,17 @@ class PlotManager:
         # Distinguish between dict-like and actual ParamSpace objects
         if isinstance(from_pspace, dict):
             # Can just directly do the update
-            from_pspace = resolve_based_on(from_pspace,
-                                           from_pspace.pop("based_on", None))
+            # ... but need a copy in order to pop
+            from_pspace = copy.deepcopy(from_pspace)
+            based_on = from_pspace.pop("based_on", None)
+
+            # Do the update; no deepcopy needed in there because done here
+            from_pspace = self._resolve_based_on(cfg=from_pspace,
+                                                 based_on=based_on,
+                                                 work_on_deepcopy=False)
+
+            # Now also extract the creator; might have come in only by the
+            # based_on resolution
             creator = from_pspace.pop("creator", None)
 
         else:
@@ -822,7 +873,9 @@ class PlotManager:
 
             # Resolve `based_on`
             based_on = pspace_plot_cfg.pop("based_on", None)
-            pspace_plot_cfg = resolve_based_on(pspace_plot_cfg, based_on)
+            pspace_plot_cfg = self._resolve_based_on(cfg=pspace_plot_cfg,
+                                                     based_on=based_on,
+                                                     work_on_deepcopy=False)
 
             # Extract info, then re-create the ParamSpace with the updated cfg
             creator = pspace_plot_cfg.pop("creator", None)
