@@ -9,8 +9,8 @@ logging.basicConfig(format="%(levelname)-7s %(module)-12s %(message)s",
 log = logging.getLogger(__name__)
 
 
-# Define version variable
-__version__ = '0.7.0rc17'
+# Package version
+__version__ = '0.7.0'
 
 
 # Make manager classes available
