@@ -9,7 +9,7 @@ from ..base import BaseDataGroup, BaseDataContainer
 from ..containers import NumpyDataContainer
 from ..groups import OrderedDataGroup
 from ..proxy import Hdf5DataProxy
-from ..tools import fill_line
+from ..tools import fill_line, decode_bytestrings
 from ._tools import add_loader
 
 # Local constants
@@ -43,8 +43,15 @@ class Hdf5LoaderMixin:
     # The name of the attribute to read for mapping
     _HDF5_MAP_FROM_ATTR = None
 
+    # Whether to decode strings stored as byte arrays to regular python strings
+    _HDF5_DECODE_ATTR_BYTESTRINGS = True
+
+
     @add_loader(TargetCls=OrderedDataGroup, omit_self=False)
-    def _load_hdf5(self, filepath: str, *, TargetCls: type, load_as_proxy: bool=False, lower_case_keys: bool=False, enable_mapping: bool=False, map_from_attr: str=None, print_params: dict=None) -> OrderedDataGroup:
+    def _load_hdf5(self, filepath: str, *, TargetCls: type,
+                   load_as_proxy: bool=False, lower_case_keys: bool=False,
+                   enable_mapping: bool=False, map_from_attr: str=None,
+                   print_params: dict=None) -> OrderedDataGroup:
         """Loads the specified hdf5 file into DataGroup and DataContainer-like
         object; this completely recreates the hierarchic structure of the hdf5
         file. The data can be loaded into memory completely, or be loaded as
@@ -89,36 +96,37 @@ class Hdf5LoaderMixin:
                 _HDF5_MAP_FROM_ATTR
         """
         
-
-        def recursively_load_hdf5(src, target: BaseDataGroup, *, load_as_proxy: bool, lower_case_keys: bool, enable_mapping: bool, DsetCls: BaseDataContainer, GroupMap: dict, DsetMap: dict, map_attr: str):
+        def recursively_load_hdf5(src, target: BaseDataGroup, *,
+                                  load_as_proxy: bool, lower_case_keys: bool,
+                                  enable_mapping: bool,
+                                  DsetCls: BaseDataContainer,
+                                  GroupMap: dict, DsetMap: dict,
+                                  map_attr: str):
             """Recursively loads the data from the source hdf5 file into the 
             target DataGroup object.
             If given, each group or dataset is checked whether an attribute
-            `container_type` or `dset_type` exists, which is then used to apply a
-            mapping from that attribute to a certain type of DataGroup or
-            DataContainer, respectively.
+            `container_type` or `dset_type` exists, which is then used to
+            apply a mapping from that attribute to a certain type of DataGroup
+            or DataContainer, respectively.
             """
 
-            def get_map_attr_value(attrs) -> str:
-                """As the map attribute can be a bytestring, let this function
-                retrieve it as python string.
+            def get_map_attr_val(attrs) -> str:
+                """Make sure the map attribute isn't a 1-sized array!"""
+                attr_val = attrs[map_attr] # map_attr and check in outer scope
 
-                This relies on the `map_attr` argument from the outer scope
-                """
-                attr_val = attrs[map_attr]
-
-                # Special case: numpy array of bytestring
                 if isinstance(attr_val, np.ndarray):
-                    # Convert it to a string
-                    attr_val = attr_val.tostring()
+                    # Need be single item and already decoded
+                    attr_val = attr_val.item()
 
-                # Still might need to decode it:
-                try:
-                    return attr_val.decode("utf8")
+                return attr_val
 
-                except AttributeError:
-                    # Nope, is a string without the .decode attribute
+            def decode_attr_val(attr_val) -> str:
+                """Wrapper around decode_bytestrings"""
+                # If feature not activated, return without doing anything
+                if not self._HDF5_DECODE_ATTR_BYTESTRINGS:
                     return attr_val
+
+                return decode_bytestrings(attr_val)
 
             # Go through the elements of the source object
             for key, obj in src.items():
@@ -128,21 +136,24 @@ class Hdf5LoaderMixin:
                 if isinstance(obj, h5.Group):
                     # Need to continue recursion
                     # Extract attributes manually
-                    attrs = {k:v for k, v in obj.attrs.items()}
+                    attrs = {k: decode_attr_val(v)
+                             for k, v in obj.attrs.items()}
 
                     # Determine the class to use for this group
                     if enable_mapping and GroupMap and attrs.get(map_attr):
                         # Try to resolve the mapping
                         try:
-                            _GroupCls = GroupMap[get_map_attr_value(attrs)]
+                            _GroupCls = GroupMap[get_map_attr_val(attrs)]
 
                         except KeyError:
                             # Fall back to default
                             log.warning("Could not find a mapping from map "
-                                        "attribute %s='%s' to a DataGroup "
-                                        "class. Available keys: %s. Falling "
-                                        "back to default class ...",
-                                        map_attr, get_map_attr_value(attrs),
+                                        "attribute %s='%s' (originally %s) "
+                                        "to a DataGroup class. Available "
+                                        "keys: %s. Falling back to default "
+                                        "class ...",
+                                        map_attr, get_map_attr_val(attrs),
+                                        attrs[map_attr],
                                         ", ".join([k
                                                    for k in GroupMap.keys()]))
                             _GroupCls = None
@@ -186,21 +197,24 @@ class Hdf5LoaderMixin:
                         data = np.array(obj)
 
                     # Extract attributes manually
-                    attrs = {k:v for k, v in obj.attrs.items()}
+                    attrs = {k: decode_attr_val(v)
+                             for k, v in obj.attrs.items()}
 
                     # Determine the class to use for this dataset
                     if enable_mapping and DsetMap and attrs.get(map_attr):
                         # Try to resolve the mapping
                         try:
-                            _DsetCls = DsetMap[get_map_attr_value(attrs)]
+                            _DsetCls = DsetMap[get_map_attr_val(attrs)]
 
                         except KeyError:
                             # Fall back to default
                             log.warning("Could not find a mapping from map "
-                                        "attribute %s='%s' to a DataContainer "
-                                        "class. Available keys: %s. Falling "
-                                        "back to default class %s...",
-                                        map_attr, get_map_attr_value(attrs),
+                                        "attribute %s='%s' (originally %s) to "
+                                        "a DataContainer class. Available "
+                                        "keys: %s. "
+                                        "Falling back to default class %s...",
+                                        map_attr, get_map_attr_val(attrs),
+                                        attrs[map_attr],
                                         ", ".join([k for k in DsetMap.keys()]),
                                         DsetCls.__name__)
                             _DsetCls = DsetCls
@@ -278,7 +292,8 @@ class Hdf5LoaderMixin:
         return root
 
     @add_loader(TargetCls=OrderedDataGroup, omit_self=False)
-    def _load_hdf5_proxy(self, filepath: str, *, TargetCls, **loader_kwargs) -> OrderedDataGroup:
+    def _load_hdf5_proxy(self, filepath: str, *, TargetCls,
+                         **loader_kwargs) -> OrderedDataGroup:
         """Loads the specified hdf5 file into DataGroup and DataContainer-like
         object; this completely recreates the hierarchic structure of the hdf5
         file. Instead of loading all data directly, this loader will create

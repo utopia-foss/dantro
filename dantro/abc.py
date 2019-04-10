@@ -1,11 +1,4 @@
-"""This module holds the abstract base classes needed for dantro:
-
-AbstractDataContainer: define a general data container interface
-AbstractDataGroup: define a Mapping-like group interface
-AbstractDataAttr: define a dict-like attribute interface to both of the above
-AbstractDataProxy: define the interface for creation and resolution of proxies
-AbstractPlotCreator: defines the interface for PlotCreators
-"""
+"""This module holds the abstract base classes needed for dantro"""
 
 import abc
 import collections
@@ -55,10 +48,10 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
         self._name = name
         self._data = data
 
-        # Caching variables
+        # Set caching variables
         self._logstr = None
 
-        log.debug("Initializing %s ...", self.logstr)
+        # Done.
 
     # .........................................................................
     # Properties
@@ -77,8 +70,11 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
     def logstr(self) -> str:
         """Returns the classname and name of this object; a combination often
         used in logging..."""
-        if not self._logstr:
+        # Store the cache value, if not already happened
+        if self._logstr is None:
             self._logstr = "{} '{}'".format(self.classname, self.name)
+
+        # Return the cache value
         return self._logstr
 
     @property
@@ -241,17 +237,13 @@ class AbstractDataProxy(metaclass=abc.ABCMeta):
         this proxy is to be proxy for.
         """
 
-    @abc.abstractmethod
-    def __str__(self) -> str:
-        """An info string to represent the proxied data"""
-
     @property
     def classname(self) -> str:
         """Returns this proxy's class name"""
         return self.__class__.__name__
 
     @abc.abstractmethod
-    def resolve(self):
+    def resolve(self, *, astype: type=None):
         """Get the data that this proxy is a placeholder for and return it.
 
         Note that this method does not place the resolved data in the
@@ -263,18 +255,7 @@ class AbstractDataProxy(metaclass=abc.ABCMeta):
 # -----------------------------------------------------------------------------
 
 class AbstractPlotCreator(metaclass=abc.ABCMeta):
-    """This class defines the interface for PlotCreator classes.
-
-    Abstract methods here:
-      * __init__: pass the data manager and the plot configuration
-      * __call__: Wrapper around the _plot method, which can update the config.
-      * _plot:    This method receives the fully parsed plot configuration and
-                  then performs the plot.
-      * get_ext:  Used by PlotManager to retrieve the desired file extension
-      * _prepare_path: Creates the output path; can be subclassed to change
-                  behaviour, i.e. to postpone directory creation as far as
-                  possible
-    """
+    """This class defines the interface for PlotCreator classes"""
 
     @abc.abstractmethod
     def __init__(self, name: str, *, dm, **plot_cfg):
@@ -289,7 +270,7 @@ class AbstractPlotCreator(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def _plot(self, out_path: str=None, **cfg):
+    def plot(self, out_path: str=None, **cfg):
         """Given a specific configuration, perform a plot.
 
         This method should always be private and only be called from __call__.
@@ -298,6 +279,36 @@ class AbstractPlotCreator(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def get_ext(self) -> str:
         """Returns the extension to use for the upcoming plot"""
+
+    @abc.abstractmethod
+    def prepare_cfg(self, *, plot_cfg: dict, pspace) -> tuple:
+        """Prepares the plot configuration for the PlotManager.
+
+        This function is called by the plot manager before the first plot
+        is created.
+        
+        The base implementation just passes the given arguments through.
+        However, it can be re-implemented by derived classes to change the
+        behaviour of the plot manager, e.g. by converting a plot configuration
+        to a parameter space.
+        """
+        
+    @abc.abstractmethod
+    def can_plot(self, creator_name: str, **plot_cfg) -> bool:
+        """Whether this plot creator is able to make a plot for the given plot
+        configuration.
+
+        This function is used by the PlotManager's auto-detect feature.
+        
+        Args:
+            creator_name (str): The name for this creator used within the
+                PlotManager.
+            **plot_cfg: The plot configuration with which to decide this.
+        
+        Returns:
+            bool: Whether this creator can be used for the given plot config
+        """
+        return False
 
     @abc.abstractmethod
     def _prepare_path(self, out_path: str) -> str:

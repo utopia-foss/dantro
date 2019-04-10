@@ -1,39 +1,39 @@
 ---
-image: python
-
 stages:
   - test
+  - build
 
 # To install the necessary python environment, access to private repositories
 # is required. By adding a deploy key to selected jobs, the pull from these
 # repositories becomes possible
 before_script:
-  ## Install tox
+  # Install tox
   - pip3 install tox
-  ##
-  ## Gain ssh access ..........................................................
-  ## For outside dependencies, use the "dantro CI" deploy key
-  ## Instructions:
-  ##   https://docs.gitlab.com/ce/ci/ssh_keys/
-  ## Run ssh-agent (inside the build environment)
+  #
+  # Gain ssh access ...........................................................
+  # For outside dependencies, use the "dantro CI" deploy key
+  # Instructions:
+  #   https://docs.gitlab.com/ce/ci/ssh_keys/
+  # Run ssh-agent (inside the build environment)
   - eval $(ssh-agent -s)
-  ##
-  ## Add the SSH key stored in SSH_PRIVATE_KEY variable to the agent store
-  ## We're using tr to fix line endings which makes ed25519 keys work
-  ## without extra base64 encoding.
-  ## https://gitlab.com/gitlab-examples/ssh-private-key/issues/1#note_48526556
+  #
+  # Add the SSH key stored in SSH_PRIVATE_KEY variable to the agent store
+  # We're using tr to fix line endings which makes ed25519 keys work
+  # without extra base64 encoding.
+  # https://gitlab.com/gitlab-examples/ssh-private-key/issues/1#note_48526556
   - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
-  ##
-  ## Create the SSH directory and give it the right permissions
+  #
+  # Create the SSH directory and give it the right permissions
   - mkdir -p ~/.ssh
   - chmod 700 ~/.ssh
-  ## 
-  ## Add the known hosts lists to ensure this ssh connection is the right one
+  # 
+  # Add the known hosts lists to ensure this ssh connection is the right one
   - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
   - chmod 644 ~/.ssh/known_hosts
   # - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config' # FIXME turn this on again
-  ##
-  ## NOTE: Now have ssh access to the GitLab. Install paramspace
+  #
+  # Now have ssh access to the GitLab.
+  # Install paramspace
   - pip3 install git+ssh://git@ts-gitlab.iup.uni-heidelberg.de:10022/yunus/paramspace@release/v2.x
 
 
@@ -50,3 +50,30 @@ test:py37:
   stage: test
   script:
     - tox -e py37
+
+
+# -----------------------------------------------------------------------------
+
+build:doc:
+  image: python:3.6
+  stage: build
+  only:
+    - master
+    - release/*
+    - web
+  script:
+    # Install dependencies
+    - pip install .[doc_deps]
+    #
+    # Make documentation
+    - cd doc
+    - make doc
+
+  artifacts:
+    expire_in: 3h
+    paths:
+      - doc/_build/html
+
+
+# -----------------------------------------------------------------------------
+# TODO Deploy documentation to static web server (only on master)

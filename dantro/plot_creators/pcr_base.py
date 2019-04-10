@@ -52,7 +52,8 @@ class BasePlotCreator(AbstractPlotCreator):
     DEFAULT_EXT_REQUIRED = True
     POSTPONE_PATH_PREPARATION = False
 
-    def __init__(self, name: str, *, dm: DataManager, default_ext: str=None, **plot_cfg):
+    def __init__(self, name: str, *, dm: DataManager, default_ext: str=None,
+                 **plot_cfg):
         """Create a PlotCreator instance for a plot with the given `name`.
         
         Args:
@@ -64,8 +65,6 @@ class BasePlotCreator(AbstractPlotCreator):
                 build the output path.
             **plot_cfg: The default plot configuration
         """
-        log.debug("BasePlotCreator.__init__ called.")
-
         # Store arguments as private attributes
         self._name = name
         self._dm = dm
@@ -90,8 +89,6 @@ class BasePlotCreator(AbstractPlotCreator):
                              "variable ('{}') evaluated to True."
                              "".format(self.logstr, default_ext,
                                        self.DEFAULT_EXT))
-
-        log.debug("BasePlotCreator.__init__ finished.")
 
     # .........................................................................
     # Properties
@@ -143,7 +140,7 @@ class BasePlotCreator(AbstractPlotCreator):
 
 
     # .........................................................................
-    # Main API functions
+    # Main API functions, required by PlotManager
 
     def __call__(self, *, out_path: str, **update_plot_cfg):
         """Perform the plot, updating the configuration passed to __init__
@@ -171,11 +168,7 @@ class BasePlotCreator(AbstractPlotCreator):
             self._prepare_path(out_path)
 
         # Now call the plottig function with these arguments
-        return self._plot(out_path=out_path, **cfg)
-
-
-    # .........................................................................
-    # Helpers
+        return self.plot(out_path=out_path, **cfg)
 
     def get_ext(self) -> str:
         """Returns the extension to use for the upcoming plot by checking
@@ -184,7 +177,8 @@ class BasePlotCreator(AbstractPlotCreator):
         """
         return self.default_ext
 
-    def _prepare_cfg(self, *, plot_cfg: dict, pspace: Union[ParamSpace, dict]) -> tuple:
+    def prepare_cfg(self, *, plot_cfg: dict,
+                    pspace: Union[ParamSpace, dict]) -> tuple:
         """Prepares the plot configuration for the PlotManager.
 
         This function is called by the plot manager before the first plot
@@ -196,6 +190,23 @@ class BasePlotCreator(AbstractPlotCreator):
         to a parameter space.
         """
         return plot_cfg, pspace
+
+    def can_plot(self, creator_name: str, **plot_cfg) -> bool:
+        """Whether this plot creator is able to make a plot for the given plot
+        configuration. By default, this always returns false.
+        
+        Args:
+            creator_name (str): The name for this creator used within the
+                PlotManager.
+            **plot_cfg: The plot configuration with which to decide this.
+        
+        Returns:
+            bool: Whether this creator can be used for the given plot config
+        """
+        return False
+
+    # .........................................................................
+    # Helpers, used internally
 
     def _prepare_path(self, out_path: str) -> None:
         """Prepares the output path, creating directories if needed, then

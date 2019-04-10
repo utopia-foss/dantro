@@ -218,3 +218,58 @@ def apply_along_axis(func, axis: int, arr: np.ndarray, *args, **kwargs) -> np.nd
 
     log.debug("  finished iteration, returning output array...")
     return out
+
+# -----------------------------------------------------------------------------
+# Fun with byte strings
+
+def decode_bytestrings(obj) -> str:
+    """Checks whether the given attribute value is or contains byte
+    strings and if so, decodes it to a python string.
+    
+    Args:
+        obj: The object to try to decode into holding python strings
+    
+    Returns:
+        str: Either the unchanged object or the decoded one
+    """
+    # Check for data loaded as array of bytestring
+    if isinstance(obj, np.ndarray):
+        if obj.dtype.kind in ['S', 'a']:
+            obj = obj.astype('U')
+
+        # If it is of dtype object, decode all bytes objects
+        if obj.dtype == np.dtype('object'):
+            def decode_if_bytes(val):
+                if isinstance(val, bytes):
+                    return val.decode('utf8')
+                return val
+
+            # Apply element-wise
+            obj = np.vectorize(decode_if_bytes)(obj)
+
+    # ... or as bytes
+    elif isinstance(obj, bytes):
+        # Decode bytestring to unicode
+        obj = obj.decode('utf8')
+
+    return obj
+
+
+# -----------------------------------------------------------------------------
+# rc_context
+
+class DoNothingContext:
+    """A context manager that ... does nothing.
+    """
+
+    def __init__(self):
+        pass
+
+    def __enter__(self):
+        """Called upon entering the context using the `with` statement"""
+        pass
+
+    def __exit__(self, *args):
+        """Called upon exiting the context, with *args representing exceptions etc"""
+        pass
+

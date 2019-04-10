@@ -3,4 +3,5 @@
 from .general import ObjectContainer
 from .general import MutableSequenceContainer, MutableMappingContainer
 
-from .numeric import NumpyDataContainer, XrContainer
+from .numeric import NumpyDataContainer
+from .xrdatactr import XrDataContainer

@@ -10,13 +10,13 @@ While being developed alongside the [Utopia project](https://ts-gitlab.iup.uni-h
 * A few words about the [package structure](#package-structure)
 * The [testing framework](#testing-framework)
 * [Installation](#installation)
+* [Documentation](#documentation)
 * [How to use `dantro`](#how-to-use-dantro) in your own project
 * [Known issues and limitations](#known_issues_and_limitations)
 
 #### Further reading
 * [`CHANGELOG.md`](CHANGELOG.md)
-* _more links to follow here_
-<!-- TODO Add link to documentation -->
+
 
 ## Package structure
 
@@ -129,6 +129,18 @@ Given that the interpreter is available, the test for a specific environment can
 ```
 _Note:_ that this relies on `paramspace` being available to `tox`, i.e.: it either needs to be installed in the virtual environment or as part of system-site-packages.
 
+
+## Documentation
+To build `dantro`'s documentation, install the required dependencies and invoke the `make doc` command:
+
+```bash
+pip install .[doc_deps]
+cd doc
+make doc
+```
+
+You can then view the documentation by opening the `doc/_build/html/index.html` file.
+Alternatively, the `build:doc` job of the CI pipeline also creates a documentation which can be downloaded from `dantro`'s GitLab project site.
 
 
 ## How to use dantro

@@ -28,6 +28,12 @@ class MultiversePlotCreator(ExternalPlotCreator):
     # Where the `ParamSpaceGroup` object is expected within the data manager
     PSGRP_PATH = None
 
+    # Configure the auto-detection feature implemented in ExternalPlotCreator:
+    # The KEYWORD_ONLY arguments that are required to be (explicitly!) accepted
+    _AD_KEYWORD_ONLY = ['out_path', 'mv_data']
+
+    # .........................................................................
+
     def __init__(self, *args, psgrp_path: str=None, **kwargs):
         """Initialize a MultiversePlotCreator"""
         super().__init__(*args, **kwargs)
@@ -78,6 +84,12 @@ class UniversePlotCreator(ExternalPlotCreator):
     # Where the `ParamSpaceGroup` object is expected within the data manager
     PSGRP_PATH = None
 
+    # Configure the auto-detection feature implemented in ExternalPlotCreator:
+    # The KEYWORD_ONLY arguments that are required to be (explicitly!) accepted
+    _AD_KEYWORD_ONLY = ['out_path', 'uni']
+
+    # .........................................................................
+
     def __init__(self, *args, psgrp_path: str=None, **kwargs):
         """Initialize a UniversePlotCreator"""
         super().__init__(*args, **kwargs)
@@ -110,7 +122,8 @@ class UniversePlotCreator(ExternalPlotCreator):
                                "not have happened!")
         return self._state_map
 
-    def _prepare_cfg(self, *, plot_cfg: dict, pspace: Union[dict, ParamSpace]) -> tuple:
+    def prepare_cfg(self, *,
+                    plot_cfg: dict, pspace: Union[dict, ParamSpace]) -> tuple:
         """Converts a regular plot configuration to one that can be configured
         to iterate over multiple universes via a parameter space.
 
@@ -264,7 +277,8 @@ class UniversePlotCreator(ExternalPlotCreator):
         # in there now.
         return {}, mpc
 
-    def _prepare_plot_func_args(self, *args, _coords: dict=None, **kwargs) -> tuple:
+    def _prepare_plot_func_args(self, *args,
+                                _coords: dict=None, **kwargs) -> tuple:
         """Prepares the arguments for the plot function and implements the
         special arguments required for ParamSpaceGroup-like data: selection of
         a single universe from the given coordinates.

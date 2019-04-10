@@ -14,15 +14,22 @@ from dantro.data_mngr import DataManager
 from dantro.containers import NumpyDataContainer as NumpyDC
 from dantro.plot_mngr import PlotManager, PlottingError, PlotConfigError, PlotCreatorError, InvalidCreator
 
-
 # Local constants .............................................................
 # Paths
 PLOTS_EXT_PATH = resource_filename("tests", "cfg/plots_ext.yml")
 PLOTS_EXT2_PATH = resource_filename("tests", "cfg/plots_ext2.yml")
+BASE_EXT_PATH = resource_filename("tests", "cfg/base_ext.yml")
+UPDATE_BASE_EXT_PATH = resource_filename("tests", "cfg/update_base_ext.yml")
+BASED_ON_EXT_PATH = resource_filename("tests", "cfg/based_on_ext.yml")
+AUTO_DETECT_PATH = resource_filename("tests", "cfg/auto_detect.yml")
 
 # Configurations
 PLOTS_EXT = load_yml(PLOTS_EXT_PATH)
 PLOTS_EXT2 = load_yml(PLOTS_EXT2_PATH)
+BASE_EXT = load_yml(BASE_EXT_PATH)
+UPDATE_BASE_EXT = load_yml(UPDATE_BASE_EXT_PATH)
+BASED_ON_EXT = load_yml(BASED_ON_EXT_PATH)
+PLOTS_AUTO_DETECT = load_yml(AUTO_DETECT_PATH)
 # PLOTS_DECL = load_yml(resource_filename("tests", "cfg/plots_decl.yml"))
 # PLOTS_VEGA = load_yml(resource_filename("tests", "cfg/plots_vega.yml"))
 
@@ -95,7 +102,6 @@ def pspace_plots() -> dict:
                                           # kwargs to the plot function
                                           y=y_pdim)))
 
-
 # Tests -----------------------------------------------------------------------
 
 def test_init(dm, tmpdir):
@@ -109,7 +115,19 @@ def test_init(dm, tmpdir):
 
     # With a path to a configuration file
     PlotManager(dm=dm, plots_cfg=PLOTS_EXT_PATH)
+
+    # Based on a configuration dict
+    PlotManager(dm=dm, base_cfg={}, plots_cfg={})
+    PlotManager(dm=dm, base_cfg={}, update_base_cfg={}, plots_cfg={})
     
+    # Based on a configuration file
+    PlotManager(dm=dm, base_cfg=BASE_EXT_PATH, plots_cfg=BASED_ON_EXT_PATH)
+
+    # Based on a updated configuration file
+    PlotManager(dm=dm, base_cfg=BASE_EXT_PATH, 
+                update_base_cfg=UPDATE_BASE_EXT_PATH, 
+                plots_cfg=BASED_ON_EXT_PATH)
+
     # With a separate output directory
     PlotManager(dm=dm, out_dir=tmpdir.mkdir("out"))
 
@@ -123,7 +141,8 @@ def test_init(dm, tmpdir):
 
 
 def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
-    """Test the plotting functionality of the PlotManager"""
+    """Test the plotting functionality of the PlotManager with a plots_cfg setup
+    """
     def assert_num_plots(pm: PlotManager, num: int):
         """Helper function to check if the plot info is ok"""
         assert len(pm.plot_info) == num
@@ -132,7 +151,7 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
     pm = PlotManager(dm=dm, plots_cfg=PLOTS_EXT, **pm_kwargs)
 
 
-    # Plot all from the given default config file
+    # Plot all from the given plots config file
     pm.plot_from_cfg()
     assert_num_plots(pm, 4)  # 3 configured, one is pspace with volume 2
 
@@ -167,8 +186,12 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
     with pytest.raises(ValueError, match="No `out_dir` specified"):
         PlotManager(dm=dm, out_dir=None).plot("foo")
     
-    with pytest.raises(ValueError, match="No `creator` argument"):
+    with pytest.raises(ValueError, match="No `creator` argument given"):
         PlotManager(dm=dm).plot("foo")
+    
+    with pytest.raises(ValueError, match="nor auto-detection enabled."):
+        PlotManager(dm=dm, auto_detect_creator=False).plot("foo")
+        # Same as the above case
 
 
     # Assert that config files were created
@@ -186,6 +209,66 @@ def test_plotting_from_file_path(dm, pm_kwargs):
     """Test plotting from file path works"""
     pm = PlotManager(dm=dm, plots_cfg=PLOTS_EXT, **pm_kwargs)
     pm.plot_from_cfg(plots_cfg=PLOTS_EXT_PATH)
+
+
+def test_plotting_based_on(dm, pm_kwargs):
+    """Test plotting from plots_cfg using a base_cfg and a plots_cfg"""
+    def assert_num_plots(pm: PlotManager, num: int):
+        """Helper function to check if the plot info is ok"""
+        assert len(pm.plot_info) == num
+    
+    pm = PlotManager(dm=dm, base_cfg=BASE_EXT, update_base_cfg=UPDATE_BASE_EXT,
+                     **pm_kwargs)
+    
+    # Plot all from the given default config file
+    pm.plot_from_cfg(plots_cfg=BASED_ON_EXT_PATH)
+    assert_num_plots(pm, 5)  # 4 configured, one is pspace with volume 2
+
+
+    # Assert that plot files were created
+    for pi in pm.plot_info:
+        print("Checking plot info: ", pi)
+        assert pi['out_path']
+        assert os.path.exists(pi['out_path'])
+
+    # Check sequence of strings
+    d = pm._resolve_based_on(cfg=dict(foo="test", something="something"),
+                             based_on=('foo', 'bar'))
+    assert d['foo'] == "test"
+    assert d['bar'] == "bar"
+    assert d['spam'] == "bar"
+    assert d['something'] == "something"
+
+    # Also during initialization
+    pm2 = PlotManager(dm=dm, base_cfg=BASE_EXT,
+                      update_base_cfg=dict(baz=dict(based_on=('foo', 'bar'),
+                                                    foo="test",
+                                                    something="something")),
+                      **pm_kwargs)
+    baz = pm2._base_cfg['baz']
+    assert baz['foo'] == "test"
+    assert baz['bar'] == "bar"
+    assert baz['spam'] == "bar"
+    assert baz['something'] == "something"
+
+
+    # Check invalid specifications and that they create no plots
+    with pytest.raises(KeyError, match="No base plot config(.*) 'invalid"):
+        update_plots_cfg = {'invalid_based_on': {'based_on': 'invalid_key'}}
+        pm.plot_from_cfg(plot_only=["invalid_based_on"],
+                         **update_plots_cfg)
+    assert_num_plots(pm, 5)  # No new plots
+
+    # Bad based_on during resolution
+    with pytest.raises(KeyError, match="No base plot config(.*) 'bad_"):
+        pm.plot(name="foo", based_on="bad_based_on")
+    assert_num_plots(pm, 5)  # No new plots
+
+    # Should also be an error during initialization
+    with pytest.raises(KeyError, match="No base plot configuration named 'ba"):
+        PlotManager(dm=dm, base_cfg=BASE_EXT,
+                    update_base_cfg=dict(bad_based_on=dict(based_on="baaad")),
+                     **pm_kwargs)
 
 
 def test_plots_enabled(dm, pm_kwargs, pcr_ext_kwargs):
@@ -282,7 +365,7 @@ def test_raise_exc(dm, pm_kwargs):
                 module=".basic", plot_func="lineplot")
     
     # While this one should raise
-    with pytest.raises(PlottingError, match="During plotting of 'raises'"):
+    with pytest.raises(PlottingError, match=r"During plotting with .* 'rais"):
         pm_exc.plot(name="raises",
                     module=".basic", plot_func="lineplot")
 
@@ -322,3 +405,20 @@ def test_save_plot_cfg(tmpdir, dm, pm_kwargs):
     with pytest.raises(ValueError, match="Invalid value 'invalid' for arg"):
         pm._save_plot_cfg(dict(foo="barzz"), **save_kwargs,
                           exists_action='invalid')
+
+def test_auto_detect_creator(dm):
+    """Tests the auto-detection feature"""
+    pm = PlotManager(dm=dm, auto_detect_creator=True)
+
+    # This should work
+    pc = pm.plot(name="pcr_ext", **PLOTS_AUTO_DETECT["pcr_ext"])
+    assert type(pc) is pm.CREATORS['external']
+
+    # No matching candidate
+    with pytest.raises(InvalidCreator, match="declared itself a candidate!"):
+        pm.plot(name="fail", **PLOTS_AUTO_DETECT["fail"])
+
+    # Too many candidates
+    pm.CREATORS["also_external"] = pm.CREATORS['external']
+    with pytest.raises(InvalidCreator, match="could not unambiguously"):
+        pm.plot(name="ambiguous", **PLOTS_AUTO_DETECT["ambiguous"])

@@ -1,0 +1,25 @@
+# Configuration for PlotManager test with "external" plot creator
+#
+# This can be used to call for plots based_on functions defined in base_cfg
+---
+# A plot of a function in base_cfg
+based_on_func:
+  based_on: from_func
+
+# A plot of a function in base_cfg updated in update_base_cfg
+update_func:
+  based_on: update_from_func
+
+# A plot of a function in update_base_cfg
+based_on_update_func:
+  based_on: update_func
+
+# A plot of a function based on a function cfg in base_cfg
+sweep_based_on_func: !pspace
+  based_on: from_func
+
+  y: !pdim
+    default: vectors/values
+    values:
+      - vectors/values
+      - vectors/more_values

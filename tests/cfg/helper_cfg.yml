@@ -1,0 +1,25 @@
+# Configuration for PlotHelper test
+---
+set_title:
+  title: Test Title
+  size: 5
+  color: red
+
+setup_figure:
+  # ncols: 1  # implied
+  # nrows: 1  # implied
+  figsize: [5, 6]  # (width, height)
+
+axis_specific:  # axis-specific config for non-existant axes is allowed here
+  - axis: [0, 0]
+    set_title:
+      size: 42
+  - axis: [~, ~]  # all
+    set_title:
+      color: green
+  - axis: [-1, ~]
+    set_title:
+      title: last column
+  - axis: [-1, -1]
+    set_title:
+      title: bottom right hand

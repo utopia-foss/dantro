@@ -1,0 +1,136 @@
+# Configuration file to test all helper functions
+---
+# .............................................................................
+- set_title: {}
+- set_title:
+    title: foo
+- set_title:
+    title: foo
+    invalid_param: 123
+  _raises: true
+  _match: Unknown property invalid_param
+
+# .............................................................................
+- set_suptitle: {}
+- set_suptitle:
+    title: foo
+- set_suptitle:
+    title: foo
+    invalid_param: 123
+  _raises: true
+  _match: Unknown property invalid_param
+
+# .............................................................................
+- set_labels: {}
+- set_labels:
+    x: foo
+    y:
+      label: bar
+      fontsize: 20
+- set_labels:
+    x: foo
+    y:
+      label: bar
+      fontsize: 20
+    only_label_outer: true
+- set_labels:
+    x: foo
+    y:
+      label: bar
+      invalid_param: 123
+  _raises: AttributeError
+  _match: Unknown property invalid_param
+
+# .............................................................................
+- set_limits: {}
+- set_limits:
+    x: [~, ~]
+    y: [23, 42]
+- set_limits:
+    x: [~, 42]
+    y: [23, ~]
+- set_limits:
+    x:
+      lower: 23
+    y:
+      upper: 42
+- set_limits:
+    x: {}
+    y:
+      lower: ~
+      upper: 42
+- set_limits:
+    x: [min, max]
+    y: [min, ~]
+  _plot_values: [1,2,3]
+- set_limits:
+    x: [min, 10.]
+    y: [~, min]
+  _plot_values: [1,2,3]
+- set_limits:
+    x: [min, max]
+    y: [max, min]
+  _plot_values: [1,2,3]
+- set_limits:
+    x: [1,2,3]
+  _raises: ValueError
+  _match: list or tuple of length 2
+- set_limits:
+    x: foo
+  _raises: TypeError
+  _match: needs to be a dict, list, or a tuple, but was of type
+- set_limits:
+    x:
+      invalid_key: foo
+  _raises: ValueError
+  _match: There are invalid keys present in a dict-type argument to set_limits!
+- set_limits:
+    x: [min, ~]
+  _raises: ValueError
+  _match: Could not get a finite value from the axis data to use for setting
+- set_limits:
+    x: [foo, ~]
+  _raises: ValueError
+  _match: Got an invalid str-type argument 'foo' to set_limits
+    
+# .............................................................................
+- set_legend: {}
+- set_legend:
+    use_legend: false
+- set_legend:
+    invalid_param: 123
+  _raises: TypeError
+  _match: got an unexpected keyword argument 'invalid_param'
+
+# .............................................................................
+- set_hv_lines: {}
+- set_hv_lines:
+    hlines: [1,2,3]
+    vlines: []
+- set_hv_lines:
+    hlines:
+      - 1.23
+      - pos: 123
+    vlines:
+      - 1.23
+      - pos: 123
+      - pos: 12.3
+        limits: [.12, .3]
+      - pos: 12.3
+        limits: [.12, .3]
+        linewidth: 10.
+- set_hv_lines:
+    hlines: [something_invalid, 123]
+  _raises: ValueError
+  _match: Got non-numeric value
+
+# .............................................................................
+- set_scales: {}
+- set_scales:
+    x: linear
+    y: log
+- set_scales:
+    x:
+      scale: linear
+    y:
+      scale: log

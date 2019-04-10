@@ -13,7 +13,7 @@ from paramspace import ParamSpace
 from .ordered import OrderedDataGroup
 from ..tools import apply_along_axis
 from ..base import PATH_JOIN_CHAR
-from ..containers import NumpyDataContainer, XrContainer
+from ..containers import NumpyDataContainer, XrDataContainer
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -22,7 +22,12 @@ log = logging.getLogger(__name__)
 # ParamSpaceGroup and associated classes
 
 class ParamSpaceStateGroup(OrderedDataGroup):
-    """A ParamSpaceStateGroup is meant as the member of the ParamSpaceGroup."""
+    """A ParamSpaceStateGroup is a member of the ParamSpaceGroup.
+
+    It extends the OrderedDataGroup only by checking whether the name of the
+    group is a valid parameter space state, i.e. whether it is representable
+    as a positive integer.
+    """
 
     # The child class should not be of the same type as this class.
     _NEW_GROUP_CLS = OrderedDataGroup
@@ -36,9 +41,6 @@ class ParamSpaceStateGroup(OrderedDataGroup):
             containers (list, optional): A list of containers to add
             **kwargs: Further initialisation kwargs, e.g. `attrs` ...
         """
-
-        log.debug("ParamSpaceStateGroup.__init__ called.")
-
         # Assert that the name is valid, i.e. convertible to an integer
         try:
             int(name)
@@ -56,7 +58,6 @@ class ParamSpaceStateGroup(OrderedDataGroup):
         super().__init__(name=name, containers=containers, **kwargs)
 
         # Done.
-        log.debug("ParamSpaceStateGroup.__init__ finished.")
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -84,7 +85,8 @@ class ParamSpaceGroup(OrderedDataGroup):
 
     # .........................................................................
 
-    def __init__(self, *, name: str, pspace: ParamSpace=None, containers: list=None, **kwargs):
+    def __init__(self, *, name: str, pspace: ParamSpace=None,
+                 containers: list=None, **kwargs):
         """Initialize a OrderedDataGroup from the list of given containers.
         
         Args:
@@ -95,9 +97,6 @@ class ParamSpaceGroup(OrderedDataGroup):
                 need to be ParamSpaceStateGroup objects.
             **kwargs: Further initialisation kwargs, e.g. `attrs` ...
         """
-
-        log.debug("ParamSpaceGroup.__init__ called.")
-
         # Initialize with parent method, which will call .add(*containers)
         super().__init__(name=name, containers=containers, **kwargs)
 
@@ -109,8 +108,6 @@ class ParamSpaceGroup(OrderedDataGroup):
         self._num_digs = 0
 
         # Done.
-        log.debug("ParamSpaceGroup.__init__ finished.")
-
 
     # Properties ..............................................................
 
@@ -143,6 +140,7 @@ class ParamSpaceGroup(OrderedDataGroup):
 
         # Checked it, now set it
         self.attrs[self._PSPGRP_PSPACE_ATTR_NAME] = val
+
         log.debug("Associated %s with %s", val, self.logstr)
 
 
@@ -226,10 +224,16 @@ class ParamSpaceGroup(OrderedDataGroup):
 
     # Data access .............................................................
 
-    def select(self, *, field: Union[str, List[str]]=None, fields: Dict[str, List[str]]=None, subspace: dict=None, method: str='concat', idx_as_label: bool=False, **kwargs) -> xr.Dataset:
+    def select(self, *,
+               field: Union[str, List[str]]=None,
+               fields: Dict[str, List[str]]=None,
+               subspace: dict=None,
+               method: str='concat',
+               idx_as_label: bool=False,
+               **kwargs) -> xr.Dataset:
         """Selects a multi-dimensional slab of this ParamSpaceGroup and the
-        specified fields and returns them bundled into an xarray.Dataset with
-        labelled dimensions and coordinates.
+        specified fields and returns them bundled into an ``xarray.Dataset``
+        with labelled dimensions and coordinates.
         
         Args:
             field (Union[str, List[str]], optional): The field of data to
@@ -247,11 +251,13 @@ class ParamSpaceGroup(OrderedDataGroup):
                 parameter space. Adheres to the ParamSpace.activate_subspace
                 signature.
             method (str, optional): How to combine the selected datasets.
-                    * 'concat': concatenate sequentially along all parameter
+
+                    - ``concat``: concatenate sequentially along all parameter
                       space dimensions. This can preserve the data type but
                       it does not work if one data point is missing.
-                    * 'merge': merge always works, even if data points are
+                    - ``merge``: merge always works, even if data points are
                       missing, but will convert all dtypes to float.
+
             idx_as_label (bool, optional): If true, adds the trivial indices
                 as labels for those dimensions where coordinate labels were not
                 extractable from the loaded field. This allows merging for data
@@ -261,11 +267,12 @@ class ParamSpaceGroup(OrderedDataGroup):
         
         Raises:
             ValueError: Raised in multiple scenarios:
-                * If no ParamSpace was associated with this group
-                * For wrong argument values
-                * If the data to select cannot be extracted with the given
+
+                - If no ParamSpace was associated with this group
+                - For wrong argument values
+                - If the data to select cannot be extracted with the given
                   argument values
-                * Exceptions passed on from xarray
+                - Exceptions passed on from xarray
         
         Returns:
             xr.Dataset: The selected hyperslab of the parameter space, holding
@@ -358,7 +365,10 @@ class ParamSpaceGroup(OrderedDataGroup):
                                  "data was fully loaded."
                                  "".format(state_no, self.logstr)) from err
 
-        def get_var(state_grp: ParamSpaceStateGroup, *, path: List[str], dtype: str=None, dims: List[str]=None) -> Union[xr.Variable, xr.DataArray]:
+        def get_var(state_grp: ParamSpaceStateGroup, *,
+                    path: List[str],
+                    dtype: str=None,
+                    dims: List[str]=None) -> Union[xr.Variable, xr.DataArray]:
             """Extracts the field specified by the given path and returns it as
             either an xr.Variable or (for supported containers) directly as an
             xr.DataArray.
@@ -387,8 +397,8 @@ class ParamSpaceGroup(OrderedDataGroup):
             # Shortcut: specialised containers might already supply all the
             # information, including coordinates. In that case, return it as
             # a data array.
-            if isinstance(cont, XrContainer):
-                return cont.to_array()
+            if isinstance(cont, XrDataContainer):
+                return cont.data
                 # TODO should the dims and dtype argument be handled here?!
 
             # If this was not the case, xr.Variable will have to be constructed
@@ -439,7 +449,7 @@ class ParamSpaceGroup(OrderedDataGroup):
                 xr.Dataset: The expanded dataset
             """
             # Now add the additional named dimensions with coordinates in front
-            dset = dset.expand_dims(coords.keys())
+            dset = dset.expand_dims(dim=list(coords.keys()))
             # NOTE While this creates a non-shallow copy of the data, there is
             #      no other way of doing this: a copy can only be avoided if
             #      the DataArray can re-use the existing variables – for the
@@ -455,7 +465,8 @@ class ParamSpaceGroup(OrderedDataGroup):
 
             return dset
 
-        def combine(*, method: str, dsets: np.ndarray, psp: ParamSpace) -> xr.Dataset:
+        def combine(*, method: str,
+                    dsets: np.ndarray, psp: ParamSpace) -> xr.Dataset:
             """Tries to combine the given datasets either by concatenation or
             by merging and returns a combined xr.Dataset
             """
