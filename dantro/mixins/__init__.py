@@ -7,4 +7,4 @@ from .base import CollectionMixin, ItemAccessMixin, MappingAccessMixin
 
 from .general import ForwardAttrsToDataMixin
 from .numeric import UnaryOperationsMixin, NumbersMixin, ComparisonMixin
-from .proxy_support import ProxyMixin, Hdf5ProxyMixin
+from .proxy_support import ProxySupportMixin, Hdf5ProxySupportMixin

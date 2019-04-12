@@ -446,9 +446,9 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
                     self.data.coords[dim_name] = coords
                 
                 except Exception as err:
-                    raise ValueError("Could not associate coordinates for "
+                    raise ValueError("Could not associate coordinates {} for "
                                      "dimension '{}' due to {}: {}"
-                                     "".format(dim_name,
+                                     "".format(coords, dim_name,
                                                err.__class__.__name__, err)
                                      ) from err
         
@@ -457,7 +457,7 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
             self._inherit_attrs()
 
     def _postprocess_proxy_resolution(self):
-        """Only invoked from ``ProxyMixin``s, which have to be added to the
+        """Only invoked from ``ProxySupportMixin``s, which have to be added to the
         class specifically, this function takes care to apply the potentially
         existing metadata to the resolved proxy.
         """

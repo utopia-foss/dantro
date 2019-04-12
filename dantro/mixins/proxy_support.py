@@ -12,13 +12,14 @@ log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
-class ProxyMixin:
-    """This Mixin class overwrites the `data` property to allow proxy objects.
+class ProxySupportMixin:
+    """This Mixin class overwrites the ``data`` property to allow and resolve
+    proxy objects.
 
     It should be used to add support for certain proxy types to a container.
 
-    A proxy object is a place keeper for data that is not yet loaded. It will
-    only be loaded if `data` is directly accessed.
+    A proxy object is a place holder for data that is not yet loaded. It will
+    only be loaded if the ``data`` property is directly or indirectly accessed.
     """
 
     # If the CheckDataMixin is used, it should also allow proxy data
@@ -129,7 +130,6 @@ class ProxyMixin:
             log.debug("Reinstated %s for data of %s.",
                       self.proxy.classname, self.logstr)
 
-
     def _format_info(self) -> str:
         """Adds an indicator to whether data is proxy to the info string"""
         if self.data_is_proxy:
@@ -137,14 +137,11 @@ class ProxyMixin:
         return super()._format_info()
 
 
-class Hdf5ProxyMixin(ProxyMixin):
-    """Specialises the ProxyMixin to the capabilities of a Hdf5 Proxy, i.e. it
-    allows access to the cached properties of the Hdf5DataProxy without
-    resolving the proxy.
+class Hdf5ProxySupportMixin(ProxySupportMixin):
+    """Specializes :py:class:`~dantro.mixins.ProxySupportMixin` to the
+    capabilities of :py:class:`~dantro.proxy.Hdf5DataProxy`, i.e. it allows
+    access to the cached properties of the proxy object without resolving it.
     """
-
-    # Which type to resolve the proxy to
-    PROXY_RESOLVE_ASTYPE = np.array
 
     @property
     def dtype(self) -> np.dtype:
