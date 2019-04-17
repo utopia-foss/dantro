@@ -321,7 +321,7 @@ class DataManager(OrderedDataGroup):
         # All done
         log.info("Successfully loaded %d data entries.", len(load_cfg))
         log.info("Available top-level entries:\n  %s\n", 
-                 ",  ".join(self.data.keys()))
+                 ",  ".join(self.keys()))
 
         # Finally, print the tree
         if print_tree:

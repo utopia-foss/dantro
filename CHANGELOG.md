@@ -8,6 +8,10 @@
     - The `HDFDataProxy` can resolve HDF5 data as delayed `dask.array`s.
     - The `Hdf5LoaderMixin` now allows to pass parameters to created proxies, thus allowing to create proxies which `resolve_as_dask`.
     - The `dask.array` can be used as underlying data for the `XrDataContainer` while retaining the _exact_ same interface as with in-memory numpy data. This is possible due to the tight [integration of xarray with dask](http://xarray.pydata.org/en/stable/dask.html).
+- #59 adds additional groups and mixins that allow handling indexed data:
+    - `IndexedDataGroup` expects integer-parsable members and maintains ordering not by their string representation but by their integer representation.
+    - The `IntegerItemAccessMixin` and `PaddedIntegerItemAccessMixin` provide convenient access to group members via integer keys; internally, keys are always strings.
+    - The `ParamSpace`-related groups now use these mixins and groups rather than their own implementation; there are no changes to the public interface.
 
 ## v0.7.0
 - Infrastructure and Documentation

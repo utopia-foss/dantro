@@ -267,8 +267,8 @@ def test_pspace_group_basics(pspace):
     """Tests the ParamSpaceGroup"""
     psp_grp = ParamSpaceGroup(name="mv")
 
-    # Check the _num_digs attribute
-    assert psp_grp._num_digs == 0
+    # Check padded_int_key_width property of PaddedIntegerItemAccessMixin
+    assert psp_grp.padded_int_key_width == None
 
     # Populate the group with some entries
     # These should work
@@ -277,14 +277,14 @@ def test_pspace_group_basics(pspace):
     grp02 = psp_grp.new_group("02")
     grp99 = psp_grp.new_group("99")
 
-    assert psp_grp._num_digs == 2
+    assert psp_grp.padded_int_key_width == 2
 
     # These should not, as is asserted by ParamSpaceStateGroup.__init__
-    with pytest.raises(ValueError, match="need names that have a string"):
+    with pytest.raises(ValueError, match="need names of the same length"):
         psp_grp.new_group("123")
 
     with pytest.raises(ValueError, match="representible as integers"):
-        psp_grp.new_group("foo")
+        psp_grp.new_group("fo")
 
     with pytest.raises(ValueError, match="be positive when converted to"):
         psp_grp.new_group("-1")
@@ -308,10 +308,10 @@ def test_pspace_group_basics(pspace):
 
 
     # Check the corresponding error messages
-    with pytest.raises(KeyError, match="cannot be negative!"):
+    with pytest.raises(IndexError, match="out of range \[0, 99\]"):
         psp_grp[-1]
 
-    with pytest.raises(KeyError, match="cannot be larger than 99!"):
+    with pytest.raises(IndexError, match="out of range \[0, 99\]"):
         psp_grp[100]
 
 
