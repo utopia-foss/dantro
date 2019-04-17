@@ -102,24 +102,102 @@ def test_MappingAccessMixin():
     assert mmc.get('baz', "buz") == "buz"
 
 
-@pytest.mark.skip("Does not currently work")
 def test_numeric_mixins():
     """Tests UnaryOperationsMixin and NumbersMixin"""
     # Define a test class using the NumbersMixin, which inherits the
     # UnaryOperationsMixin
-    class Num(dtr.mixins.NumbersMixin):
-        def __init__(self, data):
-            self._data = data
-
-        @property
-        def data(self):
-            return self._data
-
+    class Num(dtr.mixins.NumbersMixin, dtr.mixins.ComparisonMixin,
+              dtr.mixins.ItemAccessMixin, dtr.base.BaseDataContainer):
+        
         def copy(self):
-            return Num(copy.deepcopy(self.data))
+            return type(self)(name=self.name + "_copy",
+                              data=copy.deepcopy(self.data))
 
-    num = Num(1.23)
+    num = Num(name="foo", data=1.23)
     assert num.data == 1.23
 
     # Test each function
-    assert num.__neg__() == -1.23
+    assert num.__neg__() == -1.23 == -num
+    assert abs(-num) == 1.23
+    assert round(num) == 1.
+    assert num.__ceil__() == 2.
+    assert num.__floor__() == 1.
+    assert num.__trunc__() == 1.
+
+    # Make sure functions are called, even if raising errors
+    with pytest.raises(TypeError, match="bad operand type for unary ~"):
+        num.__invert__()
+
+
+def test_IntegerItemAccessMixin():
+    """Test the IntegerItemAccessMixin"""
+
+    class IntItemAccessGroup(dtr.mixins.IntegerItemAccessMixin,
+                             dtr.groups.OrderedDataGroup):
+        pass
+
+    grp = IntItemAccessGroup(name="test_group")
+    grp.new_group("0")
+    grp.new_group("42")
+    grp.new_group("132")
+    grp.new_group("-12")
+
+    assert grp[0] is grp["0"]
+    assert grp[42] is grp["42"]
+    assert grp[132] is grp["132"]
+    assert grp[-12] is grp["-12"]
+
+    assert 0 in grp
+    assert 42 in grp
+    assert 132 in grp
+    assert -12 in grp
+
+
+def test_PaddedIntegerItemAccessMixin():
+    """Test PaddedIntegerItemAccessMixin"""
+
+    class PaddedIntItemAccessGroup(dtr.mixins.PaddedIntegerItemAccessMixin,
+                                   dtr.groups.OrderedDataGroup):
+        pass
+
+    grp = PaddedIntItemAccessGroup(name="test_group")
+    assert grp.padded_int_key_width is None
+
+    # Add a group
+    grp.new_group("00")
+
+    # Now, key width should have been deduced
+    assert grp.padded_int_key_width == 2
+
+    # Add more groups
+    grp.new_group("01")
+    grp.new_group("04")
+    grp.new_group("42")
+
+    # Check that access works
+    for int_key, str_key in [(0, "00"), (1, "01"), (4, "04"), (42, "42")]:
+        assert int_key in grp
+        assert str_key in grp
+        assert grp[int_key] is grp[str_key]
+
+    # Check bad access values
+    with pytest.raises(IndexError, match="out of range \[0, 99\]"):
+        grp[-1]
+    
+    with pytest.raises(IndexError, match="out of range \[0, 99\]"):
+        grp[100]
+
+    # Check bad container names
+    with pytest.raises(ValueError, match="need names of the same length"):
+        grp.new_group("123")
+
+    # Already set
+    with pytest.raises(ValueError, match="already set"):
+        grp.padded_int_key_width = 123
+
+    # Non-positive value
+    with pytest.raises(ValueError, match="needs to be positive"):
+        PaddedIntItemAccessGroup(name="baaad").padded_int_key_width = 0
+    
+    with pytest.raises(ValueError, match="needs to be positive"):
+        PaddedIntItemAccessGroup(name="baaad").padded_int_key_width = -42

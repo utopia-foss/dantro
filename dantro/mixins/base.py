@@ -121,20 +121,17 @@ class ItemAccessMixin:
 
     def __getitem__(self, key):
         """Returns an item."""
-        key = self.__item_convert_key(key)
-        return self.data[key]
+        return self.data[self._item_access_convert_list_key(key)]
 
     def __setitem__(self, key, val):
         """Sets an item."""
-        key = self.__item_convert_key(key)
-        self.data[key] = val
+        self.data[self._item_access_convert_list_key(key)] = val
 
     def __delitem__(self, key):
         """Deletes an item"""
-        key = self.__item_convert_key(key)
-        del self.data[key]
+        del self.data[self._item_access_convert_list_key(key)]
 
-    def __item_convert_key(self, key):
+    def _item_access_convert_list_key(self, key):
         """If given something that is not a list, just return that key"""
         if isinstance(key, list):
             if len(key) > 1:
@@ -187,7 +184,7 @@ class CheckDataMixin:
     DATA_ALLOW_PROXY = False         # to check for AbstractDataProxy
     DATA_UNEXPECTED_ACTION = 'warn'  # Can be: raise, warn, ignore
 
-    def _check_data(self, data, *, name: str) -> bool:
+    def _check_data(self, data, *, name: str) -> None:
         """A general method to check the received data for its type
         
         Args:
@@ -203,7 +200,7 @@ class CheckDataMixin:
         """
         if self.DATA_EXPECTED_TYPES is None:
             # All types allowed
-            return True
+            return
 
         # Compile tuple of allowed types
         expected_types = self.DATA_EXPECTED_TYPES
@@ -214,7 +211,7 @@ class CheckDataMixin:
         # Perform the check
         if isinstance(data, expected_types):
             # Is of the expected type
-            return True
+            return
 
         # else: was not of the expected type
 
@@ -234,7 +231,6 @@ class CheckDataMixin:
         
         elif self.DATA_UNEXPECTED_ACTION == 'ignore':
             log.debug(msg + " Ignoring ...")
-            pass
 
         else:
             raise ValueError("Illegal value '{}' for class variable "
@@ -242,5 +238,3 @@ class CheckDataMixin:
                              "Allowed values are: raise, warn, ignore"
                              "".format(self.DATA_UNEXPECTED_ACTION,
                                        self.classname))
-        
-        return False
