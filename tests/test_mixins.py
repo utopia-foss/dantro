@@ -45,6 +45,118 @@ def test_PathMixin():
     with pytest.raises(ValueError, match="A parent was already associated"):
         bar.parent = root
 
+
+def test_LockDataMixin():
+    """Test the LockDataMixin using an OrderedDataGroup"""
+    class ODG(dantro.groups.OrderedDataGroup):
+        def _lock_hook(self):
+            # Should be locked now
+            assert self.locked
+
+        def _unlock_hook(self):
+            # Should be unlocked now
+            assert not self.locked
+
+    types_to_check = (dantro.groups.OrderedDataGroup, ODG)
+
+    for ODGType in types_to_check:
+        odg = ODGType(name="lock_data_test")
+
+        # Add some data groups
+        assert not odg.locked
+        foo = odg.new_group("foo")
+        odg.new_group("bar")
+
+        # Lock it and make sure that addition does no longer work
+        assert not odg.locked
+        odg.lock()
+        assert odg.locked
+
+        with pytest.raises(RuntimeError, match="Cannot modify"):
+            odg.new_group("can't add this")
+        assert "can't add this" not in odg
+        
+        with pytest.raises(RuntimeError, match="Cannot modify"):
+            odg.add(dantro.containers.ObjectContainer(name="foo", data="bar"))
+        assert odg["foo"] is foo
+
+        # Can unlock
+        odg.unlock()
+        assert "baz" not in odg
+        odg.new_group("baz")
+        assert "baz" in odg
+
+
+def test_ForwardAttrsMixin():
+    """Tests the ForwardAttrsMixin"""
+    class MyObjectContainer(dantro.mixins.ForwardAttrsMixin,
+                            dantro.containers.ObjectContainer):
+        # The name of the existing attribute to forward to.
+        FORWARD_ATTR_TO = None
+
+        # If set, the only attributes to be forwarded
+        FORWARD_ATTR_ONLY = None
+
+        # Attributes to not forward
+        FORWARD_ATTR_EXCLUDE = ()
+
+    class MyObject:
+        foo = 123
+        bar = 2.34
+        baz = None
+
+    moc = MyObjectContainer(name="foo", data=MyObject())
+
+    assert moc.data.foo == 123
+    with pytest.raises(AttributeError, match="foo"):
+        moc.foo
+    
+    with pytest.raises(AttributeError, match="invalid_attr_name"):
+        moc.invalid_attr_name
+    
+    moc.FORWARD_ATTR_TO = 'data'
+    assert moc.foo is moc.data.foo
+    assert moc.bar is moc.data.bar
+    assert moc.baz is moc.data.baz
+    
+    with pytest.raises(AttributeError, match="invalid_attr_name"):
+        assert moc.invalid_attr_name
+    
+    with pytest.raises(AttributeError, match="invalid_attr_name"):
+        assert moc.invalid_attr_name
+
+    moc.FORWARD_ATTR_EXCLUDE = ('bar',)
+    assert moc.foo is moc.data.foo
+    assert moc.baz is moc.data.baz
+    with pytest.raises(AttributeError, match="bar"):
+        moc.bar
+    
+    moc.FORWARD_ATTR_ONLY = ('foo',)
+    assert moc.foo is moc.data.foo
+    with pytest.raises(AttributeError, match="bar"):
+        moc.bar
+    with pytest.raises(AttributeError, match="baz"):
+        moc.baz
+
+    # Test hooks
+    class HookedObjectContainer(MyObjectContainer):
+        FORWARD_ATTR_TO = 'data'
+
+        def _forward_attr_pre_hook(self, attr_name: str=None):
+            """Invoked before attribute forwarding occurs"""
+            assert attr_name is not None
+            self.__last_attr_name = attr_name
+        
+        def _forward_attr_post_hook(self, attr):
+            """Invoked before attribute forwarding occurs"""
+            assert hasattr(getattr(self, self.FORWARD_ATTR_TO),
+                           self.__last_attr_name)
+            return attr
+
+    hoc = HookedObjectContainer(name="foo_hooked", data=MyObject())
+    assert hoc.foo is hoc.data.foo
+
+
 def test_ItemAccessMixin():
     """Tests the ItemAccessMixin using the ObjectContainer"""
     obj = dtr.containers.ObjectContainer(name="obj", data=dict())

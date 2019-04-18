@@ -19,6 +19,16 @@ def test_IndexedDataGroup():
     
     assert [k for k in idg.keys()] == keys_ordered
 
-    assert idg.min_key == '4'
-    assert idg.max_key == '51'
+    # Test key access
     assert [k for k in idg.keys_as_int()] == [int(k) for k in keys_ordered]
+
+    assert idg.key_at_idx(0) == '4'
+    assert idg.key_at_idx(-1) == '51'
+
+    for i in ("foo", dict(), [], ()):
+        with pytest.raises(TypeError, match="Expected integer, got"):
+            idg.key_at_idx(i)
+
+    for i in (-6, -100, 5, 100):
+        with pytest.raises(IndexError, match="out of range"):
+            idg.key_at_idx(i)

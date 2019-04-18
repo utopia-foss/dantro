@@ -11,14 +11,15 @@ class ForwardAttrsMixin:
     """This Mixin class forwards all calls to unavailable attributes to a
     certain other attribute, specified by ``FORWARD_ATTR_TO`` class variable.
     """
-    # The name of the existing attribute to forward to. NOTE: Cannot be None.
+    # The name of the existing attribute to forward to. For None, this behaves
+    # as if no forwarding would occur, i.e. as if __getattr__ was not called.
     FORWARD_ATTR_TO = None
-
-    # Attributes to not forward
-    FORWARD_ATTR_EXCLUDE = ()
 
     # If set, the only attributes to be forwarded
     FORWARD_ATTR_ONLY = None
+
+    # Attributes to _not_ forward. Evaluated after ``FORWARD_ATTR_ONLY``
+    FORWARD_ATTR_EXCLUDE = ()
 
     def __getattr__(self, attr_name: str):
         """Forward attributes that were not available in this class to some
@@ -34,11 +35,11 @@ class ForwardAttrsMixin:
         if self.FORWARD_ATTR_TO is None:
             raise AttributeError(attr_name)
 
-        if attr_name in self.FORWARD_ATTR_EXCLUDE:
-            raise AttributeError(attr_name)
-
         if (    self.FORWARD_ATTR_ONLY is not None
             and attr_name not in self.FORWARD_ATTR_ONLY):
+            raise AttributeError(attr_name)
+
+        if attr_name in self.FORWARD_ATTR_EXCLUDE:
             raise AttributeError(attr_name)
 
         # Invoke the pre-hook

@@ -98,22 +98,22 @@ class LockDataMixin:
     """This Mixin class provides a flag for marking the data of a group or
     container as locked.
     """
-    # Whether the data is regarded as locked
-    _locked = False
+    # Whether the data is regarded as locked. Note name-mangling here.
+    __locked = False
 
     @property
     def locked(self) -> bool:
         """Whether this object is locked"""
-        return self._locked
+        return self.__locked
 
     def lock(self):
         """Locks the data of this object"""
-        self._lock = True
+        self.__locked = True
         self._lock_hook()
     
     def unlock(self):
         """Unlocks the data of this object"""
-        self._lock = False
+        self.__locked = False
         self._unlock_hook()
 
     def raise_if_locked(self, *, prefix: str=None):
