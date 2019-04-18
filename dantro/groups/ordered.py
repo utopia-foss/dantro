@@ -4,6 +4,7 @@ specific order.
 
 import logging
 import collections
+from typing import Generator
 
 from ..base import BaseDataGroup
 from ..mixins import IntegerItemAccessMixin
@@ -38,3 +39,21 @@ class IndexedDataGroup(IntegerItemAccessMixin, OrderedDataGroup):
 
     # The child class should not necessarily be of the same type as this class.
     _NEW_GROUP_CLS = OrderedDataGroup
+
+
+    @property
+    def min_key(self) -> str:
+        """The smallest available key in this group"""
+        for k in self.keys():
+            return k
+    
+    @property
+    def max_key(self) -> str:
+        """The largest available key in this group"""
+        for k in reversed(self.keys()):
+            return k
+
+    def keys_as_int(self) -> Generator[int, None, None]:
+        """Returns an iterator over keys as integer values"""
+        for k in self.keys():
+            yield int(k)

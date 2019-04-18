@@ -94,6 +94,46 @@ class PathMixin:
         return self.path
 
 
+class LockDataMixin:
+    """This Mixin class provides a flag for marking the data of a group or
+    container as locked.
+    """
+    # Whether the data is regarded as locked
+    _locked = False
+
+    @property
+    def locked(self) -> bool:
+        """Whether this object is locked"""
+        return self._locked
+
+    def lock(self):
+        """Locks the data of this object"""
+        self._lock = True
+        self._lock_hook()
+    
+    def unlock(self):
+        """Unlocks the data of this object"""
+        self._lock = False
+        self._unlock_hook()
+
+    def raise_if_locked(self, *, prefix: str=None):
+        """Raises an exception if this object is locked; does nothing otherwise
+        """
+        if self.locked:
+            raise RuntimeError("{}Cannot modify {} because it was already "
+                               "marked locked."
+                               "".format(prefix + " " if prefix else "",
+                                         self.logstr))
+
+    def _lock_hook(self):
+        """Invoked upon locking."""
+        pass
+    
+    def _unlock_hook(self):
+        """Invoked upon unlocking."""
+        pass
+    
+
 class CollectionMixin:
     """This Mixin class implements the methods needed for being a Collection.
     
