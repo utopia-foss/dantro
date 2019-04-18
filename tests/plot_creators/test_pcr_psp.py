@@ -14,7 +14,7 @@ from dantro.plot_creators import UniversePlotCreator, MultiversePlotCreator
 
 # Fixtures --------------------------------------------------------------------
 # Import some from other tests
-from ..test_group import psp_grp, psp_grp_default
+from ..groups.test_pspgrp import psp_grp, psp_grp_default
 
 @pytest.fixture()
 def pspace():

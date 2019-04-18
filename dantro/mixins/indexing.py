@@ -1,6 +1,5 @@
 """This module implement mixin classes that provide indexing capabilities"""
 
-import abc
 import logging
 from typing import Union
 
@@ -43,6 +42,7 @@ class IntegerItemAccessMixin:
     def __contains__(self, key: Union[str, int]) -> bool:
         """Adjusts the parent method to allow checking for integers"""
         return super().__contains__(self._parse_key(key))
+
 
 class PaddedIntegerItemAccessMixin(IntegerItemAccessMixin):
     """This mixin allows accessing items via integer keys that map to members

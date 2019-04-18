@@ -4,6 +4,7 @@ specific order.
 
 import logging
 import collections
+from typing import Generator
 
 from ..base import BaseDataGroup
 from ..mixins import IntegerItemAccessMixin
@@ -31,6 +32,11 @@ class IndexedDataGroup(IntegerItemAccessMixin, OrderedDataGroup):
 
     Especially, this group maintains the correct order of members according to
     integer ordering.
+
+    .. note::
+
+      Albeit the members of this group are ordered, item access still refers
+      to the _names_ of the members, not their index within the sequence!
     """
     # Use an orderable dict for storage, i.e. something like OrderedDict, but
     # where it's not sorted by insertion order but by key.
@@ -38,3 +44,39 @@ class IndexedDataGroup(IntegerItemAccessMixin, OrderedDataGroup):
 
     # The child class should not necessarily be of the same type as this class.
     _NEW_GROUP_CLS = OrderedDataGroup
+
+
+    # Advanced key access .....................................................
+    
+    def key_at_idx(self, idx: int) -> str:
+        """Get a key by its index within the container. Can be negative.
+        
+        Args:
+            idx (int): The index within the member sequence
+        
+        Returns:
+            str: The desired key
+        
+        Raises:
+            IndexError: Index out of range
+        """
+        # Imitate indexing behaviour of lists, tuples, ...
+        if not isinstance(idx, int):
+            raise TypeError("Expected integer, got {} '{}'!"
+                            "".format(type(idx), idx))
+
+        if idx >= len(self) or idx < -len(self):
+            raise IndexError("Index {:d} out of range for {} with {} members!"
+                             "".format(idx, self.logstr, len(self)))
+
+        # Wraparound negative
+        idx = idx if idx >= 0 else idx%len(self)
+
+        for i, k in enumerate(self.keys()):
+            if i == idx:
+                return k
+
+    def keys_as_int(self) -> Generator[int, None, None]:
+        """Returns an iterator over keys as integer values"""
+        for k in self.keys():
+            yield int(k)

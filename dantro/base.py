@@ -19,7 +19,7 @@ from typing import Union, List
 
 import dantro.abc
 from .abc import PATH_JOIN_CHAR
-from .mixins import AttrsMixin, PathMixin, CheckDataMixin
+from .mixins import AttrsMixin, PathMixin, CheckDataMixin, LockDataMixin
 from .mixins import CollectionMixin, ItemAccessMixin, MappingAccessMixin
 from .tools import TTY_COLS
 
@@ -150,7 +150,8 @@ class BaseDataContainer(PathMixin, AttrsMixin,
 
 # -----------------------------------------------------------------------------
 
-class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
+class BaseDataGroup(LockDataMixin, PathMixin, AttrsMixin,
+                    dantro.abc.AbstractDataGroup):
     """The BaseDataGroup serves as base group for all data groups.
 
     It implements all functionality expected of a group, which is much more
@@ -300,6 +301,9 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
             return
 
         # else: end of recursion: delete and unlink this container
+        # ... if it is not locked
+        self.raise_if_locked()
+        
         cont = self._data[key[0]]
         del self._data[key[0]]
 
@@ -314,6 +318,9 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
     def _add_container(self, cont, *, overwrite: bool):
         """Private helper method to add a container to this group."""
+        # Make sure data is not locked
+        self.raise_if_locked()
+
         # Check the allowed types
         if (self._ALLOWED_CONT_TYPES is None
             and not isinstance(cont, (BaseDataGroup, BaseDataContainer))):
