@@ -138,9 +138,14 @@ def test_network_group_basics(nw_grps):
         if name == "transposed_edges":
             edges = [[edges[0][i], edges[1][i]] for i,_ in enumerate(edges[0])]
 
-        if name.startswith("grp") or name == "xr_time_series":
-            for e in edges[cfg['at_time']]:
-                assert tuple(e) in nx.edges(nw)
+        if name.startswith("grp") or name.startswith("xr_time_series"):
+            if ((name != "xr_time_series_static_edges") 
+                and (name != "grp_less_edge_times")):
+                for e in edges[cfg['at_time']]:
+                    assert tuple(e) in nx.edges(nw)
+            else:
+                for e in edges[0]:
+                    assert tuple(e) in nx.edges(nw)
 
         else:    
             for e in edges:
@@ -210,7 +215,6 @@ def test_network_group_basics(nw_grps):
             continue
 
         elif name.startswith("xr") and "wrong_type_" in name:
-            label = name.split("wrong_type_")[1]
             with pytest.raises(TypeError, match="'data' has to be a "
                                           "XrDataContainer"):
                 grp.create_graph(at_time_idx=(cfg.get('at_time', None)),
@@ -226,13 +230,6 @@ def test_network_group_basics(nw_grps):
                 grp.create_graph(at_time_idx=10,
                                  node_props=(cfg.get('node_props', None)),
                                  edge_props=(cfg.get('edge_props', None)))
-
-            with pytest.raises(IndexError, match="Time index '1' not "
-                                               "available!"):
-                grp.create_graph(at_time_idx=1,
-                                 node_props=(cfg.get('node_props', None)),
-                                 edge_props=(cfg.get('edge_props', None)))
-
 
         # Check the regular cases
         else:
