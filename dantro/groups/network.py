@@ -137,10 +137,21 @@ class NetworkGroup(BaseDataGroup):
                            "".format(self._NWG_edge_container, self.logstr)
                            ) from err
 
-        node_cont = self._get_data_at(data=node_cont, at_time=at_time,
-                                        at_time_idx=at_time_idx)
-        edge_cont = self._get_data_at(data=edge_cont, at_time=at_time,
-                                        at_time_idx=at_time_idx)
+        # Get node and edge data. If only data for a single time step was
+        # written, 'at_time' and 'at_time_idx' are ignored.
+        if ('time' in node_cont.dims and
+            len(node_cont.coords['time']) == 1):
+            node_cont = self._get_data_at(data=node_cont, at_time_idx=0)
+        else:
+            node_cont = self._get_data_at(data=node_cont, at_time=at_time,
+                                            at_time_idx=at_time_idx)
+
+        if ('time' in edge_cont.dims and
+            len(edge_cont.coords['time']) == 1):
+            edge_cont = self._get_data_at(data=edge_cont, at_time_idx=0)
+        else:
+            edge_cont = self._get_data_at(data=edge_cont, at_time=at_time,
+                                            at_time_idx=at_time_idx)
 
         # Get info on directed and parallel edges from attributes, if not
         # explicitly given
@@ -247,10 +258,16 @@ class NetworkGroup(BaseDataGroup):
                                         at_time_idx=at_time_idx)
 
         # sort data along the node id's
-        indices_sorted = np.argsort(self._get_data_at(at_time=at_time,
-                at_time_idx=at_time_idx, data=self[self._NWG_node_container]))
+        node_cont = self[self._NWG_node_container]
 
-        prop_data = prop_data[indices_sorted]
+        if ('time' in node_cont.dims
+            and len(node_cont.coords['time']) == 1):
+            node_cont = self._get_data_at(data=node_cont, at_time_idx=0)
+        else:
+            node_cont = self._get_data_at(data=node_cont, at_time=at_time,
+                                            at_time_idx=at_time_idx)
+            
+        prop_data = prop_data[np.argsort(node_cont)]
 
         if len(g.nodes) != len(prop_data.values):
             raise ValueError("Mismatch! '{}' property values for '{}'"
