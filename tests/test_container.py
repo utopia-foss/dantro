@@ -528,6 +528,16 @@ def test_XrDataContainer():
     # String representation ...................................................
     assert xrdc._format_info().startswith(str(xrdc.dtype))
 
+    # Format info contains dimension names
+    assert all([d in xrdc._format_info() for d in xrdc.dims])
+
+
+    xrdc = XrDataContainer(name="format_info", data=np.zeros((2,3,4)),
+                           attrs=dict(dim_name__0='first',
+                                      dim_name__2='third'))
+    assert 'first' in xrdc.dims
+    assert 'third' in xrdc.dims
+    assert all([d in xrdc._format_info() for d in xrdc.dims])
 
 def test_XrDataContainer_proxy_support(tmp_h5_dset):
     """Test proxy support for XrDataContainer"""
@@ -642,7 +652,8 @@ def test_XrDataContainer_proxy_support(tmp_h5_dset):
     with pytest.raises(ValueError, match="Could not reinstate a proxy for"):
         pxrdc.reinstate_proxy()
 
-    # Test all the different fail actions
+    # Test all the different fail actions.
+    # NOTE These will generate warnings in the logs, but that's intended.
     pxrdc.PROXY_REINSTATE_FAIL_ACTION = 'warn'
     with pytest.warns(RuntimeWarning, match="Could not reinstate"):
         pxrdc.reinstate_proxy()
@@ -659,6 +670,31 @@ def test_XrDataContainer_proxy_support(tmp_h5_dset):
     with pytest.raises(ValueError, match="Invalid PROXY_REINSTATE_FAIL_"):
         pxrdc.PROXY_REINSTATE_FAIL_ACTION = 'bad_value'
         pxrdc.reinstate_proxy()
+
+    # String representation ...................................................
+    # Without dimension info and with proxy still in place, the shape is given
+    pxrdc = Hdf5ProxyXrDC(name="format_info_test", data=proxy, attrs=attrs)
+    
+    assert pxrdc.data_is_proxy
+    assert not pxrdc._metadata_was_applied
+    
+    assert all([d in pxrdc._format_info() for d in pxrdc._dim_names])
+    
+    assert pxrdc.data_is_proxy
+    assert not pxrdc._metadata_was_applied
+
+    # For case without extracted metadata, expect "shape"
+    pxrdc = Hdf5ProxyXrDC(name="format_info_test", data=proxy,
+                          extract_metadata=False)  # no attributes
+    
+    assert pxrdc.data_is_proxy
+    assert not pxrdc._metadata_was_applied
+    
+    assert 'shape' in pxrdc._format_info()
+    assert 'dim_0' not in pxrdc._format_info()
+    
+    assert pxrdc.data_is_proxy
+    assert not pxrdc._metadata_was_applied
 
 
 def test_XrDataContainer_dask_integration(tmp_h5file):
