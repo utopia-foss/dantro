@@ -14,7 +14,8 @@
     - The `ParamSpace`-related groups now use these mixins and groups rather than their own implementation; there are no changes to the public interface.
     - #79 adds a specialization of an `IndexedDataGroup`, namely the `TimeSeriesGroup`, which assumes that it holds members whose names refer to a point in time. The interface here slightly mimicks that of `xr.DataArray`.
 - #79 also adds the `LockDataMixin`, incorporates it into `BaseDataGroup`, and adds the `ForwardAttrsMixin`, which is a more general form of the already existing `ForwardAttrsToDataMixin`.
-- with #58 the `NetworkGroup` is now using the `TimeSeriesGroup` and `XrDataContainer`. It is now possible to also load node and edge properties into a graph.
+- With #58, the `NetworkGroup` is now using the `TimeSeriesGroup` and `XrDataContainer`. It is now possible to also load node and edge properties into a graph.
+- #75 adds dimension information to the info string of `XrDataContainer`s.
 
 ## v0.7.0
 - Infrastructure and Documentation
