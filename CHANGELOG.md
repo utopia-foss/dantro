@@ -2,6 +2,10 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.7.1
+- !83 Takes care of a deprecation warning regarding imports from the `collections` module.
+
+
 ## v0.7.0
 - Infrastructure and Documentation
     - #43 Add a Sphinx-based documentation, currently containing only the API reference

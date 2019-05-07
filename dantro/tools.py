@@ -82,9 +82,9 @@ def recursive_update(d: dict, u: dict) -> dict:
         dict: The updated dict `d`
     """
     for k, v in u.items():
-        if isinstance(d, collections.Mapping):
+        if isinstance(d, collections.abc.Mapping):
             # Already a Mapping
-            if isinstance(v, collections.Mapping):
+            if isinstance(v, collections.abc.Mapping):
                 # Already a Mapping, continue recursion
                 d[k] = recursive_update(d.get(k, {}), v)
                 # This already creates a mapping if the key was not available
