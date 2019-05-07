@@ -2,6 +2,7 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+
 ## v0.8.0 (unreleased)
 - #27 renames `ProxyMixin`-based classes to `ProxySupportMixin` to better communicate what they do and avoid confusion with `BaseDataProxy`-derived classes.
 - Also with #27, it is possible to load HDF5 data into [`dask.array`s](http://docs.dask.org/en/latest/array.html), which allow to perform lazy operations on the data. This makes it hugely more comfortable to work with large amounts of data in dantro.
@@ -16,6 +17,11 @@
 - #79 also adds the `LockDataMixin`, incorporates it into `BaseDataGroup`, and adds the `ForwardAttrsMixin`, which is a more general form of the already existing `ForwardAttrsToDataMixin`.
 - With #58, the `NetworkGroup` is now using the `TimeSeriesGroup` and `XrDataContainer`. It is now possible to also load node and edge properties into a graph.
 - #75 adds dimension information to the info string of `XrDataContainer`s.
+
+
+## v0.7.1
+- !83 Takes care of a deprecation warning regarding imports from the `collections` module.
+
 
 ## v0.7.0
 - Infrastructure and Documentation
