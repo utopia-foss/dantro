@@ -131,6 +131,13 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
 
         log.debug("Associated %s with %s", val, self.logstr)
 
+    @property
+    def only_default_data_present(self) -> bool:
+        """Returns true if only data for the default point in parameter space
+        is available in this group.
+        """
+        return (len(self) == 1) and (0 in self)
+
 
     # Data access .............................................................
 

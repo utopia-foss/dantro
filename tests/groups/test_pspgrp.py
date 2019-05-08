@@ -144,12 +144,14 @@ def test_ParamSpaceGroup(pspace):
     assert 1 in psp_grp
     assert 2 in psp_grp
 
+    # Check the property that inspects members
+    assert not psp_grp.only_default_data_present
 
     # Check the corresponding error messages
-    with pytest.raises(IndexError, match="out of range \[0, 99\]"):
+    with pytest.raises(IndexError, match=r'out of range \[0, 99\]'):
         psp_grp[-1]
 
-    with pytest.raises(IndexError, match="out of range \[0, 99\]"):
+    with pytest.raises(IndexError, match=r'out of range \[0, 99\]'):
         psp_grp[100]
 
 
@@ -164,6 +166,14 @@ def test_ParamSpaceGroup(pspace):
     # ... which cannot be changed
     with pytest.raises(RuntimeError, match="was already set, cannot set it"):
         psp_grp.pspace = "bar"
+
+
+    # With only the default data available, the property evaluates to True
+    psp_grp = ParamSpaceGroup(name="mv")
+    psp_grp.new_group("00")
+    assert psp_grp.only_default_data_present
+    psp_grp.new_group("01")
+    assert not psp_grp.only_default_data_present
 
 
 def test_ParamSpaceGroup_select(psp_grp, selectors):
