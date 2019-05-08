@@ -17,6 +17,7 @@
 - #79 also adds the `LockDataMixin`, incorporates it into `BaseDataGroup`, and adds the `ForwardAttrsMixin`, which is a more general form of the already existing `ForwardAttrsToDataMixin`.
 - With #58, the `NetworkGroup` is now using the `TimeSeriesGroup` and `XrDataContainer`. It is now possible to also load node and edge properties into a graph.
 - #75 adds dimension information to the info string of `XrDataContainer`s.
+- #85 addresses a bug where the `UniversePlotCreator` failed plotting in cases where a multidimensional `ParamSpace` was associated with it but the data was only available for the default point in parameter space.
 
 
 ## v0.7.1

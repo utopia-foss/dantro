@@ -293,10 +293,10 @@ def test_PaddedIntegerItemAccessMixin():
         assert grp[int_key] is grp[str_key]
 
     # Check bad access values
-    with pytest.raises(IndexError, match="out of range \[0, 99\]"):
+    with pytest.raises(IndexError, match=r'out of range \[0, 99\]'):
         grp[-1]
     
-    with pytest.raises(IndexError, match="out of range \[0, 99\]"):
+    with pytest.raises(IndexError, match=r'out of range \[0, 99\]'):
         grp[100]
 
     # Check bad container names
