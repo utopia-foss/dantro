@@ -94,6 +94,46 @@ class PathMixin:
         return self.path
 
 
+class LockDataMixin:
+    """This Mixin class provides a flag for marking the data of a group or
+    container as locked.
+    """
+    # Whether the data is regarded as locked. Note name-mangling here.
+    __locked = False
+
+    @property
+    def locked(self) -> bool:
+        """Whether this object is locked"""
+        return self.__locked
+
+    def lock(self):
+        """Locks the data of this object"""
+        self.__locked = True
+        self._lock_hook()
+    
+    def unlock(self):
+        """Unlocks the data of this object"""
+        self.__locked = False
+        self._unlock_hook()
+
+    def raise_if_locked(self, *, prefix: str=None):
+        """Raises an exception if this object is locked; does nothing otherwise
+        """
+        if self.locked:
+            raise RuntimeError("{}Cannot modify {} because it was already "
+                               "marked locked."
+                               "".format(prefix + " " if prefix else "",
+                                         self.logstr))
+
+    def _lock_hook(self):
+        """Invoked upon locking."""
+        pass
+    
+    def _unlock_hook(self):
+        """Invoked upon unlocking."""
+        pass
+    
+
 class CollectionMixin:
     """This Mixin class implements the methods needed for being a Collection.
     
@@ -121,20 +161,17 @@ class ItemAccessMixin:
 
     def __getitem__(self, key):
         """Returns an item."""
-        key = self.__item_convert_key(key)
-        return self.data[key]
+        return self.data[self._item_access_convert_list_key(key)]
 
     def __setitem__(self, key, val):
         """Sets an item."""
-        key = self.__item_convert_key(key)
-        self.data[key] = val
+        self.data[self._item_access_convert_list_key(key)] = val
 
     def __delitem__(self, key):
         """Deletes an item"""
-        key = self.__item_convert_key(key)
-        del self.data[key]
+        del self.data[self._item_access_convert_list_key(key)]
 
-    def __item_convert_key(self, key):
+    def _item_access_convert_list_key(self, key):
         """If given something that is not a list, just return that key"""
         if isinstance(key, list):
             if len(key) > 1:
@@ -187,7 +224,7 @@ class CheckDataMixin:
     DATA_ALLOW_PROXY = False         # to check for AbstractDataProxy
     DATA_UNEXPECTED_ACTION = 'warn'  # Can be: raise, warn, ignore
 
-    def _check_data(self, data, *, name: str) -> bool:
+    def _check_data(self, data, *, name: str) -> None:
         """A general method to check the received data for its type
         
         Args:
@@ -203,7 +240,7 @@ class CheckDataMixin:
         """
         if self.DATA_EXPECTED_TYPES is None:
             # All types allowed
-            return True
+            return
 
         # Compile tuple of allowed types
         expected_types = self.DATA_EXPECTED_TYPES
@@ -214,7 +251,7 @@ class CheckDataMixin:
         # Perform the check
         if isinstance(data, expected_types):
             # Is of the expected type
-            return True
+            return
 
         # else: was not of the expected type
 
@@ -234,7 +271,6 @@ class CheckDataMixin:
         
         elif self.DATA_UNEXPECTED_ACTION == 'ignore':
             log.debug(msg + " Ignoring ...")
-            pass
 
         else:
             raise ValueError("Illegal value '{}' for class variable "
@@ -242,5 +278,3 @@ class CheckDataMixin:
                              "Allowed values are: raise, warn, ignore"
                              "".format(self.DATA_UNEXPECTED_ACTION,
                                        self.classname))
-        
-        return False

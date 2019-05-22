@@ -19,7 +19,7 @@ from typing import Union, List
 
 import dantro.abc
 from .abc import PATH_JOIN_CHAR
-from .mixins import AttrsMixin, PathMixin, CheckDataMixin
+from .mixins import AttrsMixin, PathMixin, CheckDataMixin, LockDataMixin
 from .mixins import CollectionMixin, ItemAccessMixin, MappingAccessMixin
 from .tools import TTY_COLS
 
@@ -98,6 +98,9 @@ class BaseDataContainer(PathMixin, AttrsMixin,
             data: The data to store in this container
             attrs (None, optional): A mapping that is stored as attributes
         """
+        # Allow to check that the name is valid
+        self._check_name(name)
+
         # Supply the data to the _check_data method, which can be adjusted
         # to test the provided data. In this base class, the method does
         # nothing and serves only as a placeholder
@@ -111,7 +114,16 @@ class BaseDataContainer(PathMixin, AttrsMixin,
 
         # Done.
 
-    def _check_data(self, data, *, name: str) -> bool:
+    def _check_name(self, name: str) -> None:
+        """Called from __init__ and can be used to check the name that the
+        container is supposed to have. On invalid name, this should raise.
+        
+        Args:
+            name (str): The name the container is supposed to have
+        """
+        pass
+
+    def _check_data(self, data, *, name: str) -> None:
         """This method can be used to check the data provided to __init__.
         
         It is called before the data is stored via the parent's __init__ and
@@ -127,7 +139,7 @@ class BaseDataContainer(PathMixin, AttrsMixin,
         Returns:
             bool: Whether the data passed the check.
         """
-        return True
+        pass
 
     def _format_info(self) -> str:
         """A __format__ helper function: returns info about the items"""
@@ -138,7 +150,8 @@ class BaseDataContainer(PathMixin, AttrsMixin,
 
 # -----------------------------------------------------------------------------
 
-class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
+class BaseDataGroup(LockDataMixin, PathMixin, AttrsMixin,
+                    dantro.abc.AbstractDataGroup):
     """The BaseDataGroup serves as base group for all data groups.
 
     It implements all functionality expected of a group, which is much more
@@ -175,6 +188,9 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
                 using the `.add` method.
             attrs (None, optional): A mapping that is stored as attributes
         """
+        # Allow to check that the name is valid
+        self._check_name(name)
+
         # Prepare the storage class that is used to store the members
         data = self._STORAGE_CLS()
 
@@ -189,6 +205,15 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
             self.add(*containers)
 
         # Done.
+
+    def _check_name(self, name: str) -> None:
+        """Called from __init__ and can be used to check the name that the
+        container is supposed to have. On invalid name, this should raise.
+        
+        Args:
+            name (str): The name the container is supposed to have
+        """
+        pass
 
     # .........................................................................
     # Item access
@@ -214,9 +239,9 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         try:
             # If there is more than one entry, need to call this recursively
             if len(key) > 1:
-                return self.data[key[0]][key[1:]]
+                return self._data[key[0]][key[1:]]
             # else: end of recursion
-            return self.data[key[0]]
+            return self._data[key[0]]
 
         except (KeyError, IndexError) as err:
             raise KeyError("No key or key sequence '{}' in {}! "
@@ -249,8 +274,7 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
         # Depending on length of the key sequence, start recursion or not
         if len(key) > 1:
-            print(key, self.data)
-            self.data[key[0]][key[1:]] = val
+            self._data[key[0]][key[1:]] = val
             return
         
         # else: end of recursion, i.e. the path led to an item of this group
@@ -273,24 +297,30 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
         # If there is more than one entry, need to call this recursively
         if len(key) > 1:
             # Continue recursion
-            del self.data[key[0]][key[1:]]
+            del self._data[key[0]][key[1:]]
             return
 
         # else: end of recursion: delete and unlink this container
-        cont = self.data[key[0]]
-        del self.data[key[0]]
+        # ... if it is not locked
+        self.raise_if_locked()
+        
+        cont = self._data[key[0]]
+        del self._data[key[0]]
 
         self._unlink_child(cont)
 
     def add(self, *conts, overwrite: bool=False):
         """Add the given containers to this group."""
         for cont in conts:
-            self._add_cont(cont=cont, overwrite=overwrite)
+            self._add_container(cont, overwrite=overwrite)
 
         log.debug("Added %d container(s) to %s.", len(conts), self.logstr)
 
-    def _add_cont(self, *, cont, overwrite: bool):
+    def _add_container(self, cont, *, overwrite: bool):
         """Private helper method to add a container to this group."""
+        # Make sure data is not locked
+        self.raise_if_locked()
+
         # Check the allowed types
         if (self._ALLOWED_CONT_TYPES is None
             and not isinstance(cont, (BaseDataGroup, BaseDataContainer))):
@@ -324,15 +354,38 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
         # Write to data, assuring that the name matches that of the container
         # and then re-link the containers
-        self.data[cont.name] = cont
+        self._add_container_to_data(cont)
         self._link_child(new_child=cont, old_child=old_cont)
 
-    def _check_cont(self, cont) -> bool:
+    def _check_cont(self, cont) -> None:
         """Can be used by a subclass to check a container before adding it to
-        this group. Is called by _add_cont before checking whether the object
-        exists or not.
+        this group. Is called by _add_container before checking whether the
+        object exists or not.
+        
+        This is not expected to return, but can raise errors, if something
+        did not work out as expected.
+        
+        Args:
+            cont: The container to check
         """
         pass
+
+    def _add_container_to_data(self, cont) -> None:
+        """Performs the operation of adding the container to the _data. This
+        can be used by subclasses to make more elaborate things while adding
+        data, e.g. specify ordering ...
+
+        NOTE This method should NEVER be called on its own, but only via the
+             _add_container method, which takes care of properly linking the
+             container that is to be added.
+
+        NOTE After adding, the container need be reachable under its .name!
+        
+        Args:
+            cont: The container to add
+        """
+        # Just add it via _data.__setitem__, using the container's name
+        self._data[cont.name] = cont
 
     def new_container(self, path: Union[str, list], *,
                       Cls: type=None, **kwargs):
@@ -515,7 +568,7 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
     def __len__(self) -> int:
         """The length of the data."""
-        return len(self.data)
+        return len(self._data)
 
     def __contains__(self, cont: Union[str, BaseDataContainer]) -> bool:
         """Whether the given container is in this group or not.
@@ -570,25 +623,25 @@ class BaseDataGroup(PathMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
 
     def __iter__(self):
         """Returns an iterator over the OrderedDict"""
-        return iter(self.data)
+        return iter(self._data)
 
     def keys(self):
         """Returns an iterator over the container names in this group."""
-        return self.data.keys()
+        return self._data.keys()
 
     def values(self):
         """Returns an iterator over the containers in this group."""
-        return self.data.values()
+        return self._data.values()
 
     def items(self):
         """Returns an iterator over the (name, data container) tuple of this
         group."""
-        return self.data.items()
+        return self._data.items()
 
     def get(self, key, default=None):
         """Return the container at `key`, or `default` if container with name
         `key` is not available."""
-        return self.data.get(key, default)
+        return self._data.get(key, default)
 
     def setdefault(self, key, default=None):
         """This method is not supported for a data group"""

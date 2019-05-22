@@ -1,37 +1,22 @@
-"""Test BaseDataGroup-derived classes"""
+"""Test the pspgrp module"""
 
 from pkg_resources import resource_filename
-import numpy as np
 from typing import Union
 
 import pytest
 
 import numpy as np
 import xarray as xr
-import networkx as nx
-import networkx.exception
-from networkx.classes.multidigraph import MultiDiGraph
-from networkx.classes.multigraph import MultiGraph
 
 from paramspace import ParamSpace, ParamDim
 
-
-# Import the dantro objects to test here
 from dantro.groups import OrderedDataGroup
 from dantro.groups import ParamSpaceGroup, ParamSpaceStateGroup
-from dantro.groups import NetworkGroup
-
-from dantro.containers import MutableSequenceContainer, MutableMappingContainer
-from dantro.containers import NumpyDataContainer
-
+from dantro.containers import MutableMappingContainer, NumpyDataContainer
 from dantro.tools import load_yml
 
-# Local paths -----------------------------------------------------------------
-
+# Local constants
 SELECTOR_PATH = resource_filename('tests', 'cfg/selectors.yml')
-NW_GRP_PATH = resource_filename('tests', 'cfg/nw_grps.yml')
-
-from dantro.containers import MutableSequenceContainer, NumpyDataContainer
 
 # Helper functions ------------------------------------------------------------
 
@@ -114,161 +99,14 @@ def selectors() -> dict:
     """
     return load_yml(SELECTOR_PATH)
 
-@pytest.fixture()
-def nw_grp_cfgs() -> dict:
-    """Returns the dict of NetworkGroup configurations"""
-    return load_yml(NW_GRP_PATH)
+# -----------------------------------------------------------------------------
 
-@pytest.fixture()
-def nw_grps(nw_grp_cfgs) -> Union[dict, dict]:
-    """Creates a NetworkGroup to be tested below"""
-    grps = dict()
-
-    for name, cfg in nw_grp_cfgs.items():
-        grps[name] = NetworkGroup(name=name, attrs=cfg["attrs"])
-        
-        # Add nodes and edges from config
-        # ... if this is not one of the keys where no nodes should be added:
-        # The wrong_* config entries have the nodes or edges missing.
-        if name != "wrong_nodes":
-            grps[name].new_container('nodes', Cls=NumpyDataContainer,
-                                     data=cfg['nodes'])
-
-        if name != "wrong_edges":
-            grps[name].new_container('edges', Cls=NumpyDataContainer,
-                                     data=cfg['edges'])
-
-    return (grps, nw_grp_cfgs)
-
-# Tests -----------------------------------------------------------------------
-
-def test_ordered_data_group():
-    """Tests whether the __init__ method behaves as desired"""
-    # Basic initialisation, without containers
-    dg1 = OrderedDataGroup(name="foo")
-
-    # Names need be string
-    with pytest.raises(TypeError, match="Name for OrderedDataGroup needs to"):
-        OrderedDataGroup(name=123)
-
-    # Passing some containers
-    conts = [MutableSequenceContainer(name=str(i), data=list(range(i)))
-             for i in range(10)]
-    dg2 = OrderedDataGroup(name="bar", containers=conts)
-    
-    # Nest these together
-    root = OrderedDataGroup(name="root", containers=[dg1, dg2])
-
-    # If a non-container object is passed to a group, this should fail.
-    with pytest.raises(TypeError):
-        OrderedDataGroup(name="bar", containers=["foo", "bar"])
-
-    # Try to access them
-    assert 'foo' in root
-    assert 'bar' in root
-    assert 'baz' not in root
-
-    # There should be a custom key error if accessing something not available
-    with pytest.raises(KeyError, match="No key or key sequence '.*' in .*!"):
-        root['i_am_a_ghost']
-    
-    with pytest.raises(KeyError, match="No key or key sequence '.*' in .*!"):
-        root['foo/is/a/ghost']
-
-    # Test adding a new group in that group
-    subgroup = root.new_group("subgroup")
-
-    # Test it was added
-    assert "subgroup" in root
-    assert root["subgroup"] is subgroup
-
-    # Adding it again should fail
-    with pytest.raises(ValueError, match="has a member with name 'subgroup'"):
-        root.new_group("subgroup")
-
-    # Should also work when explicitly giving the class
-    sg2 = root.new_group("sg2", Cls=OrderedDataGroup)
-    assert isinstance(sg2, OrderedDataGroup)
-    # TODO pass another class here
-
-    # Should _not_ work with something that is not a class or not a group
-    with pytest.raises(TypeError,
-                       match="Argument `Cls` needs to be a class"):
-        root.new_group("foobar", Cls="not_a_class")
-
-    with pytest.raises(TypeError,
-                       match="Argument `Cls` needs to be a subclass"):
-        root.new_group("foobar", Cls=MutableSequenceContainer)
-
-def test_group_creation():
-    """Tests whether groups and containers can be created as desired."""
-    root = OrderedDataGroup(name="root")
-
-    # Add a group by name and check it was added
-    foo = root.new_group("foo")
-    assert foo in root
-
-    # Add a container
-    msc = root.new_container("spam", Cls=MutableSequenceContainer,
-                             data=[1, 2, 3])
-    assert msc in root
-
-    # Should raise an error withou Cls given
-    with pytest.raises(ValueError, match="Got neither argument `Cls` nor"):
-        root.new_container("spam2", Cls=None, data=[1, 2, 3])
-
-    # Set the class variable and try again
-    root._NEW_CONTAINER_CLS = MutableSequenceContainer
-    msc2 = root.new_container("spam2", data=[1, 2, 3])
-    assert msc2 in root
-    assert isinstance(msc2, MutableSequenceContainer)
-
-    # Now test adding groups by path
-    bar = root.new_group("foo/bar")
-    assert "foo/bar" in root
-    assert "bar" in foo
-
-    # Check that intermediate parts not existing leads to errors
-    with pytest.raises(KeyError, match="Could not create OrderedDataGroup at"):
-        root.new_group("some/longer/path")
-
-    # Set the allowed container types of the bar group differently
-    bar._ALLOWED_CONT_TYPES = (MutableSequenceContainer,)
-
-    # ... this should now fail
-    with pytest.raises(TypeError, match="Can only add objects derived from"):
-        bar.new_group("baz")
-
-    # While adding a MutableSequenceContainer should work
-    bar.new_container("eggs", Cls=MutableSequenceContainer, data=[1, 2, 3])
-
-def test_list_item_access():
-    """Tests that passing lists with arbitrary content along __getitem__ works
-    as desired ...
-    """
-
-    root = OrderedDataGroup(name="root")
-    one = root.new_group("one")
-    two = one.new_group("two")
-    two.add(NumpyDataContainer(name="arr", data=np.zeros((2,3,4))))
-    # Path created: root/one/two/arr
-
-    # Test that regular item access is possible
-    arr = root["one/two/arr"]
-
-    # Test that access via a list-type path is possible
-    sliced_arr = root[["one", "two", "arr", slice(None, 2)]]
-    assert sliced_arr.shape == arr[slice(None, 2)].shape
-
-
-# ParamSpaceGroup -------------------------------------------------------------
-
-def test_pspace_group_basics(pspace):
+def test_ParamSpaceGroup(pspace):
     """Tests the ParamSpaceGroup"""
     psp_grp = ParamSpaceGroup(name="mv")
 
-    # Check the _num_digs attribute
-    assert psp_grp._num_digs == 0
+    # Check padded_int_key_width property of PaddedIntegerItemAccessMixin
+    assert psp_grp.padded_int_key_width == None
 
     # Populate the group with some entries
     # These should work
@@ -277,14 +115,14 @@ def test_pspace_group_basics(pspace):
     grp02 = psp_grp.new_group("02")
     grp99 = psp_grp.new_group("99")
 
-    assert psp_grp._num_digs == 2
+    assert psp_grp.padded_int_key_width == 2
 
     # These should not, as is asserted by ParamSpaceStateGroup.__init__
-    with pytest.raises(ValueError, match="need names that have a string"):
+    with pytest.raises(ValueError, match="need names of the same length"):
         psp_grp.new_group("123")
 
     with pytest.raises(ValueError, match="representible as integers"):
-        psp_grp.new_group("foo")
+        psp_grp.new_group("fo")
 
     with pytest.raises(ValueError, match="be positive when converted to"):
         psp_grp.new_group("-1")
@@ -306,12 +144,14 @@ def test_pspace_group_basics(pspace):
     assert 1 in psp_grp
     assert 2 in psp_grp
 
+    # Check the property that inspects members
+    assert not psp_grp.only_default_data_present
 
     # Check the corresponding error messages
-    with pytest.raises(KeyError, match="cannot be negative!"):
+    with pytest.raises(IndexError, match=r'out of range \[0, 99\]'):
         psp_grp[-1]
 
-    with pytest.raises(KeyError, match="cannot be larger than 99!"):
+    with pytest.raises(IndexError, match=r'out of range \[0, 99\]'):
         psp_grp[100]
 
 
@@ -328,7 +168,15 @@ def test_pspace_group_basics(pspace):
         psp_grp.pspace = "bar"
 
 
-def test_pspace_group_select(psp_grp, selectors):
+    # With only the default data available, the property evaluates to True
+    psp_grp = ParamSpaceGroup(name="mv")
+    psp_grp.new_group("00")
+    assert psp_grp.only_default_data_present
+    psp_grp.new_group("01")
+    assert not psp_grp.only_default_data_present
+
+
+def test_ParamSpaceGroup_select(psp_grp, selectors):
     """Tests the pspace-related behaviour of the ParamSpaceGroup"""
     pgrp = psp_grp
     psp = pgrp.pspace
@@ -456,7 +304,7 @@ def test_pspace_group_select(psp_grp, selectors):
         pgrp.select(field="testdata/randsize/randlen", method="merge")
 
 
-def test_pspace_group_select_missing_data(selectors, psp_grp_missing_data):
+def test_ParamSpaceGroup_select_missing_data(selectors, psp_grp_missing_data):
     """Test the .select method with missing state data"""
     pgrp = psp_grp_missing_data
 
@@ -492,7 +340,7 @@ def test_pspace_group_select_missing_data(selectors, psp_grp_missing_data):
         pgrp.select(field="cfg", method="some_invalid_method")
 
 
-def test_pspace_group_select_default(psp_grp_default, selectors):
+def test_ParamSpaceGroup_select_default(psp_grp_default, selectors):
     """Select should also work if only the default universe is present,
     i.e. without any parameter dimensions defined."""
     pgrp = psp_grp_default
@@ -517,96 +365,3 @@ def test_pspace_group_select_default(psp_grp_default, selectors):
         # Save to dict of all datasets
         print("  got data:", dset, "\n\n\n")
         dsets[name] = dset
-
-
-# NetworkGroup ----------------------------------------------------------------
-
-def test_network_group_basics(nw_grps):
-    """Test the NetworkGroup"""
-
-    # Helper functions --------------------------------------------------------
-    def basic_network_creation_test(nw, cfg, *, name: str):
-        # Get the attributes
-        attrs = cfg["attrs"]
-        directed = attrs["directed"]
-        parallel = attrs["parallel"]
-
-        # Check that the network is not empty, (not) directed ...
-        assert nx.is_empty(nw) == False
-        assert nx.is_directed(nw) == directed
-
-        # Check the data type of the network
-        if not directed and not parallel:
-            assert isinstance(nw, nx.Graph)
-
-        elif directed and not parallel:
-            assert isinstance(nw, nx.DiGraph)
-
-        elif not directed and parallel:
-            assert isinstance(nw, nx.MultiGraph)
-
-        else:
-            assert isinstance(nw, nx.MultiDiGraph)
-
-        # Check that the nodes and edges given in the config coincide with
-        # the ones stored inside of the network
-        nodes = cfg["nodes"]
-        edges = cfg["edges"]
-
-        for v in nodes:
-            assert v in nx.nodes(nw)
-        
-        # Need to preprocess the case with transposed edges
-        if name == "transposed_edges":
-            edges = [[edges[0][i], edges[1][i]] for i,_ in enumerate(edges[0])]
-
-        for e in edges:
-            assert tuple(e) in nx.edges(nw)
-
-    # Actual test -------------------------------------------------------------
-    # Get the groups and their corresponding configurations
-    (grps, cfgs) = nw_grps
-
-    for name, grp in grps.items():
-        print("Testing configuration {} ...".format(name))
-
-        # Get the config
-        cfg = cfgs[name]
-
-        # Get the attributes
-        attrs = cfg['attrs']
-
-        ### Case: Graph without any node or edge attributes
-        # Create the graph without any node or edge attributes
-        # Check the regular cases
-        if name not in ['wrong_nodes', 'wrong_edges', 'bad_edges']:
-            # This should work
-            nw = grp.create_graph()
-
-        # Also test the failing cases
-        elif name == 'wrong_nodes':
-            with pytest.raises(KeyError,
-                               match=r"Check if .* _NWG_node_container"):
-                grp.create_graph()
-
-            # Nothing else to check
-            continue
-
-        elif name == 'wrong_edges':
-            with pytest.raises(KeyError,
-                               match=r"Check if .* _NWG_edge_container"):
-                grp.create_graph()
-
-            # Nothing else to check
-            continue
-
-        elif name == 'bad_edges':
-            with pytest.raises(nx.exception.NetworkXError,
-                               match="must be a 2-tuple, 3-tuple or 4-tuple."):
-                grp.create_graph()
-
-            # Nothing else to check
-            continue
-
-        # Check that the basic graph creation works
-        basic_network_creation_test(nw, cfg, name=name)

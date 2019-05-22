@@ -15,12 +15,15 @@ log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
-class UnaryOperationsMixin():
-    """This Mixin class implements the methods needed for unary operations
+class UnaryOperationsMixin:
+    """This Mixin class implements the methods needed for unary operations.
+    
+    It leaves out those that expect that return values are of a certain type,
+    e.g. __complex__, __int__, ...
     """
 
     def __neg__(self):
-        """Negative numbers
+        """Make negative
         
         Returns:
             A new object with negative elements
@@ -28,7 +31,7 @@ class UnaryOperationsMixin():
         return apply_func_to_copy(self, operator.neg)
 
     def __pos__(self):
-        """Negative numbers
+        """Make positive
         
         Returns:
             A new object with negative elements
@@ -50,30 +53,6 @@ class UnaryOperationsMixin():
             A new object with the inverted values of the elements
         """
         return apply_func_to_copy(self, operator.invert)
-
-    def __complex__(self):
-        """Complex numbers
-
-        Returns:
-            A new object as complex number
-        """
-        return apply_func_to_copy(self, complex)
-
-    def __int__(self):
-        """Integer numbers
-
-        Returns:
-            A new object as integer
-        """
-        return apply_func_to_copy(self, int)
-
-    def __float__(self):
-        """Float numbers
-
-        Returns:
-            A new object as float
-        """
-        return apply_func_to_copy(self, float)
 
     def __round__(self):
         """Rounds number to nearest integer
@@ -234,7 +213,7 @@ class NumbersMixin(UnaryOperationsMixin):
         return apply_func_inplace(self, operator.ipow, other)
 
 
-class ComparisonMixin():
+class ComparisonMixin:
     """This Mixin implements functions to compare objects"""
 
     def __eq__(self, other):

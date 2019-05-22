@@ -11,7 +11,7 @@ import pytest
 import dantro.base
 from dantro.containers import NumpyDataContainer, ObjectContainer
 from dantro.groups import OrderedDataGroup
-from dantro.mixins import Hdf5ProxyMixin
+from dantro.mixins import Hdf5ProxySupportMixin
 import dantro.data_mngr
 from dantro.data_loaders import YamlLoaderMixin, PickleLoaderMixin, Hdf5LoaderMixin
 from dantro.tools import write_yml
@@ -34,7 +34,7 @@ class PklDataManager(PickleLoaderMixin, DataManager):
     """A data manager that is able to load pickled files"""
     pass
 
-class NumpyTestDC(Hdf5ProxyMixin, NumpyDataContainer):
+class NumpyTestDC(Hdf5ProxySupportMixin, NumpyDataContainer):
     """A data container class that provides numpy proxy access"""
     pass
 

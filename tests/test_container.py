@@ -6,13 +6,14 @@ import operator
 import numpy as np
 import xarray as xr
 import h5py as h5
+import dask.array as da
 
 import pytest
 
 from dantro.base import BaseDataContainer, CheckDataMixin
 from dantro.base import ItemAccessMixin
 from dantro.mixins.base import UnexpectedTypeWarning
-from dantro.mixins.proxy_support import Hdf5ProxyMixin
+from dantro.mixins.proxy_support import Hdf5ProxySupportMixin
 from dantro.containers import MutableSequenceContainer
 from dantro.containers import NumpyDataContainer, XrDataContainer
 from dantro.proxy import Hdf5DataProxy
@@ -29,15 +30,14 @@ class DummyContainer(ItemAccessMixin, BaseDataContainer):
         return "dummy"
 
 # Fixtures --------------------------------------------------------------------
+from .test_proxy import tmp_h5file
 
 @pytest.fixture
-def tmp_h5_dset(tmpdir) -> h5.Dataset:
+def tmp_h5_dset(tmp_h5file) -> h5.Dataset:
     """Creates a temporary hdf5 dataset"""
-
-    test_file = h5.File(tmpdir.join("test_h5_file.hdf5"))
     # Create a h5 dataset
-    dset = test_file.create_dataset("init", data=np.zeros(shape=(1, 2, 3), 
-                                                          dtype=int))
+    dset = tmp_h5file.create_dataset("init", data=np.zeros(shape=(1, 2, 3), 
+                                                           dtype=int))
     return dset
 
 # Tests -----------------------------------------------------------------------
@@ -528,16 +528,26 @@ def test_XrDataContainer():
     # String representation ...................................................
     assert xrdc._format_info().startswith(str(xrdc.dtype))
 
+    # Format info contains dimension names
+    assert all([d in xrdc._format_info() for d in xrdc.dims])
+
+
+    xrdc = XrDataContainer(name="format_info", data=np.zeros((2,3,4)),
+                           attrs=dict(dim_name__0='first',
+                                      dim_name__2='third'))
+    assert 'first' in xrdc.dims
+    assert 'third' in xrdc.dims
+    assert all([d in xrdc._format_info() for d in xrdc.dims])
 
 def test_XrDataContainer_proxy_support(tmp_h5_dset):
     """Test proxy support for XrDataContainer"""
 
     # Specialize a class with proxy support
-    class Hdf5ProxyXrDC(Hdf5ProxyMixin, XrDataContainer):
+    class Hdf5ProxyXrDC(Hdf5ProxySupportMixin, XrDataContainer):
         pass
 
     # Some attributes to initialize containers
-    attrs = dict(foo="bar", dims=['x','y', 'z'],
+    attrs = dict(foo="bar", dims=['x', 'y', 'z'],
                  coords__x=['1 m'], coords__z=['1 cm', '2 cm', '3 cm'])
     
     # Check that proxy support isenabled now
@@ -574,6 +584,8 @@ def test_XrDataContainer_proxy_support(tmp_h5_dset):
     assert pxrdc.ndim == 3
     assert pxrdc.size == 6
     assert pxrdc.chunks is None
+
+    # TODO Would be awesome to have access to extracted metadata here
 
     # ... should not have resolved the proxy
     assert isinstance(pxrdc._data, Hdf5DataProxy)
@@ -640,7 +652,8 @@ def test_XrDataContainer_proxy_support(tmp_h5_dset):
     with pytest.raises(ValueError, match="Could not reinstate a proxy for"):
         pxrdc.reinstate_proxy()
 
-    # Test all the different fail actions
+    # Test all the different fail actions.
+    # NOTE These will generate warnings in the logs, but that's intended.
     pxrdc.PROXY_REINSTATE_FAIL_ACTION = 'warn'
     with pytest.warns(RuntimeWarning, match="Could not reinstate"):
         pxrdc.reinstate_proxy()
@@ -657,3 +670,108 @@ def test_XrDataContainer_proxy_support(tmp_h5_dset):
     with pytest.raises(ValueError, match="Invalid PROXY_REINSTATE_FAIL_"):
         pxrdc.PROXY_REINSTATE_FAIL_ACTION = 'bad_value'
         pxrdc.reinstate_proxy()
+
+    # String representation ...................................................
+    # Without dimension info and with proxy still in place, the shape is given
+    pxrdc = Hdf5ProxyXrDC(name="format_info_test", data=proxy, attrs=attrs)
+    
+    assert pxrdc.data_is_proxy
+    assert not pxrdc._metadata_was_applied
+    
+    assert all([d in pxrdc._format_info() for d in pxrdc._dim_names])
+    
+    assert pxrdc.data_is_proxy
+    assert not pxrdc._metadata_was_applied
+
+    # For case without extracted metadata, expect "shape"
+    pxrdc = Hdf5ProxyXrDC(name="format_info_test", data=proxy,
+                          extract_metadata=False)  # no attributes
+    
+    assert pxrdc.data_is_proxy
+    assert not pxrdc._metadata_was_applied
+    
+    assert 'shape' in pxrdc._format_info()
+    assert 'dim_0' not in pxrdc._format_info()
+    
+    assert pxrdc.data_is_proxy
+    assert not pxrdc._metadata_was_applied
+
+
+def test_XrDataContainer_dask_integration(tmp_h5file):
+    """Tests dask integration in proxy-supporting XrDataContainer"""
+
+    class XrDC(Hdf5ProxySupportMixin, XrDataContainer):
+        PROXY_RETAIN = True
+
+    # Build some proxy objects
+    proxy_dask = Hdf5DataProxy(obj=tmp_h5file["chunked/zeros"],
+                               resolve_as_dask=True)
+    proxy_nodask = Hdf5DataProxy(obj=tmp_h5file["chunked/zeros"])
+
+    # Prepare the coordinates that are to be used as attributes
+    attrs = dict(dims=('x', 'y', 'z', 't'),
+                 coords__x=['1km', '2km', '3km'],
+                 coords__y=['1m', '2m', '3m', '4m'],
+                 coords__z=['1mm', '2mm', '3mm', '4mm', '5mm'],
+                 coords__t=['1s', '2s', '3s', '4s', '5s', '6s'])
+
+    # Construct the data containers
+    xrdc = XrDC(name="with_dask", data=proxy_dask, attrs=attrs)
+    xrdc_nodask = XrDC(name="without_dask", data=proxy_nodask, attrs=attrs)
+
+    # Work on them without resolving, and see that they behave in the same way
+    assert xrdc.data_is_proxy
+    assert xrdc_nodask.data_is_proxy
+
+    assert xrdc.proxy.chunks == xrdc.chunks
+    assert xrdc.proxy.chunks == (3,4,5,1)
+
+    assert xrdc_nodask.proxy.chunks == xrdc_nodask.chunks
+    assert xrdc_nodask.proxy.chunks == (3,4,5,1)
+
+    assert xrdc.shape == xrdc_nodask.shape
+    
+    # Both still proxy
+    assert xrdc.data_is_proxy
+    assert xrdc_nodask.data_is_proxy
+
+    # Now, resolve them
+    xrdc.data
+    xrdc_nodask.data
+
+    assert not xrdc.data_is_proxy
+    assert not xrdc_nodask.data_is_proxy
+
+    # Check that it is still an xarray
+    assert isinstance(xrdc.data, xr.DataArray)
+    assert isinstance(xrdc_nodask.data, xr.DataArray)
+
+    # And dimension labels and coordinates were applied
+    assert xrdc.dims == ('x', 'y', 'z', 't')
+    assert xrdc_nodask.dims == xrdc.dims
+
+    assert (xrdc.coords['x'] == ['1km', '2km', '3km']).all()
+    assert (xrdc.coords['x'] == xrdc_nodask.coords['x']).all()
+
+    # ... but has a dask array beneath it, unlike the other one
+    assert xrdc.__dask_keys__()
+    assert not xrdc_nodask.__dask_keys__()
+
+    # How about calculating with them? This should be possible without any
+    # calls to compute or persist; same interface in both cases...
+    some_ints = np.random.randint(10, size=xrdc.shape)
+    xrdc += some_ints
+    xrdc_nodask += some_ints
+    assert (xrdc == xrdc_nodask).all()
+
+    # Also, compute and persist calls should work on both, regardless of the
+    # underlying data being dask or not
+    assert (xrdc.compute() == xrdc_nodask.compute()).all()
+    assert (xrdc.persist() == xrdc_nodask.persist()).all()
+
+    # Check that reinstatement of the proxy also works
+    xrdc.reinstate_proxy()
+    xrdc_nodask.reinstate_proxy()
+
+    assert xrdc.data_is_proxy
+    assert xrdc_nodask.data_is_proxy

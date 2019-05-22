@@ -2,9 +2,10 @@
 to a derived contaier or group class
 """
 
-from .base import AttrsMixin, PathMixin, CheckDataMixin
+from .base import AttrsMixin, PathMixin, CheckDataMixin, LockDataMixin
 from .base import CollectionMixin, ItemAccessMixin, MappingAccessMixin
 
-from .general import ForwardAttrsToDataMixin
+from .general import ForwardAttrsMixin, ForwardAttrsToDataMixin
+from .indexing import IntegerItemAccessMixin, PaddedIntegerItemAccessMixin
 from .numeric import UnaryOperationsMixin, NumbersMixin, ComparisonMixin
-from .proxy_support import ProxyMixin, Hdf5ProxyMixin
+from .proxy_support import ProxySupportMixin, Hdf5ProxySupportMixin

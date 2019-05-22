@@ -1,4 +1,6 @@
-"""In this module, BaseDataContainer specialisations are implemented."""
+"""In this module, BaseDataContainer specializations that make use of features
+from the paramspace package are implemented.
+"""
 
 import copy
 import logging
@@ -10,58 +12,49 @@ import xarray as xr
 
 from paramspace import ParamSpace
 
-from .ordered import OrderedDataGroup
+from .ordered import OrderedDataGroup, IndexedDataGroup
 from ..tools import apply_along_axis
 from ..base import PATH_JOIN_CHAR
 from ..containers import NumpyDataContainer, XrDataContainer
+from ..mixins import PaddedIntegerItemAccessMixin
 
 # Local constants
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
-# ParamSpaceGroup and associated classes
 
 class ParamSpaceStateGroup(OrderedDataGroup):
     """A ParamSpaceStateGroup is a member of the ParamSpaceGroup.
 
-    It extends the OrderedDataGroup only by checking whether the name of the
-    group is a valid parameter space state, i.e. whether it is representable
-    as a positive integer.
+    While its own name need be interpretable as a positive integer (enforced
+    in parent :py:class:`~dantro.groups.ParamSpaceGroup` but also here), it
+    can hold members with any name.
     """
-
-    # The child class should not be of the same type as this class.
     _NEW_GROUP_CLS = OrderedDataGroup
-    
-    def __init__(self, *, name: str, containers: list=None, **kwargs):
-        """Initialize a ParamSpaceStateGroup from the list of given containers.
-        
-        Args:
-            name (str): The name of this group, which needs to be convertible
-                to an integer.
-            containers (list, optional): A list of containers to add
-            **kwargs: Further initialisation kwargs, e.g. `attrs` ...
-        """
+
+    def _check_name(self, name: str) -> None:
+        """Called by __init__ and overwritten here to check the name."""
         # Assert that the name is valid, i.e. convertible to an integer
         try:
             int(name)
+
         except ValueError as err:
             raise ValueError("Only names that are representible as integers "
-                             "are possible for {}!".format(self.classname)
+                             "are possible for the name of {}, got '{}'!"
+                             "".format(self.classname, name)
                              ) from err
 
         # ... and not negative
         if int(name) < 0:
             raise ValueError("Name for {} needs to be positive when converted "
-                             "to integer, was: {}".format(self.classname,name))
+                             "to integer, was: {}"
+                             "".format(self.classname, name))
 
-        # Initialize with parent method, which will call .add(*containers)
-        super().__init__(name=name, containers=containers, **kwargs)
+        # Still ask the parent method for its opinion on this matter
+        super()._check_name(name)
 
-        # Done.
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-class ParamSpaceGroup(OrderedDataGroup):
+class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
     """The ParamSpaceGroup is associated with a ParamSpace object and the
     loaded results of an iteration over this parameter space.
 
@@ -104,11 +97,6 @@ class ParamSpaceGroup(OrderedDataGroup):
         if pspace is not None:
             self.pspace = pspace
 
-        # Private attribute needed for state access via strings
-        self._num_digs = 0
-
-        # Done.
-
     # Properties ..............................................................
 
     @property
@@ -143,83 +131,12 @@ class ParamSpaceGroup(OrderedDataGroup):
 
         log.debug("Associated %s with %s", val, self.logstr)
 
-
-    # Item access .............................................................
-
-    def _check_cont(self, cont: ParamSpaceStateGroup) -> None:
-        """Asserts that only containers with valid names are added.
-        
-        Args:
-            cont (ParamSpaceStateGroup): The state group to add
-        
-        Returns:
-            None
-        
-        Raises:
-            ValueError: For a state name that has an invalid length
+    @property
+    def only_default_data_present(self) -> bool:
+        """Returns true if only data for the default point in parameter space
+        is available in this group.
         """
-        # Check if this is the first container to be added. This also
-        # determines the number of possible digits the state number can have
-        if not len(self) or self._num_digs == 0:
-            self._num_digs = len(cont.name)
-            log.debug("Set _num_digs to %d.", self._num_digs)
-
-        # Check the name against the already set number of digits
-        elif len(cont.name) != self._num_digs:
-            raise ValueError("Containers added to {} need names that have a "
-                             "string representation of same length: for this "
-                             "instance, a zero-padded integer of width {}. "
-                             "Got: {}".format(self.logstr, self._num_digs,
-                                              cont.name))
-
-        # TODO could also check against .pspace.max_state_no ...
-        # Everything ok. No return value needed.
-
-    def __getitem__(self, key: Union[str, int]):
-        """Adjusts the parent method to allow integer item access"""
-        if isinstance(key, int):
-            # Generate a padded string to access the state
-            key = self._padded_id_from_int(key)
-
-        # Use the parent method to return the value
-        return super().__getitem__(key)
-
-    def __delitem__(self, key: Union[str, int]):
-        """Adjusts the parent method to allow item deletion by int key"""
-        if isinstance(key, int):
-            # Generate a padded string to access the state
-            key = self._padded_id_from_int(key)
-
-        # Use the parent method to return the value
-        return super().__delitem__(key)
-
-    def __contains__(self, key: Union[str, int]) -> bool:
-        """Adjusts the parent method to allow checking for integers"""
-        if isinstance(key, int):
-            # Generate a string from the given integer
-            key = self._padded_id_from_int(key)
-
-        return super().__contains__(key)
-
-    def _padded_id_from_int(self, state_no: int) -> str:
-        """This generates a zero-padded state number string from the given int.
-
-        Note that the ParamSpaceGroup only allows its members to have keys of
-        the same length.
-        """
-        # Check the requested state number to improve error messages
-        if state_no < 0:
-            raise KeyError("State numbers cannot be negative! {} is negative."
-                           "".format(state_no))
-
-        elif state_no > 10**self._num_digs - 1:
-            raise KeyError("State numbers for {} cannot be larger than {}! "
-                           "Requested state number: {}"
-                           "".format(self.logstr,
-                                     10**self._num_digs - 1, state_no))
-
-        # Everything ok. Generate the zero-padded string.
-        return "{sno:0{digs:d}d}".format(sno=state_no, digs=self._num_digs)
+        return (len(self) == 1) and (0 in self)
 
 
     # Data access .............................................................
@@ -359,7 +276,7 @@ class ParamSpaceGroup(OrderedDataGroup):
             try:
                 return self[state_no]
 
-            except KeyError as err:
+            except (KeyError, ValueError) as err:
                 # TODO use custom exception class, e.g. from DataManager?
                 raise ValueError("No state {} available in {}! Make sure the "
                                  "data was fully loaded."
@@ -614,6 +531,3 @@ class ParamSpaceGroup(OrderedDataGroup):
                              "argument to True.") from err
 
         return combined_dset
-
-
-    # Helper methods for data access ..........................................

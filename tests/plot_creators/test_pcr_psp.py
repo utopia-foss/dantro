@@ -14,7 +14,7 @@ from dantro.plot_creators import UniversePlotCreator, MultiversePlotCreator
 
 # Fixtures --------------------------------------------------------------------
 # Import some from other tests
-from ..test_group import psp_grp, psp_grp_default
+from ..groups.test_pspgrp import psp_grp, psp_grp_default
 
 @pytest.fixture()
 def pspace():
@@ -211,7 +211,10 @@ def test_UniversePlotCreator(init_kwargs):
                          pspace=None)
 
 
-    # Check that a ParamSpaceGroup with only the default causes no issues
+def test_UniversePlotCreator_default_only(init_kwargs):
+    """Check that a ParamSpaceGroup with only the default data or only a zero-
+    dimensional parameter space still behaves as expected"""
+
     dm = init_kwargs['dm']
     pspace = ParamSpace(dict(foo="bar"))
     mvd = dm.new_group("mv_default", Cls=ParamSpaceGroup, pspace=pspace)
@@ -244,6 +247,34 @@ def test_UniversePlotCreator(init_kwargs):
     assert isinstance(psp, ParamSpace)
     assert psp.num_dims == 1
 
-    # Fails (in paramspace) if such a coordinate is not available
+    # Doing anything more fancy would fail ...
+    with pytest.raises(ValueError, match="Could not select a universe for"):
+        upc.prepare_cfg(plot_cfg=dict(universes=dict(p0=[-1])), pspace=None)
+
+
+    # One more possibility: associated paramspace has many dimensions but only
+    # data for the default exists in the associated group.
+    dm = init_kwargs['dm']
+    pspace = ParamSpace(dict(p0=ParamDim(default=-1, range=[5])))
+    mvd = dm.new_group("mv_default_only", Cls=ParamSpaceGroup, pspace=pspace)
+    mvd.new_group("0")
+    upc = UniversePlotCreator("test3", dm=dm, psgrp_path="mv_default_only")
+
+    cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes='all'), pspace=None)
+    assert psp is None
+    assert upc._without_pspace
+
+    args, kwargs = upc._prepare_plot_func_args(**cfg)
+    assert kwargs['uni'].name == "0"
+
+    # Should also be able to pass a parameter space additionally
+    pspace = ParamSpace(dict(foo=ParamDim(default=0, range=[5])))
+    cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes='all'), pspace=pspace)
+    
+    assert not cfg
+    assert isinstance(psp, ParamSpace)
+    assert psp.num_dims == 1
+
+    # Fails when trying to do something more fancy, e.g. selecting subspace
     with pytest.raises(ValueError, match="Could not select a universe for"):
         upc.prepare_cfg(plot_cfg=dict(universes=dict(p0=[-1])), pspace=None)

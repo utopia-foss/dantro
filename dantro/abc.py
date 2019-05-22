@@ -152,6 +152,11 @@ class AbstractDataGroup(AbstractDataContainer, collections.abc.MutableMapping):
     It enforces a MutableMapping interface with a focus on _setting_ abilities
     and less so on deletion."""
 
+    @property
+    def data(self):
+        """The stored data."""
+        raise AttributeError("Cannot directly access group data!")
+
     @abc.abstractmethod
     def add(self, *conts, overwrite: bool=False) -> None:
         """Adds the given containers to the group."""

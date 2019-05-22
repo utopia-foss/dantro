@@ -2,6 +2,23 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.8.0
+- #27 renames `ProxyMixin`-based classes to `ProxySupportMixin` to better communicate what they do and avoid confusion with `BaseDataProxy`-derived classes.
+- Also with #27, it is possible to load HDF5 data into [`dask.array`s](http://docs.dask.org/en/latest/array.html), which allow to perform lazy operations on the data. This makes it hugely more comfortable to work with large amounts of data in dantro.
+    - The `HDFDataProxy` can resolve HDF5 data as delayed `dask.array`s.
+    - The `Hdf5LoaderMixin` now allows to pass parameters to created proxies, thus allowing to create proxies which `resolve_as_dask`.
+    - The `dask.array` can be used as underlying data for the `XrDataContainer` while retaining the _exact_ same interface as with in-memory numpy data. This is possible due to the tight [integration of xarray with dask](http://xarray.pydata.org/en/stable/dask.html).
+- #59 adds additional groups and mixins that allow handling indexed data:
+    - `IndexedDataGroup` expects integer-parsable members and maintains ordering not by their string representation but by their integer representation.
+    - The `IntegerItemAccessMixin` and `PaddedIntegerItemAccessMixin` provide convenient access to group members via integer keys; internally, keys are always strings.
+    - The `ParamSpace`-related groups now use these mixins and groups rather than their own implementation; there are no changes to the public interface.
+    - #79 adds a specialization of an `IndexedDataGroup`, namely the `TimeSeriesGroup`, which assumes that it holds members whose names refer to a point in time. The interface here slightly mimicks that of `xr.DataArray`.
+- #79 also adds the `LockDataMixin`, incorporates it into `BaseDataGroup`, and adds the `ForwardAttrsMixin`, which is a more general form of the already existing `ForwardAttrsToDataMixin`.
+- With #58, the `NetworkGroup` is now using the `TimeSeriesGroup` and `XrDataContainer`. It is now possible to also load node and edge properties into a graph.
+- #75 adds dimension information to the info string of `XrDataContainer`s.
+- #85 addresses a bug where the `UniversePlotCreator` failed plotting in cases where a multidimensional `ParamSpace` was associated with it but the data was only available for the default point in parameter space.
+- dantro now requires `matplotlib >= 3.1`
+
 ## v0.7.1
 - !83 Takes care of a deprecation warning regarding imports from the `collections` module.
 

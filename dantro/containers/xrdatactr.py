@@ -97,6 +97,9 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
         self._dim_names = dims
         self._dim_to_coords_map = coords
 
+        # Keep track of whether metadata was applied or not
+        self._metadata_was_applied = False
+
         # If metadata is to be extracted from container attributes, do so now
         if extract_metadata:
             self._extract_metadata()
@@ -106,15 +109,32 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
         if apply_metadata and not isinstance(self._data, AbstractDataProxy):
             self._apply_metadata()
 
-
     def _format_info(self) -> str:
-        """A __format__ helper function: returns info about the item
+        """A __format__ helper function: returns info about the item.
 
-        In this case, the dtype and shape of the stored data is returned. Note
-        that this relies on the ForwardAttrsToDataMixin.
+        In this case, the dtype and sizes of the stored data is returned.
+        Depending on whether metadata is available, the shape information is
+        shown or the dimension names and the length of the dimensions are used.
         """
-        return "{}, shape {}, {}".format(self.dtype, self.shape,
-                                         super()._format_info())
+        return ("{dtype:}, {shape:}, {sup:}"
+                "".format(dtype=self.dtype, shape=self._format_shape(),
+                          sup=super()._format_info()))
+
+    def _format_shape(self) -> str:
+        """A __format__ helper for parsing shape information"""
+        sizes = None
+        if self._metadata_was_applied:
+            # Can directly use the xarray information
+            sizes = self.sizes.items()
+
+        elif self._dim_names is not None:
+            # Parse the metadata accordingly ...
+            sizes = self._parse_sizes_from_metadata()
+
+        if sizes is not None:
+            return "({})".format(", ".join(["{}: {}".format(*kv)
+                                            for kv in sizes]))
+        return "shape {}".format(self.shape)
 
     def copy(self):
         """Return a new object with a deep copy of the data.
@@ -144,12 +164,9 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
         """
         log.debug("Extracting metadata for labelling %s ...", self.logstr)
         
-        # If dims are not given extract the mapping from the attributes
         if self._dim_names is None:
             self._dim_names = self._extract_dim_names()
 
-        # If coords are not given get them fro the attributes, needs a mapping
-        # from dimension number to dimension name
         if self._dim_to_coords_map is None:
             self._dim_to_coords_map = self._extract_coords()
 
@@ -446,9 +463,9 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
                     self.data.coords[dim_name] = coords
                 
                 except Exception as err:
-                    raise ValueError("Could not associate coordinates for "
+                    raise ValueError("Could not associate coordinates {} for "
                                      "dimension '{}' due to {}: {}"
-                                     "".format(dim_name,
+                                     "".format(coords, dim_name,
                                                err.__class__.__name__, err)
                                      ) from err
         
@@ -456,10 +473,25 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
         if self._XRC_INHERIT_CONTAINER_ATTRIBUTES:
             self._inherit_attrs()
 
+        # Now set the flag that metadata was applied
+        self._metadata_was_applied = True
+
     def _postprocess_proxy_resolution(self):
-        """Only invoked from ``ProxyMixin``s, which have to be added to the
-        class specifically, this function takes care to apply the potentially
-        existing metadata to the resolved proxy.
+        """Only invoked from ``ProxySupportMixin``s, which have to be added to
+        the class specifically. This function takes care to apply the
+        potentially existing metadata after the proxy was resolved.
         """
         self._apply_metadata()
 
+    def _parse_sizes_from_metadata(self) -> Sequence[Tuple[str, int]]:
+        """Invoked from _format_shape when no metadata was applied but the
+        dimension names are available. Should return data in the same form as
+        xr.DataArray.sizes.items() does.
+        """
+        # Iterate over dimension names and shapes ...
+        it = enumerate(zip(self._dim_names, self.shape))
+
+        # ... and use the name from the metadata unless the name was None
+        # which is a placeholder for "don't rename this dimension", in which
+        # case it should be named via default names
+        return tuple([(n if n else "dim_{}".format(i), l) for i, (n, l) in it])
