@@ -8,7 +8,7 @@
     title: foo
     invalid_param: 123
   _raises: true
-  _match: Unknown property invalid_param
+  _match: has no property 'invalid_param'
 
 # .............................................................................
 - set_suptitle: {}
@@ -18,7 +18,7 @@
     title: foo
     invalid_param: 123
   _raises: true
-  _match: Unknown property invalid_param
+  _match: has no property 'invalid_param'
 
 # .............................................................................
 - set_labels: {}
@@ -39,7 +39,7 @@
       label: bar
       invalid_param: 123
   _raises: AttributeError
-  _match: Unknown property invalid_param
+  _match: has no property 'invalid_param'
 
 # .............................................................................
 - set_limits: {}

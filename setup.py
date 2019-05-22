@@ -10,7 +10,7 @@ install_deps = [
     'toolz>=0.9.0',       # Needed for dask.delayed
     'h5py>=2.7.0',
     'networkx>=2.2',
-    'matplotlib>=2.2.3',
+    'matplotlib>=3.1.0',
     'paramspace>=2.2.0'   # Not on pypi!
     ]
 test_deps = ['pytest>=3.4.0', 'pytest-cov>=2.5.1', 'tox>=3.1.2']
