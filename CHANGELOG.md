@@ -3,7 +3,7 @@
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
 
-## v0.8.0 (unreleased)
+## v0.8.0
 - #27 renames `ProxyMixin`-based classes to `ProxySupportMixin` to better communicate what they do and avoid confusion with `BaseDataProxy`-derived classes.
 - Also with #27, it is possible to load HDF5 data into [`dask.array`s](http://docs.dask.org/en/latest/array.html), which allow to perform lazy operations on the data. This makes it hugely more comfortable to work with large amounts of data in dantro.
     - The `HDFDataProxy` can resolve HDF5 data as delayed `dask.array`s.
@@ -18,6 +18,7 @@
 - With #58, the `NetworkGroup` is now using the `TimeSeriesGroup` and `XrDataContainer`. It is now possible to also load node and edge properties into a graph.
 - #75 adds dimension information to the info string of `XrDataContainer`s.
 - #85 addresses a bug where the `UniversePlotCreator` failed plotting in cases where a multidimensional `ParamSpace` was associated with it but the data was only available for the default point in parameter space.
+- dantro now requires `matplotlib >= 3.1`
 
 
 ## v0.7.1
