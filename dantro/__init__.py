@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 
 
 # Package version
-__version__ = '0.8.0'
+__version__ = '0.8.1'
 
 
 # Make manager classes available
