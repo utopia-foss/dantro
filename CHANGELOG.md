@@ -3,6 +3,9 @@
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
 
+## v0.8.1
+- #90 fixes an issue during garbage collection of `Hdf5Proxy`
+
 ## v0.8.0
 - #27 renames `ProxyMixin`-based classes to `ProxySupportMixin` to better communicate what they do and avoid confusion with `BaseDataProxy`-derived classes.
 - Also with #27, it is possible to load HDF5 data into [`dask.array`s](http://docs.dask.org/en/latest/array.html), which allow to perform lazy operations on the data. This makes it hugely more comfortable to work with large amounts of data in dantro.

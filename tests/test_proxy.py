@@ -72,6 +72,9 @@ def test_Hdf5DataProxy(tmp_h5file):
     with pytest.raises(ValueError, match="Not a dataset"):
         dset[()]
 
+    # NOTE Can't really test the try-except there, which only becomes relevant
+    #      once the whole python session is ended.
+
 
 def test_Hdf5DataProxy_resolve_as_dask(tmp_h5file):
     """Tests the Hdf5DataProxy that resolves as dask arrays"""

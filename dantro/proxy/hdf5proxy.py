@@ -126,8 +126,13 @@ class Hdf5DataProxy(BaseDataProxy):
     def __del__(self):
         """Make sure all potentially still open h5py.File objects are closed"""
         for f in self._h5files:
-            f.close()
+            try:
+                f.close()
 
+            except:
+                # Can no longer close it; garbace collection probably already
+                # took care of it ... which is fine.
+                pass
 
     # Properties to access information without resolving ......................
 
