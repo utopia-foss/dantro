@@ -4,7 +4,9 @@
 
 
 ## v0.8.1
+- #89 enables the `NetworkGroup` to handle one dimensional data that is not time-labelled.
 - #90 fixes an issue during garbage collection of `Hdf5Proxy`
+
 
 ## v0.8.0
 - #27 renames `ProxyMixin`-based classes to `ProxySupportMixin` to better communicate what they do and avoid confusion with `BaseDataProxy`-derived classes.
