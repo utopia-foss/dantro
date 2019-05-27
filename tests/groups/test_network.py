@@ -79,12 +79,19 @@ def nw_grps(nw_grp_cfgs) -> Union[dict, dict]:
                     for i in [0,1]:
                         sub_grp.new_container(str(i), Cls=XrDataContainer,
                                                 data=cfg['nodes'][i])
+                elif name == "xr_time_series_static_nodes_unlabelled":
+                    grps[name].new_container('nodes', Cls=XrDataContainer,
+                                             data=cfg['nodes'])
                 else:
                     grps[name].new_container('nodes', Cls=XrDataContainer,
                                              data=cfg['nodes'], dims=['time'])
 
             if name != "wrong_edges":
-                grps[name].new_container('edges', Cls=XrDataContainer,
+                if name == "xr_time_series_static_edges_unlabelled":
+                    grps[name].new_container('edges', Cls=XrDataContainer,
+                                             data=cfg['edges'])
+                else:
+                    grps[name].new_container('edges', Cls=XrDataContainer,
                                          data=cfg['edges'], dims=['time'])
 
             grps[name].new_container('np1', Cls=XrDataContainer,
@@ -139,10 +146,15 @@ def test_network_group_basics(nw_grps):
             edges = [[edges[0][i], edges[1][i]] for i,_ in enumerate(edges[0])]
 
         if name.startswith("grp") or name.startswith("xr_time_series"):
-            if ((name != "xr_time_series_static_edges") 
+            if (not name.startswith("xr_time_series_static_edges")
                 and (name != "grp_less_edge_times")):
                 for e in edges[cfg['at_time']]:
                     assert tuple(e) in nx.edges(nw)
+
+            elif name == "xr_time_series_static_edges_unlabelled":
+                for e in edges:
+                    assert tuple(e) in nx.edges(nw)
+
             else:
                 for e in edges[0]:
                     assert tuple(e) in nx.edges(nw)

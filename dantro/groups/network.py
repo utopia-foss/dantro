@@ -55,6 +55,10 @@ class NetworkGroup(BaseDataGroup):
             raise ValueError("'at_time' and 'at_time_idx' can not be given"
                              " at the same time!")
 
+        # If `time` is not available, assume 1d data and return as it is.
+        if 'time' not in data.dims:
+            return data
+
         if at_time is not None:
 
             try:
