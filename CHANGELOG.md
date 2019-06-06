@@ -4,6 +4,7 @@
 
 ## v0.9.0 _(unreleased)_
 - #76 and !91 improve working interactively with dantro, e.g. by providing the `__repr__` method and adding IPython key completion for group members.
+- !95 makes it possible to use forward slashes in plot names, which will lead to the corresponding directories being created in the evaluation directory.
 
 
 ## v0.8.1

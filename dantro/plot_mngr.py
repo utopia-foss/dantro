@@ -59,7 +59,7 @@ class PlotManager:
                              state_vector_join_char="-",
                              # final fstr for single plot and config path
                              path="{name:}{ext:}",
-                             plot_cfg="{name:}_cfg.yml",
+                             plot_cfg="{basename:}_cfg.yml",
                              # and for sweep
                              sweep="{name:}/{state_no:}__{state:}{ext:}",
                              plot_cfg_sweep="{name:}/sweep_cfg.yml",
@@ -591,7 +591,7 @@ class PlotManager:
         set, also saves it using the _save_plot_cfg method.
         """
         # Prepare the entry
-        entry = dict(name=name, plot_cfg=plot_cfg,
+        entry = dict(name=name, plot_cfg=plot_cfg, target_dir=target_dir,
                      creator_name=creator_name, **info,
                      plot_cfg_path=None)
 
@@ -601,7 +601,7 @@ class PlotManager:
                                             target_dir=target_dir,
                                             creator_name=creator_name)
 
-            # Store the save path
+            # Store the path the configuration was saved at
             entry['plot_cfg_path'] = save_path
 
         # Append to the plot_info list
@@ -646,12 +646,10 @@ class PlotManager:
             # FIXME hacky, should not use the internal API!
             d[name]._dict['creator'] = creator_name
 
-        # Generate the filename
-        if not is_sweep:
-            fname = self.out_fstrs['plot_cfg'].format(name=name)
-
-        else:
-            fname = self.out_fstrs['plot_cfg_sweep'].format(name=name)
+        # Generate the filename and save path
+        fn_fstr = self.out_fstrs['plot_cfg_sweep' if is_sweep else 'plot_cfg']
+        fname = fn_fstr.format(name=name,
+                               basename=os.path.basename(name))
         save_path = os.path.join(target_dir, fname)
         
         # Try to write
