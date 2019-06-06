@@ -2,6 +2,9 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.9.0 _(unreleased)_
+- #76 and !91 improve working interactively with dantro, e.g. by providing the `__repr__` method and adding IPython key completion for group members.
+
 
 ## v0.8.1
 - #89 enables the `NetworkGroup` to handle one dimensional data that is not time-labelled.

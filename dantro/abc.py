@@ -3,7 +3,7 @@
 import abc
 import collections
 import collections.abc
-from typing import Union
+from typing import Union, Tuple
 import logging
 
 # Local constants
@@ -26,7 +26,8 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def __init__(self, *, name: str, data):
-        """Initialize the AbstractDataContainer, which holds the bare essentials of what a data container should have.
+        """Initialize the AbstractDataContainer, which holds the bare
+        essentials of what a data container should have.
         
         Args:
             name (str): The name of this container
@@ -101,8 +102,15 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
     # Formatting
 
     def __str__(self) -> str:
-        """An info string, that describes the object. Each class should implement this to return an informative response."""
+        """An info string, that describes the object. This invokes the
+        formatting helpers to show the log string (type and name) as well as
+        the info string of this object.
+        """
         return "<{:logstr,info}>".format(self)
+
+    def __repr__(self) -> str:
+        """Same as __str__"""
+        return str(self)
 
     def __format__(self, spec_str: str) -> str:
         """Creates a formatted string from this """
@@ -141,7 +149,9 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def _format_info(self) -> str:
-        """A __format__ helper function: returns an info string that is used to characterise this object. Should NOT include name and classname!"""
+        """A __format__ helper function: returns an info string that is used
+        to characterise this object. Should NOT include name and classname!
+        """
 
 
 # -----------------------------------------------------------------------------
@@ -175,15 +185,19 @@ class AbstractDataGroup(AbstractDataContainer, collections.abc.MutableMapping):
 
     @abc.abstractmethod
     def items(self):
-        """Returns an iterator over the (name, data container) tuple of this group."""
+        """Returns an iterator over the (name, data container) tuple of this
+        group."""
 
     @abc.abstractmethod
     def get(self, key, default=None):
-        """Return the container at `key`, or `default` if container with name `key` is not available."""
+        """Return the container at `key`, or `default` if container with name
+        `key` is not available."""
 
     @abc.abstractmethod
     def setdefault(self, key, default=None):
-        """If `key` is in the dictionary, return its value. If not, insert `key` with a value of `default` and return `default`. `default` defaults to None."""
+        """If `key` is in the dictionary, return its value. If not, insert
+        `key` with a value of `default` and return `default`. `default`
+        defaults to None."""
 
     @abc.abstractmethod
     def recursive_update(self, other):
@@ -201,7 +215,8 @@ class AbstractDataGroup(AbstractDataContainer, collections.abc.MutableMapping):
 # -----------------------------------------------------------------------------
 
 class AbstractDataAttrs(collections.abc.Mapping, AbstractDataContainer):
-    """The BaseDataAttrs class defines the interface for the `.attrs` attribute of a data container.
+    """The BaseDataAttrs class defines the interface for the `.attrs`
+    attribute of a data container.
 
     This class derives from the abstract class as otherwise there would be 
     circular inheritance. It stores the attributes as mapping and need not be 
@@ -229,12 +244,15 @@ class AbstractDataAttrs(collections.abc.Mapping, AbstractDataContainer):
 
     @abc.abstractmethod
     def items(self):
-        """Returns an iterator over the (keys, values) tuple of the attributes."""
+        """Returns an iterator over the (keys, values) tuple of the attributes.
+        """
 
 # -----------------------------------------------------------------------------
 
 class AbstractDataProxy(metaclass=abc.ABCMeta):
-    """A data proxy fills in for the place of a data container, e.g. if data should only be loaded on demand. It needs to supply the resolve method."""
+    """A data proxy fills in for the place of a data container, e.g. if data
+    should only be loaded on demand. It needs to supply the resolve method.
+    """
 
     @abc.abstractmethod
     def __init__(self, obj):
@@ -255,6 +273,12 @@ class AbstractDataProxy(metaclass=abc.ABCMeta):
         container of which this proxy object is a placeholder for! This only
         returns the data.
         """
+
+    @property
+    @abc.abstractmethod
+    def tags(self) -> Tuple[str]:
+        """The tags describing this proxy object"""
+    
 
 
 # -----------------------------------------------------------------------------
@@ -313,7 +337,6 @@ class AbstractPlotCreator(metaclass=abc.ABCMeta):
         Returns:
             bool: Whether this creator can be used for the given plot config
         """
-        return False
 
     @abc.abstractmethod
     def _prepare_path(self, out_path: str) -> str:

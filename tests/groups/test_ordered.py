@@ -32,3 +32,6 @@ def test_IndexedDataGroup():
     for i in (-6, -100, 5, 100):
         with pytest.raises(IndexError, match="out of range"):
             idg.key_at_idx(i)
+
+    # IPython key completions should return only integer keys
+    assert all([isinstance(k, int) for k in idg._ipython_key_completions_()])

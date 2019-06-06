@@ -4,7 +4,7 @@ specific order.
 
 import logging
 import collections
-from typing import Generator
+from typing import Generator, List
 
 from ..base import BaseDataGroup
 from ..mixins import IntegerItemAccessMixin
@@ -80,3 +80,14 @@ class IndexedDataGroup(IntegerItemAccessMixin, OrderedDataGroup):
         """Returns an iterator over keys as integer values"""
         for k in self.keys():
             yield int(k)
+
+
+    # Customizations of parent methods ........................................
+
+    def _ipython_key_completions_(self) -> List[int]:
+        """For ipython integration, return a list of available keys.
+
+        Unlike the BaseDataGroup method, which returns a list of strings, this
+        returns a list of integers.
+        """
+        return list(self.keys_as_int())
