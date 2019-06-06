@@ -2,6 +2,7 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+
 ## v0.12.0 *(WIP)*
 - As of this release, dantro is licensed under the [LGPLv3+ license](COPYING.md), added in !133.
 - #124 and !136 fix all broken references in the documentation and the docstrings and improve the Sphinx configuration.
@@ -78,6 +79,7 @@
     - The `TimeSeriesGroup` now has the full feature set for its `isel` and `sel` methods.
     - There is the `HeterogeneousTimeSeriesGroup` which has high flexibility in how the labelled data is stored: containers of this group may represent data stored at irregular times, with overlapping or non-overlapping coordinate values, and also representing more than a single time snapshot.
 - #22 adds the `logging` module, which implements custom log levels. These make conveying information to the user much more powerful by giving more granular control about the verbosity: instead of in effect having only the `debug` and `info` levels available, there are now the additional levels `trace`, `note`, `progress`, `hilight`, and `success`.
+
 
 ## v0.8.1
 - #89 enables the `NetworkGroup` to handle one dimensional data that is not time-labelled.
