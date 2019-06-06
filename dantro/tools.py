@@ -1,5 +1,6 @@
 """This module implements tools that are generally useful in dantro"""
 
+import os
 import sys
 import subprocess
 import collections
@@ -53,6 +54,9 @@ def write_yml(d: dict, *, path: str, mode: str='w'):
     """
     log.debug("Dumping %s to YAML file... mode: %s, target:\n  %s",
               type(d).__name__, mode, path)
+
+    # Make sure the directory is present
+    os.makedirs(os.path.dirname(path), exist_ok=True)
 
     with open(path, mode) as yaml_file:
         # Add the yaml '---' prefix
