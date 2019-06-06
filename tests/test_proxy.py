@@ -52,6 +52,9 @@ def test_Hdf5DataProxy(tmp_h5file):
     assert foo.size == 3
     assert foo.chunks is None
 
+    # Tags
+    assert 'hdf5' in foo.tags
+
     # No h5files should have been kept in memory
     assert not foo._h5files
 
@@ -91,6 +94,10 @@ def test_Hdf5DataProxy_resolve_as_dask(tmp_h5file):
     assert foochunk.size == 3
     assert foochunk.chunks == (1,)
     
+    # Check tags
+    assert 'hdf5' in foochunk.tags
+    assert 'dask' in foochunk.tags
+
     # There should be a h5file in memory
     assert foochunk._h5files
 

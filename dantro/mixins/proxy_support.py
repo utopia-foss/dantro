@@ -131,9 +131,13 @@ class ProxySupportMixin:
                       self.proxy.classname, self.logstr)
 
     def _format_info(self) -> str:
-        """Adds an indicator to whether data is proxy to the info string"""
+        """Adds an indicator to whether data is proxy to the info string.
+        Additionally, the proxy tags are appended.
+        """
         if self.data_is_proxy:
-            return "proxy, " + super()._format_info()
+            tags = (" ({})".format(", ".join(self.proxy.tags))
+                    if self.proxy.tags else "")
+            return "proxy{}, {}".format(tags, super()._format_info())
         return super()._format_info()
 
 

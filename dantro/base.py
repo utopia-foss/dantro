@@ -15,7 +15,7 @@ import abc
 import copy
 import logging
 import inspect
-from typing import Union, List
+from typing import Union, List, Tuple
 
 import dantro.abc
 from .abc import PATH_JOIN_CHAR
@@ -38,6 +38,14 @@ class BaseDataProxy(dantro.abc.AbstractDataProxy):
     def __init__(self, obj):
         """Initialize a proxy object for the given object."""
         log.debug("Initialising %s for %s ...", self.classname, type(obj))
+
+        # Specify the tags of this proxy; none by default
+        self._tags = tuple()
+
+    @property
+    def tags(self) -> Tuple[str]:
+        """The tags describing this proxy object"""
+        return self._tags
 
 
 # -----------------------------------------------------------------------------
@@ -618,6 +626,10 @@ class BaseDataGroup(LockDataMixin, PathMixin, AttrsMixin,
 
         return False
 
+    def _ipython_key_completions_(self) -> List[str]:
+        """For ipython integration, return a list of available keys"""
+        return list(self.keys())
+
     # .........................................................................
     # Iteration
 
@@ -672,7 +684,7 @@ class BaseDataGroup(LockDataMixin, PathMixin, AttrsMixin,
         return self._tree_repr()
 
     def _tree_repr(self, level: int=0, info_fstr="<{:cls_name,info}>",
-                   info_ratio: float=0.5) -> str:
+                   info_ratio: float=0.6) -> str:
         """Recursively creates a multi-line string tree representation of this
         group. This is used by, e.g., the _format_tree method.
         

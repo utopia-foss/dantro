@@ -47,6 +47,15 @@ def test_BaseDataGroup():
     with pytest.raises(ValueError, match="cannot carry out __setitem__"):
         root['baz'] = dtr.groups.OrderedDataGroup(name="baz")
 
+    # String representation
+    assert "foo" in str(foo)
+    assert foo.logstr in str(foo)
+    assert repr(foo) == str(foo)
+
+    # Accessing data directly
+    with pytest.raises(AttributeError, match="Cannot directly access group"):
+        foo.data
+
     # Put passing on the __item__ calls to the object beneath should work
     assert root['foo/bar/obj/test'] == 123
     root['foo/bar/obj/test'] = 234
@@ -118,3 +127,7 @@ def test_BaseDataGroup():
 
     with pytest.raises(NotImplementedError, match="is not supported"):
         root.setdefault(foo)
+
+
+    # IPython key completions
+    assert root._ipython_key_completions_() == list(root.keys())
