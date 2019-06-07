@@ -1,6 +1,7 @@
 """This module implements specialisations of the BaseDataContainer class."""
 
 import logging
+from itertools import product
 from typing import Union, List, Dict, Tuple, Sequence
 
 import numpy as np
@@ -10,6 +11,7 @@ import copy
 from ..base import BaseDataContainer, ItemAccessMixin, CheckDataMixin
 from ..mixins import ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin
 from ..abc import AbstractDataProxy
+from ..utils import Link
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -332,11 +334,8 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
         """
         def extract_coords_from_attr(dim_name: str, dim_num: int):
             """Sets coordinates for a single dimension with the given name"""
-            # Check if there is an attribute available to use
-            cargs = self.attrs.get(self._XRC_COORDS_ATTR_PREFIX + dim_name,
-                                    None)
-            if cargs is None:
-                return
+            # Get the attribute
+            cargs = self.attrs.get(self._XRC_COORDS_ATTR_PREFIX + dim_name)
             
             # Determine the mode to interpret the attribute values
             mode = self.attrs.get(self._XRC_COORDS_MODE_ATTR_PREFIX + dim_name,
@@ -347,11 +346,15 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
             # Distinguish by mode
             if mode in ['list', 'values']:
                 # The attribute value are the coordinates
-                coords = cargs
+                return cargs
+            
+            elif mode in ['trivial', 'indices']:
+                # Trivial coordinates
+                return list(range(self.shape[dim_num]))
 
             elif mode in ['arange', 'range', 'rangeexpr', 'range_expr']:
                 # Interpret values as a range expression
-                coords = np.arange(*cargs)
+                return np.arange(*cargs)
 
             elif mode in ['start_and_step']:
                 # Interpret as integer start and step of range expression
@@ -359,15 +362,24 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
                 start, step = cargs
 
                 stop = start + (step * self.shape[dim_num])
-                coords = list(range(int(start), int(stop), int(step)))
+                return list(range(int(start), int(stop), int(step)))
 
             elif mode in ['linked', 'from_path']:
-                raise NotImplementedError("Linked datasets for coordinates "
-                                          "are not yet supported!")
+                # Parse potential numpy array arguments to string
+                if isinstance(cargs, np.ndarray):
+                    cargs = cargs.item()
+
+                # Problem: at this point, this container does not know its
+                # full path within the data tree. Thus, coordinate resolution
+                # has to be postponed until it is clear.
+                # Instead, create a link object, which can forward to an actual
+                # container once the coordinates are applied...
+                return Link(anchor=self, rel_path=cargs)
 
             else:
-                modes = ['list', 'values', 'arange', 'range', 'rangeexpr',
-                         'range_expr', 'start_and_step', 'linked', 'from_path']
+                modes = ['list', 'values', 'trivial', 'indices',
+                         'arange', 'range', 'rangeexpr', 'range_expr',
+                         'start_and_step', 'linked', 'from_path']
                 mode_attr_name = self._XRC_COORDS_MODE_ATTR_PREFIX + dim_name
 
                 raise ValueError("Invalid mode '{}' to interpret coordinate "
@@ -377,7 +389,6 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
                                  "Possible modes: {}"
                                  "".format(mode, mode_attr_name,
                                            ", ".join(modes)))
-            return coords
            
         # Dict to save the mapping from dim_names to coordinates
         coords_map = dict()
@@ -399,21 +410,24 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
             prefixes = [self._XRC_COORDS_ATTR_PREFIX,
                         self._XRC_COORDS_MODE_ATTR_PREFIX]
             
-            for attr_name in self.attrs.keys():
-                for prefix in prefixes:
-                    # See whether there are matching attributes that were not
-                    # already extracted above
-                    if (    attr_name.startswith(prefix)
-                        and attr_name[len(prefix):] not in coords_map):
-                        dim_names_avail = [d for d in self._dim_names
-                                           if d is not None]
-                        raise ValueError("Got superfluous container attribute "
-                                         "'{}' that does not match a labelled "
-                                         "dimension! Available names: {}. "
-                                         "Either remove the attribute or turn "
-                                         "strict attribute checking off."
-                                         "".format(attr_name,
-                                                   ", ".join(dim_names_avail)))
+            for attr_name, prefix in product(self.attrs.keys(), prefixes):
+                # See whether there are matching attributes that were not
+                # already extracted above
+                if (    attr_name.startswith(prefix)
+                    and attr_name[len(prefix):] not in coords_map):
+                    print(coords_map)
+                    dim_names_avail = [d for d in self._dim_names
+                                       if d is not None]
+                    raise ValueError("Got superfluous container attribute "
+                                     "'{}' that does not match a labelled "
+                                     "dimension in {}! "
+                                     "Valid attribute prefixes: {}. "
+                                     "Available dimension names: {}. "
+                                     "Either remove the attribute or turn "
+                                     "strict attribute checking off."
+                                     "".format(attr_name, self.logstr,
+                                               ", ".join(prefixes),
+                                               ", ".join(dim_names_avail)))
             
         # All good. Return it.
         return coords_map
@@ -459,12 +473,19 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
             log.debug("Associating coordinates:  %s", self._dim_to_coords_map)
 
             for dim_name, coords in self._dim_to_coords_map.items():
+                # Need to handle links differently
+                if isinstance(coords, Link):
+                    # The target object is another DataContainer, which can not
+                    # be used for association. Thus, just pass the raw data...
+                    coords = coords.target_object.values  # np.ndarray now
+
+                # Can associate now.
                 try:
                     self.data.coords[dim_name] = coords
                 
                 except Exception as err:
                     raise ValueError("Could not associate coordinates {} for "
-                                     "dimension '{}' due to {}: {}"
+                                     "dimension '{}' due to a {}: {}."
                                      "".format(coords, dim_name,
                                                err.__class__.__name__, err)
                                      ) from err

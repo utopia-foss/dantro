@@ -10,6 +10,10 @@ import pytest
 
 import dantro
 import dantro.utils
+import dantro.groups
+
+from dantro.containers import ObjectContainer
+from dantro.mixins import ForwardAttrsToDataMixin
 
 # Fixtures --------------------------------------------------------------------
 
@@ -162,3 +166,37 @@ def test_KeyOrderedDict():
     kod._key = lambda k: None
     with pytest.raises(ValueError, match="Failed comparing 'None'"):
         kod["foo"] = "bar"
+
+
+def test_Link():
+    """Test the Link class"""
+    Link = dantro.utils.Link
+
+    class StringContainer(ForwardAttrsToDataMixin, ObjectContainer):
+        pass
+
+    # Build up a circular scenario
+    foo = StringContainer(name="foo", data="foo_data")
+    bar = StringContainer(name="bar", data="bar_data")
+    
+    some_grp = dantro.groups.OrderedDataGroup(name="root")
+    some_grp.add(foo, bar)
+
+    link2bar = Link(anchor=foo, rel_path="../bar")
+    link2foo = Link(anchor=bar, rel_path="../foo")
+
+    assert link2bar.anchor_weakref() is foo
+    assert link2foo.anchor_weakref() is bar
+
+    assert link2bar.anchor_object is foo
+    assert link2foo.anchor_object is bar
+    
+    assert link2bar.target_rel_path == "../bar"
+    assert link2foo.target_rel_path == "../foo"
+
+    assert link2bar.target_object is bar
+    assert link2foo.target_object is foo
+
+    # Test attribute forwarding
+    assert link2bar.upper() == "BAR_DATA"
+    assert link2foo.upper() == "FOO_DATA"

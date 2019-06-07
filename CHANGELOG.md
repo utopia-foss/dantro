@@ -5,6 +5,7 @@
 ## v0.9.0 _(unreleased)_
 - #76 and !91 improve working interactively with dantro, e.g. by providing the `__repr__` method and adding IPython key completion for group members.
 - !95 makes it possible to use forward slashes in plot names, which will lead to the corresponding directories being created in the evaluation directory.
+- #74 adds the `Link` class and `LinkContainer`, which allow having links from one container or group to another, given that they are all within the same data tree. Furthermore, this allows the `XrDataContainer` to use a linked container for coordinates (new coordinate modes: `linked`, `from_path`). Additionally, the `XrDataContainer` also supports coordinate modes `trivial` and `indices` now, which both assign the trivial indices to the dimension without the need for further arguments.
 
 
 ## v0.8.1
