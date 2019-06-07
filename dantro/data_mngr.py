@@ -479,7 +479,12 @@ class DataManager(OrderedDataGroup):
     # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     # Helpers for loading and storing data
 
-    def _load(self, *, target_path: str, loader: str, glob_str: Union[str, List[str]], load_as_attr: Union[str, None], ignore: List[str]=None, required: bool=False, path_regex: str=None, exists_action: str='raise', unpack_data: bool=False, progress_indicator: bool=True, parallel: bool=False, **loader_kwargs) -> None:
+    def _load(self, *, target_path: str, loader: str,
+              glob_str: Union[str, List[str]], load_as_attr: Union[str, None],
+              ignore: List[str]=None, required: bool=False,
+              path_regex: str=None, exists_action: str='raise',
+              unpack_data: bool=False, progress_indicator: bool=True,
+              parallel: bool=False, **loader_kwargs) -> None:
         """Helper function that loads a data entry to the specified path.
         
         Args:
@@ -493,7 +498,8 @@ class DataManager(OrderedDataGroup):
                 loaded into the object at `target_path` under a new attribute
                 with this name.
             ignore (List[str], optional): The exact file names in this list
-                will be ignored during loading. Paths are seen as elative to the data directory.
+                will be ignored during loading. Paths are seen as relative to
+                the data directory.
             required (bool, optional): If True, will raise an error if no files
                 were found.
             path_regex (str, optional): The regex applied to the relative path
@@ -544,7 +550,9 @@ class DataManager(OrderedDataGroup):
 
             return load_func, load_func_name, TargetCls
 
-        def create_files_list(*, glob_str: Union[str, List[str]], ignore: List[str], required: bool=False, sort: bool=False) -> list:
+        def create_files_list(*, glob_str: Union[str, List[str]],
+                              ignore: List[str], required: bool=False,
+                              sort: bool=False) -> list:
             """Create the list of file paths to load from.
 
             Internally, this uses a set, thus ensuring that the paths are
@@ -585,7 +593,7 @@ class DataManager(OrderedDataGroup):
                 gs = os.path.join(self.dirs['data'], gs)
                 log.debug("Adding files that match glob string:\n  %s", gs)
 
-                # Add to the set of files; this assures uniqueness of found paths
+                # Add to the set of files; this assures uniqueness of the paths
                 files.update(list(glob.glob(gs, recursive=True)))
 
             # See if some files should be ignored
@@ -633,7 +641,8 @@ class DataManager(OrderedDataGroup):
 
             return files
 
-        def prepare_target_path(target_path: str, *, filepath: str, path_sre=None) -> List[str]:
+        def prepare_target_path(target_path: str, *, filepath: str,
+                                path_sre=None) -> List[str]:
             """Prepare the target path"""
             # The dict to be filled with formatting parameters
             fps = dict()
@@ -723,7 +732,9 @@ class DataManager(OrderedDataGroup):
                                  "skip_nowarn, overwrite, overwrite_nowarn."
                                  "".format(exists_action))
 
-        def store(obj: Union[BaseDataGroup, BaseDataContainer], *, target_path: List[str], as_attr: Union[str, None], unpack_data: bool) -> None:
+        def store(obj: Union[BaseDataGroup, BaseDataContainer], *,
+                  target_path: List[str], as_attr: Union[str, None],
+                  unpack_data: bool) -> None:
             """Store the given `obj` at the supplied `path`.
             
             Note that this will automatically overwrite, assuming that all
@@ -895,7 +906,8 @@ class DataManager(OrderedDataGroup):
         # Done
         log.debug("Finished loading %d files.", len(files))
 
-    def _contains_group(self, path: Union[str, List[str]], *, base_group: BaseDataGroup=None) -> bool:
+    def _contains_group(self, path: Union[str, List[str]], *,
+                        base_group: BaseDataGroup=None) -> bool:
         """Recursively checks if the given path is available _and_ a group.
         
         Args:
@@ -930,7 +942,9 @@ class DataManager(OrderedDataGroup):
         # End of recursion
         return check(path[0], base_group)
 
-    def _create_groups(self, path: Union[str, List[str]], *, base_group: BaseDataGroup=None, GroupCls: Union[type, str]=None, exist_ok: bool=True):
+    def _create_groups(self, path: Union[str, List[str]], *,
+                       base_group: BaseDataGroup=None,
+                       GroupCls: Union[type, str]=None, exist_ok: bool=True):
         """Recursively create groups for the given path. Unlike new_group, this
         also creates the groups at the intermediate paths.
         

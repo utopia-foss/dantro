@@ -2,6 +2,7 @@
 
 from .general import ObjectContainer
 from .general import MutableSequenceContainer, MutableMappingContainer
+from .link import LinkContainer
 
 from .numeric import NumpyDataContainer
 from .xrdatactr import XrDataContainer

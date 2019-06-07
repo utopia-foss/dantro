@@ -46,7 +46,7 @@ class ForwardAttrsMixin:
         self._forward_attr_pre_hook(attr_name)
 
         # Get the attribute
-        a = getattr(getattr(self, self.FORWARD_ATTR_TO), attr_name)
+        a = getattr(self._forward_attr_get_forwarding_target(), attr_name)
 
         # Pass it through the post-hook
         return self._forward_attr_post_hook(a)
@@ -54,6 +54,10 @@ class ForwardAttrsMixin:
     def _forward_attr_pre_hook(self, attr_name: str=None):
         """Invoked before attribute forwarding occurs"""
         pass
+    
+    def _forward_attr_get_forwarding_target(self):
+        """Get the object that the attribute call is to be forwarded to"""
+        return getattr(self, self.FORWARD_ATTR_TO)
     
     def _forward_attr_post_hook(self, attr):
         """Invoked before attribute forwarding occurs"""
