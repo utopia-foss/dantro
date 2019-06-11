@@ -30,8 +30,8 @@ class Link(ForwardAttrsMixin):
         self.__rel_path = rel_path
         self.__target_ref_cache = None
 
-        log.info("Created link with anchor %s and relative path '%s'.",
-                 anchor.logstr, rel_path)
+        log.debug("Created link with anchor %s and relative path '%s'.",
+                  anchor.logstr, rel_path)
 
     @property
     def target_weakref(self) -> weakref:
