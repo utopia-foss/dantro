@@ -298,6 +298,7 @@ def test_extract_coords():
     """This is mostly tested already by the XrDataContainer test"""
     extract = dantro.utils.coords.extract_coords
 
+    # Invalid mode
     with pytest.raises(ValueError, match="Invalid extraction mode 'bad_mode'"):
         extract(XrDataContainer(name='test', data=[1,2,3]),
                 mode='bad_mode', dims=('foo',))
