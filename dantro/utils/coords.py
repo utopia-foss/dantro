@@ -26,69 +26,6 @@ TCoords = Sequence[TCoord]
 TCoordsDict = Dict[str, TCoords]
 
 
-# Coordinate extraction functions ---------------------------------------------
-# These should all take the coordinate arguments as the first argument and then
-# accept arbitrary keyword-only arguments, of which some may be used to
-# determine the coordinate values
-
-def _coords_start_and_step(cargs, *, data_shape: tuple, dim_num: int,
-                           **__) -> List[int]:
-    """Interpret as integer start and step of range expression and use the
-    length of the data dimension as number of steps"""
-    start, step = cargs
-
-    stop = start + (step * data_shape[dim_num])
-    return list(range(int(start), int(stop), int(step)))
-
-def _coords_trivial(_, *, data_shape: tuple, dim_num: int, **__) -> List[int]:
-    """Returns trivial coordinates for the given dimension"""
-    return list(range(data_shape[dim_num]))
-
-def _coords_scalar(coord, **__) -> List[TCoord]:
-    """Returns a single, scalar coordinate, i.e.: list of length 1"""
-    if isinstance(coord, np.ndarray):
-        coord = coord.item()
-
-    # If it is not iterable, it is a scalar now. Expected return value is a
-    # list, though, so convert it.
-    if not is_iterable(coord):
-        coord = [coord]
-
-    if len(coord) != 1:
-        raise ValueError("Expected scalar coordinate, but got: {}!"
-                         "".format(coord))
-
-    # Make sure it is a list, not a tuple
-    return list(coord)
-
-def _coords_linked(cargs, *, link_anchor_obj, **__) -> Link:
-    """Creates a Link object which is to be used for coordinates"""
-    # Need to parse potential numpy array arguments to string
-    if isinstance(cargs, np.ndarray):
-        cargs = cargs.item()
-
-    # Problem: at this point, the container to be linked to might not
-    # know its full path within the data tree. Thus, coordinate
-    # resolution has to be postponed until it is clear.
-    # For that reason, create a link object, which can forward to an
-    # actual container once the coordinates are applied...
-    return Link(anchor=link_anchor_obj, rel_path=cargs)
-
-
-# Map of extractors ...........................................................
-COORD_EXTRACTORS = {
-    'values':           lambda cargs, **__: cargs,
-    'range':            lambda cargs, **__: list(range(*cargs)),
-    'arange':           lambda cargs, **__: np.arange(*cargs),
-    'linspace':         lambda cargs, **__: np.linspace(*cargs),
-    'logspace':         lambda cargs, **__: np.logspace(*cargs),
-    'start_and_step':   _coords_start_and_step,
-    'trivial':          _coords_trivial,
-    'scalar':           _coords_scalar,
-    'linked':           _coords_linked
-}
-
-
 # Dimension name extraction ---------------------------------------------------
 
 def extract_dim_names(attrs: dict, *, ndim: int, attr_name: str,
@@ -204,6 +141,70 @@ def extract_dim_names(attrs: dict, *, ndim: int, attr_name: str,
 
 
 # Coordinate extraction -------------------------------------------------------
+# Low level extractor functions ...............................................
+# These should all take the coordinate arguments as the first argument and then
+# accept arbitrary keyword-only arguments, of which some may be used to
+# determine the coordinate values
+
+def _coords_start_and_step(cargs, *, data_shape: tuple, dim_num: int,
+                           **__) -> List[int]:
+    """Interpret as integer start and step of range expression and use the
+    length of the data dimension as number of steps"""
+    start, step = cargs
+
+    stop = start + (step * data_shape[dim_num])
+    return list(range(int(start), int(stop), int(step)))
+
+def _coords_trivial(_, *, data_shape: tuple, dim_num: int, **__) -> List[int]:
+    """Returns trivial coordinates for the given dimension"""
+    return list(range(data_shape[dim_num]))
+
+def _coords_scalar(coord, **__) -> List[TCoord]:
+    """Returns a single, scalar coordinate, i.e.: list of length 1"""
+    if isinstance(coord, np.ndarray):
+        coord = coord.item()
+
+    # If it is not iterable, it is a scalar now. Expected return value is a
+    # list, though, so convert it.
+    if not is_iterable(coord):
+        coord = [coord]
+
+    if len(coord) != 1:
+        raise ValueError("Expected scalar coordinate, but got: {}!"
+                         "".format(coord))
+
+    # Make sure it is a list, not a tuple
+    return list(coord)
+
+def _coords_linked(cargs, *, link_anchor_obj, **__) -> Link:
+    """Creates a Link object which is to be used for coordinates"""
+    # Need to parse potential numpy array arguments to string
+    if isinstance(cargs, np.ndarray):
+        cargs = cargs.item()
+
+    # Problem: at this point, the container to be linked to might not
+    # know its full path within the data tree. Thus, coordinate
+    # resolution has to be postponed until it is clear.
+    # For that reason, create a link object, which can forward to an
+    # actual container once the coordinates are applied...
+    return Link(anchor=link_anchor_obj, rel_path=cargs)
+
+
+# Map of extractors ...........................................................
+COORD_EXTRACTORS = {
+    'values':           lambda cargs, **__: cargs,
+    'range':            lambda cargs, **__: list(range(*cargs)),
+    'arange':           lambda cargs, **__: np.arange(*cargs),
+    'linspace':         lambda cargs, **__: np.linspace(*cargs),
+    'logspace':         lambda cargs, **__: np.logspace(*cargs),
+    'start_and_step':   _coords_start_and_step,
+    'trivial':          _coords_trivial,
+    'scalar':           _coords_scalar,
+    'linked':           _coords_linked
+}
+
+
+# Actual (high-level) extraction functions ....................................
 
 def extract_coords_from_attrs(obj: AbstractDataContainer, *,
                               dims: Tuple[Union[str, None]], strict: bool,
@@ -273,6 +274,10 @@ def extract_coords_from_attrs(obj: AbstractDataContainer, *,
         mode = default_mode
         if mode_attr_prefix:
             mode = attrs.get(mode_attr_prefix + dim_name, default_mode)
+
+        # Might have to process the mode, e.g. because it is an array-type
+        if isinstance(mode, np.ndarray):
+            mode = mode.item()
 
         # Check if the mode is available
         if mode not in COORD_EXTRACTORS:

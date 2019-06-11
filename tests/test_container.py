@@ -508,6 +508,12 @@ def test_XrDataContainer():
                                       coords_mode__time='linked'))
     # NOTE This works properly only when using proxies; tested seperately
 
+    # array-like mode value (as frequently produced by hdf5 data) . . . . . . .
+    xrdc = XrDataContainer(name="xrdc", data=np.arange(10),
+                           attrs=dict(dims=['time'],
+                                      coords_mode__time=np.array(['trivial'])))
+    assert (xrdc.coords['time'] == list(range(10))).all()
+
     # Error messages . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
     # Invalid coordinate mode
     with pytest.raises(ValueError, match="Invalid mode 'invalid' to interpre"):
