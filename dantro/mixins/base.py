@@ -209,6 +209,11 @@ class CheckDataMixin:
     
     It implements a general _check_data method, overwriting the placeholder 
     method in the BaseDataContainer, and can be controlled via class variables.
+
+    .. note::
+
+        This is not suitable for checking containers that are added to an
+        object of a BaseDataGroup-derived class!
     
     Attributes:
         DATA_ALLOW_PROXY (bool): Whether to allow _all_ proxy types, i.e.

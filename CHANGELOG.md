@@ -6,7 +6,9 @@
 - #76 and !91 improve working interactively with dantro, e.g. by providing the `__repr__` method and adding IPython key completion for group members.
 - !95 makes it possible to use forward slashes in plot names, which will lead to the corresponding directories being created in the evaluation directory.
 - #74 adds the `Link` class and `LinkContainer`, which allow having links from one container or group to another, given that they are all within the same data tree. Furthermore, this allows the `XrDataContainer` to use a linked container for coordinates (new coordinate modes: `linked`, `from_path`). Additionally, the `XrDataContainer` also supports coordinate modes `trivial` and `indices` now, which both assign the trivial indices to the dimension without the need for further arguments.
-
+- #56 modularizes coordinate handling and adds `LabelledDataGroup`, which allows to work with all sorts of labelled data using the xarray selection interface. It not only allows to select a single element from the group, but follows the same selection syntax as in xarray and furthermore allows to perform a `deep` selection alongside, going down into the member data before combining the data. This brings along two specializations:
+    - The `TimeSeriesGroup` now has the full feature set for its `isel` and `sel` methods.
+    - There is the `HeterogeneousTimeSeriesGroup` which has high flexibility in how the labelled data is stored: containers of this group may represent data stored at irregular times, with overlapping or non-overlapping coordinate values, and also representing more than a single time snapshot.
 
 ## v0.8.1
 - #89 enables the `NetworkGroup` to handle one dimensional data that is not time-labelled.
