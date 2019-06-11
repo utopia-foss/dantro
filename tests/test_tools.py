@@ -36,6 +36,12 @@ def test_fill_line():
     assert t.center_in_line("foob", num_cols=10) == "·· foob ··"  # cdot!
     assert t.center_in_line("foob", num_cols=10, spacing=2) == "·  foob  ·"
 
+def test_is_iterable():
+    """Tests the is_iterable function"""
+    assert t.is_iterable("foo")
+    assert t.is_iterable([1,2,3])
+    assert not t.is_iterable(123)
+
 def test_decode_bytestrings():
     """Tests the decode bytestrings function"""
     decode = t.decode_bytestrings

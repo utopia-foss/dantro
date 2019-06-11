@@ -180,7 +180,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 extractable from the loaded field. This allows merging for data
                 with different extends in an unlabelled dimension.
             **kwargs: Passed along either to xr.concat or xr.merge, depending
-                on the method argument.
+                on the ``method`` argument.
         
         Raises:
             ValueError: Raised in multiple scenarios:
@@ -334,7 +334,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
             # Check the dtype and convert, if needed
             if dtype and data.dtype != dtype:
                 log.debug("Converting data from '%s' with dtype %s to %s ...",
-                          "/".join(path), data.dtype, dtype)
+                          PATH_JOIN_CHAR.join(path), data.dtype, dtype)
                 data = data.astype(dtype)
 
             # Get the attributes
@@ -509,18 +509,15 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
             # Store it in the array of datasets
             dsets[arr_it.multi_index] = _dset
 
-        
         # All data points collected now.
-        # TODO consider warning if there are a high number of points. Also,
-        #      it would be great if this could be parallelized ... via dask?!
 
         # Finally, combine all the datasets together into a dataset with
         # potentially non-homogeneous data type. This will have at least the
         # dimensions given by the parameter space aligned, but there could
-        # be potentially more dimensions!
+        # be potentially more dimensions.
 
         try:
-            combined_dset = combine(method=method, dsets=dsets, psp=psp)
+            return combine(method=method, dsets=dsets, psp=psp)
 
         except ValueError as err:
             raise ValueError("Combination of datasets failed; see below. This "
@@ -529,5 +526,3 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                              "coordinates (i.e.: the indices) to unlabelled "
                              "dimensions by setting the `idx_as_label` "
                              "argument to True.") from err
-
-        return combined_dset

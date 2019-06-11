@@ -129,8 +129,10 @@ def clear_line(only_in_tty=True, break_if_not_tty=True):
     # flush manually (there might not have been a linebreak)
     sys.stdout.flush()
 
-def fill_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str=" ", align: str="left") -> str:
-    """Extends the given string such that it fills a whole line of `num_cols` columns.
+def fill_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str=" ",
+              align: str="left") -> str:
+    """Extends the given string such that it fills a whole line of `num_cols`
+    columns.
     
     Args:
         s (str): The string to extend to a whole line
@@ -163,7 +165,8 @@ def fill_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str=" ", align: str=
 
     raise ValueError("align argument '{}' not supported".format(align))
 
-def center_in_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str="·", spacing: int=1) -> str:
+def center_in_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str="·",
+                   spacing: int=1) -> str:
     """Shortcut for a common fill_line use case.
     
     Args:
@@ -183,7 +186,8 @@ def center_in_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str="·", spaci
 # -----------------------------------------------------------------------------
 # Numerics
 
-def apply_along_axis(func, axis: int, arr: np.ndarray, *args, **kwargs) -> np.ndarray:
+def apply_along_axis(func, axis: int, arr: np.ndarray,
+                     *args, **kwargs) -> np.ndarray:
     """This is like numpy's function of the same name, but does not try to
     cast the results of func to an np.ndarray but tries to keep them as dtype
     object. Thus, the return value of this function will always have one fewer
@@ -200,7 +204,7 @@ def apply_along_axis(func, axis: int, arr: np.ndarray, *args, **kwargs) -> np.nd
     out = np.zeros(shape_outer + shape_inner, dtype='object')
     out.fill(None)
 
-    log.debug("apply_along_axis called")
+    log.debug("Applying function '%s' along axis ...", func.__name__)
     log.debug("  input array:     %s, %s", arr.shape, arr.dtype)
     log.debug("  axis to reduce:  %d", axis)
     log.debug("  output will be:  %s, %s", out.shape, out.dtype)
@@ -220,7 +224,6 @@ def apply_along_axis(func, axis: int, arr: np.ndarray, *args, **kwargs) -> np.nd
         # point in the iteration over the output array.
         out[midx] = func(arr[sel], *args, **kwargs)
 
-    log.debug("  finished iteration, returning output array...")
     return out
 
 # -----------------------------------------------------------------------------
@@ -260,11 +263,18 @@ def decode_bytestrings(obj) -> str:
 
 
 # -----------------------------------------------------------------------------
-# rc_context
+# Misc
+
+def is_iterable(obj) -> bool:
+    """Tries whether the given object is iterable."""
+    try:
+        (e for e in obj)
+    except:
+        return False
+    return True
 
 class DoNothingContext:
-    """A context manager that ... does nothing.
-    """
+    """A context manager that ... does nothing."""
 
     def __init__(self):
         pass
@@ -274,6 +284,6 @@ class DoNothingContext:
         pass
 
     def __exit__(self, *args):
-        """Called upon exiting the context, with *args representing exceptions etc"""
+        """Called upon exiting context, with *args being exceptions etc."""
         pass
 

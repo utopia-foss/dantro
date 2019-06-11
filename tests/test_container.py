@@ -419,7 +419,7 @@ def test_XrDataContainer():
                         attrs=dict(dim_name__0=123))
 
     # Bad dimension number
-    with pytest.raises(ValueError, match="exceeds the rank \(2\)"):
+    with pytest.raises(ValueError, match="exceeds the given rank 2!"):
         XrDataContainer(name="xrdc_dims_3", data=[[1,2,3], [4,5,6]],
                         attrs=dict(dim_name__10="foo"))
 
@@ -448,7 +448,7 @@ def test_XrDataContainer():
                                attrs=dict(dims=['time'],
                                           coords__time=['Jan', 'Feb']))
     
-    with pytest.raises(ValueError, match="Got superfluous container attr"):
+    with pytest.raises(ValueError, match="Got superfluous attribute 'coords_"):
         xrdc = XrDataContainer(name="xrdc_coord_mismatch",
                                data=[1,2,3,4],
                                attrs=dict(dims=['time'],
@@ -464,19 +464,19 @@ def test_XrDataContainer():
     xrdc = XrDataContainer(name="xrdc", data=np.arange(10),
                            attrs=dict(dims=['time'],
                                       coords__time=[10],
-                                      coords_mode__time='range'))
+                                      coords_mode__time='arange'))
     assert np.all(np.arange(10) == xrdc.data.coords['time'])
     
     xrdc = XrDataContainer(name="xrdc", data=np.arange(10),
                            attrs=dict(dims=['time'],
                                       coords__time=[3, 13],
-                                      coords_mode__time='range'))
+                                      coords_mode__time='arange'))
     assert np.all(np.arange(3, 13) == xrdc.data.coords['time'])
 
     xrdc = XrDataContainer(name="xrdc", data=np.arange(10),
                            attrs=dict(dims=['time'],
                                       coords__time=[0, 100, 10],
-                                      coords_mode__time='range'))
+                                      coords_mode__time='arange'))
     assert np.all(np.arange(0, 100, 10) == xrdc.data.coords['time'])
 
     # start and step values . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -485,6 +485,20 @@ def test_XrDataContainer():
                                       coords__time=[0, 2],
                                       coords_mode__time='start_and_step'))
     assert np.all(list(range(0, 20, 2)) == xrdc.data.coords['time'])
+    
+    # trivial . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    xrdc = XrDataContainer(name="xrdc", data=np.arange(10),
+                           attrs=dict(dims=['time'],
+                                      coords__time=[0, 2],
+                                      coords_mode__time='trivial'))
+    assert np.all(list(range(10)) == xrdc.data.coords['time'])
+    
+    # scalar . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    xrdc = XrDataContainer(name="xrdc", data=[0],
+                           attrs=dict(dims=['time'],
+                                      coords__time=[42],
+                                      coords_mode__time='scalar'))
+    assert xrdc.data.coords['time'] == [42]
 
 
     # linked mapping . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -494,12 +508,21 @@ def test_XrDataContainer():
                                       coords_mode__time='linked'))
     # NOTE This works properly only when using proxies; tested seperately
 
-    # Invalid coordinate mode . . . . . . . . . . . . . . . . . . . . . . . . .
+    # Error messages . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
+    # Invalid coordinate mode
     with pytest.raises(ValueError, match="Invalid mode 'invalid' to interpre"):
         XrDataContainer(name="invalid_coord_type", data=[1,2,3],
                         attrs=dict(dims=['time'],
                                    coords__time=[0, 1, 2],
                                    coords_mode__time='invalid'))
+
+    with pytest.raises(ValueError,
+                       match="Failed extracting coordinates .* 'scalar'.*"):
+        XrDataContainer(name="bad_coord_val", data=[1,2,3],
+                        attrs=dict(dims=['time'],
+                                   coords__time=[0, 1, 2],
+                                   coords_mode__time='scalar'))
+
 
     # without strict attribute checking . . . . . . . . . . . . . . . . . . . .
     class TolerantXrDataContainer(XrDataContainer):

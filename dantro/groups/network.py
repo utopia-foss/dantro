@@ -7,7 +7,7 @@ import numpy as np
 import networkx as nx
 import networkx.exception
 
-from .labelled import TimeSeriesGroup
+from . import TimeSeriesGroup
 from ..base import BaseDataGroup
 from ..containers import XrDataContainer
 
