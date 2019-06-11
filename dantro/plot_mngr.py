@@ -784,7 +784,8 @@ class PlotManager:
         #      evaluation of that part of the out_dir path is postponed
         #      to when the actual plot with that name is created.
 
-        log.info("Performing plots from %d entries ...", len(plots_cfg))
+        log.hilight("Performing plots from %d plot configuration entr%s ...",
+                    len(plots_cfg), "ies" if len(plots_cfg) != 1 else "y")
 
         # Loop over the configured plots
         for plot_name, cfg in plots_cfg.items():
@@ -799,8 +800,9 @@ class PlotManager:
                 self.plot(plot_name, out_dir=out_dir, **cfg)
 
         # All done
-        log.info("Successfully performed plots for %d configuration(s).",
-                 len(plots_cfg))
+        log.success("Successfully performed plots for %d plot "
+                    "configuration%s.\n",
+                    len(plots_cfg), "s" if len(plots_cfg) != 1 else "")
 
     def plot(self, name: str, *,
              based_on: Union[str, Tuple[str]]=None,
@@ -955,7 +957,7 @@ class PlotManager:
 
         # Distinguish single calls and parameter sweeps
         if not from_pspace:
-            log.info("Performing '%s' plot ...", name)
+            log.progress("Performing '%s' plot ...", name)
 
             # Generate the output path
             out_dir = self._parse_out_dir(out_dir, name=name)
@@ -974,7 +976,7 @@ class PlotManager:
                                   save=save_plot_cfg,
                                   target_dir=os.path.dirname(out_path))
             
-            log.info("Finished '%s' plot.", name)
+            log.progress("Finished '%s' plot.\n", name)
 
         else:
             # If it is not already a ParamSpace, create one
@@ -986,7 +988,7 @@ class PlotManager:
             psp_vol = from_pspace.volume
             psp_dims = from_pspace.dims
 
-            log.info("Performing %d '%s' plots ...", psp_vol, name)
+            log.progress("Performing %d '%s' plots ...", psp_vol, name)
 
             # Parse the output directory, such that all plots are together in
             # one directory even if the timestamp varies
@@ -1032,8 +1034,8 @@ class PlotManager:
                                       save=False, # TODO check if reasonable
                                       target_dir=os.path.dirname(out_path))
 
-                log.info("  Finished plot {n:{d:}d} / {v:}."
-                         "".format(n=n+1, d=len(str(psp_vol)), v=psp_vol))
+                log.progress("Finished plot {n:{d:}d} / {v:}."
+                             "".format(n=n+1, d=len(str(psp_vol)), v=psp_vol))
 
             # Save the plot configuration alongside, if configured to do so
             if save_plot_cfg:
@@ -1041,7 +1043,7 @@ class PlotManager:
                                     creator_name=creator,
                                     target_dir=out_dir, is_sweep=True)
 
-            log.info("Finished all '%s' plots.", name)
+            log.progress("Finished all '%s' plots.\n", name)
 
         # Done now. Return the plot creator object
         return plot_creator

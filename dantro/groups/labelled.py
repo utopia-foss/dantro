@@ -590,8 +590,8 @@ class LabelledDataGroup(OrderedDataGroup):
                 # NOTE The exception is now something other than a member
                 #      missing, i.e. some numerical issue during concatenation
                 # Try again with merging ...
-                log.info("Failed concatenation with %s: %s",
-                         exc.__class__.__name__, exc)
+                log.warning("Failed concatenation with %s: %s",
+                            exc.__class__.__name__, exc)
                 dset = self._combine_by_merge(dsets)
 
         else:

@@ -9,6 +9,7 @@
 - #56 modularizes coordinate handling and adds `LabelledDataGroup`, which allows to work with all sorts of labelled data using the xarray selection interface. It not only allows to select a single element from the group, but follows the same selection syntax as in xarray and furthermore allows to perform a `deep` selection alongside, going down into the member data before combining the data. This brings along two specializations:
     - The `TimeSeriesGroup` now has the full feature set for its `isel` and `sel` methods.
     - There is the `HeterogeneousTimeSeriesGroup` which has high flexibility in how the labelled data is stored: containers of this group may represent data stored at irregular times, with overlapping or non-overlapping coordinate values, and also representing more than a single time snapshot.
+- #22 adds the `logging` module, which implements custom log levels. These make conveying information to the user much more powerful by giving more granular control about the verbosity: instead of in effect having only the `debug` and `info` levels available, there are now the additional levels `trace`, `note`, `progress`, `hilight`, and `success`.
 
 ## v0.8.1
 - #89 enables the `NetworkGroup` to handle one dimensional data that is not time-labelled.
