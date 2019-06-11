@@ -301,7 +301,7 @@ class DataManager(OrderedDataGroup):
             load_cfg = recursive_update(load_cfg, update_load_cfg)
             log.debug("Updated the load configuration.")
 
-        log.info("Loading %d data entries ...", len(load_cfg))
+        log.hilight("Loading %d data entries ...", len(load_cfg))
 
         # Loop over the data entries that were configured to be loaded
         for entry_name, params in load_cfg.items():
@@ -319,9 +319,7 @@ class DataManager(OrderedDataGroup):
                       **params)
         
         # All done
-        log.info("Successfully loaded %d data entries.", len(load_cfg))
-        log.info("Available top-level entries:\n  %s\n", 
-                 ",  ".join(self.keys()))
+        log.success("Successfully loaded %d data entries.", len(load_cfg))
 
         # Finally, print the tree
         if print_tree:
@@ -409,7 +407,7 @@ class DataManager(OrderedDataGroup):
                 log.debug("Target path will be:  %s", _target_path)    
 
         # Some preparations
-        log.info("Loading data entry '%s' ...", entry_name)
+        log.progress("Loading data entry '%s' ...", entry_name)
 
         # Parse the arguments that result in the target path
         if load_as_attr:
@@ -451,9 +449,9 @@ class DataManager(OrderedDataGroup):
 
         # Try loading the data and handle specific DataManagerErrors
         try:
-            self._load(target_path=target_path, loader=loader,
-                       glob_str=glob_str, load_as_attr=load_as_attr,
-                       **load_params)
+            num_files = self._load(target_path=target_path, loader=loader,
+                                   glob_str=glob_str,
+                                   load_as_attr=load_as_attr, **load_params)
 
         except RequiredDataMissingError:
             raise
@@ -467,12 +465,10 @@ class DataManager(OrderedDataGroup):
             raise
 
         else:
-            # Everything as desired
-            log.debug("Data successfully loaded.")
+            # Everything loaded as desired
+            log.progress("Loaded all data for entry '%s'.\n", entry_name)
 
-        # Done with this entry
-        log.debug("Entry '%s' successfully loaded.", entry_name)
-
+        # Done with this entry. Print tree, if desired.
         if print_tree:
             print(self.tree)
     
@@ -484,7 +480,7 @@ class DataManager(OrderedDataGroup):
               ignore: List[str]=None, required: bool=False,
               path_regex: str=None, exists_action: str='raise',
               unpack_data: bool=False, progress_indicator: bool=True,
-              parallel: bool=False, **loader_kwargs) -> None:
+              parallel: bool=False, **loader_kwargs) -> int:
         """Helper function that loads a data entry to the specified path.
         
         Args:
@@ -522,7 +518,10 @@ class DataManager(OrderedDataGroup):
         
         Raises:
             NotImplementedError: For `parallel == True`
-            ValueError: Description
+            ValueError
+        
+        Returns:
+            int: Number of files that data was loaded from
         """
 
         def resolve_loader(loader: str) -> Tuple[Callable, str, Callable]:
@@ -617,8 +616,9 @@ class DataManager(OrderedDataGroup):
                         log.debug("%s removed from set of files.", rmf)
 
             # Now the file list is final
-            log.debug("Found %d files to load:\n  %s",
-                      len(files), "\n  ".join(files))
+            log.note("Found %d file%s to load.",
+                     len(files), "s" if len(files) != 1 else "")
+            log.debug("\n  %s", "\n  ".join(files))
 
             if not files:
                 # No files found; exit here, one way or another
@@ -904,7 +904,8 @@ class DataManager(OrderedDataGroup):
             clear_line()
 
         # Done
-        log.debug("Finished loading %d files.", len(files))
+        log.debug("Finished loading data from %d file(s).", len(files))
+        return len(files)
 
     def _contains_group(self, path: Union[str, List[str]], *,
                         base_group: BaseDataGroup=None) -> bool:
