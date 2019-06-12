@@ -1,17 +1,12 @@
-"""The dantro package supplies classes to load and manipulate hierarchically
-organised data
-"""
-
-# Configure the logging module for the whole package here
-import logging
-logging.basicConfig(format="%(levelname)-7s %(module)-12s %(message)s",
-                    level=logging.INFO)
-log = logging.getLogger(__name__)
-
+"""dantro let's you load and manipulate hierarchically organized data"""
 
 # Package version
-__version__ = '0.8.1'
+__version__ = '0.9.0'
 
+# Configure the logging module for the whole package here by importing the
+# dantro-specific logging module
+from .logging import getLogger
+log = getLogger(__name__)
 
 # Make manager classes available
 from .data_mngr import DataManager

@@ -15,7 +15,7 @@ import abc
 import copy
 import logging
 import inspect
-from typing import Union, List
+from typing import Union, List, Tuple
 
 import dantro.abc
 from .abc import PATH_JOIN_CHAR
@@ -38,6 +38,14 @@ class BaseDataProxy(dantro.abc.AbstractDataProxy):
     def __init__(self, obj):
         """Initialize a proxy object for the given object."""
         log.debug("Initialising %s for %s ...", self.classname, type(obj))
+
+        # Specify the tags of this proxy; none by default
+        self._tags = tuple()
+
+    @property
+    def tags(self) -> Tuple[str]:
+        """The tags describing this proxy object"""
+        return self._tags
 
 
 # -----------------------------------------------------------------------------
@@ -130,8 +138,8 @@ class BaseDataContainer(PathMixin, AttrsMixin,
         should raise an exception or create a warning if the data is not as
         desired.
         
-        NOTE: The CheckDataMixin provides a generalised function to perform
-        some type checks and react to unexpected types.
+        NOTE: The CheckDataMixin provides a generalised implementation of this
+        method to perform some type checks and react to unexpected types.
         
         Args:
             data: The data to check
@@ -318,7 +326,7 @@ class BaseDataGroup(LockDataMixin, PathMixin, AttrsMixin,
 
     def _add_container(self, cont, *, overwrite: bool):
         """Private helper method to add a container to this group."""
-        # Make sure data is not locked
+        # Data may not be locked
         self.raise_if_locked()
 
         # Check the allowed types
@@ -336,6 +344,7 @@ class BaseDataGroup(LockDataMixin, PathMixin, AttrsMixin,
 
         # else: is of correct type
         # Check if one like this already exists
+        old_cont = None
         if cont.name in self:
             if not overwrite:
                 raise ValueError("{} already has a member with name '{}', "
@@ -344,17 +353,16 @@ class BaseDataGroup(LockDataMixin, PathMixin, AttrsMixin,
             log.debug("A member '%s' of %s already exists and will be "
                       "overwritten ...", cont.name, self.logstr)
             old_cont = self[cont.name]
-        
-        else:
-            old_cont = None
 
         # Allow for subclasses to perform further custom checks on the
         # container object before adding it
         self._check_cont(cont)
 
         # Write to data, assuring that the name matches that of the container
-        # and then re-link the containers
         self._add_container_to_data(cont)
+        self._add_container_callback(cont)
+        
+        # Re-link the containers
         self._link_child(new_child=cont, old_child=old_cont)
 
     def _check_cont(self, cont) -> None:
@@ -386,6 +394,10 @@ class BaseDataGroup(LockDataMixin, PathMixin, AttrsMixin,
         """
         # Just add it via _data.__setitem__, using the container's name
         self._data[cont.name] = cont
+
+    def _add_container_callback(self, cont) -> None:
+        """Called after a container was added."""
+        pass
 
     def new_container(self, path: Union[str, list], *,
                       Cls: type=None, **kwargs):
@@ -618,6 +630,10 @@ class BaseDataGroup(LockDataMixin, PathMixin, AttrsMixin,
 
         return False
 
+    def _ipython_key_completions_(self) -> List[str]:
+        """For ipython integration, return a list of available keys"""
+        return list(self.keys())
+
     # .........................................................................
     # Iteration
 
@@ -672,7 +688,7 @@ class BaseDataGroup(LockDataMixin, PathMixin, AttrsMixin,
         return self._tree_repr()
 
     def _tree_repr(self, level: int=0, info_fstr="<{:cls_name,info}>",
-                   info_ratio: float=0.5) -> str:
+                   info_ratio: float=0.6) -> str:
         """Recursively creates a multi-line string tree representation of this
         group. This is used by, e.g., the _format_tree method.
         

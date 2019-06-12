@@ -14,6 +14,7 @@ from dantro.base import BaseDataContainer, CheckDataMixin
 from dantro.base import ItemAccessMixin
 from dantro.mixins.base import UnexpectedTypeWarning
 from dantro.mixins.proxy_support import Hdf5ProxySupportMixin
+from dantro.groups import OrderedDataGroup
 from dantro.containers import MutableSequenceContainer
 from dantro.containers import NumpyDataContainer, XrDataContainer
 from dantro.proxy import Hdf5DataProxy
@@ -418,7 +419,7 @@ def test_XrDataContainer():
                         attrs=dict(dim_name__0=123))
 
     # Bad dimension number
-    with pytest.raises(ValueError, match="exceeds the rank \(2\)"):
+    with pytest.raises(ValueError, match="exceeds the given rank 2!"):
         XrDataContainer(name="xrdc_dims_3", data=[[1,2,3], [4,5,6]],
                         attrs=dict(dim_name__10="foo"))
 
@@ -447,7 +448,7 @@ def test_XrDataContainer():
                                attrs=dict(dims=['time'],
                                           coords__time=['Jan', 'Feb']))
     
-    with pytest.raises(ValueError, match="Got superfluous container attr"):
+    with pytest.raises(ValueError, match="Got superfluous attribute 'coords_"):
         xrdc = XrDataContainer(name="xrdc_coord_mismatch",
                                data=[1,2,3,4],
                                attrs=dict(dims=['time'],
@@ -463,19 +464,19 @@ def test_XrDataContainer():
     xrdc = XrDataContainer(name="xrdc", data=np.arange(10),
                            attrs=dict(dims=['time'],
                                       coords__time=[10],
-                                      coords_mode__time='range'))
+                                      coords_mode__time='arange'))
     assert np.all(np.arange(10) == xrdc.data.coords['time'])
     
     xrdc = XrDataContainer(name="xrdc", data=np.arange(10),
                            attrs=dict(dims=['time'],
                                       coords__time=[3, 13],
-                                      coords_mode__time='range'))
+                                      coords_mode__time='arange'))
     assert np.all(np.arange(3, 13) == xrdc.data.coords['time'])
 
     xrdc = XrDataContainer(name="xrdc", data=np.arange(10),
                            attrs=dict(dims=['time'],
                                       coords__time=[0, 100, 10],
-                                      coords_mode__time='range'))
+                                      coords_mode__time='arange'))
     assert np.all(np.arange(0, 100, 10) == xrdc.data.coords['time'])
 
     # start and step values . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -484,21 +485,50 @@ def test_XrDataContainer():
                                       coords__time=[0, 2],
                                       coords_mode__time='start_and_step'))
     assert np.all(list(range(0, 20, 2)) == xrdc.data.coords['time'])
+    
+    # trivial . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    xrdc = XrDataContainer(name="xrdc", data=np.arange(10),
+                           attrs=dict(dims=['time'],
+                                      coords__time=[0, 2],
+                                      coords_mode__time='trivial'))
+    assert np.all(list(range(10)) == xrdc.data.coords['time'])
+    
+    # scalar . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    xrdc = XrDataContainer(name="xrdc", data=[0],
+                           attrs=dict(dims=['time'],
+                                      coords__time=[42],
+                                      coords_mode__time='scalar'))
+    assert xrdc.data.coords['time'] == [42]
 
 
     # linked mapping . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-    with pytest.raises(NotImplementedError):
-        XrDataContainer(name="xrdc", data=np.arange(10),
-                        attrs=dict(dims=['time'],
-                                   coords__time="../foo",
-                                   coords_mode__time='linked'))
+    xrdc = XrDataContainer(name="xrdc", data=np.arange(10),
+                           attrs=dict(dims=['time'],
+                                      coords__time="",  # refer to itself
+                                      coords_mode__time='linked'))
+    # NOTE This works properly only when using proxies; tested seperately
 
-    # Invalid coordinate mode . . . . . . . . . . . . . . . . . . . . . . . . .
+    # array-like mode value (as frequently produced by hdf5 data) . . . . . . .
+    xrdc = XrDataContainer(name="xrdc", data=np.arange(10),
+                           attrs=dict(dims=['time'],
+                                      coords_mode__time=np.array(['trivial'])))
+    assert (xrdc.coords['time'] == list(range(10))).all()
+
+    # Error messages . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
+    # Invalid coordinate mode
     with pytest.raises(ValueError, match="Invalid mode 'invalid' to interpre"):
         XrDataContainer(name="invalid_coord_type", data=[1,2,3],
                         attrs=dict(dims=['time'],
                                    coords__time=[0, 1, 2],
                                    coords_mode__time='invalid'))
+
+    with pytest.raises(ValueError,
+                       match="Failed extracting coordinates .* 'scalar'.*"):
+        XrDataContainer(name="bad_coord_val", data=[1,2,3],
+                        attrs=dict(dims=['time'],
+                                   coords__time=[0, 1, 2],
+                                   coords_mode__time='scalar'))
+
 
     # without strict attribute checking . . . . . . . . . . . . . . . . . . . .
     class TolerantXrDataContainer(XrDataContainer):
@@ -550,7 +580,7 @@ def test_XrDataContainer_proxy_support(tmp_h5_dset):
     attrs = dict(foo="bar", dims=['x', 'y', 'z'],
                  coords__x=['1 m'], coords__z=['1 cm', '2 cm', '3 cm'])
     
-    # Check that proxy support isenabled now
+    # Check that proxy support is enabled
     assert Hdf5ProxyXrDC.DATA_ALLOW_PROXY
 
     # Create a proxy
@@ -775,3 +805,65 @@ def test_XrDataContainer_dask_integration(tmp_h5file):
 
     assert xrdc.data_is_proxy
     assert xrdc_nodask.data_is_proxy
+
+def test_XrDataContainer_linked_coordinates(tmp_h5_dset):
+    """Test 'linked' and 'from_path' coordinate modes for XrDataContainer"""
+
+    class Hdf5ProxyXrDC(Hdf5ProxySupportMixin, XrDataContainer):
+        pass
+    
+    # Check that proxy support is enabled
+    assert Hdf5ProxyXrDC.DATA_ALLOW_PROXY
+
+    # Create a proxy
+    proxy = Hdf5DataProxy(obj=tmp_h5_dset)  # shape: (1,2,3)
+
+    # Create a XrDataContainer with proxy support and linked coordinates
+    xrdc = Hdf5ProxyXrDC(name="xrdc", data=proxy,
+                         attrs=dict(dims=['x', 'y', 'z'],
+                                    coords_mode__x='linked',
+                                    coords__x='../some_other_data',
+                                    coords_mode__y='linked',
+                                    coords__y='../../coords/y',
+                                    coords_mode__z='linked',
+                                    coords__z='../../coords/more/z'))
+    
+    # Should have succeeded and be a proxy now
+    assert xrdc.data_is_proxy
+
+    # Now, incorporate it into a tree
+    root = OrderedDataGroup(name="root")
+
+    g_data = root.new_group("data")
+    g_data.add(xrdc)
+    g_data.new_container("some_other_data", Cls=XrDataContainer,
+                         data=[3.14])
+
+    g_coords = root.new_group("coords")
+    g_coords.new_container("y", Cls=XrDataContainer, data=[23, 42])
+
+    g_more_coords = g_coords.new_group("more")
+    g_more_coords.new_container("z", Cls=XrDataContainer, data=[2, 4, 8])
+
+    # The original data should still be proxy
+    assert xrdc.data_is_proxy
+
+    # Now, resolving it should lead to link resolution ... which happens in the
+    # backround and just leads to the data being available as coordiantes
+    assert (xrdc.coords['x'] == [3.14]).all()
+    assert (xrdc.coords['y'] == [23, 42]).all()
+    assert (xrdc.coords['z'] == [2, 4, 8]).all()
+
+
+    # Link resolution should fail if not embedded in a data tree
+    lone_xrdc = Hdf5ProxyXrDC(name="xrdc", data=proxy,
+                              attrs=dict(dims=['x', 'y', 'z'],
+                                         coords_mode__x='linked',
+                                         coords__x='../some_other_data',
+                                         coords_mode__y='linked',
+                                         coords__y='../../coords/y',
+                                         coords_mode__z='linked',
+                                         coords__z='../../coords/more/z'))
+
+    with pytest.raises(RuntimeError, match="Failed resolving target of link"):
+        lone_xrdc.coords['x']

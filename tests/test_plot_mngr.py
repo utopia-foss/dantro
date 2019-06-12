@@ -204,6 +204,37 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
     assert_num_plots(pm, 4 + 3)
     assert pm.plot_info[-1]['plot_cfg_path'] is None
 
+def test_plot_locations(dm, pm_kwargs, pcr_ext_kwargs):
+    """Tests the locations of plots and config files are as expected.
+
+    This also makes sure that it is possible to have plot names with slashes
+    in them, which should lead to directories being created.
+    """
+    pm = PlotManager(dm=dm, **pm_kwargs)
+
+    # The plot files and the config file should always be side by side,
+    # regardless of whether the file name has a slash in it or not and also
+    # regardless of whether a sweep is configured or not
+    for name in ("foo", "bar/baz/spam"):
+        # Regular plot
+        pm.plot(name, **pcr_ext_kwargs)
+
+        info = pm.plot_info[-1]
+        assert os.path.isfile(info["out_path"])
+        assert os.path.isfile(info["plot_cfg_path"])
+        assert (   os.path.dirname(info["out_path"])
+                == os.path.dirname(info["plot_cfg_path"]))
+
+        # Sweep plot
+        pm.plot(name, from_pspace=psp.ParamSpace(pcr_ext_kwargs))
+
+        info = pm.plot_info[-1]  # only the last plot
+        assert info["plot_cfg_path"] is None  # not saved for individual plots
+        assert os.path.isfile(info["out_path"])
+        assert os.path.isdir(info["target_dir"])
+        assert os.path.dirname(info["out_path"]) == info["target_dir"]
+        assert os.path.isfile(os.path.join(info["target_dir"],"sweep_cfg.yml"))
+
 
 def test_plotting_from_file_path(dm, pm_kwargs):
     """Test plotting from file path works"""

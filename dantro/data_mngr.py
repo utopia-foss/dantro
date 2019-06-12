@@ -301,7 +301,7 @@ class DataManager(OrderedDataGroup):
             load_cfg = recursive_update(load_cfg, update_load_cfg)
             log.debug("Updated the load configuration.")
 
-        log.info("Loading %d data entries ...", len(load_cfg))
+        log.hilight("Loading %d data entries ...", len(load_cfg))
 
         # Loop over the data entries that were configured to be loaded
         for entry_name, params in load_cfg.items():
@@ -319,9 +319,7 @@ class DataManager(OrderedDataGroup):
                       **params)
         
         # All done
-        log.info("Successfully loaded %d data entries.", len(load_cfg))
-        log.info("Available top-level entries:\n  %s\n", 
-                 ",  ".join(self.keys()))
+        log.success("Successfully loaded %d data entries.", len(load_cfg))
 
         # Finally, print the tree
         if print_tree:
@@ -409,7 +407,7 @@ class DataManager(OrderedDataGroup):
                 log.debug("Target path will be:  %s", _target_path)    
 
         # Some preparations
-        log.info("Loading data entry '%s' ...", entry_name)
+        log.progress("Loading data entry '%s' ...", entry_name)
 
         # Parse the arguments that result in the target path
         if load_as_attr:
@@ -451,9 +449,9 @@ class DataManager(OrderedDataGroup):
 
         # Try loading the data and handle specific DataManagerErrors
         try:
-            self._load(target_path=target_path, loader=loader,
-                       glob_str=glob_str, load_as_attr=load_as_attr,
-                       **load_params)
+            num_files = self._load(target_path=target_path, loader=loader,
+                                   glob_str=glob_str,
+                                   load_as_attr=load_as_attr, **load_params)
 
         except RequiredDataMissingError:
             raise
@@ -467,19 +465,22 @@ class DataManager(OrderedDataGroup):
             raise
 
         else:
-            # Everything as desired
-            log.debug("Data successfully loaded.")
+            # Everything loaded as desired
+            log.progress("Loaded all data for entry '%s'.\n", entry_name)
 
-        # Done with this entry
-        log.debug("Entry '%s' successfully loaded.", entry_name)
-
+        # Done with this entry. Print tree, if desired.
         if print_tree:
             print(self.tree)
     
     # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     # Helpers for loading and storing data
 
-    def _load(self, *, target_path: str, loader: str, glob_str: Union[str, List[str]], load_as_attr: Union[str, None], ignore: List[str]=None, required: bool=False, path_regex: str=None, exists_action: str='raise', unpack_data: bool=False, progress_indicator: bool=True, parallel: bool=False, **loader_kwargs) -> None:
+    def _load(self, *, target_path: str, loader: str,
+              glob_str: Union[str, List[str]], load_as_attr: Union[str, None],
+              ignore: List[str]=None, required: bool=False,
+              path_regex: str=None, exists_action: str='raise',
+              unpack_data: bool=False, progress_indicator: bool=True,
+              parallel: bool=False, **loader_kwargs) -> int:
         """Helper function that loads a data entry to the specified path.
         
         Args:
@@ -493,7 +494,8 @@ class DataManager(OrderedDataGroup):
                 loaded into the object at `target_path` under a new attribute
                 with this name.
             ignore (List[str], optional): The exact file names in this list
-                will be ignored during loading. Paths are seen as elative to the data directory.
+                will be ignored during loading. Paths are seen as relative to
+                the data directory.
             required (bool, optional): If True, will raise an error if no files
                 were found.
             path_regex (str, optional): The regex applied to the relative path
@@ -516,7 +518,10 @@ class DataManager(OrderedDataGroup):
         
         Raises:
             NotImplementedError: For `parallel == True`
-            ValueError: Description
+            ValueError
+        
+        Returns:
+            int: Number of files that data was loaded from
         """
 
         def resolve_loader(loader: str) -> Tuple[Callable, str, Callable]:
@@ -544,7 +549,9 @@ class DataManager(OrderedDataGroup):
 
             return load_func, load_func_name, TargetCls
 
-        def create_files_list(*, glob_str: Union[str, List[str]], ignore: List[str], required: bool=False, sort: bool=False) -> list:
+        def create_files_list(*, glob_str: Union[str, List[str]],
+                              ignore: List[str], required: bool=False,
+                              sort: bool=False) -> list:
             """Create the list of file paths to load from.
 
             Internally, this uses a set, thus ensuring that the paths are
@@ -585,7 +592,7 @@ class DataManager(OrderedDataGroup):
                 gs = os.path.join(self.dirs['data'], gs)
                 log.debug("Adding files that match glob string:\n  %s", gs)
 
-                # Add to the set of files; this assures uniqueness of found paths
+                # Add to the set of files; this assures uniqueness of the paths
                 files.update(list(glob.glob(gs, recursive=True)))
 
             # See if some files should be ignored
@@ -609,8 +616,9 @@ class DataManager(OrderedDataGroup):
                         log.debug("%s removed from set of files.", rmf)
 
             # Now the file list is final
-            log.debug("Found %d files to load:\n  %s",
-                      len(files), "\n  ".join(files))
+            log.note("Found %d file%s to load.",
+                     len(files), "s" if len(files) != 1 else "")
+            log.debug("\n  %s", "\n  ".join(files))
 
             if not files:
                 # No files found; exit here, one way or another
@@ -633,7 +641,8 @@ class DataManager(OrderedDataGroup):
 
             return files
 
-        def prepare_target_path(target_path: str, *, filepath: str, path_sre=None) -> List[str]:
+        def prepare_target_path(target_path: str, *, filepath: str,
+                                path_sre=None) -> List[str]:
             """Prepare the target path"""
             # The dict to be filled with formatting parameters
             fps = dict()
@@ -723,7 +732,9 @@ class DataManager(OrderedDataGroup):
                                  "skip_nowarn, overwrite, overwrite_nowarn."
                                  "".format(exists_action))
 
-        def store(obj: Union[BaseDataGroup, BaseDataContainer], *, target_path: List[str], as_attr: Union[str, None], unpack_data: bool) -> None:
+        def store(obj: Union[BaseDataGroup, BaseDataContainer], *,
+                  target_path: List[str], as_attr: Union[str, None],
+                  unpack_data: bool) -> None:
             """Store the given `obj` at the supplied `path`.
             
             Note that this will automatically overwrite, assuming that all
@@ -893,9 +904,11 @@ class DataManager(OrderedDataGroup):
             clear_line()
 
         # Done
-        log.debug("Finished loading %d files.", len(files))
+        log.debug("Finished loading data from %d file(s).", len(files))
+        return len(files)
 
-    def _contains_group(self, path: Union[str, List[str]], *, base_group: BaseDataGroup=None) -> bool:
+    def _contains_group(self, path: Union[str, List[str]], *,
+                        base_group: BaseDataGroup=None) -> bool:
         """Recursively checks if the given path is available _and_ a group.
         
         Args:
@@ -930,7 +943,9 @@ class DataManager(OrderedDataGroup):
         # End of recursion
         return check(path[0], base_group)
 
-    def _create_groups(self, path: Union[str, List[str]], *, base_group: BaseDataGroup=None, GroupCls: Union[type, str]=None, exist_ok: bool=True):
+    def _create_groups(self, path: Union[str, List[str]], *,
+                       base_group: BaseDataGroup=None,
+                       GroupCls: Union[type, str]=None, exist_ok: bool=True):
         """Recursively create groups for the given path. Unlike new_group, this
         also creates the groups at the intermediate paths.
         

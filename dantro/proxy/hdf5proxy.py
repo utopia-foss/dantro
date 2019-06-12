@@ -57,6 +57,13 @@ class Hdf5DataProxy(BaseDataProxy):
         # Whether to load the hdf5 data through dask.array.from_array
         self._resolve_as_dask = resolve_as_dask
 
+        # Set the tags
+        self._tags += ('hdf5',)
+
+        if self._resolve_as_dask:
+            self._tags += ('dask',)
+
+
     def resolve(self, *, astype: type=None):
         """Resolve the data of this proxy by opening the hdf5 file and loading
         the dataset into a numpy array or a type specified by ``astype``.
