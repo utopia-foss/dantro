@@ -11,7 +11,7 @@ install_deps = [
     'h5py>=2.7.0',
     'networkx>=2.2',
     'matplotlib>=3.1.0',
-    'paramspace>=2.2.0'   # Not on pypi!
+    'paramspace>=2.2.3'   # Not on pypi!
     ]
 test_deps = ['pytest>=3.4.0', 'pytest-cov>=2.5.1', 'tox>=3.1.2']
 doc_deps = ['sphinx>=2.0', 'sphinx_rtd_theme']

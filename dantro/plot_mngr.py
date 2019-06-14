@@ -557,9 +557,8 @@ class PlotManager:
         log.debug("Initialized %s.", pc.logstr)
         return pc
 
-    def _call_plot_creator(self, plot_creator: Callable,
-                           *, out_path: str, name: str, creator: str,
-                           **plot_cfg):
+    def _call_plot_creator(self, plot_creator: Callable, *, out_path: str,
+                           name: str, creator: str, **plot_cfg):
         """Calls the plot creator and manages exceptions"""
         try:
             rv = plot_creator(out_path=out_path, **plot_cfg)
@@ -836,23 +835,36 @@ class PlotManager:
         Returns:
             BasePlotCreator: The PlotCreator used for these plots
         """
-        # Derive the plot_cfg using based_on
+        # Derive the plot_cfg using based_on. Do this first only for the case
+        # of the non-ParamSpace plot configuration, because it's easier.
         plot_cfg = self._resolve_based_on(cfg=plot_cfg, based_on=based_on)
         
-        # Check if the plot configuration needs to be derived from a pspace
-        if not from_pspace:
-            # Nope, can just invoke the helper
+        if from_pspace is None:
+            # Can just invoke the helper and be done with it
             return self._plot(name, from_pspace=from_pspace, **plot_cfg)
 
-        # Ok, it's more complicated now, as the config is in from_pspace, and
+        # Else: It's more complicated now, as the config is in from_pspace, and
         # (partly) in plot_cfg. Urgh.
-        # NOTE creator needs to be singled out below because _plot is not able
-        #      to extract it from whatever `from_pspace` is.
+        # Distinguish between dict and actual ParamSpace objects
+        if isinstance(from_pspace, ParamSpace):
+            # Already is a Paramspace. If so, will need to extract the
+            # underlying dict to be able to do a recursive update
+            pspace_plot_cfg = copy.deepcopy(from_pspace._dict)
+            # FIXME Should not have to use private API!
 
-        # Distinguish between dict-like and actual ParamSpace objects
-        if isinstance(from_pspace, dict):
-            # Can just directly do the update
-            # ... but need a copy in order to pop
+            # Resolve `based_on`
+            based_on = pspace_plot_cfg.pop("based_on", None)
+            pspace_plot_cfg = self._resolve_based_on(cfg=pspace_plot_cfg,
+                                                     based_on=based_on,
+                                                     work_on_deepcopy=False)
+
+            # Extract info, then re-create the ParamSpace with the updated cfg
+            creator = pspace_plot_cfg.pop("creator", None)
+            from_pspace = ParamSpace(pspace_plot_cfg)
+
+        else:
+            # Assume it's something dict-like
+            # ... but need a copy in order to safely pop elements.
             from_pspace = copy.deepcopy(from_pspace)
             based_on = from_pspace.pop("based_on", None)
 
@@ -865,24 +877,11 @@ class PlotManager:
             # based_on resolution
             creator = from_pspace.pop("creator", None)
 
-        else:
-            # Should already be a ParamSpace. If so, will need to extract the
-            # underlying dict to be able to do a recursive update
-            pspace_plot_cfg = copy.deepcopy(from_pspace._dict)
-            # FIXME Should not use private API here!
-
-            # Resolve `based_on`
-            based_on = pspace_plot_cfg.pop("based_on", None)
-            pspace_plot_cfg = self._resolve_based_on(cfg=pspace_plot_cfg,
-                                                     based_on=based_on,
-                                                     work_on_deepcopy=False)
-
-            # Extract info, then re-create the ParamSpace with the updated cfg
-            creator = pspace_plot_cfg.pop("creator", None)
-            from_pspace = ParamSpace(pspace_plot_cfg)
+        # NOTE creator needs to be singled out above because _plot is not able
+        #      to extract it from whatever `from_pspace` is.
 
         # Now have all the information extracted / removed from from_pspace to
-        # be ready to call _plot
+        # be ready to call _plot. Finally.
         return self._plot(name, creator=creator, from_pspace=from_pspace,
                           **plot_cfg) # **plot_cfg is anything remaining ...
 
@@ -979,8 +978,11 @@ class PlotManager:
             log.progress("Finished '%s' plot.\n", name)
 
         else:
-            # If it is not already a ParamSpace, create one
-            # This is useful if not calling from plot_from_cfg
+            # Is a parameter sweep over the plot configuration.
+            # NOTE The parameter space is allowed to have volume 0!
+
+            # If it is not already a ParamSpace, create one; useful if not
+            # calling from plot_from_cfg, but directly ...
             if not isinstance(from_pspace, ParamSpace):
                 from_pspace = ParamSpace(from_pspace)
 
@@ -988,17 +990,42 @@ class PlotManager:
             psp_vol = from_pspace.volume
             psp_dims = from_pspace.dims
 
-            log.progress("Performing %d '%s' plots ...", psp_vol, name)
+            # ... and provide it to the logger
+            if psp_vol > 0:
+                amap_coords = from_pspace.active_state_map.coords
+                max_dname_len = max(len(n) for n in amap_coords.keys())
+
+                log.progress("Performing %d '%s' plots ...", psp_vol, name)
+                log.note("... iterating over parameter space:\n%s",
+                         "\n".join(["  * {0:<{d:}} : {1:}"
+                                    "".format(dim_name,
+                                             ", ".join([str(c) for c in
+                                                        coords.values]),
+                                             d=max_dname_len)
+                                    for dim_name, coords
+                                    in amap_coords.items()]))
+
+            else:
+                log.progress("Performing '%s' plot ...", name)
+                log.note("... from default point in zero-volume parameter "
+                         "space.")
 
             # Parse the output directory, such that all plots are together in
             # one directory even if the timestamp varies
             out_dir = self._parse_out_dir(out_dir, name=name)
 
             # Create the iterator
-            it = from_pspace.iterator(with_info=('state_no', 'state_vector'))
+            it = from_pspace.iterator(with_info=('state_no', 'state_vector',
+                                                 'coords'))
             
             # ...and loop over all points:
-            for n, (cfg, state_no, state_vector) in enumerate(it):
+            for n, (cfg, state_no, state_vector, coords) in enumerate(it):
+                log.progress("Performing plot {n:{d:}d} / {v:} ..."
+                             "".format(n=n+1, d=len(str(psp_vol)), v=psp_vol))
+                log.note("Current coordinates:  %s",
+                         ",  ".join("{}: {}".format(*kv)
+                                    for kv in coords.items()))
+
                 # Handle the file extension parameter; it might come from the
                 # given configuration and then needs to be popped such that it
                 # is not propagated to the plot creator.
@@ -1034,8 +1061,7 @@ class PlotManager:
                                       save=False, # TODO check if reasonable
                                       target_dir=os.path.dirname(out_path))
 
-                log.progress("Finished plot {n:{d:}d} / {v:}."
-                             "".format(n=n+1, d=len(str(psp_vol)), v=psp_vol))
+                # Done with these coordinates
 
             # Save the plot configuration alongside, if configured to do so
             if save_plot_cfg:

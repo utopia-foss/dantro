@@ -98,8 +98,11 @@ class UniversePlotCreator(ExternalPlotCreator):
             self.PSGRP_PATH = psgrp_path
 
         # Add custom attributes
-        self._state_map = None
         self._without_pspace = False
+
+        # Cache attributes
+        self._psp = None
+        self._psp_active_smap_cache = None
 
     @property
     def psgrp(self) -> ParamSpaceGroup:
@@ -113,14 +116,6 @@ class UniversePlotCreator(ExternalPlotCreator):
 
         # Retrieve the parameter space group
         return self.dm[self.PSGRP_PATH]
-
-    @property
-    def state_map(self) -> xr.DataArray:
-        """Returns the temporarily stored state mapping"""
-        if self._state_map is None:
-            raise RuntimeError("No state mapping was stored yet; this should "
-                               "not have happened!")
-        return self._state_map
 
     def prepare_cfg(self, *,
                     plot_cfg: dict, pspace: Union[dict, ParamSpace]) -> tuple:
@@ -158,11 +153,11 @@ class UniversePlotCreator(ExternalPlotCreator):
 
         # Get the parameter space, as it might be needed for certain values of
         # the `universes` argument
-        psp = self.psgrp.pspace
+        self._psp = copy.deepcopy(self.psgrp.pspace)
 
         # If there was no parameter space available in the first place, only
         # the default point is available, which should be handled differently
-        if psp.num_dims == 0 or self.psgrp.only_default_data_present:
+        if self._psp.num_dims == 0 or self.psgrp.only_default_data_present:
             if unis not in ['all', 'single', 'first', 'random', 'any']:
                 raise ValueError("Could not select a universe for plotting "
                                  "because the associated parameter space has "
@@ -182,9 +177,8 @@ class UniversePlotCreator(ExternalPlotCreator):
                 # as parameter space
                 return dict(), ParamSpace(plot_cfg)
 
-            else:
-                # Only need to return the plot configuration
-                return plot_cfg, None
+            # else: Only need to return the plot configuration
+            return plot_cfg, None
 
         # Parse it such that it is a valid subspace selector
         if isinstance(unis, str):
@@ -197,7 +191,7 @@ class UniversePlotCreator(ExternalPlotCreator):
                 # parameter space group. Then retrieve the coordinates from
                 # the corresponding parameter space state map
 
-                # Create a list of universe IDs
+                # Create a list of available universe IDs
                 uni_ids = [int(_id) for _id in self.psgrp.keys()]
 
                 # Select the first or a random ID
@@ -206,9 +200,10 @@ class UniversePlotCreator(ExternalPlotCreator):
                 else:
                     uni_id = np.random.choice(uni_ids)
 
-                # Now retrieve the point from the state map
-                smap = psp.state_map
+                # Now retrieve the point from the (full) state map
+                smap = self._psp.state_map
                 point = smap.where(smap == uni_id, drop=True)
+                # NOTE Universe IDs are unique, so that's ok.
 
                 # And find its coordinates
                 unis = {k: c.item() for k, c in point.coords.items()}
@@ -227,19 +222,20 @@ class UniversePlotCreator(ExternalPlotCreator):
 
         # Ensure that no invalid dimension names were selected
         for pdim_name in unis.keys():
-            if pdim_name not in psp.dims.keys():
+            if pdim_name not in self._psp.dims.keys():
                 raise ValueError("No parameter dimension '{}' was available "
                                  "in the parameter space associated with {}! "
                                  "Available parameter dimensions: {}"
                                  "".format(pdim_name, self.psgrp.logstr,
-                                           ", ".join([n for n in psp.dims])))
+                                           ", ".join([n for n
+                                                      in self._psp.dims])))
 
         # Copy parameter dimension objects for each coordinate
         # As the parameter space with the coordinates has a different
         # hierarchy than psp, the ordering has to be manually adjusted to be
         # the same as in the original psp.
         coords = dict()
-        for dim_num, (name, pdim) in enumerate(psp.dims.items()):
+        for dim_num, (name, pdim) in enumerate(self._psp.dims.items()):
             # Need to use a copy, as it will need to be changed
             _pdim = copy.deepcopy(pdim)
 
@@ -269,12 +265,15 @@ class UniversePlotCreator(ExternalPlotCreator):
         # Convert the whole dict to a parameter space, the "multi plot config"
         mpc = ParamSpace(plot_cfg)
 
-        # Activate only a certain subspace
+        # Activate only a certain subspace of the multi-plot configuration;
+        # this determines which values will be iterated over.
         mpc.activate_subspace(**unis)
 
-        # Now, retrieve the mapping for the active subspace and store it as an
-        # attribute of the plot creator
-        self._state_map = mpc.active_state_map
+        # Now, also need the regular parameter space (i.e. without additional
+        # plot configuration coordinates) to use in _prepare_plot_func_args.
+        # Need to apply the universe selection to that as well
+        self._psp.activate_subspace(**unis)
+        self._psp_active_smap_cache = self._psp.active_state_map
 
         # Only return the configuration as a parameter space; all is included
         # in there now.
@@ -306,10 +305,11 @@ class UniversePlotCreator(ExternalPlotCreator):
         # Given the coordinates, retrieve the data for a single universe from
         # the state map. As _coords is created by the _prepare_cfg method, it
         # can be assumed that it unambiguously selects a universe ID
-        uni_id = self.state_map.sel(**_coords).item()
+        uni_id = int(self._psp_active_smap_cache.sel(**_coords))
 
         # Select the corresponding universe from the ParamSpaceGroup
         uni = self.psgrp[uni_id]
+        log.note("Using data of:        %s", uni.logstr)
 
         # Let the parent function, implemented in ExternalPlotCreator, do its
         # thing. This will return the (args, kwargs) tuple

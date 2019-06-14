@@ -512,11 +512,12 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 psp.activate_subspace(**subspace)
 
             except KeyError as err:
-                raise KeyError("Could not select a subspace because no "
-                               "parameter dimension with name '{}' was found! "
+                raise KeyError("Could not select a subspace! {}: {}\n"
                                "Make sure your subspace selector contains "
-                               "only valid dimension names: {}"
-                               "".format(str(err), ", ".join(psp.dims.keys()))
+                               "only valid dimension names and coordinates. "
+                               "Available dimension names: {}"
+                               "".format(type(err).__name__, err,
+                                         ", ".join(psp.dims.keys()))
                                ) from err
 
         # Now, the data needs to be collected from each point in this subspace

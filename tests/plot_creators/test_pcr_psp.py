@@ -22,9 +22,9 @@ def pspace():
     # NOTE This is the same as in ..test_group module, but with an order value
     #      set for the first dimension.
     return ParamSpace(dict(foo="bar",
-                           p0=ParamDim(default=0, values=[1, 2], order=0),
-                           p1=ParamDim(default=0, values=[1, 2, 3]),
-                           p2=ParamDim(default=0, values=[1, 2, 3, 4, 5]),
+                           p0=ParamDim(default=0, values=[0, 1], order=0),
+                           p1=ParamDim(default=0, values=[0, 1, 2]),
+                           p2=ParamDim(default=0, values=[0, 1, 2, 3, 4]),
                            a=dict(a0=ParamDim(default=0, range=[4]))))
 
 @pytest.fixture
@@ -52,7 +52,7 @@ def test_MultiversePlotCreator(init_kwargs, psp_grp_default, tmpdir):
 
     # Check that the select function is called as expected
     selector = dict(field="testdata/fixedsize/state",
-                    subspace=dict(p0=slice(3), p1=slice(2.5, 3.5)))
+                    subspace=dict(p0=slice(2), p1=slice(1.5, 2.5)))
     args, kwargs = mpc._prepare_plot_func_args(select=selector)
     assert 'mv_data' in kwargs
     mv_data = kwargs['mv_data']
@@ -65,10 +65,10 @@ def test_MultiversePlotCreator(init_kwargs, psp_grp_default, tmpdir):
     assert mv_data.dims['p2'] == 5
 
     # Check the coordinates are correct
-    assert np.all(mv_data.coords['p0'] == [1, 2])
+    assert np.all(mv_data.coords['p0'] == [0, 1])
     assert np.all(mv_data.coords['a0'] == [0, 1, 2, 3])
-    assert np.all(mv_data.coords['p1'] == [3])
-    assert np.all(mv_data.coords['p2'] == [1, 2, 3, 4, 5])
+    assert np.all(mv_data.coords['p1'] == [2])
+    assert np.all(mv_data.coords['p2'] == [0, 1, 2, 3, 4])
 
 
     # Check again with a zero-volume parameter space
@@ -97,9 +97,6 @@ def test_UniversePlotCreator(init_kwargs):
         _upc = UniversePlotCreator("test", **init_kwargs)
         _upc.PSGRP_PATH = None
         _upc.psgrp
-
-    with pytest.raises(RuntimeError, match="No state mapping was stored yet"):
-        UniversePlotCreator("test", **init_kwargs).state_map
 
 
     # Check that prepare_cfg, where most of the actions happen, does what it
@@ -132,10 +129,6 @@ def test_UniversePlotCreator(init_kwargs):
     # Parameter dimensions have very negative order values
     assert all([pdim.order <= -1e6 for pdim in psp.dims.values()])
 
-    # State map should now be set
-    assert isinstance(upc.state_map, xr.DataArray)
-    assert upc.state_map.dims == ('p0', 'a0', 'p1', 'p2')
-
     # Having given a parameter space, those dimensions are used as well
     pspace = ParamSpace(dict(foo="bar", v0=ParamDim(default=-1, range=[5])))
     cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes='all'), pspace=pspace)
@@ -145,7 +138,7 @@ def test_UniversePlotCreator(init_kwargs):
     assert psp.default['v0'] == -1
 
     # Give custom coordinates
-    unis = dict(p0=[2], p1=slice(1.5, 3.5))
+    unis = dict(p0=[1], p1=slice(0.5, 2.5))
     cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes=unis), pspace=None)
 
     assert psp.num_dims == 4
@@ -154,6 +147,9 @@ def test_UniversePlotCreator(init_kwargs):
     # Now check the plot function arguments are correctly parsed
     for cfg in psp:
         assert '_coords' in cfg
+        print("Latest config: ", cfg)
+        print(upc.psgrp.pspace.state_map)
+        print(upc.psgrp.pspace.active_state_map)
         args, kwargs = upc._prepare_plot_func_args(**cfg)
 
         assert 'uni' in kwargs

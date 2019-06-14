@@ -162,7 +162,7 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
         """Extracts metadata from the container attributes and stores them
         in the ``_dim_names`` and ``_dim_to_coords_map`` cache attributes.
         """
-        log.debug("Extracting metadata for labelling %s ...", self.logstr)
+        log.trace("Extracting metadata for labelling %s ...", self.logstr)
         
         # First: the dimension names
         if self._dim_names is None:
@@ -223,12 +223,12 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
                          for old, new in zip(self.data.dims, self._dim_names)
                          if new is not None}
             
-            log.debug("Renaming dimensions:  %s", new_names)
+            log.trace("Renaming dimensions:  %s", new_names)
             self._data = self.data.rename(new_names)
 
         # Set the coordinates
         if self._dim_to_coords_map:
-            log.debug("Associating coordinates:  %s", self._dim_to_coords_map)
+            log.trace("Associating coordinates:  %s", self._dim_to_coords_map)
 
             for dim_name, coords in self._dim_to_coords_map.items():
                 # Need to handle links differently

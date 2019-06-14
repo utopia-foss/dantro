@@ -299,7 +299,7 @@ def test_ParamSpaceGroup_select(psp_grp, selectors):
         ParamSpaceGroup(name="without_pspace", pspace=psp).select(field="cfg")
 
     # Bad subspace dimension names
-    with pytest.raises(KeyError, match="no parameter dimension with name"):
+    with pytest.raises(KeyError, match="Make sure your subspace selector"):
         pgrp.select(field="testdata/fixedsize/randints",
                     subspace=dict(invalid_dim_name=[1,2,3]))
 

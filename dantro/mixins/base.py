@@ -76,7 +76,7 @@ class PathMixin:
                              "members of this {cls:}."
                              "".format(self.name, cls=self.classname))
         
-        log.debug("Setting %s as parent of %s ...",
+        log.trace("Setting %s as parent of %s ...",
                   cont.logstr if cont else None, self.logstr)
         self._parent = cont
 

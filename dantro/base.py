@@ -37,7 +37,7 @@ class BaseDataProxy(dantro.abc.AbstractDataProxy):
     @abc.abstractmethod
     def __init__(self, obj):
         """Initialize a proxy object for the given object."""
-        log.debug("Initialising %s for %s ...", self.classname, type(obj))
+        log.trace("Initialising %s for %s ...", self.classname, type(obj))
 
         # Specify the tags of this proxy; none by default
         self._tags = tuple()
@@ -322,7 +322,7 @@ class BaseDataGroup(LockDataMixin, PathMixin, AttrsMixin,
         for cont in conts:
             self._add_container(cont, overwrite=overwrite)
 
-        log.debug("Added %d container(s) to %s.", len(conts), self.logstr)
+        log.trace("Added %d container(s) to %s.", len(conts), self.logstr)
 
     def _add_container(self, cont, *, overwrite: bool):
         """Private helper method to add a container to this group."""
