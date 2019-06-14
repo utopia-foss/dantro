@@ -80,6 +80,23 @@ mixed_dim_names:
       path: testdata/fixedsize/randints
       dims: [t, d2, d3]
 
+# Already labelled data
+labelled:
+  field:
+    path: labelled/randints
+
+# ... change dims
+labelled_change_dims:
+  field:
+    path: labelled/randints
+    dims: [some, dimension, names]
+
+# ... change dtype
+labelled_change_dtype:
+  field:
+    path: labelled/randints
+    dtype: float32
+
 # This selector shows the syntax of selecting a subspace to iterate over. This
 # can happen in three ways: by integer index, by setting a boolean mask, or by
 # specifying locations.
