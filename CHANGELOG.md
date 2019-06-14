@@ -4,6 +4,7 @@
 
 ## v0.9.1
 - !100 adds experimental (!) transformator capabilities to `ParamSpaceGroup.select`, improves logging, and resolves minor bugs and inconsistencies.
+- !101 adds `base_path` argument to `ParamSpaceGroup.select`, allowing for all other paths to be specified relative to it.
 
 ## v0.9.0
 - #76 and !91 improve working interactively with dantro, e.g. by providing the `__repr__` method and adding IPython key completion for group members.

@@ -150,6 +150,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                subspace: dict=None,
                method: str='concat',
                idx_as_label: bool=False,
+               base_path: str=None,
                **kwargs) -> xr.Dataset:
         """Selects a multi-dimensional slab of this ParamSpaceGroup and the
         specified fields and returns them bundled into an ``xarray.Dataset``
@@ -182,6 +183,8 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 as labels for those dimensions where coordinate labels were not
                 extractable from the loaded field. This allows merging for data
                 with different extends in an unlabelled dimension.
+            base_path (str, optional): If given, ``path`` specifications for
+                each field can be seen as relative to this path
             **kwargs: Passed along either to xr.concat or xr.merge, depending
                 on the ``method`` argument.
         
@@ -281,7 +284,8 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                                  "".format(state_no, self.logstr)) from err
 
         def get_var(state_grp: ParamSpaceStateGroup, *,
-                    path: str,
+                    path: List[str],
+                    base_path: List[str]=None,
                     dtype: str=None,
                     dims: List[str]=None,
                     transform: Sequence[dict]=None,
@@ -297,6 +301,8 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
             Args:
                 state_grp (ParamSpaceStateGroup): The group to search `path` in
                 path (List[str]): The path to a data container.
+                base_path (List[str], optional): Will be prepended to the given
+                    path, if given.
                 dtype (str, optional): The desired dtype for the data.
                 dims (List[str], optional): A list of dimension names for the
                     extracted data. If not given, will name them manually as
@@ -310,6 +316,9 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                     can be either a data array (if the path led to an
                     xarray-interface supporting container) or an xr.Variable
                     (if not).
+            
+            Raises:
+                ValueError: Description
             """
             def convert_dtype(data, dtype, *, path):
                 """Change the dtype of the data, if it does not match the
@@ -318,10 +327,17 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 if data.dtype == dtype:
                     return data
                 log.debug("Converting data from '%s' with dtype %s to %s ...",
-                          path, data.dtype, dtype)
+                          PATH_JOIN_CHAR.join(path), data.dtype, dtype)
                 return data.astype(dtype)
 
-            # First, get the desired container
+            # Prepare the path, ensuring to work on the list representation
+            if not isinstance(path, list):
+                path = path.split(PATH_JOIN_CHAR)
+
+            if base_path:
+                path = base_path + path
+
+            # Now, get the desired container
             cont = state_grp[path]
 
             # Apply the transformator on the container, if arguments given
@@ -477,6 +493,10 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
         # it can be handled uniformly below.
         fields = parse_fields(field=field, fields=fields)
 
+        # Prepare the base path
+        if base_path and not isinstance(base_path, list):
+            base_path = base_path.split(PATH_JOIN_CHAR)
+
         # Work on a copy of the parameter space and apply the subspace masks
         psp = copy.deepcopy(self.pspace)
 
@@ -532,7 +552,8 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 raise
 
             # Get the variables for all fields
-            _vars = {k: get_var(_state_grp, **f) for k, f in fields.items()}
+            _vars = {k: get_var(_state_grp, **f, base_path=base_path)
+                     for k, f in fields.items()}
 
             # Construct a dataset from that ...
             _dset = xr.Dataset(_vars)
