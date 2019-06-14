@@ -616,11 +616,11 @@ class LabelledDataGroup(OrderedDataGroup):
         Returns:
             xr.Dataset: All datasets, aligned and combined via `xarray.merge`
         """
-        log.info("Combining %d datasets by merging ...", dsets.size)
+        log.remark("Combining %d datasets by merging ...", dsets.size)
 
         dset = xr.merge(dsets.flat)
 
-        log.info("Merge successful.")
+        log.remark("Merge successful.")
         return dset
     
     @classmethod
@@ -638,9 +638,9 @@ class LabelledDataGroup(OrderedDataGroup):
         Returns:
             xr.Dataset: The dataset resulting from the concatenation
         """
-        log.info("Combining %d datasets by concatenation along %d dimension%s "
-                 "...", dsets.size, len(dsets.shape),
-                 "s" if len(dsets.shape) != 1 else "")
+        log.remark("Combining %d datasets by concatenation along %d "
+                   "dimension%s ...", dsets.size, len(dsets.shape),
+                   "s" if len(dsets.shape) != 1 else "")
 
         # Go over all dimensions and concatenate
         # This effectively reduces the dsets array by one dimension in each
@@ -656,7 +656,7 @@ class LabelledDataGroup(OrderedDataGroup):
             dsets = apply_along_axis(xr.concat, axis=dim_idx, arr=dsets,
                                      dim=dim_name)
 
-        log.info("Concatenation successful.")
+        log.remark("Concatenation successful.")
 
         # The single item in the now scalar array is the combined xr.Dataset
         return dsets.item()
