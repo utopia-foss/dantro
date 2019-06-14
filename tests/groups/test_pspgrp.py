@@ -12,7 +12,8 @@ from paramspace import ParamSpace, ParamDim
 
 from dantro.groups import OrderedDataGroup
 from dantro.groups import ParamSpaceGroup, ParamSpaceStateGroup
-from dantro.containers import MutableMappingContainer, NumpyDataContainer
+from dantro.containers import (MutableMappingContainer, NumpyDataContainer,
+                               XrDataContainer)
 from dantro.tools import load_yml
 
 # Local constants
@@ -20,7 +21,8 @@ SELECTOR_PATH = resource_filename('tests', 'cfg/selectors.yml')
 
 # Helper functions ------------------------------------------------------------
 
-def create_test_data(psp_grp: ParamSpaceGroup, *, params: dict, state_no_str: str):
+def create_test_data(psp_grp: ParamSpaceGroup, *, params: dict,
+                     state_no_str: str):
     """Given a ParamSpaceGroup, adds test data to it"""
     grp = psp_grp.new_group(state_no_str)
 
@@ -31,6 +33,7 @@ def create_test_data(psp_grp: ParamSpaceGroup, *, params: dict, state_no_str: st
     grp.new_group("testdata")
     farrs = grp.new_group("testdata/fixedsize")
     rarrs = grp.new_group("testdata/randsize")
+    labelled = grp.new_group("labelled")
 
     # Add two numpy dataset: symbolising state number and some random data
     state_no = int(state_no_str)
@@ -41,6 +44,10 @@ def create_test_data(psp_grp: ParamSpaceGroup, *, params: dict, state_no_str: st
                                  attrs=dict(state_no=state_no)))
     farrs.add(NumpyDataContainer(name="randints", data=randints,
                                  attrs=dict(foo="bar")))
+    
+    # Some labelled data
+    labelled.add(XrDataContainer(name="randints", data=randints,
+                                 attrs=dict(foo="bar", dims=('x', 'y', 'z'))))
 
     # Add some non-uniform data sets
     # 3d with last dimension differing in length
@@ -282,7 +289,7 @@ def test_ParamSpaceGroup_select(psp_grp, selectors):
     with pytest.raises(TypeError, match="needs to be a dict, but was"):
         pgrp.select(fields="foo")
 
-    with pytest.raises(ValueError, match="invalid key in the 'foo' entry"):
+    with pytest.raises(TypeError, match="missing 1 required keyword-only arg"):
         pgrp.select(fields=dict(foo=dict(invalid_key="spam")))
 
     with pytest.raises(ValueError, match="without having a parameter space"):
@@ -365,3 +372,20 @@ def test_ParamSpaceGroup_select_default(psp_grp_default, selectors):
         # Save to dict of all datasets
         print("  got data:", dset, "\n\n\n")
         dsets[name] = dset
+
+
+def test_ParamSpaceGroup_EXPERIMENTAL_transformator(psp_grp):
+    """Select the experimental features of the pspgrp"""
+    pgrp = psp_grp
+
+    # A dummy transformator function just to check that it's invoked
+    def i_will_raise(self, *args, **kwargs):
+        assert isinstance(self, OrderedDataGroup)
+        raise RuntimeError("hi " + " ".join(args))
+
+    # Assign a transformator
+    pgrp._PSPGRP_TRANSFORMATOR = i_will_raise
+
+    # See that it can be invoked
+    with pytest.raises(RuntimeError, match="hi foo bar"):
+        pgrp.select(field=dict(path="testdata", transform=['foo', 'bar']))

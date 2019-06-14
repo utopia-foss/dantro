@@ -5,7 +5,8 @@ from logging import getLogger
 
 # Define the additional log levels
 TRACE = 5
-NOTE = 15
+REMARK = 12
+NOTE = 18
 PROGRESS = 22
 HILIGHT = 25
 SUCCESS = 35
@@ -17,6 +18,7 @@ class DantroLogger(logging.getLoggerClass()):
         super().__init__(name, level)
 
         logging.addLevelName(TRACE, "TRACE")
+        logging.addLevelName(REMARK, "REMARK")
         logging.addLevelName(NOTE, "NOTE")
         logging.addLevelName(PROGRESS, "PROGRESS")
         logging.addLevelName(HILIGHT, "HILIGHT")
@@ -25,6 +27,10 @@ class DantroLogger(logging.getLoggerClass()):
     def trace(self, msg, *args, **kwargs):
         if self.isEnabledFor(TRACE):
             self._log(TRACE, msg, args, **kwargs)
+    
+    def remark(self, msg, *args, **kwargs):
+        if self.isEnabledFor(REMARK):
+            self._log(REMARK, msg, args, **kwargs)
     
     def note(self, msg, *args, **kwargs):
         if self.isEnabledFor(NOTE):

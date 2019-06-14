@@ -4,7 +4,7 @@ from the paramspace package are implemented.
 
 import copy
 import logging
-from typing import Union, List, Dict
+from typing import Union, List, Dict, Callable, Sequence
 
 import numpy as np
 import numpy.ma
@@ -69,6 +69,9 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
     # Class variables that define some of the behaviour
     # Define which .attrs entry to return from the `pspace` property
     _PSPGRP_PSPACE_ATTR_NAME = 'pspace'
+
+    # A transformation callable that can be used during data selection
+    _PSPGRP_TRANSFORMATOR = None
 
     # Define the class to use for the direct members of this group
     _NEW_GROUP_CLS = ParamSpaceStateGroup
@@ -168,13 +171,13 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 parameter space. Adheres to the ParamSpace.activate_subspace
                 signature.
             method (str, optional): How to combine the selected datasets.
-
+        
                     - ``concat``: concatenate sequentially along all parameter
                       space dimensions. This can preserve the data type but
                       it does not work if one data point is missing.
                     - ``merge``: merge always works, even if data points are
                       missing, but will convert all dtypes to float.
-
+        
             idx_as_label (bool, optional): If true, adds the trivial indices
                 as labels for those dimensions where coordinate labels were not
                 extractable from the loaded field. This allows merging for data
@@ -183,8 +186,9 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 on the ``method`` argument.
         
         Raises:
+            KeyError: Description
             ValueError: Raised in multiple scenarios:
-
+        
                 - If no ParamSpace was associated with this group
                 - For wrong argument values
                 - If the data to select cannot be extracted with the given
@@ -204,8 +208,11 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
               path: <list of strings>
               dtype: <str, optional>
               dims: <list of strings, optional>
+              ... further
             <var_name_2>:
               ...
+
+            TODO Change such that its using strings for paths, not sequences.
             """
 
             if field is not None and fields is not None:
@@ -249,25 +256,16 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                                 "but was {}!".format(type(fields)))
 
             
-            # Ensure entries are dicts of the proper structre
+            # Ensure values of the dict are dicts of the proper structre
             for name, field in fields.items():
                 if isinstance(field, str):
                     fields[name] = dict(path=field.split(PATH_JOIN_CHAR))
 
-                elif isinstance(field, dict):
-                    # Already is a dict.
-                    # Need only assert there are no invalid entries
-                    if any([k not in ('path', 'dtype', 'dims')
-                            for k in field.keys()]):
-                        raise ValueError("There was an invalid key in the "
-                                         "'{}' entry of the fields dict. "
-                                         "Allowed keys: 'path', 'dtype', "
-                                         "'dims'. Given dict: {}"
-                                         "".format(name, field))
-
-                else:
+                elif not isinstance(field, dict):
                     # Assume this is a sequence, but better make sure ...
                     fields[name] = dict(path=list(field))
+
+                # else: Already a dict; nothing to do. Parameters carried over.
 
             return fields
 
@@ -283,9 +281,11 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                                  "".format(state_no, self.logstr)) from err
 
         def get_var(state_grp: ParamSpaceStateGroup, *,
-                    path: List[str],
+                    path: str,
                     dtype: str=None,
-                    dims: List[str]=None) -> Union[xr.Variable, xr.DataArray]:
+                    dims: List[str]=None,
+                    transform: Sequence[dict]=None,
+                    **transform_kwargs) -> Union[xr.Variable, xr.DataArray]:
             """Extracts the field specified by the given path and returns it as
             either an xr.Variable or (for supported containers) directly as an
             xr.DataArray.
@@ -301,6 +301,9 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 dims (List[str], optional): A list of dimension names for the
                     extracted data. If not given, will name them manually as
                     dim_0, dim_1, ...
+                transform (Sequence[dict], optional): Optional transform
+                    arguments; passed on to transformator as *args.
+                **transform_kwargs: Passed on to the transformator as **kwargs.
             
             Returns:
                 Union[xr.Variable, xr.DataArray]: The extracted data, which
@@ -308,37 +311,68 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                     xarray-interface supporting container) or an xr.Variable
                     (if not).
             """
+            def convert_dtype(data, dtype, *, path):
+                """Change the dtype of the data, if it does not match the
+                specified one.
+                """
+                if data.dtype == dtype:
+                    return data
+                log.debug("Converting data from '%s' with dtype %s to %s ...",
+                          path, data.dtype, dtype)
+                return data.astype(dtype)
+
             # First, get the desired container
             cont = state_grp[path]
+
+            # Apply the transformator on the container, if arguments given
+            if transform or transform_kwargs:
+                if self._PSPGRP_TRANSFORMATOR is None:
+                    raise ValueError("Got transform arguments or kwargs, but "
+                                     "no transformator callable was defined "
+                                     "as class variable!")
+
+                # Invoke the transformator on the container
+                cont = self._PSPGRP_TRANSFORMATOR(cont, *transform,
+                                                  **transform_kwargs)
             
             # Shortcut: specialised containers might already supply all the
             # information, including coordinates. In that case, return it as
             # a data array.
             if isinstance(cont, XrDataContainer):
-                return cont.data
-                # TODO should the dims and dtype argument be handled here?!
+                # Will return the underlying data. See if some dtype change
+                # or dimension name relabelling was specified
+                darr = cont.data
+
+                if dtype is not None:
+                    darr = convert_dtype(darr, dtype, path=path)
+
+                if dims is not None:
+                    darr = darr.rename({old:new for old, new
+                                        in zip(darr.dims, dims)})
+
+                return darr
+
+            elif isinstance(cont, (xr.DataArray, xr.Dataset)):
+                # Actually was not a container but already the data; skip below
+                return cont
 
             # If this was not the case, xr.Variable will have to be constructed
-            # manually.
+            # manually from the container.
             # The only pre-requisite for the data is that it is np.array-like,
             # which is always possible; worst case: scalar of dtype "object".
             data = np.array(cont.data)
             # Can now assume data to comply to np.array interface
 
+            # Check the dtype and convert, if needed
+            if dtype is not None:
+                data = convert_dtype(data, dtype, path=path)
+
+            # Get the attributes
+            attrs = {k: v for k, v in cont.attrs.items()}
+
             # Generate dimension names, if not explicitly given.
             if dims is None:
                 dims = ["dim_{}".format(i) for i in range(len(data.shape))]
-
-            # TODO might need to add trivial indices here?!
-
-            # Check the dtype and convert, if needed
-            if dtype and data.dtype != dtype:
-                log.debug("Converting data from '%s' with dtype %s to %s ...",
-                          PATH_JOIN_CHAR.join(path), data.dtype, dtype)
-                data = data.astype(dtype)
-
-            # Get the attributes
-            attrs = cont.attrs.as_dict()
 
             # Check whether indices are to be added (var from outer scope!)
             if not idx_as_label:
@@ -392,17 +426,17 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
 
             # Merging . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
             if method in ['merge']:
-                log.info("Combining datasets by merging ...")
+                log.remark("Combining datasets by merging ...")
                 # TODO consider warning about dtype changes?!
 
                 dset = xr.merge(dsets.flat)
 
-                log.info("Merge successful.")
+                log.remark("Merge successful.")
                 return dset
 
             # else: Concatenation . . . . . . . . . . . . . . . . . . . . . . .
-            log.info("Combining datasets by concatenation along %d "
-                     "dimensions ...", len(dsets.shape))
+            log.remark("Combining %d datasets by concatenation along %d "
+                       "dimensions ...", dsets.size, len(dsets.shape))
 
             # Go over all dimensions and concatenate
             # This effectively reduces the dsets array by one dimension in each
@@ -419,7 +453,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 dsets = apply_along_axis(xr.concat, axis=dim_idx, arr=dsets,
                                          dim=dim_name)
 
-            log.info("Concatenation successful.")
+            log.remark("Concatenation successful.")
 
             # Need to extract the single item from the now scalar dsets array
             return dsets.item()
@@ -510,6 +544,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
             dsets[arr_it.multi_index] = _dset
 
         # All data points collected now.
+        log.info("Data collected.")
 
         # Finally, combine all the datasets together into a dataset with
         # potentially non-homogeneous data type. This will have at least the
@@ -517,7 +552,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
         # be potentially more dimensions.
 
         try:
-            return combine(method=method, dsets=dsets, psp=psp)
+            dset = combine(method=method, dsets=dsets, psp=psp)
 
         except ValueError as err:
             raise ValueError("Combination of datasets failed; see below. This "
@@ -526,3 +561,10 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                              "coordinates (i.e.: the indices) to unlabelled "
                              "dimensions by setting the `idx_as_label` "
                              "argument to True.") from err
+
+        log.info("Data selected.")
+        log.note("Available data variables:      %s",
+                 ", ".join(dset.data_vars))
+        log.note("Dataset dimensions and sizes:  %s",
+                 ", ".join("{}: {}".format(*kv) for kv in dset.sizes.items()))
+        return dset
