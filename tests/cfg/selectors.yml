@@ -97,6 +97,15 @@ labelled_change_dtype:
     path: labelled/randints
     dtype: float32
 
+# With base path
+with_base_path:
+  base_path: testdata/fixedsize
+  fields:
+    some_state:
+      path: state
+    some_randints:
+      - randints
+
 # This selector shows the syntax of selecting a subspace to iterate over. This
 # can happen in three ways: by integer index, by setting a boolean mask, or by
 # specifying locations.
