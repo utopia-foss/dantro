@@ -305,15 +305,12 @@ class ExternalPlotCreator(BasePlotCreator):
                             "".format(type(plot_func), plot_func))
         
         # else: need to resolve the module and find the plot_func in it
-        # First resolve the module
+        # First resolve the module, either from file or via import
         if module_file:
-            # Get it from a file
             mod = self._get_module_from_file(module_file)
 
         elif isinstance(module, str):
-            # Import module via importlib, allowing relative imports
-            # from the dantro.plot_funcs subpackage
-            mod = importlib.import_module(module, package=self.BASE_PKG)
+            mod = self._get_module_via_import(module)
         
         else:
             raise TypeError("Could not import a module, because neither "
@@ -362,6 +359,12 @@ class ExternalPlotCreator(BasePlotCreator):
 
         # Now, it is loaded
         return mod
+
+    def _get_module_via_import(self, module: str):
+        """Returns the module via import"""
+        # Import module via importlib, allowing relative imports from the
+        # package defined as base package
+        return importlib.import_module(module, package=self.BASE_PKG)
 
     def _prepare_plot_func_args(self, *args, **kwargs) -> tuple:
         """Prepares the args and kwargs passed to the plot function.
