@@ -917,6 +917,16 @@ class PlotHelper:
             handles, labels = self.ax.get_legend_handles_labels()
             self.ax.legend(handles, labels, **legend_kwargs)
 
+    def _hlpr_set_texts(self, *, texts: list):
+        """Set a list of texts for the current axis
+        
+        Args:
+            texts: The list of text dicts, that are passed to 
+            matplotlib.pyplot.text
+        """
+        for text_args in texts:
+            self.ax.text(**text_args)
+
     def _hlpr_set_hv_lines(self, *, hlines: list=None, vlines: list=None):
         """Set one or multiple horizontal or vertical lines.
         
