@@ -1,0 +1,136 @@
+# Syntax for the TransformationDAG
+---
+simple_transform:
+  input:
+    select: ~
+    transform:
+      - operation: op0
+        args:
+          - one_arg
+          - another_arg
+        kwargs:
+          some_kwarg: hello
+        target: res0
+
+      - operation: op1
+        args: []
+        kwargs:
+          some_kwarg: !field some_field
+          another_kwarg: abc
+        target: res1
+
+  expected:  
+    - operation: op0
+      args:
+        - one_arg
+        - another_arg
+      kwargs:
+        some_kwarg: hello
+      target: res0
+
+    - operation: op1
+      args: []
+      kwargs:
+        some_kwarg: !field some_field
+        another_kwarg: abc
+      target: res1
+
+  _raises: false
+  _match: ~
+
+
+# -----------------------------------------------------------------------------
+# With select
+
+simple_select:
+  input:
+    select:
+      foo: some/path/foo
+      bar: some/path/bar
+
+    transform:
+      - operation: some_operation
+        args:
+          - !field foo
+        kwargs:
+          some_kwarg: hey
+        target: spam
+  
+  expected:
+    - operation: getitem
+      args:
+        - !field dm
+        - some/path/bar
+      kwargs: {}
+      target: bar
+    - operation: getitem
+      args:
+        - !field dm
+        - some/path/foo
+      kwargs: {}
+      target: foo
+    - operation: some_operation
+      args:
+        - !field foo
+      kwargs:
+        some_kwarg: hey
+      target: spam
+
+  _raises: false
+  _match: ~
+
+
+select_with_transform:
+  input:
+    select:
+      foo:
+        path: some/path
+        transform:
+          - getitem: foo
+      bar:
+        path: some/path/bar
+        transform:
+          - some_operation: [1, 2, 3]
+          - another_operation:
+              one_kwarg: 1
+              another_kwarg: abc
+    transform: ~
+  
+  expected:
+    - operation: getitem
+      args:
+        - !field dm
+        - some/path/bar
+      kwargs: {}
+      target: ~
+    - operation: some_operation
+      args:
+        - !dag_ref 0
+        - 1
+        - 2
+        - 3
+      kwargs: {}
+      target: ~
+    - operation: another_operation
+      args:
+        - !dag_ref 1
+      kwargs:
+        one_kwarg: 1
+        another_kwarg: abc
+      target: bar
+
+    - operation: getitem
+      args:
+        - !field dm
+        - some/path
+      kwargs: {}
+      target: ~
+    - operation: getitem
+      args:
+        - !dag_ref 3
+        - foo
+      kwargs: {}
+      target: foo
+
+  _raises: false
+  _match: ~

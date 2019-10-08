@@ -1,11 +1,13 @@
 """This is an implementation of a DAG for transformations on dantro objects"""
 
+import copy
 import collections
 import hashlib
 import logging
 from typing import NewType, TypeVar
 from typing import Dict, Tuple, Sequence, Any, Hashable, Callable, Union
 
+from .._dag_utils import DAGField, DAGReference
 from .ordereddict import KeyOrderedDict
 from .data_ops import OPERATIONS, apply_operation
 from ..tools import is_hashable
@@ -50,19 +52,19 @@ class Transformation(collections.abc.Hashable):
     """
 
     def __init__(self, *,
-                 input_args: Sequence[THash],
-                 input_kwargs: Dict[str, THash],
+                 args: Sequence[THash],
+                 kwargs: Dict[str, THash],
                  operation: THash):
         """
         Args:
-            input_args (Sequence[THash]): Positional arguments for the
+            args (Sequence[THash]): Positional arguments for the
                 operation.
-            input_kwargs (Dict[str, THash]): Keyword arguments for the
+            kwargs (Dict[str, THash]): Keyword arguments for the
                 operation. These are internally stored as a KeyOrderedDict.
             operation (Operation): The operation that is to be carried out.
         """
-        self._input_args = input_args
-        self._input_kwargs = KeyOrderedDict(**input_kwargs)
+        self._args = args
+        self._kwargs = KeyOrderedDict(**kwargs)
         self._operation = operation
         self._result = None
 
@@ -70,9 +72,9 @@ class Transformation(collections.abc.Hashable):
 
     def __repr__(self) -> str:
         """Returns a deterministic string representation of this object"""
-        return ("Transformation(input_args={}, input_kwargs={}, operation={})"
-                "".format(repr(self._input_args),
-                          repr(self._input_kwargs),
+        return ("Transformation(args={}, kwargs={}, operation={})"
+                "".format(repr(self._args),
+                          repr(self._kwargs),
                           repr(self._operation)))
 
     def __hash__(self) -> str:
@@ -90,8 +92,8 @@ class Transformation(collections.abc.Hashable):
         """Computes the result of this transformation by recursively resolving
         objects and carrying out operations."""
         # Resolve the arguments and the operation objects
-        args = [objects[h] for h in self._input_args]
-        kwargs = {k:objects[h] for k, h in self._input_kwargs.items()}
+        args = [objects[h] for h in self._args]
+        kwargs = {k:objects[h] for k, h in self._kwargs.items()}
         op = objects[self._operation]
 
         # If any of the objects is not fully resolved, do so.
@@ -100,6 +102,7 @@ class Transformation(collections.abc.Hashable):
         # Carry out the operation ...
         return op(*args, **kwargs)
 
+# -----------------------------------------------------------------------------
 
 class DAGObjects:
     """An objects database for the TransformationDAG class.
@@ -119,6 +122,7 @@ class DAGObjects:
     def __getitem__(self, key: THash) -> Hashable:
         return self._d[key]
 
+# -----------------------------------------------------------------------------
 
 class TransformationDAG:
     """This class collects transformation operations that are (already by
@@ -128,10 +132,14 @@ class TransformationDAG:
     of a node.
 
     Furthermore, this class can also implement caching of transformations.
+
+    Objects of this class are initialized with dict-like arguments which
+    specify the transformation operations. There are some shorthands that allow
+    a simple 
     """
 
     def __init__(self, *, dm: 'DataManager',
-                 select: dict=None, transform: dict=None,
+                 select: dict=None, transform: Sequence[dict]=None,
                  compute_fields: Union[str, Sequence[str]]='all'):
         """Initialize a DAG which is associated with a DataManager and load the
         specified transformations configuration into it.
@@ -145,24 +153,89 @@ class TransformationDAG:
 
         self._build_dag()
 
-    def _parse_trfs(self, *, select: dict, transform: dict) -> Sequence[dict]:
+    def _parse_trfs(self, *, select: dict,
+                    transform: Sequence[dict]) -> Sequence[dict]:
         """Parse the given arguments to bring them into a uniform format: a
         sequence of parameters for transformation operations.
         
         Args:
             select (dict): The shorthand to select certain objects from the
                 DataManager. These may also include transformations.
-            transform (dict): Actual transformation operations, carried out
-                afterwards.
+            transform (Sequence[dict]): Actual transformation operations,
+                carried out afterwards.
         
         Returns:
             Sequence[dict]: Description
         """
-        trfs = 
+        # The to-be-populated list of transformations
+        trfs = list()
 
-        # TODO Do further parsing here ...
+        # Parse the arguments to assert that they are not None and deep copies
+        select = copy.deepcopy(select) if select else {}
+        transform = copy.deepcopy(transform) if transform else []
 
-        return d
+        # First, parse the select argument.
+        for field_name, params in sorted(select.items()):
+            if isinstance(params, str):
+                path = params
+                more_trfs = None
+
+            elif isinstance(params, dict):
+                path = params['path']
+                more_trfs = params.get('transform')
+
+            else:
+                raise TypeError("Invalid type for '{}' entry within `select` "
+                                "argument! Got {} but expected string or dict."
+                                "".format(field_name, type(params)))
+
+            # Construct parameters to select from the DataManager
+            trfs.append(dict(operation='getitem',
+                             target=field_name if not more_trfs else None,
+                             args=[DAGField('dm'), path],
+                             kwargs=dict()))
+            # NOTE If more transformations are to occur on this element, the
+            #      target of this first transformation need be None.
+            
+            if not more_trfs:
+                continue
+
+            # else: there are additional transformations to be parsed and added
+            for i, trf_params in enumerate(more_trfs):
+                # Make sure there is only a single key
+                if len(trf_params) != 1:
+                    raise ValueError("Invalid additional transformation "
+                                     "parameters!")
+
+                # Extract operation name and parameters
+                op_name, op_params = list(trf_params.items())[0]
+
+                if isinstance(op_params, dict):
+                    args, kwargs = [], op_params
+                
+                elif isinstance(op_params, (list, tuple)):
+                    args, kwargs = op_params, {}
+                
+                else:
+                    args, kwargs = [op_params], {}
+
+                # Determine the first argument and the target
+                arg0 = DAGReference(len(trfs) - 1)
+                target = field_name if (i+1 == len(more_trfs)) else None
+
+                # Build and append parameters
+                trfs.append(dict(operation=op_name,
+                                 target=target,
+                                 args=[arg0, *args],
+                                 kwargs=kwargs))
+
+
+        # Now, add the additional transformations
+        for trf in transform:
+            trfs.append(trf)
+
+        # Done
+        return trfs
 
     def _build_dag(self) -> None:
         """Builds the actual directed acyclic graph using the information

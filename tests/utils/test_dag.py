@@ -14,6 +14,7 @@ from dantro.tools import load_yml
 
 # Local constants
 TRANSFORMATIONS_PATH = resource_filename('tests', 'cfg/transformations.yml')
+DAG_SYNTAX_PATH = resource_filename('tests', 'cfg/dag_syntax.yml')
 
 # Fixtures --------------------------------------------------------------------
 
@@ -68,8 +69,8 @@ def test_TransformationDAG(dm):
                        if not k.startswith('_')}
 
         _may_fail = trf_cfg.get('_may_fail', False)
-        _expected_num_fields = trf_cfg['_expected_num_fields']
-        _expected_fields = trf_cfg['_expected_fields']
+        _expected_num_fields = trf_cfg.get('_expected_num_fields')
+        _expected_fields = trf_cfg.get('_expected_fields')
 
         # Initialize it
         tdag = TransformationDAG(dm=dm, **trfs_kwargs)
@@ -78,3 +79,30 @@ def test_TransformationDAG(dm):
         # result = tdag.compute() # FIXME
         
         # TODO Compare with expected result...
+
+def test_TransformationDAG_parsing():
+    """Tests the TransformationDAG class"""
+    TransformationDAG = dag.TransformationDAG
+
+    syntax_tests = load_yml(DAG_SYNTAX_PATH)
+    
+    # Initialize an empty DAG object that will be re-used
+    tdag = TransformationDAG(dm=dm)
+    parse_func = tdag._parse_trfs
+
+    for name, cfg in syntax_tests.items():
+        # Extract specification and expected values etc
+        print("\nTesting transformation syntax '{}' ...".format(name))
+
+        # Extract arguments
+        trf_input = cfg['input']
+        trf_expected = cfg['expected']
+
+        _may_fail = cfg.get('_raises', False)
+        _match = cfg.get('_match')
+
+        trf_output = parse_func(**trf_input)
+        # TODO try-except block
+
+        # Compare with expected result...
+        assert trf_output == trf_expected
