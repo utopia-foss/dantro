@@ -273,6 +273,14 @@ def is_iterable(obj) -> bool:
         return False
     return True
 
+def is_hashable(obj) -> bool:
+    """Tries whether the given object is hashable."""
+    try:
+        hash(obj)
+    except:
+        return False
+    return True
+
 class DoNothingContext:
     """A context manager that ... does nothing."""
 

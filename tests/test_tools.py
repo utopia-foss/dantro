@@ -42,6 +42,24 @@ def test_is_iterable():
     assert t.is_iterable([1,2,3])
     assert not t.is_iterable(123)
 
+def test_is_hashable():
+    """Tests the is_hashable function"""
+    class Foo:
+        def __init__(self, *, allow_hash: bool):
+            self.allow_hash = allow_hash
+
+        def __hash__(self):
+            if not self.allow_hash:
+                raise ValueError()
+            return hash(self.allow_hash)
+
+    assert t.is_hashable("foo")
+    assert t.is_hashable((1,2,3))
+    assert t.is_hashable(123)
+    assert not t.is_hashable([123, 456])
+    assert not t.is_hashable(Foo(allow_hash=False))
+    assert t.is_hashable(Foo(allow_hash=True))
+
 def test_decode_bytestrings():
     """Tests the decode bytestrings function"""
     decode = t.decode_bytestrings
