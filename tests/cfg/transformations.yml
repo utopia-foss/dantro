@@ -1,0 +1,79 @@
+# Test cases for the TransformationsDAG
+---
+# Selecting items -------------------------------------------------------------
+explicit_select:
+  # select: ~  # implied
+  transform:
+    - operation: getitem
+      args:
+        - ref: dm
+        - some/path
+
+    - operation: getitem
+      args:
+        - carry: true
+        - foo
+      target: foo
+
+    - operation: getitem
+      args:
+        - ref: dm
+        - some/path/bar
+      target: bar
+  # compute_fields: all   # implied
+  
+  _may_fail: false
+  _expected_num_fields: 2
+  _expected_fields: &fields_explicit_getitem
+    foo:
+      type: OrderedDataGroup
+      path: some/path/foo
+    bar:
+      type: OrderedDataGroup
+      path: some/path/bar
+
+
+shorthand_select:
+  select:
+    foo: some/path/foo
+    bar: some/path/bar
+  # transform: []         # implied
+  # compute_fields: all   # implied
+
+  _may_fail: false
+  _expected_num_fields: 2
+  _expected_fields:
+    <<: *fields_explicit_getitem
+
+
+
+# Basic numerical operations --------------------------------------------------
+
+explicit_increment:
+  select:
+    some_data: data/zeros
+  transform:
+    - field: some_data
+      operation: increment
+      target: ones
+
+    - operation: increment
+      args:
+        - ref: ones
+      target: twos
+
+  _may_fail: false
+  _expected_num_fields: 3
+  _expected_fields:
+    some_data:
+      type: XRDataContainer
+      path: data/zeros
+      mean: 0
+    ones:
+      type: XRDataContainer
+      path: ~
+      mean: 1
+    twos:
+      type: XRDataContainer
+      path: ~
+      mean: 2
