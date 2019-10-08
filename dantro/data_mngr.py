@@ -237,32 +237,6 @@ class DataManager(OrderedDataGroup):
         return dirs
 
     # .........................................................................
-
-    def new_group(self, path: str, *, Cls: Union[type, str]=None, **kwargs):
-        """Creates a new group at the given path.
-        
-        This is a slightly advanced version of the new_group method of the
-        BaseDataGroup. It not only adjusts the default type, but also allows
-        more ways how to specify the type of the group to create.
-        
-        Args:
-            path (str): Where to create the group. Note that the intermediates
-                of this path need to already exist.
-            Cls (Union[type, str], optional): If given, use this type to
-                create the group. If a string is given, resolves the type from
-                the _DATA_GROUP_CLASSES class variable. If None, uses the
-                default data group type of the data manager.
-            **kwargs: Passed on to Cls.__init__
-        
-        Returns:
-            Cls: the created group
-        """
-        # Use helper function to parse the group class correctly
-        Cls = self._determine_group_class(Cls)
-
-        return super().new_group(path, Cls=Cls, **kwargs)
-
-    # .........................................................................
     # Loading data
 
     def load_from_cfg(self, *, load_cfg: dict=None,
@@ -471,9 +445,6 @@ class DataManager(OrderedDataGroup):
         # Done with this entry. Print tree, if desired.
         if print_tree:
             print(self.tree)
-    
-    # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-    # Helpers for loading and storing data
 
     def _load(self, *, target_path: str, loader: str,
               glob_str: Union[str, List[str]], load_as_attr: Union[str, None],
@@ -1039,3 +1010,30 @@ class DataManager(OrderedDataGroup):
 
         # else: assume it is already a type and just return the given argument
         return Cls
+
+    # .........................................................................
+    # Working with the data in the tree
+
+    def new_group(self, path: str, *, Cls: Union[type, str]=None, **kwargs):
+        """Creates a new group at the given path.
+        
+        This is a slightly advanced version of the new_group method of the
+        BaseDataGroup. It not only adjusts the default type, but also allows
+        more ways how to specify the type of the group to create.
+        
+        Args:
+            path (str): Where to create the group. Note that the intermediates
+                of this path need to already exist.
+            Cls (Union[type, str], optional): If given, use this type to
+                create the group. If a string is given, resolves the type from
+                the _DATA_GROUP_CLASSES class variable. If None, uses the
+                default data group type of the data manager.
+            **kwargs: Passed on to Cls.__init__
+        
+        Returns:
+            Cls: the created group
+        """
+        # Use helper function to parse the group class correctly
+        Cls = self._determine_group_class(Cls)
+
+        return super().new_group(path, Cls=Cls, **kwargs)

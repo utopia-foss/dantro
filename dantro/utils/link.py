@@ -25,7 +25,8 @@ class Link(ForwardAttrsMixin):
 
     def __init__(self, *, anchor: AbstractDataContainer, rel_path: str):
         """Initialize a link from an anchor and a relative path to a target"""
-        # Use name-mangling to not take up any 
+        # Use name-mangling to not take up any attributes that might get in the
+        # way during attribute access
         self.__anchor = weakref.ref(anchor)
         self.__rel_path = rel_path
         self.__target_ref_cache = None
