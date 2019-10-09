@@ -13,9 +13,10 @@ from paramspace import yaml
 yaml.default_flow_style = False
 
 # Register further classes
-from ._dag_utils import DAGField, DAGReference
+from ._dag_utils import DAGField, DAGNode, DAGReference
 
 yaml.register_class(DAGField)
+yaml.register_class(DAGNode)
 yaml.register_class(DAGReference)
 
 # -----------------------------------------------------------------------------
