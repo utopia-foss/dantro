@@ -4,10 +4,11 @@ import copy
 import collections
 import hashlib
 import logging
-from typing import NewType, TypeVar
-from typing import Dict, Tuple, Sequence, Any, Hashable, Callable, Union
 
-from .._dag_utils import DAGField, DAGReference
+from typing import NewType
+from typing import Dict, Tuple, Sequence, Any, Hashable, Callable, Union, List
+
+from .._dag_utils import DAGReference, DAGTag, DAGNode, THash
 from .ordereddict import KeyOrderedDict
 from .data_ops import OPERATIONS, apply_operation
 from ..tools import is_hashable
@@ -15,8 +16,7 @@ from ..tools import is_hashable
 # Local constants
 log = logging.getLogger(__name__)
 
-# Type definitions
-THash = NewType('THash', str)
+# Type definitions (extending those from _dag_utils module)
 TObjectMap = NewType('TObjectMap', Dict[THash, Hashable])
 
 # -----------------------------------------------------------------------------
@@ -61,14 +61,15 @@ class Transformation(collections.abc.Hashable):
                 operation.
             kwargs (Dict[str, THash]): Keyword arguments for the
                 operation. These are internally stored as a KeyOrderedDict.
-            operation (Operation): The operation that is to be carried out.
+            operation (THash): The operation that is to be carried out.
         """
+        self._uid = uid
         self._args = args
         self._kwargs = KeyOrderedDict(**kwargs)
         self._operation = operation
-        self._result = None
 
-        # TODO Make sure that all are hashable
+        # A cache attribute for the result of the computation
+        self._result = None
 
     def __repr__(self) -> str:
         """Returns a deterministic string representation of this object"""
@@ -92,9 +93,9 @@ class Transformation(collections.abc.Hashable):
         """Computes the result of this transformation by recursively resolving
         objects and carrying out operations."""
         # Resolve the arguments and the operation objects
-        args = [objects[h] for h in self._args]
-        kwargs = {k:objects[h] for k, h in self._kwargs.items()}
-        op = objects[self._operation]
+        args = [dag.objects[h] for h in self._args]
+        kwargs = {k:dag.objects[h] for k, h in self._kwargs.items()}
+        op = dag.objects[self._operation]
 
         # If any of the objects is not fully resolved, do so.
         # TODO
@@ -105,22 +106,30 @@ class Transformation(collections.abc.Hashable):
 # -----------------------------------------------------------------------------
 
 class DAGObjects:
-    """An objects database for the TransformationDAG class.
+    """An objects database for the DAG framework.
 
     It wraps a flat, key-ordered dict, containing (hash, object ref) pairs.
     """
 
     def __init__(self):
+        """Initialize an empty objects database"""
         self._d = KeyOrderedDict()
 
     def add_object(self, obj: Hashable) -> THash:
-        """Add an object to the """
+        """Add an object to the object database, storing it under its hash."""
         key = _hash(obj)
         self._d[key] = obj
         return key
 
     def __getitem__(self, key: THash) -> Hashable:
+        """Return the object associated with the given hash"""
         return self._d[key]
+
+    def get(self, key: THash, default=None) -> Union[Hashable, None]:
+        """Return the object associated with the given hash, if it is in the
+        object database, else return default.
+        """
+        return self._d.get(key, default=default)
 
 # -----------------------------------------------------------------------------
 
@@ -145,12 +154,20 @@ class TransformationDAG:
         specified transformations configuration into it.
         """
         self._dm = dm
-        self._fields = dict()
+
         self._objects = DAGObjects()
+        self._fields = dict()
+        self._nodes = list()
 
         self._compute_fields = compute_fields
         self._trfs = self._parse_trfs(select=select, transform=transform)
 
+        # Add the DataManager as an object and a default field
+        self.fields['dm'] = self.objects.add_object(self.dm)
+        # NOTE The data manager is NOT a node of the DAG, but more like an
+        #      external data source, thus being accessible only as a field
+
+        # Now, build the DAG
         self._build_dag()
 
     def _parse_trfs(self, *, select: dict,
@@ -165,8 +182,106 @@ class TransformationDAG:
                 carried out afterwards.
         
         Returns:
-            Sequence[dict]: Description
+            Sequence[dict]: A sequence of transformation parameters that was
+                brought into a uniform structure.
         """
+        def parse_minimal_syntax(params: Union[str, dict]) -> dict:
+            """Parses the minimal syntax"""
+            if isinstance(params, dict):
+                return params
+
+            elif not isinstance(params, str):
+                raise TypeError("Expected either dict or string for minimal "
+                                "syntax, got {} with value: {}"
+                                "".format(type(params), params))
+
+            return dict(operation=params, carry_result=True)
+
+        def parse_params(*, operation: str=None,
+                         args: list=None, kwargs: dict=None,
+                         tag: str=None,  carry_result: bool=False,
+                         **ops) -> dict:
+            """Given the parameters of a transform operation, possibly in a
+            shorthand notation, returns a dict with normalized content by
+            expanding the shorthand notation.
+            
+            Keys that will remain in the resulting dict:
+            ``operation``, ``args``, ``kwargs``, ``tag``.
+            
+            Args:
+                operation (str, optional): Which operation to carry out;
+                    can only be specified if there is no ``ops`` argument.
+                args (list, optional): Positional arguments for the operation;
+                    can only be specified if there is no ``ops`` argument.
+                kwargs (dict, optional): Keyword arguments for the operation;
+                    can only be specified if there is no ``ops`` argument.
+                tag (str, optional): The tag to attach to this transformation
+                carry_result (bool, optional): Whether the result is to be
+                    carried through to the next operation; if true, the first
+                    positional argument is set to a reference to the previous
+                    node.
+                **ops: The operation that is to be carried out. May contain
+                    one and only one operation.
+            
+            Returns:
+                dict: The normalized dict of transform parameters.
+            
+            Raises:
+                ValueError: For len(ops) != 1
+            """
+            # Distinguish between explicit and shorthand mode
+            if operation and not ops:
+                # Explicit parametrization
+                args = args if args else []
+                kwargs = kwargs if kwargs else {}
+
+            elif ops and not operation:
+                # Shorthand parametrization
+                # Make sure there are no stray argument
+                if 'args' in ops or 'kwargs' in ops:
+                    raise ValueError("When using shorthand notation, the args "
+                                     "and kwargs need to be specified under "
+                                     "the key that specifies the operation!")
+
+                elif len(ops) > 1:
+                    raise ValueError("For shorthand notation, there can only "
+                                     "be a single operation specified, but "
+                                     "got: {}.".format(ops))
+
+                # Extract operation name and parameters
+                operation, op_params = list(ops.items())[0]
+
+                # Depending on type, regard parameters as args or kwargs. If
+                # the argument is not a container, assume it's a single
+                # positional argument.
+                if isinstance(op_params, dict):
+                    args, kwargs = [], op_params
+                
+                elif isinstance(op_params, (list, tuple)):
+                    args, kwargs = op_params, {}
+                
+                elif op_params is not None:
+                    args, kwargs = [op_params], {}
+                
+                else:
+                    args, kwargs = [], {}
+
+            elif bool(operation) == bool(ops):
+                # Both or none were given
+                raise ValueError("Bad parameter format! Need either explicit "
+                                 "or shorthand arguments, but got neither or "
+                                 "both!")
+
+            # Have operation, args and kwargs set now.
+
+            # If the result is to be carried on, the first _positional_
+            # argument is set to be a reference to the previous node
+            if carry_result:
+                args.insert(0, DAGNode(-1))
+
+            # Done. Construct the dict.
+            return dict(operation=operation, args=args, kwargs=kwargs, tag=tag)
+
         # The to-be-populated list of transformations
         trfs = list()
 
@@ -174,14 +289,18 @@ class TransformationDAG:
         select = copy.deepcopy(select) if select else {}
         transform = copy.deepcopy(transform) if transform else []
 
-        # First, parse the select argument.
+        # First, parse the ``select`` argument. This contains a basic operation
+        # to select data from the DataManager and also allows to perform some
+        # operations on it.
         for field_name, params in sorted(select.items()):
             if isinstance(params, str):
                 path = params
+                carry_result = False
                 more_trfs = None
 
             elif isinstance(params, dict):
                 path = params['path']
+                carry_result = params.get('carry_result', False)
                 more_trfs = params.get('transform')
 
             else:
@@ -191,58 +310,71 @@ class TransformationDAG:
 
             # Construct parameters to select from the DataManager
             trfs.append(dict(operation='getitem',
-                             target=field_name if not more_trfs else None,
-                             args=[DAGField('dm'), path],
+                             tag=field_name if not more_trfs else None,
+                             args=[DAGTag('dm'), path],
                              kwargs=dict()))
             # NOTE If more transformations are to occur on this element, the
-            #      target of this first transformation need be None.
+            #      tag of this first transformation need be None.
             
             if not more_trfs:
+                # Done with this set of transformations.
                 continue
 
             # else: there are additional transformations to be parsed and added
             for i, trf_params in enumerate(more_trfs):
-                # Make sure there is only a single key
-                if len(trf_params) != 1:
-                    raise ValueError("Invalid additional transformation "
-                                     "parameters!")
+                # Parse it
+                trf_params = parse_minimal_syntax(trf_params)
+                trf_params = parse_params(**trf_params,
+                                          carry_result=carry_result)
 
-                # Extract operation name and parameters
-                op_name, op_params = list(trf_params.items())[0]
+                # On the last transformation for the selected tag, need to set
+                # the tag to the specified field name. This is to avoid
+                # confusion about the result of the select operation.
+                if i+1 == len(more_trfs):
+                    if trf_params.get('tag'):
+                        raise ValueError("The tag of the last transform "
+                                         "operation within a select routine "
+                                         "cannot be set manually.")
+                    
+                    # Set it to the field name
+                    trf_params['tag'] = field_name
 
-                if isinstance(op_params, dict):
-                    args, kwargs = [], op_params
-                
-                elif isinstance(op_params, (list, tuple)):
-                    args, kwargs = op_params, {}
-                
-                else:
-                    args, kwargs = [op_params], {}
+                # Done, can append it now
+                trfs.append(trf_params)
 
-                # Determine the first argument and the target
-                arg0 = DAGReference(len(trfs) - 1)
-                target = field_name if (i+1 == len(more_trfs)) else None
-
-                # Build and append parameters
-                trfs.append(dict(operation=op_name,
-                                 target=target,
-                                 args=[arg0, *args],
-                                 kwargs=kwargs))
-
-
-        # Now, add the additional transformations
-        for trf in transform:
-            trfs.append(trf)
+        # Now, parse the normal ``transform`` argument. The operations defined
+        # here are added after all the instructions from the ``select`` section
+        # above. Furthermore, the ``carry_result`` feature is not available
+        # here but everything has to be specified explicitly.
+        for trf_params in transform:
+            trf_params = parse_minimal_syntax(trf_params)
+            trfs.append(parse_params(**trf_params))
 
         # Done
         return trfs
+    
+    def _add_node(self, *, operation: str,
+                  args: list, kwargs: dict, tag: str) -> THash:
+        """Add a new node and all required additional objects."""
+
+        def resolve_refs(*args, **kwargs) -> tuple:
+            """Resolves any DAG references in the arguments"""
+            # TODO
+            return args, kwargs
+
+        # Handle default values of arguments
+        args = args if args else []
+        kwargs = kwargs if kwargs else {}
+
+        # Recursively resolve the references using the helper function
+        args, kwargs = resolve_refs(*args, **kwargs)
 
     def _build_dag(self) -> None:
         """Builds the actual directed acyclic graph using the information
-        from the configuration.
+        from the transformation configuration.
         """
-        pass
-        # TODO
+        for trf_params in self._trfs:
+            self._add_node(**trf_params)
     
     # .........................................................................
 
@@ -255,6 +387,11 @@ class TransformationDAG:
     def fields(self) -> Dict[str, THash]:
         """A mapping from field names to object hashes"""
         return self._fields
+
+    @property
+    def nodes(self) -> List[THash]:
+        """The nodes of the DAG"""
+        return self._nodes
 
     @property
     def objects(self) -> DAGObjects:

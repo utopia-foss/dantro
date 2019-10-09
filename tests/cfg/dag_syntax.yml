@@ -1,5 +1,8 @@
 # Syntax for the TransformationDAG
 ---
+# -----------------------------------------------------------------------------
+# Simple cases
+
 simple_transform:
   input:
     select: ~
@@ -10,14 +13,14 @@ simple_transform:
           - another_arg
         kwargs:
           some_kwarg: hello
-        target: res0
+        tag: res0
 
       - operation: op1
         args: []
         kwargs:
-          some_kwarg: !field some_field
+          some_kwarg: !dag_tag some_field
           another_kwarg: abc
-        target: res1
+        tag: res1
 
   expected:  
     - operation: op0
@@ -26,17 +29,105 @@ simple_transform:
         - another_arg
       kwargs:
         some_kwarg: hello
-      target: res0
+      tag: res0
 
     - operation: op1
       args: []
       kwargs:
-        some_kwarg: !field some_field
+        some_kwarg: !dag_tag some_field
         another_kwarg: abc
-      target: res1
+      tag: res1
 
   _raises: false
   _match: ~
+
+minimal:
+  input:
+    select: ~
+    transform:
+      - operation: some_op_without_any_args_or_kwargs
+      - operation: some_unary_op
+        carry_result: true
+      - invert
+
+  expected:  
+    - operation: some_op_without_any_args_or_kwargs
+      args: []
+      kwargs: {}
+      tag: ~
+    - operation: some_unary_op
+      args:
+        - !dag_node -1
+      kwargs: {}
+      tag: ~
+    - operation: invert
+      args:
+        - !dag_node -1
+      kwargs: {}
+      tag: ~
+
+  _raises: false
+  _match: ~
+
+# -----------------------------------------------------------------------------
+# Shorthand for unary and binary operations
+
+shorthand_transform:
+  input:
+    select: ~
+    transform:
+      - some_unary_op: [no_target]
+
+      - some_unary_op: [!dag_prev ]
+        tag: res0
+      
+      - some_unary_op_with_kwargs:
+          some_kwarg: some_value
+        tag: res1
+
+      - some_binary_op: [!dag_tag some_field, 123]
+        tag: res2
+
+      - some_binary_op_with_kwargs:
+          kwarg0: !dag_tag foo
+          kwarg1: !dag_tag bar
+
+  expected:
+    - operation: some_unary_op
+      args:
+        - no_target
+      kwargs: {}
+      tag: ~
+
+    - operation: some_unary_op
+      args:
+        - !dag_node -1
+      kwargs: {}
+      tag: res0
+
+    - operation: some_unary_op_with_kwargs
+      args: []
+      kwargs:
+        some_kwarg: some_value
+      tag: res1
+
+    - operation: some_binary_op
+      args:
+        - !dag_tag some_field
+        - 123
+      kwargs: {}
+      tag: res2
+
+    - operation: some_binary_op_with_kwargs
+      args: []
+      kwargs:
+        kwarg0: !dag_tag foo
+        kwarg1: !dag_tag bar
+      tag: ~
+
+  _raises: false
+  _match: ~
+
 
 
 # -----------------------------------------------------------------------------
@@ -51,30 +142,30 @@ simple_select:
     transform:
       - operation: some_operation
         args:
-          - !field foo
+          - !dag_tag foo
         kwargs:
           some_kwarg: hey
-        target: spam
+        tag: spam
   
   expected:
     - operation: getitem
       args:
-        - !field dm
+        - !dag_tag dm
         - some/path/bar
       kwargs: {}
-      target: bar
+      tag: bar
     - operation: getitem
       args:
-        - !field dm
+        - !dag_tag dm
         - some/path/foo
       kwargs: {}
-      target: foo
+      tag: foo
     - operation: some_operation
       args:
-        - !field foo
+        - !dag_tag foo
       kwargs:
         some_kwarg: hey
-      target: spam
+      tag: spam
 
   _raises: false
   _match: ~
@@ -85,13 +176,15 @@ select_with_transform:
     select:
       foo:
         path: some/path
+        carry_result: true
         transform:
           - getitem: foo
       bar:
         path: some/path/bar
         transform:
-          - some_operation: [1, 2, 3]
+          - some_operation: [!dag_prev , 1, 2, 3]
           - another_operation:
+              input: !dag_prev
               one_kwarg: 1
               another_kwarg: abc
     transform: ~
@@ -99,38 +192,38 @@ select_with_transform:
   expected:
     - operation: getitem
       args:
-        - !field dm
+        - !dag_tag dm
         - some/path/bar
       kwargs: {}
-      target: ~
+      tag: ~
     - operation: some_operation
       args:
-        - !dag_ref 0
+        - !dag_node -1
         - 1
         - 2
         - 3
       kwargs: {}
-      target: ~
+      tag: ~
     - operation: another_operation
-      args:
-        - !dag_ref 1
+      args: []
       kwargs:
+        input: !dag_node -1
         one_kwarg: 1
         another_kwarg: abc
-      target: bar
+      tag: bar
 
     - operation: getitem
       args:
-        - !field dm
+        - !dag_tag dm
         - some/path
       kwargs: {}
-      target: ~
+      tag: ~
     - operation: getitem
       args:
-        - !dag_ref 3
+        - !dag_node -1
         - foo
       kwargs: {}
-      target: foo
+      tag: foo
 
   _raises: false
   _match: ~

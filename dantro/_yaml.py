@@ -13,11 +13,16 @@ from paramspace import yaml
 yaml.default_flow_style = False
 
 # Register further classes
-from ._dag_utils import DAGField, DAGNode, DAGReference
+from ._dag_utils import DAGReference, DAGTag, DAGNode
 
-yaml.register_class(DAGField)
-yaml.register_class(DAGNode)
 yaml.register_class(DAGReference)
+yaml.register_class(DAGTag)
+yaml.register_class(DAGNode)
+
+# Special constructors ........................................................
+# For the case of a reference to the previous node
+yaml.constructor.add_constructor(u'!dag_prev',
+                                 lambda l, n: DAGNode(l.construct_object(n)))
 
 # -----------------------------------------------------------------------------
 
