@@ -18,3 +18,14 @@ class LinkContainer(CheckDataMixin, ForwardAttrsToDataMixin, ObjectContainer):
     of the linked object.
     """
     DATA_EXPECTED_TYPES = (Link,)
+
+    def _format_info(self) -> str:
+        """A __format__ helper function: returns info about the item
+
+        In this case, the anchor and relative path of the associated link is
+        returned.
+        """
+        return ("->{}, rel. to {}, {}"
+                "".format(self.data.target_rel_path,
+                          self.data.anchor_object.name,
+                          super(ObjectContainer, self)._format_info()))
