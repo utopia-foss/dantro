@@ -4,7 +4,7 @@
 # Simple cases
 
 simple_transform:
-  input:
+  params:
     select: ~
     transform:
       - operation: op0
@@ -38,11 +38,9 @@ simple_transform:
         another_kwarg: abc
       tag: res1
 
-  _raises: false
-  _match: ~
 
 minimal:
-  input:
+  params:
     select: ~
     transform:
       - operation: some_op_without_any_args_or_kwargs
@@ -66,14 +64,11 @@ minimal:
       kwargs: {}
       tag: ~
 
-  _raises: false
-  _match: ~
-
 # -----------------------------------------------------------------------------
 # Shorthand for unary and binary operations
 
 shorthand_transform:
-  input:
+  params:
     select: ~
     transform:
       - some_unary_op: [no_target]
@@ -125,16 +120,12 @@ shorthand_transform:
         kwarg1: !dag_tag bar
       tag: ~
 
-  _raises: false
-  _match: ~
-
-
 
 # -----------------------------------------------------------------------------
 # With select
 
 simple_select:
-  input:
+  params:
     select:
       foo: some/path/foo
       bar: some/path/bar
@@ -167,12 +158,9 @@ simple_select:
         some_kwarg: hey
       tag: spam
 
-  _raises: false
-  _match: ~
-
 
 select_with_transform:
-  input:
+  params:
     select:
       foo:
         path: some/path
@@ -224,6 +212,3 @@ select_with_transform:
         - foo
       kwargs: {}
       tag: foo
-
-  _raises: false
-  _match: ~

@@ -128,6 +128,10 @@ class DAGObjects:
         """
         return self._d.get(key, default=default)
 
+    def __len__(self) -> int:
+        """Returns the number of objects in the objects database"""
+        return len(self._d)
+
 # -----------------------------------------------------------------------------
 
 class TransformationDAG:
@@ -164,8 +168,9 @@ class TransformationDAG:
         # NOTE The data manager is NOT a node of the DAG, but more like an
         #      external data source, thus being accessible only as a field
 
-        # Now, build the DAG
-        self._build_dag()
+        # Build the DAG by subsequently adding nodes from the parsed parameters
+        for trf_params in self._trfs:
+            self._add_node(**trf_params)
 
     # .........................................................................
 
@@ -410,13 +415,6 @@ class TransformationDAG:
             if tag in self.tags.keys():
                 raise ValueError("Tag '{}' already exists!".format(tag))
             self.tags[tag] = trf_hash
-
-    def _build_dag(self) -> None:
-        """Builds the actual directed acyclic graph using the information
-        from the transformation configuration.
-        """
-        for trf_params in self._trfs:
-            self._add_node(**trf_params)
     
     # .........................................................................
     

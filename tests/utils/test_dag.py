@@ -54,55 +54,91 @@ def test_DAGObjects():
 
     objs = DAGObjects()
 
-def test_TransformationDAG(dm):
-    """Tests the TransformationDAG class"""
-    TransformationDAG = dag.TransformationDAG
-
-    transformations = load_yml(TRANSFORMATIONS_PATH)
-
-    for name, trf_cfg in transformations.items():
-        # Extract specification and expected values etc
-        print("\nTesting transformation config '{}' ...".format(name))
-
-        # Extract arguments
-        trfs_kwargs = {k: v for k, v in trf_cfg.items()
-                       if not k.startswith('_')}
-
-        _may_fail = trf_cfg.get('_may_fail', False)
-        _expected_num_fields = trf_cfg.get('_expected_num_fields')
-        _expected_fields = trf_cfg.get('_expected_fields')
-
-        # Initialize it
-        tdag = TransformationDAG(dm=dm, **trfs_kwargs)
-        # TODO try-except block
-
-        # result = tdag.compute() # FIXME
-        
-        # TODO Compare with expected result...
-
 def test_TransformationDAG_parsing():
     """Tests the TransformationDAG class"""
     TransformationDAG = dag.TransformationDAG
 
-    syntax_tests = load_yml(DAG_SYNTAX_PATH)
+    syntax_test_cfgs = load_yml(DAG_SYNTAX_PATH)
     
     # Initialize an empty DAG object that will be re-used
     tdag = TransformationDAG(dm=dm)
     parse_func = tdag._parse_trfs
 
-    for name, cfg in syntax_tests.items():
+    for name, cfg in syntax_test_cfgs.items():
         # Extract specification and expected values etc
-        print("\nTesting transformation syntax '{}' ...".format(name))
+        print("Testing transformation syntax case '{}' ...".format(name))
 
         # Extract arguments
-        trf_input = cfg['input']
-        trf_expected = cfg['expected']
+        params = cfg['params']
+        expected = cfg['expected']
 
-        _may_fail = cfg.get('_raises', False)
+        # Error checking arguments
+        _raises = cfg.get('_raises', False)
+        _exp_exc = (Exception if not isinstance(_raises, str)
+                    else getattr(__builtins__, _raises))
         _match = cfg.get('_match')
 
-        trf_output = parse_func(**trf_input)
-        # TODO try-except block
+        # Invoke it
+        if not _raises:
+            output = parse_func(**params)
+
+        else:
+            with pytest.raises(_exp_exc, match=_match):
+                output = parse_func(**params)
+
+            print("Raised error as expected.\n")
+            continue
 
         # Compare with expected result...
-        assert trf_output == trf_expected
+        assert output == expected
+        print("Parsing output was as expected.\n")
+
+def test_TransformationDAG_build_and_compute(dm):
+    """Tests the TransformationDAG class"""
+    TransformationDAG = dag.TransformationDAG
+
+    transformation_test_cfgs = load_yml(TRANSFORMATIONS_PATH)
+
+    for name, cfg in transformation_test_cfgs.items():
+        # Extract specification and expected values etc
+        print("\nTesting transformation DAG case '{}' ...".format(name))
+
+        # Extract arguments
+        params = cfg['params']
+        expected = cfg['expected']
+
+        # Error checking arguments
+        _raises = cfg.get('_raises', False)
+        _exp_exc = (Exception if not isinstance(_raises, str)
+                    else getattr(__builtins__, _raises))
+        _match = cfg.get('_match')
+
+        # Initialize TransformationDAG object, which will build the DAGs
+        if not _raises:
+            tdag = TransformationDAG(dm=dm, **params)
+
+        else:
+            with pytest.raises(_exp_exc, match=_match):
+                tdag = TransformationDAG(dm=dm, **params)
+
+            print("Raised error as expected.\n")
+            continue
+        
+        # Compare with expected tree structure and tags etc.
+        if expected.get('num_nodes'):
+            assert expected['num_nodes'] == len(tdag.nodes)
+        
+        if expected.get('num_objects'):
+            assert expected['num_objects'] == len(tdag.objects)
+
+        if expected.get('tags'):
+            assert set(expected['tags']) == set(tdag.tags.keys())
+
+        print("Tree structure and tags as expected.")
+
+        # Compare with expected result...
+        # TODO
+        # result = tdag.compute()
+        print("Computation results as expected.\n")
+
+        

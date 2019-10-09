@@ -2,78 +2,60 @@
 ---
 # Selecting items -------------------------------------------------------------
 explicit_select:
-  # select: ~  # implied
-  transform:
-    - operation: getitem
-      args:
-        - !dag_tag dm
-        - some/path
-    - operation: getitem
-      args:
-        - !dag_node -1
-        - foo
-      tag: foo
+  params:
+    transform:
+      - operation: getitem
+        args:
+          - !dag_tag dm
+          - some/path
+      - operation: getitem
+        args:
+          - !dag_node -1
+          - foo
+        tag: foo
 
-    - operation: getitem
-      args:
-        - !dag_tag dm
-        - some/path/bar
-      tag: bar
-  # compute_fields: all   # implied
-  
-  _may_fail: false
-  _expected_num_fields: 2
-  _expected_fields: &fields_explicit_getitem
-    foo:
-      type: OrderedDataGroup
-      path: some/path/foo
-    bar:
-      type: OrderedDataGroup
-      path: some/path/bar
+      - operation: getitem
+        args:
+          - !dag_tag dm
+          - some/path/bar
+        tag: bar
+
+  expected:
+    num_nodes: 3
+    num_objects: 4
+    tags: [dm, foo, bar]
 
 
 shorthand_select:
-  select:
-    foo: some/path/foo
-    bar: some/path/bar
-  # transform: []         # implied
-  # compute_fields: all   # implied
+  params:
+    select:
+      foo: some/path/foo
+      bar: some/path/bar
 
-  _may_fail: false
-  _expected_num_fields: 2
-  _expected_fields:
-    <<: *fields_explicit_getitem
-
+  expected:
+    num_nodes: 2
+    num_objects: 3
+    tags: [dm, foo, bar]
 
 
 # Basic numerical operations --------------------------------------------------
 
 explicit_increment:
-  select:
-    some_data: data/zeros
-  transform:
-    - operation: increment
-      args:
-        - !dag_tag some_data
-      tag: ones
+  params:
+    select:
+      some_data: data/zeros
+    transform:
+      - operation: increment
+        args:
+          - !dag_tag some_data
+        tag: ones
 
-    - operation: increment
-      args:
-        - !dag_tag ones
-      tag: twos
+      - operation: increment
+        args:
+          - !dag_tag ones
+        tag: twos
 
-  _may_fail: false
-  _expected_num_fields: 3
-  _expected_fields:
-    some_data:
-      type: XRDataContainer
-      path: data/zeros
-      mean: 0
-    ones:
-      type: XRDataContainer
-      path: ~
-      mean: 1
-    twos:
-      type: XRDataContainer
-      path: ~
-      mean: 2
+  expected:
+    num_nodes: 3
+    num_objects: 4
+    tags: [dm, some_data, ones, twos]
