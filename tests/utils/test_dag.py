@@ -10,6 +10,7 @@ import dantro
 import dantro.utils
 import dantro.utils.dag as dag
 from dantro import DataManager
+from dantro.base import BaseDataGroup
 from dantro.groups import OrderedDataGroup
 from dantro.containers import ObjectContainer, NumpyDataContainer
 from dantro.tools import load_yml
@@ -145,9 +146,37 @@ def test_TransformationDAG_build_and_compute(dm):
         results = tdag.compute()
         print(results.tree)
 
-        # TODO check
+        print("Checking results ...")
+        
+        # Should be a DataGroup
+        assert isinstance(results, BaseDataGroup)
+
+        # Check more explicitly
+        for tag, to_check in expected.get('results', {}).items():
+            print("  Checking results for tag '{}' ...", tag)
+
+            # Check if the tag is in the results group
+            assert tag in results.keys()
+
+            # Get the result for this tag
+            res = results[tag]
+
+            # Check if the type of the object is as expected; do so by string
+            # comparison to avoid having to do an import here ...
+            if 'type' in to_check:
+                assert type(res).__name__ == to_check['type']
+
+            # Check that the linked object has the correct path and type; this
+            # makes only sense for LinkContainer objects...
+            if 'linked_path' in to_check:
+                assert res.target_rel_path == to_check['linked_path']
+
+            if 'linked_type' in to_check:
+                assert type(res.target_object).__name__ == to_check['linked_type']
+
+            # Check attribute values
+            if 'attributes' in to_check:
+                for attr_name, exp_attr_val in to_check['attributes'].items():
+                    assert getattr(res, attr_name) == exp_attr_val
 
         print("Computation results as expected.\n")
-
-        
-    assert False

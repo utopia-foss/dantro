@@ -25,6 +25,18 @@ explicit_select:
     num_objects: 4
     tags: [dm, foo, bar]
 
+    results:
+      foo:
+        type: LinkContainer
+        linked_path: TestDM/some/path/foo
+        linked_type: OrderedDataGroup
+        attributes: {}
+      bar:
+        type: LinkContainer
+        linked_path: TestDM/some/path/bar
+        linked_type: OrderedDataGroup
+        attributes: {}
+
 
 shorthand_select:
   params:
