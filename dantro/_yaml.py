@@ -21,8 +21,7 @@ yaml.register_class(DAGNode)
 
 # Special constructors ........................................................
 # For the case of a reference to the previous node
-yaml.constructor.add_constructor(u'!dag_prev',
-                                 lambda l, n: DAGNode(l.construct_object(n)))
+yaml.constructor.add_constructor(u'!dag_prev', lambda l, n: DAGNode(-1))
 
 # -----------------------------------------------------------------------------
 
