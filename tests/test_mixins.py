@@ -32,9 +32,9 @@ def test_PathMixin():
     assert bar.parent is foo
 
     # Path creation
-    assert root.path == "root"
-    assert foo.path == "root/foo"
-    assert bar.path == "root/foo/bar"
+    assert root.path == "/root"
+    assert foo.path == "/root/foo"
+    assert bar.path == "/root/foo/bar"
 
     # Format function
     assert root._format_path() == root.path

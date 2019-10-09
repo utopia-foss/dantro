@@ -196,6 +196,10 @@ def test_init(data_dir):
     assert os.path.isdir(dm.dirs['data'])
     assert os.path.isdir(dm.dirs['out'])
 
+    # The DataManager's path should start at root
+    assert dm.parent is None
+    assert dm.path.startswith("/")
+
 def test_init_with_create_groups(tmpdir):
     """Tests the create_groups argument to __init__"""
     # Check group creation from a list of names
