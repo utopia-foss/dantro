@@ -4,12 +4,14 @@ from pkg_resources import resource_filename
 
 import pytest
 
+import numpy as np
+
 import dantro
 import dantro.utils
 import dantro.utils.dag as dag
 from dantro import DataManager
 from dantro.groups import OrderedDataGroup
-from dantro.containers import ObjectContainer
+from dantro.containers import ObjectContainer, NumpyDataContainer
 from dantro.tools import load_yml
 
 # Local constants
@@ -30,7 +32,9 @@ def dm(tmpdir) -> DataManager:
     g_bar = _dm['some/path'].new_group('bar')
 
     # Create some containers
-    # TODO
+    data = _dm.new_group('data')
+    data.new_container('zeros', Cls=NumpyDataContainer,
+                       data=np.zeros((2,3,4)))
 
     return _dm
 
@@ -137,8 +141,13 @@ def test_TransformationDAG_build_and_compute(dm):
         print("Tree structure and tags as expected.")
 
         # Compare with expected result...
-        # TODO
-        # result = tdag.compute()
+        print("Computing results ...")
+        results = tdag.compute()
+        print(results.tree)
+
+        # TODO check
+
         print("Computation results as expected.\n")
 
         
+    assert False

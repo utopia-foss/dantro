@@ -8,7 +8,17 @@ log = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 
 # The operations database
-OPERATIONS = {}
+OPERATIONS = {
+    # Attribute access
+    'getattr':  getattr,
+    
+    # Item access
+    'getitem':  lambda obj, key: obj[key],
+
+    # Numerical operations
+    'increment':    lambda obj: obj + 1,
+    'decrement':    lambda obj: obj + 1
+}
 
 # -----------------------------------------------------------------------------
 # Registering and applying operations

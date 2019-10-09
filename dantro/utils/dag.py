@@ -8,9 +8,12 @@ import logging
 from typing import NewType, TypeVar
 from typing import Dict, Tuple, Sequence, Any, Hashable, Callable, Union, List
 
-from .._dag_utils import DAGReference, DAGTag, DAGNode, THash
 from .ordereddict import KeyOrderedDict
 from .data_ops import OPERATIONS, apply_operation
+from .link import Link
+from .._dag_utils import THash, DAGReference, DAGTag, DAGNode
+from ..base import BaseDataGroup, BaseDataContainer
+from ..containers import LinkContainer
 from ..tools import is_hashable
 
 # Local constants
@@ -41,6 +44,38 @@ def _hash(s: Union[str, Any]) -> str:
     if not isinstance(s, str):
         s = _serialize(s)
     return hashlib.md5(s.encode('utf-8')).hexdigest()
+
+# -----------------------------------------------------------------------------
+
+class DAGObjects:
+    """An objects database for the DAG framework.
+
+    It wraps a flat, key-ordered dict, containing (hash, object ref) pairs.
+    """
+
+    def __init__(self):
+        """Initialize an empty objects database"""
+        self._d = KeyOrderedDict()
+
+    def add_object(self, obj: Hashable) -> THash:
+        """Add an object to the object database, storing it under its hash."""
+        key = _hash(obj)
+        self._d[key] = obj
+        return key
+
+    def __getitem__(self, key: THash) -> Hashable:
+        """Return the object associated with the given hash"""
+        return self._d[key]
+
+    def get(self, key: THash, default=None) -> Union[Hashable, None]:
+        """Return the object associated with the given hash, if it is in the
+        object database, else return default.
+        """
+        return self._d.get(key, default=default)
+
+    def __len__(self) -> int:
+        """Returns the number of objects in the objects database"""
+        return len(self._d)
 
 # -----------------------------------------------------------------------------
 
@@ -85,52 +120,59 @@ class Transformation(collections.abc.Hashable):
         """
         return _hash(repr(self))
 
+    @property
+    def result(self) -> Any:
+        """Return the result of this transformation. Will be None if it was
+        not yet computed.
+        """
+        return self._result
+
     def compute(self, *, dag: 'TransformationDAG') -> Any:
         """Computes the result of this transformation by recursively resolving
-        objects and carrying out operations."""
-        # Resolve the arguments and the operation objects
-        args = [dag.objects[h] for h in self._args]
-        kwargs = {k:dag.objects[h] for k, h in self._kwargs.items()}
-        op = OPERATIONS[self._operation]
-
-        # If any of the objects is not fully resolved, do so. This enters the
-        # recursive branch ...
-        # TODO
-
-        # Carry out the operation ...
-        return op(*args, **kwargs)
-
-# -----------------------------------------------------------------------------
-
-class DAGObjects:
-    """An objects database for the DAG framework.
-
-    It wraps a flat, key-ordered dict, containing (hash, object ref) pairs.
-    """
-
-    def __init__(self):
-        """Initialize an empty objects database"""
-        self._d = KeyOrderedDict()
-
-    def add_object(self, obj: Hashable) -> THash:
-        """Add an object to the object database, storing it under its hash."""
-        key = _hash(obj)
-        self._d[key] = obj
-        return key
-
-    def __getitem__(self, key: THash) -> Hashable:
-        """Return the object associated with the given hash"""
-        return self._d[key]
-
-    def get(self, key: THash, default=None) -> Union[Hashable, None]:
-        """Return the object associated with the given hash, if it is in the
-        object database, else return default.
+        objects and carrying out operations.
+        
+        Args:
+            dag (TransformationDAG): The associated DAG
+        
+        Returns:
+            Any: The result of the operation
         """
-        return self._d.get(key, default=default)
+        def resolve(element, *, dag):
+            """Resolve references to their objects"""
+            if not isinstance(element, DAGReference):
+                # Is an argument. Nothing to do, return it as it is.
+                return element
 
-    def __len__(self) -> int:
-        """Returns the number of objects in the objects database"""
-        return len(self._d)
+            # Is a reference; resolve the corresponding object
+            obj = element.resolve_object(dag=dag)
+            
+            # Check if this refers to the DataManager, which cannot perform any
+            # further computation ...
+            if obj is dag.dm:
+                return dag.dm
+
+            # Wasn't the DataManager; should now be a Transformation object
+            if not isinstance(obj, Transformation):
+                raise TypeError("Unexpected object of type {}!"
+                                "".format(type(obj)))
+
+            # Compute the result of the referenced transformation
+            return obj.compute(dag=dag)
+
+        # Return the already computed result, if available
+        if self.result is not None:
+            return self.result
+
+        # Not available, compute it.
+        # Resolve the operation callable and the arguments. If any of the
+        # objects is not fully resolved, do so. This enters the recursion ...
+        op = OPERATIONS[self._operation]
+        args = [resolve(e, dag=dag) for e in self._args]
+        kwargs = {k:resolve(e, dag=dag) for k, e in self._kwargs.items()}
+
+        # Carry out the operation and store the result for next time
+        self._result = op(*args, **kwargs)
+        return self.result
 
 # -----------------------------------------------------------------------------
 
@@ -418,6 +460,43 @@ class TransformationDAG:
     
     # .........................................................................
     
-    def compute(self, *, compute_only: Sequence[str]=None) -> Dict[str, Any]:
-        """Computes all specified fields."""
-        raise NotImplementedError()
+    def compute(self, *, compute_only: Sequence[str]=None,
+                ResultCls: BaseDataGroup=None) -> BaseDataGroup:
+        """Computes all specified tags."""
+        # Determine which tags to compute
+        if compute_only:
+            to_compute = compute_only
+        elif self._compute_tags == 'all':
+            to_compute = [t for t in self.tags.keys() if t != 'dm']
+        else:
+            to_compute = self._compute_tags
+
+        log.info("Tags to be computed: {}".format(", ".join(to_compute)))
+
+        # Determine which group class to use for storing results
+        if ResultCls is None:
+            ResultCls = self.dm._DATA_GROUP_DEFAULT_CLS
+
+        # Compute the results and return them
+        results = ResultCls(name='TransformationResults') # TODO name
+        for tag in to_compute:
+            result = self.objects[self.tags[tag]].compute(dag=self)
+
+            # Handle dantro objects and non-dantro objects in different ways
+            if isinstance(result, (BaseDataGroup, BaseDataContainer)):
+                # If the resulting object is attached somewhere, add a link;
+                # otherwise, rename it and add it directly
+                if result.parent is not None:
+                    link = Link(anchor=self.dm, rel_path=result.path)
+                    results.add(LinkContainer(name=tag, data=link))
+
+                else:
+                    result._name = tag  # FIXME internal API usage
+                    results.add(result)
+
+            else:
+                # Create an ObjectContainer
+                # TODO use more specific containers, if available
+                results.add(ObjectContainer(name=tag, data=result))
+
+        return results
