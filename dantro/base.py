@@ -19,7 +19,7 @@ from typing import Union, List, Tuple
 
 import dantro.abc
 from .abc import PATH_JOIN_CHAR
-from .mixins import AttrsMixin, PathMixin, CheckDataMixin, LockDataMixin
+from .mixins import AttrsMixin, CheckDataMixin, LockDataMixin
 from .mixins import CollectionMixin, ItemAccessMixin, MappingAccessMixin
 from .tools import TTY_COLS
 
@@ -90,8 +90,7 @@ class BaseDataAttrs(MappingAccessMixin, dantro.abc.AbstractDataAttrs):
 
 # -----------------------------------------------------------------------------
 
-class BaseDataContainer(PathMixin, AttrsMixin,
-                        dantro.abc.AbstractDataContainer):
+class BaseDataContainer(AttrsMixin, dantro.abc.AbstractDataContainer):
     """The BaseDataContainer extends the abstract base class by the ability to
     hold attributes and be path-aware.
     """
@@ -106,51 +105,14 @@ class BaseDataContainer(PathMixin, AttrsMixin,
             data: The data to store in this container
             attrs (None, optional): A mapping that is stored as attributes
         """
-        # Allow to check that the name is valid
-        self._check_name(name)
-
-        # Supply the data to the _check_data method, which can be adjusted
-        # to test the provided data. In this base class, the method does
-        # nothing and serves only as a placeholder
-        self._check_data(data, name=name)
-
-        # Basic initialisation via parent method
+        # Initialize via parent, then additionally store attributes
         super().__init__(name=name, data=data)
-
-        # Store the attributes object
         self.attrs = attrs
 
-        # Done.
-
-    def _check_name(self, name: str) -> None:
-        """Called from __init__ and can be used to check the name that the
-        container is supposed to have. On invalid name, this should raise.
-        
-        Args:
-            name (str): The name the container is supposed to have
-        """
-        pass
-
-    def _check_data(self, data, *, name: str) -> None:
-        """This method can be used to check the data provided to __init__.
-        
-        It is called before the data is stored via the parent's __init__ and
-        should raise an exception or create a warning if the data is not as
-        desired.
-        
-        NOTE: The CheckDataMixin provides a generalised implementation of this
-        method to perform some type checks and react to unexpected types.
-        
-        Args:
-            data: The data to check
-        
-        Returns:
-            bool: Whether the data passed the check.
-        """
-        pass
-
     def _format_info(self) -> str:
-        """A __format__ helper function: returns info about the items"""
+        """A __format__ helper function: returns info about the content of this
+        data container.
+        """
         return ("{} attribute{}"
                 "".format(len(self.attrs),
                           "s" if len(self.attrs) != 1 else ""))
@@ -158,8 +120,7 @@ class BaseDataContainer(PathMixin, AttrsMixin,
 
 # -----------------------------------------------------------------------------
 
-class BaseDataGroup(LockDataMixin, PathMixin, AttrsMixin,
-                    dantro.abc.AbstractDataGroup):
+class BaseDataGroup(LockDataMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
     """The BaseDataGroup serves as base group for all data groups.
 
     It implements all functionality expected of a group, which is much more
@@ -196,32 +157,16 @@ class BaseDataGroup(LockDataMixin, PathMixin, AttrsMixin,
                 using the `.add` method.
             attrs (None, optional): A mapping that is stored as attributes
         """
-        # Allow to check that the name is valid
-        self._check_name(name)
-
         # Prepare the storage class that is used to store the members
         data = self._STORAGE_CLS()
 
-        # Perform basic initialization via parent method
+        # Initialize via parent and store attributes
         super().__init__(name=name, data=data)
-
-        # Store the attributes
         self.attrs = attrs
 
-        # Now add the members
+        # Now add the member containers
         if containers is not None:
             self.add(*containers)
-
-        # Done.
-
-    def _check_name(self, name: str) -> None:
-        """Called from __init__ and can be used to check the name that the
-        container is supposed to have. On invalid name, this should raise.
-        
-        Args:
-            name (str): The name the container is supposed to have
-        """
-        pass
 
     # .........................................................................
     # Item access

@@ -3,7 +3,7 @@
 import abc
 import collections
 import collections.abc
-from typing import Union, Tuple
+from typing import Union, Tuple, Any
 import logging
 
 # Local constants
@@ -16,43 +16,35 @@ PATH_JOIN_CHAR = "/"
 
 class AbstractDataContainer(metaclass=abc.ABCMeta):
     """The AbstractDataContainer is the class defining the data container
-    interface. It holds the bare basics of methods that _all_ classes should
-    have in common.
-
-    Attributes:
-        name: The name of the container
-        data: The stored data
+    interface. It holds the bare basics of methods and attributes that _all_
+    dantro data tree classes should have in common: a name, some data, and some
+    association with others via an optional parent object.
+    
+    Via the parent and the name, path capabilities are provided. Thereby, each
+    object in a data tree has some information about its location relative to
+    a root object.
+    Objects that have _no_ parent are regarded to be an object that is located
+    "next to" root, i.e. having the path /<container_name>.
     """
 
     @abc.abstractmethod
-    def __init__(self, *, name: str, data):
+    def __init__(self, *, name: str, data: Any):
         """Initialize the AbstractDataContainer, which holds the bare
         essentials of what a data container should have.
         
         Args:
             name (str): The name of this container
-            data: The data that is to be stored
+            data (Any): The data that is to be stored
         """
-        # Require strings as name
-        if not isinstance(name, str):
-            raise TypeError("Name for {} needs to be a string, was of type "
-                            "{} with value '{}'.".format(self.classname,
-                                                         type(name), name))
-
-        # Ensure name does not contain path join character
-        if PATH_JOIN_CHAR in name:
-            raise ValueError("Name for {} cannot contain the path separator "
-                             "'{}'! Got: '{}'"
-                             "".format(self.classname, PATH_JOIN_CHAR, name))
-        
-        # Pass name and data to read-only attributes
-        self._name = name
-        self._data = data
-
-        # Set caching variables
         self._logstr = None
+        self._parent = None
 
-        # Done.
+        self._name = None
+        self.name = name
+
+        # Check data (raises if anything is off), then store it
+        self._check_data(data)
+        self._data = data
 
     # .........................................................................
     # Properties
@@ -61,6 +53,36 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
     def name(self) -> str:
         """The name of this DataContainer-derived object."""
         return self._name
+
+    @name.setter
+    def name(self, new_name: str):
+        """Rename this object; not always possible!"""
+        # Check if this is a renaming operation; allow only if currently orphan
+        if self._name is not None:
+            if self.parent is not None:
+                raise ValueError("Cannot rename {} to '{}', because a parent "
+                                 "was already associated with it."
+                                 "".format(self.logstr, new_name))
+
+        # Require strings as name
+        if not isinstance(new_name, str):
+            raise TypeError("Name for {} needs to be a string, was of type "
+                            "{} with value '{}'."
+                            "".format(self.classname,
+                                      type(new_name), new_name))
+
+        # Ensure name does not contain path join character
+        if PATH_JOIN_CHAR in new_name:
+            raise ValueError("Name for {} cannot contain the path separator "
+                             "'{}'! Got: '{}'"
+                             "".format(self.classname, PATH_JOIN_CHAR,
+                                       new_name))
+
+        # Allow further checks by an additional method
+        self._check_name(new_name)
+
+        # Everything ok, store the attribute
+        self._name = new_name
 
     @property
     def classname(self) -> str:
@@ -83,6 +105,35 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
         """The stored data."""
         return self._data
 
+    @property
+    def parent(self):
+        """The associated parent of this container or group"""
+        return self._parent
+
+    @parent.setter
+    def parent(self, cont):
+        """Associate a new parent object with this container or group"""
+        if self.parent is not None and cont is not None:
+            raise ValueError("A parent was already associated with {cls:} "
+                             "'{}'! Instead of manually setting the parent, "
+                             "use the functions supplied to manipulate "
+                             "members of this {cls:}."
+                             "".format(self.name, cls=self.classname))
+        
+        log.trace("Setting %s as parent of %s ...",
+                  cont.logstr if cont else None, self.logstr)
+        self._parent = cont
+
+    @property
+    def path(self) -> str:
+        """The path to get to this container or group from some root path"""
+        if self.parent is None:
+            # Is at the root, thus prefix it with the root character
+            return PATH_JOIN_CHAR + self.name
+
+        # else: not at the top, thus also need the parent's path
+        return self.parent.path + PATH_JOIN_CHAR + self.name
+
     # .........................................................................
     # Item access
 
@@ -97,6 +148,41 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def __delitem__(self, key) -> None:
         """Deletes an item from the container."""
+
+    # .........................................................................
+    # Helper functions
+
+    def _check_name(self, new_name: str) -> None:
+        """Called from name.setter and can be used to check the name that the
+        container is supposed to have. On invalid name, this should raise.
+
+        This method can be subclassed to implement more specific behaviour. To
+        propagate the parent classes' behaviour the subclassed method should
+        always call its parent method using super().
+        
+        Args:
+            new_name (str): The new name, which is to be checked.
+        """
+        pass
+
+    def _check_data(self, data: Any) -> None:
+        """This method can be used to check the data provided to this container
+        
+        It is called before the data is stored in the __init__ method and
+        should raise an exception or create a warning if the data is not as
+        desired.
+
+        This method can be subclassed to implement more specific behaviour. To
+        propagate the parent classes' behaviour the subclassed method should
+        always call its parent method using super().
+        
+        NOTE The CheckDataMixin provides a generalised implementation of this
+             method to perform some type checks and react to unexpected types.
+        
+        Args:
+            data (Any): The data to check
+        """
+        pass
 
     # .........................................................................
     # Formatting
@@ -146,6 +232,10 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
         """A __format__ helper function: returns the log string, a combination
         of class name and name"""
         return self.logstr
+
+    def _format_path(self) -> str:
+        """A __format__ helper function: returns the path to this container"""
+        return self.path
 
     @abc.abstractmethod
     def _format_info(self) -> str:

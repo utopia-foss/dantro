@@ -496,7 +496,7 @@ class TransformationDAG:
                     results.add(LinkContainer(name=tag, data=link))
 
                 else:
-                    result._name = tag  # FIXME internal API usage
+                    result.name = tag
                     results.add(result)
 
             else:

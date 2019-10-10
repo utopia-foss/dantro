@@ -29,6 +29,7 @@ def test_BaseDataAttrs():
 
     bda['foo'] = "bar"
     assert bda.data == dict(foo="bar")
+    assert bda.as_dict() == dict(foo="bar")
 
     assert bda._format_info() == "1 attribute(s)"
 
@@ -131,3 +132,48 @@ def test_BaseDataGroup():
 
     # IPython key completions
     assert root._ipython_key_completions_() == list(root.keys())
+
+def test_path_behaviour():
+    """Test path capabilities using the OrderedDataGroup"""
+    root = dtr.groups.OrderedDataGroup(name="root")
+    foo = root.new_group("foo")
+    bar = foo.new_group("bar")
+
+    # Test correct parent association
+    assert root.parent is None
+    assert foo.parent is root
+    assert bar.parent is foo
+
+    # Path creation
+    assert root.path == "/root"
+    assert foo.path == "/root/foo"
+    assert bar.path == "/root/foo/bar"
+
+    # Format function
+    assert root._format_path() == root.path
+    assert foo._format_path() == foo.path
+    assert bar._format_path() == bar.path
+
+    # Trying to set a parent if it is currently set should not work
+    with pytest.raises(ValueError, match="A parent was already associated"):
+        bar.parent = root
+
+
+def test_renaming():
+    """Test that renaming works only if no parent is associated"""
+    root = dtr.groups.OrderedDataGroup(name="root")
+    foo = root.new_group("foo")
+
+    assert root.path == "/root"
+    assert foo.path == "/root/foo"
+
+    # Cannot rename foo
+    with pytest.raises(ValueError, match="Cannot rename .* because a parent "
+                                         "was already associated"):
+        foo.name = "bar"
+
+    # Can rename root
+    root.name = "new_root"
+
+    assert root.path == "/new_root"
+    assert foo.path == "/new_root/foo"

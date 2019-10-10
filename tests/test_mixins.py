@@ -20,32 +20,6 @@ from .test_data_mngr import NumpyTestDC
 
 # Tests -----------------------------------------------------------------------
 
-def test_PathMixin():
-    """Tests the PathMixin class using the OrderedDataGroup"""
-    root = dtr.groups.OrderedDataGroup(name="root")
-    foo = root.new_group("foo")
-    bar = foo.new_group("bar")
-
-    # Test correct parent association
-    assert root.parent is None
-    assert foo.parent is root
-    assert bar.parent is foo
-
-    # Path creation
-    assert root.path == "/root"
-    assert foo.path == "/root/foo"
-    assert bar.path == "/root/foo/bar"
-
-    # Format function
-    assert root._format_path() == root.path
-    assert foo._format_path() == foo.path
-    assert bar._format_path() == bar.path
-
-    # Trying to set a parent if it is currently set should not work
-    with pytest.raises(ValueError, match="A parent was already associated"):
-        bar.parent = root
-
-
 def test_LockDataMixin():
     """Test the LockDataMixin using an OrderedDataGroup"""
     class ODG(dantro.groups.OrderedDataGroup):

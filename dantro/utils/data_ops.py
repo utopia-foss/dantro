@@ -213,11 +213,6 @@ OPERATIONS = KeyOrderedDict({
     # advanced
     'create_mask':  create_mask,
     'where':        where,
-
-
-    # Visualization / Logging - - - - - - - - - - - - - - - - - - - - - - - - -
-    # Unary ...................................................................
-    'print':        print_data
 })
 
 # Add the boolean operators
