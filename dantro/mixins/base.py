@@ -56,19 +56,25 @@ class PathMixin:
     """This Mixin class implements path capabilities for groups or containers.
 
     That means, that each object can re-create the path at which it can be
-    accessed _if_ it knows its parent object."""
+    accessed _if_ it knows its parent object.
+
+    Every object that has _no_ parent is regarded to be a root object, i.e.
+    having the path /<container_name>.
+    """
     
-    # The parent object
+    # An attribute referencing the parent object
     _parent = None
 
     @property
     def parent(self):
-        """The group this container is contained in or None if on its own."""
+        """The group this container is contained in or None if it is on its
+        own, i.e. a 'root' group or container
+        """
         return self._parent
 
     @parent.setter
     def parent(self, cont):
-        """Associate a parent object with this container."""
+        """Associate a parent object with this container"""
         if self.parent is not None and cont is not None:
             raise ValueError("A parent was already associated with {cls:} "
                              "'{}'! Instead of manually setting the parent, "
@@ -82,11 +88,12 @@ class PathMixin:
 
     @property
     def path(self) -> str:
-        """Return the path to get to this container"""
+        """Return the path to get to this container from the root object"""
         if self.parent is None:
-            # At the top or no parent associated -> no reasonable path to give
-            return self.name
-        # else: not at the top, also need the parent's path
+            # Is at the root, thus prefix it with the root character.
+            return PATH_JOIN_CHAR + self.name
+
+        # else: not at the top, thus also need the parent's path
         return self.parent.path + PATH_JOIN_CHAR + self.name
 
     def _format_path(self) -> str:
