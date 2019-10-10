@@ -8,13 +8,11 @@ from itertools import chain
 from typing import NewType, TypeVar
 from typing import Dict, Tuple, Sequence, Any, Hashable, Callable, Union, List
 
+from ..abc import AbstractDataContainer
 from .ordereddict import KeyOrderedDict
 from .data_ops import OPERATIONS, apply_operation
-from .link import Link
-from ..base import BaseDataGroup, BaseDataContainer
-from ..containers import LinkContainer, ObjectContainer
 from .._yaml import yaml_dumps as _serialize
-from .._hash import _hash
+from .._hash import _hash, SHORT_HASH_LENGTH
 from .._dag_utils import THash, DAGReference, DAGTag, DAGNode
 
 # Local constants
@@ -593,8 +591,8 @@ class TransformationDAG:
     # .........................................................................
     
     def compute(self, *, compute_only: Sequence[str]=None,
-                ResultCls: BaseDataGroup=None) -> BaseDataGroup:
-        """Computes all specified tags."""
+                cache_options: dict=None) -> Dict[str, Any]:
+        """Computes all specified tags and returns a result dict."""
         # Determine which tags to compute
         if compute_only:
             to_compute = compute_only
@@ -605,35 +603,20 @@ class TransformationDAG:
 
         log.info("Tags to be computed: {}".format(", ".join(to_compute)))
 
-        # Determine which group class to use for storing results
-        if ResultCls is None:
-            ResultCls = self.dm._DATA_GROUP_DEFAULT_CLS
+        # Parse cache options argument
+        cache_options = cache_options if cache_options else {}
 
-        # Compute the results and return them
-        results = ResultCls(name='TransformationResults') # TODO name
+        # Compute and collect the results
+        results = dict()
         for tag in to_compute:
-            result = self.objects[self.tags[tag]].compute(dag=self)
+            # Resolve the transformation, then compute the result
+            trf = self.objects[self.tags[tag]]
+            res = trf.compute(dag=self, cache_options=cache_options)
 
-            # Handle dantro objects and non-dantro objects in different ways
-            if isinstance(result, (BaseDataGroup, BaseDataContainer)):
-                # If the resulting object is attached somewhere, add a link;
-                # otherwise, rename it and add it directly
-                if result.parent is not None:
-                    # Compute the relative path from the DataManager to the
-                    # result object. Note: DM != root of path system
-                    rel_path = result.path[len(self.dm.path) + 1:]
+            # If the object is a dantro object, use the short hash for its name
+            if isinstance(res, (AbstractDataContainer)) and res.parent is None:
+                res.name = trf.hashstr[:SHORT_HASH_LENGTH]
 
-                    # Create and add the link to the results group
-                    link = Link(anchor=self.dm, rel_path=rel_path)
-                    results.add(LinkContainer(name=tag, data=link))
-
-                else:
-                    result.name = tag
-                    results.add(result)
-
-            else:
-                # Create an ObjectContainer
-                # TODO use more specific containers, if available
-                results.add(ObjectContainer(name=tag, data=result))
+            results[tag] = res
 
         return results

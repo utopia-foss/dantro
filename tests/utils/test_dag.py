@@ -221,37 +221,25 @@ def test_TransformationDAG_build_and_compute(dm):
         # Compare with expected result...
         print("Computing results ...")
         results = tdag.compute()
-        print(results.tree)
+        print("\n".join(["  * {:<20s}  {:}".format(k, v)
+                         for k, v in results.items()]))
 
-        print("Checking results ...")
+        print("\nChecking results ...")
         
-        # Should be a DataGroup
-        assert isinstance(results, BaseDataGroup)
+        # Should be a dict
+        assert isinstance(results, dict)
 
         # Check more explicitly
         for tag, to_check in expected.get('results', {}).items():
             print("  Tag:  {}".format(tag))
 
-            # Check if the tag is in the results group
-            assert tag in results.keys()
-
             # Get the result for this tag
             res = results[tag]
-            print("    ID: {} \tdata type: {} \tdata ID: {}"
-                  "".format(id(res), type(res.data), id(res.data)))
 
             # Check if the type of the object is as expected; do so by string
             # comparison to avoid having to do an import here ...
             if 'type' in to_check:
                 assert type(res).__name__ == to_check['type']
-
-            # Check that the linked object has the correct path and type; this
-            # makes only sense for LinkContainer objects...
-            if 'linked_path' in to_check:
-                assert res.target_rel_path == to_check['linked_path']
-
-            if 'linked_type' in to_check:
-                assert type(res.target_object).__name__ == to_check['linked_type']
 
             # Check attribute values, calling callables
             if 'attributes' in to_check:

@@ -262,7 +262,7 @@ def apply_operation(op_name: str, *args, _maintain_container_type: bool=False,
     # change it, carrying over name and attributes ...
     if _maintain_container_type and not isinstance(res, _ContCls):
         try:
-            res = _ContCls(name="{}_after_{}".format(_cont_name, op_name),
+            res = _ContCls(name="{} -> {}".format(_cont_name, op_name),
                            data=res, attrs=_cont_attrs)
         except:
             pass
