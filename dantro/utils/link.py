@@ -72,7 +72,7 @@ class Link(ForwardAttrsMixin):
 
     def __resolve_target_ref(self) -> None:
         """Resolves the weak reference to the target object and caches it"""
-        # Start at the anchor, resolving the weak reference
+        # Start at the anchor, resolving the weak reference via '()'
         obj = self.__anchor()
 
         # If there is no relative path given, this is simply a link to itself
@@ -81,12 +81,11 @@ class Link(ForwardAttrsMixin):
             return obj
 
         # Distinguish between anchors that are groups and anchors that are
-        # containers; the latter need to be embedded and the parent object is
-        # then where the path should start from...
+        # containers; the latter need to be embedded and the _parent_ object is
+        # then where the path should start from.
         if not isinstance(obj, BaseDataGroup):
-            # Assume it's a container-like anchor, where the relative path
-            # starts at the parent object.
-            # Check if there is a parent:
+            # Assume it's a container-like anchor, although it might also be a
+            # whole other type. We don't care as long as a parent is defined.
             if obj.parent is None:
                 raise ValueError("The anchor object {} is not embedded into a "
                                  "data tree; cannot resolve the target '{}'! "
@@ -96,14 +95,14 @@ class Link(ForwardAttrsMixin):
                                  "".format(obj.logstr,
                                            self.__rel_path))
 
-            # Select the parent, which automatically is a group
             obj = obj.parent
 
         # Try traversing the path, going to the parent or a child depending on
         # which kind of segment is encountered.
         try:
             for segment in self.__rel_path.split(PATH_JOIN_CHAR):
-                # Skip empty segments
+                # Skip empty segments, i.e. `foo//bar` paths. This makes path
+                # traversal more robust and mirrors UNIX behaviour (try it).
                 if not segment:
                     continue
 

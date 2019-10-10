@@ -250,7 +250,8 @@ def test_Link():
     assert link_sgc0.target_object is c0
     assert link_sgc0.upper() == "AT_ROOT"
     
-    # Scenario6: Link with empty segments
+    # Scenario6: Link with empty segments, i.e. with repeated `/` in the path
+    # This should have the same behaviour as with just a single `/`.
     link_c0c2_mod = Link(anchor=c0, rel_path="group///subgroup//c2")
     assert link_c0c2_mod.target_rel_path is "group///subgroup//c2"  # sic
     assert link_c0c2_mod.target_object is link_c0c2.target_object
