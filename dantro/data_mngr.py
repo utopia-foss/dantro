@@ -12,6 +12,7 @@ from typing import Union, Callable, List, Tuple
 from .base import PATH_JOIN_CHAR, BaseDataContainer, BaseDataGroup
 from .groups import OrderedDataGroup
 from .tools import fill_line, clear_line, recursive_update, load_yml
+from ._hash import _hash
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -235,6 +236,22 @@ class DataManager(OrderedDataGroup):
                              for k, v in dirs.items()]))
 
         return dirs
+
+    @property
+    def hashstr(self) -> str:
+        """The hash of a DataManager is computed from its name and the coupled
+        data directory, which are regarded as the relevant parts. While other
+        parts of the DataManager are not invariant, it is characterized most by
+        the directory it is associated with.
+
+        As this is a string-based hash, it is not implemented as the __hash__
+        magic method but as a separate property.
+
+        WARNING Changing how the hash is computed for the DataManager will
+                invalidate all TransformationDAG caches.
+        """
+        return _hash("<DataManager '{}' @ {}>".format(self.name,
+                                                      self.dirs['data']))
 
     # .........................................................................
     # Loading data

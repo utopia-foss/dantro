@@ -1,10 +1,9 @@
 """Private low-level helper classes and functions for the DAG framework
 
-NOTE This is imported by dantro.tools and should not be imported by the
-     dantro.utils.dag module itself!
+NOTE This is imported by dantro.tools to register classes with YAML.
 """
 
-from typing import NewType, Union, Any
+from typing import NewType, Any
 
 # Type definitions
 THash = NewType('THash', str)
@@ -14,7 +13,8 @@ THash = NewType('THash', str)
 class DAGReference:
     """The DAGReference class is the base class of all DAG reference objects.
 
-    It is yaml-representable and thus hashable after serialization.
+    While it does not implement __hash__ by itself, it is yaml-representable
+    and thus hashable after a parent object created a YAML representation.
     """
     def __init__(self, ref: THash):
         """Initialize a DAGReference object from a hash."""
@@ -57,11 +57,19 @@ class DAGReference:
 
     @classmethod
     def from_yaml(cls, constructor, node):
+        """Construct a DAGReference from a scalar YAML node"""
         return cls(constructor.construct_scalar(node))
 
     @classmethod
     def to_yaml(cls, representer, node):
-        return representer.represent_data(node.data)
+        """Create a YAML representation of a DAGReference, carrying only the
+        _data attribute over...
+        
+        As YAML expects scalar data to be str-like, a type cast is done. The
+        subclasses that rely on certain argument types should take care that
+        they can parse arguments that are str-like.
+        """
+        return representer.represent_scalar(cls.yaml_tag, str(node._data))
 
 
 # .............................................................................
@@ -70,7 +78,8 @@ class DAGTag(DAGReference):
     """A DAGTag object stores a name of a tag, which serves as a named
     reference to some object in the DAG.
 
-    It is yaml-representable and thus hashable after serialization.
+    While it does not implement __hash__ by itself, it is yaml-representable
+    and thus hashable after a parent object created a YAML representation.
     """
     yaml_tag = u'!dag_tag'
 
@@ -92,7 +101,8 @@ class DAGTag(DAGReference):
 class DAGNode(DAGReference):
     """A DAGNode is a reference by the index within the DAG's node list.
 
-    It is yaml-representable and thus hashable after serialization.
+    While it does not implement __hash__ by itself, it is yaml-representable
+    and thus hashable after a parent object created a YAML representation.
     """
     yaml_tag = u'!dag_node'
 

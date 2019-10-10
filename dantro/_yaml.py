@@ -1,7 +1,11 @@
 """Takes care of all YAML-related imports and configuration"""
 
 import os
+import io
 import logging
+from typing import Any
+
+import ruamel.yaml
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -63,3 +67,50 @@ def write_yml(d: dict, *, path: str, mode: str='w'):
 
         # Ensure new line
         yaml_file.write("\n")
+
+
+# -----------------------------------------------------------------------------
+# More specific YAML-based functions
+
+def yaml_dumps(obj: Any, *, register_classes: tuple=(), **dump_params) -> str:
+    """Serializes the given object using a newly created YAML dumper.
+    
+    The aim of this function is to provide YAML dumping that is not dependent
+    on any package configuration; all parameters can be passed here.
+    
+    In other words, his function does _not_ use the dantro._yaml.yaml object
+    for dumping but each time creates a new dumper with fixed settings. This
+    reduces the chance of interference from elsewhere. Compared to the time
+    needed for serialization in itself, the extra time needed to create the
+    new ruamel.yaml.YAML object and register the classes is negligible.
+    
+    Args:
+        obj (Any): The object to dump
+        register_classes (tuple, optional): Additional classes to register
+        **dump_params: Dumping parameters
+    
+    Returns:
+        str: The output of serialization
+    
+    Raises:
+        ValueError: On failure to serialize the given object
+    """
+    s = io.StringIO()
+    y = ruamel.yaml.YAML()
+
+    # Register classes; then apply dumping parameters via object properties
+    for Cls in register_classes:
+        y.register_class(Cls)
+
+    for k, v in dump_params.items():
+        setattr(y, k, v)
+
+    # Serialize
+    try:
+        y.dump(obj, stream=s)
+    
+    except Exception as err:
+        raise ValueError("Could not serialize the given {} object!"
+                         "".format(type(obj))) from err
+
+    return s.getvalue()

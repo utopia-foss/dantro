@@ -10,6 +10,7 @@ install_deps = [
     'toolz>=0.9.0',       # Needed for dask.delayed
     'h5py>=2.7.0',
     'networkx>=2.2',
+    'ruamel.yaml>=0.16.5',
     'matplotlib>=3.1.0',
     'paramspace>=2.2.3'   # Not on pypi!
     ]

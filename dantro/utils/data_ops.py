@@ -136,7 +136,6 @@ OPERATIONS = KeyOrderedDict({
     
 
     # Numerical operations - - - - - - - - - - - - - - - - - - - - - - - - - - 
-    # These are mainly attribute-call based, to
     # Unary ...................................................................
     'increment':    lambda d: d + 1,
     'decrement':    lambda d: d - 1,

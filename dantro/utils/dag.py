@@ -1,7 +1,6 @@
 """This is an implementation of a DAG for transformations on dantro objects"""
 
 import copy
-import collections
 import hashlib
 import logging
 
@@ -11,85 +10,93 @@ from typing import Dict, Tuple, Sequence, Any, Hashable, Callable, Union, List
 from .ordereddict import KeyOrderedDict
 from .data_ops import OPERATIONS, apply_operation
 from .link import Link
-from .._dag_utils import THash, DAGReference, DAGTag, DAGNode
 from ..base import BaseDataGroup, BaseDataContainer
 from ..containers import LinkContainer, ObjectContainer
-from ..tools import is_hashable
+from .._yaml import yaml_dumps as _serialize
+from .._hash import _hash
+from .._dag_utils import THash, DAGReference, DAGTag, DAGNode
 
 # Local constants
 log = logging.getLogger(__name__)
 
 # Type definitions (extending those from _dag_utils module)
-TObjectMap = NewType('TObjectMap', Dict[THash, Hashable])
 TRefOrAny = TypeVar('TRefOrAny', DAGReference, Any)
-
-# -----------------------------------------------------------------------------
-
-def _serialize(obj) -> str:
-    """Serializes the given object using YAML"""
-    try:
-        return repr(obj) # FIXME Implement YAML serialization
-    
-    except Exception as err:
-        raise ValueError("Could not serialize the given {} object!"
-                         "".format(type(obj))) from err
-
-def _hash(s: Union[str, Any]) -> str:
-    """Returns a deterministic hash of the given string or object. If the
-    given object is not already a string, it is tried to be serialized.
-
-    This uses the hashlib.md5 algorithm which returns a 32 character string.
-    Note that the hash is used for a checksum, not for security purposes.
-    """
-    if not isinstance(s, str):
-        s = _serialize(s)
-    return hashlib.md5(s.encode('utf-8')).hexdigest()
+TDAGHashable = TypeVar('TDAGHashable', 'DataManager', 'Transformation')
 
 # -----------------------------------------------------------------------------
 
 class DAGObjects:
     """An objects database for the DAG framework.
 
-    It wraps a flat, key-ordered dict, containing (hash, object ref) pairs.
+    It uses a flat dict containing (hash, object ref) pairs as its database.
     """
 
     def __init__(self):
         """Initialize an empty objects database"""
         self._d = KeyOrderedDict()
 
-    def add_object(self, obj: Hashable) -> THash:
-        """Add an object to the object database, storing it under its hash."""
-        key = _hash(obj)
-        self._d[key] = obj
+    def add_object(self, obj: TDAGHashable) -> THash:
+        """Add an object to the object database, storing it under its hash.
+
+        Note that the object cannot be just any object that is hashable but it
+        needs to return a string-based hash via the ``hashstr`` property. This
+        is a dantro DAG framework-internal interface.
+
+        Also note that the object will NOT be added if an object with the same
+        hash is already present. The object itself is of no importance, only
+        the returned hash is.
+        """
+        key = obj.hashstr  # DAG-framework internal hash method
+
+        # Only add the new object, if the hash does not exist yet.
+        if key not in self:
+            self._d[key] = obj
         return key
 
-    def __getitem__(self, key: THash) -> Hashable:
+    def __getitem__(self, key: THash) -> TDAGHashable:
         """Return the object associated with the given hash"""
         return self._d[key]
-
-    def get(self, key: THash, default=None) -> Union[Hashable, None]:
-        """Return the object associated with the given hash, if it is in the
-        object database, else return default.
-        """
-        return self._d.get(key, default=default)
 
     def __len__(self) -> int:
         """Returns the number of objects in the objects database"""
         return len(self._d)
 
+    def __contains__(self, key: THash) -> bool:
+        """Whether the given hash refers to an object in this database"""
+        return key in self._d
+
+    def keys(self):
+        return self._d.keys()
+
+    def values(self):
+        return self._d.values()
+
+    def items(self):
+        return self._d.items()
+
 # -----------------------------------------------------------------------------
 
-class Transformation(collections.abc.Hashable):
+class Transformation:
     """A transformation is the collection of an N-ary operation and its inputs.
 
-    Transformation objects do not actually store any objects, but only their
-    hashes, which then have to be looked up in the associated TransformationDAG
-    object.
+    Transformation objects store the name of the operation that is to be
+    carried out and the arguments that are to be fed to that operation. After
+    a Transformation is defined, the only interaction with them is via the
+    ``compute`` method.
+
+    For computation, the arguments are inspected for whether there are any
+    DAGReference-derived objects; these need to be resolved first, meaning they
+    are looked up in the DAG's object database and -- if they are another
+    Transformation object -- their result is computed. This can lead to a
+    recursion.
+
+    The transformation oj
     """
 
     def __init__(self, *, operation: str,
                  args: Sequence[TRefOrAny], kwargs: Dict[str, TRefOrAny]):
-        """
+        """Initialize a Transformation object.
+        
         Args:
             operation (str): The operation that is to be carried out.
             args (Sequence[TRefOrAny]): Positional arguments for the
@@ -105,20 +112,24 @@ class Transformation(collections.abc.Hashable):
         # A cache attribute for the result of the computation
         self._result = None
 
-    def __repr__(self) -> str:
-        """Returns a string representation of this object by combining the 
-        representations of the stored objects."""
-        return ("Transformation(operation={}, args={}, kwargs={})"
-                "".format(repr(self._operation),
-                          repr(self._args), repr(self._kwargs)))
+    @property
+    def hashstr(self) -> str:
+        """Computes the hash of this Transformation by serializing itself into
+        a YAML string which is then hashed.
 
-    def __hash__(self) -> str:
-        """Uses the hashes of the inputs and the operation name to generate
-        a new hash. Note that this does NOT rely on the built-in hash function
-        but on a custom hash method which produces a deterministic and platform
-        independent hash to be used as a checksum.
+        Note that this does NOT rely on the built-in hash function but on the
+        custom ``_hash`` function which produces a platform-independent and
+        deterministic hash.
+
+        As this is a string-based hash, it is not implemented as the __hash__
+        magic method but as a separate property.
         """
-        return _hash(repr(self))
+        dag_classes = (DAGNode, DAGReference, DAGTag, Transformation,)
+        serialization_params = dict(canonical=True)
+        # WARNING Changing the above leads to cache invalidations!
+
+        return _hash(_serialize(self, register_classes=dag_classes,
+                                **serialization_params))
 
     @property
     def result(self) -> Any:
@@ -127,23 +138,36 @@ class Transformation(collections.abc.Hashable):
         """
         return self._result
 
-    def compute(self, *, dag: 'TransformationDAG') -> Any:
+    def compute(self, *, dag: 'TransformationDAG'=None,
+                discard_cache: bool=True) -> Any:
         """Computes the result of this transformation by recursively resolving
         objects and carrying out operations.
         
         Args:
-            dag (TransformationDAG): The associated DAG
+            dag (TransformationDAG, optional): The associated DAG. If no DAG is
+                given, the args and kwargs of this operation may NOT contain
+                any references.
         
         Returns:
             Any: The result of the operation
         """
-        def resolve(element, *, dag):
-            """Resolve references to their objects"""
+        def resolve(element):
+            """Resolve references to their objects, if necessary computing the
+            results of referenced transformations recursively.
+
+            Makes use of arguments from outer scope.
+            """
             if not isinstance(element, DAGReference):
                 # Is an argument. Nothing to do, return it as it is.
                 return element
 
-            # Is a reference; resolve the corresponding object
+            elif dag is None:
+                raise TypeError("compute() missing 1 required keyword-only "
+                                "argument: dag. This is needed to resolve "
+                                "the references found in the args and kwargs "
+                                "in the given Transformation.")
+
+            # Is a reference; let it resolve the corresponding object
             obj = element.resolve_object(dag=dag)
             
             # Check if this refers to the DataManager, which cannot perform any
@@ -151,28 +175,36 @@ class Transformation(collections.abc.Hashable):
             if obj is dag.dm:
                 return dag.dm
 
-            # Wasn't the DataManager; should now be a Transformation object
-            if not isinstance(obj, Transformation):
-                raise TypeError("Unexpected object of type {}!"
-                                "".format(type(obj)))
-
-            # Compute the result of the referenced transformation
-            return obj.compute(dag=dag)
+            # else: wasn't the DataManager. It should thus be another
+            # Transformation object. Compute and return its result.
+            return obj.compute(dag=dag, discard_cache=discard_cache)
 
         # Return the already computed result, if available
-        if self.result is not None:
+        if self.result is not None and not discard_cache:
             return self.result
 
         # Not available, compute it.
-        # First, need to resolve the arguments. If any of the objects is not
-        # fully resolved, do so. This enters the recursion ...
-        args = [resolve(e, dag=dag) for e in self._args]
-        kwargs = {k:resolve(e, dag=dag) for k, e in self._kwargs.items()}
+        # First, resolve the references in the arguments
+        args = [resolve(e) for e in self._args]
+        kwargs = {k:resolve(e) for k, e in self._kwargs.items()}
 
         # Carry out the operation and store the result for next time
         self._result = apply_operation(self._operation, *args, **kwargs,
                                        _maintain_container_type=True)
         return self.result
+
+    # YAML representation . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    yaml_tag = u'!dag_trf'
+
+    @classmethod
+    def from_yaml(cls, constructor, node):
+        return cls(**constructor.construct_mapping(node, deep=True))
+
+    @classmethod
+    def to_yaml(cls, representer, node):
+        d = dict(operation=node._operation,
+                 args=node._args, kwargs=dict(node._kwargs))
+        return representer.represent_mapping(cls.yaml_tag, d)
 
 # -----------------------------------------------------------------------------
 
@@ -443,11 +475,15 @@ class TransformationDAG:
                       else v.convert_to_ref(dag=self))
                   for k,v in kwargs.items()}
 
-        # From these arguments, create the Transformation object
-        trf = Transformation(operation=operation, args=args, kwargs=kwargs)
-
-        # Store the object in the object database
-        trf_hash = self.objects.add_object(trf)
+        # From these arguments, create the Transformation object and add it to
+        # the objects database.
+        trf_hash = self.objects.add_object(Transformation(operation=operation,
+                                                          args=args,
+                                                          kwargs=kwargs))
+        # NOTE From this point on, the object itself has no relevance; that is
+        #      why it is not stored here. Transformation objects should only
+        #      be handled via their hash in order to reduce duplicate
+        #      calculations and make efficient caching possible.
 
         # Store the hash in the node list
         self.nodes.append(trf_hash)
