@@ -57,13 +57,10 @@ def test_Transformation():
     Transformation = dag.Transformation
 
     t0 = Transformation(operation="add", args=[1,2], kwargs=dict())
-    assert t0.result is None
     assert t0.hashstr == "21c6675666732d9e6c6426ffb454e829"
 
     assert t0.compute() == 3
-    assert t0.result == 3
-    assert t0.compute() == 3  # to hit the cache
-    assert t0.compute(discard_cache=True) == 3
+    assert t0.compute() == 3  # to hit the (memory) cache
     
     # Same arguments should lead to the same hash
     t1 = Transformation(operation="add", args=[1,2], kwargs=dict())
@@ -80,6 +77,11 @@ def test_Transformation():
 
     with pytest.raises(TypeError, match="needed to resolve the references"):
         tfail.compute()
+
+@pytest.mark.skip
+def test_Transformation_cache():
+    """Test Transformation caching"""
+    pass
 
 
 def test_DAGObjects(dm):

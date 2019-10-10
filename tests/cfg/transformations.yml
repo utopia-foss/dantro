@@ -145,3 +145,5 @@ explicit_increment:
           shape: [4,3,2]
       zero_raw_T2:
         <<: *results_zero_raw_T        
+        type: LinkContainer
+        # FIXME

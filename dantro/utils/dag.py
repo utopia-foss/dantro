@@ -3,6 +3,7 @@
 import copy
 import hashlib
 import logging
+from itertools import chain
 
 from typing import NewType, TypeVar
 from typing import Dict, Tuple, Sequence, Any, Hashable, Callable, Union, List
@@ -89,12 +90,11 @@ class Transformation:
     are looked up in the DAG's object database and -- if they are another
     Transformation object -- their result is computed. This can lead to a
     recursion.
-
-    The transformation oj
     """
 
     def __init__(self, *, operation: str,
-                 args: Sequence[TRefOrAny], kwargs: Dict[str, TRefOrAny]):
+                 args: Sequence[TRefOrAny],
+                 kwargs: Dict[str, TRefOrAny]):
         """Initialize a Transformation object.
         
         Args:
@@ -109,8 +109,15 @@ class Transformation:
         self._args = args
         self._kwargs = KeyOrderedDict(**kwargs)
 
-        # A cache attribute for the result of the computation
-        self._result = None
+        # Profiling info from the last computation
+        self._profile = dict()
+
+        # Memory cache of the result and a flag to denote whether it's in use
+        self._result_cache = None
+        self._result_cache_filled = False
+
+    # .........................................................................
+    # Properties
 
     @property
     def hashstr(self) -> str:
@@ -132,21 +139,35 @@ class Transformation:
                                 **serialization_params))
 
     @property
-    def result(self) -> Any:
-        """Return the result of this transformation. Will be None if it was
-        not yet computed.
+    def dependencies(self) -> List[THash]:
+        """Hashes of those objects that this transformation depends on, i.e.
+        hashes of other referenced DAG nodes.
         """
-        return self._result
+        return [r.ref for r in chain(self._args, self._kwargs.values())
+                if isinstance(r, DAGReference)]
+
+    @property
+    def profile(self) -> Dict[str, float]:
+        """The profiling data for this transformation"""
+        return self._profile
+
+    # .........................................................................
+    # Compute interface
 
     def compute(self, *, dag: 'TransformationDAG'=None,
-                discard_cache: bool=True) -> Any:
+                cache_options: dict=None) -> Any:
         """Computes the result of this transformation by recursively resolving
         objects and carrying out operations.
+
+        This method can also be called if the result is already computed; this
+        will lead only to a cache-lookup, not a re-computation.
         
         Args:
             dag (TransformationDAG, optional): The associated DAG. If no DAG is
                 given, the args and kwargs of this operation may NOT contain
                 any references.
+            cache_options (dict, optional): Can be used to configure the
+                behaviour of the cache.
         
         Returns:
             Any: The result of the operation
@@ -177,23 +198,88 @@ class Transformation:
 
             # else: wasn't the DataManager. It should thus be another
             # Transformation object. Compute and return its result.
-            return obj.compute(dag=dag, discard_cache=discard_cache)
+            return obj.compute(dag=dag)
 
         # Return the already computed result, if available
-        if self.result is not None and not discard_cache:
-            return self.result
+        success, res = self._lookup_result(dag=dag,
+                                           cache_options=cache_options)
+        if success:
+            return res
 
-        # Not available, compute it.
+        # else: could not read the result from cache, compute it.
         # First, resolve the references in the arguments
         args = [resolve(e) for e in self._args]
         kwargs = {k:resolve(e) for k, e in self._kwargs.items()}
 
-        # Carry out the operation and store the result for next time
-        self._result = apply_operation(self._operation, *args, **kwargs,
-                                       _maintain_container_type=True)
-        return self.result
+        # Carry out the operation
+        res = self._perform_operation(args=args, kwargs=kwargs)
 
-    # YAML representation . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        # Allow caching the result
+        self._store_result(res, dag=dag, cache_options=cache_options)
+
+        return res
+
+    def _perform_operation(self, *, args, kwargs) -> Any:
+        """Perform the operation, updating the profiling info on the side"""
+        # Initialize a dict for profiling info
+        prof = dict()
+
+        # Set up profiling
+        # TODO
+
+        # Actually perform the operation
+        res = apply_operation(self._operation, *args, **kwargs,
+                              _maintain_container_type=True)
+
+        # Prase profiling info and store the result
+        self._update_profile(compute_time=0.)
+
+        return res
+
+    def _update_profile(self, **times) -> None:
+        """Given some time, updates the profiling information
+        
+        Args:
+            **times: Valid profiling data.
+        """
+        self._profile.update(times)
+        # TODO do some more processing here
+
+
+    # Cache handling . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+    def _lookup_result(self, *, dag: 'TransformationDAG',
+                       cache_options: dict) -> Tuple[bool, Any]:
+        """Look up the transformation result to spare re-computation"""
+        success, res = False, None
+
+        # TODO Setup profiling for cache-lookup
+        
+        # Check memory cache first, then file cache
+        if self._result_cache_filled:
+            success = True
+            res = self._result_cache
+
+        else:
+            # See if the DAG manages a cache object
+            # TODO ...
+            pass
+
+        self._update_profile(cache_lookup=0.)
+
+        return success, res
+    
+    def _store_result(self, result: Any, *, dag: 'TransformationDAG',
+                      cache_options: dict) -> None:
+        """"""
+        # Set the memory cache
+        self._result_cache = result
+        self._result_cache_filled = True
+
+        # Set the file cache, if configured to do so
+        # TODO
+
+    # YAML representation .....................................................
     yaml_tag = u'!dag_trf'
 
     @classmethod
@@ -457,6 +543,16 @@ class TransformationDAG:
                   args: list=None, kwargs: dict=None, tag: str=None) -> THash:
         """Add a new node by creating a new Transformation object and adding it
         to the node list.
+        
+        Args:
+            operation (str): The name of the operation
+            args (list, optional): Positional arguments to the operation
+            kwargs (dict, optional): Keyword arguments to the operation
+            tag (str, optional): The tag the transformation should be made
+                available as.
+        
+        Raises:
+            ValueError: If the tag already exists
         """
         def is_ref_subclass_instance(obj: DAGReference) -> bool:
             """True if obj is an instance of a true subclass of DAGReference"""

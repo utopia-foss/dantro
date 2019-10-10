@@ -36,6 +36,11 @@ class DAGReference:
     def __repr__(self) -> str:
         return "<{} {}>".format(type(self).__name__, repr(self._data))
 
+    @property
+    def ref(self) -> THash:
+        """The associated reference of this object"""
+        return self._data
+
     def _resolve_ref(self, *, dag: 'TransformationDAG') -> THash:
         """Return the hash reference; for the base class, the data is already
         the hash reference"""
