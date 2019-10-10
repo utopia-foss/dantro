@@ -1,8 +1,10 @@
 """This module implements data processing operations for dantro objects"""
 
 import logging
+import operator
 from typing import Callable, Any
 
+from .ordereddict import KeyOrderedDict
 from ..base import BaseDataContainer
 import numpy as np
 
@@ -10,10 +12,10 @@ import numpy as np
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
-# The Operations Database
+# The Operations Database -----------------------------------------------------
 # NOTE If a single "object to act upon" can be reasonably defined for an
 #      operation, it should be accepted as the first positional argument.
-OPERATIONS = {
+OPERATIONS = KeyOrderedDict({
     # General operations - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     # Unary ...................................................................
     
@@ -40,7 +42,25 @@ OPERATIONS = {
     # N-ary ...................................................................
     'invert':       lambda obj, **kws: np.invert(obj, **kws),
     'transpose':    lambda obj, **kws: np.transpose(obj, **kws)
+})
+
+# Define boolean operators separately (might be useful elsewhere) & register
+BOOLEAN_OPERATORS = {
+    '==': operator.eq,  'eq': operator.eq,
+    '<': operator.lt,   'lt': operator.lt,
+    '<=': operator.le,  'le': operator.le,
+    '>': operator.gt,   'gt': operator.gt,
+    '>=': operator.ge,  'ge': operator.ge,
+    '!=': operator.ne,  'ne': operator.ne,
+    '^': operator.xor,  'xor': operator.xor,
+    # Expecting an iterable as second argument
+    'in':               (lambda x, y: x in y),
+    'not in':           (lambda x, y: x not in y),
+    # Performing bitwise boolean operations to support numpy logic
+    'in interval':      (lambda x, y: x >= y[0] & x <= y[1]),
+    'not in interval':  (lambda x, y: x < y[0] | x > y[1]),
 }
+OPERATIONS.update(BOOLEAN_OPERATORS)
 
 # -----------------------------------------------------------------------------
 # Registering and applying operations
