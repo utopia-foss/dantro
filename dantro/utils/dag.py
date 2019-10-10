@@ -13,7 +13,7 @@ from .data_ops import OPERATIONS, apply_operation
 from .link import Link
 from .._dag_utils import THash, DAGReference, DAGTag, DAGNode
 from ..base import BaseDataGroup, BaseDataContainer
-from ..containers import LinkContainer
+from ..containers import LinkContainer, ObjectContainer
 from ..tools import is_hashable
 
 # Local constants
@@ -164,14 +164,14 @@ class Transformation(collections.abc.Hashable):
             return self.result
 
         # Not available, compute it.
-        # Resolve the operation callable and the arguments. If any of the
-        # objects is not fully resolved, do so. This enters the recursion ...
-        op = OPERATIONS[self._operation]
+        # First, need to resolve the arguments. If any of the objects is not
+        # fully resolved, do so. This enters the recursion ...
         args = [resolve(e, dag=dag) for e in self._args]
         kwargs = {k:resolve(e, dag=dag) for k, e in self._kwargs.items()}
 
         # Carry out the operation and store the result for next time
-        self._result = op(*args, **kwargs)
+        self._result = apply_operation(self._operation, *args, **kwargs,
+                                       _maintain_container_type=True)
         return self.result
 
 # -----------------------------------------------------------------------------
@@ -487,7 +487,12 @@ class TransformationDAG:
                 # If the resulting object is attached somewhere, add a link;
                 # otherwise, rename it and add it directly
                 if result.parent is not None:
-                    link = Link(anchor=self.dm, rel_path=result.path)
+                    # Compute the relative path from the DataManager to the
+                    # result object. Note: DM != root of path system
+                    rel_path = result.path[len(self.dm.path) + 1:]
+
+                    # Create and add the link to the results group
+                    link = Link(anchor=self.dm, rel_path=rel_path)
                     results.add(LinkContainer(name=tag, data=link))
 
                 else:

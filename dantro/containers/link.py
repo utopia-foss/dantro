@@ -25,7 +25,7 @@ class LinkContainer(CheckDataMixin, ForwardAttrsToDataMixin, ObjectContainer):
         In this case, the anchor and relative path of the associated link is
         returned.
         """
-        return ("->{}, rel. to {}, {}"
-                "".format(self.data.target_rel_path,
-                          self.data.anchor_object.name,
+        return ("{} -> {}, {}"
+                "".format(self.data.anchor_object.name,
+                          self.data.target_rel_path,
                           super(ObjectContainer, self)._format_info()))
