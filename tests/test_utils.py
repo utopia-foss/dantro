@@ -171,7 +171,6 @@ def test_KeyOrderedDict():
         kod["foo"] = "bar"
 
 # -----------------------------------------------------------------------------
-# TODO Also add a test for the LinkContainer somewhere
 
 def test_Link():
     """Test the Link class"""
