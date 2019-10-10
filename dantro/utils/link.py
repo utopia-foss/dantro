@@ -2,11 +2,18 @@
 
 import weakref
 import logging
+from typing import TypeVar
 
-from ..abc import AbstractDataContainer, PATH_JOIN_CHAR
+from ..abc import PATH_JOIN_CHAR
+from ..base import BaseDataContainer, BaseDataGroup
 from ..mixins import ForwardAttrsMixin
 
+# Local constants
 log = logging.getLogger(__name__)
+
+# Type definitions
+TGroupOrContainer = TypeVar('TGroupOrContainer',
+                            BaseDataContainer, BaseDataGroup)
 
 # -----------------------------------------------------------------------------
 
@@ -23,9 +30,10 @@ class Link(ForwardAttrsMixin):
     """
     FORWARD_ATTR_TO = "target_object"  # ...but see …_forwarding_target method!
 
-    def __init__(self, *, anchor: AbstractDataContainer, rel_path: str):
+    def __init__(self, *, anchor: TGroupOrContainer, rel_path: str):
         """Initialize a link from an anchor and a relative path to a target"""
-        # Use name-mangling to not take up any 
+        # Use name-mangling to not take up any attributes that might get in the
+        # way of attribute forwarding ...
         self.__anchor = weakref.ref(anchor)
         self.__rel_path = rel_path
         self.__target_ref_cache = None
@@ -41,9 +49,9 @@ class Link(ForwardAttrsMixin):
         return self.__target_ref_cache
 
     @property
-    def target_object(self) -> AbstractDataContainer:
+    def target_object(self) -> TGroupOrContainer:
         """Return a (non-weak) reference to the actual target object"""
-        return self.target_weakref()
+        return self.target_weakref()  # calling property to resolve the weakref
 
     @property
     def anchor_weakref(self) -> weakref:
@@ -53,7 +61,7 @@ class Link(ForwardAttrsMixin):
         return self.__anchor
 
     @property
-    def anchor_object(self) -> AbstractDataContainer:
+    def anchor_object(self) -> TGroupOrContainer:
         """Return a (non-weak) reference to the anchor object"""
         return self.__anchor()
 
@@ -67,7 +75,32 @@ class Link(ForwardAttrsMixin):
         # Start at the anchor, resolving the weak reference
         obj = self.__anchor()
 
-        # Traverse the path, going to the parent or a child
+        # If there is no relative path given, this is simply a link to itself
+        if not self.__rel_path:
+            self.__target_ref_cache = self.__anchor
+            return obj
+
+        # Distinguish between anchors that are groups and anchors that are
+        # containers; the latter need to be embedded and the parent object is
+        # then where the path should start from...
+        if not isinstance(obj, BaseDataGroup):
+            # Assume it's a container-like anchor, where the relative path
+            # starts at the parent object.
+            # Check if there is a parent:
+            if obj.parent is None:
+                raise ValueError("The anchor object {} is not embedded into a "
+                                 "data tree; cannot resolve the target '{}'! "
+                                 "Either choose a group-like dantro object as "
+                                 "an anchor or embed the container-like "
+                                 "object into a group."
+                                 "".format(obj.logstr,
+                                           self.__rel_path))
+
+            # Select the parent, which automatically is a group
+            obj = obj.parent
+
+        # Try traversing the path, going to the parent or a child depending on
+        # which kind of segment is encountered.
         try:
             for segment in self.__rel_path.split(PATH_JOIN_CHAR):
                 # Skip empty segments
@@ -77,13 +110,13 @@ class Link(ForwardAttrsMixin):
                 obj = obj.parent if segment == ".." else obj[segment]
 
         except Exception as err:
-            raise RuntimeError("Failed resolving target of link '{}' relative "
-                               "to anchor {} @ {}. Is the anchor embedded in "
-                               "a data tree?"
-                               "".format(self.__rel_path,
-                                         self.__anchor().logstr,
-                                         self.__anchor().path)
-                               ) from err
+            raise ValueError("Failed resolving target of link '{}' relative "
+                             "to anchor {} @ {}. Are anchor and target part "
+                             "of the same data tree?"
+                             "".format(self.__rel_path,
+                                       self.__anchor().logstr,
+                                       self.__anchor().path)
+                             ) from err
 
         log.debug("Resolved link '%s' relative to anchor %s @ %s",
                   self.__rel_path, self.__anchor().logstr,

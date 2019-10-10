@@ -822,11 +822,11 @@ def test_XrDataContainer_linked_coordinates(tmp_h5_dset):
     xrdc = Hdf5ProxyXrDC(name="xrdc", data=proxy,
                          attrs=dict(dims=['x', 'y', 'z'],
                                     coords_mode__x='linked',
-                                    coords__x='../some_other_data',
+                                    coords__x='some_other_data',
                                     coords_mode__y='linked',
-                                    coords__y='../../coords/y',
+                                    coords__y='../coords/y',
                                     coords_mode__z='linked',
-                                    coords__z='../../coords/more/z'))
+                                    coords__z='../coords/more/z'))
     
     # Should have succeeded and be a proxy now
     assert xrdc.data_is_proxy
@@ -859,11 +859,11 @@ def test_XrDataContainer_linked_coordinates(tmp_h5_dset):
     lone_xrdc = Hdf5ProxyXrDC(name="xrdc", data=proxy,
                               attrs=dict(dims=['x', 'y', 'z'],
                                          coords_mode__x='linked',
-                                         coords__x='../some_other_data',
+                                         coords__x='some_other_data',
                                          coords_mode__y='linked',
-                                         coords__y='../../coords/y',
+                                         coords__y='../coords/y',
                                          coords_mode__z='linked',
-                                         coords__z='../../coords/more/z'))
+                                         coords__z='../coords/more/z'))
 
-    with pytest.raises(RuntimeError, match="Failed resolving target of link"):
+    with pytest.raises(ValueError, match="'xrdc' is not embedded into a data"):
         lone_xrdc.coords['x']
