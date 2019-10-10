@@ -24,18 +24,19 @@ explicit_select:
     num_nodes: 3
     num_objects: 4
     tags: [dm, foo, bar]
-
-    results:
+    results: &results_explicit_select
       foo:
         type: LinkContainer
-        linked_path: TestDM/some/path/foo
+        linked_path: some/path/foo
         linked_type: OrderedDataGroup
-        attributes: {}
+        attributes:
+          name: foo
       bar:
         type: LinkContainer
-        linked_path: TestDM/some/path/bar
+        linked_path: some/path/bar
         linked_type: OrderedDataGroup
-        attributes: {}
+        attributes:
+          name: bar
 
 
 shorthand_select:
@@ -48,6 +49,8 @@ shorthand_select:
     num_nodes: 2
     num_objects: 3
     tags: [dm, foo, bar]
+    results:
+      <<: *results_explicit_select
 
 
 # Basic numerical operations --------------------------------------------------
@@ -55,11 +58,11 @@ shorthand_select:
 explicit_increment:
   params:
     select:
-      some_data: data/zeros
+      zero_raw: data/zeros
     transform:
       - operation: increment
         args:
-          - !dag_tag some_data
+          - !dag_tag zero_raw
         tag: ones
 
       - operation: increment
@@ -67,7 +70,56 @@ explicit_increment:
           - !dag_tag ones
         tag: twos
 
+      - operation: decrement
+        args:
+          - !dag_tag ones
+        tag: zeros
+
+      - operation: .T
+        args:
+          - !dag_prev
+        tag: zeros_T
+
+      - operation: .T
+        args:
+          - !dag_tag zero_raw
+        tag: zero_raw_T
+
   expected:
-    num_nodes: 3
-    num_objects: 4
-    tags: [dm, some_data, ones, twos]
+    num_nodes: 6
+    num_objects: 7
+    tags: [dm, zero_raw, ones, twos, zeros, zeros_T, zero_raw_T]
+    results:
+      zero_raw:
+        type: LinkContainer
+        linked_path: data/zeros
+        linked_type: NumpyDataContainer
+        attributes:
+          name: zero_raw
+          mean: 0.
+          shape: [2,3,4]
+      ones:
+        type: NumpyDataContainer
+        attributes:
+          mean: 1.
+          shape: [2,3,4]
+      twos:
+        type: NumpyDataContainer
+        attributes:
+          mean: 2.
+          shape: [2,3,4]
+      zeros:
+        type: NumpyDataContainer
+        attributes:
+          mean: 0.
+          shape: [2,3,4]
+      zeros_T:
+        type: NumpyDataContainer
+        attributes:
+          mean: 0.
+          shape: [4,3,2]
+      zero_raw_T:
+        type: NumpyDataContainer
+        attributes:
+          mean: 0.
+          shape: [4,3,2]

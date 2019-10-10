@@ -106,7 +106,7 @@ def test_TransformationDAG_build_and_compute(dm):
 
     for name, cfg in transformation_test_cfgs.items():
         # Extract specification and expected values etc
-        print("\nTesting transformation DAG case '{}' ...".format(name))
+        print("Testing transformation DAG case '{}' ...".format(name))
 
         # Extract arguments
         params = cfg['params']
@@ -153,13 +153,15 @@ def test_TransformationDAG_build_and_compute(dm):
 
         # Check more explicitly
         for tag, to_check in expected.get('results', {}).items():
-            print("  Checking results for tag '{}' ...", tag)
+            print("  Tag:  {}".format(tag))
 
             # Check if the tag is in the results group
             assert tag in results.keys()
 
             # Get the result for this tag
             res = results[tag]
+            print("    ID: {} \tdata type: {} \tdata ID: {}"
+                  "".format(id(res), type(res.data), id(res.data)))
 
             # Check if the type of the object is as expected; do so by string
             # comparison to avoid having to do an import here ...
@@ -174,9 +176,17 @@ def test_TransformationDAG_build_and_compute(dm):
             if 'linked_type' in to_check:
                 assert type(res.target_object).__name__ == to_check['linked_type']
 
-            # Check attribute values
+            # Check attribute values, calling callables
             if 'attributes' in to_check:
                 for attr_name, exp_attr_val in to_check['attributes'].items():
-                    assert getattr(res, attr_name) == exp_attr_val
+                    attr = getattr(res, attr_name)
+                    
+                    if callable(attr):
+                        assert attr() == exp_attr_val
+                    else:
+                        # Convert tuples to lists to allow yaml-comparison
+                        attr = list(attr) if isinstance(attr, tuple) else attr
+                        assert attr == exp_attr_val
 
-        print("Computation results as expected.\n")
+        print("All computation results as expected.\n")
+        print("------------------------------------\n")
