@@ -9,6 +9,7 @@ install_deps = [
     'dask>=1.1.5',
     'toolz>=0.9.0',       # Needed for dask.delayed
     'h5py>=2.7.0',
+    'netcdf4>=1.5.2',     # Needed for saving xr.Datasets
     'networkx>=2.2',
     'ruamel.yaml>=0.16.5',
     'matplotlib>=3.1.0',

@@ -11,9 +11,9 @@ class XarrayLoaderMixin:
     """Supplies functionality to load xarray objects"""
 
     @add_loader(TargetCls=XrDataContainer)
-    def _load_xarray_da(filepath: str, *, TargetCls: type,
-                        load_completely: bool=False, **load_kwargs
-                        ) -> XrDataContainer:
+    def _load_xr_dataarray(filepath: str, *, TargetCls: type,
+                           load_completely: bool=False, **load_kwargs
+                           ) -> XrDataContainer:
         """Loads an xr.DataArray from a netcdf file into an XrDataContainer.
         
         Args:
@@ -35,9 +35,9 @@ class XarrayLoaderMixin:
         return TargetCls(data=da, attrs=da.attrs)
 
     @add_loader(TargetCls=PassthroughContainer)
-    def _load_xarray_ds(filepath: str, *, TargetCls: type,
-                        load_completely: bool=False, **load_kwargs
-                        ) -> PassthroughContainer:
+    def _load_xr_dataset(filepath: str, *, TargetCls: type,
+                         load_completely: bool=False, **load_kwargs
+                         ) -> PassthroughContainer:
         """Loads an xr.Dataset from a netcdf file into a PassthroughContainer.
 
         .. note::
@@ -62,5 +62,5 @@ class XarrayLoaderMixin:
         if load_completely:
             ds = ds.load()
 
-        # Create the PassthroughContainer, carrying over attributes
+        # Create the PassthroughContainer, carrying over dataset attributes
         return TargetCls(data=ds, attrs=ds.attrs)
