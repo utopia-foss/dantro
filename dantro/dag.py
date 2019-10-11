@@ -5,73 +5,19 @@ import hashlib
 import logging
 from itertools import chain
 
-from typing import NewType, TypeVar
-from typing import Dict, Tuple, Sequence, Any, Hashable, Callable, Union, List
+from typing import TypeVar, Dict, Tuple, Sequence, Any, Union, List
 
-from ..abc import AbstractDataContainer
-from .ordereddict import KeyOrderedDict
-from .data_ops import OPERATIONS, apply_operation
-from .._yaml import yaml_dumps as _serialize
-from .._hash import _hash, SHORT_HASH_LENGTH
-from .._dag_utils import THash, DAGReference, DAGTag, DAGNode
+from .abc import AbstractDataContainer
+from .utils import KeyOrderedDict, OPERATIONS, apply_operation
+from ._dag_utils import THash, DAGObjects, DAGReference, DAGTag, DAGNode
+from ._hash import _hash, SHORT_HASH_LENGTH
+from ._yaml import yaml_dumps as _serialize
 
 # Local constants
 log = logging.getLogger(__name__)
 
 # Type definitions (extending those from _dag_utils module)
 TRefOrAny = TypeVar('TRefOrAny', DAGReference, Any)
-TDAGHashable = TypeVar('TDAGHashable', 'DataManager', 'Transformation')
-
-# -----------------------------------------------------------------------------
-
-class DAGObjects:
-    """An objects database for the DAG framework.
-
-    It uses a flat dict containing (hash, object ref) pairs as its database.
-    """
-
-    def __init__(self):
-        """Initialize an empty objects database"""
-        self._d = KeyOrderedDict()
-
-    def add_object(self, obj: TDAGHashable) -> THash:
-        """Add an object to the object database, storing it under its hash.
-
-        Note that the object cannot be just any object that is hashable but it
-        needs to return a string-based hash via the ``hashstr`` property. This
-        is a dantro DAG framework-internal interface.
-
-        Also note that the object will NOT be added if an object with the same
-        hash is already present. The object itself is of no importance, only
-        the returned hash is.
-        """
-        key = obj.hashstr  # DAG-framework internal hash method
-
-        # Only add the new object, if the hash does not exist yet.
-        if key not in self:
-            self._d[key] = obj
-        return key
-
-    def __getitem__(self, key: THash) -> TDAGHashable:
-        """Return the object associated with the given hash"""
-        return self._d[key]
-
-    def __len__(self) -> int:
-        """Returns the number of objects in the objects database"""
-        return len(self._d)
-
-    def __contains__(self, key: THash) -> bool:
-        """Whether the given hash refers to an object in this database"""
-        return key in self._d
-
-    def keys(self):
-        return self._d.keys()
-
-    def values(self):
-        return self._d.values()
-
-    def items(self):
-        return self._d.items()
 
 # -----------------------------------------------------------------------------
 

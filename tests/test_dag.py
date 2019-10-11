@@ -7,8 +7,7 @@ import pytest
 import numpy as np
 
 import dantro
-import dantro.utils
-import dantro.utils.dag as dag
+import dantro.dag as dag
 
 from dantro import DataManager
 from dantro.base import BaseDataGroup
