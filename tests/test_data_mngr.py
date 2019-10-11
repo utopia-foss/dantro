@@ -196,9 +196,12 @@ def test_init(data_dir):
     assert os.path.isdir(dm.dirs['data'])
     assert os.path.isdir(dm.dirs['out'])
 
-    # The DataManager's path should start at root
+    # The DataManager's path should start within root
     assert dm.parent is None
-    assert dm.path.startswith("/")
+    assert dm.path == "/test_init0_Manager"
+
+    # It should create a hashstr
+    assert len(dm.hashstr) == 32
 
 def test_init_with_create_groups(tmpdir):
     """Tests the create_groups argument to __init__"""
@@ -309,13 +312,21 @@ def test_loading(dm):
     assert 'some_more_yaml/missing' not in dm
     assert 'some_more_yaml/lamo' not in dm
 
-    print("{:tree}".format(dm))
+    print(dm.tree)
 
     # If given a list of glob strings, possibly matching files more than once, they should only be loaded once
     dm.load('multiglob', loader='yaml', glob_str=['*.yml', '*yml'])
     assert len(dm['multiglob']) == 4  # 8 files match, only 4 should be loaded
     
-    print("{:tree}".format(dm))
+    print(dm.tree)
+
+    # It is also possible to load by giving a custom base_path, which is in
+    # this case just the same directory, but explicitly given
+    dm.load('custom_base_path', loader='yaml', base_path=dm.dirs['data'],
+            glob_str=['*.yml', '*yml'])
+    assert len(dm['multiglob']) == 4  # 8 files match, only 4 should be loaded
+
+    print(dm.tree)
 
 
 def test_loading_errors(dm):
@@ -328,6 +339,11 @@ def test_loading_errors(dm):
     # With name collisions, an error should be raised
     with pytest.raises(dantro.data_mngr.ExistingDataError):
         dm.load('barfoo', loader='yaml', glob_str="foobar.yml")
+
+    # Relative base paths should not work
+    with pytest.raises(ValueError, match="needs be an absolute path"):
+        dm.load('barfoo', loader='yaml', base_path="some/rel/path",
+                glob_str="foobar.yml")
 
     # Check for missing data ..................................................
     # Check for data missing that was required
@@ -347,7 +363,7 @@ def test_loading_errors(dm):
     with pytest.raises(dantro.data_mngr.LoaderError):
         dm.load('nopenopenope', loader='bad_loadfunc', glob_str="*")
 
-    print("{:tree}".format(dm))
+    print(dm.tree)
 
 
 def test_loading_exists_action(dm):
