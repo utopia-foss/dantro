@@ -6,6 +6,9 @@ It is mainly used for all things related to the TransformationDAG.
 import hashlib
 from typing import Union, Any
 
+# The full hash length
+FULL_HASH_LENGTH = 32
+
 # The length of shortened hashes
 SHORT_HASH_LENGTH = 8  # For hexdigest, 16^8 = 2^32 > 4*10^9 -> plenty.
 
