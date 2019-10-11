@@ -3,14 +3,14 @@
 import logging
 
 from ..utils import Link
-from ..mixins import ForwardAttrsToDataMixin, CheckDataMixin
-from .general import ObjectContainer
+from ..mixins import CheckDataMixin
+from .general import PassthroughContainer
 
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
-class LinkContainer(CheckDataMixin, ForwardAttrsToDataMixin, ObjectContainer):
+class LinkContainer(CheckDataMixin, PassthroughContainer):
     """A LinkContainer is a container containing a Link object.
 
     It forwards all attribute calls to the Link object, which in turn forwards

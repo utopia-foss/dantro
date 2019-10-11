@@ -5,7 +5,7 @@ from collections.abc import MutableSequence, MutableMapping
 
 from ..base import BaseDataContainer
 from ..mixins import ItemAccessMixin, CollectionMixin, MappingAccessMixin
-from ..mixins import CheckDataMixin
+from ..mixins import CheckDataMixin, ForwardAttrsToDataMixin
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -13,14 +13,19 @@ log = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 
 class ObjectContainer(ItemAccessMixin, BaseDataContainer):
-    """Generically stores any Python object, allowing item access to the
-    stored data.
+    """Generically stores any Python object
+
+    This allows item access, but not more.
     """
 
     def _format_info(self) -> str:
         """A __format__ helper function: returns info about the stored data"""
         return "{} stored, {}".format(type(self.data).__name__,
                                       super()._format_info())
+
+class PassthroughContainer(ForwardAttrsToDataMixin, ObjectContainer):
+    """An object container that forwards all attribute calls to .data"""
+    pass
 
 
 class MutableSequenceContainer(CheckDataMixin, ItemAccessMixin,
