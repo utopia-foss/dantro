@@ -23,3 +23,21 @@ If `self` is required, `omit_self=False` may be given to the decorator.
 from .load_yaml import YamlLoaderMixin
 from .load_pkl import PickleLoaderMixin
 from .load_hdf5 import Hdf5LoaderMixin
+from .load_xarray import XarrayLoaderMixin
+
+# A dict of file extensions and preferred loaders for those extensions
+LOADER_BY_FILE_EXT = {
+    'yml':      'yml',
+    'yaml':     'yaml',
+
+    'pickle':   'pickle',
+    'pkl':      'pkl',
+
+    'hdf5':     'hdf5',
+    'h5':       'hdf5',
+
+    'nc':       'xarray_da',
+    'netcdf':   'xarray_da',
+    'nc_da':    'xarray_da',
+    'nc_ds':    'xarray_ds',
+}

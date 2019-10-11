@@ -324,7 +324,7 @@ def test_loading(dm):
     # this case just the same directory, but explicitly given
     dm.load('custom_base_path', loader='yaml', base_path=dm.dirs['data'],
             glob_str=['*.yml', '*yml'])
-    assert len(dm['multiglob']) == 4  # 8 files match, only 4 should be loaded
+    assert len(dm['custom_base_path']) == 4
 
     print(dm.tree)
 
