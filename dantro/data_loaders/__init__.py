@@ -40,7 +40,8 @@ LOADER_BY_FILE_EXT = {
     'nc':       'xr_dataarray',
     'netcdf':   'xr_dataarray',
     'nc_da':    'xr_dataarray',
+    'xrdc':     'xr_dataarray',
     'nc_ds':    'xr_dataset',
     
-    'npy':      'numpy_binary',
+    'npy':      'numpy_binary'
 }

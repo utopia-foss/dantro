@@ -5,15 +5,20 @@ import glob
 import copy
 import hashlib
 import logging
+import pickle as pkl
 from itertools import chain
 
 from typing import TypeVar, Dict, Tuple, Sequence, Any, Union, List
 
+import numpy as np
+import xarray as xr
+
 from .abc import AbstractDataContainer
+from .base import BaseDataGroup
 from .utils import KeyOrderedDict, OPERATIONS, apply_operation
 from .tools import recursive_update
 from .data_loaders import LOADER_BY_FILE_EXT
-from .containers import PassthroughContainer
+from .containers import ObjectContainer, NumpyDataContainer, XrDataContainer
 from ._dag_utils import THash, DAGObjects, DAGReference, DAGTag, DAGNode
 from ._hash import _hash, SHORT_HASH_LENGTH, FULL_HASH_LENGTH
 from ._yaml import yaml_dumps as _serialize
@@ -272,8 +277,8 @@ class Transformation:
     def _store_result(self, result: Any, *, dag: 'TransformationDAG'=None,
                       memory: dict=None, file: dict=None) -> None:
         """Stores a computed result in the cache"""
-        def should_write(state: dict, *, write: bool,
-                                  force: bool=False) -> bool:
+        def should_write(state: dict, *, write: bool, force: bool=False
+                         ) -> bool:
             """A helper function to evaluate _whether_ the cache is to be
             written or not. This method does not distinguish between memory or
             file cache.
@@ -294,7 +299,12 @@ class Transformation:
 
             # TODO Can evaluate profiling information here, e.g. to only write
             #      the cache if computation of this transformation took a
-            #      certain amount of time
+            #      certain amount of time.
+            # TODO Can evaluate object size here ... (remember implementing
+            #      __sizeof__ into all dantro objects!)
+            # TODO Evaluate whether there are any dependencies that are NOT the
+            #      DataManager; no need to store those results ... Might be
+            #      clever to do this via the maximum level of this node ...?
 
             # If this point is reached, only the write argument matters
             return write
@@ -318,10 +328,10 @@ class Transformation:
             #      object that is already in memory is referenced here.
 
             # Write the result to a file inside the DAG's cache directory
-            dag._write_to_cache_file(self.hashstr, result=result)
+            dag._write_to_cache_file(self.hashstr, result=result,
+                                     **copts_file.get('storage_options', {}))
 
-        # Done here.
-        return
+        # Done.
 
 
 
@@ -375,7 +385,7 @@ class TransformationDAG:
         if os.path.isabs(cache_dir):
             self._cache_dir = cache_dir
         else:
-            self._cache_dir = os.path.join(str(self.dm['data']), cache_dir)
+            self._cache_dir = os.path.join(self.dm.dirs['data'], cache_dir)
 
         # Build the DAG by subsequently adding nodes from the parsed parameters
         for trf_params in self._trfs:
@@ -736,26 +746,109 @@ class TransformationDAG:
         # else: There was a file. Let the DataManager load it.
         file_ext = cache_files[trf_hash]['ext']
         self.dm.load('dag_cache',
-                     loader=LOADER_BY_FILE_EXT[file_ext],
+                     loader=LOADER_BY_FILE_EXT[file_ext[1:]],
                      base_path=self.cache_dir,
-                     glob_str=trf_hash + "." + file_ext,
+                     glob_str=trf_hash + file_ext,
                      target_path=DAG_CACHE_DM_PATH + "/{basename:}",
                      required=True)
         
         # Retrieve from the DataManager
         res = self.dm[DAG_CACHE_DM_PATH][self.hashstr]
 
-        # Depending on the type, this might need unpacking
-        if isinstance(res, PassthroughContainer):
+        # Unwrap ObjectContainer; these are only meant for usage within the
+        # data tree and it makes little sense to keep them in that form.
+        if isinstance(res, ObjectContainer):
             res = res.data
 
+        # Done.
+        success = True
         return success, res
 
+    def _write_to_cache_file(self, trf_hash: str, *, result: Any,
+                             ignore_groups: bool=True,
+                             attempt_pickling: bool=True,
+                             raise_on_error: bool=False
+                             ) -> bool:
+        """Writes the given result object to a hash file, overwriting existing
+        ones.
+        
+        Args:
+            trf_hash (str): The hash; will be used for the file name
+            result (Any): The result object to write as a cache file
+        """
+        # Define a set of saving functions
+        sfuncs = {
+            # Saving functions of specific dantro objects
+            (NumpyDataContainer,):
+                lambda obj, p: obj.save(p+".npy"),
+            (XrDataContainer,):
+                lambda obj, p: obj.save(p+".xrdc"),
 
-    def _write_to_cache_file(self, trf_hash: str, *, result: Any) -> None:
-        """Writes the given result to a hash file, overwriting existing ones"""
-        # First, create the directory if it does not exist
-        os.makedirs(dag.cache_dir, exist_ok=True)
+            # Saving functions of external packages
+            (np.ndarray,):
+                lambda obj, p: np.save(p+".npy", obj),
+            (xr.DataArray,):
+                lambda obj, p: obj.to_netcdf(p+".nc_da"),
+            (xr.Dataset,):
+                lambda obj, p: obj.to_netcdf(p+".nc_ds"),
+        }
+        
+        # Cannot store groups
+        if isinstance(result, BaseDataGroup):
+            if not ignore_groups:
+                raise NotImplementedError("Cannot currently cache dantro "
+                                          "groups, sorry.")
+            return False
 
-        # Have to distinguish between dantro objects and other objects
-        # TODO ... actually store the result
+        # Make sure the directory exists
+        os.makedirs(self.cache_dir, exist_ok=True)
+
+        # Prepare the file path (still lacks an extension)
+        fpath = os.path.join(self.cache_dir, trf_hash)
+
+        # Distinguish between dantro objects, which (might) have their own
+        # saving method implemented, and other objects, which need pickling.
+        for types, sfunc in sfuncs.items():
+            if not isinstance(result, types):
+                continue
+
+            # else: type matched, invoke saving function
+            try:
+                sfunc(result, fpath)
+
+            except Exception as exc:
+                log.warning("Failed saving transformation cache file for "
+                            "result of type %s using storage function for "
+                            "type(s) %s. %s: %s",
+                            type(result), types, exc.__class__.__name__, exc)
+                msg = ("Failed saving transformation cache file for result of "
+                       "type {} using storage function for type(s) {}."
+                       "".format(type(result), types))
+                if raise_on_error:
+                    raise RuntimeError(msg) from exc
+
+                log.warning("%s. %s: %s", msg, exc.__class__.__name__, exc)
+            
+            else:
+                # Success
+                return True
+
+        # Reached the end of the loop without returning -> not saved yet
+        if not attempt_pickling:
+            return False
+        
+        # Try to pickle it
+        try:
+            with open(fpath + ".pkl", mode='wb') as pkl_file:
+                pkl.dump(result, pkl_file)
+        
+        except Exception as exc:
+            msg = ("Failed saving transformation cache file by pickling "
+                   "result of type {}.".format(type(result)))
+            if raise_on_error:
+                raise RuntimeError(msg) from exc
+            log.warning("%s. %s: %s", msg, exc.__class__.__name__, exc)
+            return False
+        
+        # else: Success
+        return True

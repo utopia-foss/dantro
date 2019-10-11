@@ -28,6 +28,7 @@ explicit_select:
       - efed57fb39b65918df1919473aece2ef
       - 2bda662589177e9d1d39200f79e4d1e7
       - &hash_getitem_bar 4328aed4085dc27fd5c5802df33e584f
+    cache_dir_available: false
     results: &results_explicit_select
       foo:
         type: OrderedDataGroup
@@ -51,6 +52,7 @@ shorthand_select:
     num_nodes: 2
     num_objects: 3
     tags: [dm, foo, bar]
+    cache_dir_available: false
     node_hashes:
       - *hash_getitem_bar  # comes first here because select orders by keys
       - ea8a716f69fc720a28c9b1b716f43191
@@ -60,6 +62,8 @@ shorthand_select:
 
 # Basic numerical operations --------------------------------------------------
 
+# The following is named "basic", but already shows off a wide range of the
+# TransformationDAG functionality, including object management and caching ...
 basic_numerical_ops:
   params:
     select:
@@ -95,6 +99,12 @@ basic_numerical_ops:
           - !dag_tag zero_raw
         tag: zero_raw_T2  # ... a duplicate of 'zero_raw_T' (except the tag)
 
+    default_cache_options:
+      memory:
+        write: true
+      file:
+        write: true
+
   expected:
     num_nodes: 7
     num_objects: 7  # not 8! Due to the duplicate Transformation
@@ -107,6 +117,14 @@ basic_numerical_ops:
       - 6d2230f26117b65faa6fc403216b0a42
       - &hash_zero_raw_T d36ff9e0437f7e2e2c1dcfe5d191f1ba
       - *hash_zero_raw_T # from the duplicate transformation
+    cache_dir_available: true
+    cache_files:
+      - 537b1c89ea418dc16bc8e957322bf539.npy
+      - 5e82e198c35e83d71a4f8f5f775b2c61.npy
+      - c2407e64963b57370d615f33445d246e.npy
+      - 7337d68eda9cd98491a06967776e3bf5.npy
+      - 6d2230f26117b65faa6fc403216b0a42.npy
+      - d36ff9e0437f7e2e2c1dcfe5d191f1ba.npy
     results:
       zero_raw:
         type: NumpyDataContainer
@@ -148,6 +166,7 @@ basic_numerical_ops:
       zero_raw_T2:
         <<: *results_zero_raw_T
 
+
 duplicates_and_salted:
   params:
     select:
@@ -178,3 +197,32 @@ duplicates_and_salted:
       - *hash_increment_zeros
       - *hash_increment_zeros
       - 4e963876e8ddc79a5ca87ea59b524af2  # ... due to being salted
+
+
+numpy_and_xarray_data:
+  params:
+    default_cache_options:
+      memory:
+        write: true
+      file:
+        write: true
+
+    select:
+      zeros_raw: labelled_data/zeros
+      random_raw: labelled_data/random
+
+    transform:
+      - increment: [!dag_tag zeros_raw]
+        tag: ones
+
+  expected: 
+    num_nodes: 3
+    num_objects: 4
+    tags: [dm, zeros_raw, random_raw, ones]
+    # node_hashes: [] # TODO
+    cache_dir_available: true
+    cache_files:
+      - 084621667c07211d316abd1fd1e742f7.xrdc
+      - 41f6b80312e23ab089ad80fcd69dcfbc.xrdc
+      - 506017408a71a78659e82a26fe75f0de.xrdc
+    
