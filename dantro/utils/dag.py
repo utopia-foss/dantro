@@ -92,7 +92,8 @@ class Transformation:
 
     def __init__(self, *, operation: str,
                  args: Sequence[TRefOrAny],
-                 kwargs: Dict[str, TRefOrAny]):
+                 kwargs: Dict[str, TRefOrAny],
+                 salt: int=None):
         """Initialize a Transformation object.
         
         Args:
@@ -101,11 +102,15 @@ class Transformation:
                 operation.
             kwargs (Dict[str, TRefOrAny]): Keyword arguments for the
                 operation. These are internally stored as a KeyOrderedDict.
+            salt (int, optional): A hashing salt that can be used to let this
+                specific Transformation object have a different hash than other
+                objects, thus leading to cache misses.
         """
         # Storage attributes
         self._operation = operation
         self._args = args
         self._kwargs = KeyOrderedDict(**kwargs)
+        self._salt = salt
 
         # Profiling info from the last computation
         self._profile = dict()
@@ -286,8 +291,22 @@ class Transformation:
 
     @classmethod
     def to_yaml(cls, representer, node):
+        """A YAML representation of this Transformation, including all its
+        arguments (which must again be YAML-representable) ...
+
+        WARNING Changing the argument order here or adding further keys to the
+                dict will lead to hash changes and thus to cache misses.
+        """
+        # Collect the 
         d = dict(operation=node._operation,
-                 args=node._args, kwargs=dict(node._kwargs))
+                 args=node._args,
+                 kwargs=dict(node._kwargs))
+        
+        # If a specific salt was given, add that to the dict
+        if node._salt is not None:
+            d['salt'] = node._salt
+
+        # Can now represent it ...
         return representer.represent_mapping(cls.yaml_tag, d)
 
 # -----------------------------------------------------------------------------
@@ -383,14 +402,14 @@ class TransformationDAG:
 
         def parse_params(*, operation: str=None,
                          args: list=None, kwargs: dict=None,
-                         tag: str=None,  carry_result: bool=False,
-                         **ops) -> dict:
+                         tag: str=None, carry_result: bool=False,
+                         salt: int=None, **ops) -> dict:
             """Given the parameters of a transform operation, possibly in a
             shorthand notation, returns a dict with normalized content by
             expanding the shorthand notation.
             
             Keys that will remain in the resulting dict:
-            ``operation``, ``args``, ``kwargs``, ``tag``.
+                ``operation``, ``args``, ``kwargs``, ``tag``.
             
             Args:
                 operation (str, optional): Which operation to carry out;
@@ -404,6 +423,8 @@ class TransformationDAG:
                     carried through to the next operation; if true, the first
                     positional argument is set to a reference to the previous
                     node.
+                salt (int, optional): A salt to the Transformation object,
+                    thereby changing its hash.
                 **ops: The operation that is to be carried out. May contain
                     one and only one operation.
             
@@ -464,7 +485,14 @@ class TransformationDAG:
                 args.insert(0, DAGNode(-1))
 
             # Done. Construct the dict.
-            return dict(operation=operation, args=args, kwargs=kwargs, tag=tag)
+            # Mandatory parameters
+            d = dict(operation=operation, args=args, kwargs=kwargs, tag=tag)
+            
+            # Add optional parameters only if they were specified
+            if salt is not None:
+                d['salt'] = salt
+
+            return d
 
         # The to-be-populated list of transformations
         trfs = list()
@@ -537,8 +565,8 @@ class TransformationDAG:
         # Done parsing, yay.
         return trfs
     
-    def _add_node(self, *, operation: str,
-                  args: list=None, kwargs: dict=None, tag: str=None) -> THash:
+    def _add_node(self, *, operation: str, args: list=None, kwargs: dict=None,
+                  tag: str=None, **trf_kwargs) -> THash:
         """Add a new node by creating a new Transformation object and adding it
         to the node list.
         
@@ -548,6 +576,7 @@ class TransformationDAG:
             kwargs (dict, optional): Keyword arguments to the operation
             tag (str, optional): The tag the transformation should be made
                 available as.
+            **trf_kwargs: Passed on to Transformation.__init__
         
         Raises:
             ValueError: If the tag already exists
@@ -562,9 +591,9 @@ class TransformationDAG:
         kwargs = kwargs if kwargs else {}
 
         # Resolve any derived references to proper hash references
-        args =   [(v if not is_ref_subclass_instance(v)
-                   else v.convert_to_ref(dag=self))
-                  for v in args]
+        args = [(v if not is_ref_subclass_instance(v)
+                 else v.convert_to_ref(dag=self))
+                for v in args]
         kwargs = {k: (v if not is_ref_subclass_instance(v)
                       else v.convert_to_ref(dag=self))
                   for k,v in kwargs.items()}
@@ -573,7 +602,8 @@ class TransformationDAG:
         # the objects database.
         trf_hash = self.objects.add_object(Transformation(operation=operation,
                                                           args=args,
-                                                          kwargs=kwargs))
+                                                          kwargs=kwargs,
+                                                          **trf_kwargs))
         # NOTE From this point on, the object itself has no relevance; that is
         #      why it is not stored here. Transformation objects should only
         #      be handled via their hash in order to reduce duplicate

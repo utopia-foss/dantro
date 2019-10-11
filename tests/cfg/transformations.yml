@@ -27,7 +27,7 @@ explicit_select:
     node_hashes:
       - efed57fb39b65918df1919473aece2ef
       - 2bda662589177e9d1d39200f79e4d1e7
-      - &getitem_bar 4328aed4085dc27fd5c5802df33e584f
+      - &hash_getitem_bar 4328aed4085dc27fd5c5802df33e584f
     results: &results_explicit_select
       foo:
         type: OrderedDataGroup
@@ -52,7 +52,7 @@ shorthand_select:
     num_objects: 3
     tags: [dm, foo, bar]
     node_hashes:
-      - *getitem_bar  # comes first here because select orders by key first
+      - *hash_getitem_bar  # comes first here because select orders by keys
       - ea8a716f69fc720a28c9b1b716f43191
     results:
       <<: *results_explicit_select
@@ -60,7 +60,7 @@ shorthand_select:
 
 # Basic numerical operations --------------------------------------------------
 
-explicit_increment:
+basic_numerical_ops:
   params:
     select:
       zero_raw: data/zeros
@@ -93,20 +93,20 @@ explicit_increment:
       - operation: .T
         args:
           - !dag_tag zero_raw
-        tag: zero_raw_T2  # basically a duplicate
+        tag: zero_raw_T2  # ... a duplicate of 'zero_raw_T' (except the tag)
 
   expected:
     num_nodes: 7
     num_objects: 7  # not 8! Due to the duplicate Transformation
     tags: [dm, zero_raw, ones, twos, zeros, zeros_T, zero_raw_T, zero_raw_T2]
     node_hashes:
-      - 537b1c89ea418dc16bc8e957322bf539
-      - 5e82e198c35e83d71a4f8f5f775b2c61
+      - &hash_select_zero_raw 537b1c89ea418dc16bc8e957322bf539
+      - &hash_increment_zeros 5e82e198c35e83d71a4f8f5f775b2c61
       - c2407e64963b57370d615f33445d246e
       - 7337d68eda9cd98491a06967776e3bf5
       - 6d2230f26117b65faa6fc403216b0a42
-      - d36ff9e0437f7e2e2c1dcfe5d191f1ba
-      - d36ff9e0437f7e2e2c1dcfe5d191f1ba  # from the duplicate
+      - &hash_zero_raw_T d36ff9e0437f7e2e2c1dcfe5d191f1ba
+      - *hash_zero_raw_T # from the duplicate transformation
     results:
       zero_raw:
         type: NumpyDataContainer
@@ -147,3 +147,34 @@ explicit_increment:
           shape: [4,3,2]
       zero_raw_T2:
         <<: *results_zero_raw_T
+
+duplicates_and_salted:
+  params:
+    select:
+      zero_raw: data/zeros
+    transform:
+      - operation: increment
+        args:
+          - !dag_tag zero_raw
+        tag: ones
+      
+      - operation: increment
+        args:
+          - !dag_tag zero_raw
+        tag: also_ones
+
+      - operation: increment
+        args:
+          - !dag_tag zero_raw
+        tag: also_ones_but_salted
+        salt: 123
+
+  expected:
+    num_nodes: 4
+    num_objects: 4  # due to one duplicate transformation
+    tags: [dm, zero_raw, ones, also_ones, also_ones_but_salted]
+    node_hashes:
+      - *hash_select_zero_raw
+      - *hash_increment_zeros
+      - *hash_increment_zeros
+      - 4e963876e8ddc79a5ca87ea59b524af2  # ... due to being salted

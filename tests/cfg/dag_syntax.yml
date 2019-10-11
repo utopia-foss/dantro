@@ -212,3 +212,43 @@ select_with_transform:
         - foo
       kwargs: {}
       tag: foo
+
+# -----------------------------------------------------------------------------
+# Misc
+
+salted:
+  params:
+    select:
+      foo:
+        path: some/path
+        transform:
+          - some_operation: foo
+            salt: 42
+
+    transform:
+      - operation: another_operation
+        carry_result: true
+        args: []
+        kwargs: {}
+        salt: 43
+
+  expected:
+    - operation: getitem
+      args:
+        - !dag_tag dm
+        - some/path
+      kwargs: {}
+      tag: ~
+    - operation: some_operation
+      args:
+        - foo
+      kwargs: {}
+      salt: 42
+      tag: foo
+    - operation: another_operation
+      args:
+        - !dag_prev
+      kwargs: {}
+      salt: 43
+      tag: ~
+
