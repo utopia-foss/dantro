@@ -226,3 +226,28 @@ numpy_and_xarray_data:
       - 41f6b80312e23ab089ad80fcd69dcfbc.xrdc
       - 506017408a71a78659e82a26fe75f0de.xrdc
     
+
+# Test the different caching conditions ---------------------------------------
+
+caching_object_size:
+  params:
+    default_cache_options:
+      memory:
+        write: true
+      file:
+        write: true
+        min_size: 1048576  # 1M
+
+    select:
+      zeros_raw: labelled_data/zeros
+      random_raw: labelled_data/random
+
+    transform:
+      - increment: [!dag_tag zeros_raw]
+        tag: ones
+
+  expected: 
+    num_nodes: 3
+    num_objects: 4
+    tags: [dm, zeros_raw, random_raw, ones]
+    cache_dir_available: false

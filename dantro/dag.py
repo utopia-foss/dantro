@@ -1,6 +1,7 @@
 """This is an implementation of a DAG for transformations on dantro objects"""
 
 import os
+import sys
 import glob
 import copy
 import hashlib
@@ -28,6 +29,9 @@ log = logging.getLogger(__name__)
 
 # The path within the DAG's associated DataManager to which caches are loaded
 DAG_CACHE_DM_PATH = 'cache/dag'
+
+# Caching default values for object size and computation time
+# TODO
 
 # Type definitions (extending those from _dag_utils module)
 TRefOrAny = TypeVar('TRefOrAny', DAGReference, Any)
@@ -277,7 +281,8 @@ class Transformation:
     def _store_result(self, result: Any, *, dag: 'TransformationDAG'=None,
                       memory: dict=None, file: dict=None) -> None:
         """Stores a computed result in the cache"""
-        def should_write(state: dict, *, write: bool, force: bool=False
+        def should_write(state: dict, *, write: bool, force: bool=False,
+                         min_size: int=None, max_size: int=None,
                          ) -> bool:
             """A helper function to evaluate _whether_ the cache is to be
             written or not. This method does not distinguish between memory or
@@ -289,7 +294,7 @@ class Transformation:
                     toggle. If False, will never write. If True, some other
                     arguments might still lead to the cache NOT being written.
             """
-            # Always write, if forced
+            # With force: always write
             if force:
                 return True
 
@@ -297,11 +302,21 @@ class Transformation:
             if state['filled']:
                 return False
 
+            # Evaluate object size
+            if min_size is not None or max_size is not None:
+                size_itvl = [min_size if min_size is not None else 0,
+                             max_size if max_size is not None else np.inf]
+                obj_size = sys.getsizeof(result)  # from outer scope
+
+                if not (size_itvl[0] < obj_size < size_itvl[1]):
+                    return False
+
+            # Evaluate profiling information
             # TODO Can evaluate profiling information here, e.g. to only write
             #      the cache if computation of this transformation took a
             #      certain amount of time.
-            # TODO Can evaluate object size here ... (remember implementing
-            #      __sizeof__ into all dantro objects!)
+            
+            # Evaluate DAG levels
             # TODO Evaluate whether there are any dependencies that are NOT the
             #      DataManager; no need to store those results ... Might be
             #      clever to do this via the maximum level of this node ...?
