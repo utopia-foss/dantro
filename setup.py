@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 # Dependency lists ............................................................
 install_deps = [
     'numpy>=1.14',
-    'xarray>=0.12.1',
+    'xarray>=0.13.0',
     'dask>=1.1.5',
     'toolz>=0.9.0',       # Needed for dask.delayed
     'h5py>=2.7.0',

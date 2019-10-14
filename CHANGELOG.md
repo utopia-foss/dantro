@@ -5,6 +5,7 @@
 ## v0.10.0 (WIP)
 - !104 adds the `set_text` function to the `PlotHelper`
 - !106 changes `PathMixin` such that detached objects now have `/<name>` as their path, which improves path handling. Furthermore, the `Link` object is now adjusted to this change and its tests are extended to a wide range of scenarios.
+- !107 changes the `xarray` version requirement from `0.12.1` to `0.13.0`. 
 
 ## v0.9.1
 - !100 adds experimental (!) transformator capabilities to `ParamSpaceGroup.select`, improves logging, and resolves minor bugs and inconsistencies.
