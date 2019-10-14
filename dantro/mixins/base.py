@@ -1,6 +1,7 @@
 """This sub-module implements the basic mixin classes that are required
 in the dantro.base module"""
 
+import sys
 import logging
 import warnings
 
@@ -50,6 +51,36 @@ class AttrsMixin:
 
         # Perform the initialisation
         self._attrs = self._ATTRS_CLS(name='attrs', attrs=new_attrs)
+
+
+class SizeOfMixin:
+    """Provides the __sizeof__ magic method and attempts to take into account
+    the size of the attributes.
+    """
+
+    def __sizeof__(self) -> int:
+        """Returns the size of the data (in bytes) stored in this container's
+        data and its attributes.
+
+        Note that this value is approximate. It is computed by calling the
+        ``sys.getsizeof`` function on the data, the attributes, the name and
+        some caching attributes that each dantro data tree class contains.
+        Importantly, this is not a recursive algorithm.
+
+        Also, derived classes might implement further attributes that are not
+        taken into account either. To be more precise in a subclass, create a
+        specific __sizeof__ method and invoke this parent method additionally.
+
+        For more information, see the documentation of ``sys.getsizeof``:
+
+            https://docs.python.org/3/library/sys.html#sys.getsizeof
+        """
+        nbytes =  sys.getsizeof(self._data)
+        nbytes += sys.getsizeof(self._attrs)
+        nbytes += sys.getsizeof(self._name)
+        nbytes += sys.getsizeof(self._logstr)
+
+        return nbytes
 
 
 class LockDataMixin:

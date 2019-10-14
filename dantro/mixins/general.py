@@ -71,4 +71,3 @@ class ForwardAttrsToDataMixin(ForwardAttrsMixin):
     """
 
     FORWARD_ATTR_TO = 'data'
-

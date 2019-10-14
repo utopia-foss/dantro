@@ -19,7 +19,7 @@ from typing import Union, List, Tuple
 
 import dantro.abc
 from .abc import PATH_JOIN_CHAR
-from .mixins import AttrsMixin, CheckDataMixin, LockDataMixin
+from .mixins import AttrsMixin, SizeOfMixin, CheckDataMixin, LockDataMixin
 from .mixins import CollectionMixin, ItemAccessMixin, MappingAccessMixin
 from .tools import TTY_COLS
 
@@ -90,7 +90,8 @@ class BaseDataAttrs(MappingAccessMixin, dantro.abc.AbstractDataAttrs):
 
 # -----------------------------------------------------------------------------
 
-class BaseDataContainer(AttrsMixin, dantro.abc.AbstractDataContainer):
+class BaseDataContainer(AttrsMixin, SizeOfMixin,
+                        dantro.abc.AbstractDataContainer):
     """The BaseDataContainer extends the abstract base class by the ability to
     hold attributes and be path-aware.
     """
@@ -120,7 +121,8 @@ class BaseDataContainer(AttrsMixin, dantro.abc.AbstractDataContainer):
 
 # -----------------------------------------------------------------------------
 
-class BaseDataGroup(LockDataMixin, AttrsMixin, dantro.abc.AbstractDataGroup):
+class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
+                    dantro.abc.AbstractDataGroup):
     """The BaseDataGroup serves as base group for all data groups.
 
     It implements all functionality expected of a group, which is much more

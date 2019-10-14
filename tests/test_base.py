@@ -4,6 +4,8 @@ NOTE This test module merely complements the other, already existing tests of
      the base classes that are made implicitly through testing the derivatives.
 """
 
+import sys
+
 import pytest
 
 import dantro as dtr
@@ -132,6 +134,16 @@ def test_BaseDataGroup():
 
     # IPython key completions
     assert root._ipython_key_completions_() == list(root.keys())
+
+
+    # SizeOfMixin
+    # Groups with the same number of members take up the same number of bytes
+    assert len(root) == len(root2)
+    assert sys.getsizeof(root) == sys.getsizeof(root2)
+    
+    # Groups with larger number of members take up more bytes
+    assert sys.getsizeof(foo) > sys.getsizeof(root)
+
 
 def test_path_behaviour():
     """Test path capabilities using the OrderedDataGroup"""

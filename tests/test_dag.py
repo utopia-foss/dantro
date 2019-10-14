@@ -189,7 +189,7 @@ def test_TransformationDAG_parsing(dm):
         assert output == expected
         print("Parsing output was as expected.\n")
 
-def test_TransformationDAG_build_and_compute(dm, tmpdir):
+def test_TransformationDAG_life_cycle(dm, tmpdir):
     """Tests the TransformationDAG class"""
     TransformationDAG = dag.TransformationDAG
 
