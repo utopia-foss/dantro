@@ -98,7 +98,7 @@ def test_Transformation():
     tfail = Transformation(operation="add",
                            args=[dag.DAGNode(-1)], kwargs=dict())
 
-    with pytest.raises(TypeError, match="needed to resolve the references"):
+    with pytest.raises(ValueError, match="no DAG was associated with this"):
         tfail.compute()
 
 @pytest.mark.skip

@@ -101,9 +101,11 @@ basic_numerical_ops:
 
     default_cache_options:
       memory:
-        write: true
+        write:
+          enabled: true
       file:
-        write: true
+        write:
+          enabled: true
 
   expected:
     num_nodes: 7
@@ -203,9 +205,11 @@ numpy_and_xarray_data:
   params:
     default_cache_options:
       memory:
-        write: true
+        write:
+          enabled: true
       file:
-        write: true
+        write:
+          enabled: true
 
     select:
       zeros_raw: labelled_data/zeros
@@ -233,9 +237,11 @@ caching_object_size:
   params:
     default_cache_options:
       memory:
-        write: true
+        write:
+          enabled: true
       file:
-        write: true
+        write:
+          enabled: true
         min_size: 1048576  # 1M
 
     select:
