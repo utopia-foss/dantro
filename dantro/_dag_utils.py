@@ -44,7 +44,9 @@ class DAGReference:
 
     def _resolve_ref(self, *, dag: 'TransformationDAG') -> THash:
         """Return the hash reference; for the base class, the data is already
-        the hash reference"""
+        the hash reference, so no DAG is needed. Derived classes _might_ need
+        the DAG to resolve their reference hash.
+        """
         return self._data
 
     def convert_to_ref(self, *, dag: 'TransformationDAG') -> 'DAGReference':

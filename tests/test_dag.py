@@ -62,9 +62,21 @@ def dm() -> FullDataManager:
     ldata.new_container('zeros', Cls=XrDataContainer,
                         data=np.zeros((2,3,4)),
                         attrs=dict(dims=['x', 'y', 'z']))
+    ldata.new_container('ones', Cls=XrDataContainer,
+                        data=np.ones((2,3,4)),
+                        attrs=dict(dims=['x', 'y', 'z']))
     ldata.new_container('random', Cls=XrDataContainer,
                         data=np.zeros((2,3,4)),
                         attrs=dict(dims=['x', 'y', 'z']))
+
+    # Create some other objects
+    odata = _dm.new_group('objects')
+    odata.new_container('some_dict', Cls=ObjectContainer,
+                        data=dict(foo="bar"))
+    odata.new_container('some_list', Cls=ObjectContainer,
+                        data=[1,2,3])
+    odata.new_container('some_func', Cls=ObjectContainer,
+                        data=lambda _: "i cannot be pickled")
 
     return _dm
 
@@ -75,37 +87,59 @@ def test_hash():
     assert _hash("I will not change.") == "cac42c9aeca87793905d257c1b1b89b8"
 
 
-def test_Transformation():
-    """Tests the Transformation class"""
-    Transformation = dag.Transformation
+def test_DAGReference():
+    """Test the DAGReference class"""
+    # Initialization
+    some_hash = _hash("some")
+    ref = dag.DAGReference(some_hash)
+    assert ref.ref == some_hash
 
-    t0 = Transformation(operation="add", args=[1,2], kwargs=dict())
-    assert t0.hashstr == "21c6675666732d9e6c6426ffb454e829"
+    assert ref == dag.DAGReference(some_hash)
+    assert ref != dag.DAGReference(_hash("some_other_hash"))
+    assert ref != some_hash
 
-    assert t0.compute() == 3
-    assert t0.compute() == 3  # to hit the (memory) cache
-    
-    # Same arguments should lead to the same hash
-    t1 = Transformation(operation="add", args=[1,2], kwargs=dict())
-    assert t1.hashstr == t0.hashstr
-    
-    # Keyword argument order should not play a role for the hash
-    t2 = Transformation(operation="foo", args=[], kwargs=dict(a=1, b=2))
-    t3 = Transformation(operation="foo", args=[], kwargs=dict(b=2, a=1))
-    assert t2.hashstr == t3.hashstr
+    assert some_hash in repr(ref)
 
-    # Transformations with references need a DAG
-    tfail = Transformation(operation="add",
-                           args=[dag.DAGNode(-1)], kwargs=dict())
+    # Errors
+    with pytest.raises(TypeError, match="requires a string-like argument"):
+        dag.DAGReference(123)
 
-    with pytest.raises(ValueError, match="no DAG was associated with this"):
-        tfail.compute()
+    # Reference resolution
+    assert ref._resolve_ref(dag=None) == some_hash
+    assert id(ref) != id(ref.convert_to_ref(dag=None))
 
-@pytest.mark.skip
-def test_Transformation_cache():
-    """Test Transformation caching"""
-    pass
+def test_DAGTag():
+    """Test the DAGTag class"""
+    some_tag = "tag42"
+    tag = dag.DAGTag(some_tag)
+    assert tag.name == some_tag
 
+    assert tag == dag.DAGTag(some_tag)
+    assert tag != dag.DAGTag("some other tag")
+    assert tag != some_tag
+
+    assert some_tag in repr(tag)
+
+    # Reference resolution cannot be tested without DAG
+
+def test_DAGNode():
+    """Test the DAGNode class"""
+    some_node = 42
+    node = dag.DAGNode(some_node)
+    assert node.idx == some_node
+
+    assert node == dag.DAGNode(some_node)
+    assert node == dag.DAGNode("42")
+    assert node != dag.DAGNode(-1)
+    assert node != dag.DAGNode(2)
+    assert node != some_node
+
+    assert str(some_node) in repr(node)
+
+    with pytest.raises(TypeError, match="requires an int-convertible"):
+        dag.DAGNode("not int-convertible")
+
+    # Reference resolution cannot be tested without DAG
 
 def test_DAGObjects(dm):
     """Tests the DAGObjects class."""
@@ -150,6 +184,36 @@ def test_DAGObjects(dm):
     list(objs.items())
 
 
+def test_Transformation():
+    """Tests the Transformation class"""
+    Transformation = dag.Transformation
+
+    t0 = Transformation(operation="add", args=[1,2], kwargs=dict())
+    assert t0.hashstr == "21c6675666732d9e6c6426ffb454e829"
+
+    assert t0.compute() == 3
+    assert t0.compute() == 3  # to hit the (memory) cache
+    
+    # Same arguments should lead to the same hash
+    t1 = Transformation(operation="add", args=[1,2], kwargs=dict())
+    assert t1.hashstr == t0.hashstr
+    
+    # Keyword argument order should not play a role for the hash
+    t2 = Transformation(operation="foo", args=[], kwargs=dict(a=1, b=2))
+    t3 = Transformation(operation="foo", args=[], kwargs=dict(b=2, a=1))
+    assert t2.hashstr == t3.hashstr
+
+    # Transformations with references need a DAG
+    tfail = Transformation(operation="add",
+                           args=[dag.DAGNode(-1)], kwargs=dict())
+
+    with pytest.raises(ValueError, match="no DAG was associated with this"):
+        tfail.compute()
+
+    # Read the profile property
+    assert isinstance(t0.profile, dict)
+
+
 def test_TransformationDAG_syntax(dm):
     """Tests the TransformationDAG class"""
     TransformationDAG = dag.TransformationDAG
@@ -163,7 +227,7 @@ def test_TransformationDAG_syntax(dm):
         # Extract arguments
         init_kwargs = cfg.get('init_kwargs', {})
         params = cfg['params']
-        expected = cfg['expected']
+        expected = cfg.get('expected', {})
 
         # Initialize a new empty DAG object that will be used for the parsing
         tdag = TransformationDAG(dm=dm, **init_kwargs)
@@ -172,7 +236,7 @@ def test_TransformationDAG_syntax(dm):
         # Error checking arguments
         _raises = cfg.get('_raises', False)
         _exp_exc = (Exception if not isinstance(_raises, str)
-                    else getattr(__builtins__, _raises))
+                    else __builtins__[_raises])
         _match = cfg.get('_match')
 
         # Invoke it
@@ -203,25 +267,30 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
     # Get the configs
     transformation_test_cfgs = load_yml(TRANSFORMATIONS_PATH)
 
+    # Go over all configured tests
     for name, cfg in transformation_test_cfgs.items():
         # Extract specification and expected values etc
         print("Testing transformation DAG case '{}' ...".format(name))
 
         # Extract arguments
         params = cfg['params']
-        expected = cfg['expected']
+        expected = cfg.get('expected', {})
 
         # Error checking arguments
         _raises = cfg.get('_raises', False)
+        _raises_on_compute = cfg.get('_raises_on_compute', False)
         _exp_exc = (Exception if not isinstance(_raises, str)
                     else __builtins__[_raises])
         _match = cfg.get('_match')
 
-        # Custom cache directory
-        cache_dir = str(base_cache_dir.join(name + "_cache"))
+
+        # Custom cache directory. If the parameter is given, it can be used to
+        # have a shared cache directory ...
+        cache_dir_name = cfg.get('cache_dir_name', name + "_cache")
+        cache_dir = str(base_cache_dir.join(cache_dir_name))
 
         # Initialize TransformationDAG object, which will build the DAGs
-        if not _raises:
+        if not _raises or _raises_on_compute:
             tdag = TransformationDAG(dm=dm, **params,
                                      cache_dir=cache_dir)
 
@@ -232,6 +301,12 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
             print("Raised error as expected.\n")
             continue
         
+        # Check some properties that are unspecific to the params
+        assert tdag.dm is dm
+        assert isinstance(tdag.objects, dag.DAGObjects)
+        assert tdag.cache_dir == cache_dir
+        assert isinstance(tdag.cache_files, dict)
+
         # Compare with expected tree structure and tags etc.
         if expected.get('num_nodes'):
             assert expected['num_nodes'] == len(tdag.nodes)
@@ -249,20 +324,42 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
             assert tdag.nodes == expected['node_hashes']            
             print("Node hashes consistent.")
 
-        # Cache directory should definitely not exist yet!
-        assert not os.path.isdir(cache_dir)
+        # Test number of node dependencies
+        if expected.get('node_dependencies'):
+            for node_hash, deps in zip(tdag.nodes,
+                                       expected['node_dependencies']):
+                node = tdag.objects[node_hash]
+                
+                if isinstance(deps, int):
+                    assert len(node.dependencies) == deps
+                else:
+                    assert node.dependencies == deps
 
         # Compare with expected result...
-        print("\nComputing results ...")
-        results = tdag.compute()
-        print("\n".join(["  * {:<20s}  {:}".format(k, v)
-                         for k, v in results.items()]))
+        compute_only = cfg.get('compute_only')
+        print("\nComputing results (compute_only argument: {}) ..."
+              "".format(compute_only))
+        
+        if not _raises or not _raises_on_compute:
+            # Compute normally
+            results = tdag.compute(compute_only=compute_only)
+            
+            print("\n".join(["  * {:<20s}  {:}".format(k, v)
+                             for k, v in results.items()]))
+
+        else:
+            with pytest.raises(_exp_exc, match=_match):
+                results = tdag.compute(compute_only=compute_only)
+
+            print("Raised error as expected.\n")
+            continue
 
         # Cache directory MAY exist after computation
         if not os.path.isdir(cache_dir):
             print("\nCache directory not available.")
         else:
-            print("\nContent of cache directory:")
+            print("\nContent of cache directory ({})"
+                  "".format(cache_dir))
             print("  * " + "\n  * ".join(os.listdir(cache_dir)))
 
         if expected.get('cache_dir_available'):
@@ -272,13 +369,35 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
                 expected_files = expected['cache_files']
                 assert set(expected_files) == set(os.listdir(cache_dir))
 
+                # Check that both the full path and the extension is available
+                for chash, cinfo in tdag.cache_files.items():
+                    assert 'full_path' in cinfo
+                    assert 'ext' in cinfo
+                    assert (   os.path.basename(cinfo['full_path'])
+                            == chash + cinfo['ext'])
+
             print("Cache directory content as expected.")
+
+            # Temporarily manipulate the cache directory content to check that
+            # the cache_files property returns correct results
+            tmp_foodir = os.path.join(tdag.cache_dir, "some_dir.foobar")
+            os.mkdir(tmp_foodir)
+            assert 'some_dir' not in tdag.cache_files
+            os.rmdir(tmp_foodir)
+
+            tmp_file = os.path.join(tdag.cache_dir, "some_other_file.some_ext")
+            open(tmp_file, 'a').close()
+            assert 'some_other_file.some_ext' not in tdag.cache_files
+            os.remove(tmp_file)
 
         # Now, check the results ..............................................
         print("\nChecking results ...")
         
-        # Should be a dict
+        # Should be a dict with certain specified keys
         assert isinstance(results, dict)
+
+        if expected.get('computed_tags'):
+            assert expected['computed_tags'] == list(results.keys())
 
         # Check more explicitly
         for tag, to_check in expected.get('results', {}).items():
@@ -307,3 +426,4 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
         print("All computation results as expected.\n")
         print("------------------------------------\n")
 
+    # All done.

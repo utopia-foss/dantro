@@ -30,8 +30,23 @@ log = logging.getLogger(__name__)
 # The path within the DAG's associated DataManager to which caches are loaded
 DAG_CACHE_DM_PATH = 'cache/dag'
 
-# Caching default values for object size and computation time
-# TODO
+# Functions that can store the DAG computation result objects, distinguishing
+# by their type.
+DAG_CACHE_RESULT_SAVE_FUNCS = {
+    # Saving functions of specific dantro objects
+    (NumpyDataContainer,):
+        lambda obj, p, **kws: obj.save(p+".npy", **kws),
+    (XrDataContainer,):
+        lambda obj, p, **kws: obj.save(p+".xrdc", **kws),
+
+    # Saving functions of external packages
+    (np.ndarray,):
+        lambda obj, p, **kws: np.save(p+".npy", obj, **kws),
+    (xr.DataArray,):
+        lambda obj, p, **kws: obj.to_netcdf(p+".nc_da", **kws),
+    (xr.Dataset,):
+        lambda obj, p, **kws: obj.to_netcdf(p+".nc_ds", **kws),
+}
 
 # Type definitions (extending those from _dag_utils module)
 TRefOrAny = TypeVar('TRefOrAny', DAGReference, Any)
@@ -301,7 +316,8 @@ class Transformation:
                          overwrite: bool=False,
                          min_size: int=None, max_size: int=None,
                          min_compute_time: float=None,
-                         min_cumulative_compute_time: float=None
+                         min_cumulative_compute_time: float=None,
+                         storage_options: dict=None
                          ) -> bool:
             """A helper function to evaluate _whether_ the file cache is to be
             written or not.
@@ -326,6 +342,7 @@ class Transformation:
                     dependencies that is needed in order for the file cache to
                     be written. Note that this value can be lower if the node
                     result is not computed but looked up from the cache.
+                storage_options (dict, optional): (ignored here)
             
             Returns:
                 bool: Whether to write the file cache or not.
@@ -413,7 +430,6 @@ class TransformationDAG:
 
     def __init__(self, *, dm: 'DataManager',
                  select: dict=None, transform: Sequence[dict]=None,
-                 compute_tags: Union[str, Sequence[str]]='all',
                  cache_dir: str='.cache', file_cache_defaults: dict=None):
         """Initialize a DAG which is associated with a DataManager and load the
         specified transformations configuration into it.
@@ -424,7 +440,6 @@ class TransformationDAG:
         self._tags = dict()
         self._nodes = list()
 
-        self._compute_tags = compute_tags
         self._trfs = self._parse_trfs(select=select, transform=transform)
 
         # Add the DataManager as an object and a default tag
@@ -577,7 +592,7 @@ class TransformationDAG:
             elif ops and not operation:
                 # Shorthand parametrization
                 # Make sure there are no stray argument
-                if 'args' in ops or 'kwargs' in ops:
+                if args is not None or kwargs is not None:
                     raise ValueError("When using shorthand notation, the args "
                                      "and kwargs need to be specified under "
                                      "the key that specifies the operation!")
@@ -605,11 +620,18 @@ class TransformationDAG:
                 else:
                     args, kwargs = [], {}
 
-            elif bool(operation) == bool(ops):
-                # Both or none were given
-                raise ValueError("Bad parameter format! Need either explicit "
-                                 "or shorthand arguments, but got neither or "
-                                 "both!")
+            elif not operation and not ops:
+                raise ValueError("Missing operation specification. Either use "
+                                 "the `operation` key to specify one or use "
+                                 "shorthand notation by using the name of the "
+                                 "operation as a key and adding the arguments "
+                                 "to it as values.")
+
+            else:
+                raise ValueError("Got two specifications of operations, one "
+                                 "via the `operation` argument ({}), another "
+                                 "via the shorthand notation ({}). Remove "
+                                 "one of them.".format(operation, ops))
 
             # Have variables operation, args, and kwargs set now.
 
@@ -702,7 +724,9 @@ class TransformationDAG:
                     if trf_params.get('tag'):
                         raise ValueError("The tag of the last transform "
                                          "operation within a select routine "
-                                         "cannot be set manually.")
+                                         "cannot be set manually. Check the "
+                                         "parameters for selection of tag "
+                                         "'{}'.".format(field_name))
                     
                     # Set it to the field name
                     trf_params['tag'] = field_name
@@ -783,7 +807,9 @@ class TransformationDAG:
         # If a tag was specified, create a tag
         if tag:
             if tag in self.tags.keys():
-                raise ValueError("Tag '{}' already exists!".format(tag))
+                raise ValueError("Tag '{}' already exists! Choose a different "
+                                 "one. Already in use: {}"
+                                 "".format(tag, ", ".join(self.tags.keys())))
             self.tags[tag] = trf_hash
     
     # .........................................................................
@@ -801,26 +827,30 @@ class TransformationDAG:
             Dict[str, Any]: A mapping from tags to fully computed results.
         """
         # Determine which tags to compute
-        if compute_only:
-            to_compute = compute_only
-        elif self._compute_tags == 'all':
-            to_compute = [t for t in self.tags.keys() if t != 'dm']
-        else:
-            to_compute = self._compute_tags
+        compute_only = compute_only if compute_only is not None else 'all'
+        if compute_only == 'all':
+            compute_only = [t for t in self.tags.keys() if t != 'dm']
 
-        log.info("Tags to be computed: {}".format(", ".join(to_compute)))
+        log.info("Tags to be computed: {}".format(", ".join(compute_only)))
 
         # Compute and collect the results
         results = dict()
-        for tag in to_compute:
+        for tag in compute_only:
             # Resolve the transformation, then compute the result
             trf = self.objects[self.tags[tag]]
             res = trf.compute()
 
-            # If the object is a dantro object, use the short hash for its name
+            # If the object is a detached dantro tree object, use the short
+            # transformation hash for its name
             if isinstance(res, (AbstractDataContainer)) and res.parent is None:
                 res.name = trf.hashstr[:SHORT_HASH_LENGTH]
 
+            # Unwrap ObjectContainer; these are only meant for usage within the
+            # data tree and it makes little sense to keep them in that form.
+            if isinstance(res, ObjectContainer):
+                res = res.data
+
+            # Store the result under its tag
             results[tag] = res
 
         return results
@@ -849,12 +879,7 @@ class TransformationDAG:
                      required=True)
         
         # Retrieve from the DataManager
-        res = self.dm[DAG_CACHE_DM_PATH][self.hashstr]
-
-        # Unwrap ObjectContainer; these are only meant for usage within the
-        # data tree and it makes little sense to keep them in that form.
-        if isinstance(res, ObjectContainer):
-            res = res.data
+        res = self.dm[DAG_CACHE_DM_PATH][trf_hash]
 
         # Done.
         success = True
@@ -863,37 +888,23 @@ class TransformationDAG:
     def _write_to_cache_file(self, trf_hash: str, *, result: Any,
                              ignore_groups: bool=True,
                              attempt_pickling: bool=True,
-                             raise_on_error: bool=False
-                             ) -> bool:
+                             raise_on_error: bool=False,
+                             pkl_kwargs: dict=None,
+                             **save_kwargs) -> bool:
         """Writes the given result object to a hash file, overwriting existing
         ones.
         
         Args:
             trf_hash (str): The hash; will be used for the file name
             result (Any): The result object to write as a cache file
-        """
-        # Define a set of saving functions
-        sfuncs = {
-            # Saving functions of specific dantro objects
-            (NumpyDataContainer,):
-                lambda obj, p: obj.save(p+".npy"),
-            (XrDataContainer,):
-                lambda obj, p: obj.save(p+".xrdc"),
-
-            # Saving functions of external packages
-            (np.ndarray,):
-                lambda obj, p: np.save(p+".npy", obj),
-            (xr.DataArray,):
-                lambda obj, p: obj.to_netcdf(p+".nc_da"),
-            (xr.Dataset,):
-                lambda obj, p: obj.to_netcdf(p+".nc_ds"),
-        }
-        
+        """        
         # Cannot store groups
         if isinstance(result, BaseDataGroup):
             if not ignore_groups:
-                raise NotImplementedError("Cannot currently cache dantro "
-                                          "groups, sorry.")
+                raise NotImplementedError("Cannot currently write dantro "
+                    "groups to a cache file. Sorry. Adjust the ignore_groups "
+                    "argument in the file cache write options for the "
+                    "transformation resulting in {}.".format(result))
             return False
 
         # Make sure the directory exists
@@ -902,24 +913,21 @@ class TransformationDAG:
         # Prepare the file path (still lacks an extension)
         fpath = os.path.join(self.cache_dir, trf_hash)
 
-        # Distinguish between dantro objects, which (might) have their own
-        # saving method implemented, and other objects, which need pickling.
-        for types, sfunc in sfuncs.items():
+        # Go over the saving functions and see if the type agrees. If so, use
+        # that function to write the data.
+        for types, sfunc in DAG_CACHE_RESULT_SAVE_FUNCS.items():
             if not isinstance(result, types):
                 continue
 
             # else: type matched, invoke saving function
             try:
-                sfunc(result, fpath)
+                sfunc(result, fpath, **save_kwargs)
 
             except Exception as exc:
-                log.warning("Failed saving transformation cache file for "
-                            "result of type %s using storage function for "
-                            "type(s) %s. %s: %s",
-                            type(result), types, exc.__class__.__name__, exc)
                 msg = ("Failed saving transformation cache file for result of "
-                       "type {} using storage function for type(s) {}."
-                       "".format(type(result), types))
+                       "type {} using storage function for type(s) {}. Value "
+                       "of result: {}. Additional keyword arguments: {}"
+                       "".format(type(result), types, result, save_kwargs))
                 if raise_on_error:
                     raise RuntimeError(msg) from exc
 
@@ -936,11 +944,13 @@ class TransformationDAG:
         # Try to pickle it
         try:
             with open(fpath + ".pkl", mode='wb') as pkl_file:
-                pkl.dump(result, pkl_file)
+                pkl.dump(result, pkl_file,
+                         **(pkl_kwargs if pkl_kwargs else {}))
         
         except Exception as exc:
-            msg = ("Failed saving transformation cache file by pickling "
-                   "result of type {}.".format(type(result)))
+            msg = ("Failed saving transformation cache file. Cannot pickle "
+                   "result object of type {} and with value {}."
+                   "".format(type(result), result))
             if raise_on_error:
                 raise RuntimeError(msg) from exc
             log.warning("%s. %s: %s", msg, exc.__class__.__name__, exc)

@@ -64,6 +64,17 @@ minimal:
       kwargs: {}
       tag: ~
 
+
+minimal_error_bad_type:
+  params:
+    select: ~
+    transform:
+      - 123
+
+  _raises: TypeError
+  _match: Expected either dict or string
+
+
 # -----------------------------------------------------------------------------
 # Shorthand for unary and binary operations
 
@@ -86,6 +97,8 @@ shorthand_transform:
       - some_binary_op_with_kwargs:
           kwarg0: !dag_tag foo
           kwarg1: !dag_tag bar
+
+      - some_op_without_any_args_or_kwargs: ~
 
   expected:
     - operation: some_unary_op
@@ -119,6 +132,51 @@ shorthand_transform:
         kwarg0: !dag_tag foo
         kwarg1: !dag_tag bar
       tag: ~
+
+    - operation: some_op_without_any_args_or_kwargs
+      args: []
+      kwargs: {}
+      tag: ~
+
+shorthand_transform_error_missing_args:
+  params:
+    select: ~
+    transform:
+      - some_unary_op: asd
+        args: []
+
+  _raises: ValueError
+  _match: When using shorthand notation, the args and kwargs need to be
+
+shorthand_transform_error_too_many_ops:
+  params:
+    select: ~
+    transform:
+      - some_unary_op: asd
+        another_unary_op: asd
+
+  _raises: ValueError
+  _match: For shorthand notation, there can only be a single operation
+
+shorthand_transform_error_missing_op:
+  params:
+    select: ~
+    transform:
+      - {}
+
+  _raises: ValueError
+  _match: Missing operation specification.
+
+shorthand_transform_error_both_ops_and_op:
+  params:
+    select: ~
+    transform:
+      - operation: asd
+        asd: ~
+
+  _raises: ValueError
+  _match: Got two specifications of operations
+
 
 
 # -----------------------------------------------------------------------------
@@ -225,6 +283,32 @@ select_with_transform:
       kwargs: {}
       tag: foo
 
+
+select_error_bad_type:
+  params:
+    select:
+      foo: []
+    transform: []
+  
+  _raises: TypeError
+  _match: Invalid type for 'foo' entry within `select` argument
+
+select_error_trying_to_set_last_tag:
+  params:
+    select:
+      foo:
+        path: some/path/foo
+        transform:
+          - operation: some_unary_op
+            args: [!dag_prev ]
+            tag: some_tag
+
+    transform: []
+  
+  _raises: ValueError
+  _match: The tag of the last transform operation within a select routine
+  
+
 # -----------------------------------------------------------------------------
 # Misc
 
@@ -233,6 +317,7 @@ salted:
     select:
       foo:
         path: some/path
+        salt: 123
         transform:
           - some_operation: foo
             salt: 42
@@ -251,6 +336,7 @@ salted:
         - some/path
       kwargs: {}
       tag: ~
+      salt: 123
       file_cache:
         write: false
         read: false
