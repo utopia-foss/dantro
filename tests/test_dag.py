@@ -150,23 +150,24 @@ def test_DAGObjects(dm):
     list(objs.items())
 
 
-def test_TransformationDAG_parsing(dm):
+def test_TransformationDAG_syntax(dm):
     """Tests the TransformationDAG class"""
     TransformationDAG = dag.TransformationDAG
 
     syntax_test_cfgs = load_yml(DAG_SYNTAX_PATH)
-    
-    # Initialize an empty DAG object that will be used for the parsing
-    tdag = TransformationDAG(dm=dm)
-    parse_func = tdag._parse_trfs
 
     for name, cfg in syntax_test_cfgs.items():
         # Extract specification and expected values etc
         print("Testing transformation syntax case '{}' ...".format(name))
 
         # Extract arguments
+        init_kwargs = cfg.get('init_kwargs', {})
         params = cfg['params']
         expected = cfg['expected']
+
+        # Initialize a new empty DAG object that will be used for the parsing
+        tdag = TransformationDAG(dm=dm, **init_kwargs)
+        parse_func = tdag._parse_trfs
 
         # Error checking arguments
         _raises = cfg.get('_raises', False)
@@ -213,7 +214,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
         # Error checking arguments
         _raises = cfg.get('_raises', False)
         _exp_exc = (Exception if not isinstance(_raises, str)
-                    else getattr(__builtins__, _raises))
+                    else __builtins__[_raises])
         _match = cfg.get('_match')
 
         # Custom cache directory

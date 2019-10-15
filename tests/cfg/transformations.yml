@@ -46,7 +46,9 @@ shorthand_select:
   params:
     select:
       foo: some/path/foo
-      bar: some/path/bar
+      bar:
+        path: some/path/bar
+        transform: []
 
   expected:
     num_nodes: 2
@@ -99,13 +101,9 @@ basic_numerical_ops:
           - !dag_tag zero_raw
         tag: zero_raw_T2  # ... a duplicate of 'zero_raw_T' (except the tag)
 
-    default_cache_options:
-      memory:
-        write:
-          enabled: true
-      file:
-        write:
-          enabled: true
+    file_cache_defaults:
+      write:
+        enabled: true
 
   expected:
     num_nodes: 7
@@ -121,7 +119,7 @@ basic_numerical_ops:
       - *hash_zero_raw_T # from the duplicate transformation
     cache_dir_available: true
     cache_files:
-      - 537b1c89ea418dc16bc8e957322bf539.npy
+      # - 537b1c89ea418dc16bc8e957322bf539.npy  # not cached (from select)
       - 5e82e198c35e83d71a4f8f5f775b2c61.npy
       - c2407e64963b57370d615f33445d246e.npy
       - 7337d68eda9cd98491a06967776e3bf5.npy
@@ -203,13 +201,9 @@ duplicates_and_salted:
 
 numpy_and_xarray_data:
   params:
-    default_cache_options:
-      memory:
-        write:
-          enabled: true
-      file:
-        write:
-          enabled: true
+    file_cache_defaults:
+      write:
+        enabled: true
 
     select:
       zeros_raw: labelled_data/zeros
@@ -223,37 +217,160 @@ numpy_and_xarray_data:
     num_nodes: 3
     num_objects: 4
     tags: [dm, zeros_raw, random_raw, ones]
-    # node_hashes: [] # TODO
+    node_hashes:
+      - 084621667c07211d316abd1fd1e742f7
+      - 506017408a71a78659e82a26fe75f0de
+      - 41f6b80312e23ab089ad80fcd69dcfbc
     cache_dir_available: true
     cache_files:
-      - 084621667c07211d316abd1fd1e742f7.xrdc
+      # ... only the result
       - 41f6b80312e23ab089ad80fcd69dcfbc.xrdc
-      - 506017408a71a78659e82a26fe75f0de.xrdc
     
 
 # Test the different caching conditions ---------------------------------------
 
-caching_object_size:
+file_cache_kwargs_to_transformation:
   params:
-    default_cache_options:
-      memory:
-        write:
-          enabled: true
-      file:
-        write:
-          enabled: true
-        min_size: 1048576  # 1M
+    file_cache_defaults:
+      write:
+        enabled: false
 
     select:
       zeros_raw: labelled_data/zeros
-      random_raw: labelled_data/random
 
     transform:
       - increment: [!dag_tag zeros_raw]
         tag: ones
+      - increment: [!dag_tag ones]
+        tag: twos
+        file_cache:
+          write:
+            enabled: true
 
   expected: 
     num_nodes: 3
     num_objects: 4
-    tags: [dm, zeros_raw, random_raw, ones]
+    tags: [dm, zeros_raw, ones, twos]
+    node_hashes:
+      - 506017408a71a78659e82a26fe75f0de
+      - 41f6b80312e23ab089ad80fcd69dcfbc
+      - c581d32c98dd91aebaca03f648202f84
+    cache_dir_available: true
+    cache_files:
+      - c581d32c98dd91aebaca03f648202f84.xrdc  # tag twos
+
+
+file_cache_kwargs_to_select:
+  params:
+    file_cache_defaults:
+      read: true
+      write: false
+
+    select:
+      zeros_raw: labelled_data/zeros
+      random_plus_minus:
+        path: labelled_data/random
+        transform:
+          - increment
+          - decrement: []
+            carry_result: true
+            file_cache:
+              write: true
+
+    transform: []
+
+  expected: 
+    num_nodes: 4
+    num_objects: 5
+    tags: [dm, zeros_raw, random_plus_minus]
+    node_hashes:
+      - 084621667c07211d316abd1fd1e742f7
+      - 71689205a793aed1a4aadb8bf7223dee
+      - 8af94aaf455c150815085d5ab16c52d9
+      - 506017408a71a78659e82a26fe75f0de
+    cache_dir_available: true
+    cache_files:
+      - 8af94aaf455c150815085d5ab16c52d9.xrdc  # random after decrement
+
+
+caching_object_size:
+  params:
+    file_cache_defaults:
+      write:
+        enabled: true
+        min_size: 1048576  # 1M >> labelled_data/zeros
+
+    select:
+      zeros_raw: labelled_data/zeros
+
+    transform:
+      - increment: [!dag_tag zeros_raw]
+        tag: ones
+      - increment: [!dag_tag ones]
+        tag: twos
+        file_cache:
+          write:
+            min_size: 1
+
+  expected: 
+    num_nodes: 3
+    num_objects: 4
+    tags: [dm, zeros_raw, ones, twos]
+    node_hashes:
+      - 506017408a71a78659e82a26fe75f0de
+      - 41f6b80312e23ab089ad80fcd69dcfbc
+      - c581d32c98dd91aebaca03f648202f84
+    cache_dir_available: true
+    cache_files:
+      - c581d32c98dd91aebaca03f648202f84.xrdc  # tag twos
+
+file_cache_invariant_hash:
+  params:
+    select:
+      zeros_raw: labelled_data/zeros
+
+    transform:
+      - increment: [!dag_tag zeros_raw]
+        tag: ones_v1
+        file_cache:
+          write: false
+          read: false
+      - increment: [!dag_tag zeros_raw]
+        tag: ones_v2
+        file_cache:
+          write: true
+      - increment: [!dag_tag zeros_raw]
+        tag: ones_v3
+        file_cache:
+          foo: bar  # ... is ignored! Which is intentional
+      - increment: [!dag_tag zeros_raw]
+        tag: ones_v4
+        salt: 123
+        file_cache:
+          read: true
+
+  expected: 
+    num_nodes: 5
+    num_objects: 4
+    tags: [dm, zeros_raw, ones_v1, ones_v2, ones_v3, ones_v4]
+    node_hashes:
+      - 506017408a71a78659e82a26fe75f0de
+      - 41f6b80312e23ab089ad80fcd69dcfbc
+      - 41f6b80312e23ab089ad80fcd69dcfbc
+      - 41f6b80312e23ab089ad80fcd69dcfbc
+      - 1e99fb85fc1050ece9618191eabf1720
     cache_dir_available: false
+
+
+file_cache_attempting_dm_select_cache:
+  params:
+    select:
+      zeros_raw:
+        path: labelled_data/zeros
+        file_cache:
+          write: true
+    transform: ~
+    
+  _raises: ValueError
+  _match: For selection from DataManager, the file cache is always disabled
+  expected: {}

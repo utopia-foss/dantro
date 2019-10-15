@@ -145,12 +145,18 @@ simple_select:
         - some/path/bar
       kwargs: {}
       tag: bar
+      file_cache:
+        write: false
+        read: false
     - operation: getitem
       args:
         - !dag_tag dm
         - some/path/foo
       kwargs: {}
       tag: foo
+      file_cache:
+        write: false
+        read: false
     - operation: some_operation
       args:
         - !dag_tag foo
@@ -184,6 +190,9 @@ select_with_transform:
         - some/path/bar
       kwargs: {}
       tag: ~
+      file_cache:
+        write: false
+        read: false
     - operation: some_operation
       args:
         - !dag_node -1
@@ -206,6 +215,9 @@ select_with_transform:
         - some/path
       kwargs: {}
       tag: ~
+      file_cache:
+        write: false
+        read: false
     - operation: getitem
       args:
         - !dag_node -1
@@ -239,6 +251,9 @@ salted:
         - some/path
       kwargs: {}
       tag: ~
+      file_cache:
+        write: false
+        read: false
     - operation: some_operation
       args:
         - foo
@@ -252,3 +267,72 @@ salted:
       salt: 43
       tag: ~
 
+# -----------------------------------------------------------------------------
+
+file_cache_defaults:
+  init_params:
+    file_cache_defaults:
+      write: true
+      read: true
+  params:
+    select:
+      foo: some/path/foo
+      bar:
+        path: some/path/bar
+    transform:      
+      - some_unary_op_with_kwargs:
+          some_kwarg: some_value
+        tag: res1
+        file_cache:
+          write: false
+          read: false
+
+      - some_binary_op: [!dag_tag some_field, 123]
+        tag: res2
+        file_cache:
+          write:
+            enabled: true
+            always: true
+          read:
+            enabled: false
+
+  expected:
+    - operation: getitem
+      args:
+        - !dag_tag dm
+        - some/path/bar
+      kwargs: {}
+      tag: bar
+      file_cache:
+        write: false
+        read: false
+    - operation: getitem
+      args:
+        - !dag_tag dm
+        - some/path/foo
+      kwargs: {}
+      tag: foo
+      file_cache:
+        write: false
+        read: false
+    - operation: some_unary_op_with_kwargs
+      args: []
+      kwargs:
+        some_kwarg: some_value
+      tag: res1
+      file_cache:
+        write: false
+        read: false
+
+    - operation: some_binary_op
+      args:
+        - !dag_tag some_field
+        - 123
+      kwargs: {}
+      tag: res2
+      file_cache:
+        write:
+          enabled: true
+          always: true
+        read:
+          enabled: false

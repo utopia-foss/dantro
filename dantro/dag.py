@@ -57,7 +57,8 @@ class Transformation:
                  args: Sequence[TRefOrAny],
                  kwargs: Dict[str, TRefOrAny],
                  dag: 'TransformationDAG'=None,
-                 salt: int=None):
+                 salt: int=None,
+                 file_cache: dict=None):
         """Initialize a Transformation object.
         
         Args:
@@ -72,6 +73,10 @@ class Transformation:
             salt (int, optional): A hashing salt that can be used to let this
                 specific Transformation object have a different hash than other
                 objects, thus leading to cache misses.
+            file_cache (dict, optional): File cache options. Expected keys are
+                ``write`` (boolean or dict) and ``read`` (boolean or dict).
+                Note that the options given here are NOT reflected in the hash
+                of the object!
         """
         # Storage attributes
         self._operation = operation
@@ -80,12 +85,24 @@ class Transformation:
         self._dag = dag
         self._salt = salt
 
+        # Parse file cache options, making sure it's a dict with default values
+        self._fc_opts = file_cache if file_cache is not None else {}
+        
+        if isinstance(self._fc_opts.get('write', {}), bool):
+            self._fc_opts['write'] = dict(enabled=self._fc_opts['write'])
+        elif 'write' not in self._fc_opts:
+            self._fc_opts['write'] = dict(enabled=False)
+        
+        if isinstance(self._fc_opts.get('read', {}), bool):
+            self._fc_opts['read'] = dict(enabled=self._fc_opts['read'])
+        elif 'read' not in self._fc_opts:
+            self._fc_opts['read'] = dict(enabled=False)
+
         # Profiling info from the last computation
         self._profile = dict()
 
-        # Cache dicts, containing the result and whether the cache is filled
-        self._mem_cache = dict(result=None, filled=False)
-        self._file_cache = dict(result=None, filled=False)
+        # Cache dict, containing the result and whether the cache is in memory
+        self._cache = dict(result=None, filled=False)
 
     # .........................................................................
     # Properties
@@ -157,7 +174,7 @@ class Transformation:
     # .........................................................................
     # Compute interface
 
-    def compute(self, *, cache_options: dict=None) -> Any:
+    def compute(self) -> Any:
         """Computes the result of this transformation by recursively resolving
         objects and carrying out operations.
         
@@ -171,7 +188,7 @@ class Transformation:
         Returns:
             Any: The result of the operation
         """
-        def resolve(element, cache_options):
+        def resolve(element):
             """Resolve references to their objects, if necessary computing the
             results of referenced transformations recursively.
 
@@ -197,26 +214,23 @@ class Transformation:
             # else: wasn't the DataManager. It should thus be another
             # Transformation object. Compute, passing on the cache options.
             # This is a traversal up the DAG tree.
-            return obj.compute(cache_options=cache_options)
-
-        # Parse cache options
-        cache_options = cache_options if cache_options is not None else {}
+            return obj.compute()
 
         # Return the already computed and cached result, if possible
-        success, res = self._lookup_result(**cache_options)
+        success, res = self._lookup_result()
         if success:
             return res
 
         # else: could not read the result from a cache -> Need to compute it.
         # First, resolve the references in the arguments
-        args = [resolve(e, cache_options) for e in self._args]
-        kwargs = {k:resolve(e, cache_options) for k, e in self._kwargs.items()}
+        args = [resolve(e) for e in self._args]
+        kwargs = {k:resolve(e) for k, e in self._kwargs.items()}
 
         # Carry out the operation
         res = self._perform_operation(args=args, kwargs=kwargs)
 
         # Allow caching the result
-        self._cache_result(res, **cache_options)
+        self._cache_result(res)
 
         return res
 
@@ -251,82 +265,70 @@ class Transformation:
 
     # Cache handling . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-    def _lookup_result(self, *, memory: dict=None, file: dict=None
-                       ) -> Tuple[bool, Any]:
+    def _lookup_result(self) -> Tuple[bool, Any]:
         """Look up the transformation result to spare re-computation"""
-        def should_read(state: dict, *, enabled: bool,
-                        always: bool=False) -> bool:
-            """Whether the cache should be read"""
-            if not enabled:
-                return False
-
-            if always:
-                return True
-            # All following checks should return False.
-            # TODO Can add more arguments here.
-
-            # If this point is reached, the cache should be read
-            return True
-
         success, res = False, None
 
-        # Default values for cache options
-        copts_mem = memory if memory else {}
-        copts_file = file if file else {}
-
-        ropts_mem = copts_mem.get('read', dict(enabled=True))
-        ropts_file = copts_file.get('read', dict(enabled=False))
+        # Retrieve cache parameters
+        read_opts = self._fc_opts.get('read', {})
 
         # Setup profiling
         t0 = time.time()
         
-        # Check memory cache first, then file cache.
-        if self._mem_cache['filled'] and should_read(self._mem_cache,
-                                                     **ropts_mem):
+        # Check if the cache is already filled. If not, see if the file cache
+        # can be read and is configured to be read.
+        if self._cache['filled']:
             success = True
-            res = self._mem_cache['result']
+            res = self._cache['result']
 
-        elif self._file_cache['filled'] and should_read(self._file_cache,
-                                                        **ropts_file):
-            # There might already be a cache object (previously looked-up)
-            success = True
-            res = self._file_cache['result']
-
-        elif self.dag is not None and should_read(self._file_cache,
-                                                  **ropts_file):
+        elif self.dag is not None and read_opts.get('enabled', False):
             # Let the DAG check if there is a file cache, i.e. if a file with
             # this Transformation's hash exists in the DAG's cache directory.
             success, res = self.dag._retrieve_from_cache_file(self.hashstr)
 
+            # Store the result
             if success:
-                self._file_cache['result'] = res
-                self._file_cache['filled'] = True
+                self._cache['result'] = res
+                self._cache['filled'] = True
 
         self._update_profile(cache_lookup=(time.time() - t0))
 
         return success, res
     
-    def _cache_result(self, result: Any, *,
-                      memory: dict=None, file: dict=None) -> None:
-        """Stores a computed result in the cache, depending on some parameters.
-
-        This can be both a memory or a file cache, controlled via the
-        corresponding dict-like arguments.
-        """
-        def should_write(state: dict, *, enabled: bool, always: bool=False,
+    def _cache_result(self, result: Any) -> None:
+        """Stores a computed result in the cache"""
+        def should_write(*, enabled: bool, always: bool=False,
+                         overwrite: bool=False,
                          min_size: int=None, max_size: int=None,
                          min_compute_time: float=None,
                          min_cumulative_compute_time: float=None
                          ) -> bool:
-            """A helper function to evaluate _whether_ the cache is to be
-            written or not. This method does not distinguish between memory or
-            file cache.
+            """A helper function to evaluate _whether_ the file cache is to be
+            written or not.
             
             Args:
-                state (dict): The cache's state
-                write (bool): Whether to write or not; this is the general
-                    toggle. If False, will never write. If True, some other
-                    arguments might still lead to the cache NOT being written.
+                enabled (bool): Whether writing is enabled at all
+                always (bool, optional): If given, will always write.
+                overwrite (bool, optional): If False, will not write a cache
+                    file if one already exists. If True, a cache file might be
+                    written, although one already exists.
+                min_size (int, optional): The minimum size of the result object
+                    that allows writing the cache.
+                max_size (int, optional): The maximum size of the result object
+                    that allows writing the cache.
+                min_compute_time (float, optional): The minimal individual
+                    computation time of this node that is needed in order for
+                    the file cache to be written. Note that this value can be
+                    lower if the node result is not computed but looked up from
+                    the cache.
+                min_cumulative_compute_time (float, optional): The minimal
+                    cumulative computation time of this node and all its
+                    dependencies that is needed in order for the file cache to
+                    be written. Note that this value can be lower if the node
+                    result is not computed but looked up from the cache.
+            
+            Returns:
+                bool: Whether to write the file cache or not.
             """
             if not enabled:
                 # ... nothing else to check
@@ -337,8 +339,8 @@ class Transformation:
                 return True
             # All checks below are formulated such that they return False.
 
-            # Should not write, if the cache object was already retrieved.
-            if state['filled']:
+            # If overwriting is disabled, check if a cache file already exists
+            if not overwrite and self.hashstr in self.dag.cache_files:
                 return False
 
             # Evaluate profiling information
@@ -360,39 +362,32 @@ class Transformation:
                 if not (size_itvl[0] < obj_size < size_itvl[1]):
                     return False
 
-            # If this point is reached, the cache should be written.
+            # If this point is reached, the cache file should be written.
             return True
 
-        # Default values for cache writing parameters
-        copts_mem = memory if memory else {}
-        copts_file = file if file else {}
+        # Store a reference to the result and mark the cache as being in use
+        self._cache['result'] = result
+        self._cache['filled'] = True
+        # NOTE If instead of a proper computation, the passed result object was
+        #      previously looked up from the cache, this will not have an
+        #      effect.
+        
+        # Get file cache writing parameters; don't write if not 
+        write_opts = self._fc_opts['write']
 
-        wopts_mem = copts_mem.get('write', dict(enabled=True))
-        wopts_file = copts_file.get('write', dict(enabled=False))
+        # Start profiling
+        t0 = time.time()
 
-        # Write to the separate caches if all conditions are fulfilled
-        if should_write(self._mem_cache, **wopts_mem):
-            # Set the memory cache
-            self._mem_cache['result'] = result
-            self._mem_cache['filled'] = True
-
-        if self.dag is not None and should_write(self._file_cache,
-                                                 **wopts_file):
-            # Associate the result with the file cache, albeit not being loaded
-            # from the cache directory directly. In essence, this 
-            self._file_cache['result'] = result
-            self._file_cache['filled'] = True
-            # NOTE The written file itself is NOT loaded again; instead, the
-            #      object that is already in memory is referenced here.
-
+        # Determine whether to write to a file
+        if self.dag is not None and should_write(**write_opts):
             # Write the result to a file inside the DAG's cache directory. This
             # is handled by the DAG itself, because the Transformation does not
             # know (and should not care) aboute the cache directory ...
-            storage_opts = wopts_file.get('storage_options', {})
+            storage_opts = write_opts.get('storage_options', {})
             self.dag._write_to_cache_file(self.hashstr, result=result,
                                           **storage_opts)
 
-        # Done.
+        self._update_profile(cache_writing=(time.time() - t0))
 
 
 
@@ -419,7 +414,7 @@ class TransformationDAG:
     def __init__(self, *, dm: 'DataManager',
                  select: dict=None, transform: Sequence[dict]=None,
                  compute_tags: Union[str, Sequence[str]]='all',
-                 cache_dir: str='.cache', default_cache_options: dict=None):
+                 cache_dir: str='.cache', file_cache_defaults: dict=None):
         """Initialize a DAG which is associated with a DataManager and load the
         specified transformations configuration into it.
         """
@@ -437,9 +432,8 @@ class TransformationDAG:
         # NOTE The data manager is NOT a node of the DAG, but more like an
         #      external data source, thus being accessible only as a tag
 
-        # Default cache options for computation
-        self._default_cache_opts = (default_cache_options
-                                    if default_cache_options else {})
+        # Default file cache options
+        self._fc_opts = file_cache_defaults if file_cache_defaults else {}
         
         # Determine cache directory path; relative path interpreted as relative
         # to the DataManager's data directory
@@ -529,17 +523,20 @@ class TransformationDAG:
             if isinstance(params, dict):
                 return params
 
-            elif not isinstance(params, str):
-                raise TypeError("Expected either dict or string for minimal "
-                                "syntax, got {} with value: {}"
-                                "".format(type(params), params))
+            elif isinstance(params, str):
+                return dict(operation=params, carry_result=True)
 
-            return dict(operation=params, carry_result=True)
+            # else:
+            raise TypeError("Expected either dict or string for minimal "
+                            "syntax, got {} with value: {}"
+                            "".format(type(params), params))
+
 
         def parse_params(*, operation: str=None,
                          args: list=None, kwargs: dict=None,
                          tag: str=None, carry_result: bool=False,
-                         salt: int=None, **ops) -> dict:
+                         salt: int=None, file_cache: dict=None,
+                         **ops) -> dict:
             """Given the parameters of a transform operation, possibly in a
             shorthand notation, returns a dict with normalized content by
             expanding the shorthand notation.
@@ -556,11 +553,12 @@ class TransformationDAG:
                     can only be specified if there is no ``ops`` argument.
                 tag (str, optional): The tag to attach to this transformation
                 carry_result (bool, optional): Whether the result is to be
-                    carried through to the next operation; if true, the first
-                    positional argument is set to a reference to the previous
-                    node.
+                    carried through from the previous operation; if true, the
+                    first positional argument is set to a reference to the
+                    previous node's result.
                 salt (int, optional): A salt to the Transformation object,
                     thereby changing its hash.
+                file_cache (dict, optional): File cache parameters
                 **ops: The operation that is to be carried out. May contain
                     one and only one operation.
             
@@ -628,12 +626,16 @@ class TransformationDAG:
             if salt is not None:
                 d['salt'] = salt
 
+            if file_cache is not None:
+                d['file_cache'] = file_cache
+
             return d
 
+        # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         # The to-be-populated list of transformations
         trfs = list()
 
-        # Parse the arguments to assert that they are not None and deep copies
+        # Prepare arguments: make sure they are dicts and deep copies.
         select = copy.deepcopy(select) if select else {}
         transform = copy.deepcopy(transform) if transform else []
 
@@ -645,24 +647,39 @@ class TransformationDAG:
                 path = params
                 carry_result = False
                 more_trfs = None
+                salt = None
 
             elif isinstance(params, dict):
                 path = params['path']
                 carry_result = params.get('carry_result', False)
                 more_trfs = params.get('transform')
+                salt = params.get('salt')
+
+                if 'file_cache' in params:
+                    raise ValueError("For selection from DataManager, the "
+                                     "file cache is always disabled. Please "
+                                     "remove the file_cache argument.")
 
             else:
                 raise TypeError("Invalid type for '{}' entry within `select` "
                                 "argument! Got {} but expected string or dict."
                                 "".format(field_name, type(params)))
 
-            # Construct parameters to select from the DataManager
-            trfs.append(dict(operation='getitem',
-                             tag=field_name if not more_trfs else None,
-                             args=[DAGTag('dm'), path],
-                             kwargs=dict()))
-            # NOTE If more transformations are to occur on this element, the
-            #      tag of this first transformation need be None.
+            # Construct parameters to select from the DataManager. Only assign
+            # a tag if there are no further transformations; otherwise, the
+            # last additional transformation should set the tag.
+            sel_trf = dict(operation='getitem',
+                           tag=field_name if not more_trfs else None,
+                           args=[DAGTag('dm'), path],
+                           kwargs=dict(),
+                           file_cache=dict(read=False, write=False))
+            
+            # Carry additional parameters only if given
+            if salt is not None:
+                sel_trf['salt'] = salt
+
+            # Now finished with the formulation of the select operation.
+            trfs.append(sel_trf)
             
             if not more_trfs:
                 # Done with this select operation.
@@ -672,8 +689,11 @@ class TransformationDAG:
             for i, trf_params in enumerate(more_trfs):
                 # Parse it
                 trf_params = parse_minimal_syntax(trf_params)
-                trf_params = parse_params(**trf_params,
-                                          carry_result=carry_result)
+
+                if 'carry_result' not in trf_params:
+                    trf_params['carry_result'] = carry_result
+                
+                trf_params = parse_params(**trf_params)
 
                 # On the last transformation for the selected tag, need to set
                 # the tag to the specified field name. This is to avoid
@@ -702,7 +722,8 @@ class TransformationDAG:
         return trfs
     
     def _add_node(self, *, operation: str, args: list=None, kwargs: dict=None,
-                  tag: str=None, **trf_kwargs) -> THash:
+                  tag: str=None, file_cache: dict=None,
+                  **trf_kwargs) -> THash:
         """Add a new node by creating a new Transformation object and adding it
         to the node list.
         
@@ -712,6 +733,9 @@ class TransformationDAG:
             kwargs (dict, optional): Keyword arguments to the operation
             tag (str, optional): The tag the transformation should be made
                 available as.
+            file_cache (dict, optional): File cache options for
+                this node. If defaults were given during initialization, those
+                defaults will be updated with the given dict.
             **trf_kwargs: Passed on to Transformation.__init__
         
         Raises:
@@ -734,12 +758,19 @@ class TransformationDAG:
                       else v.convert_to_ref(dag=self))
                   for k,v in kwargs.items()}
 
+        # Parse file cache parameters
+        fc_opts = copy.deepcopy(self._fc_opts)  # Always a dict
+        
+        if file_cache is not None:
+            fc_opts = recursive_update(fc_opts, file_cache)
+
         # From these arguments, create the Transformation object and add it to
         # the objects database.
         trf_hash = self.objects.add_object(Transformation(operation=operation,
                                                           args=args,
                                                           kwargs=kwargs,
                                                           dag=self,
+                                                          file_cache=fc_opts,
                                                           **trf_kwargs))
         # NOTE From this point on, the object itself has no relevance; that is
         #      why it is not stored here. Transformation objects should only
@@ -757,8 +788,7 @@ class TransformationDAG:
     
     # .........................................................................
     
-    def compute(self, *, compute_only: Sequence[str]=None,
-                cache_options: dict=None) -> Dict[str, Any]:
+    def compute(self, *, compute_only: Sequence[str]=None) -> Dict[str, Any]:
         """Computes all specified tags and returns a result dict.
         
         Args:
@@ -773,27 +803,19 @@ class TransformationDAG:
         # Determine which tags to compute
         if compute_only:
             to_compute = compute_only
-
         elif self._compute_tags == 'all':
             to_compute = [t for t in self.tags.keys() if t != 'dm']
-
         else:
             to_compute = self._compute_tags
 
         log.info("Tags to be computed: {}".format(", ".join(to_compute)))
-
-        # Parse cache options argument
-        cache_opts = self._default_cache_opts
-        if cache_options:
-            cache_opts = recursive_update(copy.deepcopy(cache_opts),
-                                          cache_options)
 
         # Compute and collect the results
         results = dict()
         for tag in to_compute:
             # Resolve the transformation, then compute the result
             trf = self.objects[self.tags[tag]]
-            res = trf.compute(cache_options=cache_opts)
+            res = trf.compute()
 
             # If the object is a dantro object, use the short hash for its name
             if isinstance(res, (AbstractDataContainer)) and res.parent is None:
