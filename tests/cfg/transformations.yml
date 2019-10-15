@@ -270,6 +270,8 @@ numpy_and_xarray_data:
     file_cache_defaults:
       write:
         enabled: true
+        storage_options:
+          raise_on_error: true
 
     select:
       zeros_raw: labelled_data/zeros

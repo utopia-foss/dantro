@@ -932,6 +932,7 @@ class TransformationDAG:
                     raise RuntimeError(msg) from exc
 
                 log.warning("%s. %s: %s", msg, exc.__class__.__name__, exc)
+                # ... will attempt pickling below
             
             else:
                 # Success
@@ -953,6 +954,7 @@ class TransformationDAG:
                    "".format(type(result), result))
             if raise_on_error:
                 raise RuntimeError(msg) from exc
+                
             log.warning("%s. %s: %s", msg, exc.__class__.__name__, exc)
             return False
         
