@@ -427,3 +427,8 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
         print("------------------------------------\n")
 
     # All done.
+
+@pytest.mark.skip
+def test_TransformationDAG_profile():
+    """Test the profiling of transformations"""
+    pass

@@ -149,10 +149,15 @@ class Transformation:
     @property
     def dependencies(self) -> List[THash]:
         """Hashes of those objects that this transformation depends on, i.e.
-        hashes of other referenced DAG nodes.
+        hashes of other referenced DAG nodes. Also includes the DataManager!
         """
         return [r.ref for r in chain(self._args, self._kwargs.values())
                 if isinstance(r, DAGReference)]
+
+    @property
+    def resolved_dependencies(self) -> List['Transformation']:
+        """Transformation objects that this Transformation depends on"""
+        return [self.dag.objects[h] for h in self.dependencies]
 
     @property
     def profile(self) -> Dict[str, float]:
@@ -231,20 +236,19 @@ class Transformation:
             # This is a traversal up the DAG tree.
             return obj.compute()
 
-        # Return the already computed and cached result, if possible
+        # Try to look up an already computed result from memory or file cache
         success, res = self._lookup_result()
-        if success:
-            return res
+        
+        if not success:
+            # Did not find a result in memory or file cache -> Compute it.
+            # First, resolve the references in the arguments
+            args = [resolve(e) for e in self._args]
+            kwargs = {k:resolve(e) for k, e in self._kwargs.items()}
 
-        # else: could not read the result from a cache -> Need to compute it.
-        # First, resolve the references in the arguments
-        args = [resolve(e) for e in self._args]
-        kwargs = {k:resolve(e) for k, e in self._kwargs.items()}
+            # Carry out the operation
+            res = self._perform_operation(args=args, kwargs=kwargs)
 
-        # Carry out the operation
-        res = self._perform_operation(args=args, kwargs=kwargs)
-
-        # Allow caching the result
+        # Allow caching the result, even if it comes from the cache
         self._cache_result(res)
 
         return res
@@ -266,17 +270,30 @@ class Transformation:
 
         return res
 
-    def _update_profile(self, **times) -> None:
-        """Given some time, updates the profiling information
+    def _update_profile(self, *, cumulative_compute: float=None,
+                        **times) -> None:
+        """Given some new profiling times, updates the profiling information.
         
         Args:
+            cumulative_compute (float, optional): The cumulative computation
+                time; if given, additionally computes the computation time for
+                this individual node.
             **times: Valid profiling data.
         """
+        # If cumulative computation time was given, calculate individual time
+        if cumulative_compute is not None:
+            self._profile['cumulative_compute'] = cumulative_compute
+
+            # Aggregate the dependencies' cumulative computation times
+            deps_cctime = sum([dep.profile.get('cumulative_compute', 0.)
+                               for dep in self.resolved_dependencies
+                               if dep is not self.dag.dm])
+            # NOTE The dependencies might not have this value set because there
+            #      might have been a cache lookup
+            self._profile['compute'] = max(0., cumulative_compute-deps_cctime)
+
+        # Store the remaining entries
         self._profile.update(times)
-        # TODO do some more processing here, e.g. calculating the time it took
-        #      for this specific transformation (removing the time taken by
-        #      the depending transformations)
-        # TODO calculate the `compute` key
 
     # Cache handling . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -286,6 +303,7 @@ class Transformation:
 
         # Retrieve cache parameters
         read_opts = self._fc_opts.get('read', {})
+        load_opts = read_opts.get('load_options', {})
 
         # Setup profiling
         t0 = time.time()
@@ -299,7 +317,8 @@ class Transformation:
         elif self.dag is not None and read_opts.get('enabled', False):
             # Let the DAG check if there is a file cache, i.e. if a file with
             # this Transformation's hash exists in the DAG's cache directory.
-            success, res = self.dag._retrieve_from_cache_file(self.hashstr)
+            success, res = self.dag._retrieve_from_cache_file(self.hashstr,
+                                                              **load_opts)
 
             # Store the result
             if success:
@@ -313,7 +332,7 @@ class Transformation:
     def _cache_result(self, result: Any) -> None:
         """Stores a computed result in the cache"""
         def should_write(*, enabled: bool, always: bool=False,
-                         overwrite: bool=False,
+                         allow_overwrite: bool=False,
                          min_size: int=None, max_size: int=None,
                          min_compute_time: float=None,
                          min_cumulative_compute_time: float=None,
@@ -325,9 +344,10 @@ class Transformation:
             Args:
                 enabled (bool): Whether writing is enabled at all
                 always (bool, optional): If given, will always write.
-                overwrite (bool, optional): If False, will not write a cache
-                    file if one already exists. If True, a cache file might be
-                    written, although one already exists.
+                allow_overwrite (bool, optional): If False, will not write a
+                    cache file if one already exists. If True, a cache file
+                    _might_ be written, although one already exists. This is
+                    still conditional on the evaluation of the other arguments.
                 min_size (int, optional): The minimum size of the result object
                     that allows writing the cache.
                 max_size (int, optional): The maximum size of the result object
@@ -356,18 +376,21 @@ class Transformation:
                 return True
             # All checks below are formulated such that they return False.
 
-            # If overwriting is disabled, check if a cache file already exists
-            if not overwrite and self.hashstr in self.dag.cache_files:
+            # If overwriting is _disabled_ and a cache file already exists, it
+            # is already clear that a new one should _not_ be written
+            print(self.hashstr)
+            print(list(self.dag.cache_files.keys()))
+            if not allow_overwrite and self.hashstr in self.dag.cache_files:
                 return False
 
             # Evaluate profiling information
             if min_compute_time is not None:
-                if self.profile['compute'] <= min_compute_time:
+                if self.profile['compute'] < min_compute_time:
                     return False
 
             if min_cumulative_compute_time is not None:
-                if (   self.profile['cumulative_compute']
-                    <= min_cumulative_compute_time):
+                if (  self.profile['cumulative_compute']
+                    < min_cumulative_compute_time):
                     return False
 
             # Evaluate object size
@@ -860,7 +883,8 @@ class TransformationDAG:
     # NOTE This is done here rather than in Transformation because this is the
     #      more central entity and it is a bit easier ...
 
-    def _retrieve_from_cache_file(self, trf_hash: str) -> Tuple[bool, Any]:
+    def _retrieve_from_cache_file(self, trf_hash: str,
+                                  **load_kwargs) -> Tuple[bool, Any]:
         """Retrieves a transformation's result from a cache file."""
         success, res = False, None
         cache_files = self.cache_files
@@ -868,6 +892,10 @@ class TransformationDAG:
         if trf_hash not in cache_files.keys():
             # Bad luck, no cache file
             return success, res
+
+        # Parse load options
+        if 'exists_action' not in load_kwargs:
+            load_kwargs['exists_action'] = 'skip_nowarn'
             
         # else: There was a file. Let the DataManager load it.
         file_ext = cache_files[trf_hash]['ext']
@@ -876,7 +904,8 @@ class TransformationDAG:
                      base_path=self.cache_dir,
                      glob_str=trf_hash + file_ext,
                      target_path=DAG_CACHE_DM_PATH + "/{basename:}",
-                     required=True)
+                     required=True,
+                     **load_kwargs)
         
         # Retrieve from the DataManager
         res = self.dm[DAG_CACHE_DM_PATH][trf_hash]
