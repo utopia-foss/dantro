@@ -6,6 +6,13 @@
 - !104 adds the `set_text` function to the `PlotHelper`
 - !106 changes `PathMixin` such that detached objects now have `/<name>` as their path, which improves path handling. Furthermore, the `Link` object is now adjusted to this change and its tests are extended to a wide range of scenarios.
 - !107 changes the `xarray` version requirement from `0.12.1` to `0.13.0`. 
+- !105 adds a transformation framework (#48) that allows caching of data operations (#96). It does so by implementing a directed acyclic graph of data transformations, where each node is uniquely represented by a hash. This hash can then be used reliably to determine cache hits. See the MR description for more information. Other minor changes alongside this MR:
+    - Improve `LinkContainer`
+    - Add `SizeOfMixin`, allowing to compute the size of a container's data
+    - Incorporate `PathMixin` into `AbstractDataContainer`
+    - Add `base_path` argument to `DataManager.load`
+    - Add xarray- and numpy-related data loaders
+    - Modularize the tests of the `utils` submodule
 
 ## v0.9.1
 - !100 adds experimental (!) transformator capabilities to `ParamSpaceGroup.select`, improves logging, and resolves minor bugs and inconsistencies.
