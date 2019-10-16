@@ -167,15 +167,13 @@ basic_numerical_ops:
           mean: 0.
           shape: [2,3,4]
       zeros_T:
-        type: NumpyDataContainer
+        type: ndarray
         attributes:
-          path: /6d2230f2
           mean: 0.
           shape: [4,3,2]
       zero_raw_T: &results_zero_raw_T
-        type: NumpyDataContainer
+        type: ndarray
         attributes:
-          path: /d36ff9e0
           mean: 0.
           shape: [4,3,2]
       zero_raw_T2:

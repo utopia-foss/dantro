@@ -2,6 +2,7 @@
 
 import logging
 import operator
+from difflib import get_close_matches
 from typing import Callable, Any
 
 import numpy as np
@@ -37,19 +38,29 @@ BOOLEAN_OPERATORS = {
 # .............................................................................
 
 def print_data(data: Any) -> Any:
-    """Prints and passes on the data"""
-    if not isinstance(data, (BaseDataContainer, BaseDataGroup)):
-        print(data)
+    """Prints and passes on the data.
+
+    The print operation distinguishes between dantro types (in which case some
+    more information is shown) and  non-dantro types.
+    """
+    # Distinguish between dantro types and others
+    if isinstance(data, BaseDataContainer):
+        print("{}, with data:\n{}\n".format(data, data.data))
+    
+    elif isinstance(data, BaseDataGroup):
+        print("{}\n".format(data.tree))
+
     else:
-        print("{}, with content:\n{}\n".format(data, data.data))
+        print(data)
 
     return data
 
 # .............................................................................
 # numpy and xarray operations
 
-def create_mask(data: xr.DataArray, *,
-                operator_name: str, rhs_value: float) -> xr.DataArray:
+def create_mask(data: xr.DataArray,
+                operator_name: str,
+                rhs_value: float) -> xr.DataArray:
     """Given the data, returns a binary mask by applying the following
     comparison: ``data <operator> rhs value``.
     
@@ -71,7 +82,7 @@ def create_mask(data: xr.DataArray, *,
         comp_func = BOOLEAN_OPERATORS[operator_name]
 
     except KeyError as err:
-        raise KeyError("No boolean operator with name '{}' available! "
+        raise KeyError("No boolean operator '{}' available! "
                        "Available operators: {}"
                        "".format(operator_name,
                                  ", ".join(BOOLEAN_OPERATORS.keys()))
@@ -87,11 +98,11 @@ def create_mask(data: xr.DataArray, *,
     return xr.DataArray(data=data,
                         name=name,
                         dims=data.dims,
-                        coords=data.coords,
-                        attrs=dict(**data.attrs))
+                        coords=data.coords)
 
-def where(data: xr.DataArray, *,
-          operator_name: str, rhs_value: float) -> xr.DataArray:
+def where(data: xr.DataArray,
+          operator_name: str,
+          rhs_value: float) -> xr.DataArray:
     """Filter elements from the given data according to a condition. Only
     those elemens where the condition is fulfilled are not masked.
 
@@ -112,26 +123,24 @@ def count_unique(data) -> xr.DataArray:
     return xr.DataArray(data=counts,
                         name=data.name + " (unique counts)",
                         dims=('unique',),
-                        coords=dict(unique=unique),
-                        attrs=dict(**data.attrs))
+                        coords=dict(unique=unique))
 
 
 # -----------------------------------------------------------------------------
 # The Operations Database -----------------------------------------------------
 # NOTE If a single "object to act upon" can be reasonably defined for an
 #      operation, it should be accepted as the first positional argument.
-OPERATIONS = KeyOrderedDict({
+_OPERATIONS = KeyOrderedDict({
     # General operations - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-    # Unary ...................................................................
     'print':        print_data,
     
-    # Binary ..................................................................
-    # Item access
-    'getitem':      lambda d, key: d[key],
+    # Item manipulation
+    'getitem':      lambda d, k:    d[k],
+    'setitem':      lambda d, k, v: d.__setitem__(k, v),
 
-    # N-ary ...................................................................
     # Attribute-related
     'getattr':      getattr,
+    'setattr':      setattr,
     'callattr':     lambda d, attr, *a, **k: getattr(d, attr)(*a, **k),
     
 
@@ -215,15 +224,30 @@ OPERATIONS = KeyOrderedDict({
 })
 
 # Add the boolean operators
-OPERATIONS.update(BOOLEAN_OPERATORS)
+_OPERATIONS.update(BOOLEAN_OPERATORS)
 
 # -----------------------------------------------------------------------------
 # Registering and applying operations
 
 def register_operation(*, name: str, func: Callable,
+                       skip_existing: bool=False,
                        overwrite_existing: bool=False) -> None:
-    """Sets the shared OPERATIONS registry"""
-    if name in OPERATIONS and not overwrite_existing:
+    """Adds an entry to the shared OPERATIONS registry.
+    
+    Args:
+        name (str): The name of the operation
+        func (Callable): The callable
+        skip_existing (bool, optional): Description
+        overwrite_existing (bool, optional): Description
+    
+    Raises:
+        TypeError: On invalid name or non-callable for the func argument
+        ValueError: On already existing operation name and no skipping or
+            overwriting enabled.
+    """
+    if name in _OPERATIONS and not overwrite_existing:
+        if skip_existing:
+            return
         raise ValueError("Operation name '{}' already exists! Refusing to "
                          "register a new one. Set the overwrite_existing flag "
                          "to force overwriting.".format(name))
@@ -231,42 +255,45 @@ def register_operation(*, name: str, func: Callable,
     elif not callable(func):
         raise TypeError("The given {} for operation '{}' is not callable! "
                         "".format(func, name))
+    
+    elif not isinstance(name, str):
+        raise TypeError("Operation name need be a string, was {} with value "
+                        "{}!".format(type(name), name))
 
-    OPERATIONS[name] = func
+    _OPERATIONS[name] = func
 
-def apply_operation(op_name: str, *args, _maintain_container_type: bool=False,
-                    **kwargs) -> Any:
+def apply_operation(op_name: str, *op_args, **op_kwargs) -> Any:
     """Apply an operation with the given arguments and then return it.
-
-    This function is also capable to attempt to maintain the result type of
-    the operation. For that, the type of the first positional argument is
-    inspected before the application of the operation. If it is a dantro
-    container type and the result is not, it is attempted to feed the result
-    to a new instance of the type.
+    
+    Args:
+        op_name (str): The name of the operation to carry out; need to be part
+            of the OPERATIONS database.
+        *op_args: The positional arguments to the operation
+        **op_kwargs: The keyword arguments to the operation
+    
+    Returns:
+        Any: The result of the operation
+    
+    Raises:
+        KeyError: On invalid operation name. This also suggests possible other
+            names that might match.
     """
-    op = OPERATIONS[op_name]
+    try:
+        op = _OPERATIONS[op_name]
 
-    if _maintain_container_type:
-        if args and isinstance(args[0], BaseDataContainer):
-            _ContCls = type(args[0])
-            _cont_name = args[0].name
-            _cont_attrs = args[0].attrs
-        else:
-            # Not applicable; turn back the flag
-            _maintain_container_type = False
+    except KeyError as err:
+        # Find some close matches to make operation discovery easier
+        possible_matches = get_close_matches(op_name, _OPERATIONS.keys(), n=5)
 
-    # Compute the results
-    res = op(*args, **kwargs)
+        raise KeyError("No operation '{}' registered! Did you mean: {} ?\n"
+                       "All available operations:\n  - {}\n"
+                       "If you need to register a new operation, use "
+                       "dantro.utils.register_operation to do so."
+                       "".format(op_name, ", ".join(possible_matches),
+                                 "\n".join("  - ".join(_OPERATIONS.keys())))
+                       ) from err
 
-    # If container type is to be maintained but does not match, attempt to
-    # change it, carrying over name and attributes ...
-    if _maintain_container_type and not isinstance(res, _ContCls):
-        try:
-            res = _ContCls(name="{} -> {}".format(_cont_name, op_name),
-                           data=res, attrs=_cont_attrs)
-        except:
-            pass
-
-    return res
+    # Compute and return the results
+    return op(*op_args, **op_kwargs)
 
 # -----------------------------------------------------------------------------

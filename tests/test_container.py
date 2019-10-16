@@ -187,6 +187,9 @@ def test_LinkContainer():
     assert links['data'].data.path == "/root/data"
     assert links['data'].upper() == "SOME_STRING"
 
+    # Test extended formatting information
+    assert "root -> data" in str(links["data"])
+
 # -----------------------------------------------------------------------------
 # Numeric containers
 

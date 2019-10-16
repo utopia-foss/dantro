@@ -4,7 +4,7 @@ import logging
 
 from ..utils import Link
 from ..mixins import CheckDataMixin
-from .general import PassthroughContainer
+from .general import ObjectContainer, PassthroughContainer
 
 log = logging.getLogger(__name__)
 

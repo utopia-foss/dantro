@@ -16,7 +16,7 @@ import xarray as xr
 
 from .abc import AbstractDataContainer
 from .base import BaseDataGroup
-from .utils import KeyOrderedDict, OPERATIONS, apply_operation
+from .utils import KeyOrderedDict, apply_operation
 from .tools import recursive_update
 from .data_loaders import LOADER_BY_FILE_EXT
 from .containers import ObjectContainer, NumpyDataContainer, XrDataContainer
@@ -262,8 +262,7 @@ class Transformation:
         t0 = time.time()
 
         # Actually perform the operation
-        res = apply_operation(self._operation, *args, **kwargs,
-                              _maintain_container_type=True)
+        res = apply_operation(self._operation, *args, **kwargs)
 
         # Prase profiling info and return the result
         self._update_profile(cumulative_compute=(time.time() - t0))
@@ -378,8 +377,6 @@ class Transformation:
 
             # If overwriting is _disabled_ and a cache file already exists, it
             # is already clear that a new one should _not_ be written
-            print(self.hashstr)
-            print(list(self.dag.cache_files.keys()))
             if not allow_overwrite and self.hashstr in self.dag.cache_files:
                 return False
 

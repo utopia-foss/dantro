@@ -70,8 +70,7 @@ class MutableMappingContainer(CheckDataMixin, MappingAccessMixin,
             **dc_kwargs: Additional arguments for container initialization
         """
         # Supply a default value for the data, if none was given
-        if data is None:
-            data = {}
+        data = data if data is not None else {}
 
         # Initialize with parent method
         super().__init__(name=name, data=data, **dc_kwargs)

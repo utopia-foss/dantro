@@ -254,6 +254,7 @@ def test_TransformationDAG_syntax(dm):
         assert output == expected
         print("Parsing output was as expected.\n")
 
+
 def test_TransformationDAG_life_cycle(dm, tmpdir):
     """Tests the TransformationDAG class"""
     TransformationDAG = dag.TransformationDAG
@@ -427,8 +428,3 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
         print("------------------------------------\n")
 
     # All done.
-
-@pytest.mark.skip
-def test_TransformationDAG_profile():
-    """Test the profiling of transformations"""
-    pass
