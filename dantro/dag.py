@@ -522,7 +522,7 @@ class TransformationDAG:
         info = dict()
 
         # Go over all files in the cache dir that have an extension
-        for path in glob.glob(os.path.join(self._cache_dir, '*.*')):
+        for path in glob.glob(os.path.join(self.cache_dir, '*.*')):
             if not os.path.isfile(path):
                 continue
 
@@ -530,8 +530,15 @@ class TransformationDAG:
             fname, ext = os.path.splitext(os.path.basename(path))
             if len(fname) != FULL_HASH_LENGTH:
                 continue
+            # else: filename is assumed to be the hash.
 
-            # else: filename is assumed to be the hash. Store info.
+            if fname in info:
+                raise ValueError("Encountered a duplicate cache file for the "
+                                 "transformation with hash {}! Delete all but "
+                                 "one of those files from the cache directory "
+                                 "{}.".format(fname, self.cache_dir))
+
+            # All good, store info.
             info[fname] = dict(full_path=path, ext=ext)
 
         return info

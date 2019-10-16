@@ -132,6 +132,8 @@ def count_unique(data) -> xr.DataArray:
 #      operation, it should be accepted as the first positional argument.
 _OPERATIONS = KeyOrderedDict({
     # General operations - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    'define':       lambda d: d,
+    'pass':         lambda d: d,
     'print':        print_data,
     
     # Item manipulation
@@ -286,11 +288,11 @@ def apply_operation(op_name: str, *op_args, **op_kwargs) -> Any:
         possible_matches = get_close_matches(op_name, _OPERATIONS.keys(), n=5)
 
         raise KeyError("No operation '{}' registered! Did you mean: {} ?\n"
-                       "All available operations:\n  - {}\n"
+                       "All available operations:\n\t{}\n"
                        "If you need to register a new operation, use "
                        "dantro.utils.register_operation to do so."
                        "".format(op_name, ", ".join(possible_matches),
-                                 "\n".join("  - ".join(_OPERATIONS.keys())))
+                                 "\n\t".join(_OPERATIONS.keys()))
                        ) from err
 
     # Compute and return the results
