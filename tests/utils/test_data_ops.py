@@ -71,6 +71,11 @@ def test_apply_operation():
     # Test the "did you mean" feature
     with pytest.raises(KeyError, match="Did you mean: add ?"):
         apply_operation("addd")
+    
+    # Test application failure error message
+    with pytest.raises(TypeError,
+                       match="Failed applying operation 'add'!.*missing 1"):
+        apply_operation("add", 1)
 
 
 # Tests of specific operations ------------------------------------------------

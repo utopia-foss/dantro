@@ -279,6 +279,7 @@ def apply_operation(op_name: str, *op_args, **op_kwargs) -> Any:
     Raises:
         KeyError: On invalid operation name. This also suggests possible other
             names that might match.
+        RuntimeError: On failure to apply the operation
     """
     try:
         op = _OPERATIONS[op_name]
@@ -296,6 +297,12 @@ def apply_operation(op_name: str, *op_args, **op_kwargs) -> Any:
                        ) from err
 
     # Compute and return the results
-    return op(*op_args, **op_kwargs)
+    try:
+        return op(*op_args, **op_kwargs)
 
-# -----------------------------------------------------------------------------
+    except Exception as exc:
+        raise type(exc)("Failed applying operation '{}'! {}\n"
+                        "  args:   {}\n"
+                        "  kwargs: {}\n"
+                        "".format(op_name, str(exc), op_args, op_kwargs)
+                        ) from exc
