@@ -50,6 +50,14 @@ def dm() -> FullDataManager:
     g_foo = _dm['some/path'].new_group('foo')
     g_bar = _dm['some/path'].new_group('bar')
 
+    # Some data for documentation examples
+    _dm.new_group('path')
+    g_to = _dm['path'].new_group('to')
+    g_to.new_container('some_data', Cls=NumpyDataContainer,
+                       data=np.zeros((5, 5)))
+    g_to.new_container('more_data', Cls=NumpyDataContainer,
+                       data=np.ones((5, 5)))
+
     # Create some regular numpy data
     data = _dm.new_group('data')
     data.new_container('zeros', Cls=NumpyDataContainer,

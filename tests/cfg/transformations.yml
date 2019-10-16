@@ -307,11 +307,13 @@ numpy_and_xarray_data_2nd_run:
     transform:
       - increment: [!dag_tag zeros_raw]
         tag: ones
+      - getitem: [!dag_tag dm, cache/dag/41f6b80312e23ab089ad80fcd69dcfbc]
+        tag: ones_tree
   
   expected:
-    num_nodes: 2
-    num_objects: 3
-    tags: [dm, zeros_raw, ones]
+    num_nodes: 3
+    num_objects: 4
+    tags: [dm, zeros_raw, ones, ones_tree]
     cache_dir_available: true
     cache_files:
       - 41f6b80312e23ab089ad80fcd69dcfbc.xrdc
@@ -702,3 +704,85 @@ error_tag_already_exists:
         tag: random_raw
   _raises: ValueError
   _match: Tag 'random_raw' already exists! Choose a different one.
+
+
+# Examples in documentation ---------------------------------------------------
+
+
+doc_examples_carry_result:
+  params:
+    transform:
+      - operation: mul
+        args: [1, 2]
+      - operation: mul
+        args: [3]
+        carry_result: true
+      - operation: mul
+        args: [4]
+        carry_result: true
+      - operation: mul
+        args: [5]
+        carry_result: true
+        tag: f5
+
+doc_examples_dag_prev:
+  params:
+    transform:
+      - operation: define
+        args: [10]
+      - operation: sub
+        args: [0, !dag_prev ]
+      - operation: div
+        args: [1, !dag_prev ]
+      - operation: power
+        args: [10, !dag_prev ]
+        tag: my_result
+
+doc_examples_select:
+  params:
+    select:
+      some_data: path/to/some_data
+      more_data:
+        path: path/to/more_data
+    transform: ~
+
+  expected:
+    tags: [dm, some_data, more_data]
+
+doc_examples_select_with_transform:
+  params:
+    select:
+      square_increment:
+        path: path/to/some_data
+        carry_result: true
+        transform:
+          - operation: squared
+          - operation: increment
+      some_sum:
+        path: path/to/more_data
+        transform:
+          - operation: getattr
+            args: [!dag_prev , data]
+          - operation: sub
+            args: [0, !dag_prev ]
+          - operation: .sum
+            args: [!dag_prev ]
+    transform:
+      - operation: add
+        args: [!dag_tag square_increment, !dag_tag some_sum ]
+        tag: my_result
+
+doc_examples_minimal:
+  params:
+    select:
+      some_data: path/to/some_data
+      more_data: path/to/more_data
+    transform:
+      - add: [!dag_tag some_data, !dag_tag more_data]
+      - increment
+      - print
+      - power: [!dag_prev , 4]
+        tag: my_result
+
+  expected:
+    tags: [dm, some_data, more_data, my_result]

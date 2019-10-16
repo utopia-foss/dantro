@@ -1,28 +1,39 @@
-.. dantro documentation master file, created by
-   sphinx-quickstart on Wed Feb 27 10:06:47 2019.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 Welcome to dantro's documentation!
 ==================================
 
+Here, you will find information on selected parts of the dantro package.
+
+Furthermore, the documentation contains a full API reference, which makes all docstrings visible and, more importantly, searchable.
+This is often a good starting point if some specific dantro functionality is unclear.
+
+.. note::
+
+    This documentation is very much work in progress.
+    If you find any errors or would like to contribute in another way, please visit the `project page <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro>`_ and open an issue there.
+
+
 .. toctree::
-   :maxdepth: 1
-
-   API Reference <api/modules>
-
-
-.. toctree::
-   :caption: Plotting
-   :maxdepth: 1
-   :glob:
+    :caption: Data Handling
+    :maxdepth: 1
+    :glob:
    
-   plotting/*
+    data_io/*
 
 
-Indices and tables
-==================
+.. toctree::
+    :caption: Plotting
+    :maxdepth: 1
+    :glob:
+   
+    plotting/*
+
+----
+
+.. toctree::
+    :caption: API Reference
+    :maxdepth: 1
+
+    API Reference <api/dantro>
 
 * :ref:`genindex`
 * :ref:`modindex`
-* :ref:`search`
