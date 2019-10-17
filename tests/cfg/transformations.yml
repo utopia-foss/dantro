@@ -408,7 +408,7 @@ file_cache_kwargs_to_select:
         transform:
           - increment
           - decrement: []
-            carry_result: true
+            with_previous_result: true
             file_cache:
               write: true
 
@@ -709,20 +709,20 @@ error_tag_already_exists:
 # Examples in documentation ---------------------------------------------------
 
 
-doc_examples_carry_result:
+doc_examples_with_previous_result:
   params:
     transform:
       - operation: mul
         args: [1, 2]
       - operation: mul
         args: [3]
-        carry_result: true
+        with_previous_result: true
       - operation: mul
         args: [4]
-        carry_result: true
+        with_previous_result: true
       - operation: mul
         args: [5]
-        carry_result: true
+        with_previous_result: true
         tag: f5
 
 doc_examples_dag_prev:
@@ -754,7 +754,7 @@ doc_examples_select_with_transform:
     select:
       square_increment:
         path: path/to/some_data
-        carry_result: true
+        with_previous_result: true
         transform:
           - operation: squared
           - operation: increment

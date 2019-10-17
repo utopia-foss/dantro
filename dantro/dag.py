@@ -629,7 +629,7 @@ class TransformationDAG:
                 return params
 
             elif isinstance(params, str):
-                return dict(operation=params, carry_result=True)
+                return dict(operation=params, with_previous_result=True)
 
             # else:
             raise TypeError("Expected either dict or string for minimal "
@@ -639,7 +639,7 @@ class TransformationDAG:
 
         def parse_params(*, operation: str=None,
                          args: list=None, kwargs: dict=None,
-                         tag: str=None, carry_result: bool=False,
+                         tag: str=None, with_previous_result: bool=False,
                          salt: int=None, file_cache: dict=None,
                          **ops) -> dict:
             """Given the parameters of a transform operation, possibly in a
@@ -657,10 +657,9 @@ class TransformationDAG:
                 kwargs (dict, optional): Keyword arguments for the operation;
                     can only be specified if there is no ``ops`` argument.
                 tag (str, optional): The tag to attach to this transformation
-                carry_result (bool, optional): Whether the result is to be
-                    carried through from the previous operation; if true, the
-                    first positional argument is set to a reference to the
-                    previous node's result.
+                with_previous_result (bool, optional): Whether the result of
+                    the previous transformation is to be used as first
+                    positional argument of this transformation.
                 salt (int, optional): A salt to the Transformation object,
                     thereby changing its hash.
                 file_cache (dict, optional): File cache parameters
@@ -727,7 +726,7 @@ class TransformationDAG:
 
             # If the result is to be carried on, the first _positional_
             # argument is set to be a reference to the previous node
-            if carry_result:
+            if with_previous_result:
                 args.insert(0, DAGNode(-1))
 
             # Done. Construct the dict.
@@ -757,13 +756,13 @@ class TransformationDAG:
         for field_name, params in sorted(select.items()):
             if isinstance(params, str):
                 path = params
-                carry_result = False
+                with_previous_result = False
                 more_trfs = None
                 salt = None
 
             elif isinstance(params, dict):
                 path = params['path']
-                carry_result = params.get('carry_result', False)
+                with_previous_result = params.get('with_previous_result',False)
                 more_trfs = params.get('transform')
                 salt = params.get('salt')
 
@@ -802,8 +801,8 @@ class TransformationDAG:
                 # Parse it
                 trf_params = parse_minimal_syntax(trf_params)
 
-                if 'carry_result' not in trf_params:
-                    trf_params['carry_result'] = carry_result
+                if 'with_previous_result' not in trf_params:
+                    trf_params['with_previous_result'] = with_previous_result
                 
                 trf_params = parse_params(**trf_params)
 
@@ -824,10 +823,8 @@ class TransformationDAG:
                 # Done, can append it now
                 trfs.append(trf_params)
 
-        # Now, parse the normal ``transform`` argument. The operations defined
-        # here are added after all the instructions from the ``select`` section
-        # above. Furthermore, the ``carry_result`` feature is not available
-        # here but everything has to be specified explicitly.
+        # Now, parse the normal `transform` argument. The operations defined
+        # here are added after the instructions from the `select` section.
         for trf_params in transform:
             trf_params = parse_minimal_syntax(trf_params)
             trfs.append(parse_params(**trf_params))

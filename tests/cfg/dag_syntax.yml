@@ -45,7 +45,7 @@ minimal:
     transform:
       - operation: some_op_without_any_args_or_kwargs
       - operation: some_unary_op
-        carry_result: true
+        with_previous_result: true
       - invert
 
   expected:  
@@ -228,7 +228,7 @@ select_with_transform:
     select:
       foo:
         path: some/path
-        carry_result: true
+        with_previous_result: true
         transform:
           - getitem: foo
       bar:
@@ -324,7 +324,7 @@ salted:
 
     transform:
       - operation: another_operation
-        carry_result: true
+        with_previous_result: true
         args: []
         kwargs: {}
         salt: 43

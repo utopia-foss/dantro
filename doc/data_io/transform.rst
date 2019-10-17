@@ -180,8 +180,8 @@ Which is equivalent to:
 References can appear within the positional and the keyword arguments of a transformation.
 As you see, they behave quite a bit like variables behave in programming languages; the only difference being: you can't reassign a tag and you should not form circular dependencies.
 
-Carrying over results
-"""""""""""""""""""""
+Using the result of the previous transformation
+"""""""""""""""""""""""""""""""""""""""""""""""
 When chaining multiple transformations to each other and not being interested in the intermediate results, it is tedious to always define tags:
 
 .. code-block:: yaml
@@ -202,7 +202,7 @@ When chaining multiple transformations to each other and not being interested in
 
 Let's say, we're only interested in ``f5``.
 The only thing we want is that the result from the previous transformation is carried on to the next one.
-The ``carry_result`` feature can help in this case: It adds as the first positional argument a reference to the *previous* node.
+The ``with_previous_result`` feature can help in this case: It adds as the first positional argument a reference to the *previous* node.
 Thus, it is no longer necessary to define a tag.
 
 .. code-block:: yaml
@@ -212,20 +212,20 @@ Thus, it is no longer necessary to define a tag.
         args: [1, 2]
       - operation: mul
         args: [3]
-        carry_result: true
+        with_previous_result: true
       - operation: mul
         args: [4]
-        carry_result: true
+        with_previous_result: true
       - operation: mul
         args: [5]
-        carry_result: true
+        with_previous_result: true
         tag: f5
 
 Note that the ``args`` in that case specify one fewer positional argument.
 
 .. note::
 
-    The ``carry_result`` argument is interpreted by the parser and translated into a node reference with the index ``-1``.
+    The ``with_previous_result`` argument is interpreted by the parser and translated into a node reference with the index ``-1``.
     When a transformation node with index ``n`` is added, that reference thus points to the *previous* node, i.e. ``n-1``.
     Upon building of the DAG, that reference is then resolved into a hash reference to make it absolute.
 
@@ -335,7 +335,7 @@ As part of the ``select`` interface, this is also possible:
     select:
       square_increment:
         path: path/to/some_data
-        carry_result: true
+        with_previous_result: true
         transform:
           - operation: squared
           - operation: increment
@@ -349,14 +349,13 @@ As part of the ``select`` interface, this is also possible:
             args: [0, !dag_prev ]
           - operation: .sum
             args: [!dag_prev ]
-
     transform:
       - operation: add
         args: [!dag_tag square_increment, !dag_tag some_sum ]
         tag: my_result
 
 Notice the difference between ``square_increment``, where the result is carried over, and ``some_sum``, where the reference has to be specified explicitly.
-As visible there, within the ``select`` interface, the ``carry_result`` option can also be specified such that it applies to a sequence of transformations that are based on some selection from the data manager.
+As visible there, within the ``select`` interface, the ``with_previous_result`` option can also be specified such that it applies to a sequence of transformations that are based on some selection from the data manager.
 
 .. note::
 
