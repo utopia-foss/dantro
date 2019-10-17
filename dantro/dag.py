@@ -92,6 +92,56 @@ class Transformation:
                 ``write`` (boolean or dict) and ``read`` (boolean or dict).
                 Note that the options given here are NOT reflected in the hash
                 of the object!
+
+                The following arguments are possible under the ``read`` key.
+
+                enabled (bool, optional): Whether it should be attempted to
+                    read from the file cache.
+                load_options (dict, optional): Passed on to the load function,
+                    i.e.: :py:meth:`dantro.data_mngr.DataManager.load`.
+
+                The following arguments are possible under the ``write`` key.
+                They are evaluated in the order that they are listed here.
+                See :py:meth:`dantro.dag.Transformation._cache_result` for more
+                information.
+
+                enabled (bool, optional): Whether writing is enabled at all.
+                always (bool, optional): If given, will always write.
+                allow_overwrite (bool, optional): If False, will not write a
+                    cache file if one already exists. If True, a cache file
+                    _might_ be written, although one already exists. This is
+                    still conditional on the evaluation of the other arguments.
+                min_size (int, optional): The minimum size of the result object
+                    that allows writing the cache.
+                max_size (int, optional): The maximum size of the result object
+                    that allows writing the cache.
+                min_compute_time (float, optional): The minimal individual
+                    computation time of this node that is needed in order for
+                    the file cache to be written. Note that this value can be
+                    lower if the node result is not computed but looked up from
+                    the cache.
+                min_cumulative_compute_time (float, optional): The minimal
+                    cumulative computation time of this node and all its
+                    dependencies that is needed in order for the file cache to
+                    be written. Note that this value can be lower if the node
+                    result is not computed but looked up from the cache.
+                storage_options (dict, optional): Passed on to the cache
+                    storage function. The following arguments are available:
+
+                    ignore_groups (bool, optional): Whether to store groups.
+                        Disabled by default.
+                    attempt_pickling (bool, optional): Whether it should be
+                        attempted to store results that could not be stored
+                        via a dedicated storage function by pickling them.
+                        Enabled by default.
+                    raise_on_error (bool, optional): Whether to raise on error
+                        to store a result. Disabled by default; useful to
+                        enable this when debugging.
+                    pkl_kwargs (dict, optional): Arguments passed on to the
+                        pickle.dump function.
+                    **save_kwargs: Arguments passed on to the dedicated storage
+                        function.
+            
         """
         # Storage attributes
         self._operation = operation
@@ -174,21 +224,34 @@ class Transformation:
     @classmethod
     def to_yaml(cls, representer, node):
         """A YAML representation of this Transformation, including all its
-        arguments (which must again be YAML-representable) ...
+        arguments (which must again be YAML-representable). In essence, this
+        returns a YAML mapping that has the ``!dag_trf`` YAML tag prefixed,
+        such that *reading* it in will lead to the ``from_yaml`` method being
+        invoked.
 
-        WARNING Changing the argument order here or adding further keys to the
-                dict will lead to hash changes and thus to cache misses.
+        .. note::
+
+            The YAML representation does *not* include the ``file_cache``
+            parameters.
+
+        .. warning::
+
+            The YAML representation is used in computing the hashstr that
+            identifies this transformation.
+            Changing the argument order here or adding further keys to the
+            dict will lead to hash changes and thus to cache misses.
+
         """
-        # Collect the 
+        # Collect the attributes that are relevant for the transformation.
         d = dict(operation=node._operation,
                  args=node._args,
                  kwargs=dict(node._kwargs))
         
-        # If a specific salt was given, add that to the dict
+        # If a specific salt was given, add that to the dict as well
         if node._salt is not None:
             d['salt'] = node._salt
 
-        # Can now represent it ...
+        # Let YAML represent this as a mapping with an additional tag
         return representer.represent_mapping(cls.yaml_tag, d)
 
     # .........................................................................
