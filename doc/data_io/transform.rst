@@ -13,7 +13,7 @@ This page describes dantro's data transformation framework, revolving around the
 Overview
 --------
 
-The purpose of the transformation framework is to be able to _generally_ apply mathematical operations on data that is stored in a dantro data tree.
+The purpose of the transformation framework is to be able to *generally* apply mathematical operations on data that is stored in a dantro data tree.
 Specifically, it makes it possible to define transformations without touching actual Python code. 
 To that end, a meta language is defined that makes it possible to define almost arbitrary transformations.
 
@@ -44,8 +44,8 @@ The *acyclic* in DAG is required such that the computation of a transformation r
 
 The :py:class:`~dantro.dag.Transformation` and :py:class:`~dantro.dag.TransformationDAG` dantro classes implement exactly this structure, making the following features available:
 
-* Easy and generic access to data stored in :py:class:`~dantro.DataManager`s
-* Definition of arbitrary DAGs via dict-based configurations
+* Easy and generic access to data stored in an associated :py:class:`~dantro.data_mngr.DataManager`
+* Definition of arbitrary DAGs via dictionary-based configurations
 * Syntax optimized to make specification via YAML easy
 * Shorthand notations available
 * New and custom operations can be registered
@@ -54,12 +54,21 @@ The :py:class:`~dantro.dag.Transformation` and :py:class:`~dantro.dag.Transforma
 * Transformations are uniquely representable by a hash
 
 
-Syntax Examples
----------------
+The Transformation Syntax
+-------------------------
+This section will guide you through the syntax used to define transformations.
+It will explain the basic elements and inner workings of the mini-language created for the purpose of the DAG.
 
-In this section, you will see some examples of how a DAG can be specified.
+.. note::
 
-:py:class:`~dantro.dag.Transformation`s are created via the :py:class:`~dantro.dag.TransformationDAG`, which is the structure a user is mainly interacting with.
+    This explanation goes into quite some detail; and it's quite important to understand the underlying structures of the 
+    If you feel like you would like to jump ahead to see what awaits you, have a look at the :ref:`dag-minimal-syntax`.
+
+
+The :py:class:`~dantro.dag.TransformationDAG`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The structure a user (you!) is mainly interacting with is the :py:class:`~dantro.dag.TransformationDAG` class.
+It takes care to build the DAG by creating :py:class:`~dantro.dag.Transformation` objects according to the specification you provided.
 In the following, all YAML examples will represent the arguments that are passed to the :py:class:`~dantro.dag.TransformationDAG` during initialization.
 
 Basics
@@ -148,7 +157,7 @@ Other transformations can be referenced in three ways, each with a corresponding
 
 .. note::
 
-    When the DAG is built, all references are brought into the most explicit format: :py:class:`~dantro.dag.DAGReference`s.
+    When the DAG is built, all references are brought into the most explicit format: :py:class:`~dantro._dag_utils.DAGReference` s.
     Thus, internally, the transformation framework works *only* with hash references.
 
 The **best way** to refer to other transformations is **by tag**: there is no ambiguity, it is easy to define, and it allows to easily built a DAG tree structure.
@@ -223,18 +232,12 @@ Thus, it is no longer necessary to define a tag.
 
 Note that the ``args`` in that case specify one fewer positional argument.
 
-.. note::
-
-    The ``with_previous_result`` argument is interpreted by the parser and translated into a node reference with the index ``-1``.
-    When a transformation node with index ``n`` is added, that reference thus points to the *previous* node, i.e. ``n-1``.
-    Upon building of the DAG, that reference is then resolved into a hash reference to make it absolute.
-
 .. warning::
 
     Using ``!dag_node`` in your specifications is **not** recommended.
     Use it only if you really know what you're doing.
 
-In case the result of the previous transformation should not be used in place of the first positional argument but somewhere else, there is the ``!dag_prev `` YAML tag, which creates a node reference to the previous node:
+In case the result of the previous transformation should not be used in place of the first positional argument but somewhere else, there is the ``!dag_prev`` YAML tag, which creates a node reference to the previous node:
 
 .. code-block:: yaml
 
@@ -248,6 +251,11 @@ In case the result of the previous transformation should not be used in place of
       - operation: power
         args: [10, !dag_prev ]
         tag: my_result
+
+.. note::
+
+    Notice the space behind ``!dag_prev``.
+    The YAML parser might complain about a character directly following the tag, like ``…, !dag_prev]``.
 
 
 Computing Results
@@ -263,7 +271,7 @@ Computing results works as follows:
 2. A cache lookup occurs, attempting to read the result from a memory or file cache.
 3. The transformations resolve potential references in their arguments: If a :py:class:`~dantro.dag.DAGReference` is encountered, the corresponding :py:class:`~dantro.dag.Transformation` is resolved and that transformation's :py:meth:`~dantro.dag.TransformationDAG.compute` method is invoked. This traverses all the way up the DAG until reaching the root nodes which contain only basic data types (that need no computation).
 4. Having resolved all references into results, the arguments are assembled, the operation callable is resolved, and invoked by passing the arguments.
-5. The result *can* is kept in a memory cache. It *can* additionally be stored in a file cache to persist to later invocations.
+5. The result is kept in a memory cache. It *can* additionally be stored in a file cache to persist to later invocations.
 6. The result object is returned.
 
 
@@ -277,23 +285,23 @@ Computing results works as follows:
 
 
 
-Selecting from the DataManager
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Selecting from the :py:class:`~dantro.data_mngr.DataManager`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The above examples are trivial in that they do not use any actual data but define some dummy values.
-This section shows how data can be selected from the :py:class:`~dantro.DataManager` that is associated with the :py:class:`~dantro.dag.TransformationDAG`.
+This section shows how data can be selected from the :py:class:`~dantro.data_mngr.DataManager` that is associated with the :py:class:`~dantro.dag.TransformationDAG`.
 
 The process of selecting data is not different than other transformations.
 It makes use of the ``getitem`` operation that would also be used for regular item access, and it uses the fact that the data manager is available via the ``dm`` tag.
 
 .. note::
 
-    The :py:class:`~dantro.DataManager` is also identified by a hash, which is computed from its name and its associated data directory path.
+    The :py:class:`~dantro.data_mngr.DataManager` is also identified by a hash, which is computed from its name and its associated data directory path.
     Thus, managers for different data directories have different hashes.
 
 
 The ``select`` interface
 """"""""""""""""""""""""
-As selecting data is a common use case, the :py:class:`~dantro.dag.TransformationDAG` supports the ``select`` argument besides the ``transform`` argument.
+As selecting data from the :py:class:`~dantro.data_mngr.DataManager` is a common use case, the :py:class:`~dantro.dag.TransformationDAG` supports the ``select`` argument besides the ``transform`` argument.
 
 The ``select`` arguments expects a mapping of tags to either strings (the path within the data tree) or further mappings (where more configurations are possible):
 
@@ -364,6 +372,8 @@ As visible there, within the ``select`` interface, the ``with_previous_result`` 
     It does so *before* any other transformations from the ``transform`` argument are evaluated. Thus, whichever tags are defined there are not available from within ``select``!
 
 
+.. _dag-minimal-syntax:
+
 Minimal Syntax
 ^^^^^^^^^^^^^^
 To make definition a bit less verbose, there is a so-called *minimal syntax*, which is translated into the explicit and verbose one:
@@ -412,8 +422,8 @@ For example, the transformation with the ``increment`` operation would be transl
     tag: ~
 
 
-Full syntax specification of a :py:class:`~dantro.dag.Transformation`
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Full syntax specification of a single :py:class:`~dantro.dag.Transformation`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 To illustrate the possible arguments to a :py:class:`~dantro.dag.Transformation`, the following block contains a full specification of available keys and arguments.
 
 Note that this is the *explicit* representation, which is a bit verbose.
@@ -428,7 +438,8 @@ Except for ``operation``, ``args``, ``kwargs`` and ``tag``, all entries are set 
     kwargs:                         # Keyword arguments
       one_kwarg: 123
       another_kwarg: foobar
-    salt: ~                         # Can be used to perturb the hash
+    salt: ~                         # Is included in the hash; set a value here
+                                    # if you would like to provoke a cache miss
     
     # All arguments _below_ are NOT taken into account when computing the hash
     # of this transformation. Two transformations that differ _only_ in the
@@ -462,11 +473,11 @@ Except for ``operation``, ``args``, ``kwargs`` and ``tag``, all entries are set 
 
         # Options used when storing a result in the cache
         storage_options:
-          raise_on_error: false      # Whether to raise if saving failed
-          attempt_pickling: true     # Whether to attempt pickling if saving
-                                     # via a specific save function failed
-          pkl_kwargs: {}             # Passed on to pkl.dumps
-          ignore_groups: true        # Whether to attempt storing dantro groups
+          raise_on_error: false     # Whether to raise if saving failed
+          attempt_pickling: true    # Whether to attempt pickling if saving
+                                    # via a specific save function failed
+          pkl_kwargs: {}            # Passed on to pkl.dumps
+          ignore_groups: true       # Whether to attempt storing dantro groups
           # ... additional arguments passed on to the specific saving function
 
 
@@ -476,8 +487,8 @@ The File Cache
 Caching of already computed results is a powerful feature of the :py:class:`~dantro.dag.TransformationDAG` class.
 The idea is, that if some specific computationally expensive transformation already took place previously, it should not be necessary to compute it again.
 
-Uniqueness of transformations
-"""""""""""""""""""""""""""""
+Background
+^^^^^^^^^^
 To understand the file cache, it's first necessary to understand the internal handling of transformations.
 
 Within the DAG, each transformation is fully identified by its hash.
@@ -496,6 +507,9 @@ This is useful not only in the above situation, but also when doing DAG traversa
 The **file cache** is not much different than the memory cache: it aims to make computation results persist in order to reduce computational resources.
 With the file cache, the results can persist over multiple invocations of the transformations framework.
 
+
+Configuration
+^^^^^^^^^^^^^
 Cache directory
 """""""""""""""
 Cache files need to be written some place.
@@ -535,6 +549,8 @@ When specifying additional ``file_cache`` arguments within ``transform``, the va
     The file cache arguments are not taken into account for computation of the transformations' hash.
     Thus, if there are two transformations with the same hash, only the additional file cache arguments given to the *first* one are taken into account; the second have no effect, because the second transformation object is discarded altogether.
 
+.. warning::
+
     If it is desired to have two transformations with different file cache options, the ``salt`` can be used to perturb its hash and thus force the use of the additional file cache arguments.
 
 
@@ -560,8 +576,8 @@ For example, it might make sense to store only results that took a very long tim
 Once it is decided that a result is to be written to a cache file, the corresponding storage function is invoked.
 It creates the cache directory, if it does not already exist, and then attempts to save the result object using a set of different storage functions.
 
-There are specific storage functions for numerical data: numpy array are stored via the ``numpy.save`` function, which is also used to store :py:class:`~dantro.containers.NumpyDataContainer`s.
-Another specific storage function takes care of ``xarray.DataArray``s and :py:class:`~dantro.containers.XrDataContainer`s.
+There are specific storage functions for numerical data: numpy array are stored via the ``numpy.save`` function, which is also used to store :py:class:`~dantro.containers.NumpyDataContainer` objects.
+Another specific storage function takes care of ``xarray.DataArray`` and :py:class:`~dantro.containers.XrDataContainer` objects.
 
 If there is no specific storage function available, it is attempted to pickle the object.
 

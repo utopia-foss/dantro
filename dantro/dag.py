@@ -183,8 +183,8 @@ class Transformation:
         a YAML string which is then hashed.
 
         Note that this does NOT rely on the built-in hash function but on the
-        custom ``_hash`` function which produces a platform-independent and
-        deterministic hash.
+        custom dantro `_hash` function which produces a platform-independent
+        and deterministic hash.
 
         As this is a string-based hash, it is not implemented as the __hash__
         magic method but as a separate property.

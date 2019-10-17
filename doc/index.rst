@@ -33,7 +33,7 @@ This is often a good starting point if some specific dantro functionality is unc
     :caption: API Reference
     :maxdepth: 1
 
-    API Reference <api/dantro>
+    API Reference <api/modules>
 
 * :ref:`genindex`
 * :ref:`modindex`

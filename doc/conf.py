@@ -98,6 +98,15 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = None
 
+# Configure autodoc
+autodoc_default_options = {
+    'members': True,
+    'member-order': 'bysource',
+    'undoc-members': True,
+    'private-members': True,
+    'inherited-members': True,
+}
+
 
 # -- Options for HTML output -------------------------------------------------
 
