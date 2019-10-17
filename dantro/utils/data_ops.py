@@ -158,12 +158,17 @@ _OPERATIONS = KeyOrderedDict({
     '.all':         lambda d: d.all(),
     '.dtype':       lambda d: d.dtype,
     '.shape':       lambda d: d.shape,
+    '.ndim':        lambda d: d.ndim,
     '.size':        lambda d: d.size,
     '.itemsize':    lambda d: d.itemsize,
     '.nbytes':      lambda d: d.nbytes,
     '.base':        lambda d: d.base,
     '.imag':        lambda d: d.imag,
     '.real':        lambda d: d.real,
+
+    # xarray
+    '.head':        lambda d: d.head(),
+    '.tail':        lambda d: d.tail(),
 
     # logarithms and squares
     'log':          lambda d: np.log(d),
@@ -197,10 +202,11 @@ _OPERATIONS = KeyOrderedDict({
     'sub':          lambda d, v: operator.sub(d, v),
 
     # numpy
-    # ...
+    'power':        lambda d, e: np.power(d, e),
 
     # xarray
     '.coords':      lambda d, key: d.coords[key],
+
 
     # N-ary ...................................................................
     # numpy
@@ -209,16 +215,29 @@ _OPERATIONS = KeyOrderedDict({
     '.std':         lambda d, **k: d.std(**k),
     '.min':         lambda d, **k: d.min(**k),
     '.max':         lambda d, **k: d.max(**k),
+    '.var':         lambda d, **k: d.var(**k),
+    '.prod':        lambda d, **k: d.prod(**k),
+    '.take':        lambda d, **k: d.take(**k),
     '.squeeze':     lambda d, **k: d.squeeze(**k),
+    '.reshape':     lambda d, **k: d.reshape(**k),
+    '.diagonal':    lambda d, **k: d.diagonal(**k),
+    '.trace':       lambda d, **k: d.trace(**k),
+    '.transpose':   lambda d, *a: d.transpose(*a),
+    '.swapaxes':    lambda d, a1, a2: d.swapaxes(a1, a2),
 
-    'power':        lambda d, e: np.power(d, e),
     'invert':       lambda d, **k: np.invert(d, **k),
     'transpose':    lambda d, **k: np.transpose(d, **k),
+    'diff':         lambda d, **k: np.diff(d, **k),
     
     # xarray
     '.sel':         lambda d, **k: d.sel(**k),
     '.isel':        lambda d, **k: d.isel(**k),
     '.median':      lambda d, **k: d.median(**k),
+    '.quantile':    lambda d, **k: d.quantile(**k),
+    '.argmin':      lambda d, **k: d.argmin(**k),
+    '.argmax':      lambda d, **k: d.argmax(**k),
+    '.count':       lambda d, **k: d.count(**k),
+    '.diff':        lambda d, **k: d.diff(**k),
 
     # advanced
     'create_mask':  create_mask,
