@@ -3,6 +3,7 @@
 import pytest
 import numpy as np
 
+import dantro
 import dantro.tools as t
 
 
@@ -42,6 +43,24 @@ def test_is_iterable():
     assert t.is_iterable([1,2,3])
     assert not t.is_iterable(123)
 
+def test_is_hashable():
+    """Tests the is_hashable function"""
+    class Foo:
+        def __init__(self, *, allow_hash: bool):
+            self.allow_hash = allow_hash
+
+        def __hash__(self):
+            if not self.allow_hash:
+                raise ValueError()
+            return hash(self.allow_hash)
+
+    assert t.is_hashable("foo")
+    assert t.is_hashable((1,2,3))
+    assert t.is_hashable(123)
+    assert not t.is_hashable([123, 456])
+    assert not t.is_hashable(Foo(allow_hash=False))
+    assert t.is_hashable(Foo(allow_hash=True))
+
 def test_decode_bytestrings():
     """Tests the decode bytestrings function"""
     decode = t.decode_bytestrings
@@ -65,3 +84,51 @@ def test_decode_bytestrings():
     assert decode(np.array([foob, barb], dtype="O"))[0] == "foo"
     assert decode(np.array([foob, barb], dtype="O"))[1] == "bar"
     assert decode(np.array([foob, "bar"], dtype="O"))[1] == "bar"
+
+
+# Tests of package-private modules --------------------------------------------
+
+def test_yaml_dumps():
+    """Test the _yaml.yaml_dumps function for string dumps.
+
+    This only tests the functionaltiy provided by the dantro implementation; it
+    does not test the behaviour of the ruamel.yaml.dump function itself!
+    """
+    dumps = dantro._yaml.yaml_dumps
+
+    # Basics
+    assert "foo: bar" in dumps(dict(foo="bar"))
+
+    # Passing additional parameters has an effect
+    assert "'foo': 'bar'" in dumps(dict(foo="bar"), default_style="'")
+    assert '"foo": "bar"' in dumps(dict(foo="bar"), default_style='"')
+
+    # Custom classes
+    class CannotSerializeThis:
+        """A class that cannot be serialized"""
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class CanSerializeThis(CannotSerializeThis):
+        """A class that _can_ be serialized"""
+        yaml_tag = u'!my_custom_tag'
+
+        @classmethod
+        def from_yaml(cls, constructor, node):
+            return cls(**constructor.construct_mapping(node.kwargs))
+
+        @classmethod
+        def to_yaml(cls, representer, node):
+            return representer.represent_mapping(cls.yaml_tag, node.kwargs)
+
+    # Without registering it, it should not work
+    with pytest.raises(ValueError, match="Could not serialize"):
+        dumps(CannotSerializeThis(foo="bar"))
+    
+    with pytest.raises(ValueError, match="Could not serialize"):
+        dumps(CanSerializeThis(foo="bar"))
+
+    # Now, register it
+    assert '!my_custom_tag' in dumps(CanSerializeThis(foo="bar"),
+                                     register_classes=(CanSerializeThis,))
+

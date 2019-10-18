@@ -1,0 +1,788 @@
+# Test cases for the TransformationsDAG
+---
+# Selecting items -------------------------------------------------------------
+explicit_select:
+  params:
+    transform:
+      - operation: getitem
+        args:
+          - !dag_tag dm
+          - some/path
+      - operation: getitem
+        args:
+          - !dag_node -1
+          - foo
+        tag: foo
+
+      - operation: getitem
+        args:
+          - !dag_tag dm
+          - some/path/bar
+        tag: bar
+
+  expected:
+    num_nodes: 3
+    num_objects: 4
+    tags: [dm, foo, bar]
+    node_hashes:
+      - efed57fb39b65918df1919473aece2ef
+      - 2bda662589177e9d1d39200f79e4d1e7
+      - &hash_getitem_bar 4328aed4085dc27fd5c5802df33e584f
+    node_dependencies:
+      - - &hash_dm 38518b2446b95e8834372949a8e9dfc2  # 0 -> DataManager
+      - - efed57fb39b65918df1919473aece2ef           # 1 -> 1
+      - - *hash_dm                                   # 2 -> DataManager
+    cache_dir_available: false
+    results: &results_explicit_select
+      foo:
+        type: OrderedDataGroup
+        attributes:
+          path: /TestDM/some/path/foo
+          name: foo
+      bar:
+        type: OrderedDataGroup
+        attributes:
+          path: /TestDM/some/path/bar
+          name: bar
+
+
+shorthand_select:
+  params:
+    select:
+      foo: some/path/foo
+      bar:
+        path: some/path/bar
+        transform: []
+
+  expected:
+    num_nodes: 2
+    num_objects: 3
+    tags: [dm, foo, bar]
+    cache_dir_available: false
+    node_hashes:
+      - *hash_getitem_bar  # comes first here because select orders by keys
+      - ea8a716f69fc720a28c9b1b716f43191
+    node_dependencies:
+      - - *hash_dm
+      - - *hash_dm
+    results:
+      <<: *results_explicit_select
+
+
+# Basic numerical operations --------------------------------------------------
+
+# The following is named "basic", but already shows off a wide range of the
+# TransformationDAG functionality, including object management and caching ...
+basic_numerical_ops:
+  params:
+    select:
+      zero_raw: data/zeros
+    transform:
+      - operation: increment
+        args:
+          - !dag_tag zero_raw
+        tag: ones
+
+      - operation: increment
+        args:
+          - !dag_tag ones
+        tag: twos
+
+      - operation: decrement
+        args:
+          - !dag_tag ones
+        tag: zeros
+
+      - operation: .T
+        args:
+          - !dag_prev
+        tag: zeros_T
+
+      - operation: .T
+        args:
+          - !dag_tag zero_raw
+        tag: zero_raw_T
+
+      - operation: .T
+        args:
+          - !dag_tag zero_raw
+        tag: zero_raw_T2  # ... a duplicate of 'zero_raw_T' (except the tag)
+
+    file_cache_defaults:
+      write:
+        enabled: true
+
+  expected:
+    num_nodes: 7
+    num_objects: 7  # not 8! Due to the duplicate Transformation
+    tags: [dm, zero_raw, ones, twos, zeros, zeros_T, zero_raw_T, zero_raw_T2]
+    node_hashes:
+      - &hash_select_zero_raw 537b1c89ea418dc16bc8e957322bf539
+      - &hash_increment_zeros 5e82e198c35e83d71a4f8f5f775b2c61
+      - c2407e64963b57370d615f33445d246e
+      - 7337d68eda9cd98491a06967776e3bf5
+      - 6d2230f26117b65faa6fc403216b0a42
+      - &hash_zero_raw_T d36ff9e0437f7e2e2c1dcfe5d191f1ba
+      - *hash_zero_raw_T # from the duplicate transformation
+    node_dependencies:
+      - - *hash_dm
+      - - *hash_select_zero_raw
+      - - *hash_increment_zeros
+      - 1
+      - 1
+      - 1
+      - 1
+    cache_dir_available: true
+    cache_files:
+      # - 537b1c89ea418dc16bc8e957322bf539.npy  # not cached (from select)
+      - 5e82e198c35e83d71a4f8f5f775b2c61.npy
+      - c2407e64963b57370d615f33445d246e.npy
+      - 7337d68eda9cd98491a06967776e3bf5.npy
+      - 6d2230f26117b65faa6fc403216b0a42.npy
+      - d36ff9e0437f7e2e2c1dcfe5d191f1ba.npy
+    results:
+      zero_raw:
+        type: NumpyDataContainer
+        attributes:
+          path: /TestDM/data/zeros
+          name: zeros
+          mean: 0.
+          shape: [2,3,4]
+      ones:
+        type: NumpyDataContainer
+        attributes:
+          path: /5e82e198
+          mean: 1.
+          shape: [2,3,4]
+      twos:
+        type: NumpyDataContainer
+        attributes:
+          path: /c2407e64
+          mean: 2.
+          shape: [2,3,4]
+      zeros:
+        type: NumpyDataContainer
+        attributes:
+          path: /7337d68e
+          mean: 0.
+          shape: [2,3,4]
+      zeros_T:
+        type: ndarray
+        attributes:
+          mean: 0.
+          shape: [4,3,2]
+      zero_raw_T: &results_zero_raw_T
+        type: ndarray
+        attributes:
+          mean: 0.
+          shape: [4,3,2]
+      zero_raw_T2:
+        <<: *results_zero_raw_T
+
+
+binary_ops:
+  params:
+    select:
+      zero_raw: data/zeros
+      random_raw: data/random
+    transform:
+      - operation: add
+        args:
+          - !dag_tag zero_raw
+          - !dag_tag random_raw
+        tag: zero_plus_rand
+
+  expected:
+    num_nodes: 3
+    num_objects: 4
+    tags: [dm, zero_raw, random_raw, zero_plus_rand]
+    node_hashes:
+      - &hash_select_random 075ebd1256640d2d85e5011c968194ee
+      - *hash_select_zero_raw
+      - c76670b8edb1d881b326cc6ae9421d69
+    node_dependencies:
+      - - *hash_dm
+      - - *hash_dm
+      - - *hash_select_zero_raw
+        - *hash_select_random
+    cache_dir_available: false
+
+
+duplicates_and_salted:
+  params:
+    select:
+      zero_raw: data/zeros
+    transform:
+      - operation: increment
+        args:
+          - !dag_tag zero_raw
+        tag: ones
+      
+      - operation: increment
+        args:
+          - !dag_tag zero_raw
+        tag: also_ones
+
+      - operation: increment
+        args:
+          - !dag_tag zero_raw
+        tag: also_ones_but_salted
+        salt: 123
+
+  expected:
+    num_nodes: 4
+    num_objects: 4  # due to one duplicate transformation
+    tags: [dm, zero_raw, ones, also_ones, also_ones_but_salted]
+    node_hashes:
+      - *hash_select_zero_raw
+      - *hash_increment_zeros
+      - *hash_increment_zeros
+      - 4e963876e8ddc79a5ca87ea59b524af2  # ... due to being salted
+
+
+compute_only_a_subset:
+  params:
+    select:
+      zero_raw: data/zeros
+    transform:
+      - operation: increment
+        args:
+          - !dag_tag zero_raw
+        tag: ones
+
+      - operation: increment
+        args:
+          - !dag_tag ones
+        tag: twos
+
+  compute_only: [zero_raw, twos]
+  expected:
+    computed_tags: [zero_raw, twos]
+
+
+# Caching tests ---------------------------------------------------------------
+
+numpy_and_xarray_data:
+  cache_dir_name: &shared_cache_dir shared_cache_dir
+  params:
+    file_cache_defaults:
+      read: true  # ... but there is nothing
+      write:
+        enabled: true
+        storage_options:
+          raise_on_error: true
+
+    select:
+      zeros_raw: labelled_data/zeros
+      random_raw: labelled_data/random
+
+    transform:
+      - increment: [!dag_tag zeros_raw]
+        tag: ones
+
+  expected: 
+    num_nodes: 3
+    num_objects: 4
+    tags: [dm, zeros_raw, random_raw, ones]
+    node_hashes:
+      - 084621667c07211d316abd1fd1e742f7
+      - 506017408a71a78659e82a26fe75f0de
+      - 41f6b80312e23ab089ad80fcd69dcfbc
+    cache_dir_available: true
+    cache_files:
+      # ... only the result
+      - 41f6b80312e23ab089ad80fcd69dcfbc.xrdc
+
+numpy_and_xarray_data_2nd_run:
+  cache_dir_name: *shared_cache_dir
+  params:
+    file_cache_defaults:
+      # read, don't write
+      read: true
+      write: false
+
+    select:
+      zeros_raw: labelled_data/zeros
+
+    transform:
+      - increment: [!dag_tag zeros_raw]
+        tag: ones
+      - getitem: [!dag_tag dm, cache/dag/41f6b80312e23ab089ad80fcd69dcfbc]
+        tag: ones_tree
+  
+  expected:
+    num_nodes: 3
+    num_objects: 4
+    tags: [dm, zeros_raw, ones, ones_tree]
+    cache_dir_available: true
+    cache_files:
+      - 41f6b80312e23ab089ad80fcd69dcfbc.xrdc
+
+numpy_and_xarray_data_3rd_run:
+  cache_dir_name: *shared_cache_dir
+  params:
+    file_cache_defaults:
+      # Read but still overwrite existing file
+      read: true
+      write:
+        enabled: true
+        allow_overwrite: true
+
+    select:
+      zeros_raw: labelled_data/zeros
+
+    transform:
+      - increment: [!dag_tag zeros_raw]
+        tag: ones
+  
+  expected:
+    num_nodes: 2
+    num_objects: 3
+    tags: [dm, zeros_raw, ones]
+    cache_dir_available: true
+    cache_files:
+      - 41f6b80312e23ab089ad80fcd69dcfbc.xrdc
+
+file_cache_pickle_data:
+  params:
+    select:
+      some_dict: objects/some_dict
+
+    transform:
+      - operation: getattr
+        args: [!dag_tag some_dict, _data]
+        tag: dict_data
+        file_cache:
+          write: true
+
+  expected:
+    num_nodes: 2
+    num_objects: 3
+    tags: [dm, some_dict, dict_data]
+    cache_dir_available: true
+    cache_files:
+      - 37eb6515dcd3bcd3fdd45dccc868e6e5.pkl
+
+
+file_cache_kwargs_to_transformation:
+  params:
+    file_cache_defaults:
+      write:
+        enabled: false
+
+    select:
+      zeros_raw: labelled_data/zeros
+
+    transform:
+      - increment: [!dag_tag zeros_raw]
+        tag: ones
+      - increment: [!dag_tag ones]
+        tag: twos
+        file_cache:
+          write:
+            enabled: true
+            always: true
+
+  expected: 
+    num_nodes: 3
+    num_objects: 4
+    tags: [dm, zeros_raw, ones, twos]
+    node_hashes:
+      - 506017408a71a78659e82a26fe75f0de
+      - 41f6b80312e23ab089ad80fcd69dcfbc
+      - c581d32c98dd91aebaca03f648202f84
+    cache_dir_available: true
+    cache_files:
+      - c581d32c98dd91aebaca03f648202f84.xrdc  # tag twos
+
+file_cache_kwargs_to_select:
+  params:
+    file_cache_defaults:
+      read: true
+      write: false
+
+    select:
+      zeros_raw: labelled_data/zeros
+      random_plus_minus:
+        path: labelled_data/random
+        transform:
+          - increment
+          - decrement: []
+            with_previous_result: true
+            file_cache:
+              write: true
+
+    transform: []
+
+  expected: 
+    num_nodes: 4
+    num_objects: 5
+    tags: [dm, zeros_raw, random_plus_minus]
+    node_hashes:
+      - 084621667c07211d316abd1fd1e742f7
+      - 71689205a793aed1a4aadb8bf7223dee
+      - 8af94aaf455c150815085d5ab16c52d9
+      - 506017408a71a78659e82a26fe75f0de
+    cache_dir_available: true
+    cache_files:
+      - 8af94aaf455c150815085d5ab16c52d9.xrdc  # random after decrement
+
+
+file_cache_object_size:
+  params:
+    file_cache_defaults:
+      write:
+        enabled: true
+        min_size: 1048576  # 1M >> labelled_data/zeros
+
+    select:
+      zeros_raw: labelled_data/zeros
+
+    transform:
+      - increment: [!dag_tag zeros_raw]
+        tag: ones
+      - increment: [!dag_tag ones]
+        tag: twos
+        file_cache:
+          write:
+            min_size: 1
+
+  expected: 
+    num_nodes: 3
+    num_objects: 4
+    tags: [dm, zeros_raw, ones, twos]
+    node_hashes:
+      - 506017408a71a78659e82a26fe75f0de
+      - 41f6b80312e23ab089ad80fcd69dcfbc
+      - c581d32c98dd91aebaca03f648202f84
+    cache_dir_available: true
+    cache_files:
+      - c581d32c98dd91aebaca03f648202f84.xrdc  # tag twos
+
+file_cache_min_compute_time:
+  params:
+    file_cache_defaults:
+      write:
+        enabled: true
+        min_compute_time: 42.
+        # much larger than actual compute time
+
+    select:
+      zeros_raw: labelled_data/zeros
+
+    transform:
+      - increment: [!dag_tag zeros_raw]
+        tag: ones
+      - increment: [!dag_tag ones]
+        tag: twos
+        file_cache:
+          write:
+            min_compute_time: 0.
+            min_cumulative_compute_time: ~
+
+  expected: 
+    num_nodes: 3
+    num_objects: 4
+    tags: [dm, zeros_raw, ones, twos]
+    node_hashes:
+      - 506017408a71a78659e82a26fe75f0de
+      - 41f6b80312e23ab089ad80fcd69dcfbc
+      - c581d32c98dd91aebaca03f648202f84
+    cache_dir_available: true
+    cache_files:
+      - c581d32c98dd91aebaca03f648202f84.xrdc  # tag twos
+
+file_cache_min_cumulative_compute_time:
+  params:
+    file_cache_defaults:
+      write:
+        enabled: true
+        min_cumulative_compute_time: 42.
+
+    select:
+      zeros_raw: labelled_data/zeros
+
+    transform:
+      - increment: [!dag_tag zeros_raw]
+        tag: ones
+      - increment: [!dag_tag ones]
+        tag: twos
+        file_cache:
+          write:
+            min_cumulative_compute_time: 0.
+
+  expected: 
+    num_nodes: 3
+    num_objects: 4
+    tags: [dm, zeros_raw, ones, twos]
+    node_hashes:
+      - 506017408a71a78659e82a26fe75f0de
+      - 41f6b80312e23ab089ad80fcd69dcfbc
+      - c581d32c98dd91aebaca03f648202f84
+    cache_dir_available: true
+    cache_files:
+      - c581d32c98dd91aebaca03f648202f84.xrdc  # tag twos
+
+file_cache_invariant_hash:
+  params:
+    select:
+      zeros_raw: labelled_data/zeros
+
+    transform:
+      - increment: [!dag_tag zeros_raw]
+        tag: ones_v1
+        file_cache:
+          write: false
+          read: false
+      - increment: [!dag_tag zeros_raw]
+        tag: ones_v2
+        file_cache:
+          write: true
+      - increment: [!dag_tag zeros_raw]
+        tag: ones_v3
+        file_cache:
+          foo: bar  # ... is ignored! Which is intentional
+      - increment: [!dag_tag zeros_raw]
+        tag: ones_v4
+        salt: 123
+        file_cache:
+          read: true
+
+  expected: 
+    num_nodes: 5
+    num_objects: 4
+    tags: [dm, zeros_raw, ones_v1, ones_v2, ones_v3, ones_v4]
+    node_hashes:
+      - 506017408a71a78659e82a26fe75f0de
+      - 41f6b80312e23ab089ad80fcd69dcfbc
+      - 41f6b80312e23ab089ad80fcd69dcfbc
+      - 41f6b80312e23ab089ad80fcd69dcfbc
+      - 1e99fb85fc1050ece9618191eabf1720
+    cache_dir_available: false
+
+
+file_cache_file_already_loaded:
+  # Use the shared cache to lead to a 
+  cache_dir_name: *shared_cache_dir
+  params:
+    file_cache_defaults:
+      # read and overwrite
+      read:
+        enabled: true
+        load_options:
+          exists_action: raise
+      write:
+        enabled: true
+        allow_overwrite: true
+
+    select:
+      zeros_raw: labelled_data/zeros
+
+    transform:
+      - increment: [!dag_tag zeros_raw]
+        tag: ones
+
+  _raises: Exception
+  _raises_on_compute: true
+  _match: Path 'cache/dag/41f6b80312e23ab089ad80fcd69dcfbc' already exists.
+
+
+file_cache_error_attempting_dm_select_cache:
+  params:
+    select:
+      zeros_raw:
+        path: labelled_data/zeros
+        file_cache:
+          write: true
+    transform: ~
+
+  _raises: ValueError
+  _match: For selection from DataManager, the file cache is always disabled
+
+
+file_cache_error_writing_groups:
+  params:
+    transform:
+      - operation: getitem
+        args: [!dag_tag dm, some/path]
+        tag: some_group
+        file_cache:
+          write: true
+
+      - operation: getitem
+        args: [!dag_tag dm, labelled_data]
+        tag: some_group_to_be_cached
+        file_cache:
+          read: false
+          write:
+            enabled: true
+            always: true
+            storage_options:
+              ignore_groups: false
+
+  _raises: NotImplementedError
+  _raises_on_compute: true
+  _match: Cannot currently write dantro groups .* transformation resulting .*
+
+file_cache_error_pickling:
+  params:
+    transform:
+      - operation: getitem
+        args: [!dag_tag dm, objects/some_list]
+        tag: some_list
+        file_cache:
+          write:
+            enabled: true
+            storage_options:
+              attempt_pickling: false
+              raise_on_error: true
+      
+      - operation: getitem
+        args: [!dag_tag dm, objects/some_dict]
+        tag: some_dict
+        file_cache:
+          write:
+            enabled: true
+            storage_options:
+              raise_on_error: false
+
+      - operation: getitem
+        args: [!dag_tag dm, objects/some_func]
+        tag: some_func
+        file_cache:
+          write:
+            enabled: true
+            storage_options:
+              raise_on_error: true
+
+  _raises: RuntimeError
+  _raises_on_compute: true
+  _match: Failed saving transformation cache file. .* 'some_func'.*
+
+
+file_cache_error_in_save_func:
+  params:
+    transform:
+      - operation: getitem
+        args: [!dag_tag dm, labelled_data/zeros]
+        tag: zeros
+        file_cache:
+          write:
+            enabled: true
+            always: true
+            storage_options:
+              raise_on_error: false
+              some_invalid_argument: asdf
+      - operation: getitem
+        args: [!dag_tag dm, labelled_data/random]
+        tag: random
+        file_cache:
+          write:
+            enabled: true
+            always: true
+            storage_options:
+              raise_on_error: true
+              some_invalid_argument: asdf
+
+  _raises: RuntimeError
+  _raises_on_compute: true
+  _match: Failed saving transformation cache file .* Additional keyword arg.*
+
+
+# Errors ----------------------------------------------------------------------
+
+error_tag_already_exists:
+  params:
+    select:
+      zero_raw: data/zeros
+      random_raw: data/random
+    transform:
+      - operation: add
+        args:
+          - !dag_tag zero_raw
+          - !dag_tag random_raw
+        tag: random_raw
+  _raises: ValueError
+  _match: Tag 'random_raw' already exists! Choose a different one.
+
+
+# Examples in documentation ---------------------------------------------------
+
+
+doc_examples_with_previous_result:
+  params:
+    transform:
+      - operation: mul
+        args: [1, 2]
+      - operation: mul
+        args: [3]
+        with_previous_result: true
+      - operation: mul
+        args: [4]
+        with_previous_result: true
+      - operation: mul
+        args: [5]
+        with_previous_result: true
+        tag: f5
+
+doc_examples_dag_prev:
+  params:
+    transform:
+      - operation: define
+        args: [10]
+      - operation: sub
+        args: [0, !dag_prev ]
+      - operation: div
+        args: [1, !dag_prev ]
+      - operation: power
+        args: [10, !dag_prev ]
+        tag: my_result
+
+doc_examples_select:
+  params:
+    select:
+      some_data: path/to/some_data
+      more_data:
+        path: path/to/more_data
+    transform: ~
+
+  expected:
+    tags: [dm, some_data, more_data]
+
+doc_examples_select_with_transform:
+  params:
+    select:
+      square_increment:
+        path: path/to/some_data
+        with_previous_result: true
+        transform:
+          - operation: squared
+          - operation: increment
+      some_sum:
+        path: path/to/more_data
+        transform:
+          - operation: getattr
+            args: [!dag_prev , data]
+          - operation: sub
+            args: [0, !dag_prev ]
+          - operation: .sum
+            args: [!dag_prev ]
+    transform:
+      - operation: add
+        args: [!dag_tag square_increment, !dag_tag some_sum ]
+        tag: my_result
+
+doc_examples_minimal:
+  params:
+    select:
+      some_data: path/to/some_data
+      more_data: path/to/more_data
+    transform:
+      - add: [!dag_tag some_data, !dag_tag more_data]
+      - increment
+      - print
+      - power: [!dag_prev , 4]
+        tag: my_result
+
+  expected:
+    tags: [dm, some_data, more_data, my_result]

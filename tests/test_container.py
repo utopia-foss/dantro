@@ -1,5 +1,6 @@
 """Test the BaseDataContainer-derived classes"""
 
+import sys
 import math
 import operator
 
@@ -186,6 +187,9 @@ def test_LinkContainer():
     assert links['data'].data.path == "/root/data"
     assert links['data'].upper() == "SOME_STRING"
 
+    # Test extended formatting information
+    assert "root -> data" in str(links["data"])
+
 # -----------------------------------------------------------------------------
 # Numeric containers
 
@@ -370,6 +374,10 @@ def test_NumpyDataContainer():
 
     # Test string representation
     assert ndc._format_info().startswith(str(ndc.dtype))
+
+    # Test that the size of the container's data is taken into account
+    ndc = NumpyDataContainer(name="some_zeros", data=np.zeros((100, 100, 100)))
+    assert sys.getsizeof(ndc) > sys.getsizeof(ndc.data)
 
 def test_XrDataContainer():
     """Tests the XrDataContainer"""

@@ -1,6 +1,7 @@
 """This sub-module implements the basic mixin classes that are required
 in the dantro.base module"""
 
+import sys
 import logging
 import warnings
 
@@ -52,53 +53,34 @@ class AttrsMixin:
         self._attrs = self._ATTRS_CLS(name='attrs', attrs=new_attrs)
 
 
-class PathMixin:
-    """This Mixin class implements path capabilities for groups or containers.
-
-    That means, that each object can re-create the path at which it can be
-    accessed _if_ it knows its parent object.
-
-    Every object that has _no_ parent is regarded to be a root object, i.e.
-    having the path /<container_name>.
+class SizeOfMixin:
+    """Provides the __sizeof__ magic method and attempts to take into account
+    the size of the attributes.
     """
-    
-    # An attribute referencing the parent object
-    _parent = None
 
-    @property
-    def parent(self):
-        """The group this container is contained in or None if it is on its
-        own, i.e. a 'root' group or container
+    def __sizeof__(self) -> int:
+        """Returns the size of the data (in bytes) stored in this container's
+        data and its attributes.
+
+        Note that this value is approximate. It is computed by calling the
+        ``sys.getsizeof`` function on the data, the attributes, the name and
+        some caching attributes that each dantro data tree class contains.
+        Importantly, this is not a recursive algorithm.
+
+        Also, derived classes might implement further attributes that are not
+        taken into account either. To be more precise in a subclass, create a
+        specific __sizeof__ method and invoke this parent method additionally.
+
+        For more information, see the documentation of ``sys.getsizeof``:
+
+            https://docs.python.org/3/library/sys.html#sys.getsizeof
         """
-        return self._parent
+        nbytes =  sys.getsizeof(self._data)
+        nbytes += sys.getsizeof(self._attrs)
+        nbytes += sys.getsizeof(self._name)
+        nbytes += sys.getsizeof(self._logstr)
 
-    @parent.setter
-    def parent(self, cont):
-        """Associate a parent object with this container"""
-        if self.parent is not None and cont is not None:
-            raise ValueError("A parent was already associated with {cls:} "
-                             "'{}'! Instead of manually setting the parent, "
-                             "use the functions supplied to manipulate "
-                             "members of this {cls:}."
-                             "".format(self.name, cls=self.classname))
-        
-        log.trace("Setting %s as parent of %s ...",
-                  cont.logstr if cont else None, self.logstr)
-        self._parent = cont
-
-    @property
-    def path(self) -> str:
-        """Return the path to get to this container from the root object"""
-        if self.parent is None:
-            # Is at the root, thus prefix it with the root character.
-            return PATH_JOIN_CHAR + self.name
-
-        # else: not at the top, thus also need the parent's path
-        return self.parent.path + PATH_JOIN_CHAR + self.name
-
-    def _format_path(self) -> str:
-        """A __format__ helper function: returns the path to this container"""
-        return self.path
+        return nbytes
 
 
 class LockDataMixin:
@@ -236,19 +218,18 @@ class CheckDataMixin:
     DATA_ALLOW_PROXY = False         # to check for AbstractDataProxy
     DATA_UNEXPECTED_ACTION = 'warn'  # Can be: raise, warn, ignore
 
-    def _check_data(self, data, *, name: str) -> None:
+    def _check_data(self, data) -> None:
         """A general method to check the received data for its type
         
         Args:
             data: The data to check
-            name (str): The name of the data container
-        
-        Returns:
-            bool: True if the data is of an expected type
         
         Raises:
             TypeError: If the type was unexpected and the action was 'raise'
             ValueError: Illegal value for DATA_UNEXPECTED_ACTION class variable
+        
+        Returns:
+            None
         """
         if self.DATA_EXPECTED_TYPES is None:
             # All types allowed
@@ -260,17 +241,15 @@ class CheckDataMixin:
         if self.DATA_ALLOW_PROXY:
             expected_types += (AbstractDataProxy,)
 
-        # Perform the check
+        # Check for expected types
         if isinstance(data, expected_types):
-            # Is of the expected type
             return
 
         # else: was not of the expected type
-
         # Create a base message
-        msg = ("Unexpected type {} for data passed to {} '{}'! "
-               "Expected types are: {}.".format(type(data), self.classname,
-                                                name, expected_types))
+        msg = ("Unexpected type {} for data passed to {}! "
+               "Expected types are: {}.".format(type(data), self.logstr,
+                                                expected_types))
 
         # Handle according to the specified action
         if self.DATA_UNEXPECTED_ACTION == 'raise':

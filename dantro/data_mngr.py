@@ -12,6 +12,7 @@ from typing import Union, Callable, List, Tuple
 from .base import PATH_JOIN_CHAR, BaseDataContainer, BaseDataGroup
 from .groups import OrderedDataGroup
 from .tools import fill_line, clear_line, recursive_update, load_yml
+from ._hash import _hash
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -236,31 +237,21 @@ class DataManager(OrderedDataGroup):
 
         return dirs
 
-    # .........................................................................
+    @property
+    def hashstr(self) -> str:
+        """The hash of a DataManager is computed from its name and the coupled
+        data directory, which are regarded as the relevant parts. While other
+        parts of the DataManager are not invariant, it is characterized most by
+        the directory it is associated with.
 
-    def new_group(self, path: str, *, Cls: Union[type, str]=None, **kwargs):
-        """Creates a new group at the given path.
-        
-        This is a slightly advanced version of the new_group method of the
-        BaseDataGroup. It not only adjusts the default type, but also allows
-        more ways how to specify the type of the group to create.
-        
-        Args:
-            path (str): Where to create the group. Note that the intermediates
-                of this path need to already exist.
-            Cls (Union[type, str], optional): If given, use this type to
-                create the group. If a string is given, resolves the type from
-                the _DATA_GROUP_CLASSES class variable. If None, uses the
-                default data group type of the data manager.
-            **kwargs: Passed on to Cls.__init__
-        
-        Returns:
-            Cls: the created group
+        As this is a string-based hash, it is not implemented as the __hash__
+        magic method but as a separate property.
+
+        WARNING Changing how the hash is computed for the DataManager will
+                invalidate all TransformationDAG caches.
         """
-        # Use helper function to parse the group class correctly
-        Cls = self._determine_group_class(Cls)
-
-        return super().new_group(path, Cls=Cls, **kwargs)
+        return _hash("<DataManager '{}' @ {}>".format(self.name,
+                                                      self.dirs['data']))
 
     # .........................................................................
     # Loading data
@@ -326,8 +317,9 @@ class DataManager(OrderedDataGroup):
             print(self.tree)
 
     def load(self, entry_name: str, *, loader: str,
-             glob_str: Union[str, List[str]], target_group: str=None,
-             target_path: str=None, print_tree: bool=False,
+             glob_str: Union[str, List[str]], base_path: str=None,
+             target_group: str=None, target_path: str=None,
+             print_tree: bool=False,
              load_as_attr: bool=False, **load_params) -> None:
         """Performs a single load operation.
         
@@ -338,6 +330,10 @@ class DataManager(OrderedDataGroup):
             glob_str (Union[str, List[str]]): A glob string or a list of glob
                 strings by which to identify the files within ``data_dir`` that
                 are to be loaded using the given loader function
+            base_path (str, optional): The base directory to concatenate the
+                glob string to; if None, will use the DataManager's data
+                directory. With this option, it becomes possible to load data
+                from a path outside the associated data directory.
             target_group (str, optional): If given, the files to be loaded will
                 be stored in this group. This may only be given if the argument
                 target_path is _not_ given.
@@ -354,7 +350,7 @@ class DataManager(OrderedDataGroup):
                 attribute to an (already existing) object at ``target_path``.
                 The name of the attribute will be the ``entry_name``.
             **load_params: Further loading parameters, all optional!
-
+        
                 ignore (list): The exact file names in this list will be
                     ignored during loading. Paths are seen as elative to the
                     data directory of the data manager.
@@ -450,7 +446,7 @@ class DataManager(OrderedDataGroup):
         # Try loading the data and handle specific DataManagerErrors
         try:
             num_files = self._load(target_path=target_path, loader=loader,
-                                   glob_str=glob_str,
+                                   glob_str=glob_str, base_path=base_path,
                                    load_as_attr=load_as_attr, **load_params)
 
         except RequiredDataMissingError:
@@ -471,16 +467,14 @@ class DataManager(OrderedDataGroup):
         # Done with this entry. Print tree, if desired.
         if print_tree:
             print(self.tree)
-    
-    # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-    # Helpers for loading and storing data
 
     def _load(self, *, target_path: str, loader: str,
               glob_str: Union[str, List[str]], load_as_attr: Union[str, None],
-              ignore: List[str]=None, required: bool=False,
-              path_regex: str=None, exists_action: str='raise',
-              unpack_data: bool=False, progress_indicator: bool=True,
-              parallel: bool=False, **loader_kwargs) -> int:
+              base_path: str=None, ignore: List[str]=None,
+              required: bool=False, path_regex: str=None,
+              exists_action: str='raise', unpack_data: bool=False,
+              progress_indicator: bool=True, parallel: bool=False,
+              **loader_kwargs) -> int:
         """Helper function that loads a data entry to the specified path.
         
         Args:
@@ -493,6 +487,10 @@ class DataManager(OrderedDataGroup):
             load_as_attr (Union[str, None]): If a string, the entry will be
                 loaded into the object at `target_path` under a new attribute
                 with this name.
+            base_path (str, optional): The base directory to concatenate the
+                glob string to; if None, will use the DataManager's data
+                directory. With this option, it becomes possible to load data
+                from a path outside the associated data directory.
             ignore (List[str], optional): The exact file names in this list
                 will be ignored during loading. Paths are seen as relative to
                 the data directory.
@@ -518,7 +516,7 @@ class DataManager(OrderedDataGroup):
         
         Raises:
             NotImplementedError: For `parallel == True`
-            ValueError
+            ValueError: Bad path_regex
         
         Returns:
             int: Number of files that data was loaded from
@@ -550,10 +548,10 @@ class DataManager(OrderedDataGroup):
             return load_func, load_func_name, TargetCls
 
         def create_files_list(*, glob_str: Union[str, List[str]],
-                              ignore: List[str], required: bool=False,
-                              sort: bool=False) -> list:
+                              ignore: List[str], base_path: str=None,
+                              required: bool=False, sort: bool=False) -> list:
             """Create the list of file paths to load from.
-
+            
             Internally, this uses a set, thus ensuring that the paths are
             unique. The set is converted to a list before returning.
             
@@ -561,6 +559,8 @@ class DataManager(OrderedDataGroup):
                 glob_str (Union[str, List[str]]): The glob pattern or a list of
                     glob patterns
                 ignore (List[str]): The list of files to ignore
+                base_path (str, optional): The base path for the glob pattern;
+                    use data directory, if not given.
                 required (bool, optional): Will lead to an error being raised
                     if no files could be matched
                 sort (bool, optional): If true, sorts the list before returning
@@ -586,10 +586,21 @@ class DataManager(OrderedDataGroup):
             log.debug("Got %d glob string(s) to create set of matching file "
                       "paths from.", len(glob_str))
 
+            # Handle base path, defaulting to the data directory
+            if base_path is None:
+                base_path = self.dirs['data']
+                log.debug("Using data directory as base path.")
+
+            else:
+                if not os.path.isabs(base_path):
+                    raise ValueError("Given base_path argument needs be an "
+                                     "absolute path, was not: {}"
+                                     "".format(base_path))
+
             # Go over the given glob strings and add to the files set
             for gs in glob_str:
                 # Make the glob string absolute
-                gs = os.path.join(self.dirs['data'], gs)
+                gs = os.path.join(base_path, gs)
                 log.debug("Adding files that match glob string:\n  %s", gs)
 
                 # Add to the set of files; this assures uniqueness of the paths
@@ -842,7 +853,8 @@ class DataManager(OrderedDataGroup):
 
         # Create the list of file paths to load
         files = create_files_list(glob_str=glob_str, ignore=ignore,
-                                  required=required, sort=True)
+                                  required=required, base_path=base_path,
+                                  sort=True)
         
         # If a regex pattern was specified, compile it
         path_sre = re.compile(path_regex) if path_regex else None
@@ -1039,3 +1051,30 @@ class DataManager(OrderedDataGroup):
 
         # else: assume it is already a type and just return the given argument
         return Cls
+
+    # .........................................................................
+    # Working with the data in the tree
+
+    def new_group(self, path: str, *, Cls: Union[type, str]=None, **kwargs):
+        """Creates a new group at the given path.
+        
+        This is a slightly advanced version of the new_group method of the
+        BaseDataGroup. It not only adjusts the default type, but also allows
+        more ways how to specify the type of the group to create.
+        
+        Args:
+            path (str): Where to create the group. Note that the intermediates
+                of this path need to already exist.
+            Cls (Union[type, str], optional): If given, use this type to
+                create the group. If a string is given, resolves the type from
+                the _DATA_GROUP_CLASSES class variable. If None, uses the
+                default data group type of the data manager.
+            **kwargs: Passed on to Cls.__init__
+        
+        Returns:
+            Cls: the created group
+        """
+        # Use helper function to parse the group class correctly
+        Cls = self._determine_group_class(Cls)
+
+        return super().new_group(path, Cls=Cls, **kwargs)
