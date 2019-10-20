@@ -13,6 +13,8 @@
     - Add `base_path` argument to `DataManager.load`
     - Add xarray- and numpy-related data loaders
     - Modularize the tests of the `utils` submodule
+- Minor improvements:
+    - #98 addresses an h5py deprecation warning regarding the default file mode
 
 ## v0.9.1
 - !100 adds experimental (!) transformator capabilities to `ParamSpaceGroup.select`, improves logging, and resolves minor bugs and inconsistencies.
