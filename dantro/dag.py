@@ -20,7 +20,10 @@ from .utils import KeyOrderedDict, apply_operation
 from .tools import recursive_update
 from .data_loaders import LOADER_BY_FILE_EXT
 from .containers import ObjectContainer, NumpyDataContainer, XrDataContainer
-from ._dag_utils import THash, DAGObjects, DAGReference, DAGTag, DAGNode
+from ._dag_utils import (THash, DAGObjects,
+                         DAGReference, DAGTag, DAGNode,
+                         parse_dag_syntax as _parse_dag_syntax,
+                         parse_dag_minimal_syntax as _parse_dag_minimal_syntax)
 from ._hash import _hash, SHORT_HASH_LENGTH, FULL_HASH_LENGTH
 from ._yaml import yaml_dumps as _serialize
 
@@ -513,24 +516,43 @@ class TransformationDAG:
 
     def __init__(self, *, dm: 'DataManager',
                  select: dict=None, transform: Sequence[dict]=None,
-                 cache_dir: str='.cache', file_cache_defaults: dict=None):
+                 cache_dir: str='.cache', file_cache_defaults: dict=None,
+                 select_from: Sequence[Transformation]=None,
+                 select_base_tag: str=None):
         """Initialize a DAG which is associated with a DataManager and load the
         specified transformations configuration into it.
+        
+        Args:
+            dm (DataManager): The associated data manager
+            select (dict, optional): Selection specifications, which are
+                translated into regular transformations based on ``getitem``
+                operations. The ``select_from`` and ``select_base_tag``
+                arguments can be used to define from which object to select.
+                By default, selection happens from the associated DataManager.
+            transform (Sequence[dict], optional): Transform specifications.
+            cache_dir (str, optional): The name of the cache directory to
+                create if file caching is enabled. If this is a relative path,
+                it is interpreted relative to the associated data manager's
+                data directory. If it is absolute, the absolute path is used.
+                The directory is only created if it is needed.
+            file_cache_defaults (dict, optional): Default arguments for file
+                caching behaviour. This is recursively updated with the
+                arguments given in each individual select or transform
+                specification.
+            select_from (Sequence[Transformation], optional): A sequence of
+                transform specifications that are added to the DAG prior to
+                those added via ``select`` and ``transform``. These can be used
+                to select some other object from the data manager which should
+                be used as the basis of ``select`` operations. Note that the
+                ``select_base_tag`` argument need also be set.
+            select_base_tag (str, optional): Which tag to base the ``select``
+                operations on. If not given, will use the (always-registered)
+                tag for the data manager, ``dm``.
         """
         self._dm = dm
-
         self._objects = DAGObjects()
         self._tags = dict()
         self._nodes = list()
-
-        self._trfs = self._parse_trfs(select=select, transform=transform)
-
-        # Add the DataManager as an object and a default tag
-        self.tags['dm'] = self.objects.add_object(self.dm)
-        # NOTE The data manager is NOT a node of the DAG, but more like an
-        #      external data source, thus being accessible only as a tag
-
-        # Default file cache options
         self._fc_opts = file_cache_defaults if file_cache_defaults else {}
         
         # Determine cache directory path; relative path interpreted as relative
@@ -540,9 +562,45 @@ class TransformationDAG:
         else:
             self._cache_dir = os.path.join(self.dm.dirs['data'], cache_dir)
 
+        # Add the DataManager as an object and a default tag
+        self.tags['dm'] = self.objects.add_object(self.dm)
+        # NOTE The data manager is NOT a node of the DAG, but more like an
+        #      external data source, thus being accessible only as a tag
+
+        # Handle the selection base object
+        if select_from is None:
+            # Use the DataManager as selection base
+            self._select_base_tag = 'dm'
+
+        else:
+            if not select_base_tag:
+                raise ValueError("Missing `select_base_tag` argument, which "
+                                 "is required when `select_from` argument is "
+                                 "given.")
+
+            # Parse the DAG syntax and create nodes from it
+            for sel_base_params in select_from:
+                sel_base_params = copy.deepcopy(sel_base_params)
+                sel_base_params = _parse_dag_minimal_syntax(sel_base_params)
+                sel_base_params = _parse_dag_syntax(**sel_base_params)
+                self.add_node(**sel_base_params)
+
+            # Check if the tag is available prior to setting that attribute
+            if select_base_tag not in self.tags:
+                raise KeyError("The tag that was chosen for the basis of "
+                               "select operations, '{}', is not available! "
+                               "Check the `select_from` and `select_base_tag` "
+                               "arguments to make sure that the tag is set."
+                               "".format(select_base_tag))
+            self._select_base_tag = select_base_tag
+
+        # With the selection base tag now set, parse transformation specs; this
+        # merely _parses_ the parameters! Building happens in the next step.
+        self._trfs = self._parse_trfs(select=select, transform=transform)
+
         # Build the DAG by subsequently adding nodes from the parsed parameters
         for trf_params in self._trfs:
-            self._add_node(**trf_params)
+            self.add_node(**trf_params)
 
     # .........................................................................
 
@@ -623,126 +681,6 @@ class TransformationDAG:
             Sequence[dict]: A sequence of transformation parameters that was
                 brought into a uniform structure.
         """
-        def parse_minimal_syntax(params: Union[str, dict]) -> dict:
-            """Parses the minimal syntax"""
-            if isinstance(params, dict):
-                return params
-
-            elif isinstance(params, str):
-                return dict(operation=params, with_previous_result=True)
-
-            # else:
-            raise TypeError("Expected either dict or string for minimal "
-                            "syntax, got {} with value: {}"
-                            "".format(type(params), params))
-
-
-        def parse_params(*, operation: str=None,
-                         args: list=None, kwargs: dict=None,
-                         tag: str=None, with_previous_result: bool=False,
-                         salt: int=None, file_cache: dict=None,
-                         **ops) -> dict:
-            """Given the parameters of a transform operation, possibly in a
-            shorthand notation, returns a dict with normalized content by
-            expanding the shorthand notation.
-            
-            Keys that will remain in the resulting dict:
-                ``operation``, ``args``, ``kwargs``, ``tag``.
-            
-            Args:
-                operation (str, optional): Which operation to carry out;
-                    can only be specified if there is no ``ops`` argument.
-                args (list, optional): Positional arguments for the operation;
-                    can only be specified if there is no ``ops`` argument.
-                kwargs (dict, optional): Keyword arguments for the operation;
-                    can only be specified if there is no ``ops`` argument.
-                tag (str, optional): The tag to attach to this transformation
-                with_previous_result (bool, optional): Whether the result of
-                    the previous transformation is to be used as first
-                    positional argument of this transformation.
-                salt (int, optional): A salt to the Transformation object,
-                    thereby changing its hash.
-                file_cache (dict, optional): File cache parameters
-                **ops: The operation that is to be carried out. May contain
-                    one and only one operation.
-            
-            Returns:
-                dict: The normalized dict of transform parameters.
-            
-            Raises:
-                ValueError: For len(ops) != 1
-            """
-            # Distinguish between explicit and shorthand mode
-            if operation and not ops:
-                # Explicit parametrization
-                args = args if args else []
-                kwargs = kwargs if kwargs else {}
-
-            elif ops and not operation:
-                # Shorthand parametrization
-                # Make sure there are no stray argument
-                if args is not None or kwargs is not None:
-                    raise ValueError("When using shorthand notation, the args "
-                                     "and kwargs need to be specified under "
-                                     "the key that specifies the operation!")
-
-                elif len(ops) > 1:
-                    raise ValueError("For shorthand notation, there can only "
-                                     "be a single operation specified, but "
-                                     "got: {}.".format(ops))
-
-                # Extract operation name and parameters
-                operation, op_params = list(ops.items())[0]
-
-                # Depending on type, regard parameters as args or kwargs. If
-                # the argument is not a container, assume it's a single
-                # positional argument.
-                if isinstance(op_params, dict):
-                    args, kwargs = [], op_params
-                
-                elif isinstance(op_params, (list, tuple)):
-                    args, kwargs = list(op_params), {}
-                
-                elif op_params is not None:
-                    args, kwargs = [op_params], {}
-                
-                else:
-                    args, kwargs = [], {}
-
-            elif not operation and not ops:
-                raise ValueError("Missing operation specification. Either use "
-                                 "the `operation` key to specify one or use "
-                                 "shorthand notation by using the name of the "
-                                 "operation as a key and adding the arguments "
-                                 "to it as values.")
-
-            else:
-                raise ValueError("Got two specifications of operations, one "
-                                 "via the `operation` argument ({}), another "
-                                 "via the shorthand notation ({}). Remove "
-                                 "one of them.".format(operation, ops))
-
-            # Have variables operation, args, and kwargs set now.
-
-            # If the result is to be carried on, the first _positional_
-            # argument is set to be a reference to the previous node
-            if with_previous_result:
-                args.insert(0, DAGNode(-1))
-
-            # Done. Construct the dict.
-            # Mandatory parameters
-            d = dict(operation=operation, args=args, kwargs=kwargs, tag=tag)
-            
-            # Add optional parameters only if they were specified
-            if salt is not None:
-                d['salt'] = salt
-
-            if file_cache is not None:
-                d['file_cache'] = file_cache
-
-            return d
-
-        # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         # The to-be-populated list of transformations
         trfs = list()
 
@@ -751,8 +689,8 @@ class TransformationDAG:
         transform = copy.deepcopy(transform) if transform else []
 
         # First, parse the ``select`` argument. This contains a basic operation
-        # to select data from the DataManager and also allows to perform some
-        # operations on it.
+        # to select data from the selection base (e.g. the DataManager) and
+        # also allows to perform some operations on it.
         for field_name, params in sorted(select.items()):
             if isinstance(params, str):
                 path = params
@@ -767,21 +705,23 @@ class TransformationDAG:
                 salt = params.get('salt')
 
                 if 'file_cache' in params:
-                    raise ValueError("For selection from DataManager, the "
-                                     "file cache is always disabled. Please "
-                                     "remove the file_cache argument.")
+                    raise ValueError("For selection from the selection base, "
+                                     "tagged '{}', the file cache is always "
+                                     "disabled. Please remove the file_cache "
+                                     "argument."
+                                     "".format(self._select_base_tag))
 
             else:
                 raise TypeError("Invalid type for '{}' entry within `select` "
                                 "argument! Got {} but expected string or dict."
                                 "".format(field_name, type(params)))
 
-            # Construct parameters to select from the DataManager. Only assign
-            # a tag if there are no further transformations; otherwise, the
-            # last additional transformation should set the tag.
+            # Construct parameters to select from the selection base.
+            # Only assign a tag if there are no further transformations;
+            # otherwise, the last additional transformation should set the tag.
             sel_trf = dict(operation='getitem',
                            tag=field_name if not more_trfs else None,
-                           args=[DAGTag('dm'), path],
+                           args=[DAGTag(self._select_base_tag), path],
                            kwargs=dict(),
                            file_cache=dict(read=False, write=False))
             
@@ -799,12 +739,12 @@ class TransformationDAG:
             # else: there are additional transformations to be parsed and added
             for i, trf_params in enumerate(more_trfs):
                 # Parse it
-                trf_params = parse_minimal_syntax(trf_params)
+                trf_params = _parse_dag_minimal_syntax(trf_params)
 
                 if 'with_previous_result' not in trf_params:
                     trf_params['with_previous_result'] = with_previous_result
                 
-                trf_params = parse_params(**trf_params)
+                trf_params = _parse_dag_syntax(**trf_params)
 
                 # On the last transformation for the selected tag, need to set
                 # the tag to the specified field name. This is to avoid
@@ -826,15 +766,15 @@ class TransformationDAG:
         # Now, parse the normal `transform` argument. The operations defined
         # here are added after the instructions from the `select` section.
         for trf_params in transform:
-            trf_params = parse_minimal_syntax(trf_params)
-            trfs.append(parse_params(**trf_params))
+            trf_params = _parse_dag_minimal_syntax(trf_params)
+            trfs.append(_parse_dag_syntax(**trf_params))
 
         # Done parsing, yay.
         return trfs
     
-    def _add_node(self, *, operation: str, args: list=None, kwargs: dict=None,
-                  tag: str=None, file_cache: dict=None,
-                  **trf_kwargs) -> THash:
+    def add_node(self, *, operation: str, args: list=None, kwargs: dict=None,
+                 tag: str=None, file_cache: dict=None,
+                 **trf_kwargs) -> THash:
         """Add a new node by creating a new Transformation object and adding it
         to the node list.
         

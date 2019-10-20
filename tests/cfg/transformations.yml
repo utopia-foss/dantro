@@ -25,7 +25,7 @@ explicit_select:
     num_objects: 4
     tags: [dm, foo, bar]
     node_hashes:
-      - efed57fb39b65918df1919473aece2ef
+      - &hash_getitem_some_path efed57fb39b65918df1919473aece2ef
       - 2bda662589177e9d1d39200f79e4d1e7
       - &hash_getitem_bar 4328aed4085dc27fd5c5802df33e584f
     node_dependencies:
@@ -68,6 +68,53 @@ shorthand_select:
     results:
       <<: *results_explicit_select
 
+
+# Custom selection base -------------------------------------------------------
+custom_selection_base:
+  params:
+    select_from:
+      - getitem: [!dag_tag dm, some/path]
+        tag: some_path
+    select_base_tag: some_path
+    select:
+      foo: foo
+      bar:
+        path: bar
+
+  expected:
+    num_nodes: 3
+    num_objects: 4
+    tags: [dm, some_path, foo, bar]
+    node_hashes:
+      - *hash_getitem_some_path
+      - 40f58425d557116b76fa61d8c93ddd0f
+      - 2bda662589177e9d1d39200f79e4d1e7
+    node_dependencies:
+      - - *hash_dm
+      - - *hash_getitem_some_path
+      - - *hash_getitem_some_path
+    cache_dir_available: false
+    results:
+      <<: *results_explicit_select
+
+custom_selection_base_error_no_tag_arg:
+  params:
+    select_from:
+      - getitem: [!dag_tag dm, some/path]
+        tag: some_path
+    # select_base_tag: ...  # missing
+
+  _raises: ValueError
+  _match: Missing `select_base_tag` argument, which is required when `select
+
+custom_selection_base_error_base_tag_not_found:
+  params:
+    select_from:
+      - getitem: [!dag_tag dm, some/path]
+    select_base_tag: some_path
+
+  _raises: KeyError
+  _match: The tag that was chosen for the basis of select operations, 'some_path', is not available!
 
 # Basic numerical operations --------------------------------------------------
 
@@ -597,7 +644,7 @@ file_cache_error_attempting_dm_select_cache:
     transform: ~
 
   _raises: ValueError
-  _match: For selection from DataManager, the file cache is always disabled
+  _match: For selection from the selection base, tagged 'dm', the file cache
 
 
 file_cache_error_writing_groups:

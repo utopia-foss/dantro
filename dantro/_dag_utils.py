@@ -3,7 +3,7 @@
 NOTE This is imported by dantro.tools to register classes with YAML.
 """
 
-from typing import NewType, TypeVar, Any
+from typing import NewType, TypeVar, Any, Union
 
 # Type definitions
 THash = NewType('THash', str)
@@ -202,3 +202,123 @@ class DAGObjects:
 
     def items(self):
         return self._d.items()
+
+# -----------------------------------------------------------------------------
+
+def parse_dag_minimal_syntax(params: Union[str, dict]) -> dict:
+    """Parses the minimal syntax parameters, effectively translating a string-
+    like argument to a dict with the string specified as the ``operation`` key.
+    """
+    if isinstance(params, dict):
+        return params
+
+    elif isinstance(params, str):
+        return dict(operation=params, with_previous_result=True)
+
+    # else:
+    raise TypeError("Expected either dict or string for minimal syntax, got "
+                    "{} with value: {}".format(type(params), params))
+
+
+def parse_dag_syntax(*, operation: str=None, args: list=None,
+                     kwargs: dict=None, tag: str=None,
+                     with_previous_result: bool=False,
+                     salt: int=None, file_cache: dict=None, **ops) -> dict:
+    """Given the parameters of a transform operation, possibly in a shorthand
+    notation, returns a dict with normalized content by expanding the
+    shorthand notation.
+    
+    Keys that will be available in the resulting dict:
+        ``operation``, ``args``, ``kwargs``, ``tag``.
+    
+    Args:
+        operation (str, optional): Which operation to carry out; can only be
+            specified if there is no ``ops`` argument.
+        args (list, optional): Positional arguments for the operation; can
+            only be specified if there is no ``ops`` argument.
+        kwargs (dict, optional): Keyword arguments for the operation; can only
+            be specified if there is no ``ops`` argument.
+        tag (str, optional): The tag to attach to this transformation
+        with_previous_result (bool, optional): Whether the result of the
+            previous transformation is to be used as first positional argument
+            of this transformation.
+        salt (int, optional): A salt to the Transformation object, thereby
+            changing its hash.
+        file_cache (dict, optional): File cache parameters
+        **ops: The operation that is to be carried out. May contain one and
+            only one operation.
+    
+    Returns:
+        dict: The normalized dict of transform parameters.
+    
+    Raises:
+        ValueError: For len(ops) != 1
+    """
+    # Distinguish between explicit and shorthand mode
+    if operation and not ops:
+        # Explicit parametrization
+        args = args if args else []
+        kwargs = kwargs if kwargs else {}
+
+    elif ops and not operation:
+        # Shorthand parametrization
+        # Make sure there are no stray argument
+        if args is not None or kwargs is not None:
+            raise ValueError("When using shorthand notation, the args and "
+                             "kwargs need to be specified under the key that "
+                             "specifies the operation!")
+
+        elif len(ops) > 1:
+            raise ValueError("For shorthand notation, there can only be a "
+                             "single operation specified, but got: {}."
+                             "".format(ops))
+
+        # Extract operation name and parameters
+        operation, op_params = list(ops.items())[0]
+
+        # Depending on type, regard parameters as args or kwargs. If
+        # the argument is not a container, assume it's a single
+        # positional argument.
+        if isinstance(op_params, dict):
+            args, kwargs = [], op_params
+        
+        elif isinstance(op_params, (list, tuple)):
+            args, kwargs = list(op_params), {}
+        
+        elif op_params is not None:
+            args, kwargs = [op_params], {}
+        
+        else:
+            args, kwargs = [], {}
+
+    elif not operation and not ops:
+        raise ValueError("Missing operation specification. Either use the "
+                         "`operation` key to specify one or use shorthand "
+                         "notation by using the name of the operation as a "
+                         "key and adding the arguments to it as values.")
+
+    else:
+        raise ValueError("Got two specifications of operations, one via the "
+                         "`operation` argument ({}), another via the "
+                         "shorthand notation ({}). Remove one of them."
+                         "".format(operation, ops))
+
+    # Have variables operation, args, and kwargs set now.
+
+    # If the result is to be carried on, the first _positional_
+    # argument is set to be a reference to the previous node
+    if with_previous_result:
+        args.insert(0, DAGNode(-1))
+
+    # Done. Construct the dict.
+    # Mandatory parameters
+    d = dict(operation=operation, args=args, kwargs=kwargs, tag=tag)
+    
+    # Add optional parameters only if they were specified
+    if salt is not None:
+        d['salt'] = salt
+
+    if file_cache is not None:
+        d['file_cache'] = file_cache
+
+    return d
