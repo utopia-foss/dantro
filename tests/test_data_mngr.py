@@ -181,7 +181,7 @@ def hdf5_dm(data_dir) -> Hdf5DataManager:
     h5dir = data_dir.mkdir("hdf5_data")
 
     # --- Create a file with basic structures: dataset, group, attribute ---
-    basic = h5.File(h5dir.join("basic.h5"))
+    basic = h5.File(h5dir.join("basic.h5"), 'w')
 
     basic.create_dataset("float_dset", data=np.zeros((2,3,4), dtype=float))
     basic.create_dataset("int_dset", data=np.ones((1,2,3), dtype=int))
@@ -198,7 +198,7 @@ def hdf5_dm(data_dir) -> Hdf5DataManager:
     basic.close()
 
     # --- Create a file with nested groups ---
-    nested = h5.File(h5dir.join("nested.h5"))
+    nested = h5.File(h5dir.join("nested.h5"), 'w')
 
     nested.create_group('group1')
     nested.create_group('group2')
@@ -212,7 +212,7 @@ def hdf5_dm(data_dir) -> Hdf5DataManager:
     nested.close()
 
     # --- Create a file to test mapping ---
-    mapping = h5.File(h5dir.join("mapping.h5"))
+    mapping = h5.File(h5dir.join("mapping.h5"), 'w')
     
     mapping.create_group('dummy_group')
     mapping['dummy_group'].attrs['container_type'] = 'dummy'

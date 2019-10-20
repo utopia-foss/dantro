@@ -18,7 +18,7 @@ from dantro.proxy import Hdf5DataProxy
 @pytest.fixture
 def tmp_h5file(tmpdir) -> h5.File:
     """Returns a temporary h5.File object with some datasets"""
-    h5f = h5.File(tmpdir.join('testfile.h5'))
+    h5f = h5.File(tmpdir.join('testfile.h5'), 'w')
 
     h5f.create_dataset("foo", data=np.array([1,2,3], dtype=int))
     h5f.create_dataset("foochunk", data=np.array([1,2,3], dtype=int), 
