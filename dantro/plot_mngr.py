@@ -7,7 +7,7 @@ import os
 import time
 import copy
 import logging
-from typing import Union, List, Dict, Tuple, Callable
+from typing import Union, List, Dict, Tuple, Callable, Any
 
 from paramspace import ParamSpace, ParamDim
 
@@ -557,9 +557,24 @@ class PlotManager:
         log.debug("Initialized %s.", pc.logstr)
         return pc
 
-    def _call_plot_creator(self, plot_creator: Callable, *, out_path: str,
-                           name: str, creator: str, **plot_cfg):
-        """Calls the plot creator and manages exceptions"""
+    def _invoke_creator(self, plot_creator: Callable, *, out_path: str,
+                        **plot_cfg) -> Any:
+        """This method wraps the plot creator's __call__ and is the last
+        PlotManager method that is called prior to handing over to the selected
+        plot creator. It takes care of invoking the plot creator's __call__
+        method and handling potential error messages and return values.
+        
+        Args:
+            plot_creator (Callable): The currently used creator
+            out_path (str): The plot output path
+            **plot_cfg: The plot configuration
+        
+        Returns:
+            Any: The return value of the plot creator's ``__call__ `` method
+        
+        Raises:
+            PlotCreatorError: On error within the plot creator
+        """
         try:
             rv = plot_creator(out_path=out_path, **plot_cfg)
 
@@ -965,9 +980,7 @@ class PlotManager:
 
             # Call the plot creator to perform the plot, using the private
             # method to perform exception handling
-            self._call_plot_creator(plot_creator,
-                                    out_path=out_path, **plot_cfg,
-                                    name=name, creator=creator)
+            self._invoke_creator(plot_creator, out_path=out_path, **plot_cfg)
 
             # Store plot information
             self._store_plot_info(name=name, creator_name=creator,
@@ -1043,9 +1056,8 @@ class PlotManager:
 
                 # Call the plot creator to perform the plot, using the private
                 # method to perform exception handling
-                self._call_plot_creator(plot_creator,
-                                        out_path=out_path, **cfg, **plot_cfg,
-                                        name=name, creator=creator)
+                self._invoke_creator(plot_creator, out_path=out_path,
+                                     **cfg, **plot_cfg)
                 # NOTE The **plot_cfg is passed here in order to not loose any
                 # arguments that might have been passed to it. While `cfg`
                 # _should_ hold all the arguments from the parameter space
