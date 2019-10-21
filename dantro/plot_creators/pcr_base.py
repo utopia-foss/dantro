@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 class BasePlotCreator(AbstractPlotCreator):
     """The base class for PlotCreators
     
-    Note that the `_plot` method remains abstract, thus this class needs to be
+    Note that the ``plot`` method remains abstract, thus this class needs to be
     subclassed and the method implemented!
     
     Attributes:
@@ -250,30 +250,34 @@ class BasePlotCreator(AbstractPlotCreator):
     def _perform_data_selection(self, *, use_dag: bool=False, **cfg) -> dict:
         """If this plot creator supports data selection and transformation, it
         is carried out in this method.
-
+        
         This method uses a number of other private methods to carry out the
         setup of the DAG, computing it and combining its results with the
         remaining plot configuration.
-
+        
         .. note::
-
+        
             For specializing the behaviour of the data selection and transform,
             it is best to specialize *NOT* this method, but the more granular
             DAG-related private methods.
-
+        
         Args:
             use_dag (bool, optional): The main toggle for whether the DAG
                 should be used or not. This is passed as default value to
                 another method, which takes the final decision on whether the
                 DAG is used or not.
             **cfg: The full plot configuration, including DAG-related arguments
+        
+        Returns:
+            dict: The plot configuration that can be passed on to the main
+                ``plot`` method.
         """
         if not self._should_use_dag(value_in_cfg=use_dag):
             # Passthrough everything except the `use_dag` argument.
             return dict(**cfg)
 
         # Prepare DAG parameters
-        dag_params, plot_cfg = self._prepare_dag_params(**plot_cfg)
+        dag_params, plot_cfg = self._prepare_dag_params(**cfg)
 
         # Create the DAG
         dag = self._create_dag(**dag_params['init'])
@@ -303,18 +307,18 @@ class BasePlotCreator(AbstractPlotCreator):
     def _prepare_dag_params(self, *, select: dict=None,
                             transform: Sequence[dict]=None,
                             file_cache_defaults: dict=None,
-                            tags_to_compute: Sequence[str]=None,
+                            compute_only: Sequence[str]=None,
                             **plot_cfg) -> Tuple[dict, dict]:
         """Filters out parameters needed for DAG initialization and compute"""
         init_kwargs = dict(select=select, transform=transform,
                            file_cache_defaults=file_cache_defaults)
-        compute_kwargs = dict(compute_only=tags_to_compute)
+        compute_kwargs = dict(compute_only=compute_only)
 
         return dict(init=init_kwargs, compute=compute_kwargs), plot_cfg
 
     def _create_dag(self, **dag_params) -> TransformationDAG:
         """Creates the actual DAG object"""
-        return TransformationDAG(**dag_params)
+        return TransformationDAG(dm=self.dm, **dag_params)
 
     def _compute_dag(self, dag: TransformationDAG, **compute_kwargs) -> dict:
         """Compute the dag results"""

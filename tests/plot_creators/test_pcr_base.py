@@ -4,6 +4,7 @@ import pytest
 
 from dantro.data_mngr import DataManager
 from dantro.plot_creators import BasePlotCreator
+from dantro.dag import TransformationDAG
 
 # Test classes ----------------------------------------------------------------
 
@@ -91,3 +92,52 @@ def test_call(init_kwargs, tmpdir):
     with pytest.raises(FileExistsError, match="There already exists a"):
         mpc(out_path=tmpdir.join("call1"), foo="bar")
 
+def test_data_selection_interface(init_kwargs, tmpdir):
+    """Tests the data selection interface"""
+    mpc = MockPlotCreator("test", **init_kwargs)
+
+    # Some test parameters
+    params0 = dict(foo="bar", baz=123)  # mock parameters for some plot config
+    params1 = dict(use_dag=True, **params0)
+    params2 = dict(**params1,
+                   transform=[dict(operation='add', args=[1,2], tag='sum')])
+    params3 = dict(use_dag=True,
+                   transform=[dict(operation='add', args=[1,2], tag='sum'),
+                              dict(operation='sub', args=[3,2], tag='sub')],
+                   compute_only=['sub'])
+    params4 = dict(**params3, file_cache_defaults=dict(write=False,
+                                                       read=True))
+
+    # Disabled DAG usage -> parameters should be passed through
+    ds0 = mpc._perform_data_selection(use_dag=False, **params0)
+    assert 'use_dag' not in ds0
+    assert ds0 == params0
+    assert ds0 is not params0
+
+    # Enabled DAG usage -> DAG should be created, but of course without result
+    ds1 = mpc._perform_data_selection(**params1)
+    assert 'use_dag' not in ds1
+    assert isinstance(ds1['dag'], TransformationDAG)
+    assert ds1['dag_results'] == dict()
+    assert ds1['foo'] == "bar"
+    assert ds1['baz'] == 123
+
+    # Now with some actual transformations, results are generated
+    ds2 = mpc._perform_data_selection(**params2)
+    assert 'use_dag' not in ds2
+    assert 'transform' not in ds2
+    assert ds2['dag_results'] == dict(sum=3)
+
+    # It's possible to pass `compute_only`
+    ds3 = mpc._perform_data_selection(**params3)
+    assert ds3['dag_results'] == dict(sub=1)
+    assert 'transform' not in ds3
+    assert 'compute_only' not in ds3
+
+    # It's possible to pass file cache default values    
+    ds4 = mpc._perform_data_selection(**params4)
+    assert ds4['dag_results'] == dict(sub=1)
+    assert 'transform' not in ds4
+    assert 'compute_only' not in ds4
+    assert 'file_cache_defaults' not in ds4
+    assert ds4['dag']._fc_opts == dict(write=False, read=True)
