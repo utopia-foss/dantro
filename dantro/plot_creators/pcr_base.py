@@ -31,6 +31,13 @@ class BasePlotCreator(AbstractPlotCreator):
     subclassed and the method implemented!
     
     Attributes:
+        DAG_INVOKE_IN_BASE (bool): Whether the DAG should be created and
+            computed here (in the base class). If False, the base class does
+            nothing to create or compute it and the derived classes have to
+            take care of it on their own.
+        DAG_SUPPORTED (bool): Whether the data selection and transformation
+            interface is supported by this PlotCreator. If False, the related
+            methods will not be called.
         DEFAULT_EXT (str): The class variable to use for default extension.
         default_ext (str): The property-managed actual value for the default
             extension to use. This value is needed by the PlotManager in order
@@ -47,15 +54,13 @@ class BasePlotCreator(AbstractPlotCreator):
             take care of this on their own, this should be set to True and the
             _prepare_path method, adjusted or not, should be called at another
             point of the plot execution.
-        SUPPORTS_DAG (bool): Whether the data selection and transformation
-            interface is supported by this PlotCreator. If False, the related
-            methods will not be called.
     """
     EXTENSIONS = 'all'
     DEFAULT_EXT = None
     DEFAULT_EXT_REQUIRED = True
     POSTPONE_PATH_PREPARATION = False
-    SUPPORTS_DAG = False
+    DAG_SUPPORTED = False
+    DAG_INVOKE_IN_BASE = True
 
     def __init__(self, name: str, *, dm: DataManager, default_ext: str=None,
                  **plot_cfg):
@@ -179,7 +184,7 @@ class BasePlotCreator(AbstractPlotCreator):
         # Even if the creator supports it, it might be disabled in the config;
         # in that case, the method below behaves like a passthrough of the cfg,
         # only filtering out the `use_dag` key.
-        if self.SUPPORTS_DAG:
+        if self.DAG_SUPPORTED and self.DAG_INVOKE_IN_BASE:
             cfg = self._perform_data_selection(**cfg)
 
         # Now call the plottig function with these arguments
@@ -247,13 +252,15 @@ class BasePlotCreator(AbstractPlotCreator):
     # .........................................................................
     # Data selection interface, using TransformationDAG
 
-    def _perform_data_selection(self, *, use_dag: bool=False, **cfg) -> dict:
+    def _perform_data_selection(self, *, use_dag: bool=None, **cfg) -> dict:
         """If this plot creator supports data selection and transformation, it
         is carried out in this method.
         
         This method uses a number of other private methods to carry out the
         setup of the DAG, computing it and combining its results with the
-        remaining plot configuration.
+        remaining plot configuration. Those methods have access to a subset of
+        the whole configuration, thus allowing to parse the parameters that
+        they need.
         
         .. note::
         
@@ -265,14 +272,14 @@ class BasePlotCreator(AbstractPlotCreator):
             use_dag (bool, optional): The main toggle for whether the DAG
                 should be used or not. This is passed as default value to
                 another method, which takes the final decision on whether the
-                DAG is used or not.
+                DAG is used or not. If None, will NOT use the DAG.
             **cfg: The full plot configuration, including DAG-related arguments
         
         Returns:
             dict: The plot configuration that can be passed on to the main
                 ``plot`` method.
         """
-        if not self._should_use_dag(value_in_cfg=use_dag):
+        if not self._use_dag(use_dag=use_dag, **cfg):
             # Passthrough everything except the `use_dag` argument.
             return dict(**cfg)
 
@@ -288,21 +295,17 @@ class BasePlotCreator(AbstractPlotCreator):
         # Prepare the parameters passed back to __call__ and on to self.plot
         return self._combine_dag_results_and_plot_cfg(dag=dag,
                                                       dag_results=dag_results,
+                                                      dag_params=dag_params,
                                                       plot_cfg=plot_cfg)
 
-    def _should_use_dag(self, *, value_in_cfg: bool) -> bool:
-        """Whether the DAG should actually be used.
-        
-        This method can be subclassed to evaluate this choice in a detailed
-        fashion. The base class merely returns the value passed to it.
+    def _use_dag(self, *, use_dag: bool, **plot_cfg) -> bool:
+        """Whether the data transformation framework should be used.
         
         Args:
-            value_in_cfg (bool): The user-specified value from the plot config
-        
-        Returns:
-            bool: Whether the data selection and transform should be used
+            use_dag (bool): The value from the plot configuration
+            **plot_cfg: The remaining plot configuration; ignored here
         """
-        return value_in_cfg
+        return (use_dag if use_dag is not None else False)
 
     def _prepare_dag_params(self, *, select: dict=None,
                             transform: Sequence[dict]=None,
@@ -325,14 +328,19 @@ class BasePlotCreator(AbstractPlotCreator):
         return dag.compute(**compute_kwargs)
 
     def _combine_dag_results_and_plot_cfg(self, *, dag: TransformationDAG,
-                                          dag_results: dict, plot_cfg: dict
-                                          ) -> dict:
-        """Combine the results of the DAG computation with the plotting
-        parameters. This is then passed to the .plot method.
+                                          dag_results: dict, dag_params: dict,
+                                          plot_cfg: dict) -> dict:
+        """Combines DAG reuslts and plot configuration into one dict. The
+        returned dict is then passed along to the ``plot`` method.
 
+        The base class method ditches the ``dag_params`` and only retains the
+        results, the DAG object itself, and (of course) all the remaining plot
+        configuration.
 
-        This method can be subclassed to combine the results and the config in
-        a specific way. By default, the results are passed as `dag_results` and
-        the dag is passed along as `dag`.
+        .. note::
+
+            When subclassing, this is the method to overwrite or extend in
+            order to affect which data gets passed on.
         """
+        # Build a dict, delibaretly excluding the dag_params
         return dict(dag=dag, dag_results=dag_results, **plot_cfg)

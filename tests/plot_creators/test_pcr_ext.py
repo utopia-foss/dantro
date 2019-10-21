@@ -209,6 +209,13 @@ def test_resolve_plot_func(init_kwargs, tmpdir, tmp_module):
     assert callable(resolve(module=".basic", plot_func="plt.plot"))
     # NOTE that this would not work as a plot function; just for testing here
 
+# TODO Write.
+@pytest.mark.skip
+def test_use_dag():
+    """Tests whether DAG parameters are passed through properly"""
+    pass
+
+
 def test_can_plot(init_kwargs, tmp_module):
     """Tests the can_plot and _valid_plot_func_signature methods"""
     epc = ExternalPlotCreator("can_plot", **init_kwargs)

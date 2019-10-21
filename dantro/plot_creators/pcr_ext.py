@@ -10,7 +10,7 @@ import importlib
 import importlib.util
 import inspect
 from collections import defaultdict
-from typing import Callable, Union, List
+from typing import Callable, Union, List, Tuple, Sequence
 
 import matplotlib as mpl
 mpl.use("Agg")  # TODO Remove this. Should not be necessary!
@@ -19,6 +19,8 @@ import matplotlib.pyplot as plt
 
 from ..tools import load_yml, recursive_update, DoNothingContext
 from .pcr_base import BasePlotCreator
+from ..dag import TransformationDAG
+
 from ._pcr_ext_modules.movie_writers import FileWriter
 from ._pcr_ext_modules.plot_helper import PlotHelper
 
@@ -35,6 +37,8 @@ class ExternalPlotCreator(BasePlotCreator):
     EXTENSIONS = 'all'  # no checks performed
     DEFAULT_EXT = None
     DEFAULT_EXT_REQUIRED = False
+    DAG_SUPPORTED = True
+    DAG_INVOKE_IN_BASE = False  # False: DAG invocation NOT done automatically
 
     # For relative module imports, see the following as the base package
     BASE_PKG = "dantro.plot_creators.ext_funcs"
@@ -114,7 +118,8 @@ class ExternalPlotCreator(BasePlotCreator):
 
     def plot(self, *, out_path: str, plot_func: Union[str, Callable],
              module: str=None, module_file: str=None, style: dict=None,
-             helpers: dict=None, animation: dict=None, **func_kwargs):
+             helpers: dict=None, animation: dict=None, use_dag: bool=None,
+             **func_kwargs):
         """Performs the plot operation by calling a specified plot function.
         
         The plot function is specified by its name, which is interpreted as a
@@ -147,14 +152,26 @@ class ExternalPlotCreator(BasePlotCreator):
             helpers (dict, optional): helper configuration passed to PlotHelper
                 initialization if enabled
             animation (dict, optional): animation configuration
+            use_dag (bool, optional): Whether to use the TransformationDAG to
+                select and transform data that can be used in the plotting
+                function. If not given, will query the plot function attributes
+                for whether the DAG should be used.
             **func_kwargs: Passed to the imported function
+        
+        Raises:
+            ValueError: On superfluous `helpers` or `animation` arguments in
+                cases where these are not supported
         """
         # Get the plotting function
         plot_func = self._resolve_plot_func(plot_func=plot_func,
                                             module=module,
                                             module_file=module_file)
         
-        # Now have the plotting function
+        # Determine if the DAG should be used or not
+        func_kwargs = self._perform_data_selection(use_dag=use_dag,
+                                                   _plot_func=plot_func,
+                                                   **func_kwargs)
+
         # Generate a style dictionary
         rc_params = self._prepare_style_context(**(style if style else {}))
 
@@ -274,7 +291,7 @@ class ExternalPlotCreator(BasePlotCreator):
         return self._valid_plot_func_signature(inspect.signature(pf))
 
     # .........................................................................
-    # Helpers, used internally
+    # Helpers: Plot function resolution and argument preparation
 
     def _resolve_plot_func(self, *,
                            plot_func: Union[str, Callable], module: str=None,
@@ -366,7 +383,7 @@ class ExternalPlotCreator(BasePlotCreator):
         # package defined as base package
         return importlib.import_module(module, package=self.BASE_PKG)
 
-    def _prepare_plot_func_args(self, *args, **kwargs) -> tuple:
+    def _prepare_plot_func_args(self, *args, **kwargs) -> Tuple[tuple, dict]:
         """Prepares the args and kwargs passed to the plot function.
         
         The passed args and kwargs are carried over, while the positional
@@ -383,6 +400,119 @@ class ExternalPlotCreator(BasePlotCreator):
             tuple: (args: tuple, kwargs: dict)
         """
         return ((self.dm,) + args, kwargs)
+
+    # .........................................................................
+    # Helpers: specialization of data selection and transformation framework
+
+    def _use_dag(self, *, use_dag: bool, _plot_func: Callable, **cfg) -> bool:
+        """Whether the DAG should be used or not. This method extends that of
+        the base class by additionally checking the plot function attributes
+        for any information regarding the DAG
+        """
+        # If None was given, check the plot function attributes
+        if use_dag is None:
+            use_dag = getattr(_plot_func, 'use_dag', None)
+
+        # Let the parent class do whatever else it does
+        use_dag = super()._use_dag(use_dag=use_dag, **cfg)
+
+        # Complain, if tags where required, but DAG usage was disabled
+        if not use_dag and getattr(_plot_func, 'required_dag_tags', None):
+            raise ValueError("The plot function {} requires DAG tags to be "
+                             "computed, but DAG usage was disabled."
+                             "".format(_plot_func))
+
+        return use_dag
+    
+    def _prepare_dag_params(self, *, _plot_func: Callable,
+                            **cfg) -> Tuple[dict, dict]:
+        """Extends the parent method by making the plot function callable
+        available to the other helper methods and extracting some further
+        information from the plot function.
+        """
+        dag_params, plot_cfg = super()._prepare_dag_params(**cfg)
+        dag_params['init']['_plot_func'] = plot_func
+        dag_params['compute']['_plot_func'] = plot_func
+
+        pass_dag = getattr(_plot_func, 'pass_dag_object_along', False)
+        dag_params['pass_dag_object_along'] = pass_dag
+
+        return dag_params, plot_cfg
+
+    def _create_dag(self, *, _plot_func: Callable,
+                    **dag_params) -> TransformationDAG:
+        """Extends the parent method by checking that all tags required by the
+        plot function are defined in the DAG.
+        """
+        dag = super()._create_dag(**dag_params)
+
+        # Make sure that all required tags are defined
+        required_tags = getattr(_plot_func, 'required_dag_tags', None)
+        if required_tags:
+            missing_tags = [t for t in required_tags if t not in dag.tags]
+
+            if missing_tags:
+                raise ValueError("Plot function {} required tags that were "
+                                 "not specified in the DAG: {}. Available "
+                                 "tags: {}. Please adjust the DAG "
+                                 "specification accordingly."
+                                 "".format(_plot_func,
+                                           ", ".join(missing_tags),
+                                           ", ".join(dag.tags)))
+
+        return dag
+
+    def _compute_dag(self, dag: TransformationDAG, *, _plot_func: Callable,
+                     **compute_kwargs) -> dict:
+        """Compute the dag results"""
+        dag_results = super()._compute_dag(dag, **compute_kwargs)
+
+        # Make sure that the results contain all the required tags
+        required_tags = getattr(_plot_func, 'required_dag_tags', None)
+        if required_tags:
+            missing_tags = [t for t in required_tags if t not in dag_results]
+
+            if missing_tags:
+                raise ValueError("Plot function {} required tags that were "
+                                 "not computed by the DAG: {}. Make sure to "
+                                 "set the `compute_only` argument such that "
+                                 "results for all required tags ({}) are "
+                                 "actually computed.\n"
+                                 "All tags: {}\n"
+                                 "Computed: {}"
+                                 "".format(_plot_func,
+                                           ", ".join(missing_tags),
+                                           ", ".join(required_tags),
+                                           ", ".join(dag.tags),
+                                           ", ".join(dag_results)))
+
+        return dag_results
+    
+    def _combine_dag_results_and_plot_cfg(self, *, dag: TransformationDAG,
+                                          dag_results: dict, dag_params: dict,
+                                          plot_cfg: dict) -> dict:
+        """Returns a dict of plot configuration and ``data``, where all the
+        DAG results are stored in.
+
+        Furthermore, if the plot function specified in its attributes that the
+        DAG object is to be passed along, this is the place where it is
+        included or excluded from the arguments.
+
+        .. note::
+
+            This behaviour is different than in the parent class.
+
+        """
+        cfg = dict(data=dag_results, **plot_cfg)
+        # NOTE This is where the results are made available as ``data`` kwarg!
+
+        if dag_params['pass_dag_object_along']:
+            cfg['dag'] = dag
+
+        return cfg
+
+    # .........................................................................
+    # Helpers: Style and Animation
 
     def _prepare_style_context(self, *, base_style: Union[str, List[str]]=None,
                                rc_file: str=None, ignore_defaults: bool=False,
@@ -562,6 +692,9 @@ class ExternalPlotCreator(BasePlotCreator):
         # Exited externally given context. Done now.
         log.debug("Animation finished after %s frames.", frame_no + 1)
 
+    # .........................................................................
+    # Helpers: PlotManager's auto-detection feature
+
     def _declared_plot_func_by_attrs(self, pf: Callable,
                                      creator_name: str) -> bool:
         """Checks whether the given function has attributes set that declare
@@ -576,7 +709,6 @@ class ExternalPlotCreator(BasePlotCreator):
             bool: Whether the plot function attributes declare the given plot
                 function as suitable for working with this specific creator.
         """
-        
         if hasattr(pf, 'creator_type') and pf.creator_type is not None:
             if isinstance(self, pf.creator_type):
                 log.debug("The desired type of the plot function, %s, is the "
@@ -693,6 +825,8 @@ class is_plot_func:
 
     def __init__(self, *, creator_type: type=None, creator_name: str=None,
                  use_helper: bool=True, helper_defaults: Union[dict, str]=None,
+                 use_dag: bool=None, required_dag_tags: Sequence[str]=None,
+                 pass_dag_object_along: bool=False,
                  supports_animation=False, add_attributes: dict=None):
         """Initialize the decorator. Note that the function to be decorated is
         not passed to this method.
@@ -703,9 +837,23 @@ class is_plot_func:
             use_helper (bool, optional): Whether to use a PlotHelper
             helper_defaults (Union[dict, str], optional): Default
                 configurations for helpers; these are automatically considered
-                to be enabled
-            add_attributes: Additional attributes to add to the
-                plot function
+                to be enabled. If string-like, will assume this is an absolute
+                path to a YAML file and will load the dict-like configuration
+                from there.
+            use_dag (bool, optional): Whether to use the data transformation
+                framework.
+            required_dag_tags (Sequence[str], optional): The DAG tags that are
+                required by the plot function.
+            pass_dag_object_along (bool, optional): Whether to pass on the DAG
+                object to the plot function
+            supports_animation (bool, optional): Whether the plot function
+                supports animation.
+            add_attributes (dict, optional): Additional attributes to add to
+                the plot function.
+        
+        Raises:
+            ValueError: If `helper_defaults` was a string but not an absolute
+                path.
         """
         if isinstance(helper_defaults, str):
             # Interpret as path to yaml file
@@ -721,19 +869,26 @@ class is_plot_func:
             log.debug("Loading helper defaults from file %s ...", fpath)
             helper_defaults = load_yml(fpath)
 
-        self.pf_attrs = dict(creator_type=creator_type,
-                             creator_name=creator_name,
-                             use_helper=use_helper,
-                             helper_defaults=helper_defaults,
-                             supports_animation=supports_animation,
-                             **(add_attributes if add_attributes else {}))
+        # Gather those attributes that are to be set as function attributes
+        self.pf_attrs = dict(
+            creator_type=creator_type,
+            creator_name=creator_name,
+            use_helper=use_helper,
+            helper_defaults=helper_defaults,
+            use_dag=use_dag,
+            required_dag_tags=(required_dag_tags
+                               if required_dag_tags is not None else ()),
+            pass_dag_object_along=pass_dag_object_along,
+            supports_animation=supports_animation,
+            **(add_attributes if add_attributes else {})
+        )
 
     def __call__(self, func: Callable):
         """If there are decorator arguments, __call__() is only called
         once, as part of the decoration process and expects as only argument
         the function to be decorated.
         """
-        # Do not actually wrap the function, but add attributes to it
+        # Do not actually wrap the function call, but add attributes to it
         for k, v in self.pf_attrs.items():
             setattr(func, k, v)
 
