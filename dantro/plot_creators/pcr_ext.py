@@ -169,8 +169,8 @@ class ExternalPlotCreator(BasePlotCreator):
         
         # Determine if the DAG should be used or not
         func_kwargs = self._perform_data_selection(use_dag=use_dag,
-                                                   _plot_func=plot_func,
-                                                   **func_kwargs)
+                                                   plot_cfg=func_kwargs,
+                                                   _plot_func=plot_func)
 
         # Generate a style dictionary
         rc_params = self._prepare_style_context(**(style if style else {}))
@@ -404,7 +404,8 @@ class ExternalPlotCreator(BasePlotCreator):
     # .........................................................................
     # Helpers: specialization of data selection and transformation framework
 
-    def _use_dag(self, *, use_dag: bool, _plot_func: Callable, **cfg) -> bool:
+    def _use_dag(self, *, use_dag: bool, plot_cfg: dict,
+                 _plot_func: Callable) -> bool:
         """Whether the DAG should be used or not. This method extends that of
         the base class by additionally checking the plot function attributes
         for any information regarding the DAG
@@ -414,7 +415,7 @@ class ExternalPlotCreator(BasePlotCreator):
             use_dag = getattr(_plot_func, 'use_dag', None)
 
         # Let the parent class do whatever else it does
-        use_dag = super()._use_dag(use_dag=use_dag, **cfg)
+        use_dag = super()._use_dag(use_dag=use_dag, plot_cfg=plot_cfg)
 
         # Complain, if tags where required, but DAG usage was disabled
         if not use_dag and getattr(_plot_func, 'required_dag_tags', None):
@@ -425,12 +426,12 @@ class ExternalPlotCreator(BasePlotCreator):
         return use_dag
     
     def _prepare_dag_params(self, *, _plot_func: Callable,
-                            **cfg) -> Tuple[dict, dict]:
+                            **plot_cfg) -> Tuple[dict, dict]:
         """Extends the parent method by making the plot function callable
         available to the other helper methods and extracting some further
         information from the plot function.
         """
-        dag_params, plot_cfg = super()._prepare_dag_params(**cfg)
+        dag_params, plot_cfg = super()._prepare_dag_params(**plot_cfg)
         dag_params['init']['_plot_func'] = plot_func
         dag_params['compute']['_plot_func'] = plot_func
 

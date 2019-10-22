@@ -141,7 +141,8 @@ def test_init(dm, tmpdir):
 
 
 def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
-    """Test the plotting functionality of the PlotManager with a plots_cfg setup
+    """Test the plotting functionality of the PlotManager with a plots_cfg
+    setup
     """
     def assert_num_plots(pm: PlotManager, num: int):
         """Helper function to check if the plot info is ok"""

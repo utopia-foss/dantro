@@ -252,7 +252,8 @@ class BasePlotCreator(AbstractPlotCreator):
     # .........................................................................
     # Data selection interface, using TransformationDAG
 
-    def _perform_data_selection(self, *, use_dag: bool=None, **cfg) -> dict:
+    def _perform_data_selection(self, *, use_dag: bool=None, plot_cfg: dict,
+                                **shared_kwargs) -> dict:
         """If this plot creator supports data selection and transformation, it
         is carried out in this method.
         
@@ -273,18 +274,25 @@ class BasePlotCreator(AbstractPlotCreator):
                 should be used or not. This is passed as default value to
                 another method, which takes the final decision on whether the
                 DAG is used or not. If None, will NOT use the DAG.
-            **cfg: The full plot configuration, including DAG-related arguments
+            plot_cfg (dict): The plot configuration
+            **shared_kwargs: Shared keyword arguments that are passed through
+                to the helper methods ``_use_dag`` and ``_prepare_dag_params``
         
         Returns:
             dict: The plot configuration that can be passed on to the main
                 ``plot`` method.
+        
+        Deleted Parameters:
+            **cfg: The full plot configuration, including DAG-related arguments
         """
-        if not self._use_dag(use_dag=use_dag, **cfg):
-            # Passthrough everything except the `use_dag` argument.
-            return dict(**cfg)
+        if not self._use_dag(use_dag=use_dag, plot_cfg=plot_cfg,
+                             **shared_kwargs):
+            # Passthrough the plot configuration
+            return dict(**plot_cfg)
 
         # Prepare DAG parameters
-        dag_params, plot_cfg = self._prepare_dag_params(**cfg)
+        dag_params, plot_cfg = self._prepare_dag_params(**plot_cfg,
+                                                        **shared_kwargs)
 
         # Create the DAG
         dag = self._create_dag(**dag_params['init'])
@@ -298,17 +306,25 @@ class BasePlotCreator(AbstractPlotCreator):
                                                       dag_params=dag_params,
                                                       plot_cfg=plot_cfg)
 
-    def _use_dag(self, *, use_dag: bool, **plot_cfg) -> bool:
+    def _use_dag(self, *, use_dag: bool, plot_cfg: dict, **_) -> bool:
         """Whether the data transformation framework should be used.
         
         Args:
             use_dag (bool): The value from the plot configuration
+            plot_cfg (dict): The plot configuration
+            **_: Any further kwargs that can be used to assess whether the DAG
+                should be used or not. Ignored here.
+        
+        Deleted Parameters:
             **plot_cfg: The remaining plot configuration; ignored here
+        
+        Returns:
+            bool: Whether the DAG should be used or not
         """
         return (use_dag if use_dag is not None else False)
 
-    def _prepare_dag_params(self, *, select: dict=None,
-                            transform: Sequence[dict]=None,
+    def _prepare_dag_params(self, *,
+                            select: dict=None, transform: Sequence[dict]=None,
                             file_cache_defaults: dict=None,
                             compute_only: Sequence[str]=None,
                             **plot_cfg) -> Tuple[dict, dict]:
