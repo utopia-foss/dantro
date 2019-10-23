@@ -166,11 +166,6 @@ class ExternalPlotCreator(BasePlotCreator):
         plot_func = self._resolve_plot_func(plot_func=plot_func,
                                             module=module,
                                             module_file=module_file)
-        
-        # Determine if the DAG should be used or not
-        func_kwargs = self._perform_data_selection(use_dag=use_dag,
-                                                   plot_cfg=func_kwargs,
-                                                   _plot_func=plot_func)
 
         # Generate a style dictionary
         rc_params = self._prepare_style_context(**(style if style else {}))
@@ -186,12 +181,16 @@ class ExternalPlotCreator(BasePlotCreator):
         if getattr(plot_func, "use_helper", False):
             # Initialize a PlotHelper instance that will take care of figure
             # setup, invoking helper-functions and saving the figure
+            helper_defaults = plot_func.helper_defaults
             hlpr = self.PLOT_HELPER_CLS(out_path=out_path,
-                                        helper_defaults=plot_func.helper_defaults,
+                                        helper_defaults=helper_defaults,
                                         update_helper_cfg=helpers)
             
-            # Prepare the arguments (the data manager is added to args there)
-            args, kwargs = self._prepare_plot_func_args(hlpr=hlpr,
+            # Prepare the arguments. The DataManager is added to args there
+            # and data transformation via DAG occurs there as well.
+            args, kwargs = self._prepare_plot_func_args(plot_func,
+                                                        use_dag=use_dag,
+                                                        hlpr=hlpr,
                                                         **func_kwargs)
 
             # Prepare animation parameters
@@ -233,8 +232,11 @@ class ExternalPlotCreator(BasePlotCreator):
                                  "using the PlotHelper for plot function '{}'!"
                                  "".format(self.name, plot_func.__name__))
 
-            # Prepare the arguments (the data manager is added to args there)
-            args, kwargs = self._prepare_plot_func_args(out_path=out_path,
+            # Prepare the arguments. The DataManager is added to args there
+            # and data transformation via DAG occurs there as well.
+            args, kwargs = self._prepare_plot_func_args(plot_func,
+                                                        use_dag=use_dag,
+                                                        out_path=out_path,
                                                         **func_kwargs)
 
             # Enter the context (either a style context or DoNothingContext)
@@ -383,7 +385,8 @@ class ExternalPlotCreator(BasePlotCreator):
         # package defined as base package
         return importlib.import_module(module, package=self.BASE_PKG)
 
-    def _prepare_plot_func_args(self, *args, **kwargs) -> Tuple[tuple, dict]:
+    def _prepare_plot_func_args(self, plot_func: Callable, *args,
+                                use_dag: bool, **kwargs) -> Tuple[tuple, dict]:
         """Prepares the args and kwargs passed to the plot function.
         
         The passed args and kwargs are carried over, while the positional
@@ -399,12 +402,19 @@ class ExternalPlotCreator(BasePlotCreator):
         Returns:
             tuple: (args: tuple, kwargs: dict)
         """
+        # If enabled, use the DAG interface to perform data selection. The
+        # returned kwargs are the adjusted plot function keyword arguments.
+        kwargs = self._perform_data_selection(use_dag=use_dag,
+                                              plot_kwargs=kwargs,
+                                              _plot_func=plot_func)
+
+        # Aggregate as (args, kwargs), passed on to plot function.
         return ((self.dm,) + args, kwargs)
 
     # .........................................................................
     # Helpers: specialization of data selection and transformation framework
 
-    def _use_dag(self, *, use_dag: bool, plot_cfg: dict,
+    def _use_dag(self, *, use_dag: bool, plot_kwargs: dict,
                  _plot_func: Callable) -> bool:
         """Whether the DAG should be used or not. This method extends that of
         the base class by additionally checking the plot function attributes
@@ -415,7 +425,7 @@ class ExternalPlotCreator(BasePlotCreator):
             use_dag = getattr(_plot_func, 'use_dag', None)
 
         # Let the parent class do whatever else it does
-        use_dag = super()._use_dag(use_dag=use_dag, plot_cfg=plot_cfg)
+        use_dag = super()._use_dag(use_dag=use_dag, plot_kwargs=plot_kwargs)
 
         # Complain, if tags where required, but DAG usage was disabled
         if not use_dag and getattr(_plot_func, 'required_dag_tags', None):
@@ -426,19 +436,23 @@ class ExternalPlotCreator(BasePlotCreator):
         return use_dag
     
     def _prepare_dag_params(self, *, _plot_func: Callable,
-                            **plot_cfg) -> Tuple[dict, dict]:
+                            **cfg) -> Tuple[dict, dict]:
         """Extends the parent method by making the plot function callable
         available to the other helper methods and extracting some further
         information from the plot function.
         """
-        dag_params, plot_cfg = super()._prepare_dag_params(**plot_cfg)
+        dag_params, plot_kwargs = super()._prepare_dag_params(**cfg)
+
+        # Store the plot function, such that it is available as argument in the
+        # other subclassed helper methods
         dag_params['init']['_plot_func'] = _plot_func
         dag_params['compute']['_plot_func'] = _plot_func
 
+        # Determine whether the DAG object should be passed along to the func
         pass_dag = getattr(_plot_func, 'pass_dag_object_along', False)
         dag_params['pass_dag_object_along'] = pass_dag
 
-        return dag_params, plot_cfg
+        return dag_params, plot_kwargs
 
     def _create_dag(self, *, _plot_func: Callable,
                     **dag_params) -> TransformationDAG:
@@ -491,7 +505,7 @@ class ExternalPlotCreator(BasePlotCreator):
     
     def _combine_dag_results_and_plot_cfg(self, *, dag: TransformationDAG,
                                           dag_results: dict, dag_params: dict,
-                                          plot_cfg: dict) -> dict:
+                                          plot_kwargs: dict) -> dict:
         """Returns a dict of plot configuration and ``data``, where all the
         DAG results are stored in.
 
@@ -504,9 +518,10 @@ class ExternalPlotCreator(BasePlotCreator):
             This behaviour is different than in the parent class.
 
         """
-        cfg = dict(data=dag_results, **plot_cfg)
-        # NOTE This is where the results are made available as ``data`` kwarg!
+        # Make the DAG results available as `data` kwarg
+        cfg = dict(data=dag_results, **plot_kwargs)
 
+        # Add the `dag` kwarg, if configured to do so.
         if dag_params['pass_dag_object_along']:
             cfg['dag'] = dag
 
