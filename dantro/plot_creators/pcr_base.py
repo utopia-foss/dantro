@@ -276,7 +276,7 @@ class BasePlotCreator(AbstractPlotCreator):
                 DAG is used or not. If None, will NOT use the DAG.
             plot_kwargs (dict): The plot configuration
             **shared_kwargs: Shared keyword arguments that are passed through
-                to the helper methods ``_use_dag`` and ``_prepare_dag_params``
+                to the helper methods ``_use_dag`` and ``_get_dag_params``
         
         Returns:
             dict: The plot configuration that can be passed on to the main
@@ -285,19 +285,18 @@ class BasePlotCreator(AbstractPlotCreator):
         Deleted Parameters:
             **cfg: The full plot configuration, including DAG-related arguments
         """
+        # Extract DAG-related parameters from the 
+        dag_params, plot_kwargs = self._get_dag_params(**plot_kwargs,
+                                                       **shared_kwargs)
+
+        # Determine whether the DAG framework should be used or not
         if not self._use_dag(use_dag=use_dag, plot_kwargs=plot_kwargs,
                              **shared_kwargs):
-            # Passthrough the plot configuration
-            return dict(**plot_kwargs)
+            # Only return the plot configuration, without DAG-related keys
+            return plot_kwargs
 
-        # Prepare DAG parameters
-        dag_params, plot_kwargs = self._prepare_dag_params(**plot_kwargs,
-                                                           **shared_kwargs)
-
-        # Create the DAG
+        # else: DAG should be used -> Create and compute it.
         dag = self._create_dag(**dag_params['init'])
-
-        # Compute the DAG
         dag_results = self._compute_dag(dag, **dag_params['compute'])
 
         # Prepare the parameters passed back to __call__ and on to self.plot
@@ -323,7 +322,7 @@ class BasePlotCreator(AbstractPlotCreator):
         """
         return (use_dag if use_dag is not None else False)
 
-    def _prepare_dag_params(self, *,
+    def _get_dag_params(self, *,
                             select: dict=None, transform: Sequence[dict]=None,
                             compute_only: Sequence[str]=None,
                             dag_options: dict=None,

@@ -34,6 +34,11 @@ def init_kwargs(psp_grp, tmpdir) -> dict:
     dm.add(psp_grp)
     return dict(dm=dm, psgrp_path='mv')
 
+# Some mock callables .........................................................
+def mock_pfunc(*_, **__):
+    """... does nothing"""
+    pass
+
 # Tests -----------------------------------------------------------------------
 
 def test_MultiversePlotCreator(init_kwargs, psp_grp_default, tmpdir):
@@ -53,7 +58,7 @@ def test_MultiversePlotCreator(init_kwargs, psp_grp_default, tmpdir):
     # Check that the select function is called as expected
     selector = dict(field="testdata/fixedsize/state",
                     subspace=dict(p0=slice(2), p1=slice(1.5, 2.5)))
-    args, kwargs = mpc._prepare_plot_func_args(select=selector)
+    args, kwargs = mpc._prepare_plot_func_args(mock_pfunc, select=selector)
     assert 'mv_data' in kwargs
     mv_data = kwargs['mv_data']
     print("Selected Multiverse data:", mv_data)
@@ -80,7 +85,7 @@ def test_MultiversePlotCreator(init_kwargs, psp_grp_default, tmpdir):
                                  psgrp_path=psp_grp_default.name)
 
     selector = dict(field="testdata/fixedsize/state")
-    args, kwargs = mpcd._prepare_plot_func_args(select=selector)
+    args, kwargs = mpcd._prepare_plot_func_args(mock_pfunc, select=selector)
     assert 'mv_data' in kwargs
 
 
@@ -150,7 +155,7 @@ def test_UniversePlotCreator(init_kwargs):
         print("Latest config: ", cfg)
         print(upc.psgrp.pspace.state_map)
         print(upc.psgrp.pspace.active_state_map)
-        args, kwargs = upc._prepare_plot_func_args(**cfg)
+        args, kwargs = upc._prepare_plot_func_args(mock_pfunc, **cfg)
 
         assert 'uni' in kwargs
         assert 'coords' not in kwargs
@@ -165,7 +170,7 @@ def test_UniversePlotCreator(init_kwargs):
     assert psp.volume == 1 * 1 * 1 * 1
     
     for cfg in psp:
-        args, kwargs = upc._prepare_plot_func_args(**cfg)
+        args, kwargs = upc._prepare_plot_func_args(mock_pfunc, **cfg)
         assert kwargs['uni'].name == '151'  # first non-default
     
 
@@ -176,7 +181,7 @@ def test_UniversePlotCreator(init_kwargs):
     assert psp.volume == 1 * 1 * 1 * 1
     
     for cfg in psp:
-        args, kwargs = upc._prepare_plot_func_args(**cfg)
+        args, kwargs = upc._prepare_plot_func_args(mock_pfunc, **cfg)
         # ID is >= first possible ID and smaller than maximum ID
         assert 151 <= int(kwargs['uni'].name) < (3 * 4 * 5 * 6)
 
@@ -224,7 +229,7 @@ def test_UniversePlotCreator_default_only(init_kwargs):
     assert psp is None
     assert upc._without_pspace
 
-    args, kwargs = upc._prepare_plot_func_args(**cfg)
+    args, kwargs = upc._prepare_plot_func_args(mock_pfunc, **cfg)
     assert kwargs['uni'].name == "00"
 
     # 'single'/'first' universe
@@ -232,7 +237,7 @@ def test_UniversePlotCreator_default_only(init_kwargs):
     assert psp is None
     assert upc._without_pspace
 
-    args, kwargs = upc._prepare_plot_func_args(**cfg)
+    args, kwargs = upc._prepare_plot_func_args(mock_pfunc, **cfg)
     assert kwargs['uni'].name == "00"
 
     # Giving a pspace also works
@@ -260,7 +265,7 @@ def test_UniversePlotCreator_default_only(init_kwargs):
     assert psp is None
     assert upc._without_pspace
 
-    args, kwargs = upc._prepare_plot_func_args(**cfg)
+    args, kwargs = upc._prepare_plot_func_args(mock_pfunc, **cfg)
     assert kwargs['uni'].name == "0"
 
     # Should also be able to pass a parameter space additionally
@@ -274,3 +279,32 @@ def test_UniversePlotCreator_default_only(init_kwargs):
     # Fails when trying to do something more fancy, e.g. selecting subspace
     with pytest.raises(ValueError, match="Could not select a universe for"):
         upc.prepare_cfg(plot_cfg=dict(universes=dict(p0=[-1])), pspace=None)
+
+def test_UniversePlotCreator_DAG_usage(init_kwargs):
+    """Tests DAG feature integration into the UniversePlotCreator.
+
+    The integration works completely via the _prepare_plot_func_args, thus it
+    is sufficient to test that dag_options are set properly.
+    """
+    upc = UniversePlotCreator("test_DAG_usage", **init_kwargs)
+
+    # "all" universes
+    _, psp = upc.prepare_cfg(pspace=None,
+                             plot_cfg=dict(universes='all', use_dag=True,
+                                           select=dict(randints='labelled/randints'))
+                             )
+
+    # Now check the plot function arguments are correctly parsed
+    for cfg in psp:
+        assert '_coords' in cfg
+        print("Latest config: ", cfg)
+        args, kwargs = upc._prepare_plot_func_args(mock_pfunc, **cfg)
+
+        assert 'coords' not in kwargs
+        assert '_coords' not in kwargs
+        
+        assert 'uni' in kwargs
+        assert 'data' in kwargs
+
+        assert 'randints' in kwargs['data']
+        assert kwargs['data']['randints'] is kwargs['uni']['labelled/randints']

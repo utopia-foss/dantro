@@ -15,6 +15,8 @@ from paramspace import ParamSpace
 from .pcr_ext import ExternalPlotCreator
 from ..groups import ParamSpaceGroup
 from ..tools import recursive_update
+from ..abc import PATH_JOIN_CHAR
+from ..dag import DAGTag
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -295,22 +297,37 @@ class UniversePlotCreator(ExternalPlotCreator):
         Returns:
             tuple: (args, kwargs) for the plot function
         """
-        # Need to distinguish between cases with or without pspace given
+        # Need to distinguish between cases with or without pspace given. The
+        # aim is to retrieve a Universe ID to use for selection.
         if self._without_pspace:
-            # Only the default universe is available; pass that one
-            uni = self.psgrp[0]
-            return super()._prepare_plot_func_args(*args, **kwargs, uni=uni)
+            # Only the default universe is available, always having ID 0.
+            uni_id = 0
 
-        # else: this is a parameter sweep
-        # Given the coordinates, retrieve the data for a single universe from
-        # the state map. As _coords is created by the _prepare_cfg method, it
-        # can be assumed that it unambiguously selects a universe ID
-        uni_id = int(self._psp_active_smap_cache.sel(**_coords))
+        else:
+            # This is a parameter sweep.
+            # Given the coordinates, retrieve the data for a single universe
+            # from the state map. As _coords is created by the _prepare_cfg
+            # method, it will unambiguously selects a universe ID.
+            uni_id = int(self._psp_active_smap_cache.sel(**_coords))
 
         # Select the corresponding universe from the ParamSpaceGroup
         uni = self.psgrp[uni_id]
         log.note("Using data of:        %s", uni.logstr)
 
+        # Create the parameters for the DAG transformation interface which uses
+        # selections based in the universe group
+        uni_path = self.PSGRP_PATH + PATH_JOIN_CHAR + uni.name
+        base_transform = [dict(getitem=[DAGTag('dm'), uni_path],
+                               tag=uni.name,
+                               file_cache=dict(read=False, write=False))]
+
+        # Get the possibly existing DAG options and update them. If DAG usage
+        # is not enabled, these parameters will be filtered out again.
+        dag_options = kwargs.get('dag_options', {})
+        kwargs['dag_options'] = dict(**dag_options,
+                                     base_transform=base_transform,
+                                     select_base_tag=uni.name)
+
         # Let the parent function, implemented in ExternalPlotCreator, do its
         # thing. This will return the (args, kwargs) tuple
-        return super()._prepare_plot_func_args(*args, **kwargs, uni=uni)
+        return super()._prepare_plot_func_args(*args, uni=uni, **kwargs)

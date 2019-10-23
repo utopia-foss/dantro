@@ -385,8 +385,9 @@ class ExternalPlotCreator(BasePlotCreator):
         # package defined as base package
         return importlib.import_module(module, package=self.BASE_PKG)
 
-    def _prepare_plot_func_args(self, plot_func: Callable, *args,
-                                use_dag: bool, **kwargs) -> Tuple[tuple, dict]:
+    def _prepare_plot_func_args(self, plot_func: Callable,
+                                *args, use_dag: bool=None,
+                                **kwargs) -> Tuple[tuple, dict]:
         """Prepares the args and kwargs passed to the plot function.
         
         The passed args and kwargs are carried over, while the positional
@@ -435,13 +436,13 @@ class ExternalPlotCreator(BasePlotCreator):
 
         return use_dag
     
-    def _prepare_dag_params(self, *, _plot_func: Callable,
-                            **cfg) -> Tuple[dict, dict]:
+    def _get_dag_params(self, *, _plot_func: Callable,
+                        **cfg) -> Tuple[dict, dict]:
         """Extends the parent method by making the plot function callable
         available to the other helper methods and extracting some further
         information from the plot function.
         """
-        dag_params, plot_kwargs = super()._prepare_dag_params(**cfg)
+        dag_params, plot_kwargs = super()._get_dag_params(**cfg)
 
         # Store the plot function, such that it is available as argument in the
         # other subclassed helper methods
