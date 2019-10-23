@@ -432,8 +432,8 @@ class ExternalPlotCreator(BasePlotCreator):
         information from the plot function.
         """
         dag_params, plot_cfg = super()._prepare_dag_params(**plot_cfg)
-        dag_params['init']['_plot_func'] = plot_func
-        dag_params['compute']['_plot_func'] = plot_func
+        dag_params['init']['_plot_func'] = _plot_func
+        dag_params['compute']['_plot_func'] = _plot_func
 
         pass_dag = getattr(_plot_func, 'pass_dag_object_along', False)
         dag_params['pass_dag_object_along'] = pass_dag
