@@ -517,8 +517,8 @@ class TransformationDAG:
     def __init__(self, *, dm: 'DataManager',
                  select: dict=None, transform: Sequence[dict]=None,
                  cache_dir: str='.cache', file_cache_defaults: dict=None,
-                 select_from: Sequence[Transformation]=None,
-                 select_base_tag: str=None):
+                 base_transform: Sequence[Transformation]=None,
+                 select_base_tag: str='dm'):
         """Initialize a DAG which is associated with a DataManager and load the
         specified transformations configuration into it.
         
@@ -526,7 +526,7 @@ class TransformationDAG:
             dm (DataManager): The associated data manager
             select (dict, optional): Selection specifications, which are
                 translated into regular transformations based on ``getitem``
-                operations. The ``select_from`` and ``select_base_tag``
+                operations. The ``base_transform`` and ``select_base_tag``
                 arguments can be used to define from which object to select.
                 By default, selection happens from the associated DataManager.
             transform (Sequence[dict], optional): Transform specifications.
@@ -539,12 +539,11 @@ class TransformationDAG:
                 caching behaviour. This is recursively updated with the
                 arguments given in each individual select or transform
                 specification.
-            select_from (Sequence[Transformation], optional): A sequence of
+            base_transform (Sequence[Transformation], optional): A sequence of
                 transform specifications that are added to the DAG prior to
                 those added via ``select`` and ``transform``. These can be used
-                to select some other object from the data manager which should
-                be used as the basis of ``select`` operations. Note that the
-                ``select_base_tag`` argument need also be set.
+                to create some other object from the data manager which should
+                be used as the basis of ``select`` operations.
             select_base_tag (str, optional): Which tag to base the ``select``
                 operations on. If not given, will use the (always-registered)
                 tag for the data manager, ``dm``.
@@ -567,32 +566,18 @@ class TransformationDAG:
         # NOTE The data manager is NOT a node of the DAG, but more like an
         #      external data source, thus being accessible only as a tag
 
-        # Handle the selection base object
-        if select_from is None:
-            # Use the DataManager as selection base
-            self._select_base_tag = 'dm'
+        # Handle base transformations
+        self._trfs_base = self._add_base_trfs(base_transform)
 
-        else:
-            if not select_base_tag:
-                raise ValueError("Missing `select_base_tag` argument, which "
-                                 "is required when `select_from` argument is "
-                                 "given.")
-
-            # Parse the DAG syntax and create nodes from it
-            for sel_base_params in select_from:
-                sel_base_params = copy.deepcopy(sel_base_params)
-                sel_base_params = _parse_dag_minimal_syntax(sel_base_params)
-                sel_base_params = _parse_dag_syntax(**sel_base_params)
-                self.add_node(**sel_base_params)
-
-            # Check if the tag is available prior to setting that attribute
-            if select_base_tag not in self.tags:
-                raise KeyError("The tag that was chosen for the basis of "
-                               "select operations, '{}', is not available! "
-                               "Check the `select_from` and `select_base_tag` "
-                               "arguments to make sure that the tag is set."
-                               "".format(select_base_tag))
-            self._select_base_tag = select_base_tag
+        # Set the selection base tag, making sure it's available
+        if select_base_tag not in self.tags:
+            raise KeyError("The tag that was chosen for the basis of "
+                           "select operations, '{}', is not available! "
+                           "Check the `base_transform` and `select_base_tag` "
+                           "arguments to make sure that the tag is created. "
+                           "Available tags: {}"
+                           "".format(select_base_tag, ", ".join(self.tags)))
+        self._select_base_tag = select_base_tag
 
         # With the selection base tag now set, parse transformation specs; this
         # merely _parses_ the parameters! Building happens in the next step.
@@ -665,6 +650,23 @@ class TransformationDAG:
         return info
 
     # .........................................................................
+
+    def _add_base_trfs(self, base_transform: Sequence[dict]) -> Sequence[dict]:
+        """Parse and add base transformations"""
+        if not base_transform:
+            return []
+        
+        # Parse the DAG syntax
+        base_transform = copy.deepcopy(base_transform)
+        base_transform = [_parse_dag_syntax(**_parse_dag_minimal_syntax(spec))
+                          for spec in base_transform]
+
+        # Add nodes
+        for btrf_params in base_transform:
+            self.add_node(**btrf_params)
+
+        # Return the parsed dict
+        return base_transform
 
     def _parse_trfs(self, *, select: dict,
                     transform: Sequence[dict]) -> Sequence[dict]:

@@ -72,7 +72,7 @@ shorthand_select:
 # Custom selection base -------------------------------------------------------
 custom_selection_base:
   params:
-    select_from:
+    base_transform:
       - getitem: [!dag_tag dm, some/path]
         tag: some_path
     select_base_tag: some_path
@@ -97,19 +97,9 @@ custom_selection_base:
     results:
       <<: *results_explicit_select
 
-custom_selection_base_error_no_tag_arg:
-  params:
-    select_from:
-      - getitem: [!dag_tag dm, some/path]
-        tag: some_path
-    # select_base_tag: ...  # missing
-
-  _raises: ValueError
-  _match: Missing `select_base_tag` argument, which is required when `select
-
 custom_selection_base_error_base_tag_not_found:
   params:
-    select_from:
+    base_transform:
       - getitem: [!dag_tag dm, some/path]
     select_base_tag: some_path
 
