@@ -951,6 +951,10 @@ class TransformationDAG:
                      target_path=DAG_CACHE_DM_PATH + "/{basename:}",
                      required=True,
                      **load_kwargs)
+        # NOTE If a file was already loaded from the cache, it will not be
+        #      loaded again. Thus, the DataManager acts as a persistent
+        #      storage for loaded cache files. Consequently, these are shared
+        #      among all TransformationDAG objects.
         
         # Retrieve from the DataManager
         res = self.dm[DAG_CACHE_DM_PATH][trf_hash]

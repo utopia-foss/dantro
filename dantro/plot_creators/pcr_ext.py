@@ -457,13 +457,23 @@ class ExternalPlotCreator(BasePlotCreator):
 
     def _create_dag(self, *, _plot_func: Callable,
                     **dag_params) -> TransformationDAG:
-        """Extends the parent method by checking that all tags required by the
-        plot function are defined in the DAG.
+        """Extends the parent method by allowing to pass the _plot_func, which
+        can be used to adjust DAG behaviour ...
         """
-        dag = super()._create_dag(**dag_params)
+        return super()._create_dag(**dag_params)
 
-        # Make sure that all required tags are defined
+    def _compute_dag(self, dag: TransformationDAG, *, _plot_func: Callable,
+                     **compute_kwargs) -> dict:
+        """Compute the dag results.
+
+        This extends the parent method by additionally checking whether all
+        required tags are defined and (after computation) whether all required
+        tags were computed.
+        """
+        # Extract the required tags from the plot function
         required_tags = getattr(_plot_func, 'required_dag_tags', None)
+
+        # Make sure that all required tags are actually defined
         if required_tags:
             missing_tags = [t for t in required_tags if t not in dag.tags]
 
@@ -476,15 +486,13 @@ class ExternalPlotCreator(BasePlotCreator):
                                            ", ".join(missing_tags),
                                            ", ".join(dag.tags)))
 
-        return dag
+        # TODO Check the `compute_only` argument here, rather than after the
+        #      computation, which might take quite some time ...
 
-    def _compute_dag(self, dag: TransformationDAG, *, _plot_func: Callable,
-                     **compute_kwargs) -> dict:
-        """Compute the dag results"""
+        # Now, compute, using the parent method
         dag_results = super()._compute_dag(dag, **compute_kwargs)
 
         # Make sure that the results contain all the required tags
-        required_tags = getattr(_plot_func, 'required_dag_tags', None)
         if required_tags:
             missing_tags = [t for t in required_tags if t not in dag_results]
 

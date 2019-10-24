@@ -5,7 +5,7 @@ stored in a ParamSpaceGroup.
 
 import copy
 import logging
-from typing import Union, Tuple
+from typing import Union, Tuple, Callable, Sequence
 
 import numpy as np
 import xarray as xr
@@ -16,7 +16,7 @@ from .pcr_ext import ExternalPlotCreator
 from ..groups import ParamSpaceGroup
 from ..tools import recursive_update
 from ..abc import PATH_JOIN_CHAR
-from ..dag import DAGTag
+from ..dag import TransformationDAG, DAGTag
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -89,12 +89,14 @@ class MultiversePlotCreator(ExternalPlotCreator):
         """
         # Distinguish between the new DAG-based selection interface and the
         # old (and soon-to-be-deprecated) 
+        # TODO make this more elegant
         if select and not select_and_combine:
             # Select multiverse data via the ParamSpaceGroup
             kwargs['mv_data'] = self.psgrp.select(**select)
 
         elif select_and_combine and not select:
-            raise NotImplementedError('select_and_combine')
+            # Pass the select_and_combine argument along
+            kwargs['select_and_combine'] = select_and_combine
 
         else:
             raise TypeError("Expected only one of the arguments `select` and "
@@ -102,6 +104,36 @@ class MultiversePlotCreator(ExternalPlotCreator):
 
         # Let the parent method (from ExternalPlotCreator) do its thing.
         return super()._prepare_plot_func_args(*args, **kwargs)
+
+    # .........................................................................
+    # DAG specialization
+
+    def _get_dag_params(self, *, select_and_combine: dict=None,
+                        **cfg) -> Tuple[dict, dict]:
+        """Extends the parent method by..."""
+        dag_params,plot_kwargs = super()._get_dag_params(**cfg)
+
+        # Additionally, store the `select_and_combine` argument
+        dag_params['init']['select_and_combine'] = select_and_combine
+
+        return dag_params, plot_kwargs
+
+    def _create_dag(self, *, _plot_func: Callable,
+                    select_and_combine: dict,
+                    select: dict=None, transform: Sequence[dict]=None,
+                    **dag_init_params) -> TransformationDAG:
+        """Extends the parent method by ...
+        """
+        # Initialize an (empty) DAG
+        dag = super()._create_dag(**dag_init_params)
+
+        # Dynamically add nodes ...
+        # TODO
+
+        # Now actually add the additional transformations
+        dag.add_nodes(select=select, transform=transform)
+        
+        return dag
 
 
 # -----------------------------------------------------------------------------
