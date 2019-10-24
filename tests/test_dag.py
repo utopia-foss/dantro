@@ -316,6 +316,17 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
         assert tdag.cache_dir == cache_dir
         assert isinstance(tdag.cache_files, dict)
 
+        # Check the select_base property getter and setter
+        tdag.select_base = 'dm'
+        assert tdag.select_base == dag.DAGReference(tdag.tags['dm'])
+
+        tdag.select_base = dag.DAGReference(tdag.tags['dm'])
+        assert tdag.select_base == dag.DAGReference(tdag.tags['dm'])
+
+        with pytest.raises(KeyError, match="cannot be the basis of"):
+            tdag.select_base = "some_invalid_tag"
+
+
         # Compare with expected tree structure and tags etc.
         if expected.get('num_nodes'):
             assert expected['num_nodes'] == len(tdag.nodes)

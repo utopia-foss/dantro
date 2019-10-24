@@ -75,7 +75,7 @@ custom_selection_base:
     base_transform:
       - getitem: [!dag_tag dm, some/path]
         tag: some_path
-    select_base_tag: some_path
+    select_base: some_path
     select:
       foo: foo
       bar:
@@ -101,7 +101,7 @@ custom_selection_base_error_base_tag_not_found:
   params:
     base_transform:
       - getitem: [!dag_tag dm, some/path]
-    select_base_tag: some_path
+    select_base: some_path
 
   _raises: KeyError
   _match: "The tag 'some_path' cannot be the basis of future select operations because it is not available! .* Available tags: dm"
@@ -634,7 +634,7 @@ file_cache_error_attempting_dm_select_cache:
     transform: ~
 
   _raises: ValueError
-  _match: For selection from the selection base, tagged 'dm', the file cache
+  _match: For selection from the selection base, the file cache is always disabled.
 
 
 file_cache_error_writing_groups:

@@ -518,7 +518,7 @@ class TransformationDAG:
                  select: dict=None, transform: Sequence[dict]=None,
                  cache_dir: str='.cache', file_cache_defaults: dict=None,
                  base_transform: Sequence[Transformation]=None,
-                 select_base_tag: str='dm'):
+                 select_base: Union[DAGReference, str]='dm'):
         """Initialize a DAG which is associated with a DataManager and load the
         specified transformations configuration into it.
         
@@ -526,7 +526,7 @@ class TransformationDAG:
             dm (DataManager): The associated data manager
             select (dict, optional): Selection specifications, which are
                 translated into regular transformations based on ``getitem``
-                operations. The ``base_transform`` and ``select_base_tag``
+                operations. The ``base_transform`` and ``select_base``
                 arguments can be used to define from which object to select.
                 By default, selection happens from the associated DataManager.
             transform (Sequence[dict], optional): Transform specifications.
@@ -544,7 +544,7 @@ class TransformationDAG:
                 those added via ``select`` and ``transform``. These can be used
                 to create some other object from the data manager which should
                 be used as the basis of ``select`` operations.
-            select_base_tag (str, optional): Which tag to base the ``select``
+            select_base (str, optional): Which tag to base the ``select``
                 operations on. If not given, will use the (always-registered)
                 tag for the data manager, ``dm``.
         """
@@ -553,7 +553,7 @@ class TransformationDAG:
         self._tags = dict()
         self._nodes = list()
         self._fc_opts = file_cache_defaults if file_cache_defaults else {}
-        self._select_base_tag = None
+        self._select_base = None
         
         # Determine cache directory path; relative path interpreted as relative
         # to the DataManager's data directory
@@ -571,7 +571,7 @@ class TransformationDAG:
         self.add_nodes(transform=base_transform)
 
         # Set the selection base tag; the property setter checks availability
-        self.select_base_tag = select_base_tag
+        self.select_base = select_base
 
         # Now add nodes via the main arguments; these can now make use of the
         # select interface, because a select base tag is set and base transform
@@ -641,20 +641,38 @@ class TransformationDAG:
         return info
 
     @property
-    def select_base_tag(self):
-        return self._select_base_tag
+    def select_base(self) -> DAGReference:
+        """The reference to the object that is used for select operations"""
+        return self._select_base
 
-    @select_base_tag.setter
-    def select_base_tag(self, new_tag: str):
-        if new_tag not in self.tags:
+    @select_base.setter
+    def select_base(self, new_base: Union[DAGReference, str]):
+        """Set the reference that is to be used as the base of select
+        operations. It can either be a reference object or a string, which is
+        then interpreted as a tag.
+        """
+        # Distinguish by type. If it's not a DAGReference, assume it's a tag
+        if isinstance(new_base, DAGReference):
+            # Make sure it is a proper DAGReference object (which stores a
+            # hash), and not an object of a derived class.
+            new_base = new_base.convert_to_ref(dag=self)
+
+        elif new_base not in self.tags:
             raise KeyError("The tag '{}' cannot be the basis of future select "
                            "operations because it is not available! Make sure "
                            "that a node with that tag is added prior to the "
-                           "attempt of setting it. Available tags: {}"
-                           "".format(new_tag, ", ".join(self.tags)))
+                           "attempt of setting it. Available tags: {}. "
+                           "Alternatively, pass a DAGReference object."
+                           "".format(new_base, ", ".join(self.tags)))
 
-        self._select_base_tag = new_tag
-    
+        else:
+            # Tag is available. Create a DAGReference via DAGTag conversion
+            log.debug("Setting select_base to tag '%s' ...", new_base)
+            new_base = DAGTag(new_base).convert_to_ref(dag=self)
+
+        # Have a DAGReference now. Store it.
+        self._select_base = new_base
+
     # .........................................................................
 
     def add_node(self, *, operation: str, args: list=None, kwargs: dict=None,
@@ -734,13 +752,15 @@ class TransformationDAG:
         Args:
             select (dict, optional): Selection specifications, which are
                 translated into regular transformations based on ``getitem``
-                operations. The ``base_transform`` and ``select_base_tag``
+                operations. The ``base_transform`` and ``select_base``
                 arguments can be used to define from which object to select.
                 By default, selection happens from the associated DataManager.
             transform (Sequence[dict], optional): Transform specifications.
         """
         # Parse the arguments and add multiple nodes from those specs
         specs = self._parse_trfs(select=select, transform=transform)
+        if not specs:
+            return
 
         log.debug("Adding %d node(s) ...", len(specs))
         
@@ -819,7 +839,7 @@ class TransformationDAG:
         # First, parse the ``select`` argument. This contains a basic operation
         # to select data from the selection base (e.g. the DataManager) and
         # also allows to perform some operations on it.
-        for field_name, params in sorted(select.items()):
+        for tag, params in sorted(select.items()):
             if isinstance(params, str):
                 path = params
                 with_previous_result = False
@@ -834,22 +854,22 @@ class TransformationDAG:
 
                 if 'file_cache' in params:
                     raise ValueError("For selection from the selection base, "
-                                     "tagged '{}', the file cache is always "
-                                     "disabled. Please remove the file_cache "
-                                     "argument."
-                                     "".format(self._select_base_tag))
+                                     "the file cache is always disabled! "
+                                     "The `file_cache` argument is thus not "
+                                     "allowed; remove it from the selection "
+                                     "for tag '{}'.".format(tag))
 
             else:
                 raise TypeError("Invalid type for '{}' entry within `select` "
                                 "argument! Got {} but expected string or dict."
-                                "".format(field_name, type(params)))
+                                "".format(tag, type(params)))
 
             # Construct parameters to select from the selection base.
             # Only assign a tag if there are no further transformations;
             # otherwise, the last additional transformation should set the tag.
             sel_trf = dict(operation='getitem',
-                           tag=field_name if not more_trfs else None,
-                           args=[DAGTag(self.select_base_tag), path],
+                           tag=tag if not more_trfs else None,
+                           args=[self.select_base, path],
                            kwargs=dict(),
                            file_cache=dict(read=False, write=False))
             
@@ -883,10 +903,10 @@ class TransformationDAG:
                                          "operation within a select routine "
                                          "cannot be set manually. Check the "
                                          "parameters for selection of tag "
-                                         "'{}'.".format(field_name))
+                                         "'{}'.".format(tag))
                     
                     # Set it to the field name
-                    trf_params['tag'] = field_name
+                    trf_params['tag'] = tag
 
                 # Done, can append it now
                 trfs.append(trf_params)
