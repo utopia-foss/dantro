@@ -284,6 +284,72 @@ select_with_transform:
       tag: foo
 
 
+simple_select_omit_tag:
+  params:
+    select:
+      foo:
+        path: some/path/foo
+        omit_tag: true
+      bar:
+        path: some/path/bar
+        omit_tag: true
+        transform:
+          - operation: some_operation
+            with_previous_result: true
+            args:
+              - abc
+      baz:
+        path: some/path/baz
+        omit_tag: true
+        transform:
+          - operation: some_operation
+            with_previous_result: true
+            args:
+              - spam
+            tag: there_is_a_tag_here
+    transform: ~
+
+  expected:
+    - operation: getitem
+      args:
+        - *ref_dm
+        - some/path/bar
+      kwargs: {}
+      tag: ~
+      file_cache:
+        write: false
+        read: false
+    - operation: some_operation
+      args:
+        - !dag_node -1
+        - abc
+      kwargs: {}
+      tag: ~
+    - operation: getitem
+      args:
+        - *ref_dm
+        - some/path/baz
+      kwargs: {}
+      tag: ~
+      file_cache:
+        write: false
+        read: false
+    - operation: some_operation
+      args:
+        - !dag_node -1
+        - spam
+      kwargs: {}
+      tag: there_is_a_tag_here
+    - operation: getitem
+      args:
+        - *ref_dm
+        - some/path/foo
+      kwargs: {}
+      tag: ~
+      file_cache:
+        write: false
+        read: false
+
 select_error_bad_type:
   params:
     select:

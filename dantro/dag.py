@@ -845,12 +845,14 @@ class TransformationDAG:
                 with_previous_result = False
                 more_trfs = None
                 salt = None
+                omit_tag = False
 
             elif isinstance(params, dict):
                 path = params['path']
                 with_previous_result = params.get('with_previous_result',False)
                 more_trfs = params.get('transform')
                 salt = params.get('salt')
+                omit_tag = params.get('omit_tag', False)
 
                 if 'file_cache' in params:
                     raise ValueError("For selection from the selection base, "
@@ -868,7 +870,7 @@ class TransformationDAG:
             # Only assign a tag if there are no further transformations;
             # otherwise, the last additional transformation should set the tag.
             sel_trf = dict(operation='getitem',
-                           tag=tag if not more_trfs else None,
+                           tag=None if (more_trfs or omit_tag) else tag,
                            args=[self.select_base, path],
                            kwargs=dict(),
                            file_cache=dict(read=False, write=False))
@@ -886,29 +888,30 @@ class TransformationDAG:
 
             # else: there are additional transformations to be parsed and added
             for i, trf_params in enumerate(more_trfs):
-                # Parse it
                 trf_params = _parse_dag_minimal_syntax(trf_params)
 
+                # Might have to use the previous result ...
                 if 'with_previous_result' not in trf_params:
                     trf_params['with_previous_result'] = with_previous_result
                 
+                # Can now parse the regular syntax
                 trf_params = _parse_dag_syntax(**trf_params)
 
-                # On the last transformation for the selected tag, need to set
-                # the tag to the specified field name. This is to avoid
-                # confusion about the result of the select operation.
-                if i+1 == len(more_trfs):
+                # If the tag is not to be omitted, the last transformation for
+                # the selected tag needs to set the tag.
+                if i+1 == len(more_trfs) and not omit_tag:
                     if trf_params.get('tag'):
                         raise ValueError("The tag of the last transform "
                                          "operation within a select routine "
                                          "cannot be set manually. Check the "
                                          "parameters for selection of tag "
                                          "'{}'.".format(tag))
+                        # TODO Could actually allow multiple tags here ...
                     
-                    # Set it to the field name
+                    # Add the tag to the parameters
                     trf_params['tag'] = tag
 
-                # Done, can append it now
+                # Can append it now
                 trfs.append(trf_params)
 
         # Now, parse the normal `transform` argument. The operations defined
