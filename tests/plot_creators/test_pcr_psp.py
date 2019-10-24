@@ -39,7 +39,8 @@ def mock_pfunc(*_, **__):
     """... does nothing"""
     pass
 
-# Tests -----------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# MultiversePlotCreator -------------------------------------------------------
 
 def test_MultiversePlotCreator(init_kwargs, psp_grp_default, tmpdir):
     """Assert the MultiversePlotCreator behaves correctly"""
@@ -88,6 +89,9 @@ def test_MultiversePlotCreator(init_kwargs, psp_grp_default, tmpdir):
     args, kwargs = mpcd._prepare_plot_func_args(mock_pfunc, select=selector)
     assert 'mv_data' in kwargs
 
+
+# -----------------------------------------------------------------------------
+# UniversePlotCreator ---------------------------------------------------------
 
 def test_UniversePlotCreator(init_kwargs):
     """Assert the UniversePlotCreator behaves correctly"""
@@ -298,6 +302,9 @@ def test_UniversePlotCreator_DAG_usage(init_kwargs):
     for cfg in psp:
         assert '_coords' in cfg
         print("Latest config: ", cfg)
+
+        # The specialized _prepare_plot_func_args should take care to create
+        # the correct DAG and universe
         args, kwargs = upc._prepare_plot_func_args(mock_pfunc, **cfg)
 
         assert 'coords' not in kwargs
@@ -306,5 +313,7 @@ def test_UniversePlotCreator_DAG_usage(init_kwargs):
         assert 'uni' in kwargs
         assert 'data' in kwargs
 
+        # The data selected by the DAG is the same that can also be selected
+        # via the ParamSpaceStateGroup:
         assert 'randints' in kwargs['data']
         assert kwargs['data']['randints'] is kwargs['uni']['labelled/randints']

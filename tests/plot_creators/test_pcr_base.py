@@ -110,7 +110,7 @@ def test_data_selection_interface(init_kwargs, tmpdir):
     params5 = dict(**params3,
                    dag_options=dict(file_cache_defaults=dict(write=False,
                                                              read=True),
-                                    select_base_tag='nonexisting'))
+                                    select_base='nonexisting'))
 
     # Disabled DAG usage -> parameters should be passed through
     ds0 = mpc._perform_data_selection(use_dag=False, plot_kwargs=params0)
@@ -149,5 +149,5 @@ def test_data_selection_interface(init_kwargs, tmpdir):
     # It's possible to pass parameters through to TransformationDAG. If they
     # are bad, it will fail
     with pytest.raises(KeyError,
-                       match="The tag that was chosen for the basis of selec"):
+                       match="cannot be the basis of future select operation"):
         mpc._perform_data_selection(use_dag=True, plot_kwargs=params5)

@@ -5,7 +5,7 @@ stored in a ParamSpaceGroup.
 
 import copy
 import logging
-from typing import Union
+from typing import Union, Tuple
 
 import numpy as np
 import xarray as xr
@@ -27,7 +27,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
     """A MultiversePlotCreator is an ExternalPlotCreator that allows data to be
     selected before being passed to the plot function.
     """
-    # Where the `ParamSpaceGroup` object is expected within the data manager
+    # Where the ``ParamSpaceGroup`` object is expected within the data manager
     PSGRP_PATH = None
 
     # Configure the auto-detection feature implemented in ExternalPlotCreator:
@@ -56,25 +56,52 @@ class MultiversePlotCreator(ExternalPlotCreator):
         # Retrieve the parameter space group
         return self.dm[self.PSGRP_PATH]
 
-    def _prepare_plot_func_args(self, *args, select: dict, **kwargs) -> tuple:
-        """Prepares the arguments for the plot function and implements the
-        select functionality for multiverse data.
+    def _prepare_plot_func_args(self, *args,
+                                select: dict=None,
+                                select_and_combine: dict=None,
+                                **kwargs) -> Tuple[tuple, dict]:
+        """Prepares the arguments for the plot function.
+        
+        This also implements the functionality to select and combine data from
+        the Multiverse and provide it to the plot function.
         
         Args:
-            *args: Passed along to parent method
-            select (dict): Which data to select from the multiverse
-            **kwargs: Passed along to parent method
+            *args: Positional arguments to the plot function.
+            select (dict, optional): If given, selects and combines multiverse
+                data using :py:meth:`~dantro.groups.ParamSpaceGroup.select`.
+                The result is an ``xr.Dataset`` and it is made available to
+                the plot function as ``mv_data`` argument.
+            select_and_combine (dict, optional): Interfaces with the DAG to
+                select, transform, and combine data from the multiverse via
+                the DAG.
+            **kwargs: Keyword arguments for the plot function. If DAG usage is
+                enabled, these contain further arguments like ``transform``
+                that are filtered out accordingly.
         
         Returns:
-            tuple: The (args, kwargs) tuple for calling the plot function
+            Tuple[tuple, dict]: The (args, kwargs) tuple for calling the plot
+                function. These now include either the DAG results or the
+                additional ``mv_data`` key.
+        
+        Raises:
+            NotImplementedError: Description
+            TypeError: Description
         """
-        # Select the multiverse data
-        mv_data = self.psgrp.select(**select)
+        # Distinguish between the new DAG-based selection interface and the
+        # old (and soon-to-be-deprecated) 
+        if select and not select_and_combine:
+            # Select multiverse data via the ParamSpaceGroup
+            kwargs['mv_data'] = self.psgrp.select(**select)
 
-        # Let the parent function, implemented in ExternalPlotCreator, do its
-        # thing. This will return the (args, kwargs) tuple
-        return super()._prepare_plot_func_args(*args, **kwargs,
-                                               mv_data=mv_data)
+        elif select_and_combine and not select:
+            raise NotImplementedError('select_and_combine')
+
+        else:
+            raise TypeError("Expected only one of the arguments `select` and "
+                            "`select_and_combine`, got both or neither!")
+
+        # Let the parent method (from ExternalPlotCreator) do its thing.
+        return super()._prepare_plot_func_args(*args, **kwargs)
 
 
 # -----------------------------------------------------------------------------
@@ -119,8 +146,8 @@ class UniversePlotCreator(ExternalPlotCreator):
         # Retrieve the parameter space group
         return self.dm[self.PSGRP_PATH]
 
-    def prepare_cfg(self, *,
-                    plot_cfg: dict, pspace: Union[dict, ParamSpace]) -> tuple:
+    def prepare_cfg(self, *, plot_cfg: dict, pspace: Union[dict, ParamSpace]
+                    ) -> Tuple[dict, ParamSpace]:
         """Converts a regular plot configuration to one that can be configured
         to iterate over multiple universes via a parameter space.
 
@@ -281,8 +308,8 @@ class UniversePlotCreator(ExternalPlotCreator):
         # in there now.
         return {}, mpc
 
-    def _prepare_plot_func_args(self, *args,
-                                _coords: dict=None, **kwargs) -> tuple:
+    def _prepare_plot_func_args(self, *args, _coords: dict=None,
+                                **kwargs) -> Tuple[tuple, dict]:
         """Prepares the arguments for the plot function and implements the
         special arguments required for ParamSpaceGroup-like data: selection of
         a single universe from the given coordinates.
@@ -313,20 +340,20 @@ class UniversePlotCreator(ExternalPlotCreator):
         # Select the corresponding universe from the ParamSpaceGroup
         uni = self.psgrp[uni_id]
         log.note("Using data of:        %s", uni.logstr)
+        uni_name = "uni{:d}".format(uni_id)
 
         # Create the parameters for the DAG transformation interface which uses
         # selections based in the universe group
         uni_path = self.PSGRP_PATH + PATH_JOIN_CHAR + uni.name
         base_transform = [dict(getitem=[DAGTag('dm'), uni_path],
-                               tag=uni.name,
+                               tag=uni_name,
                                file_cache=dict(read=False, write=False))]
 
-        # Get the possibly existing DAG options and update them. If DAG usage
-        # is not enabled, these parameters will be filtered out again.
-        dag_options = kwargs.get('dag_options', {})
-        kwargs['dag_options'] = dict(**dag_options,
+        # Compile the DAG options dict, based on potentially existing options
+        kwargs['dag_options'] = dict(**kwargs.get('dag_options', {}),
                                      base_transform=base_transform,
-                                     select_base_tag=uni.name)
+                                     select_base=uni_name)
+        # NOTE If DAG usage is not enabled, these parameters have no effect
 
         # Let the parent function, implemented in ExternalPlotCreator, do its
         # thing. This will return the (args, kwargs) tuple

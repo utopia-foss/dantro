@@ -415,6 +415,25 @@ class ExternalPlotCreator(BasePlotCreator):
     # .........................................................................
     # Helpers: specialization of data selection and transformation framework
 
+    def _get_dag_params(self, *, _plot_func: Callable,
+                        **cfg) -> Tuple[dict, dict]:
+        """Extends the parent method by making the plot function callable
+        available to the other helper methods and extracting some further
+        information from the plot function.
+        """
+        dag_params, plot_kwargs = super()._get_dag_params(**cfg)
+
+        # Store the plot function, such that it is available as argument in the
+        # other subclassed helper methods
+        dag_params['init']['_plot_func'] = _plot_func
+        dag_params['compute']['_plot_func'] = _plot_func
+
+        # Determine whether the DAG object should be passed along to the func
+        pass_dag = getattr(_plot_func, 'pass_dag_object_along', False)
+        dag_params['pass_dag_object_along'] = pass_dag
+
+        return dag_params, plot_kwargs
+
     def _use_dag(self, *, use_dag: bool, plot_kwargs: dict,
                  _plot_func: Callable) -> bool:
         """Whether the DAG should be used or not. This method extends that of
@@ -435,25 +454,6 @@ class ExternalPlotCreator(BasePlotCreator):
                              "".format(_plot_func))
 
         return use_dag
-    
-    def _get_dag_params(self, *, _plot_func: Callable,
-                        **cfg) -> Tuple[dict, dict]:
-        """Extends the parent method by making the plot function callable
-        available to the other helper methods and extracting some further
-        information from the plot function.
-        """
-        dag_params, plot_kwargs = super()._get_dag_params(**cfg)
-
-        # Store the plot function, such that it is available as argument in the
-        # other subclassed helper methods
-        dag_params['init']['_plot_func'] = _plot_func
-        dag_params['compute']['_plot_func'] = _plot_func
-
-        # Determine whether the DAG object should be passed along to the func
-        pass_dag = getattr(_plot_func, 'pass_dag_object_along', False)
-        dag_params['pass_dag_object_along'] = pass_dag
-
-        return dag_params, plot_kwargs
 
     def _create_dag(self, *, _plot_func: Callable,
                     **dag_params) -> TransformationDAG:
@@ -516,7 +516,8 @@ class ExternalPlotCreator(BasePlotCreator):
 
         .. note::
 
-            This behaviour is different than in the parent class.
+            This behaviour is different than in the parent class, where the
+            DAG results are passed on as ``dag_results``.
 
         """
         # Make the DAG results available as `data` kwarg

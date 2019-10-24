@@ -197,8 +197,8 @@ class BasePlotCreator(AbstractPlotCreator):
         """
         return self.default_ext
 
-    def prepare_cfg(self, *, plot_cfg: dict,
-                    pspace: Union[ParamSpace, dict]) -> tuple:
+    def prepare_cfg(self, *, plot_cfg: dict, pspace: Union[ParamSpace, dict]
+                    ) -> Tuple[dict, ParamSpace]:
         """Prepares the plot configuration for the PlotManager.
 
         This function is called by the plot manager before the first plot
@@ -285,7 +285,8 @@ class BasePlotCreator(AbstractPlotCreator):
         Deleted Parameters:
             **cfg: The full plot configuration, including DAG-related arguments
         """
-        # Extract DAG-related parameters from the 
+        # Extract DAG-related parameters from the plot configuration. These are
+        # not available in the plotting function.
         dag_params, plot_kwargs = self._get_dag_params(**plot_kwargs,
                                                        **shared_kwargs)
 
@@ -305,28 +306,11 @@ class BasePlotCreator(AbstractPlotCreator):
                                                       dag_params=dag_params,
                                                       plot_kwargs=plot_kwargs)
 
-    def _use_dag(self, *, use_dag: bool, plot_kwargs: dict, **_) -> bool:
-        """Whether the data transformation framework should be used.
-        
-        Args:
-            use_dag (bool): The value from the plot configuration
-            plot_kwargs (dict): The plot configuration
-            **_: Any further kwargs that can be used to assess whether the DAG
-                should be used or not. Ignored here.
-        
-        Deleted Parameters:
-            **plot_kwargs: The remaining plot configuration; ignored here
-        
-        Returns:
-            bool: Whether the DAG should be used or not
-        """
-        return (use_dag if use_dag is not None else False)
-
     def _get_dag_params(self, *,
-                            select: dict=None, transform: Sequence[dict]=None,
-                            compute_only: Sequence[str]=None,
-                            dag_options: dict=None,
-                            **plot_kwargs) -> Tuple[dict, dict]:
+                        select: dict=None, transform: Sequence[dict]=None,
+                        compute_only: Sequence[str]=None,
+                        dag_options: dict=None,
+                        **plot_kwargs) -> Tuple[dict, dict]:
         """Filters out parameters needed for DAG initialization and compute
         
         Args:
@@ -346,12 +330,29 @@ class BasePlotCreator(AbstractPlotCreator):
         # Options. Only add those, if available
         if dag_options:
             keys_to_transfer = ('file_cache_defaults', 'cache_dir',
-                                'base_transform', 'select_base_tag')
+                                'base_transform', 'select_base')
             for k in keys_to_transfer:
                 if k in dag_options:
                     init_kwargs[k] = dag_options[k]
 
         return dict(init=init_kwargs, compute=compute_kwargs), plot_kwargs
+
+    def _use_dag(self, *, use_dag: bool, plot_kwargs: dict, **_) -> bool:
+        """Whether the data transformation framework should be used.
+        
+        Args:
+            use_dag (bool): The value from the plot configuration
+            plot_kwargs (dict): The plot configuration
+            **_: Any further kwargs that can be used to assess whether the DAG
+                should be used or not. Ignored here.
+        
+        Deleted Parameters:
+            **plot_kwargs: The remaining plot configuration; ignored here
+        
+        Returns:
+            bool: Whether the DAG should be used or not
+        """
+        return (use_dag if use_dag is not None else False)
 
     def _create_dag(self, **dag_params) -> TransformationDAG:
         """Creates the actual DAG object"""
