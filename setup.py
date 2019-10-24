@@ -10,7 +10,7 @@ install_deps = [
     'toolz>=0.10.0',      # Needed for dask.delayed
     'distributed>=2.5.2', # Needed for dask's distributed scheduler
     'h5py>=2.7.0',
-    'netcdf4>=1.5.2',     # Needed for saving xr.Datasets
+    'netcdf4==1.5.2',     # Needed for saving xr.Datasets  # FIXME remove bound
     'networkx>=2.2',
     'ruamel.yaml>=0.16.5',
     'matplotlib>=3.1.0',
