@@ -104,7 +104,7 @@ custom_selection_base_error_base_tag_not_found:
     select_base_tag: some_path
 
   _raises: KeyError
-  _match: The tag that was chosen for the basis of select operations, 'some_path', is not available!
+  _match: "The tag 'some_path' cannot be the basis of future select operations because it is not available! .* Available tags: dm"
 
 # Basic numerical operations --------------------------------------------------
 

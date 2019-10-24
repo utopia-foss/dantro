@@ -553,6 +553,7 @@ class TransformationDAG:
         self._tags = dict()
         self._nodes = list()
         self._fc_opts = file_cache_defaults if file_cache_defaults else {}
+        self._select_base_tag = None
         
         # Determine cache directory path; relative path interpreted as relative
         # to the DataManager's data directory
@@ -566,26 +567,16 @@ class TransformationDAG:
         # NOTE The data manager is NOT a node of the DAG, but more like an
         #      external data source, thus being accessible only as a tag
 
-        # Handle base transformations
-        self._trfs_base = self._add_base_trfs(base_transform)
+        # Add base transformations that do not rely on select operations
+        self.add_nodes(transform=base_transform)
 
-        # Set the selection base tag, making sure it's available
-        if select_base_tag not in self.tags:
-            raise KeyError("The tag that was chosen for the basis of "
-                           "select operations, '{}', is not available! "
-                           "Check the `base_transform` and `select_base_tag` "
-                           "arguments to make sure that the tag is created. "
-                           "Available tags: {}"
-                           "".format(select_base_tag, ", ".join(self.tags)))
-        self._select_base_tag = select_base_tag
+        # Set the selection base tag; the property setter checks availability
+        self.select_base_tag = select_base_tag
 
-        # With the selection base tag now set, parse transformation specs; this
-        # merely _parses_ the parameters! Building happens in the next step.
-        self._trfs = self._parse_trfs(select=select, transform=transform)
-
-        # Build the DAG by subsequently adding nodes from the parsed parameters
-        for trf_params in self._trfs:
-            self.add_node(**trf_params)
+        # Now add nodes via the main arguments; these can now make use of the
+        # select interface, because a select base tag is set and base transform
+        # operations were already added.
+        self.add_nodes(select=select, transform=transform)
 
     # .........................................................................
 
@@ -649,131 +640,23 @@ class TransformationDAG:
 
         return info
 
+    @property
+    def select_base_tag(self):
+        return self._select_base_tag
+
+    @select_base_tag.setter
+    def select_base_tag(self, new_tag: str):
+        if new_tag not in self.tags:
+            raise KeyError("The tag '{}' cannot be the basis of future select "
+                           "operations because it is not available! Make sure "
+                           "that a node with that tag is added prior to the "
+                           "attempt of setting it. Available tags: {}"
+                           "".format(new_tag, ", ".join(self.tags)))
+
+        self._select_base_tag = new_tag
+    
     # .........................................................................
 
-    def _add_base_trfs(self, base_transform: Sequence[dict]) -> Sequence[dict]:
-        """Parse and add base transformations"""
-        if not base_transform:
-            return []
-        
-        # Parse the DAG syntax
-        base_transform = copy.deepcopy(base_transform)
-        base_transform = [_parse_dag_syntax(**_parse_dag_minimal_syntax(spec))
-                          for spec in base_transform]
-
-        # Add nodes
-        for btrf_params in base_transform:
-            self.add_node(**btrf_params)
-
-        # Return the parsed dict
-        return base_transform
-
-    def _parse_trfs(self, *, select: dict,
-                    transform: Sequence[dict]) -> Sequence[dict]:
-        """Parse the given arguments to bring them into a uniform format: a
-        sequence of parameters for transformation operations.
-        
-        Args:
-            select (dict): The shorthand to select certain objects from the
-                DataManager. These may also include transformations.
-            transform (Sequence[dict]): Actual transformation operations,
-                carried out afterwards.
-        
-        Returns:
-            Sequence[dict]: A sequence of transformation parameters that was
-                brought into a uniform structure.
-        """
-        # The to-be-populated list of transformations
-        trfs = list()
-
-        # Prepare arguments: make sure they are dicts and deep copies.
-        select = copy.deepcopy(select) if select else {}
-        transform = copy.deepcopy(transform) if transform else []
-
-        # First, parse the ``select`` argument. This contains a basic operation
-        # to select data from the selection base (e.g. the DataManager) and
-        # also allows to perform some operations on it.
-        for field_name, params in sorted(select.items()):
-            if isinstance(params, str):
-                path = params
-                with_previous_result = False
-                more_trfs = None
-                salt = None
-
-            elif isinstance(params, dict):
-                path = params['path']
-                with_previous_result = params.get('with_previous_result',False)
-                more_trfs = params.get('transform')
-                salt = params.get('salt')
-
-                if 'file_cache' in params:
-                    raise ValueError("For selection from the selection base, "
-                                     "tagged '{}', the file cache is always "
-                                     "disabled. Please remove the file_cache "
-                                     "argument."
-                                     "".format(self._select_base_tag))
-
-            else:
-                raise TypeError("Invalid type for '{}' entry within `select` "
-                                "argument! Got {} but expected string or dict."
-                                "".format(field_name, type(params)))
-
-            # Construct parameters to select from the selection base.
-            # Only assign a tag if there are no further transformations;
-            # otherwise, the last additional transformation should set the tag.
-            sel_trf = dict(operation='getitem',
-                           tag=field_name if not more_trfs else None,
-                           args=[DAGTag(self._select_base_tag), path],
-                           kwargs=dict(),
-                           file_cache=dict(read=False, write=False))
-            
-            # Carry additional parameters only if given
-            if salt is not None:
-                sel_trf['salt'] = salt
-
-            # Now finished with the formulation of the select operation.
-            trfs.append(sel_trf)
-            
-            if not more_trfs:
-                # Done with this select operation.
-                continue
-
-            # else: there are additional transformations to be parsed and added
-            for i, trf_params in enumerate(more_trfs):
-                # Parse it
-                trf_params = _parse_dag_minimal_syntax(trf_params)
-
-                if 'with_previous_result' not in trf_params:
-                    trf_params['with_previous_result'] = with_previous_result
-                
-                trf_params = _parse_dag_syntax(**trf_params)
-
-                # On the last transformation for the selected tag, need to set
-                # the tag to the specified field name. This is to avoid
-                # confusion about the result of the select operation.
-                if i+1 == len(more_trfs):
-                    if trf_params.get('tag'):
-                        raise ValueError("The tag of the last transform "
-                                         "operation within a select routine "
-                                         "cannot be set manually. Check the "
-                                         "parameters for selection of tag "
-                                         "'{}'.".format(field_name))
-                    
-                    # Set it to the field name
-                    trf_params['tag'] = field_name
-
-                # Done, can append it now
-                trfs.append(trf_params)
-
-        # Now, parse the normal `transform` argument. The operations defined
-        # here are added after the instructions from the `select` section.
-        for trf_params in transform:
-            trf_params = _parse_dag_minimal_syntax(trf_params)
-            trfs.append(_parse_dag_syntax(**trf_params))
-
-        # Done parsing, yay.
-        return trfs
-    
     def add_node(self, *, operation: str, args: list=None, kwargs: dict=None,
                  tag: str=None, file_cache: dict=None,
                  **trf_kwargs) -> THash:
@@ -840,8 +723,32 @@ class TransformationDAG:
                                  "one. Already in use: {}"
                                  "".format(tag, ", ".join(self.tags.keys())))
             self.tags[tag] = trf_hash
+
+        # Return the hash
+        return trf_hash
     
-    # .........................................................................
+    def add_nodes(self, *, select: dict=None, transform: Sequence[dict]=None):
+        """Adds multiple nodes by parsing the specification given via the
+        ``select`` and ``transform`` arguments.
+        
+        Args:
+            select (dict, optional): Selection specifications, which are
+                translated into regular transformations based on ``getitem``
+                operations. The ``base_transform`` and ``select_base_tag``
+                arguments can be used to define from which object to select.
+                By default, selection happens from the associated DataManager.
+            transform (Sequence[dict], optional): Transform specifications.
+        """
+        # Parse the arguments and add multiple nodes from those specs
+        specs = self._parse_trfs(select=select, transform=transform)
+
+        log.debug("Adding %d node(s) ...", len(specs))
+        
+        for spec in specs:
+            self.add_node(**spec)
+        
+        log.debug("Successfully added %d node(s). Total number of nodes: %d",
+                  len(specs), len(self.nodes))
     
     def compute(self, *, compute_only: Sequence[str]=None) -> Dict[str, Any]:
         """Computes all specified tags and returns a result dict.
@@ -883,6 +790,115 @@ class TransformationDAG:
             results[tag] = res
 
         return results
+
+    # .........................................................................
+    # Helpers: Parsing transformation specifications
+
+    def _parse_trfs(self, *, select: dict,
+                    transform: Sequence[dict]) -> Sequence[dict]:
+        """Parse the given arguments to bring them into a uniform format: a
+        sequence of parameters for transformation operations.
+        
+        Args:
+            select (dict): The shorthand to select certain objects from the
+                DataManager. These may also include transformations.
+            transform (Sequence[dict]): Actual transformation operations,
+                carried out afterwards.
+        
+        Returns:
+            Sequence[dict]: A sequence of transformation parameters that was
+                brought into a uniform structure.
+        """
+        # The to-be-populated list of transformations
+        trfs = list()
+
+        # Prepare arguments: make sure they are dicts and deep copies.
+        select = copy.deepcopy(select) if select else {}
+        transform = copy.deepcopy(transform) if transform else []
+
+        # First, parse the ``select`` argument. This contains a basic operation
+        # to select data from the selection base (e.g. the DataManager) and
+        # also allows to perform some operations on it.
+        for field_name, params in sorted(select.items()):
+            if isinstance(params, str):
+                path = params
+                with_previous_result = False
+                more_trfs = None
+                salt = None
+
+            elif isinstance(params, dict):
+                path = params['path']
+                with_previous_result = params.get('with_previous_result',False)
+                more_trfs = params.get('transform')
+                salt = params.get('salt')
+
+                if 'file_cache' in params:
+                    raise ValueError("For selection from the selection base, "
+                                     "tagged '{}', the file cache is always "
+                                     "disabled. Please remove the file_cache "
+                                     "argument."
+                                     "".format(self._select_base_tag))
+
+            else:
+                raise TypeError("Invalid type for '{}' entry within `select` "
+                                "argument! Got {} but expected string or dict."
+                                "".format(field_name, type(params)))
+
+            # Construct parameters to select from the selection base.
+            # Only assign a tag if there are no further transformations;
+            # otherwise, the last additional transformation should set the tag.
+            sel_trf = dict(operation='getitem',
+                           tag=field_name if not more_trfs else None,
+                           args=[DAGTag(self.select_base_tag), path],
+                           kwargs=dict(),
+                           file_cache=dict(read=False, write=False))
+            
+            # Carry additional parameters only if given
+            if salt is not None:
+                sel_trf['salt'] = salt
+
+            # Now finished with the formulation of the select operation.
+            trfs.append(sel_trf)
+            
+            if not more_trfs:
+                # Done with this select operation.
+                continue
+
+            # else: there are additional transformations to be parsed and added
+            for i, trf_params in enumerate(more_trfs):
+                # Parse it
+                trf_params = _parse_dag_minimal_syntax(trf_params)
+
+                if 'with_previous_result' not in trf_params:
+                    trf_params['with_previous_result'] = with_previous_result
+                
+                trf_params = _parse_dag_syntax(**trf_params)
+
+                # On the last transformation for the selected tag, need to set
+                # the tag to the specified field name. This is to avoid
+                # confusion about the result of the select operation.
+                if i+1 == len(more_trfs):
+                    if trf_params.get('tag'):
+                        raise ValueError("The tag of the last transform "
+                                         "operation within a select routine "
+                                         "cannot be set manually. Check the "
+                                         "parameters for selection of tag "
+                                         "'{}'.".format(field_name))
+                    
+                    # Set it to the field name
+                    trf_params['tag'] = field_name
+
+                # Done, can append it now
+                trfs.append(trf_params)
+
+        # Now, parse the normal `transform` argument. The operations defined
+        # here are added after the instructions from the `select` section.
+        for trf_params in transform:
+            trf_params = _parse_dag_minimal_syntax(trf_params)
+            trfs.append(_parse_dag_syntax(**trf_params))
+
+        # Done parsing, yay.
+        return trfs
 
     # .........................................................................
     # Cache writing and reading
