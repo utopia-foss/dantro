@@ -66,11 +66,22 @@ class Transformation:
     a Transformation is defined, the only interaction with them is via the
     ``compute`` method.
 
-    For computation, the arguments are inspected for whether there are any
-    DAGReference-derived objects; these need to be resolved first, meaning they
-    are looked up in the DAG's object database and -- if they are another
-    Transformation object -- their result is computed. This can lead to a
-    recursion.
+    For computation, the arguments are recursively inspected for whether there
+    are any DAGReference-derived objects; these need to be resolved first,
+    meaning they are looked up in the DAG's object database and -- if they are
+    another Transformation object -- their result is computed. This can lead
+    to a traversal along the DAG.
+
+    .. warning::
+
+        Objects of this class should under *no* circumstances be changed after
+        they were created!
+        For performance reasons, the ``hashstr`` property is cached; thus,
+        changing attributes that are included into the hash computation will
+        not lead to a new hash, thus silently creating wrong behaviour.
+
+        All relevant attributes (operation, args, kwargs, salt) are thus set
+        read-only. This should be respected!
     """
 
     def __init__(self, *, operation: str,
@@ -154,6 +165,7 @@ class Transformation:
         self._kwargs = KeyOrderedDict(**kwargs)
         self._dag = dag
         self._salt = salt
+        self._hashstr = None
 
         # Parse file cache options, making sure it's a dict with default values
         self._fc_opts = file_cache if file_cache is not None else {}
@@ -185,7 +197,7 @@ class Transformation:
     @property
     def hashstr(self) -> str:
         """Computes the hash of this Transformation by serializing itself into
-        a YAML string which is then hashed.
+        a YAML string which is then hashed. The result is cached.
 
         Note that this does NOT rely on the built-in hash function but on the
         custom dantro `_hash` function which produces a platform-independent
@@ -194,12 +206,15 @@ class Transformation:
         As this is a string-based hash, it is not implemented as the __hash__
         magic method but as a separate property.
         """
-        dag_classes = (DAGNode, DAGReference, DAGTag, Transformation,)
-        serialization_params = dict(canonical=True)
-        # WARNING Changing the above leads to cache invalidations!
+        if self._hashstr is None:
+            dag_classes = (DAGNode, DAGReference, DAGTag, Transformation,)
+            serialization_params = dict(canonical=True)
+            # WARNING Changing the above leads to cache invalidations!
 
-        return _hash(_serialize(self, register_classes=dag_classes,
-                                **serialization_params))
+            self._hashstr = _hash(_serialize(self,
+                                             register_classes=dag_classes,
+                                             **serialization_params))
+        return self._hashstr
 
     @property
     def dependencies(self) -> Set[THash]:
