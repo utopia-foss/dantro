@@ -373,6 +373,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
 
             print("Raised error as expected.\n")
             continue
+        continue
 
         # Cache directory MAY exist after computation
         if not os.path.isdir(cache_dir):

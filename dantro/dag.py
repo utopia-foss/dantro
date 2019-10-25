@@ -18,7 +18,7 @@ from paramspace.tools import recursive_replace
 
 from .abc import AbstractDataContainer
 from .base import BaseDataGroup
-from .utils import KeyOrderedDict, apply_operation
+from .utils import KeyOrderedDict, apply_operation, register_operation
 from .tools import recursive_update
 from .data_loaders import LOADER_BY_FILE_EXT
 from .containers import ObjectContainer, NumpyDataContainer, XrDataContainer
@@ -55,6 +55,7 @@ DAG_CACHE_RESULT_SAVE_FUNCS = {
 
 # Type definitions (extending those from _dag_utils module)
 TRefOrAny = TypeVar('TRefOrAny', DAGReference, Any)
+
 
 # -----------------------------------------------------------------------------
 
@@ -195,7 +196,7 @@ class Transformation:
         return self._dag
 
     @property
-    def hashstr(self) -> str:
+    def hashstr(self) -> THash:
         """Computes the hash of this Transformation by serializing itself into
         a YAML string which is then hashed. The result is cached.
 
@@ -284,10 +285,6 @@ class Transformation:
         This method can also be called if the result is already computed; this
         will lead only to a cache-lookup, not a re-computation.
         
-        Args:
-            cache_options (dict, optional): Can be used to configure the
-                behaviour of the cache.
-        
         Returns:
             Any: The result of the operation
         """
@@ -308,14 +305,15 @@ class Transformation:
             # Let the reference resolve the corresponding object from the DAG
             obj = ref.resolve_object(dag=self.dag)
             
-            # Check if this refers to the DataManager, which cannot perform any
-            # further computation ...
-            if obj is self.dag.dm:
-                return self.dag.dm
+            # Check if this refers to an object that is NOT a transformation.
+            # This could be the DataManager or the DAG itself, but also other
+            # objects in the DAG's object database. Performing computation on
+            # those is either not possible or would lead to infinite loops.
+            if not isinstance(obj, Transformation):
+                return obj
 
-            # else: wasn't the DataManager. It should thus be another
-            # Transformation object. Compute, passing on the cache options.
-            # This is a traversal up the DAG tree.
+            # else: It is another Transformation object. Compute it, which
+            # leads to a traversal up the DAG tree.
             return obj.compute()
 
         # Try to look up an already computed result from memory or file cache
@@ -379,7 +377,7 @@ class Transformation:
             # Aggregate the dependencies' cumulative computation times
             deps_cctime = sum([dep.profile.get('cumulative_compute', 0.)
                                for dep in self.resolved_dependencies
-                               if dep is not self.dag.dm])
+                               if isinstance(dep, Transformation)])
             # NOTE The dependencies might not have this value set because there
             #      might have been a cache lookup
             self._profile['compute'] = max(0., cumulative_compute-deps_cctime)
@@ -589,7 +587,8 @@ class TransformationDAG:
         else:
             self._cache_dir = os.path.join(self.dm.dirs['data'], cache_dir)
 
-        # Add the DataManager as an object and a default tag
+        # Add the DAG itself and the DataManager as objects with default tags
+        self.tags['dag'] = self.objects.add_object(self)
         self.tags['dm'] = self.objects.add_object(self.dm)
         # NOTE The data manager is NOT a node of the DAG, but more like an
         #      external data source, thus being accessible only as a tag
@@ -611,6 +610,14 @@ class TransformationDAG:
     def dm(self) -> 'DataManager':
         """The associated DataManager"""
         return self._dm
+
+    @property
+    def hashstr(self) -> THash:
+        """Returns the hash of this DAG, which depends solely on the hash of
+        the associated DataManager.
+        """
+        return _hash("<TransformationDAG, coupled to DataManager with ref {}>"
+                     "".format(self.dm.hashstr))
 
     @property
     def objects(self) -> DAGObjects:
@@ -702,6 +709,49 @@ class TransformationDAG:
 
     # .........................................................................
 
+    def add_object(self, obj: Any, *, name: str=None,
+                   depends_on: Sequence[DAGReference]=None) -> DAGReference:
+        """Adds an object to the object database and returns a reference to it.
+
+        If the object is hashable via the ``hashstr`` property, that hash is
+        used as its key. If that is not possible, a custom hash is computed
+        from the YAML representation of ``name`` and ``depends_on``.
+        """
+        if hasattr(obj, 'hashstr'):
+            return DAGReference(self.objects.add_object(obj))
+
+        # else: Need to create a custom hash
+        if name is None:
+            raise ValueError("Cannot add a non-hashable object of type {} "
+                             "to the DAG object database without the "
+                             "`name` argument being provided."
+                             "".format(type(obj)))
+
+        # Prepare parameters for serialization
+        dag_classes = (DAGNode, DAGReference, DAGTag, Transformation,)
+        serialization_params = dict(canonical=True)
+        # WARNING Changing the above leads to cache invalidations!
+
+        # Build the custom hash from the name, type and dependencies
+        dag_classes = (DAGNode, DAGReference, DAGTag, Transformation,)
+        ch = _hash(_serialize(dict(desc="custom DAG object",
+                                   dag_ref=self.hashstr,
+                                   object_type=str(type(obj)),
+                                   name=name, depends_on=depends_on),
+                              register_classes=dag_classes,
+                              **serialization_params))
+
+        if ch in self.objects:
+            # This should not fail silently
+            raise ValueError("Got a hash collision while attempting to add "
+                             "the non-hashable {} to the objects database. "
+                             "Refusing to add it. Was it already added or is "
+                             "this really a hash collision?"
+                             "".format(type(obj)))
+
+        # Add the object and create a reference object from the returned hash
+        return DAGReference(self.objects.add_object(obj, custom_hash=ch))
+
     def add_node(self, *, operation: str, args: list=None, kwargs: dict=None,
                  tag: str=None, file_cache: dict=None,
                  **trf_kwargs) -> DAGReference:
@@ -776,6 +826,8 @@ class TransformationDAG:
                                  "one. Already in use: {}"
                                  "".format(tag, ", ".join(self.tags.keys())))
             self.tags[tag] = trf_hash
+        
+        log.debug("Added node. Total: %d", len(self.nodes))
 
         # Return a reference to the newly created node
         return DAGReference(trf_hash)
@@ -796,14 +848,9 @@ class TransformationDAG:
         specs = self._parse_trfs(select=select, transform=transform)
         if not specs:
             return
-
-        log.debug("Adding %d node(s) ...", len(specs))
         
         for spec in specs:
             self.add_node(**spec)
-        
-        log.debug("Successfully added %d node(s). Total number of nodes: %d",
-                  len(specs), len(self.nodes))
     
     def compute(self, *, compute_only: Sequence[str]=None) -> Dict[str, Any]:
         """Computes all specified tags and returns a result dict.
@@ -820,7 +867,8 @@ class TransformationDAG:
         # Determine which tags to compute
         compute_only = compute_only if compute_only is not None else 'all'
         if compute_only == 'all':
-            compute_only = [t for t in self.tags.keys() if t != 'dm']
+            compute_only = [t for t in self.tags.keys()
+                            if t not in ['dm', 'dag']]
 
         log.info("Tags to be computed: {}".format(", ".join(compute_only)))
 
@@ -1073,3 +1121,53 @@ class TransformationDAG:
         
         # else: Success
         return True
+
+
+
+# -----------------------------------------------------------------------------
+# Helpers
+
+def _get_dag_object(dag: 'TransformationDAG', *, obj_hash: THash,
+                    depends_on: Sequence[DAGReference]=None) -> Any:
+    """This is an operation that extracts an object from the DAG's object
+    database. It does so via the ``obj_hash`` argument, which needs to be a
+    string.
+
+    Additionally, it allows specifying dependencies. These have no effect in
+    this operation, but they serve as a possibility to create dependencies
+    between objects in the objects database that are retrieved via this
+    operation and the output of some other operations.
+
+    This operation's main purpose is to buffer objects in the TransformationDAG
+    object database, which makes sense in situations where the input arguments
+    to some operation are so complex that they cannot be represented properly.
+    """
+    def is_DAGReference(obj) -> bool:
+        return isinstance(obj, DAGReference)
+
+    def resolve_and_compute(ref: DAGReference):
+        return ref.resolve_object(dag=dag).compute()
+
+    # Given the hash, get the referenced object from the DAG's object database
+    obj = DAGReference(obj_hash).resolve_object(dag=dag)
+
+    # The object might contain further DAGReference objects. Let's try our best
+    # to resolve them ...
+    if isinstance(obj, np.ndarray) and obj.dtype is np.dtype('object'):
+        # Iterate over the object array and replace DAGReferences in-place
+        it = np.nditer(obj, flags=('multi_index', 'refs_ok'))
+        for val in it:
+            val = val.item()
+            if isinstance(val, DAGReference):
+                obj[it.multi_index] = resolve_and_compute(val)
+
+    else:
+        # Attempt recursive replacement
+        try:
+            obj = recursive_replace(obj, select_func=is_DAGReference,
+                                    replace_func=resolve_and_compute)
+        except:
+            pass
+
+    return obj
+register_operation(name='dag.get_object', func=_get_dag_object)

@@ -74,7 +74,7 @@ def test_apply_operation():
     
     # Test application failure error message
     with pytest.raises(TypeError,
-                       match="Failed applying operation 'add'!.*missing 1"):
+                       match="Failed applying operation 'add':.*missing 1"):
         apply_operation("add", 1)
 
 

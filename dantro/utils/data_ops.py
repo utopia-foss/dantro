@@ -3,7 +3,7 @@
 import logging
 import operator
 from difflib import get_close_matches
-from typing import Callable, Any, Sequence
+from typing import Callable, Any, Sequence, Union
 
 import numpy as np
 import xarray as xr
@@ -130,7 +130,9 @@ def count_unique(data) -> xr.DataArray:
 # .............................................................................
 # Working with multidimensional data, mostly xarray-based
 
-def reduce_by_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> xr.DataArray:
+
+def concat(arrs: Union[list, np.ndarray], *, dims: Sequence[str]
+           ) -> xr.DataArray:
     """Concatenates the content of an np.ndarray along *all* axes using the
     ``xr.concat`` method and thereby reduces the ``arrs`` to a single item.
     
@@ -160,8 +162,14 @@ def reduce_by_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> xr.DataArray:
         ValueError: If number of dimension names does not match the number of
             data dimensions.
     """
-    # Make sure it's an array; this allows it to also be given as nested lists
-    arrs = np.array(arrs)
+    # If it is a nested list, it's very expensive to create an np.ndarray.
+    # Thus, take a different approach:
+    if isinstance(arrs, list):
+        # Iterate over the dimension names, from the back, and concatenate
+        for dim_name in reversed(dims):
+            arrs = [xr.concat([*sub_arrs], dim=dim_name) for sub_arrs in arrs]
+
+        return arrs
 
     # Check dimensionality
     if len(dims) != arrs.ndim:
@@ -178,6 +186,29 @@ def reduce_by_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> xr.DataArray:
                                 dim=dim_name)
 
     return arrs.item()
+
+def merge(arrs: Union[Sequence[xr.DataArray], np.ndarray], **merge_kwargs):
+    """Merges the given sequence of xarray objects
+
+    As a convenience, this also allows passing a numpy object array containing
+    the xarray objects.
+    """
+    if isinstance(arrs, np.ndarray):
+        arrs = arrs.flat
+
+    return xr.merge(arrs, **merge_kwargs)
+
+def expand_dims(d: Any, *, dim: dict=None, **kwargs) -> xr.DataArray:
+    """Expands the dimensions of the given object.
+
+    This extends the xr.DataArray.expand_dims and xr.Dataset.expand_dims
+    methods for *any* data type by first converting to an xr.DataArray *if*
+    the given data is not xarray-based.
+    """
+    if not isinstance(d, (xr.DataArray, xr.Dataset)):
+        d = xr.DataArray(d)
+
+    return d.expand_dims(dim, **kwargs)
 
 
 # -----------------------------------------------------------------------------
@@ -277,7 +308,9 @@ _OPERATIONS = KeyOrderedDict({
     'where':        where,
 
     # dantro-specific
-    'dantro.reduce_by_concat':  reduce_by_concat,
+    'dantro.concat':        concat,
+    'dantro.merge':         merge,
+    'dantro.expand_dims':   expand_dims,
 
     # numpy
     '.sum':         lambda d, **k: d.sum(**k),
@@ -298,6 +331,7 @@ _OPERATIONS = KeyOrderedDict({
     'invert':       lambda d, **k: np.invert(d, **k),
     'transpose':    lambda d, **k: np.transpose(d, **k),
     'diff':         lambda d, **k: np.diff(d, **k),
+    'reshape':      lambda d, s, **k: np.reshape(d, s, **k),
 
     'np.array':     np.array,
     'np.empty':     np.empty,
@@ -402,7 +436,7 @@ def apply_operation(op_name: str, *op_args, **op_kwargs) -> Any:
         return op(*op_args, **op_kwargs)
 
     except Exception as exc:
-        raise type(exc)("Failed applying operation '{}'! {}\n"
+        raise type(exc)("Failed applying operation '{}': {}\n"
                         "  args:   {}\n"
                         "  kwargs: {}\n"
                         "".format(op_name, str(exc), op_args, op_kwargs)

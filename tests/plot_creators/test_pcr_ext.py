@@ -283,7 +283,7 @@ def test_dag_required_tags(init_kwargs):
 
     with pytest.raises(ValueError,
                        match="required tags that were not specified in the "
-                             "DAG: mul. Available tags: dm, sum, sub."):
+                             "DAG: mul. Available tags: dag, dm, sum, sub."):
         epc.plot(out_path="some_plot", plot_func=pf1,
                  transform=[dict(add=[1,2], tag="sum"),
                             dict(sub=[3,2], tag="sub")])

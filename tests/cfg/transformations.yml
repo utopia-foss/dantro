@@ -22,8 +22,8 @@ explicit_select:
 
   expected:
     num_nodes: 3
-    num_objects: 4
-    tags: [dm, foo, bar]
+    num_objects: 5
+    tags: [dag, dm, foo, bar]
     node_hashes:
       - &hash_getitem_some_path efed57fb39b65918df1919473aece2ef
       - 2bda662589177e9d1d39200f79e4d1e7
@@ -56,8 +56,8 @@ shorthand_select:
 
   expected:
     num_nodes: 2
-    num_objects: 3
-    tags: [dm, foo, bar]
+    num_objects: 4
+    tags: [dag, dm, foo, bar]
     cache_dir_available: false
     node_hashes:
       - *hash_getitem_bar  # comes first here because select orders by keys
@@ -119,8 +119,8 @@ custom_selection_base:
 
   expected:
     num_nodes: 3
-    num_objects: 4
-    tags: [dm, some_path, foo, bar]
+    num_objects: 5
+    tags: [dag, dm, some_path, foo, bar]
     node_hashes:
       - *hash_getitem_some_path
       - 40f58425d557116b76fa61d8c93ddd0f
@@ -140,7 +140,7 @@ custom_selection_base_error_base_tag_not_found:
     select_base: some_path
 
   _raises: KeyError
-  _match: "The tag 'some_path' cannot be the basis of future select operations because it is not available! .* Available tags: dm"
+  _match: "The tag 'some_path' cannot be the basis of future select operations because it is not available! .* Available tags: dag, dm"
 
 # Basic numerical operations --------------------------------------------------
 
@@ -187,8 +187,8 @@ basic_numerical_ops:
 
   expected:
     num_nodes: 7
-    num_objects: 7  # not 8! Due to the duplicate Transformation
-    tags: [dm, zero_raw, ones, twos, zeros, zeros_T, zero_raw_T, zero_raw_T2]
+    num_objects: 8  # not 9! Due to the duplicate Transformation
+    tags: [dag, dm, zero_raw, ones, twos, zeros, zeros_T, zero_raw_T, zero_raw_T2]
     node_hashes:
       - &hash_select_zero_raw 537b1c89ea418dc16bc8e957322bf539
       - &hash_increment_zeros 5e82e198c35e83d71a4f8f5f775b2c61
@@ -267,8 +267,8 @@ binary_ops:
 
   expected:
     num_nodes: 3
-    num_objects: 4
-    tags: [dm, zero_raw, random_raw, zero_plus_rand]
+    num_objects: 5
+    tags: [dag, dm, zero_raw, random_raw, zero_plus_rand]
     node_hashes:
       - &hash_select_random 075ebd1256640d2d85e5011c968194ee
       - *hash_select_zero_raw
@@ -304,8 +304,8 @@ duplicates_and_salted:
 
   expected:
     num_nodes: 4
-    num_objects: 4  # due to one duplicate transformation
-    tags: [dm, zero_raw, ones, also_ones, also_ones_but_salted]
+    num_objects: 5  # due to one duplicate transformation
+    tags: [dag, dm, zero_raw, ones, also_ones, also_ones_but_salted]
     node_hashes:
       - *hash_select_zero_raw
       - *hash_increment_zeros
@@ -355,8 +355,8 @@ numpy_and_xarray_data:
 
   expected: 
     num_nodes: 3
-    num_objects: 4
-    tags: [dm, zeros_raw, random_raw, ones]
+    num_objects: 5
+    tags: [dag, dm, zeros_raw, random_raw, ones]
     node_hashes:
       - 084621667c07211d316abd1fd1e742f7
       - 506017408a71a78659e82a26fe75f0de
@@ -385,8 +385,8 @@ numpy_and_xarray_data_2nd_run:
   
   expected:
     num_nodes: 3
-    num_objects: 4
-    tags: [dm, zeros_raw, ones, ones_tree]
+    num_objects: 5
+    tags: [dag, dm, zeros_raw, ones, ones_tree]
     cache_dir_available: true
     cache_files:
       - 41f6b80312e23ab089ad80fcd69dcfbc.xrdc
@@ -410,8 +410,8 @@ numpy_and_xarray_data_3rd_run:
   
   expected:
     num_nodes: 2
-    num_objects: 3
-    tags: [dm, zeros_raw, ones]
+    num_objects: 4
+    tags: [dag, dm, zeros_raw, ones]
     cache_dir_available: true
     cache_files:
       - 41f6b80312e23ab089ad80fcd69dcfbc.xrdc
@@ -430,8 +430,8 @@ file_cache_pickle_data:
 
   expected:
     num_nodes: 2
-    num_objects: 3
-    tags: [dm, some_dict, dict_data]
+    num_objects: 4
+    tags: [dag, dm, some_dict, dict_data]
     cache_dir_available: true
     cache_files:
       - 37eb6515dcd3bcd3fdd45dccc868e6e5.pkl
@@ -458,8 +458,8 @@ file_cache_kwargs_to_transformation:
 
   expected: 
     num_nodes: 3
-    num_objects: 4
-    tags: [dm, zeros_raw, ones, twos]
+    num_objects: 5
+    tags: [dag, dm, zeros_raw, ones, twos]
     node_hashes:
       - 506017408a71a78659e82a26fe75f0de
       - 41f6b80312e23ab089ad80fcd69dcfbc
@@ -489,8 +489,8 @@ file_cache_kwargs_to_select:
 
   expected: 
     num_nodes: 4
-    num_objects: 5
-    tags: [dm, zeros_raw, random_plus_minus]
+    num_objects: 6
+    tags: [dag, dm, zeros_raw, random_plus_minus]
     node_hashes:
       - 084621667c07211d316abd1fd1e742f7
       - 71689205a793aed1a4aadb8bf7223dee
@@ -522,8 +522,8 @@ file_cache_object_size:
 
   expected: 
     num_nodes: 3
-    num_objects: 4
-    tags: [dm, zeros_raw, ones, twos]
+    num_objects: 5
+    tags: [dag, dm, zeros_raw, ones, twos]
     node_hashes:
       - 506017408a71a78659e82a26fe75f0de
       - 41f6b80312e23ab089ad80fcd69dcfbc
@@ -555,8 +555,8 @@ file_cache_min_compute_time:
 
   expected: 
     num_nodes: 3
-    num_objects: 4
-    tags: [dm, zeros_raw, ones, twos]
+    num_objects: 5
+    tags: [dag, dm, zeros_raw, ones, twos]
     node_hashes:
       - 506017408a71a78659e82a26fe75f0de
       - 41f6b80312e23ab089ad80fcd69dcfbc
@@ -586,8 +586,8 @@ file_cache_min_cumulative_compute_time:
 
   expected: 
     num_nodes: 3
-    num_objects: 4
-    tags: [dm, zeros_raw, ones, twos]
+    num_objects: 5
+    tags: [dag, dm, zeros_raw, ones, twos]
     node_hashes:
       - 506017408a71a78659e82a26fe75f0de
       - 41f6b80312e23ab089ad80fcd69dcfbc
@@ -623,8 +623,8 @@ file_cache_invariant_hash:
 
   expected: 
     num_nodes: 5
-    num_objects: 4
-    tags: [dm, zeros_raw, ones_v1, ones_v2, ones_v3, ones_v4]
+    num_objects: 5
+    tags: [dag, dm, zeros_raw, ones_v1, ones_v2, ones_v3, ones_v4]
     node_hashes:
       - 506017408a71a78659e82a26fe75f0de
       - 41f6b80312e23ab089ad80fcd69dcfbc
@@ -820,7 +820,7 @@ doc_examples_select:
     transform: ~
 
   expected:
-    tags: [dm, some_data, more_data]
+    tags: [dag, dm, some_data, more_data]
 
 doc_examples_select_with_transform:
   params:
@@ -858,4 +858,4 @@ doc_examples_minimal:
         tag: my_result
 
   expected:
-    tags: [dm, some_data, more_data, my_result]
+    tags: [dag, dm, some_data, more_data, my_result]

@@ -144,6 +144,7 @@ class DAGNode(DAGReference):
         """Return the hash reference by looking up the node index in the DAG"""
         return dag.nodes[self.idx]
 
+
 # -----------------------------------------------------------------------------
 
 class DAGObjects:
@@ -164,7 +165,7 @@ class DAGObjects:
         """Initialize an empty objects database"""
         self._d = dict()
 
-    def add_object(self, obj: TDAGHashable) -> THash:
+    def add_object(self, obj: TDAGHashable, *, custom_hash: str=None) -> THash:
         """Add an object to the object database, storing it under its hash.
 
         Note that the object cannot be just any object that is hashable but it
@@ -175,7 +176,17 @@ class DAGObjects:
         hash is already present. The object itself is of no importance, only
         the returned hash is.
         """
-        key = obj.hashstr  # DAG-framework internal hash method
+        if custom_hash is not None:
+            if hasattr(obj, 'hashstr'):
+                raise TypeError("Cannot use a custom hash for objects that "
+                                "provide their own `hashstr` property! Got "
+                                "object of type {} and custom hash '{}'."
+                                "".format(type(obj), custom_hash))
+            key = custom_hash
+        
+        else:
+            # Use the DAG framework's internal hash method
+            key = obj.hashstr
 
         # Only add the new object, if the hash does not exist yet.
         if key not in self:

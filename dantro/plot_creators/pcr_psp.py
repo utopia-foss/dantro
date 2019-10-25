@@ -172,17 +172,12 @@ class MultiversePlotCreator(ExternalPlotCreator):
             # operations on the selected data. This is all user-determined.
             dag.add_nodes(select=select)
 
-            # Prepare arguments for the operation that adds the parameter space
-            # dimensions and coordinates to the result. Don't cache those!
-            ref = dag.add_node(operation='xr.DataArray',
-                               args=[DAGNode(-1)],
-                               file_cache=dict(read=False, write=False))
-            # NOTE If this one does not work properly, consider making this a
-            #      more specific function that also takes care of dimensions
-            #      being expanded.
-
-            return dag.add_node(operation='.expand_dims',
-                                args=[ref], kwargs=dict(dim=coords))
+            # With the latest-added transformation as input, add the parameter
+            # space coordinates to it such that all single universes can be
+            # aligned properly. Don't cache this result.
+            return dag.add_node(operation='dantro.expand_dims',
+                                args=[DAGNode(-1)], kwargs=dict(dim=coords),
+                                file_cache=dict(read=False, write=False))
 
         def add_transformations(dag: TransformationDAG, *,
                                 tag: str, path: str, subspace: dict,
@@ -231,19 +226,28 @@ class MultiversePlotCreator(ExternalPlotCreator):
                 # Keep track of the reference objects
                 refs[arr_it.multi_index] = ref
 
+            # Add the object to the argument buffer, which returns a reference
+            # to the object in the TransformationDAG's object database.
+            arg_ref = dag.add_object(refs, name="{}-refs".format(tag),
+                                     dependencies=list(refs.flat))
+            ref_buf = dag.add_node(operation='dag.get_object',
+                                   args=[DAGTag('dag')],
+                                   kwargs=dict(obj_hash=arg_ref.ref,
+                                               depends_on=list(refs.flat)))
+
             # Depending on the chosen combination method, create corresponding
             # additional transformations for combination via merge or via
             # concatenation.
             if combination_method in ['merge']:
-                dag.add_node(operation='xr.merge',
-                             args=[list(refs.flat)],
+                dag.add_node(operation='dantro.merge',
+                             args=[ref_buf],
                              tag=tag,
                              **(combination_kwargs if combination_kwargs
                                 else {}))
 
             elif combination_method in ['concat']:
-                dag.add_node(operation='dantro.reduce_by_concat',
-                             args=[refs.tolist()],
+                dag.add_node(operation='dantro.concat',
+                             args=[ref_buf],
                              kwargs=dict(dims=list(psp.dims.keys())),
                              tag=tag,
                              **(combination_kwargs if combination_kwargs
@@ -255,7 +259,6 @@ class MultiversePlotCreator(ExternalPlotCreator):
                                  "".format(combination_method))
 
             # Done, yay! :)
-
 
         def add_sac_transformations(dag: TransformationDAG, *,
                                     fields: dict, subspace: dict=None,
