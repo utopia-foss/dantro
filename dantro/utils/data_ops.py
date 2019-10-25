@@ -135,6 +135,9 @@ _OPERATIONS = KeyOrderedDict({
     'define':       lambda d: d,
     'pass':         lambda d: d,
     'print':        print_data,
+
+    'list':         list,
+    'dict':         dict,
     
     # Item manipulation
     'getitem':      lambda d, k:    d[k],

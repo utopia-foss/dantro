@@ -9,10 +9,12 @@ import logging
 import pickle as pkl
 from itertools import chain
 
-from typing import TypeVar, Dict, Tuple, Sequence, Any, Union, List
+from typing import TypeVar, Dict, Tuple, Sequence, Any, Union, List, Set
 
 import numpy as np
 import xarray as xr
+
+from paramspace.tools import recursive_replace
 
 from .abc import AbstractDataContainer
 from .base import BaseDataGroup
@@ -200,12 +202,12 @@ class Transformation:
                                 **serialization_params))
 
     @property
-    def dependencies(self) -> List[THash]:
+    def dependencies(self) -> Set[THash]:
         """Hashes of those objects that this transformation depends on, i.e.
-        hashes of other referenced DAG nodes. Also includes the DataManager!
+        hashes of other referenced DAG nodes. Does NOT include the DataManager.
         """
-        return [r.ref for r in chain(self._args, self._kwargs.values())
-                if isinstance(r, DAGReference)]
+        return set([r.ref for r in chain(self._args, self._kwargs.values())
+                    if isinstance(r, DAGReference)])
 
     @property
     def resolved_dependencies(self) -> List['Transformation']:
@@ -274,23 +276,22 @@ class Transformation:
         Returns:
             Any: The result of the operation
         """
-        def resolve(element):
+        def is_DAGReference(obj: Any) -> bool:
+            return isinstance(obj, DAGReference)
+
+        def resolve_and_compute(ref: DAGReference):
             """Resolve references to their objects, if necessary computing the
-            results of referenced transformations recursively.
+            results of referenced Transformation objects recursively.
 
             Makes use of arguments from outer scope.
             """
-            if not isinstance(element, DAGReference):
-                # Is an argument. Nothing to do, return it as it is.
-                return element
-
-            elif self.dag is None:
+            if self.dag is None:
                 raise ValueError("Cannot resolve Transformation arguments "
                                  "that contain DAG references, because no DAG "
                                  "was associated with this Transformation!")
 
-            # Is a reference; let it resolve the corresponding object from DAG
-            obj = element.resolve_object(dag=self.dag)
+            # Let the reference resolve the corresponding object from the DAG
+            obj = ref.resolve_object(dag=self.dag)
             
             # Check if this refers to the DataManager, which cannot perform any
             # further computation ...
@@ -307,9 +308,20 @@ class Transformation:
         
         if not success:
             # Did not find a result in memory or file cache -> Compute it.
-            # First, resolve the references in the arguments
-            args = [resolve(e) for e in self._args]
-            kwargs = {k:resolve(e) for k, e in self._kwargs.items()}
+            # First, compute the result of the references in the arguments.
+            args =   recursive_replace(copy.deepcopy(self._args),
+                                       select_func=is_DAGReference,
+                                       replace_func=resolve_and_compute)
+            kwargs = recursive_replace(copy.deepcopy(self._kwargs),
+                                       select_func=is_DAGReference,
+                                       replace_func=resolve_and_compute)
+            # NOTE Important to deepcopy here, because otherwise the recursive
+            #      replacement and the mutability of both args and kwargs will
+            #      lead to DAGReference objects being replaced with the actual
+            #      objects, which would break the .hashstr property of this
+            #      object. The deepcopy is always possible, because even if
+            #      the args and kwargs are nested, they contain only trivial
+            #      objects.
 
             # Carry out the operation
             res = self._perform_operation(args=args, kwargs=kwargs)
@@ -677,7 +689,7 @@ class TransformationDAG:
 
     def add_node(self, *, operation: str, args: list=None, kwargs: dict=None,
                  tag: str=None, file_cache: dict=None,
-                 **trf_kwargs) -> THash:
+                 **trf_kwargs) -> DAGReference:
         """Add a new node by creating a new Transformation object and adding it
         to the node list.
         
@@ -694,24 +706,35 @@ class TransformationDAG:
         
         Raises:
             ValueError: If the tag already exists
+        
+        Returns:
+            DAGReference: The reference to the created node
         """
-        def is_ref_subclass_instance(obj: DAGReference) -> bool:
-            """True if obj is an instance of a true subclass of DAGReference"""
+        # Some helper methods for the recursive replacement
+        def not_proper_ref(obj: Any) -> bool:
             return (    isinstance(obj, DAGReference)
                     and type(obj) is not DAGReference)
 
-        # Handle default values of arguments if they are not given
-        args = args if args else []
-        kwargs = kwargs if kwargs else {}
+        def convert_to_ref(obj: DAGReference) -> DAGReference:
+            return obj.convert_to_ref(dag=self)
 
-        # Resolve any derived references to proper hash references
-        args = [(v if not is_ref_subclass_instance(v)
-                 else v.convert_to_ref(dag=self))
-                for v in args]
-        kwargs = {k: (v if not is_ref_subclass_instance(v)
-                      else v.convert_to_ref(dag=self))
-                  for k,v in kwargs.items()}
+        # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        # Handle default values of arguments
+        args = copy.deepcopy(args) if args else []
+        kwargs = copy.deepcopy(kwargs) if kwargs else {}
+        # NOTE Deep copy is important here, because the mutability of nested
+        #      args or kwargs may lead to side effects. The deep copy should
+        #      always be possible, because args and kwargs should only contain
+        #      trivial objects.
 
+        # Recursively replace any derived references to proper DAGReferences,
+        # which work hash-based. This is to not have multiple options of how
+        # another TransformationDAG object is referenced.
+        args =   recursive_replace(args, select_func=not_proper_ref,
+                                   replace_func=convert_to_ref)
+        kwargs = recursive_replace(kwargs, select_func=not_proper_ref,
+                                   replace_func=convert_to_ref)
+        
         # Parse file cache parameters
         fc_opts = copy.deepcopy(self._fc_opts)  # Always a dict
         
@@ -720,16 +743,13 @@ class TransformationDAG:
 
         # From these arguments, create the Transformation object and add it to
         # the objects database.
-        trf_hash = self.objects.add_object(Transformation(operation=operation,
-                                                          args=args,
-                                                          kwargs=kwargs,
-                                                          dag=self,
-                                                          file_cache=fc_opts,
-                                                          **trf_kwargs))
-        # NOTE From this point on, the object itself has no relevance; that is
-        #      why it is not stored here. Transformation objects should only
-        #      be handled via their hash in order to reduce duplicate
-        #      calculations and make efficient caching possible.
+        trf = Transformation(operation=operation, args=args, kwargs=kwargs,
+                             dag=self, file_cache=fc_opts, **trf_kwargs)
+        trf_hash = self.objects.add_object(trf)
+        # NOTE From this point on, the object itself has no relevance.
+        #      Transformation objects should only be handled via their hash in
+        #      order to reduce duplicate calculations and make efficient
+        #      caching possible.
 
         # Store the hash in the node list
         self.nodes.append(trf_hash)
@@ -742,8 +762,8 @@ class TransformationDAG:
                                  "".format(tag, ", ".join(self.tags.keys())))
             self.tags[tag] = trf_hash
 
-        # Return the hash
-        return trf_hash
+        # Return a reference to the newly created node
+        return DAGReference(trf_hash)
     
     def add_nodes(self, *, select: dict=None, transform: Sequence[dict]=None):
         """Adds multiple nodes by parsing the specification given via the

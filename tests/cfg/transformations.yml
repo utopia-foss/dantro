@@ -69,7 +69,43 @@ shorthand_select:
       <<: *results_explicit_select
 
 
+# Nested arguments ------------------------------------------------------------
+
+nested_args:
+  params:
+    transform:
+      - define: [1]
+        tag: one
+      - define: [2]
+        tag: two
+      - dict:
+          one: !dag_tag one
+          two: !dag_tag two
+          nested:
+            one: [!dag_tag one]
+            two: [!dag_tag two]
+            three: [3]
+          as_list: [!dag_tag one, !dag_tag two, 3]
+          as_nested_list: [[!dag_tag one, 2, 3], [1, !dag_tag two, 3], [1,2,3]]
+        tag: nested
+
+  expected:
+    results:
+      nested:
+        type: dict
+        compare_to:
+          one: 1
+          two: 2
+          nested:
+            one: [1]
+            two: [2]
+            three: [3]
+          as_list: [1, 2, 3]
+          as_nested_list: [[1,2,3], [1,2,3], [1,2,3]]
+
+
 # Custom selection base -------------------------------------------------------
+
 custom_selection_base:
   params:
     base_transform:

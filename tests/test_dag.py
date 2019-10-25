@@ -353,7 +353,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
                 if isinstance(deps, int):
                     assert len(node.dependencies) == deps
                 else:
-                    assert node.dependencies == deps
+                    assert node.dependencies == set(deps)
 
         # Compare with expected result...
         compute_only = cfg.get('compute_only')
@@ -442,6 +442,9 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
                         # Convert tuples to lists to allow yaml-comparison
                         attr = list(attr) if isinstance(attr, tuple) else attr
                         assert attr == exp_attr_val
+
+            if 'compare_to' in to_check:
+                assert res == to_check['compare_to']
 
         print("All computation results as expected.\n")
         print("------------------------------------\n")

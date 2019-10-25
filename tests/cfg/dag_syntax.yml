@@ -180,6 +180,46 @@ shorthand_transform_error_both_ops_and_op:
 
 
 # -----------------------------------------------------------------------------
+# References nested in the arguments
+
+nested_refs:
+  params:
+    select: ~
+    transform:
+      - some_op: [[foo, bar], 123]
+      - some_op:
+        - [!dag_prev , !dag_prev ]
+        - [!dag_prev , [!dag_prev ]]
+        - one: !dag_tag dm
+          two: [!dag_node 42, foobar]
+      - some_op:
+          foo: [!dag_prev , {key1: !dag_prev , key2: [!dag_prev ]}]
+
+  expected:
+    - operation: some_op
+      args:
+        - [foo, bar]
+        - 123
+      kwargs: {}
+      tag: ~
+    - operation: some_op
+      args:
+        - [!dag_node -1 , !dag_node -1 ]
+        - [!dag_node -1 , [!dag_node -1 ]]
+        - one: !dag_tag dm
+          two: [!dag_node 42, foobar]
+      kwargs: {}
+      tag: ~
+    - operation: some_op
+      args: []
+      kwargs:
+        foo:
+          - !dag_node -1
+          - key1: !dag_node -1
+            key2: [!dag_node -1 ]
+      tag: ~
+
+# -----------------------------------------------------------------------------
 # With select
 
 simple_select:
