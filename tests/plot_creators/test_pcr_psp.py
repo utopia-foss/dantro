@@ -42,7 +42,7 @@ def mock_pfunc(*_, **__):
 # -----------------------------------------------------------------------------
 # MultiversePlotCreator -------------------------------------------------------
 
-def test_MultiversePlotCreator(init_kwargs, psp_grp_default, tmpdir):
+def test_MultiversePlotCreator(init_kwargs):
     """Assert the MultiversePlotCreator behaves correctly"""
     # Initialization works
     mpc = MultiversePlotCreator("test", **init_kwargs)
@@ -56,7 +56,13 @@ def test_MultiversePlotCreator(init_kwargs, psp_grp_default, tmpdir):
         _mpc.PSGRP_PATH = None
         _mpc.psgrp
 
-    # Check that the select function is called as expected
+def test_MultiversePlotCreator_select(init_kwargs, psp_grp_default, tmpdir):
+    """Check that the ``select`` argument behaves as expected.
+
+    This uses selection via the associated ParamSpaceGroup to get plot data.
+    """
+    mpc = MultiversePlotCreator("test", **init_kwargs)
+
     selector = dict(field="testdata/fixedsize/state",
                     subspace=dict(p0=slice(2), p1=slice(1.5, 2.5)))
     args, kwargs = mpc._prepare_plot_func_args(mock_pfunc, select=selector)
@@ -88,6 +94,41 @@ def test_MultiversePlotCreator(init_kwargs, psp_grp_default, tmpdir):
     selector = dict(field="testdata/fixedsize/state")
     args, kwargs = mpcd._prepare_plot_func_args(mock_pfunc, select=selector)
     assert 'mv_data' in kwargs
+
+
+def test_MultiversePlotCreator_DAG_usage(init_kwargs):
+    """Tests the DAG usage of the MultiversePlotCreator.
+
+    This is controlled via the ``select_and_combine`` argument and uses the
+    TransformationDAG to select data from the selected multiverse subspace and
+    combine that data into a uniform structure.
+    """
+    mpc = MultiversePlotCreator("test", **init_kwargs)
+    psgrp = mpc.dm['mv']
+
+    # Passing both or neither `select` and `select_and_combine` does not work
+    with pytest.raises(TypeError, match="Expected only one of the arguments"):
+        mpc._prepare_plot_func_args(select=123, select_and_combine=456)
+    
+    with pytest.raises(TypeError, match="Expected only one of the arguments"):
+        mpc._prepare_plot_func_args()
+
+    # Without DAG usage enabled, the select_and_combine kwarg is filtered out
+    _, kwargs = mpc._prepare_plot_func_args(mock_pfunc,
+                                            select_and_combine=dict(foo="bar"))
+    assert 'select_and_combine' not in kwargs
+    assert 'data' not in kwargs
+
+    # Test the simplest case
+    sac = dict(fields=dict(state=dict(path="testdata/fixedsize/state")))
+    _, kwargs = mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
+                                            select_and_combine=sac)
+    data = kwargs['data']
+    print("Selected Multiverse data:", data)
+
+    assert isinstance(data, dict)
+    assert len(data) == 1
+    assert isinstance(data['state'], xr.DataArray)
 
 
 # -----------------------------------------------------------------------------

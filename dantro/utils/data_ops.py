@@ -3,13 +3,14 @@
 import logging
 import operator
 from difflib import get_close_matches
-from typing import Callable, Any
+from typing import Callable, Any, Sequence
 
 import numpy as np
 import xarray as xr
 
 from .ordereddict import KeyOrderedDict
 from ..base import BaseDataContainer, BaseDataGroup
+from ..tools import apply_along_axis
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -126,6 +127,59 @@ def count_unique(data) -> xr.DataArray:
                         coords=dict(unique=unique))
 
 
+# .............................................................................
+# Working with multidimensional data, mostly xarray-based
+
+def reduce_by_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> xr.DataArray:
+    """Concatenates the content of an np.ndarray along *all* axes using the
+    ``xr.concat`` method and thereby reduces the ``arrs`` to a single item.
+    
+    Unlike numpy, this function is *not* attempting to cast the content to some
+    compatible data type; this allows ``arrs`` to be an object array.
+    Specifically, it expects the data to be ``xr.Dataset`` or ``xr.DataArray``
+    objects.
+    
+    .. note::
+    
+        ``np.apply_along_axis`` would be what is desired here, but that
+        function unfortunately tries to cast objects to np.arrays which is not
+        what we want here at all! Thus, this function uses a custom dantro
+        function, :py:function:`~dantro.tools.apply_along_axis`, instead.
+    
+    Args:
+        arrs (np.ndarray): The array that is to be reduced. It is expected that
+            the content is compatible input to ``xr.concat``, i.e. some form
+            of xarray object with a dimension name.
+        dims (Sequence[str]): A sequence of dimension names that is assumed to
+            match the dimension names of the array. During each concatenation
+            operation, the name is passed along to ``xr.concat`` where it is
+            used to select the dimension of the *content* of ``arrs`` along
+            which concatenation should occur.
+    
+    Raises:
+        ValueError: If number of dimension names does not match the number of
+            data dimensions.
+    """
+    # Make sure it's an array; this allows it to also be given as nested lists
+    arrs = np.array(arrs)
+
+    # Check dimensionality
+    if len(dims) != arrs.ndim:
+        raise ValueError("The given sequence of dimension names, {}, did not "
+                         "match the number of dimensions of data of shape {}!"
+                         "".format(dims, arrs.shape))
+
+    # Reverse-iterate over dimensions and concatenate them
+    for dim_idx, dim_name in reversed(list(enumerate(dims))):
+        log.debug("Concatenating along axis '%s' (idx: %d) ...",
+                  dim_name, dim_idx)
+
+        arrs = apply_along_axis(xr.concat, axis=dim_idx, arr=arrs,
+                                dim=dim_name)
+
+    return arrs.item()
+
+
 # -----------------------------------------------------------------------------
 # The Operations Database -----------------------------------------------------
 # NOTE If a single "object to act upon" can be reasonably defined for an
@@ -136,8 +190,15 @@ _OPERATIONS = KeyOrderedDict({
     'pass':         lambda d: d,
     'print':        print_data,
 
+    # Some commonly used types
     'list':         list,
     'dict':         dict,
+    'tuple':        tuple,
+    'set':          set,
+
+    'int':          int,
+    'float':        float,
+    'str':          str,
     
     # Item manipulation
     'getitem':      lambda d, k:    d[k],
@@ -212,6 +273,12 @@ _OPERATIONS = KeyOrderedDict({
 
 
     # N-ary ...................................................................
+    'create_mask':  create_mask,
+    'where':        where,
+
+    # dantro-specific
+    'dantro.reduce_by_concat':  reduce_by_concat,
+
     # numpy
     '.sum':         lambda d, **k: d.sum(**k),
     '.mean':        lambda d, **k: d.mean(**k),
@@ -231,6 +298,14 @@ _OPERATIONS = KeyOrderedDict({
     'invert':       lambda d, **k: np.invert(d, **k),
     'transpose':    lambda d, **k: np.transpose(d, **k),
     'diff':         lambda d, **k: np.diff(d, **k),
+
+    'np.array':     np.array,
+    'np.empty':     np.empty,
+    'np.zeros':     np.zeros,
+    'np.ones':      np.ones,
+    'np.arange':    np.arange,
+    'np.linspace':  np.linspace,
+    'np.logspace':  np.logspace,
     
     # xarray
     '.sel':         lambda d, **k: d.sel(**k),
@@ -242,9 +317,13 @@ _OPERATIONS = KeyOrderedDict({
     '.count':       lambda d, **k: d.count(**k),
     '.diff':        lambda d, **k: d.diff(**k),
 
-    # advanced
-    'create_mask':  create_mask,
-    'where':        where,
+    '.expand_dims':     lambda d, **k: d.expand_dims(**k),
+    '.assign_coords':   lambda d, **k: d.assign_coords(**k),
+
+    'xr.Dataset':   xr.Dataset,
+    'xr.DataArray': xr.DataArray,
+    'xr.merge':     xr.merge,
+    'xr.concat':    xr.concat,
 })
 
 # Add the boolean operators

@@ -13,10 +13,10 @@ import xarray as xr
 from paramspace import ParamSpace
 
 from .pcr_ext import ExternalPlotCreator
-from ..groups import ParamSpaceGroup
+from ..groups import ParamSpaceGroup, ParamSpaceStateGroup
 from ..tools import recursive_update
 from ..abc import PATH_JOIN_CHAR
-from ..dag import TransformationDAG, DAGTag
+from ..dag import TransformationDAG, DAGReference, DAGTag, DAGNode
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -63,7 +63,16 @@ class MultiversePlotCreator(ExternalPlotCreator):
         """Prepares the arguments for the plot function.
         
         This also implements the functionality to select and combine data from
-        the Multiverse and provide it to the plot function.
+        the Multiverse and provide it to the plot function. It can do so via
+        the associated :py:class:`~dantro.groups.ParamSpaceGroup` directly or
+        by creating a :py:class:`~dantro.dag.TransformationDAG` that leads to
+        the same results.
+        
+        .. warning::
+        
+            The ``select_and_combine`` argument behaves slightly different to
+            the ``select`` argument! In the long term, the ``select`` argument
+            will be deprecated.
         
         Args:
             *args: Positional arguments to the plot function.
@@ -84,11 +93,11 @@ class MultiversePlotCreator(ExternalPlotCreator):
                 additional ``mv_data`` key.
         
         Raises:
-            NotImplementedError: Description
-            TypeError: Description
+            TypeError: If both or neither of the arguments ``select`` and/or
+                ``select_and_combine`` were given.
         """
         # Distinguish between the new DAG-based selection interface and the
-        # old (and soon-to-be-deprecated) 
+        # old (and soon-to-be-deprecated) one.
         # TODO make this more elegant
         if select and not select_and_combine:
             # Select multiverse data via the ParamSpaceGroup
@@ -103,6 +112,8 @@ class MultiversePlotCreator(ExternalPlotCreator):
                             "`select_and_combine`, got both or neither!")
 
         # Let the parent method (from ExternalPlotCreator) do its thing.
+        # It will invoke the specialized _get_dag_params and _create_dag helper
+        # methods that are implemented by this class.
         return super()._prepare_plot_func_args(*args, **kwargs)
 
     # .........................................................................
@@ -111,7 +122,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
     def _get_dag_params(self, *, select_and_combine: dict=None,
                         **cfg) -> Tuple[dict, dict]:
         """Extends the parent method by..."""
-        dag_params,plot_kwargs = super()._get_dag_params(**cfg)
+        dag_params, plot_kwargs = super()._get_dag_params(**cfg)
 
         # Additionally, store the `select_and_combine` argument
         dag_params['init']['select_and_combine'] = select_and_combine
@@ -121,16 +132,178 @@ class MultiversePlotCreator(ExternalPlotCreator):
     def _create_dag(self, *, _plot_func: Callable,
                     select_and_combine: dict,
                     select: dict=None, transform: Sequence[dict]=None,
-                    **dag_init_params) -> TransformationDAG:
-        """Extends the parent method by ...
+                    select_base: str=None, **dag_init_params
+                    ) -> TransformationDAG:
+        """Extends the parent method by translating the ``select_and_combine``
+        argument into selection of tags from a universe subspace, subsequent
+        transformations, and a ``combine`` operation, that aligns the data in
+        the desired fashion.
+
+        This way, the :py:meth:`~dantro.groups.ParamSpaceGroup.select` method's
+        behaviour is emulated in the DAG.
         """
-        # Initialize an (empty) DAG
-        dag = super()._create_dag(**dag_init_params)
+        def add_single_uni_transformations(dag: TransformationDAG, *,
+                                           uni: ParamSpaceStateGroup,
+                                           coords: dict, path: str,
+                                           transform: Sequence[dict]=None,
+                                           **select_kwargs
+                                           ) -> DAGReference:
+            """Adds the sequence of select and transform operations that is
+            to be applied to the data from a single universe; this is in
+            preparation to the combination of all single-universe DAG strands.
+            The last transformation node that is added by this helper is the
+            one that combines
+            
+            The easiest way to add a sequence of transformations that is based
+            on a selection from the DataManager is to use TransformationDAG's
+            add_nodes method. To that end, this helper function creates the
+            necessary parameters for the ``select`` argument to that method.
+            """
+            # Create the full path that is needed to get from the DataManager
+            # to the path within the current universe.
+            uni_path = PATH_JOIN_CHAR.join([self.PSGRP_PATH, uni.name, path])
+            
+            # Prepare arguments for the select operation
+            select = dict()
+            select[uni.name] = dict(path=uni_path, transform=transform,
+                                    omit_tag=True, **select_kwargs)
+            
+            # Add the nodes that handle the selection and optional transform
+            # operations on the selected data. This is all user-determined.
+            dag.add_nodes(select=select)
 
-        # Dynamically add nodes ...
-        # TODO
+            # Prepare arguments for the operation that adds the parameter space
+            # dimensions and coordinates to the result. Don't cache those!
+            ref = dag.add_node(operation='xr.DataArray',
+                               args=[DAGNode(-1)],
+                               file_cache=dict(read=False, write=False))
+            # NOTE If this one does not work properly, consider making this a
+            #      more specific function that also takes care of dimensions
+            #      being expanded.
 
-        # Now actually add the additional transformations
+            return dag.add_node(operation='.expand_dims',
+                                args=[ref], kwargs=dict(dim=coords))
+
+        def add_transformations(dag: TransformationDAG, *,
+                                tag: str, path: str, subspace: dict,
+                                transform: Sequence[dict]=None,
+                                combination_method: str,
+                                combination_kwargs: dict=None,
+                                **select_kwargs):
+            """Adds the sequence of transformations that is necessary to select
+            data from a single universe and transform it, i.e.: all the preps
+            necessary to arrive at another input argument to the combiation.
+            """
+            # Get the parameter space object
+            psp = copy.deepcopy(self.psgrp.pspace)
+
+            # Apply the subspace mask, if given
+            if subspace:
+                psp.activate_subspace(**subspace)
+
+            # Prepare multi-dimensional array for gathering DAGReferences
+            refs = np.zeros(psp.shape, dtype='object')
+            refs.fill(dict())  # these are ignored in xr.merge
+
+            # Prepare iterators
+            psp_it = psp.iterator(with_info=('state_no', 'current_coords'),
+                                  omit_pt=True)
+            arr_it = np.nditer(refs, flags=('multi_index', 'refs_ok'))
+
+            # For each universe in the subspace, add a sequence of transform
+            # operations that lead to the data being selected and (optionally)
+            # further transformed. Keep track of those by aggregating them
+            # into an ndarray.
+            for (state_no, coords), _ in zip(psp_it, arr_it):
+                # Get the universe, i.e. a ParamSpaceStateGroup
+                uni = self.psgrp[state_no]
+                # TODO error handling
+
+                # Add the transformations for this single universe and keep
+                # track of the reference to the last node of that branch, which
+                # is a node that creates an xr.DataArray with the coordinates
+                # within the parameter space assigned to it.
+                ref = add_single_uni_transformations(dag, uni=uni,
+                                                     coords=coords, path=path,
+                                                     transform=transform,
+                                                     **select_kwargs)
+
+                # Keep track of the reference objects
+                refs[arr_it.multi_index] = ref
+
+            # Depending on the chosen combination method, create corresponding
+            # additional transformations for combination via merge or via
+            # concatenation.
+            if combination_method in ['merge']:
+                dag.add_node(operation='xr.merge',
+                             args=[list(refs.flat)],
+                             tag=tag,
+                             **(combination_kwargs if combination_kwargs
+                                else {}))
+
+            elif combination_method in ['concat']:
+                dag.add_node(operation='dantro.reduce_by_concat',
+                             args=[refs.tolist()],
+                             kwargs=dict(dims=list(psp.dims.keys())),
+                             tag=tag,
+                             **(combination_kwargs if combination_kwargs
+                                else {}))
+
+            else:
+                raise ValueError("Invalid combination method '{}'! Available "
+                                 "methods: merge, concat."
+                                 "".format(combination_method))
+
+            # Done, yay! :)
+
+
+        def add_sac_transformations(dag: TransformationDAG, *,
+                                    fields: dict, subspace: dict=None,
+                                    combination_method: str='concat',
+                                    base_path: str=None) -> None:
+            """Adds transformations to the given DAG that select data from the
+            selected multiverse subspace.
+            
+            Args:
+                dag (TransformationDAG): The DAG to add nodes t o
+                fields (dict): Which fields to select from the separate
+                    universes.
+                subspace (dict, optional): The (default) subspace to select the
+                    data from.
+                combination_method (str, optional): The (default) combination
+                    method of the multidimensional data.
+                base_path (str, optional): If given, ``path`` specifications
+                    of each field can be seen as relative to this path.
+            """
+            for tag, spec in fields.items():
+                # Parse parameters, i.e.: Use defaults defined on this level
+                # if the spec does not provide more specific information.
+                spec = copy.deepcopy(spec)
+
+                if base_path is not None:
+                    spec['path'] = base_path + PATH_JOIN_CHAR + spec['path']
+
+                spec['subspace'] = spec.get('subspace',copy.deepcopy(subspace))
+                spec['combination_method'] = spec.get('combination_method',
+                                                      combination_method)
+
+                # Add the transformations for this specific tag
+                add_transformations(dag, tag=tag, **spec)
+        
+        # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        # Initialize an (empty) DAG, i.e.: without select and transform args
+        # and without setting the selection base
+        dag = super()._create_dag(_plot_func=_plot_func, **dag_init_params)
+
+        # Add nodes that perform the "select and combine" operations, based on
+        # selections from the DataManager
+        add_sac_transformations(dag, **select_and_combine)
+
+        # Can now set the selection base to the intended value
+        if select_base is not None:
+            dag.select_base = select_base
+
+        # Now add the additional transformations, which may use existing nodes.
         dag.add_nodes(select=select, transform=transform)
         
         return dag
@@ -373,10 +546,11 @@ class UniversePlotCreator(ExternalPlotCreator):
         uni = self.psgrp[uni_id]
         log.note("Using data of:        %s", uni.logstr)
         uni_name = "uni{:d}".format(uni_id)
+        uni_path = PATH_JOIN_CHAR.join([self.PSGRP_PATH, uni.name])
+        # TODO Should be possible to do via uni.path, but is not (yet)
 
         # Create the parameters for the DAG transformation interface which uses
         # selections based in the universe group
-        uni_path = self.PSGRP_PATH + PATH_JOIN_CHAR + uni.name
         base_transform = [dict(getitem=[DAGTag('dm'), uni_path],
                                tag=uni_name,
                                file_cache=dict(read=False, write=False))]

@@ -13,7 +13,7 @@ import xarray as xr
 from paramspace import ParamSpace
 
 from .ordered import OrderedDataGroup, IndexedDataGroup
-from ..tools import apply_along_axis
+from ..utils.data_ops import reduce_by_concat
 from ..base import PATH_JOIN_CHAR
 from ..containers import NumpyDataContainer, XrDataContainer
 from ..mixins import PaddedIntegerItemAccessMixin
@@ -401,37 +401,6 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
 
             return xr.DataArray(data, dims=dims, coords=coords, attrs=attrs)
 
-        def expand_dset_dims(dset: xr.Dataset, *, coords: dict) -> xr.Dataset:
-            """Expands the given dataset such that the new coordinates can be
-            accomodated. Old coordinates stay intact.
-            
-            Note that this needs to create a copy of the data.
-            
-            Args:
-                dset (xr.Dataset): The dataset to expand
-                coords (dict): The coordinates of the current point, used to
-                    expand the dimensions of the dataset.
-            
-            Returns:
-                xr.Dataset: The expanded dataset
-            """
-            # Now add the additional named dimensions with coordinates in front
-            dset = dset.expand_dims(dim=list(coords.keys()))
-            # NOTE While this creates a non-shallow copy of the data, there is
-            #      no other way of doing this: a copy can only be avoided if
-            #      the DataArray can re-use the existing variables – for the
-            #      changes it needs to do to expand the dims, however, it will
-            #      necessarily need to create a copy of the original data.
-            #      Thus, we might as well let xarray take care of that instead
-            #      of bothering with that ourselves ...
-
-            # ...and assign coordinates to them.
-            dset = dset.assign_coords(**{k: [v] for k, v in coords.items()})
-            # NOTE This creates only a shallow copy of the dataset. Thus, all
-            #      already existing coordinates are carried over.
-
-            return dset
-
         def combine(*, method: str,
                     dsets: np.ndarray, psp: ParamSpace) -> xr.Dataset:
             """Tries to combine the given datasets either by concatenation or
@@ -454,25 +423,12 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
             log.remark("Combining %d datasets by concatenation along %d "
                        "dimensions ...", dsets.size, len(dsets.shape))
 
-            # Go over all dimensions and concatenate
-            # This effectively reduces the dsets array by one dimension in each
-            # iteration by applying the xr.concat function along the axis
-            # NOTE np.apply_along_axis would be what is desired here, but that
-            #      function unfortunately tries to cast objects to np.arrays
-            #      which is not what we want here at all! Thus, there is one
-            #      implemented in dantro.tools ...
-            idcs_and_names = list(enumerate(psp.dims.keys()))
-            for dim_idx, dim_name in reversed(idcs_and_names):
-                log.debug("Concatenating along axis '%s' (idx: %d) ...",
-                          dim_name, dim_idx)
-
-                dsets = apply_along_axis(xr.concat, axis=dim_idx, arr=dsets,
-                                         dim=dim_name)
-
+            # Reduce the dsets array to one dimension by applying xr.concat
+            # along each axis. The returned object contains the combined data.
+            reduced = reduce_by_concat(dsets, dims=psp.dims.keys())
             log.remark("Concatenation successful.")
 
-            # Need to extract the single item from the now scalar dsets array
-            return dsets.item()
+            return reduced
 
 
         # End of definition of helper functions.
@@ -560,7 +516,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
             _dset = xr.Dataset(_vars)
 
             # ... and expand its dimensions to accomodate the point in pspace
-            _dset = expand_dset_dims(_dset, coords=_coords)
+            _dset = _dset.expand_dims({k: [v] for k, v in _coords.items()})
 
             # Store it in the array of datasets
             dsets[arr_it.multi_index] = _dset
