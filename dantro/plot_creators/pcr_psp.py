@@ -238,7 +238,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
                                 else {}))
 
             elif combination_method in ['concat']:
-                dag.add_node(operation='dantro.populate_ndarray',
+                dag.add_node(operation='populate_ndarray',
                              args=[*refs.flat],
                              kwargs=dict(shape=refs.shape, dtype='object'))
                 dag.add_node(operation='dantro.concat',
