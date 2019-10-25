@@ -709,49 +709,6 @@ class TransformationDAG:
 
     # .........................................................................
 
-    def add_object(self, obj: Any, *, name: str=None,
-                   depends_on: Sequence[DAGReference]=None) -> DAGReference:
-        """Adds an object to the object database and returns a reference to it.
-
-        If the object is hashable via the ``hashstr`` property, that hash is
-        used as its key. If that is not possible, a custom hash is computed
-        from the YAML representation of ``name`` and ``depends_on``.
-        """
-        if hasattr(obj, 'hashstr'):
-            return DAGReference(self.objects.add_object(obj))
-
-        # else: Need to create a custom hash
-        if name is None:
-            raise ValueError("Cannot add a non-hashable object of type {} "
-                             "to the DAG object database without the "
-                             "`name` argument being provided."
-                             "".format(type(obj)))
-
-        # Prepare parameters for serialization
-        dag_classes = (DAGNode, DAGReference, DAGTag, Transformation,)
-        serialization_params = dict(canonical=True)
-        # WARNING Changing the above leads to cache invalidations!
-
-        # Build the custom hash from the name, type and dependencies
-        dag_classes = (DAGNode, DAGReference, DAGTag, Transformation,)
-        ch = _hash(_serialize(dict(desc="custom DAG object",
-                                   dag_ref=self.hashstr,
-                                   object_type=str(type(obj)),
-                                   name=name, depends_on=depends_on),
-                              register_classes=dag_classes,
-                              **serialization_params))
-
-        if ch in self.objects:
-            # This should not fail silently
-            raise ValueError("Got a hash collision while attempting to add "
-                             "the non-hashable {} to the objects database. "
-                             "Refusing to add it. Was it already added or is "
-                             "this really a hash collision?"
-                             "".format(type(obj)))
-
-        # Add the object and create a reference object from the returned hash
-        return DAGReference(self.objects.add_object(obj, custom_hash=ch))
-
     def add_node(self, *, operation: str, args: list=None, kwargs: dict=None,
                  tag: str=None, file_cache: dict=None,
                  **trf_kwargs) -> DAGReference:
@@ -1122,52 +1079,3 @@ class TransformationDAG:
         # else: Success
         return True
 
-
-
-# -----------------------------------------------------------------------------
-# Helpers
-
-def _get_dag_object(dag: 'TransformationDAG', *, obj_hash: THash,
-                    depends_on: Sequence[DAGReference]=None) -> Any:
-    """This is an operation that extracts an object from the DAG's object
-    database. It does so via the ``obj_hash`` argument, which needs to be a
-    string.
-
-    Additionally, it allows specifying dependencies. These have no effect in
-    this operation, but they serve as a possibility to create dependencies
-    between objects in the objects database that are retrieved via this
-    operation and the output of some other operations.
-
-    This operation's main purpose is to buffer objects in the TransformationDAG
-    object database, which makes sense in situations where the input arguments
-    to some operation are so complex that they cannot be represented properly.
-    """
-    def is_DAGReference(obj) -> bool:
-        return isinstance(obj, DAGReference)
-
-    def resolve_and_compute(ref: DAGReference):
-        return ref.resolve_object(dag=dag).compute()
-
-    # Given the hash, get the referenced object from the DAG's object database
-    obj = DAGReference(obj_hash).resolve_object(dag=dag)
-
-    # The object might contain further DAGReference objects. Let's try our best
-    # to resolve them ...
-    if isinstance(obj, np.ndarray) and obj.dtype is np.dtype('object'):
-        # Iterate over the object array and replace DAGReferences in-place
-        it = np.nditer(obj, flags=('multi_index', 'refs_ok'))
-        for val in it:
-            val = val.item()
-            if isinstance(val, DAGReference):
-                obj[it.multi_index] = resolve_and_compute(val)
-
-    else:
-        # Attempt recursive replacement
-        try:
-            obj = recursive_replace(obj, select_func=is_DAGReference,
-                                    replace_func=resolve_and_compute)
-        except:
-            pass
-
-    return obj
-register_operation(name='dag.get_object', func=_get_dag_object)

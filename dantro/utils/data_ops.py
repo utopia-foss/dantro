@@ -130,6 +130,35 @@ def count_unique(data) -> xr.DataArray:
 # .............................................................................
 # Working with multidimensional data, mostly xarray-based
 
+def populate_ndarray(*objs, shape: tuple, dtype: str='float', order: str='C'
+                     ) -> np.ndarray:
+    """Populates an empty np.ndarray of the given dtype with the objects.
+    
+    Args:
+        *objs: The objects to add to the 
+        shape (tuple): The shape of the new array
+        dtype (str, optional): Data type of the new array
+        order (str, optional): Order of the new array
+    
+    Returns:
+        np.ndarray: The newly created and populated array
+    
+    Raises:
+        ValueError: If the number of given objects did not match the array size
+    """
+    arr = np.empty(shape, dtype=dtype, order=order)
+
+    if len(objs) != arr.size:
+        raise ValueError("Mismatch between array size ({}, shape: {}) and "
+                         "number of given objects ({})!"
+                         "".format(arr.size, arr.shape, len(objs)))
+
+    it = np.nditer(arr, flags=('multi_index', 'refs_ok'))
+    for obj, _ in zip(objs, it):
+        arr[it.multi_index] = obj
+
+    return arr
+
 
 def concat(arrs: Union[list, np.ndarray], *, dims: Sequence[str]
            ) -> xr.DataArray:
@@ -304,10 +333,11 @@ _OPERATIONS = KeyOrderedDict({
 
 
     # N-ary ...................................................................
-    'create_mask':  create_mask,
-    'where':        where,
+    'create_mask':          create_mask,
+    'where':                where,
+    'populate_ndarray':     populate_ndarray,
 
-    # dantro-specific
+    # dantro-specific wrappers around other library's functionality
     'dantro.concat':        concat,
     'dantro.merge':         merge,
     'dantro.expand_dims':   expand_dims,

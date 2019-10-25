@@ -191,6 +191,17 @@ def test_DAGObjects(dm):
     list(objs.values())
     list(objs.items())
 
+    # Adding an object with a custom hash does not work if it can be hashed
+    with pytest.raises(TypeError, match="Cannot use a custom hash for "):
+        objs.add_object(t0, custom_hash="foobar")
+
+    # Add an object
+    assert "123_hash" == objs.add_object("123", custom_hash="123_hash")
+
+    # Adding one with the same hash does not work
+    with pytest.raises(ValueError, match="already exists! Refusing to add it"):
+        objs.add_object("not_123", custom_hash="123_hash")
+
 
 def test_Transformation():
     """Tests the Transformation class"""
@@ -373,7 +384,6 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
 
             print("Raised error as expected.\n")
             continue
-        continue
 
         # Cache directory MAY exist after computation
         if not os.path.isdir(cache_dir):

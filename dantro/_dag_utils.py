@@ -182,6 +182,13 @@ class DAGObjects:
                                 "provide their own `hashstr` property! Got "
                                 "object of type {} and custom hash '{}'."
                                 "".format(type(obj), custom_hash))
+
+            elif custom_hash in self:
+                raise ValueError("The provided custom hash '{}' for object of "
+                                 "type {} already exists! Refusing to add it. "
+                                 "Was the object already added? If not, "
+                                 "choose a different custom hash."
+                                 "".format(custom_hash, type(obj)))
             key = custom_hash
         
         else:

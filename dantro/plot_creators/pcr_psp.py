@@ -21,6 +21,7 @@ from ..dag import TransformationDAG, DAGReference, DAGTag, DAGNode
 # Local constants
 log = logging.getLogger(__name__)
 
+
 # -----------------------------------------------------------------------------
 
 class MultiversePlotCreator(ExternalPlotCreator):
@@ -226,28 +227,22 @@ class MultiversePlotCreator(ExternalPlotCreator):
                 # Keep track of the reference objects
                 refs[arr_it.multi_index] = ref
 
-            # Add the object to the argument buffer, which returns a reference
-            # to the object in the TransformationDAG's object database.
-            arg_ref = dag.add_object(refs, name="{}-refs".format(tag),
-                                     dependencies=list(refs.flat))
-            ref_buf = dag.add_node(operation='dag.get_object',
-                                   args=[DAGTag('dag')],
-                                   kwargs=dict(obj_hash=arg_ref.ref,
-                                               depends_on=list(refs.flat)))
-
             # Depending on the chosen combination method, create corresponding
             # additional transformations for combination via merge or via
             # concatenation.
             if combination_method in ['merge']:
                 dag.add_node(operation='dantro.merge',
-                             args=[ref_buf],
+                             args=[list(refs.flat)],
                              tag=tag,
                              **(combination_kwargs if combination_kwargs
                                 else {}))
 
             elif combination_method in ['concat']:
+                dag.add_node(operation='dantro.populate_ndarray',
+                             args=[*refs.flat],
+                             kwargs=dict(shape=refs.shape, dtype='object'))
                 dag.add_node(operation='dantro.concat',
-                             args=[ref_buf],
+                             args=[DAGNode(-1)],
                              kwargs=dict(dims=list(psp.dims.keys())),
                              tag=tag,
                              **(combination_kwargs if combination_kwargs
