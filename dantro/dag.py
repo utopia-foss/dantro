@@ -167,6 +167,7 @@ class Transformation:
         self._dag = dag
         self._salt = salt
         self._hashstr = None
+        self._profile = dict()
 
         # Parse file cache options, making sure it's a dict with default values
         self._fc_opts = file_cache if file_cache is not None else {}
@@ -180,9 +181,6 @@ class Transformation:
             self._fc_opts['read'] = dict(enabled=self._fc_opts['read'])
         elif 'read' not in self._fc_opts:
             self._fc_opts['read'] = dict(enabled=False)
-
-        # Profiling info from the last computation
-        self._profile = dict()
 
         # Cache dict, containing the result and whether the cache is in memory
         self._cache = dict(result=None, filled=False)
@@ -208,6 +206,8 @@ class Transformation:
         magic method but as a separate property.
         """
         if self._hashstr is None:
+            t0 = time.time()
+
             dag_classes = (DAGNode, DAGReference, DAGTag, Transformation,)
             serialization_params = dict(canonical=True)
             # WARNING Changing the above leads to cache invalidations!
@@ -215,6 +215,8 @@ class Transformation:
             self._hashstr = _hash(_serialize(self,
                                              register_classes=dag_classes,
                                              **serialization_params))
+            self._update_profile(hashstr=time.time() - t0)
+
         return self._hashstr
 
     @property
@@ -579,6 +581,7 @@ class TransformationDAG:
         self._nodes = list()
         self._fc_opts = file_cache_defaults if file_cache_defaults else {}
         self._select_base = None
+        self._profile = dict()
         
         # Determine cache directory path; relative path interpreted as relative
         # to the DataManager's data directory
@@ -710,6 +713,55 @@ class TransformationDAG:
         # Have a DAGReference now. Store it.
         self._select_base = new_base
 
+    @property
+    def profile(self) -> Dict[str, float]:
+        """Returns the profiling information for the DAG."""
+        return self._profile
+    
+    @property
+    def profile_extended(self) -> Dict[str, Union[float, Dict[str, float]]]:
+        """Builds an extended profile that includes the profiles from all
+        transformations and some aggregated information.
+
+        This is calculated anew upon each invocation; the result is not cached.
+        """
+        prof = copy.deepcopy(self.profile)
+        
+        # Add tag-specific information
+        prof['tags'] = dict()
+        for tag, obj_hash in self.tags.items():
+            obj = self.objects[obj_hash]
+            if not isinstance(obj, Transformation):
+                continue
+
+            tprof = copy.deepcopy(obj.profile)
+            prof['tags'][tag] = tprof
+
+        # Aggregate the profiled times from all transformations (by item)
+        to_aggregate = ('compute', 'hashstr',
+                        'cache_lookup', 'cache_writing')
+        tprofs = {item: list() for item in to_aggregate}
+
+        for obj_hash, obj in self.objects.items():
+            if not isinstance(obj, Transformation):
+                continue
+
+            tprof = copy.deepcopy(obj.profile)
+            for item in to_aggregate:
+                tprofs[item].append(tprof[item])
+
+        # Compute some statistics for the aggregated elements
+        prof['aggregated'] = {item: dict(mean=np.mean(tprofs[item]),
+                                         std=np.std(tprofs[item]),
+                                         min=np.min(tprofs[item]),
+                                         max=np.max(tprofs[item]),
+                                         q25=np.quantile(tprofs[item], .25),
+                                         q50=np.quantile(tprofs[item], .50),
+                                         q75=np.quantile(tprofs[item], .75)
+                                         )
+                              for item in to_aggregate}
+        return prof
+
     # .........................................................................
 
     def add_node(self, *, operation: str, args: list=None, kwargs: dict=None,
@@ -735,6 +787,8 @@ class TransformationDAG:
         Returns:
             DAGReference: The reference to the created node
         """
+        t0 = time.time()
+
         # Some helper methods for the recursive replacement
         def not_proper_ref(obj: Any) -> bool:
             return (    isinstance(obj, DAGReference)
@@ -789,6 +843,9 @@ class TransformationDAG:
         
         log.debug("Added node. Total: %d", len(self.nodes))
 
+        # Update the profile
+        self._update_profile(add_node=time.time() - t0)
+
         # Return a reference to the newly created node
         return DAGReference(trf_hash)
     
@@ -824,6 +881,25 @@ class TransformationDAG:
         Returns:
             Dict[str, Any]: A mapping from tags to fully computed results.
         """
+        def postprocess_result(res, *, tag: str):
+            """Performs some postprocessing operations on the results of
+            individual tag computations.
+            """
+            # If the object is a detached dantro tree object, use the short
+            # transformation hash for its name
+            if isinstance(res, (AbstractDataContainer)) and res.parent is None:
+                res.name = trf.hashstr[:SHORT_HASH_LENGTH]
+
+            # Unwrap ObjectContainer; these are only meant for usage within the
+            # data tree and it makes little sense to keep them in that form.
+            if isinstance(res, ObjectContainer):
+                res = res.data
+
+            return res
+        
+        # Initiate start time for profiling
+        t0 = time.time()
+
         # Determine which tags to compute
         compute_only = compute_only if compute_only is not None else 'all'
         if compute_only == 'all':
@@ -839,18 +915,11 @@ class TransformationDAG:
             trf = self.objects[self.tags[tag]]
             res = trf.compute()
 
-            # If the object is a detached dantro tree object, use the short
-            # transformation hash for its name
-            if isinstance(res, (AbstractDataContainer)) and res.parent is None:
-                res.name = trf.hashstr[:SHORT_HASH_LENGTH]
+            # Postprocess it and store the result under its tag
+            results[tag] = postprocess_result(res, tag=tag)
 
-            # Unwrap ObjectContainer; these are only meant for usage within the
-            # data tree and it makes little sense to keep them in that form.
-            if isinstance(res, ObjectContainer):
-                res = res.data
-
-            # Store the result under its tag
-            results[tag] = res
+        # Update profiling information
+        self._update_profile(compute=time.time() - t0)
 
         return results
 
@@ -965,6 +1034,16 @@ class TransformationDAG:
 
         # Done parsing, yay.
         return trfs
+
+    # .........................................................................
+    # Helpers: Profiling
+
+    def _update_profile(self, **times):
+        """Updates profiling information by adding the given time to the
+        matching key.
+        """
+        for key, t in times.items():
+            self._profile[key] = self._profile.get(key, 0.) + t
 
     # .........................................................................
     # Cache writing and reading
