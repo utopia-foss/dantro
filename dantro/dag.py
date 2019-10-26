@@ -27,7 +27,6 @@ from ._dag_utils import (THash, DAGObjects,
                          parse_dag_syntax as _parse_dag_syntax,
                          parse_dag_minimal_syntax as _parse_dag_minimal_syntax)
 from ._hash import _hash, SHORT_HASH_LENGTH, FULL_HASH_LENGTH
-from ._yaml import yaml_dumps as _serialize
 
 # Local constants .............................................................
 log = logging.getLogger(__name__)
@@ -186,38 +185,70 @@ class Transformation:
         self._cache = dict(result=None, filled=False)
 
     # .........................................................................
+    # String representation and hashing
+
+    def __str__(self) -> str:
+        """A human-readable string characterizing this Transformation"""
+        return ("<{t:}, operation: {op:}, {Na:d} args, {Nkw:d} kwargs>\n"
+                "  args:   {args:}\n"
+                "  kwargs: {kwargs:}\n"
+                "".format(t=type(self).__name__, op=self._operation,
+                          Na=len(self._args), Nkw=len(self._kwargs),
+                          args=self._args, kwargs=self._kwargs))
+
+    def __repr__(self) -> str:
+        """A deterministic string representation of this transformation.
+
+        .. note::
+
+            This is also used for hash creation, thus it does not include the
+            attributes that are set via the initialization arguments ``dag``
+            and ``file_cache``.
+
+        .. warning::
+
+            Changing this method will lead to cache invalidations!
+        """
+        return ("{t:}(operation={op:}, args={args:}, kwargs={kwargs:}, "
+                "salt={salt:})"
+                "".format(t=str(type(self)),
+                          op=repr(self._operation),
+                          args=repr(self._args),
+                          kwargs=repr(self._kwargs),  # TODO Check sorting!
+                          salt=repr(self._salt)))
+
+    @property
+    def hashstr(self) -> THash:
+        """Computes the hash of this Transformation by creating a deterministic
+        representation of this Transformation using ``__repr__`` and then
+        applying a checksum hash function to it.
+
+        Note that this does NOT rely on the built-in hash function but on the
+        custom dantro ``_hash`` function which produces a platform-independent
+        and deterministic hash. As this is a *string*-based (rather than an
+        integer-based) hash, it is not implemented as the ``__hash__`` magic
+        method but as this separate property.
+        """
+        if self._hashstr is None:
+            t0 = time.time()
+            self._hashstr = _hash(repr(self))
+            self._update_profile(hashstr=time.time() - t0)
+
+        return self._hashstr
+
+    def __hash__(self) -> int:
+        """Computes the python-compatible integer hash of this object from the
+        string-based hash of this Transformation.
+        """
+        return hash(self.hashstr)
+
+    # .........................................................................
     # Properties
 
     @property
     def dag(self) -> 'TransformationDAG':
         """The associated TransformationDAG; used for object lookup"""
         return self._dag
-
-    @property
-    def hashstr(self) -> THash:
-        """Computes the hash of this Transformation by serializing itself into
-        a YAML string which is then hashed. The result is cached.
-
-        Note that this does NOT rely on the built-in hash function but on the
-        custom dantro `_hash` function which produces a platform-independent
-        and deterministic hash.
-
-        As this is a string-based hash, it is not implemented as the __hash__
-        magic method but as a separate property.
-        """
-        if self._hashstr is None:
-            t0 = time.time()
-
-            dag_classes = (DAGNode, DAGReference, DAGTag, Transformation,)
-            serialization_params = dict(canonical=True)
-            # WARNING Changing the above leads to cache invalidations!
-
-            self._hashstr = _hash(_serialize(self,
-                                             register_classes=dag_classes,
-                                             **serialization_params))
-            self._update_profile(hashstr=time.time() - t0)
-
-        return self._hashstr
 
     @property
     def dependencies(self) -> Set[THash]:
@@ -606,6 +637,14 @@ class TransformationDAG:
         # select interface, because a select base tag is set and base transform
         # operations were already added.
         self.add_nodes(select=select, transform=transform)
+
+    # .........................................................................
+    
+    def __str__(self) -> str:
+        """A human-readable string characterizing this TransformationDAG"""
+        return ("<TransformationDAG, "
+                "{:d} node(s), {:d} tag(s), {:d} object(s)>"
+                "".format(len(self.nodes), len(self.tags), len(self.objects)))
 
     # .........................................................................
 

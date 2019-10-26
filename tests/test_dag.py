@@ -208,7 +208,7 @@ def test_Transformation():
     Transformation = dag.Transformation
 
     t0 = Transformation(operation="add", args=[1,2], kwargs=dict())
-    assert t0.hashstr == "21c6675666732d9e6c6426ffb454e829"
+    assert t0.hashstr == "c64f609346a510459ea30cdfa25a72f5"
 
     assert t0.compute() == 3
     assert t0.compute() == 3  # to hit the (memory) cache

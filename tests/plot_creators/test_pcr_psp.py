@@ -1,5 +1,7 @@
 """Tests the ParamSpacePlotCreator classes."""
 
+from pprint import pprint
+
 import pytest
 
 import numpy as np
@@ -113,7 +115,8 @@ def test_MultiversePlotCreator_DAG_usage(init_kwargs):
     with pytest.raises(TypeError, match="Expected only one of the arguments"):
         mpc._prepare_plot_func_args()
 
-    # Without DAG usage enabled, the select_and_combine kwarg is filtered out
+    # Without DAG usage enabled, the select_and_combine kwarg is still
+    # filtered out
     _, kwargs = mpc._prepare_plot_func_args(mock_pfunc,
                                             select_and_combine=dict(foo="bar"))
     assert 'select_and_combine' not in kwargs
@@ -121,14 +124,23 @@ def test_MultiversePlotCreator_DAG_usage(init_kwargs):
 
     # Test the simplest case
     sac = dict(fields=dict(state=dict(path="testdata/fixedsize/state")))
+    mock_pfunc.pass_dag_object_along = True
     _, kwargs = mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
                                             select_and_combine=sac)
     data = kwargs['data']
-    print("Selected Multiverse data:", data)
+    dag = kwargs['dag']
 
     assert isinstance(data, dict)
     assert len(data) == 1
     assert isinstance(data['state'], xr.DataArray)
+    # TODO more checks
+
+    print(dag.profile)
+    pprint(dag.profile_extended)
+
+    # Select only a subspace
+    subspace = dict(p0=[0], p1=[0], p2=[0], a0=[0, 1])
+    # TODO
 
 
 # -----------------------------------------------------------------------------

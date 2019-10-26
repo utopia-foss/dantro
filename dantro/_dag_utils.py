@@ -165,6 +165,11 @@ class DAGObjects:
         """Initialize an empty objects database"""
         self._d = dict()
 
+    def __str__(self) -> str:
+        """A human-readable string representation of the object database"""
+        return ("<DAGObjects database with {:d} entr{}>"
+                "".format(len(self), "ies" if len(self) != 1 else "y"))
+
     def add_object(self, obj: TDAGHashable, *, custom_hash: str=None) -> THash:
         """Add an object to the object database, storing it under its hash.
 
