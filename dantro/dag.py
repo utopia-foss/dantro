@@ -691,6 +691,9 @@ class TransformationDAG:
             # hash), and not an object of a derived class.
             new_base = new_base.convert_to_ref(dag=self)
 
+        elif new_base is None:
+            new_base = DAGTag('dm').convert_to_ref(dag=self)
+
         elif new_base not in self.tags:
             raise KeyError("The tag '{}' cannot be the basis of future select "
                            "operations because it is not available! Make sure "
