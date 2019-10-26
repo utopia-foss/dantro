@@ -209,12 +209,12 @@ class Transformation:
 
             Changing this method will lead to cache invalidations!
         """
-        return ("{t:}(operation={op:}, args={args:}, kwargs={kwargs:}, "
-                "salt={salt:})"
-                "".format(t=str(type(self)),
+        return ("<{mod:}.{t:}, operation={op:}, args={args:}, "
+                "kwargs={kwargs:}, salt={salt:}>"
+                "".format(mod=type(self).__module__, t=type(self).__name__,
                           op=repr(self._operation),
                           args=repr(self._args),
-                          kwargs=repr(self._kwargs),  # TODO Check sorting!
+                          kwargs=repr(dict(self._kwargs)),# TODO Check sorting!
                           salt=repr(self._salt)))
 
     @property
@@ -576,7 +576,7 @@ class TransformationDAG:
                  select: dict=None, transform: Sequence[dict]=None,
                  cache_dir: str='.cache', file_cache_defaults: dict=None,
                  base_transform: Sequence[Transformation]=None,
-                 select_base: Union[DAGReference, str]='dm'):
+                 select_base: Union[DAGReference, str]=None):
         """Initialize a DAG which is associated with a DataManager and load the
         specified transformations configuration into it.
         
@@ -603,8 +603,9 @@ class TransformationDAG:
                 to create some other object from the data manager which should
                 be used as the basis of ``select`` operations.
             select_base (str, optional): Which tag to base the ``select``
-                operations on. If not given, will use the (always-registered)
-                tag for the data manager, ``dm``.
+                operations on. If None, will use the (always-registered)
+                tag for the data manager, ``dm``. This attribute can also be
+                set via the ``select_base`` property.
         """
         self._dm = dm
         self._objects = DAGObjects()
@@ -727,14 +728,14 @@ class TransformationDAG:
         operations. It can either be a reference object or a string, which is
         then interpreted as a tag.
         """
-        # Distinguish by type. If it's not a DAGReference, assume it's a tag
-        if isinstance(new_base, DAGReference):
-            # Make sure it is a proper DAGReference object (which stores a
-            # hash), and not an object of a derived class.
-            new_base = new_base.convert_to_ref(dag=self)
-
-        elif new_base is None:
+        # Distinguish by type. If it's not a DAGReference, assume it's a tag.
+        if new_base is None:
             new_base = DAGTag('dm').convert_to_ref(dag=self)
+
+        elif isinstance(new_base, DAGReference):
+            # Make sure it is a proper DAGReference object (hash-based) and not
+            # an object of a derived class.
+            new_base = new_base.convert_to_ref(dag=self)
 
         elif new_base not in self.tags:
             raise KeyError("The tag '{}' cannot be the basis of future select "
@@ -787,7 +788,7 @@ class TransformationDAG:
 
             tprof = copy.deepcopy(obj.profile)
             for item in to_aggregate:
-                tprofs[item].append(tprof[item])
+                tprofs[item].append(tprof.get(item, 0.))
 
         # Compute some statistics for the aggregated elements
         prof['aggregated'] = {item: dict(mean=np.mean(tprofs[item]),

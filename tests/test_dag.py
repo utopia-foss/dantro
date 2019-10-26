@@ -19,6 +19,7 @@ from dantro.data_loaders import (YamlLoaderMixin, PickleLoaderMixin,
                                  NumpyLoaderMixin, XarrayLoaderMixin)
 from dantro.tools import load_yml, write_yml
 from dantro._hash import _hash
+from dantro._yaml import yaml_dumps
 
 # Local constants
 TRANSFORMATIONS_PATH = resource_filename('tests', 'cfg/transformations.yml')
@@ -116,6 +117,9 @@ def test_DAGReference():
     assert ref._resolve_ref(dag=None) == some_hash
     assert id(ref) != id(ref.convert_to_ref(dag=None))
 
+    # YAML representation
+    assert "!dag_ref" in yaml_dumps(ref, register_classes=(dag.DAGReference,))
+
 def test_DAGTag():
     """Test the DAGTag class"""
     some_tag = "tag42"
@@ -127,6 +131,8 @@ def test_DAGTag():
     assert tag != some_tag
 
     assert some_tag in repr(tag)
+
+    assert "!dag_tag" in yaml_dumps(tag, register_classes=(dag.DAGTag,))
 
     # Reference resolution cannot be tested without DAG
 
@@ -147,6 +153,8 @@ def test_DAGNode():
     with pytest.raises(TypeError, match="requires an int-convertible"):
         dag.DAGNode("not int-convertible")
 
+    assert "!dag_node" in yaml_dumps(node, register_classes=(dag.DAGNode,))
+
     # Reference resolution cannot be tested without DAG
 
 def test_DAGObjects(dm):
@@ -156,6 +164,7 @@ def test_DAGObjects(dm):
 
     # Initialize an empty database
     objs = DAGObjects()
+    assert "0 entries" in str(objs)
 
     # Some objects to store in
     t0 = Transformation(operation="add", args=[1,2], kwargs=dict())
@@ -163,7 +172,9 @@ def test_DAGObjects(dm):
 
     # Can store only certain objects in it
     hdm = objs.add_object(dm)
+    assert "1 entry" in str(objs)
     ht0 = objs.add_object(t0)
+    assert "2 entries" in str(objs)
     ht1 = objs.add_object(t1)
 
     # t1 was not added, because t0 was added first and they have the same hash
@@ -208,18 +219,27 @@ def test_Transformation():
     Transformation = dag.Transformation
 
     t0 = Transformation(operation="add", args=[1,2], kwargs=dict())
-    assert t0.hashstr == "c64f609346a510459ea30cdfa25a72f5"
+    assert t0.hashstr == "23cf81f382bd65f15f9e22ab80923a3b"
+    assert hash(t0.hashstr) == hash(t0)
+
+    assert "operation: add, 2 args, 0 kwargs" in str(t0)
+    assert "<dantro.dag.Transformation, operation='add', args=[1, 2], kwargs={}, salt=None>" == repr(t0)
 
     assert t0.compute() == 3
     assert t0.compute() == 3  # to hit the (memory) cache
+
+    # Test salting
+    t0s = Transformation(operation="add", args=[1,2], kwargs=dict(), salt=42)
+    assert t0 != t0s
+    assert t0.hashstr != t0s.hashstr
     
     # Same arguments should lead to the same hash
     t1 = Transformation(operation="add", args=[1,2], kwargs=dict())
     assert t1.hashstr == t0.hashstr
     
     # Keyword argument order should not play a role for the hash
-    t2 = Transformation(operation="foo", args=[], kwargs=dict(a=1, b=2))
-    t3 = Transformation(operation="foo", args=[], kwargs=dict(b=2, a=1))
+    t2 = Transformation(operation="foo", args=[], kwargs=dict(a=1, b=2, c=3))
+    t3 = Transformation(operation="foo", args=[], kwargs=dict(b=2, c=3, a=1))
     assert t2.hashstr == t3.hashstr
 
     # Transformations with references need a DAG
@@ -232,6 +252,10 @@ def test_Transformation():
     # Read the profile property
     assert isinstance(t0.profile, dict)
 
+    # Serialize as yaml
+    assert "!dag_trf" in yaml_dumps(t0, register_classes=(Transformation,))
+    assert "salt" not in yaml_dumps(t0, register_classes=(Transformation,))
+    assert "salt: 42" in yaml_dumps(t0s, register_classes=(Transformation,))
 
 def test_TransformationDAG_syntax(dm):
     """Tests the TransformationDAG class"""
@@ -327,6 +351,11 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
         assert tdag.cache_dir == cache_dir
         assert isinstance(tdag.cache_files, dict)
 
+        # String representation
+        assert ("TransformationDAG, {:d} node(s), {:d} tag(s), {:d} object(s)"
+                "".format(len(tdag.nodes), len(tdag.tags), len(tdag.objects))
+                in str(tdag))
+
         # Check the select_base property getter and setter
         tdag.select_base = 'dm'
         assert tdag.select_base == dag.DAGReference(tdag.tags['dm'])
@@ -420,6 +449,18 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
             open(tmp_file, 'a').close()
             assert 'some_other_file.some_ext' not in tdag.cache_files
             os.remove(tmp_file)
+
+        # Check the profile information
+        prof = tdag.profile
+        print("Profile: ", prof)
+        assert len(prof) == 2
+        assert all([item in prof for item in ('add_node', 'compute')])
+
+        extd_prof = tdag.profile_extended
+        print("Extended profile: ", extd_prof)
+        assert len(extd_prof) == 4
+        assert all([item in extd_prof
+                    for item in ('add_node', 'compute', 'tags', 'aggregated')])
 
         # Now, check the results ..............................................
         print("\nChecking results ...")
