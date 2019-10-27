@@ -13,7 +13,7 @@ import xarray as xr
 from paramspace import ParamSpace
 
 from .ordered import OrderedDataGroup, IndexedDataGroup
-from ..utils.data_ops import concat as _concat
+from ..utils.data_ops import multi_concat as _multi_concat
 from ..base import PATH_JOIN_CHAR
 from ..containers import NumpyDataContainer, XrDataContainer
 from ..mixins import PaddedIntegerItemAccessMixin
@@ -425,7 +425,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
 
             # Reduce the dsets array to one dimension by applying xr.concat
             # along each axis. The returned object contains the combined data.
-            reduced = _concat(dsets, dims=psp.dims.keys())
+            reduced = _multi_concat(dsets, dims=psp.dims.keys())
             log.remark("Concatenation successful.")
 
             return reduced

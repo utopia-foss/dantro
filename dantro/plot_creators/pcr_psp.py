@@ -205,7 +205,8 @@ class MultiversePlotCreator(ExternalPlotCreator):
             # space coordinates to it such that all single universes can be
             # aligned properly. Don't cache this result.
             return dag.add_node(operation='dantro.expand_dims',
-                                args=[DAGNode(-1)], kwargs=dict(dim=coords),
+                                args=[DAGNode(-1)],
+                                kwargs=dict(dim={k:[v] for k, v in coords.items()}),
                                 file_cache=dict(read=False, write=False))
 
         def add_transformations(dag: TransformationDAG, *,
@@ -249,6 +250,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
             if combination_method in ['merge']:
                 dag.add_node(operation='dantro.merge',
                              args=[refs],
+                             kwargs=dict(reduce_to_array=True),
                              tag=tag,
                              **(combination_kwargs if combination_kwargs
                                 else {}))
@@ -262,7 +264,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
                              args=[*refs],
                              kwargs=dict(shape=psp.shape, dtype='object'))
 
-                dag.add_node(operation='dantro.concat',
+                dag.add_node(operation='dantro.multi_concat',
                              args=[DAGNode(-1)],
                              kwargs=dict(dims=list(psp.dims.keys())),
                              tag=tag,

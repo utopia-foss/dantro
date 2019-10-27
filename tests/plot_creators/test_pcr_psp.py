@@ -107,6 +107,7 @@ def test_MultiversePlotCreator_DAG_usage(init_kwargs):
     """
     mpc = MultiversePlotCreator("test", **init_kwargs)
     psgrp = mpc.dm['mv']
+    pspace = psgrp.pspace
 
     # Passing both or neither `select` and `select_and_combine` does not work
     with pytest.raises(TypeError, match="Expected only one of the arguments"):
@@ -123,24 +124,110 @@ def test_MultiversePlotCreator_DAG_usage(init_kwargs):
     assert 'data' not in kwargs
 
     # Test the simplest case
-    sac = dict(fields=dict(state=dict(path="testdata/fixedsize/state")))
+    sac = dict(fields=dict(state=dict(path="labelled/randints")))
     mock_pfunc.pass_dag_object_along = True
     _, kwargs = mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
                                             select_and_combine=sac)
-    data = kwargs['data']
     dag = kwargs['dag']
-
+    data = kwargs['data']
     assert isinstance(data, dict)
     assert len(data) == 1
-    assert isinstance(data['state'], xr.DataArray)
-    # TODO more checks
 
-    print(dag.profile)
-    pprint(dag.profile_extended)
+    state = data['state']
+    assert isinstance(state, xr.DataArray)
+    assert state.sizes == dict(p0=2, a0=4, p1=3, p2=5, x=3, y=4, z=5)
+    assert state.dtype == int
+    assert (state.coords['p0'] == [0,1]).all()
+    assert (state.coords['a0'] == [0,1,2,3]).all()
+    assert (state.coords['p1'] == [0,1,2]).all()
+    assert (state.coords['p2'] == [0,1,2,3,4]).all()
+    assert (state.coords['x'] == [1,2,3]).all()
+    assert (state.coords['y'] == [1,2,3,4]).all()
+    assert (state.coords['z'] == [1,2,3,4,5]).all()
+
+    # Check number of nodes: 2 nodes per universe, plus one for selection of
+    # the ParamSpaceGroup and plus two for concatenation
+    assert len(kwargs['dag'].nodes) == 2*np.prod(pspace.volume) + 3
+
+    # Use some base selection path; this should produce the same result with
+    # the same number of nodes
+    sac_bp = dict(fields=dict(randints=dict(path="randints")),
+                  base_path='labelled')
+    _, kwargs = mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
+                                            select_and_combine=sac_bp)
+    assert (kwargs['data']['randints'] == state).all()
+    assert len(kwargs['dag'].nodes) == len(dag.nodes)
+
+    # Add transformations to each universe ...
+    sac_trf = dict(fields=dict(state_plus1=dict(path="labelled/randints",
+                                                transform=['increment'])))
+    _, kwargs = mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
+                                            select_and_combine=sac_trf)
+
+    # ... requiring more nodes now
+    assert len(kwargs['dag'].nodes) == (2 + 1)*np.prod(pspace.volume) + 3
+    assert (kwargs['data']['state_plus1'] == state + 1).all()
+
 
     # Select only a subspace
-    subspace = dict(p0=[0], p1=[0], p2=[0], a0=[0, 1])
-    # TODO
+    subspace = dict(p0=[1], p1=[1,2], p2=[2], a0=[1])
+    _, kwargs = mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
+                                            select_and_combine=dict(**sac,
+                                                subspace=subspace))
+    data = kwargs['data']
+    assert len(data) == 1
+    
+    state = data['state']
+    assert isinstance(state, xr.DataArray)
+    assert state.sizes == dict(p0=1, a0=1, p1=2, p2=1, x=3, y=4, z=5)
+    assert state.dtype == int
+    assert (state.coords['p0'] == subspace['p0']).all()
+    assert (state.coords['a0'] == subspace['a0']).all()
+    assert (state.coords['p1'] == subspace['p1']).all()
+    assert (state.coords['p2'] == subspace['p2']).all()
+    assert (state.coords['x'] == [1,2,3]).all()
+    assert (state.coords['y'] == [1,2,3,4]).all()
+    assert (state.coords['z'] == [1,2,3,4,5]).all()
+
+    # Subspace can also be given individually, ignoring the higher-level
+    # default value and still producing the same results.
+    sac_sub = dict(fields=dict(randints=dict(path="labelled/randints",
+                                             subspace=subspace)),
+                   subspace=dict(bad="subspace", invalid="foobar"))
+    _, kwargs = mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
+                                            select_and_combine=sac_sub)
+    assert (kwargs['data']['randints'] == state).all()  # state from above
+
+    
+    # Test combination via merge
+    _, kwargs = mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
+                                            select_and_combine=dict(**sac,
+                                                combination_method='merge'))
+    data = kwargs['data']
+    state = data['state']
+
+    # Merge operation needs one fewer node
+    assert len(kwargs['dag'].nodes) == 2*np.prod(pspace.volume) + 2
+
+    # ... still resulting in an xr.DataArray
+    assert isinstance(state, xr.DataArray)
+    assert state.sizes == dict(p0=2, a0=4, p1=3, p2=5, x=3, y=4, z=5)
+    assert state.dtype == float
+    assert (state.coords['p0'] == [0,1]).all()
+    assert (state.coords['a0'] == [0,1,2,3]).all()
+    assert (state.coords['p1'] == [0,1,2]).all()
+    assert (state.coords['p2'] == [0,1,2,3,4]).all()
+    assert (state.coords['x'] == [1,2,3]).all()
+    assert (state.coords['y'] == [1,2,3,4]).all()
+    assert (state.coords['z'] == [1,2,3,4,5]).all()
+
+    # Invalid combination method
+    with pytest.raises(ValueError,
+                       match="Invalid combination method 'invalid'! "
+                             "Available methods: merge, concat."):
+        mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
+                                    select_and_combine=dict(**sac,
+                                        combination_method='invalid'))
 
 
 # -----------------------------------------------------------------------------

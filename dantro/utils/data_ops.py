@@ -160,27 +160,29 @@ def populate_ndarray(*objs, shape: tuple, dtype: str='float', order: str='C'
     return arr
 
 
-def concat(arrs: Union[list, np.ndarray], *, dims: Sequence[str]
-           ) -> xr.DataArray:
-    """Concatenates the content of an np.ndarray along *all* axes using the
-    ``xr.concat`` method and thereby reduces the ``arrs`` to a single item.
-    
-    Unlike numpy, this function is *not* attempting to cast the content to some
-    compatible data type; this allows ``arrs`` to be an object array.
-    Specifically, it expects the data to be ``xr.Dataset`` or ``xr.DataArray``
-    objects.
-    
-    .. note::
-    
-        ``np.apply_along_axis`` would be what is desired here, but that
-        function unfortunately tries to cast objects to np.arrays which is not
-        what we want here at all! Thus, this function uses a custom dantro
-        function, :py:function:`~dantro.tools.apply_along_axis`, instead.
+def multi_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> xr.DataArray:
+    """Concatenates ``xr.Dataset`` or ``xr.DataArray`` objects using
+    ``xr.concat``. This function expects the xarray objects to be pre-aligned
+    inside the numpy *object* array ``arrs``, with the number of dimensions
+    matching the number of concatenation operations desired.
+    The position inside the array carries information on where the objects that
+    are to be concatenated are placed inside the higher dimensional coordinate
+    system.
+
+    Through multiple concatenation, the dimensionality of the contained objects
+    is increased by ``dims``, while their dtype can be maintained.
+
+    For the sequential application of ``xr.concat`` along the outer dimensions,
+    the custom :py:function:`dantro.tools.apply_along_axis` is used.
     
     Args:
-        arrs (np.ndarray): The array that is to be reduced. It is expected that
-            the content is compatible input to ``xr.concat``, i.e. some form
-            of xarray object with a dimension name.
+        arrs (np.ndarray): The array containing xarray objects which are to be
+            concatenated. Each array dimension should correspond to one of the
+            given ``dims``. For each of the dimensions, the ``xr.concat``
+            operation is applied along the axis, effectively reducing the
+            dimensionality of ``arrs`` to a scalar and increasing the
+            dimensionality of the contained xarray objects until they
+            additionally contain the dimensions specified in ``dims``.
         dims (Sequence[str]): A sequence of dimension names that is assumed to
             match the dimension names of the array. During each concatenation
             operation, the name is passed along to ``xr.concat`` where it is
@@ -191,15 +193,6 @@ def concat(arrs: Union[list, np.ndarray], *, dims: Sequence[str]
         ValueError: If number of dimension names does not match the number of
             data dimensions.
     """
-    # If it is a nested list, it's very expensive to create an np.ndarray.
-    # Thus, take a different approach:
-    if isinstance(arrs, list):
-        # Iterate over the dimension names, from the back, and concatenate
-        for dim_name in reversed(dims):
-            arrs = [xr.concat([*sub_arrs], dim=dim_name) for sub_arrs in arrs]
-
-        return arrs
-
     # Check dimensionality
     if len(dims) != arrs.ndim:
         raise ValueError("The given sequence of dimension names, {}, did not "
@@ -213,28 +206,54 @@ def concat(arrs: Union[list, np.ndarray], *, dims: Sequence[str]
 
         arrs = apply_along_axis(xr.concat, axis=dim_idx, arr=arrs,
                                 dim=dim_name)
+        # NOTE ``np.apply_along_axis`` would be what is desired here, but that
+        #      function unfortunately tries to cast objects to np.arrays which
+        #      is not what we want here at all! Thus, this function uses the
+        #      custom dantro function of the same name instead.
 
+    # Should be scalar now, get the element.
     return arrs.item()
 
-def merge(arrs: Union[Sequence[xr.DataArray], np.ndarray], **merge_kwargs):
-    """Merges the given sequence of xarray objects
+def merge(arrs: Union[Sequence[Union[xr.DataArray, xr.Dataset]], np.ndarray],
+          *, reduce_to_array: bool=False, **merge_kwargs
+          ) -> Union[xr.Dataset, xr.DataArray]:
+    """Merges the given sequence of xarray objects into an xr.Dataset.
 
     As a convenience, this also allows passing a numpy object array containing
-    the xarray objects.
+    the xarray objects. Furthermore, if the resulting Dataset contains only a
+    single data variable, that variable can be extracted as a DataArray which
+    is then the return value of this operation.
     """
     if isinstance(arrs, np.ndarray):
         arrs = arrs.flat
 
-    return xr.merge(arrs, **merge_kwargs)
+    dset = xr.merge(arrs, **merge_kwargs)
+
+    if not reduce_to_array:
+        return dset
+    
+    elif len(dset.data_vars) != 1:
+        raise ValueError("Can only reduce the Dataset resulting from the "
+                         "xr.merge operation to a DataArray if one and only "
+                         "one data variable is present in the Dataset! "
+                         "Got: {}. Full data:\n{}"
+                         "".format(", ".join(dset.data_vars), dset))
+
+    # Get the name of the single data variable and then get the DataArray
+    darr = dset[list(dset.data_vars.keys())[0]]
+    # NOTE This is something else than the Dataset.to_array() method, which
+    #      includes the name of the data variable as another coordinate. This
+    #      is not desired, because it is not relevant.
+    return darr
+
 
 def expand_dims(d: Any, *, dim: dict=None, **kwargs) -> xr.DataArray:
     """Expands the dimensions of the given object.
 
-    This extends the xr.DataArray.expand_dims and xr.Dataset.expand_dims
-    methods for *any* data type by first converting to an xr.DataArray *if*
-    the given data is not xarray-based.
+    If the object does not support the `expand_dims` method, it will be
+    attempted to convert it to an xr.DataArray.
     """
-    if not isinstance(d, (xr.DataArray, xr.Dataset)):
+    if not hasattr(d, 'expand_dims'):
         d = xr.DataArray(d)
 
     return d.expand_dims(dim, **kwargs)
@@ -338,7 +357,7 @@ _OPERATIONS = KeyOrderedDict({
     'populate_ndarray':     populate_ndarray,
 
     # dantro-specific wrappers around other library's functionality
-    'dantro.concat':        concat,
+    'dantro.multi_concat':  multi_concat,
     'dantro.merge':         merge,
     'dantro.expand_dims':   expand_dims,
 

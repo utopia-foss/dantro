@@ -880,8 +880,6 @@ class TransformationDAG:
                                  "one. Already in use: {}"
                                  "".format(tag, ", ".join(self.tags.keys())))
             self.tags[tag] = trf_hash
-        
-        log.debug("Added node. Total: %d", len(self.nodes))
 
         # Update the profile
         self._update_profile(add_node=time.time() - t0)
@@ -946,11 +944,12 @@ class TransformationDAG:
             compute_only = [t for t in self.tags.keys()
                             if t not in ['dm', 'dag']]
 
-        log.info("Tags to be computed: {}".format(", ".join(compute_only)))
+        log.info("Computation invoked on DAG with %d nodes.", len(self.nodes))
 
         # Compute and collect the results
         results = dict()
         for tag in compute_only:
+            log.remark("Computing tag '%s' ...", tag)
             # Resolve the transformation, then compute the result
             trf = self.objects[self.tags[tag]]
             res = trf.compute()
@@ -959,7 +958,10 @@ class TransformationDAG:
             results[tag] = postprocess_result(res, tag=tag)
 
         # Update profiling information
-        self._update_profile(compute=time.time() - t0)
+        t1 = time.time()
+        self._update_profile(compute=t1-t0)
+        log.info("Computed %d tags (%s) in %.1fs.",
+                 len(compute_only), ", ".join(compute_only), t1-t0)
 
         return results
 
