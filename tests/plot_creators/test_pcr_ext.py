@@ -271,7 +271,16 @@ def test_dag_required_tags(init_kwargs):
         assert all([t in kwargs['dag'].tags for t in ('sum', 'sub')])
     pf1.use_dag = True
     pf1.pass_dag_object_along = True
+    pf1.compute_only_required_dag_tags = False
     pf1.required_dag_tags = ('sum', 'sub')
+
+    def pf2(*args, data, **kwargs):
+        pf1(*args, data=data, **kwargs)
+        assert 'def' not in data
+    pf2.use_dag = True
+    pf2.pass_dag_object_along = True
+    pf2.required_dag_tags = ('sum', 'sub')
+    pf2.compute_only_required_dag_tags = True
 
     # It should be checked for required tags
     epc.plot(out_path="some_plot", plot_func=pf1,
@@ -291,8 +300,9 @@ def test_dag_required_tags(init_kwargs):
     # Adjust computed tags to provoke error message
     pf1.required_dag_tags = ('sum', 'sub')
     with pytest.raises(ValueError,
-                       match="required tags that were not computed by the "
-                             "DAG: sum, sub. Make sure to set the `compute_"):
+                       match="required tags that were not set to be computed "
+                             "by the DAG: sum, sub. Make sure to set the "
+                             "`compute_only` argument such that results"):
         epc.plot(out_path="some_plot", plot_func=pf1, compute_only=[],
                  transform=[dict(add=[1,2], tag="sum"),
                             dict(sub=[3,2], tag="sub")])
@@ -300,6 +310,19 @@ def test_dag_required_tags(init_kwargs):
     # Disabled DAG usage should also raise an error
     with pytest.raises(ValueError, match="requires DAG tags to be computed"):
         epc.plot(out_path="some_plot", plot_func=pf1, use_dag=False)
+
+    # Compute only required tags
+    epc.plot(out_path="some_plot", plot_func=pf2, compute_only=None,
+             transform=[dict(add=[1,2], tag="sum"),
+                        dict(sub=[3,2], tag="sub"),
+                        dict(define=[0], tag="def")])
+
+    pf2.compute_only_required_dag_tags = False
+    with pytest.raises(AssertionError):
+        epc.plot(out_path="some_plot", plot_func=pf2, compute_only=None,
+                 transform=[dict(add=[1,2], tag="sum"),
+                            dict(sub=[3,2], tag="sub"),
+                            dict(define=[0], tag="def")])        
 
 # -----------------------------------------------------------------------------
 

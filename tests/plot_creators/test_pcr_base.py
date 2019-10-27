@@ -115,8 +115,7 @@ def test_data_selection_interface(init_kwargs, tmpdir):
     # Disabled DAG usage -> parameters should be passed through
     ds0 = mpc._perform_data_selection(use_dag=False, plot_kwargs=params0)
     assert 'use_dag' not in ds0
-    assert ds0 == params0
-    assert ds0 is not params0
+    assert ds0 is params0
 
     # Enabled DAG usage -> DAG should be created, but of course without result
     ds1 = mpc._perform_data_selection(use_dag=True, plot_kwargs=params1)

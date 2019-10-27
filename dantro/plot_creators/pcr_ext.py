@@ -463,7 +463,7 @@ class ExternalPlotCreator(BasePlotCreator):
         return super()._create_dag(**dag_params)
 
     def _compute_dag(self, dag: TransformationDAG, *, _plot_func: Callable,
-                     **compute_kwargs) -> dict:
+                     compute_only: Sequence[str], **compute_kwargs) -> dict:
         """Compute the dag results.
 
         This extends the parent method by additionally checking whether all
@@ -486,31 +486,36 @@ class ExternalPlotCreator(BasePlotCreator):
                                            ", ".join(missing_tags),
                                            ", ".join(dag.tags)))
 
-        # TODO Check the `compute_only` argument here, rather than after the
-        #      computation, which might take quite some time ...
+        # If the compute_only argument was not explicitly given, determine
+        # whether to compute only the required tags
+        if (    compute_only is None and required_tags is not None
+            and getattr(_plot_func, 'compute_only_required_dag_tags', False)):
+            log.remark("Computing only tags that were specified as required "
+                       "tags by the plot function: %s",
+                       ", ".join(required_tags))
+            compute_only = required_tags
 
-        # Now, compute, using the parent method
-        dag_results = super()._compute_dag(dag, **compute_kwargs)
-
-        # Make sure that the results contain all the required tags
-        if required_tags:
-            missing_tags = [t for t in required_tags if t not in dag_results]
+        # Make sure the compute_only argument contains all the required tags
+        elif compute_only is not None and required_tags is not None:
+            missing_tags = [t for t in required_tags if t not in compute_only]
 
             if missing_tags:
                 raise ValueError("Plot function {} required tags that were "
-                                 "not computed by the DAG: {}. Make sure to "
-                                 "set the `compute_only` argument such that "
-                                 "results for all required tags ({}) are "
-                                 "actually computed.\n"
-                                 "All tags: {}\n"
-                                 "Computed: {}"
+                                 "not set to be computed by the DAG: {}. Make "
+                                 "sure to set the `compute_only` argument "
+                                 "such that results for all required tags "
+                                 "({}) will actually be computed.\n"
+                                 "Available tags:  {}\n"
+                                 "compute_only:    {}"
                                  "".format(_plot_func,
                                            ", ".join(missing_tags),
                                            ", ".join(required_tags),
                                            ", ".join(dag.tags),
-                                           ", ".join(dag_results)))
+                                           ", ".join(compute_only)))
 
-        return dag_results
+        # Now, compute, using the parent method
+        return super()._compute_dag(dag, compute_only=compute_only,
+                                    **compute_kwargs)
     
     def _combine_dag_results_and_plot_cfg(self, *, dag: TransformationDAG,
                                           dag_results: dict, dag_params: dict,
@@ -852,6 +857,7 @@ class is_plot_func:
     def __init__(self, *, creator_type: type=None, creator_name: str=None,
                  use_helper: bool=True, helper_defaults: Union[dict, str]=None,
                  use_dag: bool=None, required_dag_tags: Sequence[str]=None,
+                 compute_only_required_dag_tags: bool=True,
                  pass_dag_object_along: bool=False,
                  supports_animation=False, add_attributes: dict=None):
         """Initialize the decorator. Note that the function to be decorated is
@@ -904,6 +910,7 @@ class is_plot_func:
             use_dag=use_dag,
             required_dag_tags=(required_dag_tags
                                if required_dag_tags is not None else ()),
+            compute_only_required_dag_tags=compute_only_required_dag_tags,
             pass_dag_object_along=pass_dag_object_along,
             supports_animation=supports_animation,
             **(add_attributes if add_attributes else {})

@@ -285,16 +285,16 @@ class BasePlotCreator(AbstractPlotCreator):
         Deleted Parameters:
             **cfg: The full plot configuration, including DAG-related arguments
         """
-        # Extract DAG-related parameters from the plot configuration. These are
-        # not available in the plotting function.
-        dag_params, plot_kwargs = self._get_dag_params(**plot_kwargs,
-                                                       **shared_kwargs)
-
         # Determine whether the DAG framework should be used or not
         if not self._use_dag(use_dag=use_dag, plot_kwargs=plot_kwargs,
                              **shared_kwargs):
             # Only return the plot configuration, without DAG-related keys
             return plot_kwargs
+
+        # Extract DAG-related parameters from the plot configuration. These are
+        # not available in the plotting function.
+        dag_params, plot_kwargs = self._get_dag_params(**plot_kwargs,
+                                                       **shared_kwargs)
 
         # else: DAG should be used -> Create and compute it.
         dag = self._create_dag(**dag_params['init'])
@@ -317,7 +317,7 @@ class BasePlotCreator(AbstractPlotCreator):
             select (dict, optional): DAG selection
             transform (Sequence[dict], optional): DAG transformation
             compute_only (Sequence[str], optional): DAG tags to be computed
-            dag_options (dict, optional): Other DAG options
+            dag_options (dict, optional): Other DAG options for initialization
             **plot_kwargs: The full plot configuration
         
         Returns:
@@ -329,11 +329,7 @@ class BasePlotCreator(AbstractPlotCreator):
 
         # Options. Only add those, if available
         if dag_options:
-            keys_to_transfer = ('file_cache_defaults', 'cache_dir',
-                                'base_transform', 'select_base')
-            for k in keys_to_transfer:
-                if k in dag_options:
-                    init_kwargs[k] = dag_options[k]
+            init_kwargs = dict(**init_kwargs, **dag_options)
 
         return dict(init=init_kwargs, compute=compute_kwargs), plot_kwargs
 

@@ -109,21 +109,19 @@ def test_MultiversePlotCreator_DAG_usage(init_kwargs):
     psgrp = mpc.dm['mv']
     pspace = psgrp.pspace
 
-    # Passing both or neither `select` and `select_and_combine` does not work
-    with pytest.raises(TypeError, match="Expected only one of the arguments"):
-        mpc._prepare_plot_func_args(select=123, select_and_combine=456)
-    
-    with pytest.raises(TypeError, match="Expected only one of the arguments"):
+    # Passing neither `select` and `select_and_combine` does not work
+    with pytest.raises(TypeError,
+                       match="Expected at least one of the arguments"):
         mpc._prepare_plot_func_args()
 
-    # Without DAG usage enabled, the select_and_combine kwarg is still
-    # filtered out
+    # Without DAG usage disabled, the select_and_combine kwarg is not filtered
+    # out, but there is no 'data' argument added to the kwargs
     _, kwargs = mpc._prepare_plot_func_args(mock_pfunc,
                                             select_and_combine=dict(foo="bar"))
-    assert 'select_and_combine' not in kwargs
+    assert 'select_and_combine' in kwargs
     assert 'data' not in kwargs
 
-    # Test the simplest case
+    # Test the simplest case with DAG usage enabled
     sac = dict(fields=dict(state=dict(path="labelled/randints")))
     mock_pfunc.pass_dag_object_along = True
     _, kwargs = mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
@@ -148,6 +146,12 @@ def test_MultiversePlotCreator_DAG_usage(init_kwargs):
     # Check number of nodes: 2 nodes per universe, plus one for selection of
     # the ParamSpaceGroup and plus two for concatenation
     assert len(kwargs['dag'].nodes) == 2*np.prod(pspace.volume) + 3
+
+    # Can additionally select some data
+    _, kwargs = mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
+                                            select=dict(mv='mv'),
+                                            select_and_combine=sac)
+    assert 'mv' in kwargs['data']
 
     # Use some base selection path; this should produce the same result with
     # the same number of nodes

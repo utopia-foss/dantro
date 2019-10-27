@@ -81,9 +81,9 @@ class MultiversePlotCreator(ExternalPlotCreator):
                 data using :py:meth:`~dantro.groups.ParamSpaceGroup.select`.
                 The result is an ``xr.Dataset`` and it is made available to
                 the plot function as ``mv_data`` argument.
-            select_and_combine (dict, optional): Interfaces with the DAG to
-                select, transform, and combine data from the multiverse via
-                the DAG.
+            select_and_combine (dict, optional): If given, interfaces with the
+                DAG to select, transform, and combine data from the multiverse
+                via the DAG.
             **kwargs: Keyword arguments for the plot function. If DAG usage is
                 enabled, these contain further arguments like ``transform``
                 that are filtered out accordingly.
@@ -104,13 +104,17 @@ class MultiversePlotCreator(ExternalPlotCreator):
             # Select multiverse data via the ParamSpaceGroup
             kwargs['mv_data'] = self.psgrp.select(**select)
 
-        elif select_and_combine and not select:
-            # Pass the select_and_combine argument along
+            # Also pass the other one along to create an error downstream
+            kwargs['select_and_combine'] = select_and_combine
+
+        elif select_and_combine:
+            # Pass both arguments along
+            kwargs['select'] = select
             kwargs['select_and_combine'] = select_and_combine
 
         else:
-            raise TypeError("Expected only one of the arguments `select` and "
-                            "`select_and_combine`, got both or neither!")
+            raise TypeError("Expected at least one of the arguments `select` "
+                            "or `select_and_combine`, got neither!")
 
         # Let the parent method (from ExternalPlotCreator) do its thing.
         # It will invoke the specialized _get_dag_params and _create_dag helper
@@ -120,12 +124,15 @@ class MultiversePlotCreator(ExternalPlotCreator):
     # .........................................................................
     # DAG specialization
 
-    def _get_dag_params(self, *, select_and_combine: dict=None,
-                        **cfg) -> Tuple[dict, dict]:
-        """Extends the parent method by..."""
+    def _get_dag_params(self, *, select_and_combine: dict, **cfg
+                        ) -> Tuple[dict, dict]:
+        """Extends the parent method by extracting the select_and_combine
+        argument that handles MultiversePlotCreator behaviour
+        """
         dag_params, plot_kwargs = super()._get_dag_params(**cfg)
 
-        # Additionally, store the `select_and_combine` argument
+        # Add the select_and_combine argument; converting None to an empty dict
+        select_and_combine = select_and_combine if select_and_combine else {}
         dag_params['init']['select_and_combine'] = select_and_combine
 
         return dag_params, plot_kwargs
@@ -220,8 +227,19 @@ class MultiversePlotCreator(ExternalPlotCreator):
             """
             def get_uni(state_no: int) -> ParamSpaceStateGroup:
                 """Given a state number, returns the corresponding universe"""
-                return self.psgrp[state_no]
-                # TODO Error handling
+                try:
+                    return self.psgrp[state_no]
+                
+                except Exception as exc:
+                    if combination_method not in ['merge']:
+                        raise ValueError("Missing data for universe {}, which "
+                                         "is required for concatenation."
+                                         "".format(state_no))
+                    log.warning("Missing data for universe %d; this will lead "
+                                "to NaNs in the combined results.")
+                    raise NotImplementedError("Cannot handle missing data "
+                                              "during merge operations yet.")
+                    return None  # TODO
 
             # Get the parameter space object
             psp = copy.deepcopy(self.psgrp.pspace)
