@@ -371,9 +371,29 @@ As visible there, within the ``select`` interface, the ``with_previous_result`` 
 
     It does so *before* any other transformations from the ``transform`` argument are evaluated. Thus, whichever tags are defined there are not available from within ``select``!
 
+Changing the selection base
+"""""""""""""""""""""""""""
+By default, selection happens from the associated :py:class:`~dantro.data_mngr.DataManager`, tagged ``dm``.
+This option can be controlled via the ``select_base`` property, which can be set both as argument to ``__init__`` and afterwards via the property.
+The property expects either a ``DAGReference`` object or a valid tag string.
+
+If set, all following ``select`` arguments are using that reference as the basis, leading to ``getitem`` operations on that object rather than on the data manager.
+
+As the ``select`` arguments are evaluated prior to any transform operations, only the default tags are available during initialization.
+To widen the possibilities, the :py:class:`~dantro.dag.TransformationDAG` allows the ``base_transform`` argument during initialization; this is just a sequence of transform specifications, which are applied *before* the ``select`` argument is evaluated, thus allowing to select some object, tag it, and use that tag for the ``select_base`` argument.
+
+
+Individually adding nodes
+^^^^^^^^^^^^^^^^^^^^^^^^^
+Nodes can be added to :py:class:`~dantro.dag.TransformationDAG` during initialization; all the examples above are written in such a way.
+However, transformation nodes can also be added after initialization using the following two methods:
+
+- :py:meth:`~dantro.dag.TransformationDAG.add_node` adds a single node and returns its reference.
+- :py:meth:`~dantro.dag.TransformationDAG.add_nodes` adds multiple nodes, allowing the both the ``select`` and ``transform`` arguments in the same syntax as during initialization.
+  Internally, this parses the arguments and calls :py:meth:`~dantro.dag.TransformationDAG.add_node`.
+
 
 .. _dag-minimal-syntax:
-
 Minimal Syntax
 ^^^^^^^^^^^^^^
 To make definition a bit less verbose, there is a so-called *minimal syntax*, which is translated into the explicit and verbose one:
