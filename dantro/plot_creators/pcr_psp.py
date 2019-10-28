@@ -99,7 +99,6 @@ class MultiversePlotCreator(ExternalPlotCreator):
         """
         # Distinguish between the new DAG-based selection interface and the
         # old (and soon-to-be-deprecated) one.
-        # TODO make this more elegant
         if select and not select_and_combine:
             # Select multiverse data via the ParamSpaceGroup
             kwargs['mv_data'] = self.psgrp.select(**select)
@@ -213,7 +212,8 @@ class MultiversePlotCreator(ExternalPlotCreator):
             # aligned properly. Don't cache this result.
             return dag.add_node(operation='dantro.expand_dims',
                                 args=[DAGNode(-1)],
-                                kwargs=dict(dim={k:[v] for k, v in coords.items()}),
+                                kwargs=dict(
+                                    dim={k:[v] for k,v in coords.items()}),
                                 file_cache=dict(read=False, write=False))
 
         def add_transformations(dag: TransformationDAG, *,
@@ -599,20 +599,17 @@ class UniversePlotCreator(ExternalPlotCreator):
         # Select the corresponding universe from the ParamSpaceGroup
         uni = self.psgrp[uni_id]
         log.note("Using data of:        %s", uni.logstr)
-        uni_name = "uni{:d}".format(uni_id)
         uni_path = PATH_JOIN_CHAR.join([self.PSGRP_PATH, uni.name])
-        # TODO Should be possible to do via uni.path, but is not (yet)
 
         # Create the parameters for the DAG transformation interface which uses
         # selections based in the universe group
-        base_transform = [dict(getitem=[DAGTag('dm'), uni_path],
-                               tag=uni_name,
+        base_transform = [dict(getitem=[DAGTag('dm'), uni_path], tag='uni',
                                file_cache=dict(read=False, write=False))]
 
         # Compile the DAG options dict, based on potentially existing options
         kwargs['dag_options'] = dict(**kwargs.get('dag_options', {}),
                                      base_transform=base_transform,
-                                     select_base=uni_name)
+                                     select_base='uni')
         # NOTE If DAG usage is not enabled, these parameters have no effect
 
         # Let the parent function, implemented in ExternalPlotCreator, do its

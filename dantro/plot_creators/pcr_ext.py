@@ -908,8 +908,7 @@ class is_plot_func:
             use_helper=use_helper,
             helper_defaults=helper_defaults,
             use_dag=use_dag,
-            required_dag_tags=(required_dag_tags
-                               if required_dag_tags is not None else ()),
+            required_dag_tags=required_dag_tags,
             compute_only_required_dag_tags=compute_only_required_dag_tags,
             pass_dag_object_along=pass_dag_object_along,
             supports_animation=supports_animation,
