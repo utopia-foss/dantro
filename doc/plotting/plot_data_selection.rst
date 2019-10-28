@@ -123,9 +123,10 @@ This is because it has to accomodate various further configuration parameters th
 
 The ``select_and_combine`` argument expects the following keys:
 
-- ``tags``: all keys given here will appear in the results dictionary. The values of these keys are dicts that contain the same parameters that can also be given to the ``select`` argument of the DAG interface.
-  In other words: paths you would like to select form within each universe should be specified at ``select_and_combine.tags.<result_tag>.path`` rather than at ``select.<result_tag>.path``.
-- ``base_path`` (optional): if given, this path is prepended to all paths given under ``tags``
+- ``fields``: all keys given here will appear as tags in the results dictionary.
+  The values of these keys are dicts that contain the same parameters that can also be given to the ``select`` argument of the DAG interface.
+  In other words: paths you would like to select form within each universe should be specified at ``select_and_combine.fields.<result_tag>.path`` rather than at ``select.<result_tag>.path``.
+- ``base_path`` (optional): if given, this path is prepended to all paths given under ``fields``
 - ``combination_method`` (optional, default: ``concat``): how to combine the selected and transformed data from the various universes. Available parameters:
 
     - ``concat``: attempts to preserve data types but is only possible if the universes fill a hypercube without holes
@@ -153,7 +154,7 @@ Example
 
       # Data selection via DAG framework
       select_and_combine:
-        tags:
+        fields:
           foo: some/path/foo
           bar:
             path: some/path/bar
