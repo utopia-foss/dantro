@@ -13,6 +13,16 @@
     - Add `base_path` argument to `DataManager.load`
     - Add xarray- and numpy-related data loaders
     - Modularize the tests of the `utils` submodule
+- !109 integrates the transformation framework into the plot creators (#99) and further extends the capabilities of the DAG.
+    - Data selection and transformation is now built-in to the `BasePlotCreator`, making it available for all derived plot creators. There are specializations for some of the classes:
+        - `ExternalPlotCreator` extends the `is_plot_func` decorator to control DAG integration and specify required tags
+        - `UniversePlotCreator` sets the selected single universe as the basis of select operations.
+        - `MultiversePlotCreator` has to take care of building a tree that selects and combines the data from all desired universes.
+    - Improvements to the `TransformationDAG` and related classes:
+        - Nodes can now be added programmatically using public methods.
+        - Hash computation is much (factor 100) faster than in the implementation from !105.
+        - Profiling information is more detailed now and also available in the `TransformationDAG` itself, aggregating information from all registered transformation nodes.
+        - It is possible to set and change the reference that serves as basis for `select` operations.
 - Minor improvements:
     - #98 addresses an h5py deprecation warning regarding the default file mode
 
