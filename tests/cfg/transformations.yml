@@ -1,6 +1,14 @@
 # Test cases for the TransformationsDAG
 ---
 # Selecting items -------------------------------------------------------------
+empty:
+  params: {}
+  results:
+    num_nodes: 0
+    num_objects: 2
+    tags: [dag, dm]
+    results: {}
+
 explicit_select:
   params:
     transform:

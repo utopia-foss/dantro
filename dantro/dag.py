@@ -14,7 +14,7 @@ from typing import TypeVar, Dict, Tuple, Sequence, Any, Union, List, Set
 import numpy as np
 import xarray as xr
 
-from paramspace.tools import recursive_replace
+from paramspace.tools import recursive_replace, recursive_collect
 
 from .abc import AbstractDataContainer
 from .base import BaseDataGroup
@@ -166,7 +166,8 @@ class Transformation:
         self._dag = dag
         self._salt = salt
         self._hashstr = None
-        self._profile = dict()
+        self._profile = dict(compute=0., cumulative_compute=0.,
+                             hashstr=0., cache_lookup=0., cache_writing=0.)
 
         # Parse file cache options, making sure it's a dict with default values
         self._fc_opts = file_cache if file_cache is not None else {}
@@ -251,17 +252,18 @@ class Transformation:
         return self._dag
 
     @property
-    def dependencies(self) -> Set[THash]:
-        """Hashes of those objects that this transformation depends on, i.e.
-        hashes of other referenced DAG nodes. Does NOT include the DataManager.
+    def dependencies(self) -> Set[DAGReference]:
+        """Recursively collects the references that are found in the positional
+        and keyword arguments of this Transformation.
         """
-        return set([r.ref for r in chain(self._args, self._kwargs.values())
-                    if isinstance(r, DAGReference)])
+        return set(recursive_collect(chain(self._args, self._kwargs.values()),
+                   select_func=(lambda o: isinstance(o, DAGReference))))
 
     @property
-    def resolved_dependencies(self) -> List['Transformation']:
+    def resolved_dependencies(self) -> Set['Transformation']:
         """Transformation objects that this Transformation depends on"""
-        return [self.dag.objects[h] for h in self.dependencies]
+        return set([ref.resolve_object(dag=self.dag)
+                    for ref in self.dependencies])
 
     @property
     def profile(self) -> Dict[str, float]:
@@ -409,7 +411,7 @@ class Transformation:
             self._profile['cumulative_compute'] = cumulative_compute
 
             # Aggregate the dependencies' cumulative computation times
-            deps_cctime = sum([dep.profile.get('cumulative_compute', 0.)
+            deps_cctime = sum([dep.profile['cumulative_compute']
                                for dep in self.resolved_dependencies
                                if isinstance(dep, Transformation)])
             # NOTE The dependencies might not have this value set because there
@@ -614,7 +616,7 @@ class TransformationDAG:
         self._nodes = list()
         self._fc_opts = file_cache_defaults if file_cache_defaults else {}
         self._select_base = None
-        self._profile = dict()
+        self._profile = dict(add_node=0., compute=0.)
         
         # Determine cache directory path; relative path interpreted as relative
         # to the DataManager's data directory
@@ -781,6 +783,13 @@ class TransformationDAG:
         # Aggregate the profiled times from all transformations (by item)
         to_aggregate = ('compute', 'hashstr',
                         'cache_lookup', 'cache_writing')
+        stat_funcs = dict(mean=lambda d: np.mean(d),
+                          std=lambda d: np.std(d),
+                          min=lambda d: np.min(d),
+                          max=lambda d: np.max(d),
+                          q25=lambda d: np.quantile(d, .25),
+                          q50=lambda d: np.quantile(d, .50),
+                          q75=lambda d: np.quantile(d, .75))
         tprofs = {item: list() for item in to_aggregate}
 
         for obj_hash, obj in self.objects.items():
@@ -789,18 +798,14 @@ class TransformationDAG:
 
             tprof = copy.deepcopy(obj.profile)
             for item in to_aggregate:
-                tprofs[item].append(tprof.get(item, 0.))
+                tprofs[item].append(tprof[item])
 
         # Compute some statistics for the aggregated elements
-        prof['aggregated'] = {item: dict(mean=np.mean(tprofs[item]),
-                                         std=np.std(tprofs[item]),
-                                         min=np.min(tprofs[item]),
-                                         max=np.max(tprofs[item]),
-                                         q25=np.quantile(tprofs[item], .25),
-                                         q50=np.quantile(tprofs[item], .50),
-                                         q75=np.quantile(tprofs[item], .75)
-                                         )
-                              for item in to_aggregate}
+        prof['aggregated'] = dict()
+        for item in to_aggregate:
+            prof['aggregated'][item] = {k: (f(tprofs[item])
+                                            if tprofs[item] else np.nan)
+                                        for k, f in stat_funcs.items()}
         return prof
 
     # .........................................................................

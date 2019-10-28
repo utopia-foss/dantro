@@ -37,6 +37,9 @@ class DAGReference:
     def __repr__(self) -> str:
         return "<{} {}>".format(type(self).__name__, repr(self._data))
 
+    def __hash__(self) -> int:
+        return hash(repr(self))
+
     @property
     def ref(self) -> THash:
         """The associated reference of this object"""

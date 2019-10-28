@@ -257,6 +257,52 @@ def test_Transformation():
     assert "salt" not in yaml_dumps(t0, register_classes=(Transformation,))
     assert "salt: 42" in yaml_dumps(t0s, register_classes=(Transformation,))
 
+def test_Transformation_dependencies(dm):
+    """Tests that the Transformation's are aware of their dependencies"""
+    Transformation = dag.Transformation
+    TransformationDAG = dag.TransformationDAG
+    DAGTag = dag.DAGTag
+
+    # Define some nested nodes, that don't actually do anything. The only
+    # dependency will be the DataManager
+    tdag = TransformationDAG(dm=dm)
+    tdag.add_node(operation='pass', args=[[[[DAGTag('dm')]]]])
+    tdag.add_node(operation='pass', kwargs=dict(foo=[[[[DAGTag('dm')]]]],
+                                                bar=DAGTag('dm')))
+    tdag.add_node(operation='pass', args=[[[[DAGTag('dm')], DAGTag('dm')]]])
+
+    # These should always find the DataManager
+    for node_hash in tdag.nodes:
+        trf = tdag.objects[node_hash]
+        rdeps = trf.resolved_dependencies
+        assert isinstance(rdeps, set)
+        assert len(rdeps) == 1
+        assert dm in rdeps
+
+    # In a new DAG, there will be two custom dependencies
+    tdag = TransformationDAG(dm=dm)
+    ref1 = tdag.add_node(operation='define', args=[1])
+    ref2 = tdag.add_node(operation='define', args=[2])
+    print(ref1, ref2)
+
+    tdag.add_node(operation='pass', args=[[[[ref1], ref2]]])
+    tdag.add_node(operation='pass', args=[ref1], kwargs=dict(foo=ref2))
+    tdag.add_node(operation='pass', kwargs=dict(foo=[1,2,3,[[ref2], ref1]]))
+
+    for node_hash in tdag.nodes:
+        trf = tdag.objects[node_hash]
+        deps = trf.dependencies
+        
+        if node_hash in [ref1.ref, ref2.ref]:
+            assert len(deps) == 0
+            continue
+
+        assert len(deps) == 2
+        assert isinstance(deps, set)
+        assert ref1 in deps
+        assert ref2 in deps
+
+
 def test_TransformationDAG_syntax(dm):
     """Tests the TransformationDAG class"""
     TransformationDAG = dag.TransformationDAG
@@ -299,7 +345,7 @@ def test_TransformationDAG_syntax(dm):
 
 
 def test_TransformationDAG_life_cycle(dm, tmpdir):
-    """Tests the TransformationDAG class"""
+    """Tests the TransformationDAG class."""
     TransformationDAG = dag.TransformationDAG
 
     # Make sure the DataManager hash is as expected
@@ -393,7 +439,8 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
                 if isinstance(deps, int):
                     assert len(node.dependencies) == deps
                 else:
-                    assert node.dependencies == set(deps)
+                    # Only compare hash references (easier to specify in yaml)
+                    assert set([r.ref for r in node.dependencies]) == set(deps)
 
         # Compare with expected result...
         compute_only = cfg.get('compute_only')
@@ -461,6 +508,12 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
         assert len(extd_prof) == 4
         assert all([item in extd_prof
                     for item in ('add_node', 'compute', 'tags', 'aggregated')])
+
+        # If there are no nodes available, there should be nans in the profile.
+        # Otherwise, no values should be NaN
+        for item in ('compute', 'hashstr', 'cache_lookup','cache_writing'):
+            assert all([np.isnan(v) if not len(tdag.nodes) else not np.isnan(v)
+                        for v in extd_prof['aggregated'][item].values()])
 
         # Now, check the results ..............................................
         print("\nChecking results ...")

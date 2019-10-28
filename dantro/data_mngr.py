@@ -253,6 +253,10 @@ class DataManager(OrderedDataGroup):
         return _hash("<DataManager '{}' @ {}>".format(self.name,
                                                       self.dirs['data']))
 
+    def __hash__(self) -> int:
+        """The hash of this DataManager, computed from the hashstr property"""
+        return hash(self.hashstr)
+
     # .........................................................................
     # Loading data
 

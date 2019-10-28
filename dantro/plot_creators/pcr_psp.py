@@ -302,7 +302,8 @@ class MultiversePlotCreator(ExternalPlotCreator):
             selected multiverse subspace.
             
             Args:
-                dag (TransformationDAG): The DAG to add nodes t o
+                dag (TransformationDAG): The DAG to add nodes to that represent
+                    the select-and-combine operations.
                 fields (dict): Which fields to select from the separate
                     universes.
                 subspace (dict, optional): The (default) subspace to select the
