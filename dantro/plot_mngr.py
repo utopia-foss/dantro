@@ -585,7 +585,7 @@ class PlotManager:
             # Generate error message
             e_msg = ("During plotting with {}, a {} occurred: {}"
                      "".format(plot_creator.logstr,
-                               err.__class__.__name__, err))
+                               err.__class__.__name__, str(err)))
 
             if self.raise_exc:
                 raise PlotCreatorError(e_msg) from err

@@ -387,6 +387,7 @@ class Transformation:
 
         # Actually perform the operation
         res = apply_operation(self._operation, *args, **kwargs)
+        # TODO Add error handling with node information
 
         # Prase profiling info and return the result
         self._update_profile(cumulative_compute=(time.time() - t0))
@@ -946,8 +947,15 @@ class TransformationDAG:
 
         log.info("Computation invoked on DAG with %d nodes.", len(self.nodes))
 
-        # Compute and collect the results
+        # The results dict
         results = dict()
+
+        if not compute_only:
+            log.remark("No tags were selected to be computed. "
+                       "Available tags:\n  %s", ", ".join(self.tags))
+            return results
+
+        # Compute and collect the results
         for tag in compute_only:
             log.remark("Computing tag '%s' ...", tag)
             # Resolve the transformation, then compute the result
@@ -960,8 +968,22 @@ class TransformationDAG:
         # Update profiling information
         t1 = time.time()
         self._update_profile(compute=t1-t0)
-        log.info("Computed %d tags (%s) in %.1fs.",
-                 len(compute_only), ", ".join(compute_only), t1-t0)
+
+        # Provide some information to the user
+        log.note("Computed %d tag%s in %.1fs: %s",
+                 len(compute_only), "s" if len(compute_only) != 1 else "",
+                 t1-t0, ", ".join(results.keys()))
+
+        prof_extd = self.profile_extended
+        fstr = ("{name:>25s}   {p[mean]:<7s}  ±  {p[std]:<7s}   "
+                "({p[min]:<7s} | {p[max]:<7s})")
+        log.remark("Profiling results per node:  "
+                   "mean ± std (min|max) [s]\n%s",
+                   "\n".join([fstr.format(name=k, p={_k: "{:.2g}".format(_v)
+                                                     for _k, _v in v.items()})
+                              for k, v in prof_extd['aggregated'].items()
+                              if k not in ('hashstr',)]))
+        # TODO In the future, make this prettier; with proper time formatting!
 
         return results
 

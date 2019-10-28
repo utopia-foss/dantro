@@ -448,13 +448,16 @@ def register_operation(*, name: str, func: Callable,
 
     _OPERATIONS[name] = func
 
-def apply_operation(op_name: str, *op_args, **op_kwargs) -> Any:
+def apply_operation(op_name: str, *op_args, _log_level: int=5,
+                    **op_kwargs) -> Any:
     """Apply an operation with the given arguments and then return it.
     
     Args:
         op_name (str): The name of the operation to carry out; need to be part
             of the OPERATIONS database.
         *op_args: The positional arguments to the operation
+        _log_level (int, optional): Log level of the log messages created by
+            this function.
         **op_kwargs: The keyword arguments to the operation
     
     Returns:
@@ -463,7 +466,8 @@ def apply_operation(op_name: str, *op_args, **op_kwargs) -> Any:
     Raises:
         KeyError: On invalid operation name. This also suggests possible other
             names that might match.
-        RuntimeError: On failure to apply the operation
+        Exception: On failure to apply the operation, preserving the original
+            exception.
     """
     try:
         op = _OPERATIONS[op_name]
@@ -472,15 +476,16 @@ def apply_operation(op_name: str, *op_args, **op_kwargs) -> Any:
         # Find some close matches to make operation discovery easier
         possible_matches = get_close_matches(op_name, _OPERATIONS.keys(), n=5)
 
-        raise KeyError("No operation '{}' registered! Did you mean: {} ?\n"
-                       "All available operations:\n\t{}\n"
+        raise KeyError("No operation '{}' registered! Did you mean: {} ?  "
                        "If you need to register a new operation, use "
-                       "dantro.utils.register_operation to do so."
+                       "dantro.utils.register_operation to do so.  Otherwise "
+                       "choose from all available operations:  {}"
                        "".format(op_name, ", ".join(possible_matches),
-                                 "\n\t".join(_OPERATIONS.keys()))
+                                 ", ".join(_OPERATIONS.keys()))
                        ) from err
 
     # Compute and return the results
+    log.log(_log_level, "Performing operation '%s' ...", op_name)
     try:
         return op(*op_args, **op_kwargs)
 
