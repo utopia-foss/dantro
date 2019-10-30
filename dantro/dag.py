@@ -16,7 +16,7 @@ import xarray as xr
 
 from paramspace.tools import recursive_replace, recursive_collect
 
-from .abc import AbstractDataContainer
+from .abc import AbstractDataContainer, PATH_JOIN_CHAR
 from .base import BaseDataGroup
 from .utils import KeyOrderedDict, apply_operation, register_operation
 from .tools import recursive_update
@@ -431,9 +431,6 @@ class Transformation:
         read_opts = self._fc_opts.get('read', {})
         load_opts = read_opts.get('load_options', {})
 
-        # Setup profiling
-        t0 = time.time()
-        
         # Check if the cache is already filled. If not, see if the file cache
         # can be read and is configured to be read.
         if self._cache['filled']:
@@ -441,6 +438,9 @@ class Transformation:
             res = self._cache['result']
 
         elif self.dag is not None and read_opts.get('enabled', False):
+            # Setup profiling
+            t0 = time.time()
+
             # Let the DAG check if there is a file cache, i.e. if a file with
             # this Transformation's hash exists in the DAG's cache directory.
             success, res = self.dag._retrieve_from_cache_file(self.hashstr,
@@ -451,7 +451,7 @@ class Transformation:
                 self._cache['result'] = res
                 self._cache['filled'] = True
 
-        self._update_profile(cache_lookup=(time.time() - t0))
+            self._update_profile(cache_lookup=(time.time() - t0))
 
         return success, res
     
@@ -539,11 +539,11 @@ class Transformation:
         # Get file cache writing parameters; don't write if not 
         write_opts = self._fc_opts['write']
 
-        # Start profiling
-        t0 = time.time()
-
         # Determine whether to write to a file
         if self.dag is not None and should_write(**write_opts):
+            # Setup profiling
+            t0 = time.time()
+            
             # Write the result to a file inside the DAG's cache directory. This
             # is handled by the DAG itself, because the Transformation does not
             # know (and should not care) aboute the cache directory ...
@@ -551,7 +551,7 @@ class Transformation:
             self.dag._write_to_cache_file(self.hashstr, result=result,
                                           **storage_opts)
 
-        self._update_profile(cache_writing=(time.time() - t0))
+            self._update_profile(cache_writing=(time.time() - t0))
 
 
 
@@ -579,7 +579,8 @@ class TransformationDAG:
                  select: dict=None, transform: Sequence[dict]=None,
                  cache_dir: str='.cache', file_cache_defaults: dict=None,
                  base_transform: Sequence[Transformation]=None,
-                 select_base: Union[DAGReference, str]=None):
+                 select_base: Union[DAGReference, str]=None,
+                 select_path_prefix: str=None):
         """Initialize a DAG which is associated with a DataManager and load the
         specified transformations configuration into it.
         
@@ -605,10 +606,14 @@ class TransformationDAG:
                 those added via ``select`` and ``transform``. These can be used
                 to create some other object from the data manager which should
                 be used as the basis of ``select`` operations.
-            select_base (str, optional): Which tag to base the ``select``
-                operations on. If None, will use the (always-registered)
-                tag for the data manager, ``dm``. This attribute can also be
-                set via the ``select_base`` property.
+            select_base (Union[DAGReference, str], optional): Which tag to
+                base the ``select`` operations on. If None, will use the
+                (always-registered) tag for the data manager, ``dm``. This
+                attribute can also be set via the ``select_base`` property.
+            select_path_prefix (str, optional): If given, this path is prefixed
+                to all ``path`` specifications made within the ``select``
+                argument. Note that unlike setting the ``select_base`` this
+                merely joins the given prefix to the given paths.
         """
         self._dm = dm
         self._objects = DAGObjects()
@@ -617,6 +622,7 @@ class TransformationDAG:
         self._fc_opts = file_cache_defaults if file_cache_defaults else {}
         self._select_base = None
         self._profile = dict(add_node=0., compute=0.)
+        self._select_path_prefix = select_path_prefix
         
         # Determine cache directory path; relative path interpreted as relative
         # to the DataManager's data directory
@@ -975,7 +981,7 @@ class TransformationDAG:
         self._update_profile(compute=t1-t0)
 
         # Provide some information to the user
-        log.note("Computed %d tag%s in %.1fs: %s",
+        log.note("Computed %d tag%s in %.2gs: %s",
                  len(compute_only), "s" if len(compute_only) != 1 else "",
                  t1-t0, ", ".join(results.keys()))
 
@@ -1046,6 +1052,13 @@ class TransformationDAG:
                 raise TypeError("Invalid type for '{}' entry within `select` "
                                 "argument! Got {} but expected string or dict."
                                 "".format(tag, type(params)))
+
+            # If given, process the path by prepending the prefix
+            if self._select_path_prefix:
+                if self._select_path_prefix[-1] == PATH_JOIN_CHAR:
+                    path = self._select_path_prefix + path
+                else:
+                    path = PATH_JOIN_CHAR.join([self._select_path_prefix,path])
 
             # Construct parameters to select from the selection base.
             # Only assign a tag if there are no further transformations;

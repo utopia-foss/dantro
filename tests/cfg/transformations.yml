@@ -69,7 +69,7 @@ shorthand_select:
     cache_dir_available: false
     node_hashes:
       - *hash_getitem_some_path_bar  # comes first b/c select orders by keys
-      - ade7a2a874aa2cab4b1c02f9ab28a6d7
+      - &hash_getitem_some_path_foo ade7a2a874aa2cab4b1c02f9ab28a6d7
     node_dependencies:
       - - *hash_dm
       - - *hash_dm
@@ -112,7 +112,7 @@ nested_args:
           as_nested_list: [[1,2,3], [1,2,3], [1,2,3]]
 
 
-# Custom selection base -------------------------------------------------------
+# Custom selection base and path prefixes -------------------------------------
 
 custom_selection_base:
   params:
@@ -149,6 +149,39 @@ custom_selection_base_error_base_tag_not_found:
 
   _raises: KeyError
   _match: "The tag 'some_path' cannot be the basis of future select operations because it is not available! .* Available tags: dag, dm"
+
+select_path_prefix:
+  params:
+    select_path_prefix: some/path
+    select:
+      foo: foo
+      bar:
+        path: bar
+
+  expected: &expected_select_path_prefix
+    num_nodes: 2
+    num_objects: 4
+    tags: [dag, dm, foo, bar]
+    node_hashes:
+      - *hash_getitem_some_path_bar
+      - *hash_getitem_some_path_foo
+    node_dependencies:
+      - - *hash_dm
+      - - *hash_dm
+    cache_dir_available: false
+    results:
+      <<: *results_explicit_select
+
+select_path_prefix_trailing_slash:
+  params:
+    select_path_prefix: some/path/
+    select:
+      foo: foo
+      bar:
+        path: bar
+
+  expected:
+    <<: *expected_select_path_prefix
 
 # Basic numerical operations --------------------------------------------------
 
