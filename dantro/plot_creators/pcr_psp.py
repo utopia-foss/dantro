@@ -600,19 +600,29 @@ class UniversePlotCreator(ExternalPlotCreator):
         # Select the corresponding universe from the ParamSpaceGroup
         uni = self.psgrp[uni_id]
         log.note("Using data of:        %s", uni.logstr)
-        uni_path = PATH_JOIN_CHAR.join([self.PSGRP_PATH, uni.name])
+        
+        # Let the parent function, implemented in ExternalPlotCreator, do its
+        # thing. This will return the (args, kwargs) tuple and will also take
+        # care of data transformation using the DAG framework, for which some
+        # behaviour is specialized for selection from the passed `uni` using
+        # additional helper methods; see below.
+        return super()._prepare_plot_func_args(*args, uni=uni, **kwargs)
 
-        # Create the parameters for the DAG transformation interface which uses
-        # selections based in the universe group
+    def _get_dag_params(self, *, uni: ParamSpaceStateGroup, **cfg
+                        ) -> Tuple[dict, dict]:
+        """Makes the selected universe available and adjusts DAG parameters
+        such that selections can be based on that universe.
+        """
+        dag_params, plot_kwargs = super()._get_dag_params(**cfg)
+
+        # Extend the DAG parameters such that they perform a base_transform
+        # to get to the selected universe and subsequently use that as the
+        # selection base.
+        uni_path = PATH_JOIN_CHAR.join([self.PSGRP_PATH, uni.name])
         base_transform = [dict(getitem=[DAGTag('dm'), uni_path], tag='uni',
                                file_cache=dict(read=False, write=False))]
-
-        # Compile the DAG options dict, based on potentially existing options
-        kwargs['dag_options'] = dict(**kwargs.get('dag_options', {}),
-                                     base_transform=base_transform,
-                                     select_base='uni')
-        # NOTE If DAG usage is not enabled, these parameters have no effect
-
-        # Let the parent function, implemented in ExternalPlotCreator, do its
-        # thing. This will return the (args, kwargs) tuple
-        return super()._prepare_plot_func_args(*args, uni=uni, **kwargs)
+        dag_params['init'] = dict(**dag_params['init'],
+                                  base_transform=base_transform,
+                                  select_base='uni')
+        
+        return dag_params, plot_kwargs

@@ -448,16 +448,26 @@ def test_UniversePlotCreator_DAG_usage(init_kwargs):
         print("Latest config: ", cfg)
 
         # The specialized _prepare_plot_func_args should take care to create
-        # the correct DAG and universe
+        # the correct DAG and select the universe and some other data
         args, kwargs = upc._prepare_plot_func_args(mock_pfunc, **cfg)
 
         assert 'coords' not in kwargs
         assert '_coords' not in kwargs
-        
-        assert 'uni' in kwargs
-        assert 'data' in kwargs
+        assert 'uni' not in kwargs
 
-        # The data selected by the DAG is the same that can also be selected
-        # via the ParamSpaceStateGroup:
+        # The universe and the selected array are made available
+        assert 'data' in kwargs
+        assert 'uni' in kwargs['data']
         assert 'randints' in kwargs['data']
-        assert kwargs['data']['randints'] is kwargs['uni']['labelled/randints']
+
+    # Cannot specify base_transform or select_base
+    with pytest.raises(TypeError, match="got multiple values for keyword "
+                       "argument 'select_base'"):
+        _, psp = upc.prepare_cfg(pspace=None,
+                                 plot_cfg=dict(universes='all', use_dag=True,
+                                               select=dict(foo="bar"),
+                                               dag_options=dict(
+                                                    select_base='foo')))
+
+        for cfg in psp:
+            upc._prepare_plot_func_args(mock_pfunc, **cfg)
