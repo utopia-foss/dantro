@@ -233,6 +233,14 @@ def test_MultiversePlotCreator_DAG_usage(init_kwargs):
                                     select_and_combine=dict(**sac,
                                         combination_method='invalid'))
 
+    # Attempting to pass the select_path_prefix argument
+    with pytest.raises(ValueError,
+                       match="select_path_prefix argument cannot be used"):
+        mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
+                                    select_and_combine=dict(**sac),
+                                    dag_options=dict(
+                                        select_path_prefix="foo"))
+
 
 # -----------------------------------------------------------------------------
 # UniversePlotCreator ---------------------------------------------------------

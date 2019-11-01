@@ -85,6 +85,8 @@ Some example plot configuration to select some containers from the data manager,
           write: true
           read: true
 
+        # ... other parameters here are passed on to TransformationDAG.__init__
+
 
 DAG usage with :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator`
 ----------------------------------------------------------------------------
@@ -98,7 +100,7 @@ It provides the following arguments that have an effect on DAG usage:
 
 - ``use_dag``: to enable or disable DAG usage. Disabled by default.
 - ``required_dag_tags``: can be used to specify which tags are expected by the plot function; if these are not defined or not computed, an error will be raised.
-- ``compute_only_required_dag_tags``: if the plot function defines required tags and ``compute_only is None``, the ``compute_only`` argument will be set such that only ``required_dag_tags`` are computed
+- ``compute_only_required_dag_tags``: if the plot function defines required tags and ``compute_only is None``, the ``compute_only`` argument will be set such that only ``required_dag_tags`` are computed.
 - ``pass_dag_object_along``: passes the :py:class:`~dantro.dag.TransformationDAG` object to the plot function as ``dag`` keyword argument.
 
 Decorator usage puts all the relevant arguments for using the DAG framework into one place: the definition of the plot function.
@@ -110,12 +112,19 @@ For the :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator`, data sele
 This is taken care of automatically by dynamically setting the :py:meth:`~dantro.dag.TransformationDAG.select_base` property to the current universe.
 Thus, the ``select`` argument acts as if selections were to happen directly from the universe.
 
+Except for the ``select_base`` and ``base_transform`` arguments, the full DAG interface is available via the :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator`.
+
+.. note::
+
+    To restore parts of the functionality of the already-in-use ``select_base`` and ``base_transform`` arguments, the ``select_path_prefix`` argument of :py:class:`~dantro.dag.TransformationDAG` can be used.
+    It can be specified as part of ``dag_options`` and is prepended to all ``path`` arguments specified within ``select``.
+
 
 Special case: :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator` has a harder job: It has to select data from the whole multiverse subspace, apply transformations to it, and finally combine it.
-It does so fully within the DAG framework by building a separate DAG branch for each universe and bundling all them into a transformation that combines the data.
+The :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator` has a harder job: It has to select data from the whole multiverse subspace, apply transformations to it, and finally combine it, with optional further transformations following.
 
+It does so fully within the DAG framework by building a separate DAG branch for each universe and bundling all of them into a transformation that combines the data.
 This happens via the ``select_and_combine`` argument.
 
 **Important:** The ``select_and_combine`` argument behaves differently to the ``select`` argument of the DAG interface!
@@ -138,10 +147,11 @@ The ``select_and_combine`` argument expects the following keys:
 
 Remarks
 """""""
-- The select operations on each universe set the ``omit_tag`` flag in order not to create a flood of only-internally-used tags
-- File caching is hard-coded to be disabled for the initial select operation and for the operation that attached the parameter space coordinates to it. This behaviour cannot be influenced.
+- The select operations on each universe set the ``omit_tag`` flag in order not to create a flood of only-internally-used tags. Setting tags manually here does not make sense, as the tag names would collide with tags from other universe branches.
+- File caching is hard-coded to be disabled for the initial select operation and for the operation that attaches the parameter space coordinates to it. This behaviour cannot be influenced.
 - The best place to cache is the result of the combination method.
 - The regular ``select`` argument is still available, but it is applied only *after* the ``select_and_combine``-defined nodes were added and it does only act *globally*, i.e. not on *each* universe.
+- The ``select_path_prefix`` argument to :py:class:`~dantro.dag.TransformationDAG` is not allowed for the :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`. Use the ``select_and_combine.base_path`` argument instead.
 
 Example
 """""""
@@ -162,9 +172,9 @@ Example
               - mean: [!dag_prev ]
               - increment: [!dag_prev ]
 
-        base_path: ~                # if given, prepended to `path` in tags
+        base_path: ~                # if given, prepended to `path` in fields
 
-        # Default arguments, can be overwritten in each `tags` entry
+        # Default arguments, can be overwritten in each `fields` entry
         combination_method: concat  # can be `concat` (default) or `merge`
         subspace: ~                 # some subspace selection
 

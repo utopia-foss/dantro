@@ -613,7 +613,13 @@ class TransformationDAG:
             select_path_prefix (str, optional): If given, this path is prefixed
                 to all ``path`` specifications made within the ``select``
                 argument. Note that unlike setting the ``select_base`` this
-                merely joins the given prefix to the given paths.
+                merely joins the given prefix to the given paths, thus leading
+                to repeated path resolution. For that reason, using the
+                ``select_base`` argument is generally preferred and the
+                ``select_path_prefix`` should only be used if ``select_base``
+                is already in use.
+                If this path ends with a ``/``, it is directly prepended. If
+                not, the ``/`` is added before adjoining it to the other path.
         """
         self._dm = dm
         self._objects = DAGObjects()

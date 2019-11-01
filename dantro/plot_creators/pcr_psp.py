@@ -139,8 +139,8 @@ class MultiversePlotCreator(ExternalPlotCreator):
     def _create_dag(self, *, _plot_func: Callable,
                     select_and_combine: dict,
                     select: dict=None, transform: Sequence[dict]=None,
-                    select_base: str=None, **dag_init_params
-                    ) -> TransformationDAG:
+                    select_base: str=None, select_path_prefix: str=None,
+                    **dag_init_params) -> TransformationDAG:
         """Extends the parent method by translating the ``select_and_combine``
         argument into selection of tags from a universe subspace, subsequent
         transformations, and a ``combine`` operation, that aligns the data in
@@ -164,7 +164,11 @@ class MultiversePlotCreator(ExternalPlotCreator):
                 were added.
             select_base (str, optional): The select base for the ``select``
                 argument. These are *not* relevant for the selection that
-                occurs via the ``select_and_combine`` argument.
+                occurs via the ``select_and_combine`` argument and is only set
+                after all ``select_and_combine``-related transformations are
+                added to the DAG.
+            select_path_prefix (str, optional): The selection path prefix for
+                the ``select`` argument. Cannot be used here.
             **dag_init_params: Further initialization arguments to the DAG.
         
         Returns:
@@ -348,6 +352,13 @@ class MultiversePlotCreator(ExternalPlotCreator):
             #      returns.
 
         # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        # To not create further confusion regarding base paths, raise an error
+        # if it is attempted to set the `select_path_prefix` argument.
+        if select_path_prefix:
+            raise ValueError("The select_path_prefix argument cannot be used "
+                             "within {}! Use the select_and_combine.base_path "
+                             "argument instead.".format(self.logstr))
+
         # Initialize an (empty) DAG, i.e.: without select and transform args
         # and without setting the selection base
         dag = super()._create_dag(_plot_func=_plot_func, **dag_init_params)
@@ -624,5 +635,5 @@ class UniversePlotCreator(ExternalPlotCreator):
         dag_params['init'] = dict(**dag_params['init'],
                                   base_transform=base_transform,
                                   select_base='uni')
-        
+
         return dag_params, plot_kwargs

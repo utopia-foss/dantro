@@ -382,6 +382,11 @@ If set, all following ``select`` arguments are using that reference as the basis
 As the ``select`` arguments are evaluated prior to any transform operations, only the default tags are available during initialization.
 To widen the possibilities, the :py:class:`~dantro.dag.TransformationDAG` allows the ``base_transform`` argument during initialization; this is just a sequence of transform specifications, which are applied *before* the ``select`` argument is evaluated, thus allowing to select some object, tag it, and use that tag for the ``select_base`` argument.
 
+.. note::
+
+    The ``select_path_prefix`` argument offers similar functionality, but merely prepends a path to the argument.
+    If possible, the ``select_base`` functionality should be preferred over ``select_path_prefix`` as it reduces lookups and cooperates more nicely with the file caching features.
+
 
 Individually adding nodes
 ^^^^^^^^^^^^^^^^^^^^^^^^^
