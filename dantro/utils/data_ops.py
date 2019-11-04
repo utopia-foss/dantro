@@ -476,13 +476,13 @@ def apply_operation(op_name: str, *op_args, _log_level: int=5,
         # Find some close matches to make operation discovery easier
         possible_matches = get_close_matches(op_name, _OPERATIONS.keys(), n=5)
 
-        raise KeyError("No operation '{}' registered! Did you mean: {} ?  "
-                       "If you need to register a new operation, use "
-                       "dantro.utils.register_operation to do so.  Otherwise "
-                       "choose from all available operations:  {}"
-                       "".format(op_name, ", ".join(possible_matches),
-                                 ", ".join(_OPERATIONS.keys()))
-                       ) from err
+        raise ValueError("No operation '{}' registered! Did you mean: {} ?\n"
+                         "Available operations:\n  - {}\n"
+                         "If you need to register a new operation, use "
+                         "dantro.utils.register_operation to do so."
+                         "".format(op_name, ", ".join(possible_matches),
+                                   "\n  - ".join(_OPERATIONS.keys()))
+                         ) from err
 
     # Compute and return the results
     log.log(_log_level, "Performing operation '%s' ...", op_name)
@@ -490,8 +490,9 @@ def apply_operation(op_name: str, *op_args, _log_level: int=5,
         return op(*op_args, **op_kwargs)
 
     except Exception as exc:
-        raise type(exc)("Failed applying operation '{}': {}\n"
-                        "  args:   {}\n"
-                        "  kwargs: {}\n"
-                        "".format(op_name, str(exc), op_args, op_kwargs)
-                        ) from exc
+        raise RuntimeError("Failed applying operation '{}'! Got a {}: {}\n"
+                           "  args:   {}\n"
+                           "  kwargs: {}\n"
+                           "".format(op_name, exc.__class__.__name__, str(exc),
+                                     op_args, op_kwargs)
+                           ) from exc

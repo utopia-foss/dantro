@@ -86,13 +86,23 @@ def test_apply_operation():
     assert apply_operation('add', 1, 2) == 3
 
     # Test the "did you mean" feature
-    with pytest.raises(KeyError, match="Did you mean: add ?"):
+    with pytest.raises(ValueError, match="Did you mean: add ?"):
+        apply_operation("addd")
+
+    # ... and check that a list of available operations is posted
+    with pytest.raises(ValueError, match="  - getitem"):
         apply_operation("addd")
     
     # Test application failure error message
-    with pytest.raises(TypeError,
-                       match="Failed applying operation 'add':.*missing 1"):
-        apply_operation("add", 1)
+    with pytest.raises(RuntimeError,
+                       match="Failed applying operation 'add'! Got a "
+                             "TypeError: .*unexpected keyword argument"):
+        apply_operation("add", 1, foo="bar")
+
+    # Check again if kwargs are part of the error message
+    with pytest.raises(RuntimeError,
+                       match="kwargs: {'foo': 'bar'}"):
+        apply_operation("add", 1, foo="bar")
 
 
 # Tests of specific operations ------------------------------------------------
