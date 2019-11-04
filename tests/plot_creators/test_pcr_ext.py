@@ -336,9 +336,12 @@ def test_can_plot(init_kwargs, tmp_module):
     # This one is also decorated, thus the function signature is not checked
 
     # ... and for the function given in the module file
-    assert epc.can_plot("ext",
-                        module_file=tmp_module, plot_func="write_something")
     # This one is NOT decorated, thus the function signature IS checked
+    # ... and a DeprecationWarning is issued
+    with pytest.warns(DeprecationWarning):
+        assert epc.can_plot("ext",
+                            module_file=tmp_module,
+                            plot_func="write_something")
 
     # Cases where no plot function can be resolved
     assert not epc.can_plot("external", **{})
@@ -430,10 +433,17 @@ def test_can_plot(init_kwargs, tmp_module):
     def bad_func_5(dm, *, kwarg1, **kwargs):
         pass
 
-    assert valid_sig(valid_func_1)
-    assert valid_sig(valid_func_2)
-    assert valid_sig(valid_func_3)
+    # These should work, but issue deprecation warnings
+    with pytest.warns(DeprecationWarning):
+        assert valid_sig(valid_func_1)
+    
+    with pytest.warns(DeprecationWarning):
+        assert valid_sig(valid_func_2)
+    
+    with pytest.warns(DeprecationWarning):
+        assert valid_sig(valid_func_3)
 
+    # These should not work
     with pytest.raises(ValueError,
                        match=(r"Expected 1 POSITIONAL_OR_KEYWORD argument\(s\)"
                               r" but the plot function allowed 2")):

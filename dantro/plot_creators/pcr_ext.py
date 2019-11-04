@@ -9,6 +9,7 @@ import logging
 import importlib
 import importlib.util
 import inspect
+import warnings
 from collections import defaultdict
 from typing import Callable, Union, List, Tuple, Sequence
 
@@ -761,6 +762,10 @@ class ExternalPlotCreator(BasePlotCreator):
     def _valid_plot_func_signature(self, sig: inspect.Signature,
                                    raise_if_invalid: bool=False) -> bool:
         """Determines whether the plot function signature is valid
+
+        .. deprecated:: 0.10
+            Explicitly define the creator via the decorator or via an entry in
+            the plot configuration.
         
         Args:
             sig (inspect.Signature): The inspected signature of the plot func
@@ -843,6 +848,18 @@ class ExternalPlotCreator(BasePlotCreator):
         elif not is_valid:
             log.debug("Issues with the plot function's signature:\n  - %s",
                       "\n  - ".join(errs))
+
+        elif is_valid:
+            # The signature lead to the detection -> issue deprecation warning
+            warnings.warn("Auto-detection of a plot creator using the plot "
+                          "function signature is deprecated and will be "
+                          "removed in dantro v0.11! "
+                          "Instead, specify the creator for plot '{}' using "
+                          "the `creator_type` (here: {}) or `creator_name` "
+                          "argument to the `is_plot_func` decorator, or set "
+                          "the `creator` key directly in the plot config."
+                          "".format(self.name, self.classname),
+                          DeprecationWarning, stacklevel=2)
 
         return is_valid
 
