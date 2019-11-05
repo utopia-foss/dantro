@@ -113,12 +113,14 @@ def test_data_selection_interface(init_kwargs, tmpdir):
                                     select_base='nonexisting'))
 
     # Disabled DAG usage -> parameters should be passed through
-    ds0 = mpc._perform_data_selection(use_dag=False, plot_kwargs=params0)
+    flg, ds0 = mpc._perform_data_selection(use_dag=False, plot_kwargs=params0)
+    assert flg is False
     assert 'use_dag' not in ds0
     assert ds0 is params0
 
     # Enabled DAG usage -> DAG should be created, but of course without result
-    ds1 = mpc._perform_data_selection(use_dag=True, plot_kwargs=params1)
+    flg, ds1 = mpc._perform_data_selection(use_dag=True, plot_kwargs=params1)
+    assert flg is True
     assert 'use_dag' not in ds1
     assert isinstance(ds1['dag'], TransformationDAG)
     assert ds1['dag_results'] == dict()
@@ -126,19 +128,19 @@ def test_data_selection_interface(init_kwargs, tmpdir):
     assert ds1['baz'] == 123
 
     # Now with some actual transformations, results are generated
-    ds2 = mpc._perform_data_selection(use_dag=True, plot_kwargs=params2)
+    _, ds2 = mpc._perform_data_selection(use_dag=True, plot_kwargs=params2)
     assert 'use_dag' not in ds2
     assert 'transform' not in ds2
     assert ds2['dag_results'] == dict(sum=3)
 
     # It's possible to pass `compute_only`
-    ds3 = mpc._perform_data_selection(use_dag=True, plot_kwargs=params3)
+    _, ds3 = mpc._perform_data_selection(use_dag=True, plot_kwargs=params3)
     assert ds3['dag_results'] == dict(sub=1)
     assert 'transform' not in ds3
     assert 'compute_only' not in ds3
 
     # It's possible to pass file cache default values via DAG options
-    ds4 = mpc._perform_data_selection(use_dag=True, plot_kwargs=params4)
+    _, ds4 = mpc._perform_data_selection(use_dag=True, plot_kwargs=params4)
     assert ds4['dag_results'] == dict(sub=1)
     assert 'transform' not in ds4
     assert 'compute_only' not in ds4

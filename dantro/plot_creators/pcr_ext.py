@@ -406,12 +406,16 @@ class ExternalPlotCreator(BasePlotCreator):
         """
         # If enabled, use the DAG interface to perform data selection. The
         # returned kwargs are the adjusted plot function keyword arguments.
-        kwargs = self._perform_data_selection(use_dag=use_dag,
-                                              plot_kwargs=kwargs,
-                                              _plot_func=plot_func)
+        using_dag, kwargs = self._perform_data_selection(use_dag=use_dag,
+                                                         plot_kwargs=kwargs,
+                                                         _plot_func=plot_func)
 
-        # Aggregate as (args, kwargs), passed on to plot function.
-        return ((self.dm,) + args, kwargs)
+        # Aggregate as (args, kwargs), passed on to plot function. When using
+        # the DAG, the DataManager is NOT passed along, as it is accessible via
+        # the tags of the DAG.
+        if not using_dag:
+            return ((self.dm,) + args, kwargs)
+        return (args, kwargs)
 
     # .........................................................................
     # Helpers: specialization of data selection and transformation framework

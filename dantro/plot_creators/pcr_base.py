@@ -185,7 +185,7 @@ class BasePlotCreator(AbstractPlotCreator):
         # in that case, the method below behaves like a passthrough of the cfg,
         # only filtering out the `use_dag` key.
         if self.DAG_SUPPORTED and self.DAG_INVOKE_IN_BASE:
-            cfg = self._perform_data_selection(**cfg)
+            _, cfg = self._perform_data_selection(**cfg)
 
         # Now call the plottig function with these arguments
         return self.plot(out_path=out_path, **cfg)
@@ -253,7 +253,7 @@ class BasePlotCreator(AbstractPlotCreator):
     # Data selection interface, using TransformationDAG
 
     def _perform_data_selection(self, *, use_dag: bool=None, plot_kwargs: dict,
-                                **shared_kwargs) -> dict:
+                                **shared_kwargs) -> Tuple[bool, dict]:
         """If this plot creator supports data selection and transformation, it
         is carried out in this method.
         
@@ -279,17 +279,15 @@ class BasePlotCreator(AbstractPlotCreator):
                 to the helper methods ``_use_dag`` and ``_get_dag_params``
         
         Returns:
-            dict: The plot configuration that can be passed on to the main
-                ``plot`` method.
-        
-        Deleted Parameters:
-            **cfg: The full plot configuration, including DAG-related arguments
+            Tuple[bool, dict]: Whether data selection was used and the plot
+                configuration that can be passed on to the main ``plot``
+                method.
         """
         # Determine whether the DAG framework should be used or not
         if not self._use_dag(use_dag=use_dag, plot_kwargs=plot_kwargs,
                              **shared_kwargs):
             # Only return the plot configuration, without DAG-related keys
-            return plot_kwargs
+            return False, plot_kwargs
 
         # Extract DAG-related parameters from the plot configuration. These are
         # not available in the plotting function.
@@ -301,10 +299,11 @@ class BasePlotCreator(AbstractPlotCreator):
         dag_results = self._compute_dag(dag, **dag_params['compute'])
 
         # Prepare the parameters passed back to __call__ and on to self.plot
-        return self._combine_dag_results_and_plot_cfg(dag=dag,
-                                                      dag_results=dag_results,
-                                                      dag_params=dag_params,
-                                                      plot_kwargs=plot_kwargs)
+        kws = self._combine_dag_results_and_plot_cfg(dag=dag,
+                                                     dag_results=dag_results,
+                                                     dag_params=dag_params,
+                                                     plot_kwargs=plot_kwargs)
+        return True, kws
 
     def _get_dag_params(self, *,
                         select: dict=None, transform: Sequence[dict]=None,

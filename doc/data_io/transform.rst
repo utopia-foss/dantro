@@ -62,7 +62,7 @@ It will explain the basic elements and inner workings of the mini-language creat
 .. note::
 
     This explanation goes into quite some detail; and it's quite important to understand the underlying structures of the 
-    If you feel like you would like to jump ahead to see what awaits you, have a look at the :ref:`dag-minimal-syntax`.
+    If you feel like you would like to jump ahead to see what awaits you, have a look at the :ref:`dag_minimal_syntax`.
 
 
 The :py:class:`~dantro.dag.TransformationDAG`
@@ -398,7 +398,8 @@ However, transformation nodes can also be added after initialization using the f
   Internally, this parses the arguments and calls :py:meth:`~dantro.dag.TransformationDAG.add_node`.
 
 
-.. _dag-minimal-syntax:
+.. _dag_minimal_syntax:
+
 Minimal Syntax
 ^^^^^^^^^^^^^^
 To make definition a bit less verbose, there is a so-called *minimal syntax*, which is translated into the explicit and verbose one:
