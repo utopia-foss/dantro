@@ -2,78 +2,132 @@
 stages:
   - test
   - build
+  - deploy
 
-# To install the necessary python environment, access to private repositories
-# is required. By adding a deploy key to selected jobs, the pull from these
-# repositories becomes possible
-before_script:
-  # Install tox
-  - pip3 install tox
-  #
-  # Gain ssh access ...........................................................
-  # For outside dependencies, use the "dantro CI" deploy key
-  # Instructions:
-  #   https://docs.gitlab.com/ce/ci/ssh_keys/
-  # Run ssh-agent (inside the build environment)
-  - eval $(ssh-agent -s)
-  #
-  # Add the SSH key stored in SSH_PRIVATE_KEY variable to the agent store
-  # We're using tr to fix line endings which makes ed25519 keys work
-  # without extra base64 encoding.
-  # https://gitlab.com/gitlab-examples/ssh-private-key/issues/1#note_48526556
-  - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
-  #
-  # Create the SSH directory and give it the right permissions
-  - mkdir -p ~/.ssh
-  - chmod 700 ~/.ssh
-  # 
-  # Add the known hosts lists to ensure this ssh connection is the right one
-  - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-  - chmod 644 ~/.ssh/known_hosts
-  # - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config' # FIXME turn this on again
-  #
-  # Now have ssh access to the GitLab.
-  # Install paramspace
-  - pip3 install git+ssh://git@ts-gitlab.iup.uni-heidelberg.de:10022/yunus/paramspace@release/v2.x
+variables:
+  PARAMSPACE_CLONE_URL: ssh://git@ts-gitlab.iup.uni-heidelberg.de:10022/yunus/paramspace@release/v2.x
 
+  # Documentation server configuration
+  DOC_HOST: root@hermes.iup.uni-heidelberg.de
+  DOC_PORT: 2023      # ... forwards to dantro_doc_server container. root ok ;)
+  DOC_REMOTE_BASE_DIR: /var/dantro_doc
+  DOC_REMOTE_PATH: $DOC_REMOTE_BASE_DIR/$CI_COMMIT_REF_SLUG
+  DOC_REMOTE_URL: https://hermes.iup.uni-heidelberg.de/dantro_doc
+
+
+# For installation of some Python dependencies, access to private repositories
+# is required. This is granted using a read-only deploy key, SSH_PRIVATE_KEY,
+# which is the "Utopia CI" deploy key in this case.
+.ssh_access: &ssh_access
+  before_script:
+    # Instructions:
+    #   https://docs.gitlab.com/ce/ci/ssh_keys/
+    # Run ssh-agent (inside the build environment)
+    - eval $(ssh-agent -s)
+    
+    # Add the SSH key stored in SSH_PRIVATE_KEY variable to the agent store
+    # We're using tr to fix line endings which makes ed25519 keys work
+    # without extra base64 encoding.
+    # https://gitlab.com/gitlab-examples/ssh-private-key/issues/1#note_48526556
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
+    
+    # Create the SSH directory and give it the right permissions
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    
+    # Add the known hosts lists to ensure this ssh connection is the right one
+    - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  
 
 # -----------------------------------------------------------------------------
+# -- Test Stage ---------------------------------------------------------------
+# ... for testing with different python environments
 
-test:py36:
-  image: python:3.6
+test:py36: &test_defaults
   stage: test
+  image: python:3.6
+  <<: *ssh_access
+  needs: []
   script:
+    - &install_py_deps pip3 install tox git+$PARAMSPACE_CLONE_URL
     - tox -e py36
 
 test:py37:
+  <<: *test_defaults
   image: python:3.7
-  stage: test
   script:
+    - *install_py_deps
     - tox -e py37
 
 
-# -----------------------------------------------------------------------------
+# -- Build Stage --------------------------------------------------------------
+# ... for building the documentation (and potentially more jobs)
 
-build:doc:
-  image: python:3.6
+build:docs:
   stage: build
-  only:
-    - master
-    - release/*
-    - web
+  image: python:3.6
+  <<: *ssh_access
   script:
-    # Install dependencies
-    - pip install .[doc_deps]
-    #
-    # Make documentation
+    - pip3 install git+$PARAMSPACE_CLONE_URL
+    - pip3 install .[doc_deps]
+
     - cd doc
     - make doc
-
   artifacts:
-    expire_in: 3h
+    expire_in: 1h
     paths:
       - doc/_build/html
 
 
-# -----------------------------------------------------------------------------
-# TODO Deploy documentation to static web server (only on master)
+# -- Deploy Stage -------------------------------------------------------------
+# ... for deployment of the documentation (and potentially more jobs)
+
+# Deploy the documentation to a self-hosted web server
+deploy:docs:
+  stage: deploy
+  image: &deploy_image ccees/utopia-base:v2.1  # overkill, but sshd installed
+  <<: *ssh_access
+  only:
+    - branches@utopia/dantro
+  dependencies:
+    - build:docs
+  needs: 
+    - build:docs
+  script:
+    # Create the directory on the remote, removing any prior version
+    - echo "Creating empty remote directory $DOC_REMOTE_PATH ..."
+    - ssh -p $DOC_PORT $DOC_HOST "rm -rf $DOC_REMOTE_PATH"
+    - ssh -p $DOC_PORT $DOC_HOST "mkdir -p $DOC_REMOTE_PATH"
+
+    # Copy the sphinx HTML output to the remote
+    - echo "Uploading documentation to $DOC_REMOTE_PATH/ ..."
+    - scp -P $DOC_PORT -pr doc/_build/html $DOC_HOST:$DOC_REMOTE_PATH/
+
+    - echo "Finished. :)"
+
+  environment:
+    name: docs/$CI_COMMIT_REF_NAME
+    url: $DOC_REMOTE_URL/$CI_COMMIT_REF_SLUG/html/
+    on_stop: deploy:stop_docs
+
+# Stop the deployed "docs" environment for this branch
+# NOTE: This job is automatically executed if the original branch is deleted
+#       (*GitLab Magic*) or someone stops the environment.
+deploy:stop_docs:
+  stage: deploy
+  image: *deploy_image
+  <<: *ssh_access
+  when: manual          # ... but is also triggered on branch deletion
+  variables:
+    GIT_STRATEGY: none  # Don't check out the branch (might already be deleted)
+  needs:
+    - build:docs        # Required in order for 'on_stop' to work
+  script:
+    - echo "Removing remote directory $DOC_REMOTE_PATH ..."
+    - ssh -p $DOC_PORT $DOC_HOST "rm -rf $DOC_REMOTE_PATH"
+    - echo "It's gone. :)"
+
+  environment:
+    name: docs/$CI_COMMIT_REF_NAME
+    action: stop
