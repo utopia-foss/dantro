@@ -215,7 +215,6 @@ An associated plot configuration might look like this:
 
 .. code-block:: yaml
 
-    # Some plot configuration file
     ---
     my_plot:
       # ... some plot arguments here ...
@@ -230,13 +229,78 @@ An associated plot configuration might look like this:
               - mean: [!dag_prev ]
               - increment: [!dag_prev ]
 
-        base_path: ~                # if given, prepended to `path` in fields
-
-        # Default arguments, can be overwritten in each `fields` entry
         combination_method: concat  # can be `concat` (default) or `merge`
         subspace: ~                 # some subspace selection
 
       transform:
         - add: [!dag_tag foo, !dag_tag bar]
           tag: result
-      # ... more DAG-related arguments here ...
+
+
+Full DAG configuration interface for multiverse selection
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+An example for all options available in the :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`.
+
+
+.. code-block:: yaml
+
+    # Full DAG specification for multiverse selection
+    ---
+    my_plot:
+      # ... some plot arguments here ...
+
+      # DAG parameters
+      # Selection from multiple universes with subsequent combination
+      select_and_combine:
+        fields:
+          # Define a tag 'foo' that will use the defaults defined directly on
+          # the `select_and_combine` level
+          foo: foo                       # `base_path` will be prepended here
+                                         # resulting in: some/path/foo
+
+          # Define a tag 'bar' that overwrites some of the defaults
+          bar:
+            path: bar
+            subspace:                    # only use universes from a subspace
+              seed: [0, 10]
+              my_param: [-42., 42.]
+            combination_method: merge    # overwriting default specified below
+            combination_kwargs:          # passed to combine transformation
+              file_cache:
+                read: true
+                write:
+                  enabled: true
+                  # Configure the file cache to only be written if this
+                  # operation took a large amount of time.
+                  min_cumulative_compute_time: 20.
+            transform:
+              - mean: !dag_prev 
+              - increment: [!dag_prev ]
+              - some_op_with_kwargs:
+                  data: !dag_prev 
+                  foo: bar
+                  spam: 42
+              - operation: my_operation
+                args: [!dag_prev ]
+                file_cache: {}      # can configure file cache here
+
+        base_path: some_path        # if given, prepended to `path` in `fields`
+
+        # Default arguments, can be overwritten in each `fields` entry
+        combination_method: concat  # can be `concat` (default) or `merge`
+        subspace: ~                 # some subspace selection
+
+      # Additional selections, now based on `dm` tag
+      select: {}
+
+      # Additional transformations; all tags from above available here
+      transform: []
+
+      # Other DAG-related parameters: `compute_only`, `dag_options`
+      # ...
+
+.. note::
+
+    This does not include *all* possible options for DAG configuration, but focusses on those options added by :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator` to work with multiverse data, e.g. ``subspace``, ``combination_kwargs``.
+
+    For other arguments, see :ref:`dag_transform_full_syntax_spec`.
