@@ -2,7 +2,7 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
-## v0.10.0 (WIP)
+## v0.10.0
 - !104 adds the `set_text` function to the `PlotHelper`
 - !106 changes `PathMixin` such that detached objects now have `/<name>` as their path, which improves path handling. Furthermore, the `Link` object is now adjusted to this change and its tests are extended to a wide range of scenarios.
 - #100 deprecates plot creator auto-detection via the plot function signature of `ExternalPlotCreator`. Instead, the `is_plot_func` decorator should be used.
