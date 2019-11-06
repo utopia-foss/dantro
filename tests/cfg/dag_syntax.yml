@@ -180,6 +180,46 @@ shorthand_transform_error_both_ops_and_op:
 
 
 # -----------------------------------------------------------------------------
+# References nested in the arguments
+
+nested_refs:
+  params:
+    select: ~
+    transform:
+      - some_op: [[foo, bar], 123]
+      - some_op:
+        - [!dag_prev , !dag_prev ]
+        - [!dag_prev , [!dag_prev ]]
+        - one: !dag_tag dm
+          two: [!dag_node 42, foobar]
+      - some_op:
+          foo: [!dag_prev , {key1: !dag_prev , key2: [!dag_prev ]}]
+
+  expected:
+    - operation: some_op
+      args:
+        - [foo, bar]
+        - 123
+      kwargs: {}
+      tag: ~
+    - operation: some_op
+      args:
+        - [!dag_node -1 , !dag_node -1 ]
+        - [!dag_node -1 , [!dag_node -1 ]]
+        - one: !dag_tag dm
+          two: [!dag_node 42, foobar]
+      kwargs: {}
+      tag: ~
+    - operation: some_op
+      args: []
+      kwargs:
+        foo:
+          - !dag_node -1
+          - key1: !dag_node -1
+            key2: [!dag_node -1 ]
+      tag: ~
+
+# -----------------------------------------------------------------------------
 # With select
 
 simple_select:
@@ -199,7 +239,7 @@ simple_select:
   expected:
     - operation: getitem
       args:
-        - !dag_tag dm
+        - &ref_dm !dag_ref 38518b2446b95e8834372949a8e9dfc2
         - some/path/bar
       kwargs: {}
       tag: bar
@@ -208,7 +248,7 @@ simple_select:
         read: false
     - operation: getitem
       args:
-        - !dag_tag dm
+        - *ref_dm
         - some/path/foo
       kwargs: {}
       tag: foo
@@ -244,7 +284,7 @@ select_with_transform:
   expected:
     - operation: getitem
       args:
-        - !dag_tag dm
+        - *ref_dm
         - some/path/bar
       kwargs: {}
       tag: ~
@@ -269,7 +309,7 @@ select_with_transform:
 
     - operation: getitem
       args:
-        - !dag_tag dm
+        - *ref_dm
         - some/path
       kwargs: {}
       tag: ~
@@ -283,6 +323,72 @@ select_with_transform:
       kwargs: {}
       tag: foo
 
+
+simple_select_omit_tag:
+  params:
+    select:
+      foo:
+        path: some/path/foo
+        omit_tag: true
+      bar:
+        path: some/path/bar
+        omit_tag: true
+        transform:
+          - operation: some_operation
+            with_previous_result: true
+            args:
+              - abc
+      baz:
+        path: some/path/baz
+        omit_tag: true
+        transform:
+          - operation: some_operation
+            with_previous_result: true
+            args:
+              - spam
+            tag: there_is_a_tag_here
+    transform: ~
+
+  expected:
+    - operation: getitem
+      args:
+        - *ref_dm
+        - some/path/bar
+      kwargs: {}
+      tag: ~
+      file_cache:
+        write: false
+        read: false
+    - operation: some_operation
+      args:
+        - !dag_node -1
+        - abc
+      kwargs: {}
+      tag: ~
+    - operation: getitem
+      args:
+        - *ref_dm
+        - some/path/baz
+      kwargs: {}
+      tag: ~
+      file_cache:
+        write: false
+        read: false
+    - operation: some_operation
+      args:
+        - !dag_node -1
+        - spam
+      kwargs: {}
+      tag: there_is_a_tag_here
+    - operation: getitem
+      args:
+        - *ref_dm
+        - some/path/foo
+      kwargs: {}
+      tag: ~
+      file_cache:
+        write: false
+        read: false
 
 select_error_bad_type:
   params:
@@ -332,7 +438,7 @@ salted:
   expected:
     - operation: getitem
       args:
-        - !dag_tag dm
+        - *ref_dm
         - some/path
       kwargs: {}
       tag: ~
@@ -385,7 +491,7 @@ file_cache_defaults:
   expected:
     - operation: getitem
       args:
-        - !dag_tag dm
+        - *ref_dm
         - some/path/bar
       kwargs: {}
       tag: bar
@@ -394,7 +500,7 @@ file_cache_defaults:
         read: false
     - operation: getitem
       args:
-        - !dag_tag dm
+        - *ref_dm
         - some/path/foo
       kwargs: {}
       tag: foo

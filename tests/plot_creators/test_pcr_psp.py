@@ -1,5 +1,7 @@
 """Tests the ParamSpacePlotCreator classes."""
 
+from pprint import pprint
+
 import pytest
 
 import numpy as np
@@ -34,9 +36,15 @@ def init_kwargs(psp_grp, tmpdir) -> dict:
     dm.add(psp_grp)
     return dict(dm=dm, psgrp_path='mv')
 
-# Tests -----------------------------------------------------------------------
+# Some mock callables .........................................................
+def mock_pfunc(*_, **__):
+    """... does nothing"""
+    pass
 
-def test_MultiversePlotCreator(init_kwargs, psp_grp_default, tmpdir):
+# -----------------------------------------------------------------------------
+# MultiversePlotCreator -------------------------------------------------------
+
+def test_MultiversePlotCreator(init_kwargs):
     """Assert the MultiversePlotCreator behaves correctly"""
     # Initialization works
     mpc = MultiversePlotCreator("test", **init_kwargs)
@@ -50,10 +58,16 @@ def test_MultiversePlotCreator(init_kwargs, psp_grp_default, tmpdir):
         _mpc.PSGRP_PATH = None
         _mpc.psgrp
 
-    # Check that the select function is called as expected
+def test_MultiversePlotCreator_select(init_kwargs, psp_grp_default, tmpdir):
+    """Check that the ``select`` argument behaves as expected.
+
+    This uses selection via the associated ParamSpaceGroup to get plot data.
+    """
+    mpc = MultiversePlotCreator("test", **init_kwargs)
+
     selector = dict(field="testdata/fixedsize/state",
                     subspace=dict(p0=slice(2), p1=slice(1.5, 2.5)))
-    args, kwargs = mpc._prepare_plot_func_args(select=selector)
+    args, kwargs = mpc._prepare_plot_func_args(mock_pfunc, select=selector)
     assert 'mv_data' in kwargs
     mv_data = kwargs['mv_data']
     print("Selected Multiverse data:", mv_data)
@@ -80,9 +94,156 @@ def test_MultiversePlotCreator(init_kwargs, psp_grp_default, tmpdir):
                                  psgrp_path=psp_grp_default.name)
 
     selector = dict(field="testdata/fixedsize/state")
-    args, kwargs = mpcd._prepare_plot_func_args(select=selector)
+    args, kwargs = mpcd._prepare_plot_func_args(mock_pfunc, select=selector)
     assert 'mv_data' in kwargs
 
+
+def test_MultiversePlotCreator_DAG_usage(init_kwargs):
+    """Tests the DAG usage of the MultiversePlotCreator.
+
+    This is controlled via the ``select_and_combine`` argument and uses the
+    TransformationDAG to select data from the selected multiverse subspace and
+    combine that data into a uniform structure.
+    """
+    mpc = MultiversePlotCreator("test", **init_kwargs)
+    psgrp = mpc.dm['mv']
+    pspace = psgrp.pspace
+
+    # Passing neither `select` and `select_and_combine` does not work
+    with pytest.raises(TypeError,
+                       match="Expected at least one of the arguments"):
+        mpc._prepare_plot_func_args()
+
+    # Without DAG usage disabled, the select_and_combine kwarg is not filtered
+    # out, but there is no 'data' argument added to the kwargs
+    _, kwargs = mpc._prepare_plot_func_args(mock_pfunc,
+                                            select_and_combine=dict(foo="bar"))
+    assert 'select_and_combine' in kwargs
+    assert 'data' not in kwargs
+
+    # Test the simplest case with DAG usage enabled
+    sac = dict(fields=dict(state=dict(path="labelled/randints")))
+    mock_pfunc.pass_dag_object_along = True
+    _, kwargs = mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
+                                            select_and_combine=sac)
+    dag = kwargs['dag']
+    data = kwargs['data']
+    assert isinstance(data, dict)
+    assert len(data) == 1
+
+    state = data['state']
+    assert isinstance(state, xr.DataArray)
+    assert state.sizes == dict(p0=2, a0=4, p1=3, p2=5, x=3, y=4, z=5)
+    assert state.dtype == int
+    assert (state.coords['p0'] == [0,1]).all()
+    assert (state.coords['a0'] == [0,1,2,3]).all()
+    assert (state.coords['p1'] == [0,1,2]).all()
+    assert (state.coords['p2'] == [0,1,2,3,4]).all()
+    assert (state.coords['x'] == [1,2,3]).all()
+    assert (state.coords['y'] == [1,2,3,4]).all()
+    assert (state.coords['z'] == [1,2,3,4,5]).all()
+
+    # Check number of nodes: 2 nodes per universe, plus one for selection of
+    # the ParamSpaceGroup and plus two for concatenation
+    assert len(kwargs['dag'].nodes) == 2*np.prod(pspace.volume) + 3
+
+    # Can additionally select some data
+    _, kwargs = mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
+                                            select=dict(mv='mv'),
+                                            select_and_combine=sac)
+    assert 'mv' in kwargs['data']
+
+    # Use some base selection path; this should produce the same result with
+    # the same number of nodes
+    sac_bp = dict(fields=dict(randints=dict(path="randints")),
+                  base_path='labelled')
+    _, kwargs = mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
+                                            select_and_combine=sac_bp)
+    assert (kwargs['data']['randints'] == state).all()
+    assert len(kwargs['dag'].nodes) == len(dag.nodes)
+
+    # Add transformations to each universe ...
+    sac_trf = dict(fields=dict(state_plus1=dict(path="labelled/randints",
+                                                transform=['increment'])))
+    _, kwargs = mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
+                                            select_and_combine=sac_trf)
+
+    # ... requiring more nodes now
+    assert len(kwargs['dag'].nodes) == (2 + 1)*np.prod(pspace.volume) + 3
+    assert (kwargs['data']['state_plus1'] == state + 1).all()
+
+
+    # Select only a subspace
+    subspace = dict(p0=[1], p1=[1,2], p2=[2], a0=[1])
+    _, kwargs = mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
+                                            select_and_combine=dict(**sac,
+                                                subspace=subspace))
+    data = kwargs['data']
+    assert len(data) == 1
+    
+    state = data['state']
+    assert isinstance(state, xr.DataArray)
+    assert state.sizes == dict(p0=1, a0=1, p1=2, p2=1, x=3, y=4, z=5)
+    assert state.dtype == int
+    assert (state.coords['p0'] == subspace['p0']).all()
+    assert (state.coords['a0'] == subspace['a0']).all()
+    assert (state.coords['p1'] == subspace['p1']).all()
+    assert (state.coords['p2'] == subspace['p2']).all()
+    assert (state.coords['x'] == [1,2,3]).all()
+    assert (state.coords['y'] == [1,2,3,4]).all()
+    assert (state.coords['z'] == [1,2,3,4,5]).all()
+
+    # Subspace can also be given individually, ignoring the higher-level
+    # default value and still producing the same results.
+    sac_sub = dict(fields=dict(randints=dict(path="labelled/randints",
+                                             subspace=subspace)),
+                   subspace=dict(bad="subspace", invalid="foobar"))
+    _, kwargs = mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
+                                            select_and_combine=sac_sub)
+    assert (kwargs['data']['randints'] == state).all()  # state from above
+
+    
+    # Test combination via merge
+    _, kwargs = mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
+                                            select_and_combine=dict(**sac,
+                                                combination_method='merge'))
+    data = kwargs['data']
+    state = data['state']
+
+    # Merge operation needs one fewer node
+    assert len(kwargs['dag'].nodes) == 2*np.prod(pspace.volume) + 2
+
+    # ... still resulting in an xr.DataArray
+    assert isinstance(state, xr.DataArray)
+    assert state.sizes == dict(p0=2, a0=4, p1=3, p2=5, x=3, y=4, z=5)
+    assert state.dtype == float
+    assert (state.coords['p0'] == [0,1]).all()
+    assert (state.coords['a0'] == [0,1,2,3]).all()
+    assert (state.coords['p1'] == [0,1,2]).all()
+    assert (state.coords['p2'] == [0,1,2,3,4]).all()
+    assert (state.coords['x'] == [1,2,3]).all()
+    assert (state.coords['y'] == [1,2,3,4]).all()
+    assert (state.coords['z'] == [1,2,3,4,5]).all()
+
+    # Invalid combination method
+    with pytest.raises(ValueError,
+                       match="Invalid combination method 'invalid'! "
+                             "Available methods: merge, concat."):
+        mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
+                                    select_and_combine=dict(**sac,
+                                        combination_method='invalid'))
+
+    # Attempting to pass the select_path_prefix argument
+    with pytest.raises(ValueError,
+                       match="select_path_prefix argument cannot be used"):
+        mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
+                                    select_and_combine=dict(**sac),
+                                    dag_options=dict(
+                                        select_path_prefix="foo"))
+
+
+# -----------------------------------------------------------------------------
+# UniversePlotCreator ---------------------------------------------------------
 
 def test_UniversePlotCreator(init_kwargs):
     """Assert the UniversePlotCreator behaves correctly"""
@@ -150,7 +311,7 @@ def test_UniversePlotCreator(init_kwargs):
         print("Latest config: ", cfg)
         print(upc.psgrp.pspace.state_map)
         print(upc.psgrp.pspace.active_state_map)
-        args, kwargs = upc._prepare_plot_func_args(**cfg)
+        args, kwargs = upc._prepare_plot_func_args(mock_pfunc, **cfg)
 
         assert 'uni' in kwargs
         assert 'coords' not in kwargs
@@ -165,7 +326,7 @@ def test_UniversePlotCreator(init_kwargs):
     assert psp.volume == 1 * 1 * 1 * 1
     
     for cfg in psp:
-        args, kwargs = upc._prepare_plot_func_args(**cfg)
+        args, kwargs = upc._prepare_plot_func_args(mock_pfunc, **cfg)
         assert kwargs['uni'].name == '151'  # first non-default
     
 
@@ -176,7 +337,7 @@ def test_UniversePlotCreator(init_kwargs):
     assert psp.volume == 1 * 1 * 1 * 1
     
     for cfg in psp:
-        args, kwargs = upc._prepare_plot_func_args(**cfg)
+        args, kwargs = upc._prepare_plot_func_args(mock_pfunc, **cfg)
         # ID is >= first possible ID and smaller than maximum ID
         assert 151 <= int(kwargs['uni'].name) < (3 * 4 * 5 * 6)
 
@@ -224,7 +385,7 @@ def test_UniversePlotCreator_default_only(init_kwargs):
     assert psp is None
     assert upc._without_pspace
 
-    args, kwargs = upc._prepare_plot_func_args(**cfg)
+    args, kwargs = upc._prepare_plot_func_args(mock_pfunc, **cfg)
     assert kwargs['uni'].name == "00"
 
     # 'single'/'first' universe
@@ -232,7 +393,7 @@ def test_UniversePlotCreator_default_only(init_kwargs):
     assert psp is None
     assert upc._without_pspace
 
-    args, kwargs = upc._prepare_plot_func_args(**cfg)
+    args, kwargs = upc._prepare_plot_func_args(mock_pfunc, **cfg)
     assert kwargs['uni'].name == "00"
 
     # Giving a pspace also works
@@ -260,7 +421,7 @@ def test_UniversePlotCreator_default_only(init_kwargs):
     assert psp is None
     assert upc._without_pspace
 
-    args, kwargs = upc._prepare_plot_func_args(**cfg)
+    args, kwargs = upc._prepare_plot_func_args(mock_pfunc, **cfg)
     assert kwargs['uni'].name == "0"
 
     # Should also be able to pass a parameter space additionally
@@ -274,3 +435,47 @@ def test_UniversePlotCreator_default_only(init_kwargs):
     # Fails when trying to do something more fancy, e.g. selecting subspace
     with pytest.raises(ValueError, match="Could not select a universe for"):
         upc.prepare_cfg(plot_cfg=dict(universes=dict(p0=[-1])), pspace=None)
+
+def test_UniversePlotCreator_DAG_usage(init_kwargs):
+    """Tests DAG feature integration into the UniversePlotCreator.
+
+    The integration works completely via the _prepare_plot_func_args, thus it
+    is sufficient to test that dag_options are set properly.
+    """
+    upc = UniversePlotCreator("test_DAG_usage", **init_kwargs)
+
+    # "all" universes
+    _, psp = upc.prepare_cfg(pspace=None,
+                             plot_cfg=dict(universes='all', use_dag=True,
+                                           select=dict(randints='labelled/randints'))
+                             )
+
+    # Now check the plot function arguments are correctly parsed
+    for cfg in psp:
+        assert '_coords' in cfg
+        print("Latest config: ", cfg)
+
+        # The specialized _prepare_plot_func_args should take care to create
+        # the correct DAG and select the universe and some other data
+        args, kwargs = upc._prepare_plot_func_args(mock_pfunc, **cfg)
+
+        assert 'coords' not in kwargs
+        assert '_coords' not in kwargs
+        assert 'uni' not in kwargs
+
+        # The universe and the selected array are made available
+        assert 'data' in kwargs
+        assert 'uni' in kwargs['data']
+        assert 'randints' in kwargs['data']
+
+    # Cannot specify base_transform or select_base
+    with pytest.raises(TypeError, match="got multiple values for keyword "
+                       "argument 'select_base'"):
+        _, psp = upc.prepare_cfg(pspace=None,
+                                 plot_cfg=dict(universes='all', use_dag=True,
+                                               select=dict(foo="bar"),
+                                               dag_options=dict(
+                                                    select_base='foo')))
+
+        for cfg in psp:
+            upc._prepare_plot_func_args(mock_pfunc, **cfg)

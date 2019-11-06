@@ -1,6 +1,14 @@
 # Test cases for the TransformationsDAG
 ---
 # Selecting items -------------------------------------------------------------
+empty:
+  params: {}
+  results:
+    num_nodes: 0
+    num_objects: 2
+    tags: [dag, dm]
+    results: {}
+
 explicit_select:
   params:
     transform:
@@ -22,15 +30,15 @@ explicit_select:
 
   expected:
     num_nodes: 3
-    num_objects: 4
-    tags: [dm, foo, bar]
+    num_objects: 5
+    tags: [dag, dm, foo, bar]
     node_hashes:
-      - efed57fb39b65918df1919473aece2ef
-      - 2bda662589177e9d1d39200f79e4d1e7
-      - &hash_getitem_bar 4328aed4085dc27fd5c5802df33e584f
+      - &hash_getitem_some_path 275d726a23c0c8d1becb5a4798f25336
+      - &hash_getitem_foo 39175b65f33504b4482667416f144a42
+      - &hash_getitem_some_path_bar eeab72a23ead10056436b6bb025d328a
     node_dependencies:
       - - &hash_dm 38518b2446b95e8834372949a8e9dfc2  # 0 -> DataManager
-      - - efed57fb39b65918df1919473aece2ef           # 1 -> 1
+      - - *hash_getitem_some_path                    # 1 -> 1
       - - *hash_dm                                   # 2 -> DataManager
     cache_dir_available: false
     results: &results_explicit_select
@@ -56,18 +64,124 @@ shorthand_select:
 
   expected:
     num_nodes: 2
-    num_objects: 3
-    tags: [dm, foo, bar]
+    num_objects: 4
+    tags: [dag, dm, foo, bar]
     cache_dir_available: false
     node_hashes:
-      - *hash_getitem_bar  # comes first here because select orders by keys
-      - ea8a716f69fc720a28c9b1b716f43191
+      - *hash_getitem_some_path_bar  # comes first b/c select orders by keys
+      - &hash_getitem_some_path_foo ade7a2a874aa2cab4b1c02f9ab28a6d7
     node_dependencies:
       - - *hash_dm
       - - *hash_dm
     results:
       <<: *results_explicit_select
 
+
+# Nested arguments ------------------------------------------------------------
+
+nested_args:
+  params:
+    transform:
+      - define: [1]
+        tag: one
+      - define: [2]
+        tag: two
+      - dict:
+          one: !dag_tag one
+          two: !dag_tag two
+          nested:
+            one: [!dag_tag one]
+            two: [!dag_tag two]
+            three: [3]
+          as_list: [!dag_tag one, !dag_tag two, 3]
+          as_nested_list: [[!dag_tag one, 2, 3], [1, !dag_tag two, 3], [1,2,3]]
+        tag: nested
+
+  expected:
+    results:
+      nested:
+        type: dict
+        compare_to:
+          one: 1
+          two: 2
+          nested:
+            one: [1]
+            two: [2]
+            three: [3]
+          as_list: [1, 2, 3]
+          as_nested_list: [[1,2,3], [1,2,3], [1,2,3]]
+
+
+# Custom selection base and path prefixes -------------------------------------
+
+custom_selection_base:
+  params:
+    base_transform:
+      - getitem: [!dag_tag dm, some/path]
+        tag: some_path
+    select_base: some_path
+    select:
+      foo: foo
+      bar:
+        path: bar
+
+  expected:
+    num_nodes: 3
+    num_objects: 5
+    tags: [dag, dm, some_path, foo, bar]
+    node_hashes:
+      - *hash_getitem_some_path
+      - 828f7c086c39be3c6842aa4121d0926c
+      - *hash_getitem_foo
+    node_dependencies:
+      - - *hash_dm
+      - - *hash_getitem_some_path
+      - - *hash_getitem_some_path
+    cache_dir_available: false
+    results:
+      <<: *results_explicit_select
+
+custom_selection_base_error_base_tag_not_found:
+  params:
+    base_transform:
+      - getitem: [!dag_tag dm, some/path]
+    select_base: some_path
+
+  _raises: KeyError
+  _match: "The tag 'some_path' cannot be the basis of future select operations because it is not available! .* Available tags: dag, dm"
+
+select_path_prefix:
+  params:
+    select_path_prefix: some/path
+    select:
+      foo: foo
+      bar:
+        path: bar
+
+  expected: &expected_select_path_prefix
+    num_nodes: 2
+    num_objects: 4
+    tags: [dag, dm, foo, bar]
+    node_hashes:
+      - *hash_getitem_some_path_bar
+      - *hash_getitem_some_path_foo
+    node_dependencies:
+      - - *hash_dm
+      - - *hash_dm
+    cache_dir_available: false
+    results:
+      <<: *results_explicit_select
+
+select_path_prefix_trailing_slash:
+  params:
+    select_path_prefix: some/path/
+    select:
+      foo: foo
+      bar:
+        path: bar
+
+  expected:
+    <<: *expected_select_path_prefix
 
 # Basic numerical operations --------------------------------------------------
 
@@ -114,15 +228,15 @@ basic_numerical_ops:
 
   expected:
     num_nodes: 7
-    num_objects: 7  # not 8! Due to the duplicate Transformation
-    tags: [dm, zero_raw, ones, twos, zeros, zeros_T, zero_raw_T, zero_raw_T2]
+    num_objects: 8  # not 9! Due to the duplicate Transformation
+    tags: [dag, dm, zero_raw, ones, twos, zeros, zeros_T, zero_raw_T, zero_raw_T2]
     node_hashes:
-      - &hash_select_zero_raw 537b1c89ea418dc16bc8e957322bf539
-      - &hash_increment_zeros 5e82e198c35e83d71a4f8f5f775b2c61
-      - c2407e64963b57370d615f33445d246e
-      - 7337d68eda9cd98491a06967776e3bf5
-      - 6d2230f26117b65faa6fc403216b0a42
-      - &hash_zero_raw_T d36ff9e0437f7e2e2c1dcfe5d191f1ba
+      - &hash_select_zero_raw 67ab8f890b5cf94f67c16ad357ab8652
+      - &hash_increment_zeros ed7dfc407e2f36d6d432c13e0ea594cc
+      - 870381a48bfdfaf9200f57a3401c2497
+      - 205a19938935266f5b357d248ddcc2a8
+      - 6676a3e544caa4bfc3fcbf54cb2828a7
+      - &hash_zero_raw_T f8860f940fe3f9578a6a6147cac807b1
       - *hash_zero_raw_T # from the duplicate transformation
     node_dependencies:
       - - *hash_dm
@@ -134,12 +248,12 @@ basic_numerical_ops:
       - 1
     cache_dir_available: true
     cache_files:
-      # - 537b1c89ea418dc16bc8e957322bf539.npy  # not cached (from select)
-      - 5e82e198c35e83d71a4f8f5f775b2c61.npy
-      - c2407e64963b57370d615f33445d246e.npy
-      - 7337d68eda9cd98491a06967776e3bf5.npy
-      - 6d2230f26117b65faa6fc403216b0a42.npy
-      - d36ff9e0437f7e2e2c1dcfe5d191f1ba.npy
+      # - 67ab8f890b5cf94f67c16ad357ab8652.npy  # not cached (from select)
+      - ed7dfc407e2f36d6d432c13e0ea594cc.npy
+      - 870381a48bfdfaf9200f57a3401c2497.npy
+      - 205a19938935266f5b357d248ddcc2a8.npy
+      - 6676a3e544caa4bfc3fcbf54cb2828a7.npy
+      - f8860f940fe3f9578a6a6147cac807b1.npy
     results:
       zero_raw:
         type: NumpyDataContainer
@@ -151,19 +265,19 @@ basic_numerical_ops:
       ones:
         type: NumpyDataContainer
         attributes:
-          path: /5e82e198
+          path: /ed7dfc40
           mean: 1.
           shape: [2,3,4]
       twos:
         type: NumpyDataContainer
         attributes:
-          path: /c2407e64
+          path: /870381a4
           mean: 2.
           shape: [2,3,4]
       zeros:
         type: NumpyDataContainer
         attributes:
-          path: /7337d68e
+          path: /205a1993
           mean: 0.
           shape: [2,3,4]
       zeros_T:
@@ -194,12 +308,12 @@ binary_ops:
 
   expected:
     num_nodes: 3
-    num_objects: 4
-    tags: [dm, zero_raw, random_raw, zero_plus_rand]
+    num_objects: 5
+    tags: [dag, dm, zero_raw, random_raw, zero_plus_rand]
     node_hashes:
-      - &hash_select_random 075ebd1256640d2d85e5011c968194ee
+      - &hash_select_random 2ea71e0765cf6cad7fb97d44345c872b
       - *hash_select_zero_raw
-      - c76670b8edb1d881b326cc6ae9421d69
+      - 70f1ea60600680d52fe4e7a2b17bc29d
     node_dependencies:
       - - *hash_dm
       - - *hash_dm
@@ -231,13 +345,13 @@ duplicates_and_salted:
 
   expected:
     num_nodes: 4
-    num_objects: 4  # due to one duplicate transformation
-    tags: [dm, zero_raw, ones, also_ones, also_ones_but_salted]
+    num_objects: 5  # due to one duplicate transformation
+    tags: [dag, dm, zero_raw, ones, also_ones, also_ones_but_salted]
     node_hashes:
       - *hash_select_zero_raw
       - *hash_increment_zeros
       - *hash_increment_zeros
-      - 4e963876e8ddc79a5ca87ea59b524af2  # ... due to being salted
+      - d02fa3d2ee1fd03dcbbefb054a67bb61  # ... due to being salted
 
 
 compute_only_a_subset:
@@ -282,16 +396,16 @@ numpy_and_xarray_data:
 
   expected: 
     num_nodes: 3
-    num_objects: 4
-    tags: [dm, zeros_raw, random_raw, ones]
+    num_objects: 5
+    tags: [dag, dm, zeros_raw, random_raw, ones]
     node_hashes:
-      - 084621667c07211d316abd1fd1e742f7
-      - 506017408a71a78659e82a26fe75f0de
-      - 41f6b80312e23ab089ad80fcd69dcfbc
+      - &hash_select_random_raw 06a087440938ff577699351cf5c53e88
+      - &hash_select_zeros_raw 4c42374387241560e73b5009e084c5ff
+      - &hash_op_increment_zeros_raw 50749352642a34a09bfcda6742ee1963
     cache_dir_available: true
     cache_files:
       # ... only the result
-      - 41f6b80312e23ab089ad80fcd69dcfbc.xrdc
+      - 50749352642a34a09bfcda6742ee1963.xrdc
 
 numpy_and_xarray_data_2nd_run:
   cache_dir_name: *shared_cache_dir
@@ -307,16 +421,16 @@ numpy_and_xarray_data_2nd_run:
     transform:
       - increment: [!dag_tag zeros_raw]
         tag: ones
-      - getitem: [!dag_tag dm, cache/dag/41f6b80312e23ab089ad80fcd69dcfbc]
+      - getitem: [!dag_tag dm, cache/dag/50749352642a34a09bfcda6742ee1963]
         tag: ones_tree
   
   expected:
     num_nodes: 3
-    num_objects: 4
-    tags: [dm, zeros_raw, ones, ones_tree]
+    num_objects: 5
+    tags: [dag, dm, zeros_raw, ones, ones_tree]
     cache_dir_available: true
     cache_files:
-      - 41f6b80312e23ab089ad80fcd69dcfbc.xrdc
+      - 50749352642a34a09bfcda6742ee1963.xrdc
 
 numpy_and_xarray_data_3rd_run:
   cache_dir_name: *shared_cache_dir
@@ -337,11 +451,11 @@ numpy_and_xarray_data_3rd_run:
   
   expected:
     num_nodes: 2
-    num_objects: 3
-    tags: [dm, zeros_raw, ones]
+    num_objects: 4
+    tags: [dag, dm, zeros_raw, ones]
     cache_dir_available: true
     cache_files:
-      - 41f6b80312e23ab089ad80fcd69dcfbc.xrdc
+      - 50749352642a34a09bfcda6742ee1963.xrdc
 
 file_cache_pickle_data:
   params:
@@ -357,11 +471,11 @@ file_cache_pickle_data:
 
   expected:
     num_nodes: 2
-    num_objects: 3
-    tags: [dm, some_dict, dict_data]
+    num_objects: 4
+    tags: [dag, dm, some_dict, dict_data]
     cache_dir_available: true
     cache_files:
-      - 37eb6515dcd3bcd3fdd45dccc868e6e5.pkl
+      - 047e6ff6c13f875ce6d7e4c84ac6b964.pkl
 
 
 file_cache_kwargs_to_transformation:
@@ -385,15 +499,15 @@ file_cache_kwargs_to_transformation:
 
   expected: 
     num_nodes: 3
-    num_objects: 4
-    tags: [dm, zeros_raw, ones, twos]
+    num_objects: 5
+    tags: [dag, dm, zeros_raw, ones, twos]
     node_hashes:
-      - 506017408a71a78659e82a26fe75f0de
-      - 41f6b80312e23ab089ad80fcd69dcfbc
-      - c581d32c98dd91aebaca03f648202f84
+      - *hash_select_zeros_raw
+      - *hash_op_increment_zeros_raw
+      - 1c7a39fea5901c7c233849b57c3028eb
     cache_dir_available: true
     cache_files:
-      - c581d32c98dd91aebaca03f648202f84.xrdc  # tag twos
+      - 1c7a39fea5901c7c233849b57c3028eb.xrdc  # tag twos
 
 file_cache_kwargs_to_select:
   params:
@@ -416,16 +530,16 @@ file_cache_kwargs_to_select:
 
   expected: 
     num_nodes: 4
-    num_objects: 5
-    tags: [dm, zeros_raw, random_plus_minus]
+    num_objects: 6
+    tags: [dag, dm, zeros_raw, random_plus_minus]
     node_hashes:
-      - 084621667c07211d316abd1fd1e742f7
-      - 71689205a793aed1a4aadb8bf7223dee
-      - 8af94aaf455c150815085d5ab16c52d9
-      - 506017408a71a78659e82a26fe75f0de
+      - *hash_select_random_raw
+      - f461fcc1d4710900ce4328ef889da7d5
+      - 2ead911e70ecd6bce631ce02a68e7a9e
+      - *hash_select_zeros_raw
     cache_dir_available: true
     cache_files:
-      - 8af94aaf455c150815085d5ab16c52d9.xrdc  # random after decrement
+      - 2ead911e70ecd6bce631ce02a68e7a9e.xrdc  # random after decrement
 
 
 file_cache_object_size:
@@ -449,15 +563,15 @@ file_cache_object_size:
 
   expected: 
     num_nodes: 3
-    num_objects: 4
-    tags: [dm, zeros_raw, ones, twos]
+    num_objects: 5
+    tags: [dag, dm, zeros_raw, ones, twos]
     node_hashes:
-      - 506017408a71a78659e82a26fe75f0de
-      - 41f6b80312e23ab089ad80fcd69dcfbc
-      - c581d32c98dd91aebaca03f648202f84
+      - *hash_select_zeros_raw
+      - *hash_op_increment_zeros_raw
+      - 1c7a39fea5901c7c233849b57c3028eb
     cache_dir_available: true
     cache_files:
-      - c581d32c98dd91aebaca03f648202f84.xrdc  # tag twos
+      - 1c7a39fea5901c7c233849b57c3028eb.xrdc  # tag twos
 
 file_cache_min_compute_time:
   params:
@@ -482,15 +596,15 @@ file_cache_min_compute_time:
 
   expected: 
     num_nodes: 3
-    num_objects: 4
-    tags: [dm, zeros_raw, ones, twos]
+    num_objects: 5
+    tags: [dag, dm, zeros_raw, ones, twos]
     node_hashes:
-      - 506017408a71a78659e82a26fe75f0de
-      - 41f6b80312e23ab089ad80fcd69dcfbc
-      - c581d32c98dd91aebaca03f648202f84
+      - *hash_select_zeros_raw
+      - *hash_op_increment_zeros_raw
+      - 1c7a39fea5901c7c233849b57c3028eb
     cache_dir_available: true
     cache_files:
-      - c581d32c98dd91aebaca03f648202f84.xrdc  # tag twos
+      - 1c7a39fea5901c7c233849b57c3028eb.xrdc  # tag twos
 
 file_cache_min_cumulative_compute_time:
   params:
@@ -513,15 +627,15 @@ file_cache_min_cumulative_compute_time:
 
   expected: 
     num_nodes: 3
-    num_objects: 4
-    tags: [dm, zeros_raw, ones, twos]
+    num_objects: 5
+    tags: [dag, dm, zeros_raw, ones, twos]
     node_hashes:
-      - 506017408a71a78659e82a26fe75f0de
-      - 41f6b80312e23ab089ad80fcd69dcfbc
-      - c581d32c98dd91aebaca03f648202f84
+      - *hash_select_zeros_raw
+      - *hash_op_increment_zeros_raw
+      - 1c7a39fea5901c7c233849b57c3028eb
     cache_dir_available: true
     cache_files:
-      - c581d32c98dd91aebaca03f648202f84.xrdc  # tag twos
+      - 1c7a39fea5901c7c233849b57c3028eb.xrdc  # tag twos
 
 file_cache_invariant_hash:
   params:
@@ -550,14 +664,14 @@ file_cache_invariant_hash:
 
   expected: 
     num_nodes: 5
-    num_objects: 4
-    tags: [dm, zeros_raw, ones_v1, ones_v2, ones_v3, ones_v4]
+    num_objects: 5
+    tags: [dag, dm, zeros_raw, ones_v1, ones_v2, ones_v3, ones_v4]
     node_hashes:
-      - 506017408a71a78659e82a26fe75f0de
-      - 41f6b80312e23ab089ad80fcd69dcfbc
-      - 41f6b80312e23ab089ad80fcd69dcfbc
-      - 41f6b80312e23ab089ad80fcd69dcfbc
-      - 1e99fb85fc1050ece9618191eabf1720
+      - *hash_select_zeros_raw
+      - *hash_op_increment_zeros_raw
+      - *hash_op_increment_zeros_raw
+      - *hash_op_increment_zeros_raw
+      - 800f018e981d6bdca4a5bee0d5517acf
     cache_dir_available: false
 
 
@@ -584,7 +698,7 @@ file_cache_file_already_loaded:
 
   _raises: Exception
   _raises_on_compute: true
-  _match: Path 'cache/dag/41f6b80312e23ab089ad80fcd69dcfbc' already exists.
+  _match: Path 'cache/dag/50749352642a34a09bfcda6742ee1963' already exists.
 
 
 file_cache_error_attempting_dm_select_cache:
@@ -597,7 +711,7 @@ file_cache_error_attempting_dm_select_cache:
     transform: ~
 
   _raises: ValueError
-  _match: For selection from DataManager, the file cache is always disabled
+  _match: For selection from the selection base, the file cache is always disabled.
 
 
 file_cache_error_writing_groups:
@@ -747,7 +861,7 @@ doc_examples_select:
     transform: ~
 
   expected:
-    tags: [dm, some_data, more_data]
+    tags: [dag, dm, some_data, more_data]
 
 doc_examples_select_with_transform:
   params:
@@ -785,4 +899,4 @@ doc_examples_minimal:
         tag: my_result
 
   expected:
-    tags: [dm, some_data, more_data, my_result]
+    tags: [dag, dm, some_data, more_data, my_result]

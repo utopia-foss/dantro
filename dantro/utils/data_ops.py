@@ -3,13 +3,14 @@
 import logging
 import operator
 from difflib import get_close_matches
-from typing import Callable, Any
+from typing import Callable, Any, Sequence, Union
 
 import numpy as np
 import xarray as xr
 
 from .ordereddict import KeyOrderedDict
 from ..base import BaseDataContainer, BaseDataGroup
+from ..tools import apply_along_axis
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -126,6 +127,138 @@ def count_unique(data) -> xr.DataArray:
                         coords=dict(unique=unique))
 
 
+# .............................................................................
+# Working with multidimensional data, mostly xarray-based
+
+def populate_ndarray(*objs, shape: tuple, dtype: str='float', order: str='C'
+                     ) -> np.ndarray:
+    """Populates an empty np.ndarray of the given dtype with the objects.
+    
+    Args:
+        *objs: The objects to add to the 
+        shape (tuple): The shape of the new array
+        dtype (str, optional): Data type of the new array
+        order (str, optional): Order of the new array
+    
+    Returns:
+        np.ndarray: The newly created and populated array
+    
+    Raises:
+        ValueError: If the number of given objects did not match the array size
+    """
+    arr = np.empty(shape, dtype=dtype, order=order)
+
+    if len(objs) != arr.size:
+        raise ValueError("Mismatch between array size ({}, shape: {}) and "
+                         "number of given objects ({})!"
+                         "".format(arr.size, arr.shape, len(objs)))
+
+    it = np.nditer(arr, flags=('multi_index', 'refs_ok'))
+    for obj, _ in zip(objs, it):
+        arr[it.multi_index] = obj
+
+    return arr
+
+
+def multi_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> xr.DataArray:
+    """Concatenates ``xr.Dataset`` or ``xr.DataArray`` objects using
+    ``xr.concat``. This function expects the xarray objects to be pre-aligned
+    inside the numpy *object* array ``arrs``, with the number of dimensions
+    matching the number of concatenation operations desired.
+    The position inside the array carries information on where the objects that
+    are to be concatenated are placed inside the higher dimensional coordinate
+    system.
+
+    Through multiple concatenation, the dimensionality of the contained objects
+    is increased by ``dims``, while their dtype can be maintained.
+
+    For the sequential application of ``xr.concat`` along the outer dimensions,
+    the custom :py:function:`dantro.tools.apply_along_axis` is used.
+    
+    Args:
+        arrs (np.ndarray): The array containing xarray objects which are to be
+            concatenated. Each array dimension should correspond to one of the
+            given ``dims``. For each of the dimensions, the ``xr.concat``
+            operation is applied along the axis, effectively reducing the
+            dimensionality of ``arrs`` to a scalar and increasing the
+            dimensionality of the contained xarray objects until they
+            additionally contain the dimensions specified in ``dims``.
+        dims (Sequence[str]): A sequence of dimension names that is assumed to
+            match the dimension names of the array. During each concatenation
+            operation, the name is passed along to ``xr.concat`` where it is
+            used to select the dimension of the *content* of ``arrs`` along
+            which concatenation should occur.
+    
+    Raises:
+        ValueError: If number of dimension names does not match the number of
+            data dimensions.
+    """
+    # Check dimensionality
+    if len(dims) != arrs.ndim:
+        raise ValueError("The given sequence of dimension names, {}, did not "
+                         "match the number of dimensions of data of shape {}!"
+                         "".format(dims, arrs.shape))
+
+    # Reverse-iterate over dimensions and concatenate them
+    for dim_idx, dim_name in reversed(list(enumerate(dims))):
+        log.debug("Concatenating along axis '%s' (idx: %d) ...",
+                  dim_name, dim_idx)
+
+        arrs = apply_along_axis(xr.concat, axis=dim_idx, arr=arrs,
+                                dim=dim_name)
+        # NOTE ``np.apply_along_axis`` would be what is desired here, but that
+        #      function unfortunately tries to cast objects to np.arrays which
+        #      is not what we want here at all! Thus, this function uses the
+        #      custom dantro function of the same name instead.
+
+    # Should be scalar now, get the element.
+    return arrs.item()
+
+def merge(arrs: Union[Sequence[Union[xr.DataArray, xr.Dataset]], np.ndarray],
+          *, reduce_to_array: bool=False, **merge_kwargs
+          ) -> Union[xr.Dataset, xr.DataArray]:
+    """Merges the given sequence of xarray objects into an xr.Dataset.
+
+    As a convenience, this also allows passing a numpy object array containing
+    the xarray objects. Furthermore, if the resulting Dataset contains only a
+    single data variable, that variable can be extracted as a DataArray which
+    is then the return value of this operation.
+    """
+    if isinstance(arrs, np.ndarray):
+        arrs = arrs.flat
+
+    dset = xr.merge(arrs, **merge_kwargs)
+
+    if not reduce_to_array:
+        return dset
+    
+    elif len(dset.data_vars) != 1:
+        raise ValueError("Can only reduce the Dataset resulting from the "
+                         "xr.merge operation to a DataArray if one and only "
+                         "one data variable is present in the Dataset! "
+                         "Got: {}. Full data:\n{}"
+                         "".format(", ".join(dset.data_vars), dset))
+
+    # Get the name of the single data variable and then get the DataArray
+    darr = dset[list(dset.data_vars.keys())[0]]
+    # NOTE This is something else than the Dataset.to_array() method, which
+    #      includes the name of the data variable as another coordinate. This
+    #      is not desired, because it is not relevant.
+    return darr
+
+
+def expand_dims(d: Any, *, dim: dict=None, **kwargs) -> xr.DataArray:
+    """Expands the dimensions of the given object.
+
+    If the object does not support the `expand_dims` method, it will be
+    attempted to convert it to an xr.DataArray.
+    """
+    if not hasattr(d, 'expand_dims'):
+        d = xr.DataArray(d)
+
+    return d.expand_dims(dim, **kwargs)
+
+
 # -----------------------------------------------------------------------------
 # The Operations Database -----------------------------------------------------
 # NOTE If a single "object to act upon" can be reasonably defined for an
@@ -135,6 +268,16 @@ _OPERATIONS = KeyOrderedDict({
     'define':       lambda d: d,
     'pass':         lambda d: d,
     'print':        print_data,
+
+    # Some commonly used types
+    'list':         list,
+    'dict':         dict,
+    'tuple':        tuple,
+    'set':          set,
+
+    'int':          int,
+    'float':        float,
+    'str':          str,
     
     # Item manipulation
     'getitem':      lambda d, k:    d[k],
@@ -209,6 +352,15 @@ _OPERATIONS = KeyOrderedDict({
 
 
     # N-ary ...................................................................
+    'create_mask':          create_mask,
+    'where':                where,
+    'populate_ndarray':     populate_ndarray,
+
+    # dantro-specific wrappers around other library's functionality
+    'dantro.multi_concat':  multi_concat,
+    'dantro.merge':         merge,
+    'dantro.expand_dims':   expand_dims,
+
     # numpy
     '.sum':         lambda d, **k: d.sum(**k),
     '.mean':        lambda d, **k: d.mean(**k),
@@ -228,6 +380,15 @@ _OPERATIONS = KeyOrderedDict({
     'invert':       lambda d, **k: np.invert(d, **k),
     'transpose':    lambda d, **k: np.transpose(d, **k),
     'diff':         lambda d, **k: np.diff(d, **k),
+    'reshape':      lambda d, s, **k: np.reshape(d, s, **k),
+
+    'np.array':     np.array,
+    'np.empty':     np.empty,
+    'np.zeros':     np.zeros,
+    'np.ones':      np.ones,
+    'np.arange':    np.arange,
+    'np.linspace':  np.linspace,
+    'np.logspace':  np.logspace,
     
     # xarray
     '.sel':         lambda d, **k: d.sel(**k),
@@ -239,9 +400,13 @@ _OPERATIONS = KeyOrderedDict({
     '.count':       lambda d, **k: d.count(**k),
     '.diff':        lambda d, **k: d.diff(**k),
 
-    # advanced
-    'create_mask':  create_mask,
-    'where':        where,
+    '.expand_dims':     lambda d, **k: d.expand_dims(**k),
+    '.assign_coords':   lambda d, **k: d.assign_coords(**k),
+
+    'xr.Dataset':   xr.Dataset,
+    'xr.DataArray': xr.DataArray,
+    'xr.merge':     xr.merge,
+    'xr.concat':    xr.concat,
 })
 
 # Add the boolean operators
@@ -283,13 +448,16 @@ def register_operation(*, name: str, func: Callable,
 
     _OPERATIONS[name] = func
 
-def apply_operation(op_name: str, *op_args, **op_kwargs) -> Any:
+def apply_operation(op_name: str, *op_args, _log_level: int=5,
+                    **op_kwargs) -> Any:
     """Apply an operation with the given arguments and then return it.
     
     Args:
         op_name (str): The name of the operation to carry out; need to be part
             of the OPERATIONS database.
         *op_args: The positional arguments to the operation
+        _log_level (int, optional): Log level of the log messages created by
+            this function.
         **op_kwargs: The keyword arguments to the operation
     
     Returns:
@@ -298,7 +466,8 @@ def apply_operation(op_name: str, *op_args, **op_kwargs) -> Any:
     Raises:
         KeyError: On invalid operation name. This also suggests possible other
             names that might match.
-        RuntimeError: On failure to apply the operation
+        Exception: On failure to apply the operation, preserving the original
+            exception.
     """
     try:
         op = _OPERATIONS[op_name]
@@ -307,21 +476,23 @@ def apply_operation(op_name: str, *op_args, **op_kwargs) -> Any:
         # Find some close matches to make operation discovery easier
         possible_matches = get_close_matches(op_name, _OPERATIONS.keys(), n=5)
 
-        raise KeyError("No operation '{}' registered! Did you mean: {} ?\n"
-                       "All available operations:\n\t{}\n"
-                       "If you need to register a new operation, use "
-                       "dantro.utils.register_operation to do so."
-                       "".format(op_name, ", ".join(possible_matches),
-                                 "\n\t".join(_OPERATIONS.keys()))
-                       ) from err
+        raise ValueError("No operation '{}' registered! Did you mean: {} ?\n"
+                         "Available operations:\n  - {}\n"
+                         "If you need to register a new operation, use "
+                         "dantro.utils.register_operation to do so."
+                         "".format(op_name, ", ".join(possible_matches),
+                                   "\n  - ".join(_OPERATIONS.keys()))
+                         ) from err
 
     # Compute and return the results
+    log.log(_log_level, "Performing operation '%s' ...", op_name)
     try:
         return op(*op_args, **op_kwargs)
 
     except Exception as exc:
-        raise type(exc)("Failed applying operation '{}'! {}\n"
-                        "  args:   {}\n"
-                        "  kwargs: {}\n"
-                        "".format(op_name, str(exc), op_args, op_kwargs)
-                        ) from exc
+        raise RuntimeError("Failed applying operation '{}'! Got a {}: {}\n"
+                           "  args:   {}\n"
+                           "  kwargs: {}\n"
+                           "".format(op_name, exc.__class__.__name__, str(exc),
+                                     op_args, op_kwargs)
+                           ) from exc

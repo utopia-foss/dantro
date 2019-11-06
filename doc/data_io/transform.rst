@@ -62,7 +62,7 @@ It will explain the basic elements and inner workings of the mini-language creat
 .. note::
 
     This explanation goes into quite some detail; and it's quite important to understand the underlying structures of the 
-    If you feel like you would like to jump ahead to see what awaits you, have a look at the :ref:`dag-minimal-syntax`.
+    If you feel like you would like to jump ahead to see what awaits you, have a look at the :ref:`dag_minimal_syntax`.
 
 
 The :py:class:`~dantro.dag.TransformationDAG`
@@ -371,8 +371,34 @@ As visible there, within the ``select`` interface, the ``with_previous_result`` 
 
     It does so *before* any other transformations from the ``transform`` argument are evaluated. Thus, whichever tags are defined there are not available from within ``select``!
 
+Changing the selection base
+"""""""""""""""""""""""""""
+By default, selection happens from the associated :py:class:`~dantro.data_mngr.DataManager`, tagged ``dm``.
+This option can be controlled via the ``select_base`` property, which can be set both as argument to ``__init__`` and afterwards via the property.
+The property expects either a ``DAGReference`` object or a valid tag string.
 
-.. _dag-minimal-syntax:
+If set, all following ``select`` arguments are using that reference as the basis, leading to ``getitem`` operations on that object rather than on the data manager.
+
+As the ``select`` arguments are evaluated prior to any transform operations, only the default tags are available during initialization.
+To widen the possibilities, the :py:class:`~dantro.dag.TransformationDAG` allows the ``base_transform`` argument during initialization; this is just a sequence of transform specifications, which are applied *before* the ``select`` argument is evaluated, thus allowing to select some object, tag it, and use that tag for the ``select_base`` argument.
+
+.. note::
+
+    The ``select_path_prefix`` argument offers similar functionality, but merely prepends a path to the argument.
+    If possible, the ``select_base`` functionality should be preferred over ``select_path_prefix`` as it reduces lookups and cooperates more nicely with the file caching features.
+
+
+Individually adding nodes
+^^^^^^^^^^^^^^^^^^^^^^^^^
+Nodes can be added to :py:class:`~dantro.dag.TransformationDAG` during initialization; all the examples above are written in such a way.
+However, transformation nodes can also be added after initialization using the following two methods:
+
+- :py:meth:`~dantro.dag.TransformationDAG.add_node` adds a single node and returns its reference.
+- :py:meth:`~dantro.dag.TransformationDAG.add_nodes` adds multiple nodes, allowing the both the ``select`` and ``transform`` arguments in the same syntax as during initialization.
+  Internally, this parses the arguments and calls :py:meth:`~dantro.dag.TransformationDAG.add_node`.
+
+
+.. _dag_minimal_syntax:
 
 Minimal Syntax
 ^^^^^^^^^^^^^^
@@ -421,6 +447,8 @@ For example, the transformation with the ``increment`` operation would be transl
     kwargs: {}
     tag: ~
 
+
+.. _dag_transform_full_syntax_spec:
 
 Full syntax specification of a single :py:class:`~dantro.dag.Transformation`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
