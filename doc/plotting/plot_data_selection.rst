@@ -123,7 +123,7 @@ The former contains all results from the DAG computation; the latter is the plot
 
 .. note::
 
-    If DAG usage is enabled, the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` does **not** pass along the current DataManager instance as first positional argument (``dm``).
+    If DAG usage is enabled, the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` does **not** pass along the current :py:class:`~dantro.data_mngr.DataManager` instance as first positional argument (``dm``).
     This is because there already is a ``dm`` tag in the DAG; by specifying that it should be computed, e.g. via the ``required_dag_tags`` argument.
 
     See :doc:`../data_io/transform` for more information.
