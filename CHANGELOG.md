@@ -2,6 +2,31 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.10.0
+- !104 adds the `set_text` function to the `PlotHelper`
+- !106 changes `PathMixin` such that detached objects now have `/<name>` as their path, which improves path handling. Furthermore, the `Link` object is now adjusted to this change and its tests are extended to a wide range of scenarios.
+- #100 deprecates plot creator auto-detection via the plot function signature of `ExternalPlotCreator`. Instead, the `is_plot_func` decorator should be used.
+- !107 changes the `xarray` version requirement from `0.12.1` to `0.13.0`. 
+- !105 adds a transformation framework (#48) that allows caching of data operations (#96). It does so by implementing a directed acyclic graph of data transformations, where each node is uniquely represented by a hash. This hash can then be used reliably to determine cache hits. See the MR description for more information. Other minor changes alongside this MR:
+    - Improve `LinkContainer`
+    - Add `SizeOfMixin`, allowing to compute the size of a container's data
+    - Incorporate `PathMixin` into `AbstractDataContainer`
+    - Add `base_path` argument to `DataManager.load`
+    - Add xarray- and numpy-related data loaders
+    - Modularize the tests of the `utils` submodule
+- !109 integrates the transformation framework into the plot creators (#99) and further extends the capabilities of the DAG.
+    - Data selection and transformation is now built-in to the `BasePlotCreator`, making it available for all derived plot creators. There are specializations for some of the classes:
+        - `ExternalPlotCreator` extends the `is_plot_func` decorator to control DAG integration and specify required tags
+        - `UniversePlotCreator` sets the selected single universe as the basis of select operations.
+        - `MultiversePlotCreator` has to take care of building a tree that selects and combines the data from all desired universes.
+    - Improvements to the `TransformationDAG` and related classes:
+        - Nodes can now be added programmatically using public methods.
+        - Hash computation is much (factor 100) faster than in the implementation from !105.
+        - Profiling information is more detailed now and also available in the `TransformationDAG` itself, aggregating information from all registered transformation nodes.
+        - It is possible to set and change the reference that serves as basis for `select` operations.
+- Minor improvements:
+    - #98 addresses an h5py deprecation warning regarding the default file mode
+
 ## v0.9.1
 - !100 adds experimental (!) transformator capabilities to `ParamSpaceGroup.select`, improves logging, and resolves minor bugs and inconsistencies.
 - !101 adds `base_path` argument to `ParamSpaceGroup.select`, allowing for all other paths to be specified relative to it.

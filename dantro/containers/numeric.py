@@ -65,3 +65,21 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin,
         return self.__class__(name=self.name + "_copy",
                               data=self.data.copy(),
                               attrs={k:v for k, v in self.attrs.items()})
+
+    def save(self, path: str, **save_kwargs):
+        """Saves the NumpyDataContainer to a file by invoking the np.save
+        function on the underlying data.
+        
+        The file extension should be ``.npy``, which is compatible with the
+        numpy-based data loader. If another file extension is given, the numpy
+        method will _append_ ``.npy``!
+        
+        .. warning::
+        
+            This does NOT store container attributes!
+        
+        Args:
+            path (str): The path to save the file at
+            **save_kwargs: Passed to the np.save method
+        """
+        np.save(path, self.data, **save_kwargs)

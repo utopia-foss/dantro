@@ -209,6 +209,123 @@ def test_resolve_plot_func(init_kwargs, tmpdir, tmp_module):
     assert callable(resolve(module=".basic", plot_func="plt.plot"))
     # NOTE that this would not work as a plot function; just for testing here
 
+# -----------------------------------------------------------------------------
+
+def test_use_dag(init_kwargs):
+    """Tests whether DAG parameters are passed through properly to the plot
+    function ...
+    """
+    epc = ExternalPlotCreator("dag_tests", **init_kwargs)
+
+    # Some plotting callables for testing arguments that are passed
+    def plot_func_with_dag(*args, **kwargs):
+        assert 'use_dag' not in kwargs
+        assert 'data' in kwargs
+        assert 'dag' not in kwargs
+    
+    def plot_func_without_dag(*args, **kwargs):
+        assert 'use_dag' not in kwargs
+        assert 'data' not in kwargs
+        assert 'dag' not in kwargs
+
+    # Invoke plots with different callable vs. dag-usage combinations
+    epc.plot(out_path="foo", plot_func=plot_func_with_dag, use_dag=True)
+    
+    with pytest.raises(AssertionError):
+        epc.plot(out_path="foo", plot_func=plot_func_without_dag, use_dag=True)
+
+    epc.plot(out_path="foo", plot_func=plot_func_without_dag, use_dag=False)
+    
+    with pytest.raises(AssertionError):
+        epc.plot(out_path="foo", plot_func=plot_func_with_dag, use_dag=False)
+    
+    # Passing the DAG object along to plot function, using function attributes
+    def plot_func_with_dag_object(*args, **kwargs):
+        assert 'use_dag' not in kwargs
+        assert 'data' in kwargs
+        assert 'dag' in kwargs
+    plot_func_with_dag_object.use_dag = True
+    plot_func_with_dag_object.pass_dag_object_along = True
+
+    epc.plot(out_path="foo", plot_func=plot_func_with_dag_object)
+
+    # Overwriting DAG usage via plot config
+    def plot_func_with_dag_disabled(*args, **kwargs):
+        assert 'use_dag' not in kwargs
+        assert 'data' not in kwargs
+        assert 'dag' not in kwargs
+    plot_func_with_dag_disabled.use_dag = True
+    plot_func_with_dag_disabled.pass_dag_object_along = True
+    
+    epc.plot(out_path="foo", plot_func=plot_func_with_dag_disabled,
+             use_dag=False)
+
+def test_dag_required_tags(init_kwargs):
+    """Tests the requirements for certain tags expected by the plot function"""
+    epc = ExternalPlotCreator("dag_required_tags", **init_kwargs)
+
+    def pf1(*args, **kwargs):
+        assert 'data' in kwargs
+        assert 'dag' in kwargs
+        assert all([t in kwargs['data'] for t in ('sum', 'sub')])
+        assert all([t in kwargs['dag'].tags for t in ('sum', 'sub')])
+    pf1.use_dag = True
+    pf1.pass_dag_object_along = True
+    pf1.compute_only_required_dag_tags = False
+    pf1.required_dag_tags = ('sum', 'sub')
+
+    def pf2(*args, data, **kwargs):
+        pf1(*args, data=data, **kwargs)
+        assert 'def' not in data
+    pf2.use_dag = True
+    pf2.pass_dag_object_along = True
+    pf2.required_dag_tags = ('sum', 'sub')
+    pf2.compute_only_required_dag_tags = True
+
+    # It should be checked for required tags
+    epc.plot(out_path="some_plot", plot_func=pf1,
+             transform=[dict(add=[1,2], tag="sum"),
+                        dict(sub=[3,2], tag="sub")])
+
+    # Modify required tags and check error message
+    pf1.required_dag_tags = ('sum', 'sub', 'mul')
+
+    with pytest.raises(ValueError,
+                       match="required tags that were not specified in the "
+                             "DAG: mul. Available tags: dag, dm, sum, sub."):
+        epc.plot(out_path="some_plot", plot_func=pf1,
+                 transform=[dict(add=[1,2], tag="sum"),
+                            dict(sub=[3,2], tag="sub")])
+
+    # Adjust computed tags to provoke error message
+    pf1.required_dag_tags = ('sum', 'sub')
+    with pytest.raises(ValueError,
+                       match="required tags that were not set to be computed "
+                             "by the DAG: sum, sub. Make sure to set the "
+                             "`compute_only` argument such that results"):
+        epc.plot(out_path="some_plot", plot_func=pf1, compute_only=[],
+                 transform=[dict(add=[1,2], tag="sum"),
+                            dict(sub=[3,2], tag="sub")])
+
+    # Disabled DAG usage should also raise an error
+    with pytest.raises(ValueError, match="requires DAG tags to be computed"):
+        epc.plot(out_path="some_plot", plot_func=pf1, use_dag=False)
+
+    # Compute only required tags
+    epc.plot(out_path="some_plot", plot_func=pf2, compute_only=None,
+             transform=[dict(add=[1,2], tag="sum"),
+                        dict(sub=[3,2], tag="sub"),
+                        dict(define=[0], tag="def")])
+
+    pf2.compute_only_required_dag_tags = False
+    with pytest.raises(AssertionError):
+        epc.plot(out_path="some_plot", plot_func=pf2, compute_only=None,
+                 transform=[dict(add=[1,2], tag="sum"),
+                            dict(sub=[3,2], tag="sub"),
+                            dict(define=[0], tag="def")])        
+
+# -----------------------------------------------------------------------------
+
 def test_can_plot(init_kwargs, tmp_module):
     """Tests the can_plot and _valid_plot_func_signature methods"""
     epc = ExternalPlotCreator("can_plot", **init_kwargs)
@@ -219,9 +336,12 @@ def test_can_plot(init_kwargs, tmp_module):
     # This one is also decorated, thus the function signature is not checked
 
     # ... and for the function given in the module file
-    assert epc.can_plot("ext",
-                        module_file=tmp_module, plot_func="write_something")
     # This one is NOT decorated, thus the function signature IS checked
+    # ... and a DeprecationWarning is issued
+    with pytest.warns(DeprecationWarning):
+        assert epc.can_plot("ext",
+                            module_file=tmp_module,
+                            plot_func="write_something")
 
     # Cases where no plot function can be resolved
     assert not epc.can_plot("external", **{})
@@ -313,33 +433,40 @@ def test_can_plot(init_kwargs, tmp_module):
     def bad_func_5(dm, *, kwarg1, **kwargs):
         pass
 
-    assert valid_sig(valid_func_1)
-    assert valid_sig(valid_func_2)
-    assert valid_sig(valid_func_3)
+    # These should work, but issue deprecation warnings
+    with pytest.warns(DeprecationWarning):
+        assert valid_sig(valid_func_1)
+    
+    with pytest.warns(DeprecationWarning):
+        assert valid_sig(valid_func_2)
+    
+    with pytest.warns(DeprecationWarning):
+        assert valid_sig(valid_func_3)
 
+    # These should not work
     with pytest.raises(ValueError,
-                       match=("Expected 1 POSITIONAL_OR_KEYWORD argument\(s\) "
-                              "but the plot function allowed 2")):
+                       match=(r"Expected 1 POSITIONAL_OR_KEYWORD argument\(s\)"
+                              r" but the plot function allowed 2")):
         valid_sig(bad_func_1, True)
 
     with pytest.raises(ValueError,
-                       match=("Did not find all of the expected KEYWORD_ONLY "
-                              "arguments \(out_path\) in the plot function")):
+                       match=(r"Did not find all of the expected KEYWORD_ONLY "
+                              r"arguments \(out_path\) in the plot function")):
         valid_sig(bad_func_2, True)
 
     with pytest.raises(ValueError,
-                       match=("Expected 1 POSITIONAL_OR_KEYWORD argument\(s\) "
-                              "but the plot function allowed 0")):
+                       match=(r"Expected 1 POSITIONAL_OR_KEYWORD argument\(s\)"
+                              r" but the plot function allowed 0")):
         valid_sig(bad_func_3, True)
 
     with pytest.raises(ValueError,
-                       match=("Expected 1 POSITIONAL_OR_KEYWORD argument\(s\) "
-                              "but the plot function allowed 2: dm, out_pat")):
+                       match=(r"Expected 1 POSITIONAL_OR_KEYWORD argument\(s\)"
+                              r" but the plot function allowed 2: dm, out_p")):
         valid_sig(bad_func_4, True)
 
     with pytest.raises(ValueError,
-                       match=("Did not find all of the expected KEYWORD_ONLY "
-                              "arguments \(out_path\) in the plot function")):
+                       match=(r"Did not find all of the expected KEYWORD_ONLY "
+                              r"arguments \(out_path\) in the plot function")):
         valid_sig(bad_func_5, True)
 
     # Disallow *args, and **kwargs
@@ -363,7 +490,7 @@ def test_can_plot(init_kwargs, tmp_module):
     # To provoke a POSITIONAL_ONLY error, expect more than one of them
     epc._AD_NUM_POSITIONAL_ONLY = 42
     with pytest.raises(ValueError,
-                       match="Expected 42 POSITIONAL_ONLY argument\(s\) but"):
+                       match=r"Expected 42 POSITIONAL_ONLY argument\(s\) but"):
         valid_sig(valid_func_2, True)
 
 

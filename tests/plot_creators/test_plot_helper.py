@@ -424,7 +424,7 @@ def test_tmp_axis_context_manager(hlpr):
     assert hlpr.ax_coords == (0, 0)
 
     # If exceeding the valid axis, this should of course propagate the error
-    with pytest.raises(ValueError, match="Could not select axis \(23, 42"):
+    with pytest.raises(ValueError, match=r"Could not select axis \(23, 42"):
         with temporarily_changed_axis(hlpr, tmp_ax_coords=(23, 42)):
             # Should not reach this point
             pass

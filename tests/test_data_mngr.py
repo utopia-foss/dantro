@@ -5,15 +5,19 @@ import pkg_resources
 import pickle as pkl
 
 import numpy as np
+import xarray as xr
 import h5py as h5
 import pytest
 
 import dantro.base
-from dantro.containers import NumpyDataContainer, ObjectContainer
+from dantro.containers import (NumpyDataContainer, XrDataContainer,
+                               ObjectContainer, PassthroughContainer)
 from dantro.groups import OrderedDataGroup
 from dantro.mixins import Hdf5ProxySupportMixin
 import dantro.data_mngr
-from dantro.data_loaders import YamlLoaderMixin, PickleLoaderMixin, Hdf5LoaderMixin
+from dantro.data_loaders import (YamlLoaderMixin, PickleLoaderMixin,
+                                 Hdf5LoaderMixin, NumpyLoaderMixin,
+                                 XarrayLoaderMixin)
 from dantro.tools import write_yml
 
 # Local constants
@@ -32,6 +36,14 @@ class DataManager(YamlLoaderMixin, dantro.data_mngr.DataManager):
 
 class PklDataManager(PickleLoaderMixin, DataManager):
     """A data manager that is able to load pickled files"""
+    pass
+
+class NumpyDataManager(NumpyLoaderMixin, DataManager):
+    """A DataManager to load numpy data"""
+    pass
+
+class XarrayDataManager(XarrayLoaderMixin, DataManager):
+    """A DataManager to load xarray data"""
     pass
 
 class NumpyTestDC(Hdf5ProxySupportMixin, NumpyDataContainer):
@@ -111,6 +123,54 @@ def pkl_dm(data_dir) -> PklDataManager:
     return PklDataManager(data_dir, out_dir=None)
 
 @pytest.fixture
+def np_dm(data_dir) -> NumpyDataManager:
+    """Manager with test data for NumpyLoaderMixin"""
+    # Create a subdirectory for the pickles
+    npy_dir = data_dir.mkdir("np_data")
+
+    # Define objects to dump
+    to_dump = dict()
+    to_dump["zeros_int"] = np.zeros((2,3,4), dtype=int)
+    to_dump["zeros_float"] = np.zeros((2,3,4), dtype=float)
+    # TODO add some more here
+
+    # Dump the objects
+    for name, obj in to_dump.items():
+        print("Dumping {} '{}' ...\n{}".format(type(obj), name, obj))
+        np.save(str(npy_dir.join(name+'.npy')), obj)
+        print("Dumped.\n")
+
+    return NumpyDataManager(data_dir, out_dir=None)
+
+@pytest.fixture
+def xr_dm(data_dir) -> XarrayDataManager:
+    """Manager with test data for XarrayLoaderMixin"""
+    # Create a subdirectory for the pickles
+    xr_dir = data_dir.mkdir("xr_data")
+
+    # Define da to dump
+    das, dsets = dict(), dict()
+
+    das["zeros"] = xr.DataArray(data=np.zeros((2,3,4)),
+                                name="zeros",
+                                attrs=dict(foo="bar"))
+    # TODO add some more here
+    
+    dsets["zeros"] = xr.Dataset()
+    dsets["zeros"]["int"] = (('x', 'y', 'z'), np.zeros((2,3,4), dtype=int))
+    dsets["zeros"]["float"] = (('x', 'y', 'z'), np.zeros((2,3,4)))
+    # TODO add some more here
+
+    # Dump DataArrays and Datasets, separately
+    for name, da in das.items():
+        da.to_netcdf(str(xr_dir.join(name+'.nc_da')))
+
+    for name, dset in dsets.items():
+        dset.to_netcdf(str(xr_dir.join(name+'.nc_ds')))
+
+    return XarrayDataManager(data_dir, out_dir=None)
+
+@pytest.fixture
 def hdf5_dm(data_dir) -> Hdf5DataManager:
     """Returns a Hdf5DataManager without load configuration.
 
@@ -121,7 +181,7 @@ def hdf5_dm(data_dir) -> Hdf5DataManager:
     h5dir = data_dir.mkdir("hdf5_data")
 
     # --- Create a file with basic structures: dataset, group, attribute ---
-    basic = h5.File(h5dir.join("basic.h5"))
+    basic = h5.File(h5dir.join("basic.h5"), 'w')
 
     basic.create_dataset("float_dset", data=np.zeros((2,3,4), dtype=float))
     basic.create_dataset("int_dset", data=np.ones((1,2,3), dtype=int))
@@ -138,7 +198,7 @@ def hdf5_dm(data_dir) -> Hdf5DataManager:
     basic.close()
 
     # --- Create a file with nested groups ---
-    nested = h5.File(h5dir.join("nested.h5"))
+    nested = h5.File(h5dir.join("nested.h5"), 'w')
 
     nested.create_group('group1')
     nested.create_group('group2')
@@ -152,7 +212,7 @@ def hdf5_dm(data_dir) -> Hdf5DataManager:
     nested.close()
 
     # --- Create a file to test mapping ---
-    mapping = h5.File(h5dir.join("mapping.h5"))
+    mapping = h5.File(h5dir.join("mapping.h5"), 'w')
     
     mapping.create_group('dummy_group')
     mapping['dummy_group'].attrs['container_type'] = 'dummy'
@@ -176,6 +236,9 @@ def hdf5_dm(data_dir) -> Hdf5DataManager:
     # Instantiate a data manager for this directory
     return Hdf5DataManager(data_dir, out_dir=None)
 
+# End of fixtures -------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # General tests ---------------------------------------------------------------
 
 def test_init(data_dir):
@@ -195,6 +258,13 @@ def test_init(data_dir):
     assert dm.dirs['data'] == data_dir
     assert os.path.isdir(dm.dirs['data'])
     assert os.path.isdir(dm.dirs['out'])
+
+    # The DataManager's path should start within root
+    assert dm.parent is None
+    assert dm.path == "/test_init0_Manager"
+
+    # It should create a hashstr
+    assert len(dm.hashstr) == 32
 
 def test_init_with_create_groups(tmpdir):
     """Tests the create_groups argument to __init__"""
@@ -305,13 +375,21 @@ def test_loading(dm):
     assert 'some_more_yaml/missing' not in dm
     assert 'some_more_yaml/lamo' not in dm
 
-    print("{:tree}".format(dm))
+    print(dm.tree)
 
     # If given a list of glob strings, possibly matching files more than once, they should only be loaded once
     dm.load('multiglob', loader='yaml', glob_str=['*.yml', '*yml'])
     assert len(dm['multiglob']) == 4  # 8 files match, only 4 should be loaded
     
-    print("{:tree}".format(dm))
+    print(dm.tree)
+
+    # It is also possible to load by giving a custom base_path, which is in
+    # this case just the same directory, but explicitly given
+    dm.load('custom_base_path', loader='yaml', base_path=dm.dirs['data'],
+            glob_str=['*.yml', '*yml'])
+    assert len(dm['custom_base_path']) == 4
+
+    print(dm.tree)
 
 
 def test_loading_errors(dm):
@@ -324,6 +402,11 @@ def test_loading_errors(dm):
     # With name collisions, an error should be raised
     with pytest.raises(dantro.data_mngr.ExistingDataError):
         dm.load('barfoo', loader='yaml', glob_str="foobar.yml")
+
+    # Relative base paths should not work
+    with pytest.raises(ValueError, match="needs be an absolute path"):
+        dm.load('barfoo', loader='yaml', base_path="some/rel/path",
+                glob_str="foobar.yml")
 
     # Check for missing data ..................................................
     # Check for data missing that was required
@@ -343,7 +426,7 @@ def test_loading_errors(dm):
     with pytest.raises(dantro.data_mngr.LoaderError):
         dm.load('nopenopenope', loader='bad_loadfunc', glob_str="*")
 
-    print("{:tree}".format(dm))
+    print(dm.tree)
 
 
 def test_loading_exists_action(dm):
@@ -602,6 +685,58 @@ def test_target_path(dm):
 def test_pkl_loader(pkl_dm):
     """Tests the pickle loader"""
     pkl_dm.load('pkls', loader='pickle', glob_str="pickles/*.pkl")
+    pkls = pkl_dm['pkls']
+
+    assert len(pkls) == 3
+
+    for name, cont in pkls.items():
+        assert isinstance(cont, ObjectContainer)
+
+
+# NumpyLoaderMixin tests ------------------------------------------------------
+
+def test_numpy_loader(np_dm):
+    """Tests the numpy loader"""
+    np_dm.load('np_data', loader='numpy', glob_str="np_data/*.npy")
+
+    # Check that all files are loaded and of the expected type
+    np_data = np_dm['np_data']
+    assert len(np_data) == 2
+
+    for name, cont in np_data.items():
+        assert isinstance(cont, NumpyDataContainer)
+
+
+    # Specifically check content
+    assert np_data['zeros_int'].dtype is np.dtype(int)
+    assert np_data['zeros_int'].mean() == 0
+
+    assert np_data['zeros_float'].dtype is np.dtype(float)
+    assert np_data['zeros_float'].mean() == 0.
+
+
+# XarrayLoaderMixin tests -----------------------------------------------------
+
+def test_xarray_loader(xr_dm):
+    """Tests the xarray loader"""
+    xr_dm.load('arrays', loader='xr_dataarray', glob_str="xr_data/*.nc_da",
+               load_completely=True)
+    xr_dm.load('dsets', loader='xr_dataset', glob_str="xr_data/*.nc_ds",
+               load_completely=True)
+
+    # Check that all files are loaded and of the expected type
+    das = xr_dm['arrays']
+    assert len(das) == 1
+    for name, cont in das.items():
+        assert isinstance(cont, XrDataContainer)
+
+    dsets = xr_dm['dsets']
+    assert len(dsets) == 1
+    for name, cont in dsets.items():
+        assert isinstance(cont, PassthroughContainer)
+
+    # Specifically check content
+    assert das['zeros'].mean() == 0
 
 
 # Hdf5LoaderMixin tests -------------------------------------------------------

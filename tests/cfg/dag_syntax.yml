@@ -1,0 +1,530 @@
+# Syntax for the TransformationDAG
+---
+# -----------------------------------------------------------------------------
+# Simple cases
+
+simple_transform:
+  params:
+    select: ~
+    transform:
+      - operation: op0
+        args:
+          - one_arg
+          - another_arg
+        kwargs:
+          some_kwarg: hello
+        tag: res0
+
+      - operation: op1
+        args: []
+        kwargs:
+          some_kwarg: !dag_tag some_field
+          another_kwarg: abc
+        tag: res1
+
+  expected:  
+    - operation: op0
+      args:
+        - one_arg
+        - another_arg
+      kwargs:
+        some_kwarg: hello
+      tag: res0
+
+    - operation: op1
+      args: []
+      kwargs:
+        some_kwarg: !dag_tag some_field
+        another_kwarg: abc
+      tag: res1
+
+
+minimal:
+  params:
+    select: ~
+    transform:
+      - operation: some_op_without_any_args_or_kwargs
+      - operation: some_unary_op
+        with_previous_result: true
+      - invert
+
+  expected:  
+    - operation: some_op_without_any_args_or_kwargs
+      args: []
+      kwargs: {}
+      tag: ~
+    - operation: some_unary_op
+      args:
+        - !dag_node -1
+      kwargs: {}
+      tag: ~
+    - operation: invert
+      args:
+        - !dag_node -1
+      kwargs: {}
+      tag: ~
+
+
+minimal_error_bad_type:
+  params:
+    select: ~
+    transform:
+      - 123
+
+  _raises: TypeError
+  _match: Expected either dict or string
+
+
+# -----------------------------------------------------------------------------
+# Shorthand for unary and binary operations
+
+shorthand_transform:
+  params:
+    select: ~
+    transform:
+      - some_unary_op: [no_target]
+
+      - some_unary_op: [!dag_prev ]
+        tag: res0
+      
+      - some_unary_op_with_kwargs:
+          some_kwarg: some_value
+        tag: res1
+
+      - some_binary_op: [!dag_tag some_field, 123]
+        tag: res2
+
+      - some_binary_op_with_kwargs:
+          kwarg0: !dag_tag foo
+          kwarg1: !dag_tag bar
+
+      - some_op_without_any_args_or_kwargs: ~
+
+  expected:
+    - operation: some_unary_op
+      args:
+        - no_target
+      kwargs: {}
+      tag: ~
+
+    - operation: some_unary_op
+      args:
+        - !dag_node -1
+      kwargs: {}
+      tag: res0
+
+    - operation: some_unary_op_with_kwargs
+      args: []
+      kwargs:
+        some_kwarg: some_value
+      tag: res1
+
+    - operation: some_binary_op
+      args:
+        - !dag_tag some_field
+        - 123
+      kwargs: {}
+      tag: res2
+
+    - operation: some_binary_op_with_kwargs
+      args: []
+      kwargs:
+        kwarg0: !dag_tag foo
+        kwarg1: !dag_tag bar
+      tag: ~
+
+    - operation: some_op_without_any_args_or_kwargs
+      args: []
+      kwargs: {}
+      tag: ~
+
+shorthand_transform_error_missing_args:
+  params:
+    select: ~
+    transform:
+      - some_unary_op: asd
+        args: []
+
+  _raises: ValueError
+  _match: When using shorthand notation, the args and kwargs need to be
+
+shorthand_transform_error_too_many_ops:
+  params:
+    select: ~
+    transform:
+      - some_unary_op: asd
+        another_unary_op: asd
+
+  _raises: ValueError
+  _match: For shorthand notation, there can only be a single operation
+
+shorthand_transform_error_missing_op:
+  params:
+    select: ~
+    transform:
+      - {}
+
+  _raises: ValueError
+  _match: Missing operation specification.
+
+shorthand_transform_error_both_ops_and_op:
+  params:
+    select: ~
+    transform:
+      - operation: asd
+        asd: ~
+
+  _raises: ValueError
+  _match: Got two specifications of operations
+
+
+
+# -----------------------------------------------------------------------------
+# References nested in the arguments
+
+nested_refs:
+  params:
+    select: ~
+    transform:
+      - some_op: [[foo, bar], 123]
+      - some_op:
+        - [!dag_prev , !dag_prev ]
+        - [!dag_prev , [!dag_prev ]]
+        - one: !dag_tag dm
+          two: [!dag_node 42, foobar]
+      - some_op:
+          foo: [!dag_prev , {key1: !dag_prev , key2: [!dag_prev ]}]
+
+  expected:
+    - operation: some_op
+      args:
+        - [foo, bar]
+        - 123
+      kwargs: {}
+      tag: ~
+    - operation: some_op
+      args:
+        - [!dag_node -1 , !dag_node -1 ]
+        - [!dag_node -1 , [!dag_node -1 ]]
+        - one: !dag_tag dm
+          two: [!dag_node 42, foobar]
+      kwargs: {}
+      tag: ~
+    - operation: some_op
+      args: []
+      kwargs:
+        foo:
+          - !dag_node -1
+          - key1: !dag_node -1
+            key2: [!dag_node -1 ]
+      tag: ~
+
+# -----------------------------------------------------------------------------
+# With select
+
+simple_select:
+  params:
+    select:
+      foo: some/path/foo
+      bar: some/path/bar
+
+    transform:
+      - operation: some_operation
+        args:
+          - !dag_tag foo
+        kwargs:
+          some_kwarg: hey
+        tag: spam
+  
+  expected:
+    - operation: getitem
+      args:
+        - &ref_dm !dag_ref 38518b2446b95e8834372949a8e9dfc2
+        - some/path/bar
+      kwargs: {}
+      tag: bar
+      file_cache:
+        write: false
+        read: false
+    - operation: getitem
+      args:
+        - *ref_dm
+        - some/path/foo
+      kwargs: {}
+      tag: foo
+      file_cache:
+        write: false
+        read: false
+    - operation: some_operation
+      args:
+        - !dag_tag foo
+      kwargs:
+        some_kwarg: hey
+      tag: spam
+
+
+select_with_transform:
+  params:
+    select:
+      foo:
+        path: some/path
+        with_previous_result: true
+        transform:
+          - getitem: foo
+      bar:
+        path: some/path/bar
+        transform:
+          - some_operation: [!dag_prev , 1, 2, 3]
+          - another_operation:
+              input: !dag_prev
+              one_kwarg: 1
+              another_kwarg: abc
+    transform: ~
+  
+  expected:
+    - operation: getitem
+      args:
+        - *ref_dm
+        - some/path/bar
+      kwargs: {}
+      tag: ~
+      file_cache:
+        write: false
+        read: false
+    - operation: some_operation
+      args:
+        - !dag_node -1
+        - 1
+        - 2
+        - 3
+      kwargs: {}
+      tag: ~
+    - operation: another_operation
+      args: []
+      kwargs:
+        input: !dag_node -1
+        one_kwarg: 1
+        another_kwarg: abc
+      tag: bar
+
+    - operation: getitem
+      args:
+        - *ref_dm
+        - some/path
+      kwargs: {}
+      tag: ~
+      file_cache:
+        write: false
+        read: false
+    - operation: getitem
+      args:
+        - !dag_node -1
+        - foo
+      kwargs: {}
+      tag: foo
+
+
+simple_select_omit_tag:
+  params:
+    select:
+      foo:
+        path: some/path/foo
+        omit_tag: true
+      bar:
+        path: some/path/bar
+        omit_tag: true
+        transform:
+          - operation: some_operation
+            with_previous_result: true
+            args:
+              - abc
+      baz:
+        path: some/path/baz
+        omit_tag: true
+        transform:
+          - operation: some_operation
+            with_previous_result: true
+            args:
+              - spam
+            tag: there_is_a_tag_here
+    transform: ~
+
+  expected:
+    - operation: getitem
+      args:
+        - *ref_dm
+        - some/path/bar
+      kwargs: {}
+      tag: ~
+      file_cache:
+        write: false
+        read: false
+    - operation: some_operation
+      args:
+        - !dag_node -1
+        - abc
+      kwargs: {}
+      tag: ~
+    - operation: getitem
+      args:
+        - *ref_dm
+        - some/path/baz
+      kwargs: {}
+      tag: ~
+      file_cache:
+        write: false
+        read: false
+    - operation: some_operation
+      args:
+        - !dag_node -1
+        - spam
+      kwargs: {}
+      tag: there_is_a_tag_here
+    - operation: getitem
+      args:
+        - *ref_dm
+        - some/path/foo
+      kwargs: {}
+      tag: ~
+      file_cache:
+        write: false
+        read: false
+
+select_error_bad_type:
+  params:
+    select:
+      foo: []
+    transform: []
+  
+  _raises: TypeError
+  _match: Invalid type for 'foo' entry within `select` argument
+
+select_error_trying_to_set_last_tag:
+  params:
+    select:
+      foo:
+        path: some/path/foo
+        transform:
+          - operation: some_unary_op
+            args: [!dag_prev ]
+            tag: some_tag
+
+    transform: []
+  
+  _raises: ValueError
+  _match: The tag of the last transform operation within a select routine
+  
+
+# -----------------------------------------------------------------------------
+# Misc
+
+salted:
+  params:
+    select:
+      foo:
+        path: some/path
+        salt: 123
+        transform:
+          - some_operation: foo
+            salt: 42
+
+    transform:
+      - operation: another_operation
+        with_previous_result: true
+        args: []
+        kwargs: {}
+        salt: 43
+
+  expected:
+    - operation: getitem
+      args:
+        - *ref_dm
+        - some/path
+      kwargs: {}
+      tag: ~
+      salt: 123
+      file_cache:
+        write: false
+        read: false
+    - operation: some_operation
+      args:
+        - foo
+      kwargs: {}
+      salt: 42
+      tag: foo
+    - operation: another_operation
+      args:
+        - !dag_prev
+      kwargs: {}
+      salt: 43
+      tag: ~
+
+# -----------------------------------------------------------------------------
+
+file_cache_defaults:
+  init_params:
+    file_cache_defaults:
+      write: true
+      read: true
+  params:
+    select:
+      foo: some/path/foo
+      bar:
+        path: some/path/bar
+    transform:      
+      - some_unary_op_with_kwargs:
+          some_kwarg: some_value
+        tag: res1
+        file_cache:
+          write: false
+          read: false
+
+      - some_binary_op: [!dag_tag some_field, 123]
+        tag: res2
+        file_cache:
+          write:
+            enabled: true
+            always: true
+          read:
+            enabled: false
+
+  expected:
+    - operation: getitem
+      args:
+        - *ref_dm
+        - some/path/bar
+      kwargs: {}
+      tag: bar
+      file_cache:
+        write: false
+        read: false
+    - operation: getitem
+      args:
+        - *ref_dm
+        - some/path/foo
+      kwargs: {}
+      tag: foo
+      file_cache:
+        write: false
+        read: false
+    - operation: some_unary_op_with_kwargs
+      args: []
+      kwargs:
+        some_kwarg: some_value
+      tag: res1
+      file_cache:
+        write: false
+        read: false
+
+    - operation: some_binary_op
+      args:
+        - !dag_tag some_field
+        - 123
+      kwargs: {}
+      tag: res2
+      file_cache:
+        write:
+          enabled: true
+          always: true
+        read:
+          enabled: false

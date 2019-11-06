@@ -47,7 +47,13 @@ def create_test_data(psp_grp: ParamSpaceGroup, *, params: dict,
     
     # Some labelled data
     labelled.add(XrDataContainer(name="randints", data=randints,
-                                 attrs=dict(foo="bar", dims=('x', 'y', 'z'))))
+                                 attrs=dict(foo="bar", dims=('x', 'y', 'z'),
+                                            coords__x=[1,2,3],
+                                            coords__y=[1,2,3,4],
+                                            coords__z=[1,2,3,4,5])))
+    assert (labelled['randints'].coords['x'] == [1,2,3]).all()
+    assert (labelled['randints'].coords['y'] == [1,2,3,4]).all()
+    assert (labelled['randints'].coords['z'] == [1,2,3,4,5]).all()
 
     # Add some non-uniform data sets
     # 3d with last dimension differing in length

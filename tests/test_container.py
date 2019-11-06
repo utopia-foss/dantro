@@ -1,5 +1,6 @@
 """Test the BaseDataContainer-derived classes"""
 
+import sys
 import math
 import operator
 
@@ -12,12 +13,15 @@ import pytest
 
 from dantro.base import BaseDataContainer, CheckDataMixin
 from dantro.base import ItemAccessMixin
+from dantro.mixins import ForwardAttrsToDataMixin
 from dantro.mixins.base import UnexpectedTypeWarning
 from dantro.mixins.proxy_support import Hdf5ProxySupportMixin
 from dantro.groups import OrderedDataGroup
 from dantro.containers import MutableSequenceContainer
+from dantro.containers import ObjectContainer, LinkContainer
 from dantro.containers import NumpyDataContainer, XrDataContainer
 from dantro.proxy import Hdf5DataProxy
+from dantro.utils import Link
 
 # Local constants
 
@@ -113,6 +117,8 @@ def test_CheckDataMixin():
     with pytest.raises(ValueError, match="Illegal value 'invalid' for class"):
         TestContainerE(name="foo", data="bar")
 
+# -----------------------------------------------------------------------------
+# General containers
 
 def test_MutableSequenceContainer():
     """Tests whether the __init__ method behaves as desired"""
@@ -160,6 +166,32 @@ def test_MutableSequenceContainer():
         with pytest.raises(ValueError):
             "{:illegal_formatspec}".format(msc)
 
+def test_LinkContainer():
+    """Test the behaviour of a LinkContainer inside a hierarchy"""
+    class StringContainer(ForwardAttrsToDataMixin, ObjectContainer):
+        pass
+
+    root = OrderedDataGroup(name="root")
+    group = root.new_group("group")
+    links = root.new_group("links")
+    data = root.new_container("data", Cls=StringContainer, data="some_string")
+
+    links.new_container("group", Cls=LinkContainer,
+                        data=Link(anchor=root, rel_path="group"))
+    assert links['group'].path == "/root/links/group"
+    assert links['group'].data.path == "/root/group"
+
+    links.new_container("data", Cls=LinkContainer,
+                        data=Link(anchor=root, rel_path="data"))
+    assert links['data'].path == "/root/links/data"
+    assert links['data'].data.path == "/root/data"
+    assert links['data'].upper() == "SOME_STRING"
+
+    # Test extended formatting information
+    assert "root -> data" in str(links["data"])
+
+# -----------------------------------------------------------------------------
+# Numeric containers
 
 def test_NumpyDataContainer():
     """Tests whether the __init__method behaves as desired"""
@@ -342,6 +374,10 @@ def test_NumpyDataContainer():
 
     # Test string representation
     assert ndc._format_info().startswith(str(ndc.dtype))
+
+    # Test that the size of the container's data is taken into account
+    ndc = NumpyDataContainer(name="some_zeros", data=np.zeros((100, 100, 100)))
+    assert sys.getsizeof(ndc) > sys.getsizeof(ndc.data)
 
 def test_XrDataContainer():
     """Tests the XrDataContainer"""
@@ -822,11 +858,11 @@ def test_XrDataContainer_linked_coordinates(tmp_h5_dset):
     xrdc = Hdf5ProxyXrDC(name="xrdc", data=proxy,
                          attrs=dict(dims=['x', 'y', 'z'],
                                     coords_mode__x='linked',
-                                    coords__x='../some_other_data',
+                                    coords__x='some_other_data',
                                     coords_mode__y='linked',
-                                    coords__y='../../coords/y',
+                                    coords__y='../coords/y',
                                     coords_mode__z='linked',
-                                    coords__z='../../coords/more/z'))
+                                    coords__z='../coords/more/z'))
     
     # Should have succeeded and be a proxy now
     assert xrdc.data_is_proxy
@@ -859,11 +895,11 @@ def test_XrDataContainer_linked_coordinates(tmp_h5_dset):
     lone_xrdc = Hdf5ProxyXrDC(name="xrdc", data=proxy,
                               attrs=dict(dims=['x', 'y', 'z'],
                                          coords_mode__x='linked',
-                                         coords__x='../some_other_data',
+                                         coords__x='some_other_data',
                                          coords_mode__y='linked',
-                                         coords__y='../../coords/y',
+                                         coords__y='../coords/y',
                                          coords_mode__z='linked',
-                                         coords__z='../../coords/more/z'))
+                                         coords__z='../coords/more/z'))
 
-    with pytest.raises(RuntimeError, match="Failed resolving target of link"):
+    with pytest.raises(ValueError, match="'xrdc' is not embedded into a data"):
         lone_xrdc.coords['x']

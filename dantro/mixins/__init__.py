@@ -2,7 +2,7 @@
 to a derived contaier or group class
 """
 
-from .base import AttrsMixin, PathMixin, CheckDataMixin, LockDataMixin
+from .base import AttrsMixin, SizeOfMixin, CheckDataMixin, LockDataMixin
 from .base import CollectionMixin, ItemAccessMixin, MappingAccessMixin
 
 from .general import ForwardAttrsMixin, ForwardAttrsToDataMixin

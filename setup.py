@@ -5,11 +5,15 @@ from setuptools import setup, find_packages
 # Dependency lists ............................................................
 install_deps = [
     'numpy>=1.14',
-    'xarray>=0.12.1',
-    'dask>=1.1.5',
-    'toolz>=0.9.0',       # Needed for dask.delayed
+    'xarray>=0.13.0',
+    'dask>=2.5.2',
+    'toolz>=0.10.0',      # Needed for dask.delayed
+    'distributed>=2.5.2', # Needed for dask's distributed scheduler
     'h5py>=2.7.0',
+    'netcdf4==1.5.2',     # Needed for saving xr.Datasets
+    # FIXME remove netcdf4 bound once the data saving bug in 1.5.3 is fixed
     'networkx>=2.2',
+    'ruamel.yaml>=0.16.5',
     'matplotlib>=3.1.0',
     'paramspace>=2.2.3'   # Not on pypi!
     ]

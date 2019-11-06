@@ -156,6 +156,23 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
                               extract_metadata=False,
                               apply_metadata=False)
 
+    def save(self, path: str, **save_kwargs):
+        """Saves the XrDataContainer to a file by invoking the .to_netcdf
+        method of the underlying data.
+        
+        The recommended file extension is ``.xrdc`` or ``.nc_da``, which are
+        compatible with the xarray-based data loader.
+        
+        .. warning::
+        
+            This does NOT store container attributes!
+        
+        Args:
+            path (str): The path to save the file at
+            **save_kwargs: Passed to the .to_netcdf method
+        """
+        self.to_netcdf(path, **save_kwargs)
+
     # Methods to extract and apply metadata ...................................
 
     def _extract_metadata(self):
