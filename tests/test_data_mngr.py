@@ -17,7 +17,8 @@ from dantro.mixins import Hdf5ProxySupportMixin
 import dantro.data_mngr
 from dantro.data_loaders import (YamlLoaderMixin, PickleLoaderMixin,
                                  Hdf5LoaderMixin, NumpyLoaderMixin,
-                                 XarrayLoaderMixin)
+                                 XarrayLoaderMixin,
+                                 AllAvailableLoadersMixin)
 from dantro.tools import write_yml
 
 # Local constants
@@ -65,6 +66,9 @@ class Hdf5DataManager(Hdf5LoaderMixin, DataManager):
     _HDF5_DSET_MAP = dict(dummy=DummyDC)
     _HDF5_GROUP_MAP = dict(dummy=DummyGroup)
     _HDF5_MAP_FROM_ATTR = 'container_type'
+
+class FullDataManager(AllAvailableLoadersMixin, DataManager):
+    """A DataManager with all the loaders included"""
 
 # Fixtures --------------------------------------------------------------------
 

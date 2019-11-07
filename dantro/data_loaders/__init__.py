@@ -26,6 +26,15 @@ from .load_hdf5 import Hdf5LoaderMixin
 from .load_xarray import XarrayLoaderMixin
 from .load_numpy import NumpyLoaderMixin
 
+class AllAvailableLoadersMixin(YamlLoaderMixin,
+                               PickleLoaderMixin,
+                               Hdf5LoaderMixin,
+                               XarrayLoaderMixin,
+                               NumpyLoaderMixin):
+    """A mixin bundling all available loaders, useful for more convenient
+    import downstream.
+    """
+
 # A dict of file extensions and preferred loaders for those extensions
 LOADER_BY_FILE_EXT = {
     'yml':      'yml',

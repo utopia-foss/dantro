@@ -26,6 +26,7 @@
         - It is possible to set and change the reference that serves as basis for `select` operations.
 - Minor improvements:
     - #98 addresses an h5py deprecation warning regarding the default file mode
+    - #106 adds the `AllAvailableLoadersMixin` to provide all available data loaders, making downstream import easier
 
 ## v0.9.1
 - !100 adds experimental (!) transformator capabilities to `ParamSpaceGroup.select`, improves logging, and resolves minor bugs and inconsistencies.
