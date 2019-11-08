@@ -32,9 +32,19 @@ The :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator` implements some o
 ``ExternalPlotCreator`` - Creating plots from imported python modules
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` focusses on creating plots from any importable python module.
-This can be both an installed module or a module loaded from a file.
-Within the loaded module, a plotting function is expected, which gets passed some data or the :py:class:`~dantro.data_mngr.DataManager` (to manually select data) and the rest of the plot configuration.
+The :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` focusses on creating plots from a python plot function:
+
+* The plot creator requires a so-called plot function that is executed to generate the plot. That plot function can be imported in various ways:
+
+   * The included :py:mod:`~dantro.plot_creators.ext_funcs` subpackage supplies some plot functions
+   * An already importable module, i.e. one that is installed or can be found in ``sys.path``
+   * A plot function loaded from an external module file
+
+* All remaining arguments of the plot configuration are passed on to the plot function
+* The plot function can do whatever it wants, also meaning that it *has* to do everything by itself (getting data, saving plots, closing figures ...)
+
+The plot function gets passed some data or the :py:class:`~dantro.data_mngr.DataManager` (to manually select data) and the rest of the plot configuration.
+The required signature of the plot function depends on the chosen additional features of the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator`, e.g. the :py:class:`~dantro.plot_creators._pcr_ext_modules.plot_helper.PlotHelper` or :doc:`plot_data_selection`.
 
 
 ``UniversePlotCreator`` & ``MultiversePlotCreator``
