@@ -15,7 +15,10 @@ help:
 
 # A target to make the API documentation
 apidoc:
-	sphinx-apidoc -f --module-first --output-dir ./api/ ../dantro
+	sphinx-apidoc -f \
+		--module-first --private --separate --no-toc \
+		--output-dir ./api/ \
+		../dantro
 
 # A target to build the whole HTML documentation, including API documentation
 doc:

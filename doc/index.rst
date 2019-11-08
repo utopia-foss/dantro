@@ -17,6 +17,7 @@ This is often a good starting point if some specific dantro functionality is unc
     :maxdepth: 1
     :glob:
    
+    data_io/data_mngr
     data_io/*
 
 
@@ -24,7 +25,9 @@ This is often a good starting point if some specific dantro functionality is unc
     :caption: Plotting
     :maxdepth: 1
     :glob:
-   
+
+    plotting/plot_manager
+    plotting/plot_creators   
     plotting/*
 
 ----
@@ -33,7 +36,7 @@ This is often a good starting point if some specific dantro functionality is unc
     :caption: API Reference
     :maxdepth: 1
 
-    API Reference <api/modules>
+    API Reference <api/dantro>
 
 * :ref:`genindex`
 * :ref:`modindex`

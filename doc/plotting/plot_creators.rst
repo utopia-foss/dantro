@@ -34,7 +34,7 @@ The :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator` implements some o
 
 The :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` focusses on creating plots from any importable python module.
 This can be both an installed module or a module loaded from a file.
-Within the loaded module, a plotting function is expected, which gets passed the :py:class:`~dantro.data_mngr.DataManager` and the plot configuration.
+Within the loaded module, a plotting function is expected, which gets passed some data or the :py:class:`~dantro.data_mngr.DataManager` (to manually select data) and the rest of the plot configuration.
 
 
 ``UniversePlotCreator`` & ``MultiversePlotCreator``
