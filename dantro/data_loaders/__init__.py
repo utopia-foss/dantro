@@ -31,8 +31,10 @@ class AllAvailableLoadersMixin(YamlLoaderMixin,
                                Hdf5LoaderMixin,
                                XarrayLoaderMixin,
                                NumpyLoaderMixin):
-    """A mixin bundling all available loaders, useful for more convenient
-    import downstream.
+    """A mixin bundling all available data loaders.
+
+    This is useful for a more convenient import in a downstream
+    :py:class:`~dantro.data_mngr.DataManager`.
     """
 
 # A dict of file extensions and preferred loaders for those extensions
