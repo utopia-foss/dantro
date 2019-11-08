@@ -1,8 +1,9 @@
-Data Transformations
-====================
+Data Transformation Framework
+=============================
 
 The uniform structure of the dantro data tree is the ideal starting point to allow more general application of transformation on data.
 This page describes dantro's data transformation framework, revolving around the :py:class:`~dantro.dag.TransformationDAG` class.
+It is sometimes also referred to as *DAG framework* or *data selection and transformation framework* and finds application :doc:`in the plotting framework <../plotting/plot_data_selection>`.
 
 .. contents::
    :local:
@@ -282,6 +283,22 @@ Computing results works as follows:
     If you want an intermediate result to be available there, add a tag to it.
 
     This also means: If there are parts of the DAG that are not tagged *at all*, they will not be reached by any recursive computation.
+
+
+.. _dag_operations:
+
+Resolving and applying operations
+"""""""""""""""""""""""""""""""""
+Let's have a brief look into how the ``operation`` argument is actually resolved and how the operation is then applied.
+
+This feature is not specific to the DAG, but the DAG uses the :py:mod:`~dantro.utils.data_ops` module, which implements a database of available operations and the :py:func:`~dantro.utils.apply_operation` function to apply an operation.
+Basically, this is a thin wrapper around a function lookup and its invocation.
+
+For a full list of available data operations, see :ref:`here <data_ops_available>`.
+
+.. hint::
+
+    To register additional operations, use the :py:func:`~dantro.utils.register_operation` function.
 
 
 

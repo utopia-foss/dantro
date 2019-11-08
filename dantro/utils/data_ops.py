@@ -34,7 +34,7 @@ BOOLEAN_OPERATORS = {
     # Performing bitwise boolean operations to support numpy logic
     'in interval':      (lambda x, y: x >= y[0] & x <= y[1]),
     'not in interval':  (lambda x, y: x < y[0] | x > y[1]),
-}
+} # End of boolean operator definitions
 
 # .............................................................................
 
@@ -69,7 +69,7 @@ def create_mask(data: xr.DataArray,
         data (xr.DataArray): The data to apply the comparison to. This is the
             lhs of the comparison.
         operator_name (str): The name of the binary operator function as
-            registered in utopya.tools.OPERATOR_MAP
+            registered in :py:const:`dantro.utils.data_ops.BOOLEAN_OPERATORS`
         rhs_value (float): The right-hand-side value
     
     Raises:
@@ -407,7 +407,7 @@ _OPERATIONS = KeyOrderedDict({
     'xr.DataArray': xr.DataArray,
     'xr.merge':     xr.merge,
     'xr.concat':    xr.concat,
-})
+}) # End of default operation definitions
 
 # Add the boolean operators
 _OPERATIONS.update(BOOLEAN_OPERATORS)
@@ -474,14 +474,14 @@ def apply_operation(op_name: str, *op_args, _log_level: int=5,
 
     except KeyError as err:
         # Find some close matches to make operation discovery easier
-        possible_matches = get_close_matches(op_name, _OPERATIONS.keys(), n=5)
+        possible_matches = available_operations(match=op_name)
 
         raise ValueError("No operation '{}' registered! Did you mean: {} ?\n"
                          "Available operations:\n  - {}\n"
                          "If you need to register a new operation, use "
                          "dantro.utils.register_operation to do so."
                          "".format(op_name, ", ".join(possible_matches),
-                                   "\n  - ".join(_OPERATIONS.keys()))
+                                   "\n  - ".join(available_operations()))
                          ) from err
 
     # Compute and return the results
@@ -496,3 +496,23 @@ def apply_operation(op_name: str, *op_args, _log_level: int=5,
                            "".format(op_name, exc.__class__.__name__, str(exc),
                                      op_args, op_kwargs)
                            ) from exc
+
+
+def available_operations(*, match: str=None, n: int=5) -> Sequence[str]:
+    """Returns all available operation names or a fuzzy-matched subset of them.
+    
+    Args:
+        match (str, optional): If given, fuzzy-matches the names and only
+            returns close matches to this name.
+        n (int, optional): Number of close matches to return. Passed on to
+            difflib.get_close_matches
+    
+    Returns:
+        Sequence[str]: All available operation names or the matched subset.
+            The sequence is sorted alphabetically.
+    """
+    if match is None:
+        return _OPERATIONS.keys()
+
+    # Use fuzzy matching to return close matches
+    return get_close_matches(match, _OPERATIONS.keys(), n=n)

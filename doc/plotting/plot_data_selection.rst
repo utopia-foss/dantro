@@ -90,14 +90,14 @@ Some example plot configuration to select some containers from the data manager,
         # ... other parameters here are passed on to TransformationDAG.__init__
 
 
-DAG usage with :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator`
+DAG usage with :py:class:`~dantro.plot_creators.ExternalPlotCreator`
 ----------------------------------------------------------------------------
-The :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` works exactly the same as in the general case.
+The :py:class:`~dantro.plot_creators.ExternalPlotCreator` works exactly the same as in the general case.
 After computation, the results are made available to the selected python plot function via the ``data`` keyword argument, which is a dictionary of the tags that were selected to be computed.
 
 With this additional keyword argument being passed to the plot function, the plot function's signature also needs to support DAG usage, which makes it less comfortable to control DAG usage via the ``use_dag`` argument in the plot *configuration*.
 
-Instead, the **best way** of implementing DAG support is via the :py:func:`~dantro.plot_creators.pcr_ext.is_plot_func` decorator.
+Instead, the **best way** of implementing DAG support is via the :py:func:`~dantro.plot_creators.is_plot_func` decorator.
 It provides the following arguments that have an effect on DAG usage:
 
 - ``use_dag``: to enable or disable DAG usage. Disabled by default.
@@ -107,9 +107,11 @@ It provides the following arguments that have an effect on DAG usage:
 
 Decorator usage puts all the relevant arguments for using the DAG framework into one place: the definition of the plot function.
 
-Examples
-""""""""
-A plot function can then be simply defined via the following signature:
+.. _dag_generic_plot_func:
+
+Defining a generic plot function
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+A plot function can then be defined via the following signature and the :py:func:`~dantro.plot_creators.is_plot_func` decorator:
 
 .. code-block:: python
 
@@ -121,13 +123,12 @@ A plot function can then be simply defined via the following signature:
 The only required arguments here are ``data`` and ``hlpr``.
 The former contains all results from the DAG computation; the latter is the plot helper, which effectively is the interface to the visualization of the data.
 
-.. note::
+**Importantly,** this makes the plot function averse to the specific choice of a creator: the plot function can be used with the :py:class:`~dantro.plot_creators.ExternalPlotCreator` and from its specializations, :py:class:`~dantro.plot_creators.UniversePlotCreator` and :py:class:`~dantro.plot_creators.MultiversePlotCreator`.
+In such cases, the ``creator_type`` should not be specified in the decorator, but it should be given in the plot configuration.
 
-    If DAG usage is enabled, the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` does **not** pass along the current :py:class:`~dantro.data_mngr.DataManager` instance as first positional argument (``dm``).
-    This is because there already is a ``dm`` tag in the DAG; by specifying that it should be computed, e.g. via the ``required_dag_tags`` argument.
 
-    See :doc:`../data_io/transform` for more information.
-
+Specifying required tags
+""""""""""""""""""""""""
 If some specific tags are required, they can also be specified there:
 
 .. code-block:: python
@@ -140,15 +141,26 @@ If some specific tags are required, they can also be specified there:
 The DAG can be configured in the same way as :ref:`in the general case <plot_creator_dag_usage>`.
 
 
+Accessing the :py:class:`~dantro.data_mngr.DataManager`
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""
+As visible from the plot function above, the :py:class:`~dantro.plot_creators.ExternalPlotCreator` does **not** pass along the current :py:class:`~dantro.data_mngr.DataManager` instance as first positional argument (``dm``) when DAG usage is enabled.
+This makes the plot function signature simpler and allows the creator-averse definition of plot functions while not restricting access to the data manager:
+    
+The data manager can still be accessed directly via the ``dm`` DAG tag.
+Make sure to specify that it should be included, e.g. via ``compute_only`` or the ``required_dag_tags`` argument to the decorator.
+
+
+
+
 Special case: :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 For the :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator`, data selection and transformation has to occur based on data from the currently selected universe. 
-This is taken care of automatically by dynamically setting the :py:meth:`~dantro.dag.TransformationDAG.select_base` property to the current universe.
-Thus, the ``select`` argument acts as if selections were to happen directly from the universe.
+This is taken care of automatically by this creator: it dynamically sets the :py:meth:`~dantro.dag.TransformationDAG.select_base` property to the current universe, not requiring any further user action.
+In effect, the ``select`` argument acts as if selections were to happen directly from the universe.
 
 Except for the ``select_base`` and ``base_transform`` arguments, the full DAG interface is available via the :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator`.
 
-.. note::
+.. hint::
 
     To restore parts of the functionality of the already-in-use ``select_base`` and ``base_transform`` arguments, the ``select_path_prefix`` argument of :py:class:`~dantro.dag.TransformationDAG` can be used.
     It can be specified as part of ``dag_options`` and is prepended to all ``path`` arguments specified within ``select``.
@@ -164,7 +176,12 @@ The following suffices to define a :py:class:`~dantro.plot_creators.pcr_psp.Univ
         """This is my custom universe plot function with DAG usage"""
         # ...
 
+.. hint::
+
+    To not restrict the plot function to a specific creator, using the :ref:`creator-averse plot function definition <dag_generic_plot_func>` is recommended, which omits the ``creator_type`` in the decorator and instead specifies it in the plot configuration.
+
 The DAG can be configured in the same way as :ref:`in the general case <plot_creator_dag_usage>`.
+
 
 
 Special case: :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`
@@ -210,6 +227,10 @@ A :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`-based plot fun
     def my_multiverse_plot(*, data: dict, hlpr: PlotHelper, **kwargs):
         """This is my custom multiverse plot function with DAG usage"""
         # ...
+
+.. hint::
+
+    To not restrict the plot function to a specific creator, using the :ref:`creator-averse plot function definition <dag_generic_plot_func>` is recommended, which omits the ``creator_type`` in the decorator and instead specifies it in the plot configuration.
 
 An associated plot configuration might look like this:
 
