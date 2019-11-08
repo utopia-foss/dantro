@@ -24,9 +24,11 @@
         - Hash computation is much (factor 100) faster than in the implementation from !105.
         - Profiling information is more detailed now and also available in the `TransformationDAG` itself, aggregating information from all registered transformation nodes.
         - It is possible to set and change the reference that serves as basis for `select` operations.
-- Minor improvements:
+- Other improvements:
     - #98 addresses an h5py deprecation warning regarding the default file mode
     - #106 adds the `AllAvailableLoadersMixin` to provide all available data loaders, making downstream import easier
+    - #102 makes the documentation available [online](https://hermes.iup.uni-heidelberg.de/dantro_doc/master/html/)
+    - #107 extends and improves the documentation
 
 ## v0.9.1
 - !100 adds experimental (!) transformator capabilities to `ParamSpaceGroup.select`, improves logging, and resolves minor bugs and inconsistencies.
