@@ -17,49 +17,90 @@ The :py:class:`~dantro.plot_mngr.PlotManager` manages the creation of plots.
 So far, so obvious.
 
 The idea of the :py:class:`~dantro.plot_mngr.PlotManager` is that it is aware of all available data and then gets instructed to create a set of plots from this data.
-To create the actual plots, a set of plot configurations gets passed to it.
-The :py:class:`~dantro.plot_mngr.PlotManager` then determines which plot creator it will need to instantiate and passes the plot configuration on to that plot creator, which takes care of all the actual plotting work.
+The :py:class`~dantro.plot_mngr.PlotManager` does not actually carry out any plots. Its purpose is to handle the configuration of some :doc:`plot creator <plot_creators` classes; those implement the actual plotting functionality.
+This way, the plots can be configured in a consistent way, profiting from the shared interface and the already implemented functions, while keeping the flexibility of having multiple ways to create plots.
 
-The main methods to interact with are the following:
+To create the plots, a set of plot configurations gets passed to the :py:class:`~dantro.plot_mngr.PlotManager` which then determines which plot creator it will need to instantiate.
+It then passes the plot configuration on to the respective plot creator, which takes care of all the actual plotting work.
+
+The main methods to interact with the :py:class:`~dantro.plot_mngr.PlotManager` are the following:
 
 * :py:meth:`~dantro.plot_mngr.PlotManager.plot` expects the configuration for a single plot.
 * :py:meth:`~dantro.plot_mngr.PlotManager.plot_from_cfg` expects a set of plot configurations and, for each configuration, creates the specified plots using :py:meth:`~dantro.plot_mngr.PlotManager.plot`.
 
-Such a set of plot configurations may look like this:
-
-.. code-block:: yaml
-
-    # A set of plot configurations
-    ---
-    my_first_plot:
-      creator: my_creator
-
-      # ... plotting parameters
-
-    my_second_plot:
-      creator: another_creator
-      # ... plotting parameters
-
 This configuration-based approach makes the :py:class:`~dantro.plot_mngr.PlotManager` quite versatile and provides a set of features that the individual plot creators need not be aware of.
 
-For example, it becomes possible to use **parameter sweeps** in the plot specification; the manager detects that it will need to create multiple plots and does so by repeatedly invoking the instantiated plot creator using the respective arguments for one point in that parameter space.
+
+The Plot Configuration
+^^^^^^^^^^^^^^^^^^^^^^
+A set of plot configurations may look like this:
 
 .. code-block:: yaml
+    values_over_time:  # this will also be the final name of the plot (without extension)
+      # Select the creator to use
+      creator: external
+      # NOTE: This has to be known to `PlotManager` under this name.
+      #       It can also be set as default during `PlotManager` initialisation.
 
-    # A plot configuration using parameter sweeps
-    ---
-    my_plot: !pspace
-      creator: my_creator
+      # Specify the module to find the plot_function in
+      module: .basic  # Uses the dantro-internal plot functions
 
-      some_parameter: !pdim
-        default: 0
-        values: [1, 2, 3]
+      # Specify the name of the plot function to load from that module
+      plot_func: lineplot
 
-      another_parameter: !pdim
-        default: 42
-        values: [23, 42]
+      # The data manager is passed to that function as first positional argument.
+      # Also, the generated output path is passed as `out_path` keyword argument.
 
-The above configuration will create a directory ``my_plot`` and in there, it will create six plots for all possible parameter combinations.
+      # All further kwargs on this level are passed on to that function.
+      # Specify how to get to the data in the data manager
+      x: vectors/times
+      y: vectors/values
+
+      # Specify styling
+      fmt: go-
+      # ...
+
+    my_fancy_plot:
+      # Select the creator to use
+      creator: external
+
+      # This time, get the module from a file
+      module_file: /path/to/my/fancy/plotting/script.py
+      # NOTE Can also be a relative path, if `base_module_file_dir` was set
+
+      # Get the plot function from that module
+      plot_func: my_plot_func
+
+      # All further kwargs on this level are passed on to that function.
+      # ...
+
+This will create two plots: ``values_over_time`` and ``my_fancy_plot``.
+Both are using :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` (known to :py:class:`~dantro.plot_mngr.PlotManager` by its name, ``external``) and are loading certain functions to use for plotting.
+
+
+Parameter sweeps in plot configurations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+With the configuration-based approach, it becomes possible to use **parameter sweeps** in the plot specification; the manager detects that it will need to create multiple plots and does so by repeatedly invoking the instantiated plot creator using the respective arguments for the respective point in the parameter space.
+
+.. code-block:: yaml
+    multiple_plots: !pspace
+      creator: external
+      module: .basic
+      plot_func: lineplot
+
+      # All further kwargs on this level are passed on to that function.
+      x: vectors/times
+
+      # Create multiple plots with different y-values
+      y: !pdim
+        default: vectors/values
+        values:
+          - vectors/values
+          - vectors/more_values
+
+This will create two *files*, one with ``values`` over ``times``, one with ``more_values`` over ``times``.
+By defining further ``!pdim``\ s, the combination of those parameters are each leading to a plot.
+
 
 
 Auto-Detection of a Plot Creator
