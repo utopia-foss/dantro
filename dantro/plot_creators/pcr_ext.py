@@ -179,10 +179,10 @@ class ExternalPlotCreator(BasePlotCreator):
             context = DoNothingContext()
 
         # Check if PlotHelper is to be used
-        if getattr(plot_func, "use_helper", False):
+        if getattr(plot_func, 'use_helper', False):
             # Initialize a PlotHelper instance that will take care of figure
             # setup, invoking helper-functions and saving the figure
-            helper_defaults = plot_func.helper_defaults
+            helper_defaults = getattr(plot_func, 'helper_defaults', None)
             hlpr = self.PLOT_HELPER_CLS(out_path=out_path,
                                         helper_defaults=helper_defaults,
                                         update_helper_cfg=helpers)
