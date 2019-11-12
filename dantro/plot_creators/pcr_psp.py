@@ -103,9 +103,6 @@ class MultiversePlotCreator(ExternalPlotCreator):
             # Select multiverse data via the ParamSpaceGroup
             kwargs['mv_data'] = self.psgrp.select(**select)
 
-            # Also pass the other one along to create an error downstream
-            kwargs['select_and_combine'] = select_and_combine
-
         elif select_and_combine:
             # Pass both arguments along
             kwargs['select'] = select

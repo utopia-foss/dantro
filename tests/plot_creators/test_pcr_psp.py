@@ -114,12 +114,15 @@ def test_MultiversePlotCreator_DAG_usage(init_kwargs):
                        match="Expected at least one of the arguments"):
         mpc._prepare_plot_func_args()
 
-    # Without DAG usage disabled, the select_and_combine kwarg is not filtered
-    # out, but there is no 'data' argument added to the kwargs
+    # Passing _only_ select_and_combine assumes that the DAG framework is to be
+    # used...
     _, kwargs = mpc._prepare_plot_func_args(mock_pfunc,
                                             select_and_combine=dict(foo="bar"))
+    assert 'select' in kwargs
     assert 'select_and_combine' in kwargs
     assert 'data' not in kwargs
+
+    # ... the case for only select being given is tested in the _select test.
 
     # Test the simplest case with DAG usage enabled
     sac = dict(fields=dict(state=dict(path="labelled/randints")))
