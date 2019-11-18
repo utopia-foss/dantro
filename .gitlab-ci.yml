@@ -5,8 +5,6 @@ stages:
   - deploy
 
 variables:
-  PARAMSPACE_CLONE_URL: ssh://git@ts-gitlab.iup.uni-heidelberg.de:10022/yunus/paramspace@release/v2.x
-
   # Documentation server configuration
   DOC_HOST: root@hermes.iup.uni-heidelberg.de
   DOC_PORT: 2023      # ... forwards to dantro_doc_server container. root ok ;)
@@ -15,9 +13,9 @@ variables:
   DOC_REMOTE_URL: https://hermes.iup.uni-heidelberg.de/dantro_doc
 
 
-# For installation of some Python dependencies, access to private repositories
-# is required. This is granted using a read-only deploy key, SSH_PRIVATE_KEY,
-# which is the "Utopia CI" deploy key in this case.
+# For the deployment of the documentation, the jobs authenticate themselves
+# via a keypair with the doc server. This is the read-only deployment key
+# for the Utopia project, stored as SSH_PRIVATE_KEY CI/CD variable.
 .ssh_access: &ssh_access
   before_script:
     # Instructions:
@@ -47,17 +45,16 @@ variables:
 test:py36: &test_defaults
   stage: test
   image: python:3.6
-  <<: *ssh_access
   needs: []
-  script:
-    - &install_py_deps pip3 install tox git+$PARAMSPACE_CLONE_URL
+  before_script:
+    - pip3 install tox
+  script: 
     - tox -e py36
 
 test:py37:
   <<: *test_defaults
   image: python:3.7
   script:
-    - *install_py_deps
     - tox -e py37
 
 
@@ -67,11 +64,9 @@ test:py37:
 build:docs:
   stage: build
   image: python:3.6
-  <<: *ssh_access
-  script:
-    - pip3 install git+$PARAMSPACE_CLONE_URL
+  before_script:
     - pip3 install .[doc_deps]
-
+  script:
     - cd doc
     - make doc
   artifacts:
