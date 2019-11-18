@@ -14,19 +14,14 @@ The development history can be inspected in the [changelog](CHANGELOG.md).
 ## Installing dantro
 If the project you want to use `dantro` with uses a virtual environment, enter it now.
 
-Before being able to install `dantro`, one external dependency that is not on the python package index, needs to be installed, [`paramspace`](https://ts-gitlab.iup.uni-heidelberg.de/yunus/paramspace):
-
-```bash
-(some-venv) $ pip install git+ssh://git@ts-gitlab.iup.uni-heidelberg.de:10022/yunus/paramspace.git@release/v2.x
-```
-
 To then install dantro, use pip and the clone link of this project:
 
 ```bash
 (some-venv) $ pip install git+<clone-link>
 ```
 
-If you do not have SSH keys available, use the HTTPS link. To install a certain branch, tag, or commit, see the [`pip` documentation](https://pip.pypa.io/en/stable/reference/pip_install/#git).
+If you do not have SSH keys available, use the HTTPS link.
+To install a certain branch, tag, or commit, see the [`pip` documentation](https://pip.pypa.io/en/stable/reference/pip_install/#git).
 Available release branches can be found [on the project page](https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/-/branches/all?utf8=✓&search=release%2F).
 
 
