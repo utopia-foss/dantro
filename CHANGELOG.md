@@ -4,6 +4,7 @@
 
 ## v0.10.1
 - !118 fixes an issue with the `MultiversePlotCreator` where the `select_and_combine` argument was erroneously passed-through to the plot function.
+- #111 updates the documentation to reflect that the `paramspace` dependency is [now available on PyPI](https://pypi.org/project/paramspace/) and can be installed from there.
 
 
 ## v0.10.0
