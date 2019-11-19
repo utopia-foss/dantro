@@ -298,7 +298,21 @@ For a full list of available data operations, see :ref:`here <data_ops_available
 
 .. hint::
 
-    To register additional operations, use the :py:func:`~dantro.utils.register_operation` function.
+    You can also use the ``import`` operation to retrieve a callable (or any other object) via a Python import and then use the ``call`` operation to invoke it.
+    These two operations are combined in the ``import_and_call`` operation:
+
+    .. code-block:: yaml
+
+        transform:
+          - operation: import_and_call
+            args: [numpy.random, randint]
+            kwargs:
+              low: 0
+              high: 10
+              size: [2, 3, 4]
+
+    To specifically register additional operations, use the :py:func:`~dantro.utils.register_operation` function.
+    This should only be done for operations that are not easily usable via the ``import`` and ``call`` operations.
 
 
 
