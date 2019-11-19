@@ -288,6 +288,24 @@ def test_use_dag(tmpdir, init_kwargs):
              plot_func=pf_with_dag_disabled_via_cfg,
              use_dag=False)
 
+    # Unpacking dag results
+    def pf_with_dag_results_unpacked(*, out_path, foo, bar):
+        pass
+    pf_with_dag_results_unpacked.use_dag = True
+    pf_with_dag_results_unpacked.unpack_dag_results = True
+    pf_with_dag_results_unpacked.compute_only_required_dag_tags = True
+
+    epc.plot(out_path=out_path,
+             plot_func=pf_with_dag_results_unpacked,
+             transform=[dict(define=1, tag="foo"), dict(define=2, tag="bar")])
+
+    with pytest.raises(TypeError, match="Failed unpacking DAG results!"):
+        epc.plot(out_path=out_path,
+                 plot_func=pf_with_dag_results_unpacked,
+                 transform=[dict(define=1, tag="foo"),
+                            dict(define=2, tag="bar")],
+                 foo="bar")
+
 def test_dag_required_tags(tmpdir, init_kwargs):
     """Tests the requirements for certain tags expected by the plot function"""
     epc = ExternalPlotCreator("dag_required_tags", **init_kwargs)

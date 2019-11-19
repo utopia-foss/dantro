@@ -437,6 +437,11 @@ class ExternalPlotCreator(BasePlotCreator):
         pass_dag = getattr(_plot_func, 'pass_dag_object_along', False)
         dag_params['pass_dag_object_along'] = pass_dag
 
+        # Determine whether the DAG results should be unpacked when passing
+        # them to the plot function
+        unpack_results = getattr(_plot_func, 'unpack_dag_results', False)
+        dag_params['unpack_dag_results'] = unpack_results
+
         return dag_params, plot_kwargs
 
     def _use_dag(self, *, use_dag: bool, plot_kwargs: dict,
@@ -527,6 +532,9 @@ class ExternalPlotCreator(BasePlotCreator):
                                           plot_kwargs: dict) -> dict:
         """Returns a dict of plot configuration and ``data``, where all the
         DAG results are stored in.
+        In case where the DAG results are to be unpacked, the DAG results will
+        be made available as separate keyword arguments instead of as the
+        single ``data`` keyword argument.
 
         Furthermore, if the plot function specified in its attributes that the
         DAG object is to be passed along, this is the place where it is
@@ -538,8 +546,27 @@ class ExternalPlotCreator(BasePlotCreator):
             DAG results are passed on as ``dag_results``.
 
         """
-        # Make the DAG results available as `data` kwarg
-        cfg = dict(data=dag_results, **plot_kwargs)
+        if dag_params['unpack_dag_results']:
+            # Unpack the results such that they can be specified in the plot
+            # function signature
+            try:
+                cfg = dict(**dag_results, **plot_kwargs)
+
+            except TypeError as err:
+                raise TypeError("Failed unpacking DAG results! There were "
+                                "arguments of the same names as some DAG tags "
+                                "given in the plot configuration. Make sure "
+                                "they have unique names or disable unpacking "
+                                "of the DAG results.\n"
+                                "Keys in DAG results: {}\n"
+                                "Keys in plot config: {}\n"
+                                "".format(", ".join(dag_results.keys()),
+                                          ", ".join(plot_kwargs.keys()))
+                                ) from err
+
+        else:
+            # Make the DAG results available as `data` kwarg
+            cfg = dict(data=dag_results, **plot_kwargs)
 
         # Add the `dag` kwarg, if configured to do so.
         if dag_params['pass_dag_object_along']:
@@ -880,6 +907,7 @@ class is_plot_func:
                  use_dag: bool=None, required_dag_tags: Sequence[str]=None,
                  compute_only_required_dag_tags: bool=True,
                  pass_dag_object_along: bool=False,
+                 unpack_dag_results: bool=False,
                  supports_animation=False, add_attributes: dict=None):
         """Initialize the decorator. Note that the function to be decorated is
         not passed to this method.
@@ -897,8 +925,15 @@ class is_plot_func:
                 framework.
             required_dag_tags (Sequence[str], optional): The DAG tags that are
                 required by the plot function.
+            compute_only_required_dag_tags (bool, optional): Whether to compute
+                only those DAG tags that are specified as required by the plot
+                function. This is ignored if no required DAG tags were given
+                and can be overwritten by the ``compute_only`` argument.
             pass_dag_object_along (bool, optional): Whether to pass on the DAG
                 object to the plot function
+            unpack_dag_results (bool, optional): Whether to unpack the results
+                of the DAG computation directly into the plot function instead
+                of passing it as a dictionary.
             supports_animation (bool, optional): Whether the plot function
                 supports animation.
             add_attributes (dict, optional): Additional attributes to add to
