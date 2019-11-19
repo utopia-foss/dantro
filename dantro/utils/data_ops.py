@@ -57,14 +57,14 @@ def print_data(data: Any) -> Any:
 
     return data
 
-def import_module_or_object(module: str='builtins', name: str=None):
+def import_module_or_object(module: str=None, name: str=None):
     """Imports a module or an object using the specified module string and the
     object name.
     
     Args:
         module (str, optional): A module string, e.g. numpy.random. If this is
-            not given, it will import from the builtins module. Also, relative
-            module strings are resolved from the dantro package.
+            not given, it will import from the :py:mod`builtins` module. Also,
+            relative module strings are resolved from :py:mod:`dantro`.
         name (str, optional): The name of the object to retrieve from the
             chosen module and return. This may also be a dot-separated sequence
             of attribute names which can be used to traverse along attributes.
@@ -76,6 +76,7 @@ def import_module_or_object(module: str='builtins', name: str=None):
         AttributeError: In cases where part of the ``name`` argument could not
             be resolved due to a bad attribute name.
     """
+    module = module if module else 'builtins'
     mod = _import_module(module, package='dantro') if module else __builtin__
 
     if not name:
@@ -313,8 +314,11 @@ _OPERATIONS = KeyOrderedDict({
     'define':       lambda d: d,
     'pass':         lambda d: d,
     'print':        print_data,
-    'call':         lambda c, *a, **k: c(*a, **k),
+
     'import':       import_module_or_object,
+    'call':         lambda c, *a, **k: c(*a, **k),
+    'import_and_call':
+        lambda m, n, *a, **k: import_module_or_object(m, n)(*a, **k),
 
     # Some commonly used types
     'list':         list,

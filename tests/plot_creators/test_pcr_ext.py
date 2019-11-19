@@ -213,11 +213,14 @@ def test_resolve_plot_func(init_kwargs, tmpdir, tmp_module):
 
 # -----------------------------------------------------------------------------
 
-def test_use_dag(init_kwargs):
+def test_use_dag(tmpdir, init_kwargs):
     """Tests whether DAG parameters are passed through properly to the plot
     function ...
     """
     epc = ExternalPlotCreator("dag_tests", **init_kwargs)
+
+    # Some temporary output path
+    out_path = str(tmpdir.join("foo"))
 
     # Some plotting callables for testing arguments that are passed
     def pf_with_dag(*, data, out_path: str):
@@ -229,15 +232,19 @@ def test_use_dag(init_kwargs):
         assert isinstance(out_path, str)
 
     # Invoke plots with different callable vs. dag-usage combinations
-    epc.plot(out_path="foo", plot_func=pf_with_dag, use_dag=True)
+    epc.plot(out_path=out_path,
+             plot_func=pf_with_dag, use_dag=True)
     
     with pytest.raises(TypeError, match="unexpected keyword argument 'data'"):
-        epc.plot(out_path="foo", plot_func=pf_without_dag, use_dag=True)
+        epc.plot(out_path=out_path,
+                 plot_func=pf_without_dag, use_dag=True)
 
-    epc.plot(out_path="foo", plot_func=pf_without_dag, use_dag=False)
+    epc.plot(out_path=out_path,
+             plot_func=pf_without_dag, use_dag=False)
     
     with pytest.raises(TypeError, match="takes 0 positional arguments"):
-        epc.plot(out_path="foo", plot_func=pf_with_dag, use_dag=False)
+        epc.plot(out_path=out_path,
+                 plot_func=pf_with_dag, use_dag=False)
     
     # Passing the DAG object along to plot function, using function attributes
     def pf_with_dag_object(*, data, dag, out_path):
@@ -247,7 +254,8 @@ def test_use_dag(init_kwargs):
     pf_with_dag_object.use_dag = True
     pf_with_dag_object.pass_dag_object_along = True
 
-    epc.plot(out_path="foo", plot_func=pf_with_dag_object)
+    epc.plot(out_path=out_path,
+             plot_func=pf_with_dag_object)
 
     # With helper enabled
     def pf_with_dag_and_helper(*, data, hlpr):
@@ -256,7 +264,8 @@ def test_use_dag(init_kwargs):
     pf_with_dag_and_helper.use_dag = True
     pf_with_dag_and_helper.use_helper = True
     
-    epc.plot(out_path="foo", plot_func=pf_with_dag_and_helper)
+    epc.plot(out_path=out_path,
+             plot_func=pf_with_dag_and_helper)
 
     def pf_with_dag_and_helper_and_dag_object(*, data, dag, hlpr):
         assert isinstance(data, dict)
@@ -266,7 +275,8 @@ def test_use_dag(init_kwargs):
     pf_with_dag_and_helper_and_dag_object.use_helper = True
     pf_with_dag_and_helper_and_dag_object.pass_dag_object_along = True
     
-    epc.plot(out_path="foo", plot_func=pf_with_dag_and_helper_and_dag_object)
+    epc.plot(out_path=out_path,
+             plot_func=pf_with_dag_and_helper_and_dag_object)
 
     # Overwriting DAG usage enabled in attribute but disabled via plot config
     def pf_with_dag_disabled_via_cfg(dm, *, out_path):
@@ -274,12 +284,16 @@ def test_use_dag(init_kwargs):
     pf_with_dag_disabled_via_cfg.use_dag = True
     pf_with_dag_disabled_via_cfg.pass_dag_object_along = True
     
-    epc.plot(out_path="foo", plot_func=pf_with_dag_disabled_via_cfg,
+    epc.plot(out_path=out_path,
+             plot_func=pf_with_dag_disabled_via_cfg,
              use_dag=False)
 
-def test_dag_required_tags(init_kwargs):
+def test_dag_required_tags(tmpdir, init_kwargs):
     """Tests the requirements for certain tags expected by the plot function"""
     epc = ExternalPlotCreator("dag_required_tags", **init_kwargs)
+
+    # Some temporary output path
+    out_path = str(tmpdir.join("foo"))
 
     # Some basic transformations for testing
     sum_and_sub = [dict(add=[1,2], tag="sum"),
@@ -295,12 +309,12 @@ def test_dag_required_tags(init_kwargs):
     pf.pass_dag_object_along = True
 
     # Without required tags given, there should be no checks
-    epc.plot(out_path="testplot", plot_func=pf, transform=sum_and_sub,
+    epc.plot(out_path=out_path, plot_func=pf, transform=sum_and_sub,
              expected_tags=None)
     
     # Now, require some tags. These should be the only ones set now.
     pf.required_dag_tags = ('sum', 'sub')
-    epc.plot(out_path="testplot", plot_func=pf, transform=sum_and_sub,
+    epc.plot(out_path=out_path, plot_func=pf, transform=sum_and_sub,
              expected_tags={'sum', 'sub'})
 
     # Modify required tags and check that this leads to an error
@@ -309,18 +323,18 @@ def test_dag_required_tags(init_kwargs):
     with pytest.raises(ValueError,
                        match="required tags that were not specified in the "
                              "DAG: mul. Available tags: dag, dm, sum, sub."):
-        epc.plot(out_path="testplot", plot_func=pf, transform=sum_and_sub)
+        epc.plot(out_path=out_path, plot_func=pf, transform=sum_and_sub)
         # expected_tags not checked here
 
     # ... unless there actually is another transformation
-    epc.plot(out_path="testplot", plot_func=pf,
+    epc.plot(out_path=out_path, plot_func=pf,
              transform=sum_and_sub + [dict(mul=[1,1], tag="mul")],
              expected_tags={'sum', 'sub', 'mul'})
 
     # What about if there are more transformations?
     # By default, all are computed, leading to a ZeroDivisionError here
     with pytest.raises(RuntimeError, match="ZeroDivisionError"):
-        epc.plot(out_path="testplot", plot_func=pf,
+        epc.plot(out_path=out_path, plot_func=pf,
                  transform=sum_and_sub + [dict(mul=[1,1], tag="mul"),
                                           dict(div=[1,0], tag="div")],
                  expected_tags={'sum', 'sub', 'mul'})  # not checked
@@ -328,7 +342,7 @@ def test_dag_required_tags(init_kwargs):
     # When setting the compute_only_required_dag_tags, this is not an issue
     pf.required_dag_tags = ('sum', 'sub')
     pf.compute_only_required_dag_tags = True
-    epc.plot(out_path="testplot", plot_func=pf,
+    epc.plot(out_path=out_path, plot_func=pf,
              transform=sum_and_sub + [dict(mul=[1,1], tag="mul"),
                                       dict(div=[1,0], tag="div")],
              expected_tags={'sum', 'sub'})
@@ -337,7 +351,7 @@ def test_dag_required_tags(init_kwargs):
     with pytest.raises(ValueError,
                        match="required tags that were not set to be computed "
                              "by the DAG: sub."):
-        epc.plot(out_path="testplot", plot_func=pf, compute_only=['sum'],
+        epc.plot(out_path=out_path, plot_func=pf, compute_only=['sum'],
                  transform=sum_and_sub)
 
     # Adjust computed tags via config to provoke an error message
@@ -346,12 +360,12 @@ def test_dag_required_tags(init_kwargs):
                        match="required tags that were not set to be computed "
                              "by the DAG: sum, sub. Make sure to set the "
                              "`compute_only` argument such that results"):
-        epc.plot(out_path="testplot", plot_func=pf, transform=sum_and_sub,
+        epc.plot(out_path=out_path, plot_func=pf, transform=sum_and_sub,
                  compute_only=[])
 
     # Disabled DAG usage should also raise an error
     with pytest.raises(ValueError, match="requires DAG tags to be computed"):
-        epc.plot(out_path="testplot", plot_func=pf, use_dag=False)
+        epc.plot(out_path=out_path, plot_func=pf, use_dag=False)
 
 
     # For completeness, also test via the is_plot_func decorator
@@ -368,47 +382,47 @@ def test_dag_required_tags(init_kwargs):
     assert pf_dec.pass_dag_object_along is False
 
     # ... without required DAG tags
-    epc.plot(out_path="testplot", plot_func=pf_dec,
+    epc.plot(out_path=out_path, plot_func=pf_dec,
              transform=sum_and_sub,
              expected_tags={'sum', 'sub'})
 
-    epc.plot(out_path="testplot", plot_func=pf_dec,
+    epc.plot(out_path=out_path, plot_func=pf_dec,
              transform=sum_and_sub + [dict(mul=[1,1], tag="mul")],
              expected_tags={'sum', 'sub', 'mul'})
 
-    epc.plot(out_path="testplot", plot_func=pf_dec,
+    epc.plot(out_path=out_path, plot_func=pf_dec,
              transform=sum_and_sub + [dict(mul=[1,1], tag="mul")],
              compute_only=['sum'], expected_tags={'sum'})
     
     # ... with required DAG tags (and compute_only_required_dag_tags ENABLED)
     pf_dec.required_dag_tags = ('sum', 'sub')
 
-    epc.plot(out_path="testplot", plot_func=pf_dec,
+    epc.plot(out_path=out_path, plot_func=pf_dec,
              transform=sum_and_sub + [dict(mul=[1,1], tag="mul")],
              expected_tags={'sum', 'sub'})
 
     with pytest.raises(ValueError,
                        match="required tags that were not set to be computed "
                              "by the DAG: sub."):
-        epc.plot(out_path="testplot", plot_func=pf_dec,
+        epc.plot(out_path=out_path, plot_func=pf_dec,
                  transform=sum_and_sub + [dict(mul=[1,1], tag="mul")],
                  compute_only=['sum'], expected_tags={'sum', 'sub'})
 
     # ... with required DAG tags (and compute_only_required_dag_tags DISABLED)
     pf_dec.compute_only_required_dag_tags = False
 
-    epc.plot(out_path="testplot", plot_func=pf_dec,
+    epc.plot(out_path=out_path, plot_func=pf_dec,
              transform=sum_and_sub + [dict(mul=[1,1], tag="mul")],
              expected_tags={'sum', 'sub', 'mul'})
 
-    epc.plot(out_path="testplot", plot_func=pf_dec,
+    epc.plot(out_path=out_path, plot_func=pf_dec,
              transform=sum_and_sub + [dict(mul=[1,1], tag="mul")],
              compute_only=['sum', 'sub'], expected_tags={'sum', 'sub'})
 
     with pytest.raises(ValueError,
                        match="required tags that were not set to be computed "
                              "by the DAG: sum, sub."):
-        epc.plot(out_path="testplot", plot_func=pf_dec,
+        epc.plot(out_path=out_path, plot_func=pf_dec,
                  transform=sum_and_sub + [dict(mul=[1,1], tag="mul")],
                  compute_only=[], expected_tags={})
 

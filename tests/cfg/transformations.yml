@@ -675,7 +675,33 @@ file_cache_invariant_hash:
     cache_dir_available: false
 
 
-file_cache_file_already_loaded:
+file_cache_with_callable_result:
+  params:
+    transform:
+      - import: [numpy, array]
+        file_cache:
+          write: false  # ... this works
+        tag: nocache
+        salt: 123
+      - import: [numpy.random, randint]
+        file_cache:
+          write:
+            enabled: true
+            storage_options:
+              attempt_pickling: true
+              raise_on_error: true
+        tag: numpy.random.randint
+
+  expected: 
+    num_nodes: 2
+    num_objects: 4
+    tags: [dag, dm, nocache, numpy.random.randint]
+    cache_dir_available: true
+    cache_files:  # ... only one!
+      - 041086b927535557204b1a16c9026be2.pkl
+
+
+file_cache_error_file_already_loaded:
   # Use the shared cache to lead to a 
   cache_dir_name: *shared_cache_dir
   params:
@@ -803,6 +829,29 @@ file_cache_error_in_save_func:
   _match: Failed saving transformation cache file .* Additional keyword arg.*
 
 
+file_cache_error_with_module_as_result:
+  params:
+    transform:
+      - import: numpy
+        file_cache:
+          write: false  # ... this works
+        tag: nocache
+        salt: 123
+      - import: numpy.random
+        file_cache:
+          write:
+            enabled: true
+            storage_options:
+              attempt_pickling: true
+              raise_on_error: true
+        tag: numpy.random
+
+  _raises: RuntimeError
+  _raises_on_compute: true
+  _match: Cannot pickle result object of type <class 'module'>
+
+
+
 # Errors ----------------------------------------------------------------------
 
 error_tag_already_exists:
@@ -900,3 +949,18 @@ doc_examples_minimal:
 
   expected:
     tags: [dag, dm, some_data, more_data, my_result]
+
+
+doc_examples_import_and_call:
+  params:
+    transform:
+      - operation: import_and_call
+        args: [numpy.random, randint]
+        kwargs:
+          low: 0
+          high: 10
+          size: [2, 3, 4]
+        tag: random_integers
+
+  expected:
+    tags: [dag, dm, random_integers]
