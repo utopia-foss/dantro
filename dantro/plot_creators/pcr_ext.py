@@ -340,8 +340,8 @@ class ExternalPlotCreator(BasePlotCreator):
                             "'{}')."
                             "".format(type(module), module))
 
-        # plot_func could be something like "A.B.C.d", so go along modules
-        # recursively to get to "C"
+        # plot_func could be something like "A.B.C.d"; go along the segments to
+        # allow for more versatile plot function retrieval
         attr_names = plot_func.split(".")
         for attr_name in attr_names[:-1]:
             mod = getattr(mod, attr_name)

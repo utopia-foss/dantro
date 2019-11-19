@@ -2,6 +2,13 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.10.2 (WIP)
+- #109 extends the operations database to allow importing callables or objects on-the-fly and use them in DAG transformations.
+    - Adds the `import` operation which allows importing a module or callable (or any other object) directly, alleviating the need to register a new operation.
+    - Adds the `call` operation to call a callable.
+    - Adds the `import_and_call` operation, combining the two.
+
+
 ## v0.10.1
 - !118 fixes an issue with the `MultiversePlotCreator` where the `select_and_combine` argument was erroneously passed-through to the plot function.
 - #111 updates the documentation to reflect that the `paramspace` dependency is [now available on PyPI](https://pypi.org/project/paramspace/) and can be installed from there.

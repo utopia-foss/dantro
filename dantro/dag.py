@@ -1238,7 +1238,9 @@ class TransformationDAG:
         
         except Exception as exc:
             msg = ("Failed saving transformation cache file. Cannot pickle "
-                   "result object of type {} and with value {}."
+                   "result object of type {} and with value {}. Consider "
+                   "deactivating file caching or pickling for this "
+                   "transformation."
                    "".format(type(result), result))
             if raise_on_error:
                 raise RuntimeError(msg) from exc
