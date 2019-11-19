@@ -104,8 +104,12 @@ It provides the following arguments that have an effect on DAG usage:
 - ``required_dag_tags``: can be used to specify which tags are expected by the plot function; if these are not defined or not computed, an error will be raised.
 - ``compute_only_required_dag_tags``: if the plot function defines required tags and ``compute_only is None``, the ``compute_only`` argument will be set such that only ``required_dag_tags`` are computed.
 - ``pass_dag_object_along``: passes the :py:class:`~dantro.dag.TransformationDAG` object to the plot function as ``dag`` keyword argument.
+- ``unpack_dag_results``: instead of passing the results as the ``data`` keyword argument, it unpacks the results dictionary, such that the tags can be specified directly in the plot function signature.
+  Note that this puts some restrictions on tag names, prohibiting some characters as well as requiring that plot configuration parameters do not collide with the DAG results.
+  This feature is best used in combination with ``required_dag_tags`` and ``compute_only_required_dag_tags`` enabled (which is the default).
 
 Decorator usage puts all the relevant arguments for using the DAG framework into one place: the definition of the plot function.
+
 
 .. _dag_generic_plot_func:
 
@@ -139,6 +143,18 @@ If some specific tags are required, they can also be specified there:
         hlpr.ax.plot(data['x'], data['y'], **plt_kwargs)
 
 The DAG can be configured in the same way as :ref:`in the general case <plot_creator_dag_usage>`.
+
+.. hint::
+
+    If you want the computed tags to be directly available in the plot function signature, use the ``unpack_dag_results`` flag in the decorator:
+
+    .. code-block:: python
+
+        @is_plot_func(use_dag=True, required_dag_tags=('x', 'y'),
+                      unpack_dag_results=True)
+        def simple_lineplot(*, x, y, hlpr: PlotHelper, **plt_kwargs):
+            """Creates a simple line plot for selected x and y data"""
+            hlpr.ax.plot(x, y, **plt_kwargs)    
 
 
 Accessing the :py:class:`~dantro.data_mngr.DataManager`
