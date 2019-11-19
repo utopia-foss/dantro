@@ -2,6 +2,7 @@
 
 import logging
 import operator
+from importlib import import_module as _import_module
 from difflib import get_close_matches
 from typing import Callable, Any, Sequence, Union
 
@@ -55,6 +56,50 @@ def print_data(data: Any) -> Any:
         print(data)
 
     return data
+
+def import_module_or_object(module: str='builtins', name: str=None):
+    """Imports a module or an object using the specified module string and the
+    object name.
+    
+    Args:
+        module (str, optional): A module string, e.g. numpy.random. If this is
+            not given, it will import from the builtins module. Also, relative
+            module strings are resolved from the dantro package.
+        name (str, optional): The name of the object to retrieve from the
+            chosen module and return. This may also be a dot-separated sequence
+            of attribute names which can be used to traverse along attributes.
+    
+    Returns:
+        The chosen module or object, i.e. the object found at <module>.<name>
+    
+    Raises:
+        AttributeError: In cases where part of the ``name`` argument could not
+            be resolved due to a bad attribute name.
+    """
+    mod = _import_module(module, package='dantro') if module else __builtin__
+
+    if not name:
+        return mod
+
+    # Get the object by traversing along the attributes of the module. By
+    # allowing a name to be a sequence, object imports become more versatile.
+    # The first object to get the name from is the module itself:
+    obj = mod
+
+    for attr_name in name.split("."):
+        try:
+            obj = getattr(obj, attr_name)
+        
+        except AttributeError as err:
+            raise AttributeError("Failed to retrieve attribute or attribute "
+                                 "sequence '{}' from module '{}'! "
+                                 "Intermediate {} {} has no attribute '{}'!"
+                                 "".format(name, mod.__name__,
+                                           type(obj).__name__, obj, attr_name)
+                                 ) from err
+
+    return obj
+
 
 # .............................................................................
 # numpy and xarray operations
@@ -268,6 +313,8 @@ _OPERATIONS = KeyOrderedDict({
     'define':       lambda d: d,
     'pass':         lambda d: d,
     'print':        print_data,
+    'call':         lambda c, *a, **k: c(*a, **k),
+    'import':       import_module_or_object,
 
     # Some commonly used types
     'list':         list,
