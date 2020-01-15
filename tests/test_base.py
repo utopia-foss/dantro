@@ -145,6 +145,43 @@ def test_BaseDataGroup():
     # Groups with larger number of members take up more bytes
     assert sys.getsizeof(foo) > sys.getsizeof(root)
 
+def test_tree_repr():
+    """Tests the tree representation algorithm.
+
+    NOTE This is only a coverage test, it does not ascertain the correct string
+         output! For that, add an assert False and inspect the output.
+    """
+    # Generate test data
+    root = dtr.groups.OrderedDataGroup(name="root")
+    grps = [root.new_group("grp_{:d}".format(i)) for i in range(13)]
+    for n, grp in zip(range(13), grps):
+        for i in range(n+1):
+            grp.add(dtr.containers.ObjectContainer(name="obj_{:d}".format(i),
+                                                   data=dict(foo=i)))
+
+    def ct_func_half(*, num_items, **_) -> int:
+        return num_items // 2
+
+    def ct_func_by_level(*, level, **_) -> int:
+        return 10 - 3*level
+
+    def ct_func_tot(*, total_item_count, **_) -> int:
+        if total_item_count <= 13:
+            return None
+        return 3
+
+    # Test the condense_thresh feature
+    for ct in (None, 3, 4, 5, 6, 7, 8, 9, 10,
+               ct_func_half, ct_func_tot, ct_func_by_level):
+        print("condense_thresh:", ct, root._tree_repr(condense_thresh=ct))
+
+    # Test the max_level feature
+    for ml in (None, 0, 1, 2):
+        print("max_level:", ml, root._tree_repr(max_level=ml))
+
+
+    assert False
+    
 
 def test_path_behaviour():
     """Test path capabilities using the OrderedDataGroup"""

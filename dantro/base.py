@@ -15,7 +15,7 @@ import abc
 import copy
 import logging
 import inspect
-from typing import Union, List, Tuple
+from typing import Union, List, Tuple, Callable
 
 import dantro.abc
 from .abc import PATH_JOIN_CHAR
@@ -634,51 +634,110 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
         """Returns a multi-line string tree representation of this group."""
         return self._tree_repr()
 
-    def _tree_repr(self, level: int=0, info_fstr="<{:cls_name,info}>",
-                   info_ratio: float=0.6) -> str:
+    def _tree_repr(self, *,
+                   level: int=0,
+                   max_level: int=None,
+                   info_fstr="<{:cls_name,info}>",
+                   info_ratio: float=0.6,
+                   condense_thresh: Union[int, Callable[[int, int], int]]=None,
+                   total_item_count: int=0
+                   ) -> Union[str, List[str]]:
         """Recursively creates a multi-line string tree representation of this
         group. This is used by, e.g., the _format_tree method.
         
         Args:
             level (int, optional): The depth within the tree
+            max_level (int, optional): The maximum depth within the tree;
+                recursion is not continued beyond this level.
             info_fstr (str, optional): The format string for the info string
             info_ratio (float, optional): The width ratio of the whole line
                 width that the info string takes
+            condense_thresh (Union[int, Callable[[int, int], int]], optional):
+                If given, this specifies the threshold beyond which the tree
+                view for the current element becomes condensed by hiding the
+                output for some elements.
+                The minimum value for this is 3, indicating that there should
+                be at most 3 lines be generated from this level (excluding the
+                lines coming from recursion), i.e.: two elements and one line
+                for indicating how many values are hidden.
+                If a smaller value is given, this is silently brought up to 3.
+                Half of the elements are taken from the beginning of the
+                item iteration, the other half from the end.
+                If given as integer, that number is used.
+                If a callable is given, the callable will be invoked with the
+                current level, number of elements to be added at this level,
+                and the current total item count along this recursion branch.
+                The callable should then return the number of lines to be
+                shown for the current element.
+            total_item_count (int, optional): The total number of items
+                already created in this recursive tree representation call.
+                Passed on between recursive calls.
         
         Returns:
-            str: The (multi-line) tree representation of this group
+            Union[str, List[str]]: The (multi-line) tree representation of
+                this group. If this method was invoked with ``level == 0``, a
+                string will be returned; otherwise, a list of strings will be
+                returned.
         """
+        def get_offset_str(level: int) -> str:
+            """Returns an offst string, depending on level"""
+            return "   " * level
+
+        def truncate(s: str, *, max_length: int, suffix: str="…") -> str:
+            """Truncates the given string to the desired length"""
+            return s if len(s) <= max_length else s[:max_length-1] + suffix
+
+        # Offset
+        offset = get_offset_str(level)
+
         # Mark symbols
         first_mark = r' └┬'
         base_mark =  r'  ├'
         last_mark =  r'  └'
         only_mark =  r' └─'
-
-        # Offset
-        offset = "   " * level
-            
-        # Format string
-        fstr = "{offset:}{mark:>3s} {name:<{name_width}s}  {info:}"
         
-        # Calculations
+        # Evaluate the condensation threshold, i.e. the maximum number of lines
+        # to allow originating from this object (excluding recursion)
         num_items = len(self)
+        total_item_count += num_items
+        num_skipped = 0
+        
+        if callable(condense_thresh):
+            max_lines = condense_thresh(level=level, num_items=num_items,
+                                        total_item_count=total_item_count)
+        else:
+            max_lines = condense_thresh
+        
+        if max_lines is not None:
+            # Additional check for lower bound; makes visualization much easier
+            max_lines = max(3, int(max_lines))
+
+            # If there are too few items, the variable is set to None to
+            # indicate regular behavior.
+            if num_items - max_lines < 1:
+                max_lines = None
+
+        # Calculations that make the output line fit into one terminal line
         num_cols = TTY_COLS
-
         info_width = int(num_cols * info_ratio)
-        name_width = (num_cols - info_width) - (len(offset) + 3 + 1 + 2)       
+        name_width = (num_cols - info_width) - (len(offset) + 3 + 1 + 2)
 
-        # Helper function
-        def get_mark(n: int) -> str:
-            """Helper function that returns the mark symbol depending on the
-            iteration number."""
+        def get_mark(n: int, *, max_n: int) -> str:
+            """Returns the mark symbol depending on the iteration number.
+
+            NOTE This uses variables from the outer scope!
+            """
             if n == 0:
-                if num_items == 1:
+                if max_n == 0:
                     return only_mark
                 return first_mark
-            elif n == num_items - 1:
+            elif n == max_n:
                 return last_mark
             return base_mark
 
+        # The format string that's used to compose the whole output line
+        fstr = "{offset:}{mark:>3s} {name:<{name_width}s}  {info:}"
+        
         # Create the list to gather the lines in; add a description on level 0
         lines = []
         if level == 0:
@@ -687,29 +746,54 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
 
         # Go over the entries on this level and format the lines
         for n, (key, obj) in enumerate(self.items()):
-            # Get key and info, truncate if necessary
-            name = key if len(key) <= name_width else key[:name_width-1]+"…"
-            info = info_fstr.format(obj)
-            info = info if len(info) <= info_width else info[:info_width-1]+"…"
+            # Determine whether to show this line of the tree or not. The lines
+            # in the middle of the iteration are not shown.
+            # If it is not shown, the first line that is then to be shown also
+            # adds a line that indicates how many items were skipped.
+            if max_lines is not None:
+                if max_lines//2 <= n < (num_items - (max_lines-1)//2):
+                    num_skipped += 1
+                    continue
 
-            # Get the mark, depending on the item number
-            mark = get_mark(n)
+                elif n == (num_items - (max_lines-1)//2):
+                    # Add the indicator line
+                    lines.append(fstr.format(offset=offset, mark=base_mark,
+                                             name_width=name_width,
+                                             name="...",
+                                             info=("... ({:d} more) ..."
+                                                   "".format(num_skipped))))
+
+            # Get key and info, truncating if necessary, and the mark
+            name = truncate(key, max_length=name_width)
+            info = truncate(info_fstr.format(obj), max_length=info_width)
+            mark = get_mark(n, max_n=num_items-1)
 
             # Format the line and add to list of lines
-            line = fstr.format(offset=offset, mark=mark, name_width=name_width,
-                               name=name, info=info)
-            lines.append(line)
+            lines.append(fstr.format(offset=offset, mark=mark,
+                                     name_width=name_width, name=name,
+                                     info=info))
 
             # If it was a group and it is not empty...
             if isinstance(obj, BaseDataGroup) and len(obj) > 0:
-                # ...continue recursion
-                lines += obj._tree_repr(level=level+1, info_fstr=info_fstr)
+                # ... and maximum recursion depth is not reached:
+                if max_level is None or level < max_level:
+                    # Continue recursion
+                    lines += obj._tree_repr(level=level+1,
+                                            max_level=max_level,
+                                            info_fstr=info_fstr,
+                                            info_ratio=info_ratio,
+                                            condense_thresh=condense_thresh,
+                                            total_item_count=total_item_count)
 
-        # Done, return them.
+                else:
+                    # Only indicate that it _would_ continue here, but do not
+                    # actually continue with the recursion.
+                    lines.append(fstr.format(offset=get_offset_str(level+1),
+                                             mark=only_mark, name_width=3,
+                                             name="...", info=""))
+
+        # Done, depending on whether this is within the recursion or not,
+        # return as list of lines or as combined multi-line string
         if level > 0:
-            # Within recursion: return the list of lines
             return lines
-        
-        # Highest level; join the lines together and return that string
-        lines.append("")
-        return "\n".join(lines)
+        return "\n".join(lines) + "\n"
