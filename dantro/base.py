@@ -146,6 +146,12 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
     # the dantro base classes are allowed
     _ALLOWED_CONT_TYPES = None
 
+    # Tree representation: maximum level
+    _TREE_MAX_LEVEL = None
+
+    # Tree representation: threshold for condensed element view
+    _TREE_CONDENSE_THRESH = None
+
     # .........................................................................
 
     def __init__(self, *, name: str, containers: list=None, attrs=None):
@@ -618,8 +624,12 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
 
     @property
     def tree(self) -> str:
-        """Returns the tree representation of this group."""
-        return self._tree_repr()
+        """Returns the default tree representation of this group.
+
+        Uses the _TREE_* prefixed class attributes for default values.
+        """
+        return self._tree_repr(max_level=self._TREE_MAX_LEVEL,
+                               condense_thresh=self._TREE_CONDENSE_THRESH)
 
     def _format_info(self) -> str:
         """A __format__ helper function: returns an info string that is used
@@ -631,8 +641,10 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
                 )
 
     def _format_tree(self) -> str:
-        """Returns a multi-line string tree representation of this group."""
-        return self._tree_repr()
+        """Returns the default tree representation of this group by invoking
+        the .tree property
+        """
+        return self.tree
 
     def _tree_repr(self, *,
                    level: int=0,

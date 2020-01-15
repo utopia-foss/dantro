@@ -180,9 +180,6 @@ def test_tree_repr():
         print("max_level:", ml, root._tree_repr(max_level=ml))
 
 
-    assert False
-    
-
 def test_path_behaviour():
     """Test path capabilities using the OrderedDataGroup"""
     root = dtr.groups.OrderedDataGroup(name="root")
