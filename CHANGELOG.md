@@ -2,7 +2,11 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
-## v0.10.2 (WIP)
+## v0.11.0 (WIP)
+- ...
+
+
+## v0.10.2
 - #108 adds the ability to unpack DAG results directly into the plot function invocation instead of passing them as the `data` keyword argument.
 - #109 extends the operations database to allow importing callables or objects on-the-fly and use them in DAG transformations.
     - Adds the `import` operation which allows importing a module or callable (or any other object) directly, alleviating the need to register a new operation.
