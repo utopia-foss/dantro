@@ -3,7 +3,7 @@
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
 ## v0.11.0 (WIP)
-- ...
+- !124 adds a condensed data tree representation (as proposed in #112)
 
 
 ## v0.10.2
