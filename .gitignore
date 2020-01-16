@@ -1,5 +1,6 @@
 # Ignore files created by test system
 .coverage
+!.coveragerc
 .pytest_cache
 .tox
 
