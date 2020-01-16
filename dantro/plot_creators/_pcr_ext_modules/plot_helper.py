@@ -168,7 +168,7 @@ class PlotHelper:
                                               copy.deepcopy(update_helper_cfg))
 
         # Extract the axis-specific update list
-        self._axis_specific_updates = self._base_cfg.pop('axis_specific', [])
+        self._axis_specific_updates = self._base_cfg.pop('axis_specific', {})
 
         # Check that all remaining entries are valid keys
         self._raise_on_invalid_helper_name(*self._base_cfg.keys(),
@@ -715,7 +715,7 @@ class PlotHelper:
             cfg[ax_coords] = copy.deepcopy(self._base_cfg)
 
             # Go over the list of updates and apply them
-            for update_params in self._axis_specific_updates:
+            for update_params in self._axis_specific_updates.values():
                 # Work on a copy
                 update_params = copy.deepcopy(update_params)
 
