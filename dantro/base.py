@@ -146,11 +146,11 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
     # the dantro base classes are allowed
     _ALLOWED_CONT_TYPES = None
 
-    # Tree representation: maximum level
-    _TREE_MAX_LEVEL = None
+    # Condensed tree representation: maximum level
+    _COND_TREE_MAX_LEVEL = 10
 
-    # Tree representation: threshold for condensed element view
-    _TREE_CONDENSE_THRESH = None
+    # Condensed tree representation: threshold parameter
+    _COND_TREE_CONDENSE_THRESH = 10
 
     # .........................................................................
 
@@ -624,16 +624,20 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
 
     @property
     def tree(self) -> str:
-        """Returns the default tree representation of this group.
-
-        Uses the _TREE_* prefixed class attributes for default values.
+        """Returns the default (full) tree representation of this group"""
+        return self._tree_repr()
+    
+    @property
+    def tree_condensed(self) -> str:
+        """Returns the condensed tree representation of this group. Uses the
+        ``_COND_TREE_*`` prefixed class attributes as parameters.
         """
-        return self._tree_repr(max_level=self._TREE_MAX_LEVEL,
-                               condense_thresh=self._TREE_CONDENSE_THRESH)
+        return self._tree_repr(max_level=self._COND_TREE_MAX_LEVEL,
+                               condense_thresh=self._COND_TREE_CONDENSE_THRESH)
 
     def _format_info(self) -> str:
         """A __format__ helper function: returns an info string that is used
-        to characterise this object. Does NOT include name and classname!
+        to characterize this object. Does NOT include name and classname!
         """
         return ("{} member{}, {} attribute{}"
                 "".format(len(self), "s" if len(self) != 1 else "",
@@ -645,6 +649,12 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
         the .tree property
         """
         return self.tree
+
+    def _format_tree_condensed(self) -> str:
+        """Returns the default tree representation of this group by invoking
+        the .tree property
+        """
+        return self.tree_condensed
 
     def _tree_repr(self, *,
                    level: int=0,

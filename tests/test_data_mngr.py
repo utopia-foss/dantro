@@ -270,6 +270,16 @@ def test_init(data_dir):
     # It should create a hashstr
     assert len(dm.hashstr) == 32
 
+    # It should be possible to set condensed tree parameters
+    assert dm._COND_TREE_MAX_LEVEL == 10
+    dm = DataManager(data_dir, out_dir=None, load_cfg=LOAD_CFG_PATH,
+                     condensed_tree_params=dict(max_level=42))
+    assert dm._COND_TREE_MAX_LEVEL == 42
+
+    with pytest.raises(KeyError, match="Invalid condensed tree parameter"):
+        DataManager(data_dir, out_dir=None, load_cfg=LOAD_CFG_PATH,
+                    condensed_tree_params=dict(foo=123))
+
 def test_init_with_create_groups(tmpdir):
     """Tests the create_groups argument to __init__"""
     # Check group creation from a list of names
@@ -325,10 +335,10 @@ def test_loading(dm):
     assert barfoo['go_deeper']['eleven'] == 11
     assert barfoo['a_list'] == list(range(10))
 
-    # Check the `update_load_cfg` argument
+    # Check the `update_load_cfg` argument, this time printing condensed
     dm.load_from_cfg(update_load_cfg=dict(barfoo2=dict(loader="yaml",
                                                        glob_str="foobar.yml")),
-                     print_tree=True)
+                     print_tree='condensed')
 
     # Invalid load config
     with pytest.raises(TypeError):
@@ -343,7 +353,7 @@ def test_loading(dm):
 
     # Load with the yaml object loader
     dm.load('barbaz_obj', loader='yaml_to_object', glob_str="foobar.yml",
-            print_tree=True)
+            print_tree='condensed')
     assert 'barbaz_obj' in dm
     assert isinstance(dm['barbaz_obj'], ObjectContainer)
 

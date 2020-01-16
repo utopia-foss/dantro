@@ -55,6 +55,7 @@ def test_BaseDataGroup():
     assert foo.logstr in str(foo)
     assert repr(foo) == str(foo)
     assert foo._format_tree() == foo.tree == foo._tree_repr()
+    assert foo._format_tree_condensed() == foo.tree_condensed
 
     # Accessing data directly
     with pytest.raises(AttributeError, match="Cannot directly access group"):
@@ -178,6 +179,13 @@ def test_tree_repr():
     # Test the max_level feature
     for ml in (None, 0, 1, 2):
         print("max_level:", ml, root._tree_repr(max_level=ml))
+
+    # Invoke again using properties
+    assert root.tree == root._format_tree() == root._tree_repr()
+    assert (  root.tree_condensed
+            ==root._format_tree_condensed()
+            ==root._tree_repr(max_level=root._COND_TREE_MAX_LEVEL,
+                              condense_thresh=root._COND_TREE_CONDENSE_THRESH))
 
 
 def test_path_behaviour():

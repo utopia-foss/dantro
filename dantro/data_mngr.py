@@ -59,7 +59,8 @@ class NoMatchWarning(UserWarning):
 # -----------------------------------------------------------------------------
 
 class DataManager(OrderedDataGroup):
-    """The DataManager is the root of a data tree, coupled to a specific data directory.
+    """The DataManager is the root of a data tree, coupled to a specific data
+    directory.
     
     It handles the loading of data and can be used for interactive work with
     the data.
@@ -84,8 +85,9 @@ class DataManager(OrderedDataGroup):
                  load_cfg: Union[dict, str]=None,
                  out_dir: Union[str, bool]="_output/{timestamp:}",
                  out_dir_kwargs: dict=None,
-                 create_groups: List[Union[str, dict]]=None):
-        """Initializes a DataManager object.
+                 create_groups: List[Union[str, dict]]=None,
+                 condensed_tree_params: dict=None):
+        """Initializes a DataManager for the specified data directory.
         
         Args:
             data_dir (str): the directory the data can be found in. If this is
@@ -112,8 +114,13 @@ class DataManager(OrderedDataGroup):
                 and the `Cls` key specifies the type. If a string is given
                 instead of a type, the lookup happens from the
                 _DATA_GROUP_CLASSES variable.
+            condensed_tree_params (dict, optional): If given, will set the
+                parameters used for the condensed tree representation.
+                Available options: ``max_level`` and ``condense_thresh``, where
+                the latter may be a callable.
+                See :py:meth:`dantro.abc.BaseDataGroup._tree_repr` for more
+                information.
         """
-
         # Find a name if none was given
         if not name:
             basename = os.path.basename(os.path.abspath(data_dir))
@@ -123,6 +130,10 @@ class DataManager(OrderedDataGroup):
 
         # Initialize as a data group via parent class
         super().__init__(name=name)
+
+        # Set condensed tree parameters
+        if condensed_tree_params:
+            self._set_condensed_tree_params(**condensed_tree_params)
 
         # Initialize directories
         self.dirs = self._init_dirs(data_dir=data_dir, out_dir=out_dir,
@@ -165,6 +176,17 @@ class DataManager(OrderedDataGroup):
 
         # Done
         log.debug("%s initialized.", self.logstr)
+
+    def _set_condensed_tree_params(self, **params):
+        """Helper method to set the ``_COND_TREE_*`` class variables"""
+        available_keys = ('max_level', 'condense_thresh')
+
+        for key, value in params.items():
+            if key.lower() not in available_keys:
+                raise KeyError("Invalid condensed tree parameter: '{}'! The "
+                               "available keys are: {}."
+                               "".format(key, ", ".join(available_keys)))
+            setattr(self, '_COND_TREE_'+key.upper(), value)
 
     def _init_dirs(self, *, data_dir: str, out_dir: Union[str, bool],
                    timestamp: float=None, timefstr: str="%y%m%d-%H%M%S",
@@ -263,7 +285,7 @@ class DataManager(OrderedDataGroup):
     def load_from_cfg(self, *, load_cfg: dict=None,
                       update_load_cfg: dict=None,
                       exists_action: str='raise',
-                      print_tree: bool=False) -> None:
+                      print_tree: Union[bool,str]=False) -> None:
         """Load multiple data entries using the specified load configuration.
         
         Args:
@@ -275,8 +297,10 @@ class DataManager(OrderedDataGroup):
                 Can be: raise (default), skip, skip_nowarn, overwrite,
                 overwrite_nowarn.  With *_nowarn values, no warning is given
                 if an entry already existed.
-            print_tree (bool, optional): If True, a tree representation of the
-                DataManager is printed after the data was loaded
+            print_tree (Union[bool, str], optional): If True, the full tree
+                representation of the DataManager is printed after the data
+                was loaded. If ``'condensed'``, the condensed tree will be
+                printed.
         
         Raises:
             TypeError: Raised if a given configuration entry was of invalid 
@@ -318,12 +342,15 @@ class DataManager(OrderedDataGroup):
 
         # Finally, print the tree
         if print_tree:
-            print(self.tree)
+            if print_tree == 'condensed':
+                print(self.tree_condensed)
+            else:
+                print(self.tree)
 
     def load(self, entry_name: str, *, loader: str,
              glob_str: Union[str, List[str]], base_path: str=None,
              target_group: str=None, target_path: str=None,
-             print_tree: bool=False,
+             print_tree: Union[bool,str]=False,
              load_as_attr: bool=False, **load_params) -> None:
         """Performs a single load operation.
         
@@ -347,8 +374,10 @@ class DataManager(OrderedDataGroup):
                 group with the name of this entry at the root level.
                 Available keys are: ``basename``, ``match`` (if ``path_regex``
                 is used, see ``**load_params``)
-            print_tree (bool, optional): Whether to print the tree at the end
-                of the loading operation.
+            print_tree (Union[bool, str], optional): If True, the full tree
+                representation of the DataManager is printed after the data
+                was loaded. If ``'condensed'``, the condensed tree will be
+                printed.
             load_as_attr (bool, optional): If True, the loaded entry will be
                 added not as a new DataContainer or DataGroup, but as an
                 attribute to an (already existing) object at ``target_path``.
@@ -470,7 +499,10 @@ class DataManager(OrderedDataGroup):
 
         # Done with this entry. Print tree, if desired.
         if print_tree:
-            print(self.tree)
+            if print_tree == 'condensed':
+                print(self.tree_condensed)
+            else:
+                print(self.tree)
 
     def _load(self, *, target_path: str, loader: str,
               glob_str: Union[str, List[str]], load_as_attr: Union[str, None],
