@@ -106,7 +106,7 @@ def test_init(hlpr):
     assert hlpr.base_cfg == expected_base_cfg
 
     # Test the axis-specific configuration is loaded
-    assert isinstance(hlpr._axis_specific_updates, list)
+    assert isinstance(hlpr._axis_specific_updates, dict)
     assert hlpr._axis_specific_updates == axis_specific_updates
 
     # The axis-specific config should still be empty

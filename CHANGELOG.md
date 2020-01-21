@@ -6,6 +6,7 @@
 - !124 adds a condensed data tree representation (as proposed in #112)
 - Minor changes:
     - !127 adds a `.coveragerc` file to control pytest-cov behaviour
+- !126 changes the type of axis-specific configurations for the `PlotHelper` from list to dictionary
 
 
 ## v0.10.2

@@ -11,15 +11,19 @@ setup_figure:
   figsize: [5, 6]  # (width, height)
 
 axis_specific:  # axis-specific config for non-existant axes is allowed here
-  - axis: [0, 0]
+  ax1:
+    axis: [0, 0]
     set_title:
       size: 42
-  - axis: [~, ~]  # all
+  ax2:
+    axis: [~, ~]  # all
     set_title:
       color: green
-  - axis: [-1, ~]
+  ax3:
+    axis: [-1, ~]
     set_title:
       title: last column
-  - axis: [-1, -1]
+  ax4:
+    axis: [-1, -1]
     set_title:
       title: bottom right hand
