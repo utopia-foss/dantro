@@ -7,6 +7,7 @@
 - Minor changes:
     - !127 adds a `.coveragerc` file to control pytest-cov behaviour
 - !126 changes the type of axis-specific configurations for the `PlotHelper` from list to dictionary
+- #101 _removes_ the plot creator auto-detection via plot function signature (deprecated in 0.10, see #100).
 
 
 ## v0.10.2
