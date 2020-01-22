@@ -1,4 +1,4 @@
-"""This module implements the ExternalPlotCreator class, which specialises on 
+"""This module implements the ExternalPlotCreator class, which specialises on
 creating matplotlib-based plots. These are accessed via 'external' modules
 being imported and plot functions defined in these modules being invoked.
 """
@@ -8,9 +8,6 @@ import copy
 import logging
 import importlib
 import importlib.util
-import inspect
-import warnings
-from collections import defaultdict
 from typing import Callable, Union, List, Tuple, Sequence
 
 import matplotlib as mpl
@@ -30,6 +27,7 @@ from ._pcr_ext_modules.plot_helper import PlotHelper
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
+
 
 class ExternalPlotCreator(BasePlotCreator):
     """This PlotCreator uses external scripts to create plots."""
@@ -252,7 +250,9 @@ class ExternalPlotCreator(BasePlotCreator):
         configuration.
         
         This checks whether the configuration allows resolving a plot function.
-        If that is the case, it checks whether it is 
+        If that is the case, it checks whether the plot function has defined
+        some attributes that provide further information on whether the current
+        creator is the desired one.
         
         Args:
             creator_name (str): The name for this creator used within the
@@ -276,7 +276,7 @@ class ExternalPlotCreator(BasePlotCreator):
         try:
             pf = self._resolve_plot_func(**pf_kwargs)
 
-        except:
+        except Exception:
             log.debug("Cannot plot this configuration, because a plotting "
                       "function could not be resolved with the given "
                       "arguments: %s", pf_kwargs)
@@ -290,8 +290,8 @@ class ExternalPlotCreator(BasePlotCreator):
             if self._declared_plot_func_by_attrs(pf, creator_name):
                 return True
 
-        # Check that function's signature and decide accordingly
-        return self._valid_plot_func_signature(inspect.signature(pf))
+        # Nothing worked: This creator is not suitable.
+        return False
 
     # .........................................................................
     # Helpers: Plot function resolution and argument preparation
@@ -778,121 +778,26 @@ class ExternalPlotCreator(BasePlotCreator):
                           "same or a parent type of this %s.",
                           pf.creator_type, self.logstr)
                 return True
+        else:
+            log.debug("The plot function's specified creator type (%s) does "
+                      "not match %s.",
+                      getattr(pf, 'creator_type', None), self.logstr)
 
         if hasattr(pf, 'creator_name') and pf.creator_name == creator_name:
             log.debug("The plot function's desired creator name '%s' "
                       "matches the name under which %s is known to the "
                       "PlotManager.", pf.creator_name, self.classname)
             return True
+        else:
+            log.debug("The plot function's specified creator name (%s) does "
+                      "not match the specified creator name '%s' of %s.",
+                      getattr(pf, 'creator_name', None), creator_name,
+                      self.logstr)
 
         log.debug("Checked plot function attributes, but neither the type "
                   "nor the creator name were specified or matched this "
                   "creator.")
         return False
-
-    def _valid_plot_func_signature(self, sig: inspect.Signature,
-                                   raise_if_invalid: bool=False) -> bool:
-        """Determines whether the plot function signature is valid
-
-        .. deprecated:: 0.10
-            Explicitly define the creator via the decorator or via an entry in
-            the plot configuration.
-        
-        Args:
-            sig (inspect.Signature): The inspected signature of the plot func
-            raise_if_invalid (bool, optional): Whether to raise an error when
-                the signature is not valid
-        
-        Returns:
-            bool: Whether the signature is a valid plot function signature
-        """
-        def p2s(*params) -> str:
-            """Given some parameters, returns a comma-joined string of their
-            names"""
-            return ", ".join([p.name for p in params])
-
-        # Shortcut for the inspect.Parameter class, to access the kinds
-        Param = inspect.Parameter
-
-        log.debug("Inspecting plot function signature: %s", sig)
-
-        # Aggregate parameters by their kind
-        pbk = defaultdict(list)
-        for p in sig.parameters.values():
-            pbk[p.kind].append(p)
-
-        # List of error strings
-        errs = []
-
-        # Check the number of positional arguments is as expected
-        if self._AD_NUM_POSITIONAL_ONLY >= 0:
-            if len(pbk[Param.POSITIONAL_ONLY]) != self._AD_NUM_POSITIONAL_ONLY:
-                errs.append("Expected {} POSITIONAL_ONLY argument(s) but the "
-                            "plot function allowed {}: {}. Change the plot "
-                            "function signature to only take the expected "
-                            "number of positional-only arguments."
-                            "".format(self._AD_NUM_POSITIONAL_ONLY,
-                                      len(pbk[Param.POSITIONAL_ONLY]),
-                                      p2s(*pbk[Param.POSITIONAL_ONLY])))
-
-        # Check the number of "positional or keyword" arguments is as expected
-        if self._AD_NUM_POSITIONAL_OR_KEYWORD >= 0:
-            if (   len(pbk[Param.POSITIONAL_OR_KEYWORD])
-                != self._AD_NUM_POSITIONAL_OR_KEYWORD):
-                errs.append("Expected {} POSITIONAL_OR_KEYWORD argument(s) "
-                            "but the plot function allowed {}: {}. Make sure "
-                            "the `*` is set to specify the beginning of the "
-                            "keyword-only arguments section of the signature."
-                            "".format(self._AD_NUM_POSITIONAL_OR_KEYWORD,
-                                      len(pbk[Param.POSITIONAL_OR_KEYWORD]),
-                                      p2s(*pbk[Param.POSITIONAL_OR_KEYWORD])))
-
-        # Check that variable *args and **kwargs are as expected
-        if not self._AD_ALLOW_VAR_POSITIONAL:
-            if len(pbk[Param.VAR_POSITIONAL]) > 0:
-                errs.append("VAR_POSITIONAL arguments are not allowed, but "
-                            "the plot function gathers them via argument *{}!"
-                            "".format(pbk[Param.VAR_POSITIONAL][0]))
-        
-        if not self._AD_ALLOW_VAR_KEYWORD:
-            if len(pbk[Param.VAR_KEYWORD]) > 0:
-                errs.append("VAR_KEYWORD arguments are not allowed, but "
-                            "the plot function gathers them via argument **{}!"
-                            "".format(pbk[Param.VAR_KEYWORD][0]))
-
-        # Check that the required keyword-only arguments are available
-        if not all([p in sig.parameters for p in self._AD_KEYWORD_ONLY]):
-            errs.append("Did not find all of the expected KEYWORD_ONLY "
-                        "arguments ({}) in the plot function!"
-                        "".format(", ".join(self._AD_KEYWORD_ONLY)))
-
-        # Decide how to continue
-        is_valid = not errs
-        log.debug("Signature is %s", "valid." if is_valid else "NOT valid!")
-
-        if raise_if_invalid and not is_valid:
-            # Not valid and configured to raise
-            raise ValueError("The given plot function with signature '{}' is "
-                             "not valid! The following issues were identified "
-                             "by inspecting its signature:\n  - {}\n"
-                             "".format(sig, "\n  - ".join(errs)))
-        elif not is_valid:
-            log.debug("Issues with the plot function's signature:\n  - %s",
-                      "\n  - ".join(errs))
-
-        elif is_valid:
-            # The signature lead to the detection -> issue deprecation warning
-            warnings.warn("Auto-detection of a plot creator using the plot "
-                          "function signature is deprecated and will be "
-                          "removed in dantro v0.11! "
-                          "Instead, specify the creator for plot '{}' using "
-                          "the `creator_type` (here: {}) or `creator_name` "
-                          "argument to the `is_plot_func` decorator, or set "
-                          "the `creator` key directly in the plot config."
-                          "".format(self.name, self.classname),
-                          DeprecationWarning, stacklevel=2)
-
-        return is_valid
 
 
 # -----------------------------------------------------------------------------

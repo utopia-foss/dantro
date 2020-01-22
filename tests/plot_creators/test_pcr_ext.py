@@ -1,10 +1,8 @@
 """Tests the ExternalPlotCreator class."""
 
-import inspect
 from pkg_resources import resource_filename
 
 import pytest
-import copy
 import matplotlib.pyplot as plt
 
 from dantro.data_mngr import DataManager
@@ -21,10 +19,12 @@ PLOTS_AUTO_DETECT = load_yml(resource_filename("tests", "cfg/auto_detect.yml"))
 # Import some from other tests
 from ..test_plot_mngr import dm
 
+
 @pytest.fixture
 def init_kwargs(dm) -> dict:
     """Default initialisation kwargs"""
     return dict(dm=dm, default_ext="pdf")
+
 
 @pytest.fixture
 def tmp_module(tmpdir) -> str:
@@ -42,6 +42,7 @@ def tmp_module(tmpdir) -> str:
 
     return path
 
+
 @pytest.fixture
 def tmp_rc_file(tmpdir) -> str:
     """Creates a temporary yaml file with matplotlib rcParams"""
@@ -55,7 +56,9 @@ def tmp_rc_file(tmpdir) -> str:
 
     return path
 
+
 # Tests -----------------------------------------------------------------------
+
 
 def test_init(init_kwargs, tmpdir):
     """Tests initialisation"""
@@ -73,6 +76,7 @@ def test_init(init_kwargs, tmpdir):
     with pytest.raises(ValueError, match="does not exists or does not point"):
         ExternalPlotCreator("init", **init_kwargs,
                             base_module_file_dir=tmpdir.join("foo.bar"))
+
 
 def test_style_context(init_kwargs, tmp_rc_file):
     """Tests if the style context has been set"""
@@ -213,6 +217,7 @@ def test_resolve_plot_func(init_kwargs, tmpdir, tmp_module):
 
 # -----------------------------------------------------------------------------
 
+
 def test_use_dag(tmpdir, init_kwargs):
     """Tests whether DAG parameters are passed through properly to the plot
     function ...
@@ -306,6 +311,7 @@ def test_use_dag(tmpdir, init_kwargs):
                             dict(define=2, tag="bar")],
                  foo="bar")
 
+
 def test_dag_required_tags(tmpdir, init_kwargs):
     """Tests the requirements for certain tags expected by the plot function"""
     epc = ExternalPlotCreator("dag_required_tags", **init_kwargs)
@@ -385,7 +391,6 @@ def test_dag_required_tags(tmpdir, init_kwargs):
     with pytest.raises(ValueError, match="requires DAG tags to be computed"):
         epc.plot(out_path=out_path, plot_func=pf, use_dag=False)
 
-
     # For completeness, also test via the is_plot_func decorator
     @is_plot_func(use_dag=True)
     def pf_dec(*, data: dict, hlpr, expected_tags: set):
@@ -451,18 +456,10 @@ def test_can_plot(init_kwargs, tmp_module):
     """Tests the can_plot and _valid_plot_func_signature methods"""
     epc = ExternalPlotCreator("can_plot", **init_kwargs)
 
-    # Should work for the .basic lineplot
-    assert epc.can_plot("ext",
-                        module=".basic", plot_func="lineplot")
-    # This one is also decorated, thus the function signature is not checked
-
-    # ... and for the function given in the module file
-    # This one is NOT decorated, thus the function signature IS checked
-    # ... and a DeprecationWarning is issued
-    with pytest.warns(DeprecationWarning):
-        assert epc.can_plot("ext",
-                            module_file=tmp_module,
-                            plot_func="write_something")
+    # Should work for the .basic lineplot, which is decorated and specifies
+    # the creator type
+    assert epc.can_plot("external", module=".basic", plot_func="lineplot")
+    assert not epc.can_plot("foobar", module=".basic", plot_func="lineplot")
 
     # Cases where no plot function can be resolved
     assert not epc.can_plot("external", **{})
@@ -470,7 +467,7 @@ def test_can_plot(init_kwargs, tmp_module):
     assert not epc.can_plot("external", plot_func="some_func", module="foo")
     assert not epc.can_plot("external", plot_func="some_func", module_file=".")
 
-    # Test the decorator . . . . . . . . . . . . . . . . . . . . . . . . . . . 
+    # Test the decorator . . . . . . . . . . . . . . . . . . . . . . . . . . .
     # Define a shortcut
     def declared_pf_by_attrs(func, pc=epc, creator_name="external"):
         return pc._declared_plot_func_by_attrs(func, creator_name)
@@ -524,97 +521,6 @@ def test_can_plot(init_kwargs, tmp_module):
     assert not declared_pf_by_attrs(pfdec_bad_name, upc, "universe")
 
 
-    # Test the _valid_plot_func_signature method . . . . . . . . . . . . . . .
-    def valid_sig(func, throw: bool=False) -> bool:
-        return epc._valid_plot_func_signature(inspect.signature(func),
-                                              raise_if_invalid=throw)
-
-    # Create a few functions to test with
-    def valid_func_1(dm, *, out_path: str, **kwargs):
-        pass
-
-    def valid_func_2(arg1, *, kwarg1, out_path: str, kwarg2=None, **kwargs):
-        pass
-    
-    def valid_func_3(arg1, *, out_path: str=None):
-        pass
-
-    def bad_func_1(arg1, arg2, *, out_path: str, **kwargs):
-        pass
-
-    def bad_func_2(arg1, **kwargs):
-        pass
-    
-    def bad_func_3(*args, out_path: str, **kwargs):
-        pass
-    
-    def bad_func_4(dm, out_path: str, **kwargs):
-        pass
-    
-    def bad_func_5(dm, *, kwarg1, **kwargs):
-        pass
-
-    # These should work, but issue deprecation warnings
-    with pytest.warns(DeprecationWarning):
-        assert valid_sig(valid_func_1)
-    
-    with pytest.warns(DeprecationWarning):
-        assert valid_sig(valid_func_2)
-    
-    with pytest.warns(DeprecationWarning):
-        assert valid_sig(valid_func_3)
-
-    # These should not work
-    with pytest.raises(ValueError,
-                       match=(r"Expected 1 POSITIONAL_OR_KEYWORD argument\(s\)"
-                              r" but the plot function allowed 2")):
-        valid_sig(bad_func_1, True)
-
-    with pytest.raises(ValueError,
-                       match=(r"Did not find all of the expected KEYWORD_ONLY "
-                              r"arguments \(out_path\) in the plot function")):
-        valid_sig(bad_func_2, True)
-
-    with pytest.raises(ValueError,
-                       match=(r"Expected 1 POSITIONAL_OR_KEYWORD argument\(s\)"
-                              r" but the plot function allowed 0")):
-        valid_sig(bad_func_3, True)
-
-    with pytest.raises(ValueError,
-                       match=(r"Expected 1 POSITIONAL_OR_KEYWORD argument\(s\)"
-                              r" but the plot function allowed 2: dm, out_p")):
-        valid_sig(bad_func_4, True)
-
-    with pytest.raises(ValueError,
-                       match=(r"Did not find all of the expected KEYWORD_ONLY "
-                              r"arguments \(out_path\) in the plot function")):
-        valid_sig(bad_func_5, True)
-
-    # Disallow *args, and **kwargs
-    epc._AD_ALLOW_VAR_POSITIONAL = False
-    epc._AD_ALLOW_VAR_KEYWORD = False
-
-    # Some error messages should include more text now
-    with pytest.raises(ValueError,
-                       match="VAR_POSITIONAL arguments are not allowed, but"):
-        valid_sig(bad_func_3, True)
-
-    with pytest.raises(ValueError,
-                       match="VAR_KEYWORD arguments are not allowed, but the"):
-        valid_sig(bad_func_4, True)
-
-    with pytest.raises(ValueError,
-                       match="VAR_KEYWORD arguments are not allowed, but the"):
-        valid_sig(bad_func_5, True)
-
-
-    # To provoke a POSITIONAL_ONLY error, expect more than one of them
-    epc._AD_NUM_POSITIONAL_ONLY = 42
-    with pytest.raises(ValueError,
-                       match=r"Expected 42 POSITIONAL_ONLY argument\(s\) but"):
-        valid_sig(valid_func_2, True)
-
-
 def test_decorator(tmpdir):
     """Test the is_plot_func decorator"""
     # Needs no arguments
@@ -638,4 +544,3 @@ def test_decorator(tmpdir):
     # Relative path not allowed
     with pytest.raises(ValueError, match="was a relative path: some/rel"):
         is_plot_func(helper_defaults="some/relative/path")
-
