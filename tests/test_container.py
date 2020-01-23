@@ -17,7 +17,7 @@ from dantro.mixins import ForwardAttrsToDataMixin
 from dantro.mixins.base import UnexpectedTypeWarning
 from dantro.mixins.proxy_support import Hdf5ProxySupportMixin
 from dantro.groups import OrderedDataGroup
-from dantro.containers import MutableSequenceContainer
+from dantro.containers import MutableSequenceContainer, StringContainer
 from dantro.containers import ObjectContainer, LinkContainer
 from dantro.containers import NumpyDataContainer, XrDataContainer
 from dantro.proxy import Hdf5DataProxy
@@ -189,6 +189,20 @@ def test_LinkContainer():
 
     # Test extended formatting information
     assert "root -> data" in str(links["data"])
+
+def test_StringContainer():
+    """Test the behaviour of a StringContainer"""
+    # Basic initialization of a string container
+    test_data = "This is a test string."
+    sc = StringContainer(name="oof", data=test_data)
+
+    # Assert that the data is of type string
+    assert isinstance(sc.data, str)
+
+    # Test PaththroughContainer functionality here
+    assert len(sc.data) == len(test_data)
+    assert sc.data.upper() == test_data.upper()
+
 
 # -----------------------------------------------------------------------------
 # Numeric containers

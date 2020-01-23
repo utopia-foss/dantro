@@ -3,7 +3,7 @@
 import logging
 from collections.abc import MutableSequence, MutableMapping
 
-from ..base import BaseDataContainer, PassthroughContainer
+from ..base import BaseDataContainer
 from ..mixins import ItemAccessMixin, CollectionMixin, MappingAccessMixin
 from ..mixins import CheckDataMixin, ForwardAttrsToDataMixin
 
