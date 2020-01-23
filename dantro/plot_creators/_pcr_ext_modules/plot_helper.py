@@ -287,19 +287,19 @@ class PlotHelper:
     # .........................................................................
     # Figure setup and axis control
 
-    def attach_figure(self, fig, *,
+    def attach_figure(self, fig, axes, *,
                       scale_figsize_with_subplots_shape=False):
-        """Attaches the given figure to the PlotHelper. The axis information is
-        extracted from the figure.
-
-        # FIXME Why is this the case? Am I missing something?
+        """Attaches the given figure and axes to the PlotHelper.
+        
         This method replaces an existing figure with the newly setup one. The
         old figure is closed. With it, the existing axis-specific config and
         all existing axes are destroyed. In other words: All information
-        provided via the provide_defaults and the mark_* methods is lost.
+        previously provided via the provide_defaults and the mark_* methods is
+        lost.
         
         Args:
-            fig (matplotlib Figure): The new figure which replaces the existing.
+            fig: The new figure which replaces the existing.
+            axes: single axis or 2d array-like containing the axes
             scale_figsize_with_subplots_shape (bool, optional): Whether to scale
                 the figure size proportional to the subplots shape.
         
@@ -312,18 +312,20 @@ class PlotHelper:
         # Assign the new figure
         self._fig = fig
 
-        # If there are no axes in the new figure, add one
-        if not fig.get_axes():
-            fig.add_subplot(111)
+        try:
+            # If single axis is given
+            self._axes = np.reshape(axes, (1, 1))
 
-        # Extract and store the axes in (2d) coordinate format. Transpose the
-        # axes, as matplotlib is really inconsistent with this and stores the
-        # axes in format (y, x)...
+        except ValueError:
+            # Else, assume array-like containing the axes.
+            # Transpose the axes, as matplotlib is really inconsistent with
+            # this and stores the axes in format (y, x)...
+            self._axes = np.array(axes).T
 
-        # FIXME This works only if the axes make up a COMPLETE grid, each with
-        #       the SAME geometry... Is there a way to generalize?
-        self._axes = np.reshape(fig.get_axes(),
-                                fig.get_axes()[0].get_geometry()[:-1]).T
+        if len(self.axes.shape)!=2:
+            raise ValueError("Multiple axes must be passed as a 2d array-like! "
+                             "Was of shape {}".format(self.axes.shape))
+
         # Axes are now accessible via (x, y) format
         log.debug("Figure attached.")
 
@@ -351,11 +353,6 @@ class PlotHelper:
         It does so by calling matplotlib.pyplot.subplots, with squeeze set to
         False such that the axes are always returned as 2D axis array.
         
-        This method replaces an existing figure with the newly setup one. The
-        old figure is closed. With it, the existing axis-specific config and
-        all existing axes are destroyed. In other words: All information
-        provided via the provide_defaults and the mark_* methods is lost.
-        
         Args:
             **update_fig_kwargs: Parameters that are used to update the
                 figure setup parameters stored in `setup_figure`.
@@ -371,11 +368,12 @@ class PlotHelper:
                                        False)
 
         # Now, create the figure and axes
-        fig, _ = plt.subplots(squeeze=False, **fig_kwargs)
+        fig, axes = plt.subplots(squeeze=False, **fig_kwargs)
         log.debug("Figure created.")
 
         # Attach the created figure
-        self.attach_figure(fig, scale_figsize_with_subplots_shape=scale_figsize)
+        self.attach_figure(fig, axes,
+                           scale_figsize_with_subplots_shape=scale_figsize)
 
     def save_figure(self, *, close: bool=True):
         """Saves and (optionally, but default) closes the current figure

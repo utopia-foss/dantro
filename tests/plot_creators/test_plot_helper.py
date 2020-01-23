@@ -58,18 +58,6 @@ def plot2(dm: DataManager, *, hlpr: PlotHelper):
     # Call the plot function
     hlpr.ax.plot([1, 2], [-1, -2])
 
-    # Define a new figure with no axes and replace the existing
-    fig = plt.figure()
-    hlpr.attach_figure(fig)
-    hlpr.ax.plot([1, 2], [-1, -2])
-
-    # Same with already existing axes
-    fig, _ = plt.subplots(2, 2)
-    hlpr.attach_figure(fig)
-    hlpr.select_axis(1, 1)
-    hlpr.ax.plot([1, 2], [-1, -2])
-
-
 @is_plot_func(creator_name='external',
               helper_defaults={'set_title': {'title': "Title"}},
               supports_animation=True)
@@ -101,6 +89,8 @@ def plot3(dm: DataManager, *, hlpr: PlotHelper):
 def plot4(dm: DataManager, *, hlpr:PlotHelper):
     """Test plot that does nothing"""
     pass
+
+
 
 
 # Tests -----------------------------------------------------------------------
@@ -243,6 +233,20 @@ def test_figure_setup_subplots(hlpr):
     assert hlpr._cfg[(0, 2)]['set_title']['color'] == "green"
     assert hlpr._cfg[(0, 2)]['set_title']['size'] == 5
 
+def test_figure_attachment(hlpr):
+    """Test the attach_figure function"""
+    # Define a new figure a single axis and replace the existing
+    fig = plt.figure()
+    ax = fig.gca()
+    hlpr.attach_figure(fig, ax)
+
+    # Same with multiple axes
+    fig, axes = plt.subplots(2, 2)
+    hlpr.attach_figure(fig, axes)
+    hlpr.select_axis(1, 1)
+
+    with pytest.raises(ValueError, match="must be passed as a 2d array-like!"):
+        hlpr.attach_figure(fig, axes.flatten())
 
 def test_cfg_manipulation(hlpr):
     """Test manipulation of the configuration"""
