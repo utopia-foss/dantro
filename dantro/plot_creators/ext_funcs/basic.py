@@ -1,9 +1,7 @@
 """Holds basic plot functions for use with ExternalPlotCreator"""
 
-from typing import Union, List
-
 from ...data_mngr import DataManager
-from ..pcr_ext import is_plot_func, ExternalPlotCreator
+from ..pcr_ext import is_plot_func
 from .mpl_setup import *
 
 

@@ -78,7 +78,7 @@ class PlotManager:
                  cfg_exists_action: str='raise'):
         """Initialize the PlotManager
 
-        The initialization comes with three (optional) hierarchical levels to 
+        The initialization comes with three (optional) hierarchical levels to
         make the configuration of plots versatile, flexible, and avoid copy-
         paste of configurations:
         The first two result in a so-called "base" configuration, a collection
@@ -98,7 +98,7 @@ class PlotManager:
                 and second by resolving the `based_on: a_base_plot` again by
                 recursive update.
             3. The `plots_cfg` holds enabled plot configurations, possibly
-                derived from the base configuration using the `based_on` 
+                derived from the base configuration using the `based_on`
                 feature, e.g. `based_on: a_base_plot`; this happens by
                 recursive update.
 
