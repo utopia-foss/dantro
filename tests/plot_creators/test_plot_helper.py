@@ -7,6 +7,7 @@ from pkg_resources import resource_filename
 
 import pytest
 import os
+import matplotlib.pyplot as plt
 
 from dantro.tools import load_yml
 from dantro.data_mngr import DataManager
@@ -56,6 +57,18 @@ def plot2(dm: DataManager, *, hlpr: PlotHelper):
     """
     # Call the plot function
     hlpr.ax.plot([1, 2], [-1, -2])
+
+    # Define a new figure with no axes and replace the existing
+    fig = plt.figure()
+    hlpr.attach_figure(fig)
+    hlpr.ax.plot([1, 2], [-1, -2])
+
+    # Same with already existing axes
+    fig, _ = plt.subplots(2, 2)
+    hlpr.attach_figure(fig)
+    hlpr.select_axis(1, 1)
+    hlpr.ax.plot([1, 2], [-1, -2])
+
 
 @is_plot_func(creator_name='external',
               helper_defaults={'set_title': {'title': "Title"}},

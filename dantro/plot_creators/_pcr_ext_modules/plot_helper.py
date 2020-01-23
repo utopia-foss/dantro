@@ -287,6 +287,65 @@ class PlotHelper:
     # .........................................................................
     # Figure setup and axis control
 
+    def attach_figure(self, fig, *,
+                      scale_figsize_with_subplots_shape=False):
+        """Attaches the given figure to the PlotHelper. The axis information is
+        extracted from the figure.
+
+        # FIXME Why is this the case? Am I missing something?
+        This method replaces an existing figure with the newly setup one. The
+        old figure is closed. With it, the existing axis-specific config and
+        all existing axes are destroyed. In other words: All information
+        provided via the provide_defaults and the mark_* methods is lost.
+        
+        Args:
+            fig (matplotlib Figure): The new figure which replaces the existing.
+            scale_figsize_with_subplots_shape (bool, optional): Whether to scale
+                the figure size proportional to the subplots shape.
+        
+        """
+        if self._fig is not None:
+            log.debug("Closing existing figure and re-associating with a new "
+                      "figure ...")
+            self.close_figure()
+
+        # Assign the new figure
+        self._fig = fig
+
+        # If there are no axes in the new figure, add one
+        if not fig.get_axes():
+            fig.add_subplot(111)
+
+        # Extract and store the axes in (2d) coordinate format. Transpose the
+        # axes, as matplotlib is really inconsistent with this and stores the
+        # axes in format (y, x)...
+
+        # FIXME This works only if the axes make up a COMPLETE grid, each with
+        #       the SAME geometry... Is there a way to generalize?
+        self._axes = np.reshape(fig.get_axes(),
+                                fig.get_axes()[0].get_geometry()[:-1]).T
+        # Axes are now accessible via (x, y) format
+        log.debug("Figure attached.")
+
+        # Select the (0, 0) axis, for consistency
+        self.select_axis(0, 0)
+
+        # Scale, if needed
+        if scale_figsize_with_subplots_shape and self.axes.size > 1:
+            log.debug("Scaling current figure size with subplots shape %s ...",
+                      self.axes.shape)
+
+            old_figsize = self.fig.get_size_inches()
+            self.fig.set_size_inches(old_figsize[0] * self.axes.shape[0],
+                                     old_figsize[1] * self.axes.shape[1])
+
+            log.debug("Scaled figure size from %s to %s.",
+                      old_figsize, self.fig.get_size_inches())
+
+        # Can now evaluate the axis-specific configuration
+        self._cfg = self._compile_axis_specific_cfg()
+
+
     def setup_figure(self, **update_fig_kwargs):
         """Sets up a matplotlib figure instance with the given configuration.
         It does so by calling matplotlib.pyplot.subplots, with squeeze set to
@@ -301,11 +360,6 @@ class PlotHelper:
             **update_fig_kwargs: Parameters that are used to update the
                 figure setup parameters stored in `setup_figure`.
         """
-        if self._fig is not None:
-            log.debug("Closing existing figure and re-associating with a new "
-                      "figure ...")
-            self.close_figure()
-
         # Prepare arguments
         fig_kwargs = self.base_cfg.get('setup_figure', {})
 
@@ -317,31 +371,11 @@ class PlotHelper:
                                        False)
 
         # Now, create the figure and axes
-        self._fig, self._axes = plt.subplots(squeeze=False, **fig_kwargs)
+        fig, _ = plt.subplots(squeeze=False, **fig_kwargs)
         log.debug("Figure created.")
 
-        # Transpose the axes, as matplotlib is really inconsistent with this
-        # and stores the axes in format (y, x)...
-        self._axes = self._axes.T
-        # Axes are now accessible via (x, y) format
-
-        # Select the (0, 0) axis, for consistency
-        self.select_axis(0, 0)
-
-        # Scale, if needed
-        if scale_figsize and self.axes.size > 1:
-            log.debug("Scaling current figure size with subplots shape %s ...",
-                      self.axes.shape)
-
-            old_figsize = self.fig.get_size_inches()
-            self.fig.set_size_inches(old_figsize[0] * self.axes.shape[0],
-                                     old_figsize[1] * self.axes.shape[1])
-
-            log.debug("Scaled figure size from %s to %s.",
-                      old_figsize, self.fig.get_size_inches())
-
-        # Can now evaluate the axis-specific configuration
-        self._cfg = self._compile_axis_specific_cfg()
+        # Attach the created figure
+        self.attach_figure(fig, scale_figsize_with_subplots_shape=scale_figsize)
 
     def save_figure(self, *, close: bool=True):
         """Saves and (optionally, but default) closes the current figure
