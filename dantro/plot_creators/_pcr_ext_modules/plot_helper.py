@@ -289,13 +289,20 @@ class PlotHelper:
 
     def attach_figure(self, fig, axes, *,
                       scale_figsize_with_subplots_shape=False):
-        """Attaches the given figure and axes to the PlotHelper.
-        
-        This method replaces an existing figure with the newly setup one. The
-        old figure is closed. With it, the existing axis-specific config and
-        all existing axes are destroyed. In other words: All information
+        """Attaches the given figure and axes to the PlotHelper. This method
+        replaces an existing figure and existing axes with the ones given.
+
+        As the PlotHelper relies on axes being accessible via the coordinate
+        format (x, y), the axes must be passed as a two-dimensional array-like
+        (e.g. as returned by matplotlib.pyplot.subplots with sqeeze set to
+        False) if more than one axis are passed. Since the axes are internally
+        stored as numpy array, the axes-grid must be complete.
+
+        Note that by closing the old figure the existing axis-specific config
+        and all existing axes are destroyed. In other words: All information
         previously provided via the provide_defaults and the mark_* methods is
-        lost.
+        lost. Therefore, if needed, it is recommended to call this method at
+        the beginning of the plotting function.
         
         Args:
             fig: The new figure which replaces the existing.
