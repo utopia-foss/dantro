@@ -8,6 +8,7 @@
     - !127 adds a `.coveragerc` file to control pytest-cov behaviour
 - !126 changes the type of axis-specific configurations for the `PlotHelper` from list to dictionary
 - #101 _removes_ the plot creator auto-detection via plot function signature (deprecated in 0.10, see #100).
+- !128 adds the functionality to load plain text files into `StringContainer`
 
 
 ## v0.10.2

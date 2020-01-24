@@ -20,13 +20,15 @@ should _not_ be `self`!
 If `self` is required, `omit_self=False` may be given to the decorator.
 """
 
+from .load_text import TextLoaderMixin
 from .load_yaml import YamlLoaderMixin
 from .load_pkl import PickleLoaderMixin
 from .load_hdf5 import Hdf5LoaderMixin
 from .load_xarray import XarrayLoaderMixin
 from .load_numpy import NumpyLoaderMixin
 
-class AllAvailableLoadersMixin(YamlLoaderMixin,
+class AllAvailableLoadersMixin(TextLoaderMixin,
+                               YamlLoaderMixin,
                                PickleLoaderMixin,
                                Hdf5LoaderMixin,
                                XarrayLoaderMixin,
@@ -39,6 +41,9 @@ class AllAvailableLoadersMixin(YamlLoaderMixin,
 
 # A dict of file extensions and preferred loaders for those extensions
 LOADER_BY_FILE_EXT = {
+    'txt':      'text',
+    'log':      'text',
+
     'yml':      'yml',
     'yaml':     'yaml',
 
