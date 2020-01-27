@@ -287,28 +287,37 @@ class PlotHelper:
     # .........................................................................
     # Figure setup and axis control
 
-    def attach_figure(self, fig, axes, *,
-                      scale_figsize_with_subplots_shape=False):
+    def attach_figure_and_axes(self, *, fig, axes,
+                               scale_figsize_with_subplots_shape=False):
         """Attaches the given figure and axes to the PlotHelper. This method
         replaces an existing figure and existing axes with the ones given.
 
-        As the PlotHelper relies on axes being accessible via the coordinate
-        format (x, y), the axes must be passed as a two-dimensional array-like
-        (e.g. as returned by matplotlib.pyplot.subplots with sqeeze set to
-        False) if more than one axis are passed. Since the axes are internally
-        stored as numpy array, the axes-grid must be complete.
-
+        As the PlotHelper relies on axes being accessible via coordinate pairs,
+        multiple axes must be passed as two-dimensional array-like. Since the
+        axes are internally stored as numpy array, the axes-grid must be
+        complete.
+        
         Note that by closing the old figure the existing axis-specific config
         and all existing axes are destroyed. In other words: All information
         previously provided via the provide_defaults and the mark_* methods is
         lost. Therefore, if needed, it is recommended to call this method at
         the beginning of the plotting function.
+
+        .. note::
+
+            This function assumes multiple axes to be passed in (y,x) format (as
+            e.g. returned by matplotlib.pyplot.subplots with squeeze set to
+            False) and internally transposes the axes-grid such that afterwards
+            it is accessible via (x,y) coordinates.
         
         Args:
             fig: The new figure which replaces the existing.
             axes: single axis or 2d array-like containing the axes
             scale_figsize_with_subplots_shape (bool, optional): Whether to scale
                 the figure size proportional to the subplots shape.
+        
+        Raises:
+            ValueError: On multiple axes not being passed in 2d format.
         
         """
         if self._fig is not None:
@@ -324,16 +333,14 @@ class PlotHelper:
             self._axes = np.reshape(axes, (1, 1))
 
         except ValueError:
-            # Else, assume array-like containing the axes.
-            # Transpose the axes, as matplotlib is really inconsistent with
-            # this and stores the axes in format (y, x)...
+            # Else, assume array-like containing the axes in (y,x) format.
+            # Transpose the axes such that they are accessible via (x,y) format.
             self._axes = np.array(axes).T
 
-        if len(self.axes.shape)!=2:
+        if self.axes.ndim != 2:
             raise ValueError("Multiple axes must be passed as a 2d array-like! "
                              "Was of shape {}".format(self.axes.shape))
 
-        # Axes are now accessible via (x, y) format
         log.debug("Figure attached.")
 
         # Select the (0, 0) axis, for consistency
@@ -356,9 +363,9 @@ class PlotHelper:
 
 
     def setup_figure(self, **update_fig_kwargs):
-        """Sets up a matplotlib figure instance with the given configuration.
-        It does so by calling matplotlib.pyplot.subplots, with squeeze set to
-        False such that the axes are always returned as 2D axis array.
+        """Sets up a matplotlib figure instance and axes with the given
+        configuration (by calling matplotlib.pyplot.subplots) and attaches
+        both to the PlotHelper.
         
         Args:
             **update_fig_kwargs: Parameters that are used to update the
@@ -379,8 +386,8 @@ class PlotHelper:
         log.debug("Figure created.")
 
         # Attach the created figure
-        self.attach_figure(fig, axes,
-                           scale_figsize_with_subplots_shape=scale_figsize)
+        self.attach_figure_and_axes(fig=fig, axes=axes,
+                            scale_figsize_with_subplots_shape=scale_figsize)
 
     def save_figure(self, *, close: bool=True):
         """Saves and (optionally, but default) closes the current figure

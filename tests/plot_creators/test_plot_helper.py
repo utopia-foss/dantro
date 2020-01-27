@@ -238,15 +238,16 @@ def test_figure_attachment(hlpr):
     # Define a new figure a single axis and replace the existing
     fig = plt.figure()
     ax = fig.gca()
-    hlpr.attach_figure(fig, ax)
+    hlpr.attach_figure_and_axes(fig=fig, axes=ax)
 
     # Same with multiple axes
     fig, axes = plt.subplots(2, 2)
-    hlpr.attach_figure(fig, axes)
+    hlpr.attach_figure_and_axes(fig=fig, axes=axes)
     hlpr.select_axis(1, 1)
 
+    # Now, when passing multiple axes in 1d array-like, it should throw
     with pytest.raises(ValueError, match="must be passed as a 2d array-like!"):
-        hlpr.attach_figure(fig, axes.flatten())
+        hlpr.attach_figure_and_axes(fig=fig, axes=axes.flatten())
 
 def test_cfg_manipulation(hlpr):
     """Test manipulation of the configuration"""
