@@ -1,5 +1,7 @@
 """Tests the utils.data_ops module"""
 
+import builtins
+
 import pytest
 
 import numpy as np
@@ -119,6 +121,34 @@ def test_op_print_data():
     # Coverage test for dantro objects
     dops.print_data(OrderedDataGroup(name="foo"))
     dops.print_data(ObjectContainer(name="objs", data=d))
+
+
+def test_op_import_module_or_object():
+    """Test the import_module_or_object operation"""
+    _import = dops.import_module_or_object
+
+    # Module import
+    assert _import() is builtins
+    assert _import(".utils.data_ops") is dantro.utils.data_ops
+    assert _import("numpy.random") is np.random
+    assert _import("numpy.random") is _import(module="numpy.random")
+
+    # Name import, including traversal
+    assert _import(name='abs') is builtins.abs is abs
+    assert _import(name='abs.__name__') == 'abs'
+    assert _import(".utils", "register_operation") is dantro.utils.register_operation
+    assert _import("numpy", "pi") is np.pi
+    assert _import("numpy.random", "randint.__name__") == 'randint'
+
+    # Errors
+    with pytest.raises(ModuleNotFoundError, match="foobar"):
+        _import("foobar")
+
+    with pytest.raises(AttributeError, match="abs> has no attribute 'has'!"):
+        _import(name="abs.has.no.attributes")
+
+    with pytest.raises(AttributeError, match="has no attribute 'not_pi_but_"):
+        _import("numpy", "not_pi_but_something_else")
 
 
 def test_op_create_mask():

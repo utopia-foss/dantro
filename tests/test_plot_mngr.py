@@ -9,10 +9,11 @@ import pytest
 
 import paramspace as psp
 
-from dantro.tools import load_yml, recursive_update
+from dantro.tools import load_yml
 from dantro.data_mngr import DataManager
 from dantro.containers import NumpyDataContainer as NumpyDC
-from dantro.plot_mngr import PlotManager, PlottingError, PlotConfigError, PlotCreatorError, InvalidCreator
+from dantro.plot_mngr import (PlotManager, PlottingError, PlotConfigError,
+                              InvalidCreator)
 
 # Local constants .............................................................
 # Paths
@@ -48,7 +49,7 @@ def dm(tmpdir) -> DataManager:
     # Now add data to it
     # Groups
     vectors = dm.new_group("vectors")
-    ndarray = dm.new_group("ndarrays")
+    _ = dm.new_group("ndarrays")
 
     # Vectorial datasets
     vals = 100
@@ -449,8 +450,3 @@ def test_auto_detect_creator(dm):
     # No matching candidate
     with pytest.raises(InvalidCreator, match="declared itself a candidate!"):
         pm.plot(name="fail", **PLOTS_AUTO_DETECT["fail"])
-
-    # Too many candidates
-    pm.CREATORS["also_external"] = pm.CREATORS['external']
-    with pytest.raises(InvalidCreator, match="could not unambiguously"):
-        pm.plot(name="ambiguous", **PLOTS_AUTO_DETECT["ambiguous"])

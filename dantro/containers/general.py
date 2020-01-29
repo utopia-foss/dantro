@@ -76,3 +76,12 @@ class MutableMappingContainer(CheckDataMixin, MappingAccessMixin,
         super().__init__(name=name, data=data, **dc_kwargs)
 
         # Done.
+
+
+class StringContainer(CollectionMixin, PassthroughContainer):
+    """A data container to store string-like data."""
+
+    # Specify expected data types for this container class
+    DATA_EXPECTED_TYPES = (str,)
+    DATA_ALLOW_PROXY = False
+    DATA_UNEXPECTED_ACTION = 'raise'  # can be: raise, warn, ignore

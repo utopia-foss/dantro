@@ -199,7 +199,10 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
         return str(self)
 
     def __format__(self, spec_str: str) -> str:
-        """Creates a formatted string from this """
+        """Creates a formatted string from the given specification.
+
+        Invokes further methods which are prefixed by ``_format_``.
+        """
         if not spec_str:
             return str(self)
 

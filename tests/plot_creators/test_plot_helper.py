@@ -1,12 +1,15 @@
 """Test the plot helper module"""
 
+import os
 import copy
 import builtins
 from itertools import chain
 from pkg_resources import resource_filename
 
 import pytest
-import os
+
+import numpy as np
+import matplotlib.pyplot as plt
 
 from dantro.tools import load_yml
 from dantro.data_mngr import DataManager
@@ -90,6 +93,8 @@ def plot4(dm: DataManager, *, hlpr:PlotHelper):
     pass
 
 
+
+
 # Tests -----------------------------------------------------------------------
 
 def test_init(hlpr):
@@ -106,7 +111,7 @@ def test_init(hlpr):
     assert hlpr.base_cfg == expected_base_cfg
 
     # Test the axis-specific configuration is loaded
-    assert isinstance(hlpr._axis_specific_updates, list)
+    assert isinstance(hlpr._axis_specific_updates, dict)
     assert hlpr._axis_specific_updates == axis_specific_updates
 
     # The axis-specific config should still be empty
@@ -230,6 +235,46 @@ def test_figure_setup_subplots(hlpr):
     assert hlpr._cfg[(0, 2)]['set_title']['color'] == "green"
     assert hlpr._cfg[(0, 2)]['set_title']['size'] == 5
 
+def test_figure_attachment(hlpr):
+    """Test the attach_figure function"""
+
+    assert hlpr._fig is None
+    assert not hlpr.axes
+
+    # Define a new figure a single axis and replace the existing
+    fig = plt.figure()
+    ax = fig.gca()  # matplotlib.axes.Axes object
+    hlpr.attach_figure_and_axes(fig=fig, axes=ax)
+
+    assert hlpr.fig is fig
+    assert (hlpr.axes == np.array([[ax]])).all()
+
+    # Same with multiple axes
+    fig, axes = plt.subplots(2, 2)
+    hlpr.attach_figure_and_axes(fig=fig, axes=axes)
+
+    assert hlpr.fig is fig
+    assert (hlpr.axes == axes.T).all()
+
+    # Can also pass a manually constructed nested list (in (y,x) format, as
+    # given as return value from plt.subplots)
+    hlpr.attach_figure_and_axes(fig=fig,
+                                axes=[[axes[0, 0], axes[0, 1]],
+                                      [axes[1, 0], axes[1, 1]]])
+    assert hlpr.fig is fig
+    assert (hlpr.axes == axes.T).all()
+
+    # Test the selection
+    hlpr.select_axis(0, 1)
+    hlpr.select_axis(1, 0)
+    hlpr.select_axis(1, 1)
+
+    with pytest.raises(ValueError, match="Could not select axis"):
+        hlpr.select_axis(1, 2)
+
+    # Now, when passing multiple axes in 1d array-like, it should throw
+    with pytest.raises(ValueError, match="must be passed as a 2d array-like"):
+        hlpr.attach_figure_and_axes(fig=fig, axes=axes.flatten())
 
 def test_cfg_manipulation(hlpr):
     """Test manipulation of the configuration"""

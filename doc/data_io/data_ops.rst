@@ -35,6 +35,13 @@ To register additional operations, use the :py:func:`~dantro.utils.data_ops.regi
 For new operations, a name should be chosen that is not already in use.
 If you are registering multiple custom operations, consider using a common prefix for them.
 
+.. note::
+
+    It is not necessary to register operations that are *importable*!
+    Just use a combination of the ``import`` and ``call`` operations to achieve this behaviour.
+
+    Operations should only be registered if the above does not work comfortably.
+
 
 .. _data_ops_available:
 

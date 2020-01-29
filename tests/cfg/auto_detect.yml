@@ -1,6 +1,6 @@
 # Configuration #3 for PlotManager test with "external" plot creator
 # This file is used for the auto-detect feature in both the tests of the
-# PlotManager and 
+# PlotManager and the ExternalPlotCreator
 ---
 # -- Used in test_plot_mngr.py ------------------------------------------------
 pcr_ext: &pcr_ext
@@ -26,9 +26,6 @@ pcr_ext: &pcr_ext
 fail:
   foo: bar
   bar: baz
-
-ambiguous:
-  <<: *pcr_ext
 
 
 # -- Used in plot_creators/test_pcr_ext.py ------------------------------------

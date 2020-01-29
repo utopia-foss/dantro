@@ -45,7 +45,6 @@ variables:
 test:py36: &test_defaults
   stage: test
   image: python:3.6
-  needs: []
   before_script:
     - pip3 install tox
   script: 

@@ -11,13 +11,15 @@ import pytest
 
 import dantro.base
 from dantro.containers import (NumpyDataContainer, XrDataContainer,
-                               ObjectContainer, PassthroughContainer)
+                               ObjectContainer, PassthroughContainer,
+                               StringContainer)
 from dantro.groups import OrderedDataGroup
 from dantro.mixins import Hdf5ProxySupportMixin
 import dantro.data_mngr
 from dantro.data_loaders import (YamlLoaderMixin, PickleLoaderMixin,
                                  Hdf5LoaderMixin, NumpyLoaderMixin,
                                  XarrayLoaderMixin,
+                                 TextLoaderMixin,
                                  AllAvailableLoadersMixin)
 from dantro.tools import write_yml
 
@@ -34,6 +36,10 @@ class DataManager(YamlLoaderMixin, dantro.data_mngr.DataManager):
     # A (bad) load function for testing
     def _load_bad_loadfunc(self):
         pass
+
+class TextDataManager(TextLoaderMixin, DataManager):
+    """A data manager that is able to load text files"""
+    pass
 
 class PklDataManager(PickleLoaderMixin, DataManager):
     """A data manager that is able to load pickled files"""
@@ -105,6 +111,22 @@ def data_dir(tmpdir) -> str:
 def dm(data_dir) -> DataManager:
     """Returns a DataManager without load configuration"""
     return DataManager(data_dir, out_dir=None)
+
+@pytest.fixture
+def text_dm(data_dir) -> TextDataManager:
+    """Manager with test data for TextLoaderMixin"""
+    # Create a sundirectory for the text data
+    text_dir = data_dir.mkdir("text_data")
+
+    # Define a string to dump
+    to_dump = "This is a test string \n with two lines\n"
+
+    # save the file
+    with open(text_dir.join("test_string.txt"), mode="w") as f:
+        f.write(to_dump)
+
+    return TextDataManager(data_dir, out_dir=None)
+    
 
 @pytest.fixture
 def pkl_dm(data_dir) -> PklDataManager:
@@ -270,6 +292,16 @@ def test_init(data_dir):
     # It should create a hashstr
     assert len(dm.hashstr) == 32
 
+    # It should be possible to set condensed tree parameters
+    assert dm._COND_TREE_MAX_LEVEL == 10
+    dm = DataManager(data_dir, out_dir=None, load_cfg=LOAD_CFG_PATH,
+                     condensed_tree_params=dict(max_level=42))
+    assert dm._COND_TREE_MAX_LEVEL == 42
+
+    with pytest.raises(KeyError, match="Invalid condensed tree parameter"):
+        DataManager(data_dir, out_dir=None, load_cfg=LOAD_CFG_PATH,
+                    condensed_tree_params=dict(foo=123))
+
 def test_init_with_create_groups(tmpdir):
     """Tests the create_groups argument to __init__"""
     # Check group creation from a list of names
@@ -325,10 +357,10 @@ def test_loading(dm):
     assert barfoo['go_deeper']['eleven'] == 11
     assert barfoo['a_list'] == list(range(10))
 
-    # Check the `update_load_cfg` argument
+    # Check the `update_load_cfg` argument, this time printing condensed
     dm.load_from_cfg(update_load_cfg=dict(barfoo2=dict(loader="yaml",
                                                        glob_str="foobar.yml")),
-                     print_tree=True)
+                     print_tree='condensed')
 
     # Invalid load config
     with pytest.raises(TypeError):
@@ -343,7 +375,7 @@ def test_loading(dm):
 
     # Load with the yaml object loader
     dm.load('barbaz_obj', loader='yaml_to_object', glob_str="foobar.yml",
-            print_tree=True)
+            print_tree='condensed')
     assert 'barbaz_obj' in dm
     assert isinstance(dm['barbaz_obj'], ObjectContainer)
 
@@ -683,6 +715,20 @@ def test_target_path(dm):
     assert 'barfoo_group/lamo' in dm
     assert 'barfoo_group/also_lamo' in dm
 
+
+# TextLoaderMixin tests -------------------------------------------------------
+
+def test_text_loader(text_dm):
+    """Test the plain text loader"""
+    text_dm.load('text_data', loader='text', glob_str="text_data/*.txt")
+
+    # Check that the plain text data is loaded and of expected type
+    text_data = text_dm['text_data']
+
+    for name, cont in text_data.items():
+        assert isinstance(cont, StringContainer)
+    
+        assert cont.data == "This is a test string \n with two lines\n"
 
 # PickleLoaderMixin tests -----------------------------------------------------
 

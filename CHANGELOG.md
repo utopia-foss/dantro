@@ -2,6 +2,24 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.11.0
+- !124 adds a condensed data tree representation (as proposed in #112)
+- Minor changes:
+    - !127 adds a `.coveragerc` file to control pytest-cov behaviour
+- !126 changes the type of axis-specific configurations for the `PlotHelper` from list to dictionary
+- #101 _removes_ the plot creator auto-detection via plot function signature (deprecated in 0.10, see #100).
+- !128 adds the functionality to load plain text files into `StringContainer`
+- !130 adds the `PlotHelper.attach_figure` method which allows assigning a custom figure.
+
+
+## v0.10.2
+- #108 adds the ability to unpack DAG results directly into the plot function invocation instead of passing them as the `data` keyword argument.
+- #109 extends the operations database to allow importing callables or objects on-the-fly and use them in DAG transformations.
+    - Adds the `import` operation which allows importing a module or callable (or any other object) directly, alleviating the need to register a new operation.
+    - Adds the `call` operation to call a callable.
+    - Adds the `import_and_call` operation, combining the two.
+
+
 ## v0.10.1
 - !118 fixes an issue with the `MultiversePlotCreator` where the `select_and_combine` argument was erroneously passed-through to the plot function.
 - #111 updates the documentation to reflect that the `paramspace` dependency is [now available on PyPI](https://pypi.org/project/paramspace/) and can be installed from there.
