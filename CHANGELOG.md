@@ -2,7 +2,7 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
-## v0.11.0 (WIP)
+## v0.11.0
 - !124 adds a condensed data tree representation (as proposed in #112)
 - Minor changes:
     - !127 adds a `.coveragerc` file to control pytest-cov behaviour
