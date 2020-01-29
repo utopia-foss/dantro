@@ -1,12 +1,14 @@
 """Test the plot helper module"""
 
+import os
 import copy
 import builtins
 from itertools import chain
 from pkg_resources import resource_filename
 
 import pytest
-import os
+
+import numpy as np
 import matplotlib.pyplot as plt
 
 from dantro.tools import load_yml
@@ -235,18 +237,43 @@ def test_figure_setup_subplots(hlpr):
 
 def test_figure_attachment(hlpr):
     """Test the attach_figure function"""
+
+    assert hlpr._fig is None
+    assert not hlpr.axes
+
     # Define a new figure a single axis and replace the existing
     fig = plt.figure()
-    ax = fig.gca()
+    ax = fig.gca()  # matplotlib.axes.Axes object
     hlpr.attach_figure_and_axes(fig=fig, axes=ax)
+
+    assert hlpr.fig is fig
+    assert (hlpr.axes == np.array([[ax]])).all()
 
     # Same with multiple axes
     fig, axes = plt.subplots(2, 2)
     hlpr.attach_figure_and_axes(fig=fig, axes=axes)
+
+    assert hlpr.fig is fig
+    assert (hlpr.axes == axes.T).all()
+
+    # Can also pass a manually constructed nested list (in (y,x) format, as
+    # given as return value from plt.subplots)
+    hlpr.attach_figure_and_axes(fig=fig,
+                                axes=[[axes[0, 0], axes[0, 1]],
+                                      [axes[1, 0], axes[1, 1]]])
+    assert hlpr.fig is fig
+    assert (hlpr.axes == axes.T).all()
+
+    # Test the selection
+    hlpr.select_axis(0, 1)
+    hlpr.select_axis(1, 0)
     hlpr.select_axis(1, 1)
 
+    with pytest.raises(ValueError, match="Could not select axis"):
+        hlpr.select_axis(1, 2)
+
     # Now, when passing multiple axes in 1d array-like, it should throw
-    with pytest.raises(ValueError, match="must be passed as a 2d array-like!"):
+    with pytest.raises(ValueError, match="must be passed as a 2d array-like"):
         hlpr.attach_figure_and_axes(fig=fig, axes=axes.flatten())
 
 def test_cfg_manipulation(hlpr):

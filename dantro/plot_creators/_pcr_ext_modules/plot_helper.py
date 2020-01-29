@@ -287,8 +287,7 @@ class PlotHelper:
     # .........................................................................
     # Figure setup and axis control
 
-    def attach_figure_and_axes(self, *, fig, axes,
-                               scale_figsize_with_subplots_shape=False):
+    def attach_figure_and_axes(self, *, fig, axes):
         """Attaches the given figure and axes to the PlotHelper. This method
         replaces an existing figure and existing axes with the ones given.
 
@@ -305,16 +304,14 @@ class PlotHelper:
 
         .. note::
 
-            This function assumes multiple axes to be passed in (y,x) format (as
-            e.g. returned by matplotlib.pyplot.subplots with squeeze set to
+            This function assumes multiple axes to be passed in (y,x) format
+            (as e.g. returned by matplotlib.pyplot.subplots with squeeze set to
             False) and internally transposes the axes-grid such that afterwards
             it is accessible via (x,y) coordinates.
         
         Args:
             fig: The new figure which replaces the existing.
             axes: single axis or 2d array-like containing the axes
-            scale_figsize_with_subplots_shape (bool, optional): Whether to scale
-                the figure size proportional to the subplots shape.
         
         Raises:
             ValueError: On multiple axes not being passed in 2d format.
@@ -328,35 +325,33 @@ class PlotHelper:
         # Assign the new figure
         self._fig = fig
 
+        # Prepare the new axis object
         try:
-            # If single axis is given
-            self._axes = np.reshape(axes, (1, 1))
+            # Assuming it's a scalar, np.reshape leads to np.array being called
+            # on the object, thus allowing any scalar type. Only in cases where
+            # an np.ndarray with size > 1 is given will this reshape operation
+            # fail.
+            axes = np.reshape(axes, (1, 1))
 
         except ValueError:
-            # Else, assume array-like containing the axes in (y,x) format.
-            # Transpose the axes such that they are accessible via (x,y) format.
-            self._axes = np.array(axes).T
+            # Else, assume array-like, containing the axes in (y,x) format.
+            # Transpose the axes such that they are accessible in the (x,y)
+            # format, which is used internally throughout the PlotHelper.
+            axes = np.array(axes).T
 
-        if self.axes.ndim != 2:
-            raise ValueError("Multiple axes must be passed as a 2d array-like! "
-                             "Was of shape {}".format(self.axes.shape))
+        # Ensure correct shape
+        if axes.ndim != 2:
+            raise ValueError("When attaching a figure with multiple axes, the "
+                             "axes must be passed as a 2d array-like object! "
+                             "Got object of shape {}.".format(axes.shape))
 
-        log.debug("Figure attached.")
+        # Everything ok, attach axes
+        self._axes = axes
+
+        log.debug("Figure and axes attached.")
 
         # Select the (0, 0) axis, for consistency
         self.select_axis(0, 0)
-
-        # Scale, if needed
-        if scale_figsize_with_subplots_shape and self.axes.size > 1:
-            log.debug("Scaling current figure size with subplots shape %s ...",
-                      self.axes.shape)
-
-            old_figsize = self.fig.get_size_inches()
-            self.fig.set_size_inches(old_figsize[0] * self.axes.shape[0],
-                                     old_figsize[1] * self.axes.shape[1])
-
-            log.debug("Scaled figure size from %s to %s.",
-                      old_figsize, self.fig.get_size_inches())
 
         # Can now evaluate the axis-specific configuration
         self._cfg = self._compile_axis_specific_cfg()
@@ -366,6 +361,9 @@ class PlotHelper:
         """Sets up a matplotlib figure instance and axes with the given
         configuration (by calling matplotlib.pyplot.subplots) and attaches
         both to the PlotHelper.
+
+        If the ``scale_figsize_with_subplots_shape`` option is enabled here,
+        this method will also take care of scaling the figure accordingly.
         
         Args:
             **update_fig_kwargs: Parameters that are used to update the
@@ -381,13 +379,23 @@ class PlotHelper:
         scale_figsize = fig_kwargs.pop('scale_figsize_with_subplots_shape',
                                        False)
 
-        # Now, create the figure and axes
+        # Now, create the figure and axes and attach them
         fig, axes = plt.subplots(squeeze=False, **fig_kwargs)
         log.debug("Figure created.")
 
-        # Attach the created figure
-        self.attach_figure_and_axes(fig=fig, axes=axes,
-                            scale_figsize_with_subplots_shape=scale_figsize)
+        self.attach_figure_and_axes(fig=fig, axes=axes)
+
+        # Scale figure, if needed
+        if scale_figsize and self.axes.size > 1:
+            log.debug("Scaling current figure size with subplots shape %s ...",
+                      self.axes.shape)
+
+            old_figsize = self.fig.get_size_inches()
+            self.fig.set_size_inches(old_figsize[0] * self.axes.shape[0],
+                                     old_figsize[1] * self.axes.shape[1])
+
+            log.debug("Scaled figure size from %s to %s.",
+                      old_figsize, self.fig.get_size_inches())
 
     def save_figure(self, *, close: bool=True):
         """Saves and (optionally, but default) closes the current figure
