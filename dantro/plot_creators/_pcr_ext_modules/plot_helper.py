@@ -287,25 +287,88 @@ class PlotHelper:
     # .........................................................................
     # Figure setup and axis control
 
-    def setup_figure(self, **update_fig_kwargs):
-        """Sets up a matplotlib figure instance with the given configuration.
-        It does so by calling matplotlib.pyplot.subplots, with squeeze set to
-        False such that the axes are always returned as 2D axis array.
+    def attach_figure_and_axes(self, *, fig, axes):
+        """Attaches the given figure and axes to the PlotHelper. This method
+        replaces an existing figure and existing axes with the ones given.
+
+        As the PlotHelper relies on axes being accessible via coordinate pairs,
+        multiple axes must be passed as two-dimensional array-like. Since the
+        axes are internally stored as numpy array, the axes-grid must be
+        complete.
         
-        This method replaces an existing figure with the newly setup one. The
-        old figure is closed. With it, the existing axis-specific config and
-        all existing axes are destroyed. In other words: All information
-        provided via the provide_defaults and the mark_* methods is lost.
+        Note that by closing the old figure the existing axis-specific config
+        and all existing axes are destroyed. In other words: All information
+        previously provided via the provide_defaults and the mark_* methods is
+        lost. Therefore, if needed, it is recommended to call this method at
+        the beginning of the plotting function.
+
+        .. note::
+
+            This function assumes multiple axes to be passed in (y,x) format
+            (as e.g. returned by matplotlib.pyplot.subplots with squeeze set to
+            False) and internally transposes the axes-grid such that afterwards
+            it is accessible via (x,y) coordinates.
         
         Args:
-            **update_fig_kwargs: Parameters that are used to update the
-                figure setup parameters stored in `setup_figure`.
+            fig: The new figure which replaces the existing.
+            axes: single axis or 2d array-like containing the axes
+        
+        Raises:
+            ValueError: On multiple axes not being passed in 2d format.
+        
         """
         if self._fig is not None:
             log.debug("Closing existing figure and re-associating with a new "
                       "figure ...")
             self.close_figure()
 
+        # Assign the new figure
+        self._fig = fig
+
+        # Prepare the new axis object
+        try:
+            # Assuming it's a scalar, np.reshape leads to np.array being called
+            # on the object, thus allowing any scalar type. Only in cases where
+            # an np.ndarray with size > 1 is given will this reshape operation
+            # fail.
+            axes = np.reshape(axes, (1, 1))
+
+        except ValueError:
+            # Else, assume array-like, containing the axes in (y,x) format.
+            # Transpose the axes such that they are accessible in the (x,y)
+            # format, which is used internally throughout the PlotHelper.
+            axes = np.array(axes).T
+
+        # Ensure correct shape
+        if axes.ndim != 2:
+            raise ValueError("When attaching a figure with multiple axes, the "
+                             "axes must be passed as a 2d array-like object! "
+                             "Got object of shape {}.".format(axes.shape))
+
+        # Everything ok, attach axes
+        self._axes = axes
+
+        log.debug("Figure and axes attached.")
+
+        # Select the (0, 0) axis, for consistency
+        self.select_axis(0, 0)
+
+        # Can now evaluate the axis-specific configuration
+        self._cfg = self._compile_axis_specific_cfg()
+
+
+    def setup_figure(self, **update_fig_kwargs):
+        """Sets up a matplotlib figure instance and axes with the given
+        configuration (by calling matplotlib.pyplot.subplots) and attaches
+        both to the PlotHelper.
+
+        If the ``scale_figsize_with_subplots_shape`` option is enabled here,
+        this method will also take care of scaling the figure accordingly.
+        
+        Args:
+            **update_fig_kwargs: Parameters that are used to update the
+                figure setup parameters stored in `setup_figure`.
+        """
         # Prepare arguments
         fig_kwargs = self.base_cfg.get('setup_figure', {})
 
@@ -316,19 +379,13 @@ class PlotHelper:
         scale_figsize = fig_kwargs.pop('scale_figsize_with_subplots_shape',
                                        False)
 
-        # Now, create the figure and axes
-        self._fig, self._axes = plt.subplots(squeeze=False, **fig_kwargs)
+        # Now, create the figure and axes and attach them
+        fig, axes = plt.subplots(squeeze=False, **fig_kwargs)
         log.debug("Figure created.")
 
-        # Transpose the axes, as matplotlib is really inconsistent with this
-        # and stores the axes in format (y, x)...
-        self._axes = self._axes.T
-        # Axes are now accessible via (x, y) format
+        self.attach_figure_and_axes(fig=fig, axes=axes)
 
-        # Select the (0, 0) axis, for consistency
-        self.select_axis(0, 0)
-
-        # Scale, if needed
+        # Scale figure, if needed
         if scale_figsize and self.axes.size > 1:
             log.debug("Scaling current figure size with subplots shape %s ...",
                       self.axes.shape)
@@ -339,9 +396,6 @@ class PlotHelper:
 
             log.debug("Scaled figure size from %s to %s.",
                       old_figsize, self.fig.get_size_inches())
-
-        # Can now evaluate the axis-specific configuration
-        self._cfg = self._compile_axis_specific_cfg()
 
     def save_figure(self, *, close: bool=True):
         """Saves and (optionally, but default) closes the current figure
