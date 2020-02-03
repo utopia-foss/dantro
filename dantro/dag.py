@@ -27,6 +27,7 @@ from ._dag_utils import (DAGObjects, DAGReference, DAGTag, DAGNode,
                          parse_dag_minimal_syntax as _parse_dag_minimal_syntax)
 from ._hash import _hash, SHORT_HASH_LENGTH, FULL_HASH_LENGTH
 
+
 # Local constants .............................................................
 log = logging.getLogger(__name__)
 

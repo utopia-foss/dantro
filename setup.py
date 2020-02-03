@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 
+import os
+import re
+import codecs
 from setuptools import setup, find_packages
 
 # Dependency lists ............................................................
 install_deps = [
     'numpy>=1.14',
-    'xarray>=0.13.0',
-    'dask>=2.5.2',
-    'toolz>=0.10.0',      # Needed for dask.delayed
-    'distributed>=2.5.2', # Needed for dask's distributed scheduler
+    'xarray>=0.15.0',
+    'dask>=2.10.1',
+    'toolz>=0.10.0',        # Needed for dask.delayed
+    'distributed>=2.10.0',  # Needed for dask's distributed scheduler
+    'scipy>=1.4.1',         # Used as a netcdf4 storage engine for xarray
     'h5py>=2.7.0',
-    'netcdf4==1.5.2',     # Needed for saving xr.Datasets
-    # FIXME remove netcdf4 bound once the data saving bug in 1.5.3 is fixed
     'networkx>=2.2',
     'ruamel.yaml>=0.16.5',
-    'matplotlib>=3.1.0',
+    'matplotlib>=3.1.3',
     'paramspace>=2.2.3'
     ]
 test_deps = ['pytest>=3.4.0', 'pytest-cov>=2.5.1', 'tox>=3.1.2']
@@ -22,11 +24,10 @@ doc_deps = ['sphinx>=2.4,<3.0', 'sphinx_rtd_theme']
 
 # .............................................................................
 
+
 # A function to extract version number from __init__.py
 def find_version(*file_paths) -> str:
     """Tries to extract a version from the given path sequence"""
-    import os, re, codecs
-
     def read(*parts):
         """Reads a file from the given path sequence, relative to this file"""
         here = os.path.abspath(os.path.dirname(__file__))
