@@ -1,0 +1,70 @@
+# A list of (reference type, target module type) pairs that should be ignored
+# in sphinx' nitpicky mode
+# -----------------------------------------------------------------------------
+# Python builtin types that cannot be referenced
+py:obj None
+py:class str
+py:class int
+py:class float
+py:class bool
+py:class dict
+py:class list
+py:class tuple
+py:class object
+py:class type
+py:class Cls
+py:class builtins.dict
+py:class collections.OrderedDict
+py:class collections.abc.Mapping
+py:class collections.abc.MutableMapping
+py:class collections.abc.MutableSequence
+py:class logging.Logger
+
+# Exceptions, both as exception reference and type reference
+py:exc Exception
+py:exc ValueError
+py:exc IndexError
+py:exc KeyError
+py:exc TypeError
+py:exc AttributeError
+py:exc NotImplementedError
+py:exc UserWarning
+
+py:class Exception
+py:class ValueError
+py:class IndexError
+py:class KeyError
+py:class TypeError
+py:class AttributeError
+py:class NotImplementedError
+py:class UserWarning
+
+# Type-hinting related types
+py:class optional
+py:class Any
+py:class Union
+py:class Callable
+py:class Sequence
+py:class Tuple
+py:class List
+py:class Dict
+
+# numpy, xarray, h5py
+py:class np.ndarray
+py:class xr.Dataset
+py:class xr.DataArray
+py:class h5.Dataset
+py:class h5.File
+
+# matplotlib
+py:class matplotlib.Figure
+py:class matplotlib.animation.AbstractMovieWriter
+
+# other packages
+py:class nx.Graph
+py:class ParamSpace
+
+# dantro-internal
+# NOTE Before adding something here, make sure that these really are to be
+#      ignored! There is a good chance that these entries could actually be
+#      referenced when specified correctly.

@@ -39,7 +39,7 @@ def find_version(*file_paths) -> str:
 # -- Project information -----------------------------------------------------
 
 project = 'dantro'
-copyright = '2019, Utopia Developers'
+copyright = '2020, Utopia Developers'
 author = 'Utopia Developers'
 
 # The short X.Y version
@@ -52,11 +52,10 @@ release = find_version('..', 'dantro', '__init__.py')
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
-needs_sphinx = '1.8'
+needs_sphinx = '2.4'
 
 # Add any Sphinx extension module names here, as strings. They can be
-# extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
-# ones.
+# extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.todo',
@@ -65,7 +64,7 @@ extensions = [
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
     ### Additional extensions
-    'sphinx.ext.napoleon' # pre-process Google-style Python docstrings
+    'sphinx.ext.napoleon',      # pre-process Google-style Python docstrings
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -124,7 +123,7 @@ html_theme = 'sphinx_rtd_theme'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = []
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
@@ -221,13 +220,14 @@ todo_include_todos = True
 
 
 # -- Napoleon configuration --------------------------------------------------
+
 napoleon_google_docstring = True
 # Whether to parse Google style docstrings. (default: true)
 
 napoleon_numpy_docstring = False
 # Whether to parse numpy style docstrings. (default: true)
 
-napoleon_include_init_with_doc = False
+napoleon_include_init_with_doc = True
 # True to list __init___ docstrings separately from the class docstring.
 # False to fall back to Sphinx’s default behavior, which considers the
 # __init___ docstring as part of the class documentation. Defaults to False.
@@ -239,3 +239,26 @@ napoleon_include_private_with_doc = False
 napoleon_include_special_with_doc = True
 # True to include special members (like __membername__) with docstrings in the
 # documentation. False to fall back to Sphinx’s default behavior. Default: True
+
+
+
+# -- Nitpicky Configuration ---------------------------------------------------
+
+# Be nitpicky about warnings, to show all references where the target could
+# not be found
+nitpicky = True
+
+# ... however, we need to exclude quite a lot, so we load the to-be-ignored
+# references from a file. This is a list of (type, target) tuples, both entries
+# being strings, e.g. `('py:func', 'int')`
+nitpick_ignore = []
+# See the following page for more information and syntax:
+#  www.sphinx-doc.org/en/master/usage/configuration.html#confval-nitpick_ignore
+
+for line in open('.nitpick-ignore'):
+    line = line.strip()
+    if not line or line.startswith("#"):
+        continue
+
+    reftype, target = line.split(" ", 1)
+    nitpick_ignore.append((reftype, target.strip()))

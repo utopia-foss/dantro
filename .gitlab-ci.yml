@@ -63,15 +63,25 @@ test:py37:
 build:docs:
   stage: build
   image: python:3.6
+  allow_failure: true
   before_script:
     - pip3 install .[doc_deps]
   script:
     - cd doc
     - make doc
+  after_script:
+    # Append the error log such that it's more convenient to read
+    - echo -e "\n\n--- Errors emitted during building of documentation ---\n\n"
+    - cat doc/build_errors.log
+  
   artifacts:
-    expire_in: 1h
+    when: always
+    name: "doc-$CI_COMMIT_REF_NAME"
+    expire_in: 3h
+    expose_as: doc build error log
     paths:
       - doc/_build/html
+      - doc/build_errors.log
 
 
 # -- Deploy Stage -------------------------------------------------------------
