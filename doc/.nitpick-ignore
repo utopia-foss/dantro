@@ -27,6 +27,7 @@ py:exc IndexError
 py:exc KeyError
 py:exc TypeError
 py:exc AttributeError
+py:exc RuntimeError
 py:exc NotImplementedError
 py:exc UserWarning
 
@@ -36,6 +37,7 @@ py:class IndexError
 py:class KeyError
 py:class TypeError
 py:class AttributeError
+py:class RuntimeError
 py:class NotImplementedError
 py:class UserWarning
 
@@ -68,3 +70,7 @@ py:class ParamSpace
 # NOTE Before adding something here, make sure that these really are to be
 #      ignored! There is a good chance that these entries could actually be
 #      referenced when specified correctly.
+py:class TDims
+py:class TCoord
+py:class TCoords
+py:class TCoordsDict
