@@ -332,17 +332,14 @@ class BasePlotCreator(AbstractPlotCreator):
 
         return dict(init=init_kwargs, compute=compute_kwargs), plot_kwargs
 
-    def _use_dag(self, *, use_dag: bool, plot_kwargs: dict, **_) -> bool:
+    def _use_dag(self, *, use_dag: bool, plot_kwargs: dict, **_kws) -> bool:
         """Whether the data transformation framework should be used.
         
         Args:
             use_dag (bool): The value from the plot configuration
             plot_kwargs (dict): The plot configuration
-            **_: Any further kwargs that can be used to assess whether the DAG
-                should be used or not. Ignored here.
-        
-        Deleted Parameters:
-            **plot_kwargs: The remaining plot configuration; ignored here
+            **_kws: Any further kwargs that can be used to assess whether the
+                DAG should be used or not. Ignored here.
         
         Returns:
             bool: Whether the DAG should be used or not

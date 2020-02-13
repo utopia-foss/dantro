@@ -7,7 +7,7 @@ import re
 import glob
 import logging
 import warnings
-from typing import Union, Callable, List, Tuple
+from typing import Union, Callable, List, Tuple, Dict
 
 from .base import PATH_JOIN_CHAR, BaseDataContainer, BaseDataGroup
 from .groups import OrderedDataGroup
@@ -98,13 +98,13 @@ class DataManager(OrderedDataGroup):
             load_cfg (Union[dict, str], optional): The base configuration used
                 for loading data. If a string is given, assumes a yaml file and
                 loads that. If none is given, it can still be supplied to the
-                load_data method.
+                :py:meth:`~dantro.data_mngr.DataManager.load` method.
             out_dir (Union[str, bool], optional): where output is written to.
                 If this is given as a relative path, it is considered relative
-                to the _data directory_. A formatting operation with the keys 
-                `timestamp` and `name` is performed on this, where the latter
-                is the name of the data manager. If set to False, the output
-                directory is not created.
+                to the ``data_dir``. A formatting operation with the keys 
+                ``timestamp`` and ``name`` is performed on this, where the
+                latter is the name of the data manager. If set to False, no
+                output directory is created.
             out_dir_kwargs (dict, optional): Additional arguments that affect
                 how the output directory is created.
             create_groups (List[Union[str, dict]], optional): If given, these
@@ -113,12 +113,12 @@ class DataManager(OrderedDataGroup):
                 they are dicts, the `name` key specifies the name of the group
                 and the `Cls` key specifies the type. If a string is given
                 instead of a type, the lookup happens from the
-                _DATA_GROUP_CLASSES variable.
+                ``_DATA_GROUP_CLASSES`` variable.
             condensed_tree_params (dict, optional): If given, will set the
                 parameters used for the condensed tree representation.
                 Available options: ``max_level`` and ``condense_thresh``, where
                 the latter may be a callable.
-                See :py:meth:`dantro.abc.BaseDataGroup._tree_repr` for more
+                See :py:meth:`dantro.base.BaseDataGroup._tree_repr` for more
                 information.
         """
         # Find a name if none was given
@@ -190,7 +190,7 @@ class DataManager(OrderedDataGroup):
 
     def _init_dirs(self, *, data_dir: str, out_dir: Union[str, bool],
                    timestamp: float=None, timefstr: str="%y%m%d-%H%M%S",
-                   exist_ok: bool=False) -> dict:
+                   exist_ok: bool=False) -> Dict[str, str]:
         """Initializes the directories managed by this DataManager and returns
         a dictionary that stores the absolute paths to these directories.
         
@@ -202,10 +202,10 @@ class DataManager(OrderedDataGroup):
                 working directory.
             out_dir (Union[str, bool]): where output is written to.
                 If this is given as a relative path, it is considered relative
-                to the _data directory_. A formatting operation with the keys 
-                `timestamp` and `name` is performed on this, where the latter
-                is the name of the data manager. If set to False, the output
-                directory is not created.
+                to the **data directory**. A formatting operation with the
+                keys ``timestamp`` and ``name`` is performed on this, where
+                the latter is the name of the data manager. If set to False,
+                no output directory is created.
             timestamp (float, optional): If given, use this time to generate
                 the `date` format string key. If not, uses the current time.
             timefstr (str, optional): Format string to use for generating the
@@ -216,7 +216,8 @@ class DataManager(OrderedDataGroup):
                 errors will just occur at a later stage.
         
         Returns:
-            dict: The directories
+            Dict[str, str]: The directory paths registered under certain keys,
+                e.g. ``data`` and ``out``.
         """
 
         # Make the data directory absolute
@@ -294,9 +295,9 @@ class DataManager(OrderedDataGroup):
             update_load_cfg (dict, optional): If given, it is used to update
                 the load configuration recursively
             exists_action (str, optional): The behaviour upon existing data.
-                Can be: raise (default), skip, skip_nowarn, overwrite,
-                overwrite_nowarn.  With *_nowarn values, no warning is given
-                if an entry already existed.
+                Can be: ``raise`` (default), ``skip``, ``skip_nowarn``,
+                ``overwrite``, ``overwrite_nowarn``. With the ``*_nowarn``
+                values, no warning is given if an entry already existed.
             print_tree (Union[bool, str], optional): If True, the full tree
                 representation of the DataManager is printed after the data
                 was loaded. If ``'condensed'``, the condensed tree will be
@@ -367,7 +368,7 @@ class DataManager(OrderedDataGroup):
                 from a path outside the associated data directory.
             target_group (str, optional): If given, the files to be loaded will
                 be stored in this group. This may only be given if the argument
-                target_path is _not_ given.
+                target_path is *not* given.
             target_path (str, optional): The path to write the data to. This
                 can be a format string. It is evaluated for each file that has
                 been matched. If it is not given, the content is loaded to a
@@ -382,31 +383,38 @@ class DataManager(OrderedDataGroup):
                 added not as a new DataContainer or DataGroup, but as an
                 attribute to an (already existing) object at ``target_path``.
                 The name of the attribute will be the ``entry_name``.
-            **load_params: Further loading parameters, all optional!
+            **load_params: Further loading parameters, all optional. These are
+                evaluated by :py:meth:`~dantro.data_mngr.DataManager._load`.
         
-                ignore (list): The exact file names in this list will be
-                    ignored during loading. Paths are seen as elative to the
-                    data directory of the data manager.
-                required (bool): If True, will raise an error if no files were
-                    found. Default: False.
-                path_regex (str): This pattern can be used to match the path of
-                    the file that is being loaded. The match result is
-                    available to the format string under the `match` key.
-                exists_action (str): The behaviour upon existing data.
-                    Can be: raise (default), skip, skip_nowarn, overwrite,
-                    overwrite_nowarn.
-                    With *_nowarn values, no warning is given if an entry
+                ignore (list):
+                    The exact file names in this list will be ignored during
+                    loading. Paths are seen as elative to the data directory
+                    of the data manager.
+                required (bool):
+                    If True, will raise an error if no files were found.
+                    Default: False.
+                path_regex (str):
+                    This pattern can be used to match the path of the file
+                    that is being loaded. The match result is available to the
+                    format string under the `match` key.
+                exists_action (str):
+                    The behaviour upon existing data.
+                    Can be: ``raise`` (default), ``skip``, ``skip_nowarn``,
+                    ``overwrite``, ``overwrite_nowarn``.
+                    With ``*_nowarn`` values, no warning is given if an entry
                     already existed. Note that this is ignored when
                     the ``load_as_attr`` argument is given.
-                unpack_data (bool, optional): If True, and ``load_as_attr`` is
-                    active, not the DataContainer or DataGroup itself will be
-                    stored in the attribute, but the content of its .data
-                    attribute.
-                progress_indicator (bool): Whether to print a progress
-                    indicator or not. Default: True
-                parallel (bool): If True, data is loaded in parallel.
-                    This feature is not implemented yet!
-                any further kwargs: passed on to the loader function
+                unpack_data (bool, optional):
+                    If True, and ``load_as_attr`` is active, not the
+                    DataContainer or DataGroup itself will be stored in the
+                    attribute, but the content of its ``.data`` attribute.
+                progress_indicator (bool):
+                    Whether to print a progress indicator or not. Default: True
+                parallel (bool):
+                    If True, data is loaded in parallel. This feature is not
+                    implemented yet!
+                any further kwargs:
+                    passed on to the loader function
         
         Returns:
             None
@@ -516,12 +524,13 @@ class DataManager(OrderedDataGroup):
         Args:
             target_path (str): The path to load the result of the loader to.
                 This can be a format string; it is evaluated for each file.
-                Available keys are: basename, match (if `path_regex` is given)
+                Available keys are: basename, match (if ``path_regex`` is
+                given)
             loader (str): The loader to use
             glob_str (Union[str, List[str]]): A glob string or a list of glob
                 strings to match files in the data directory
             load_as_attr (Union[str, None]): If a string, the entry will be
-                loaded into the object at `target_path` under a new attribute
+                loaded into the object at ``target_path`` under a new attribute
                 with this name.
             base_path (str, optional): The base directory to concatenate the
                 glob string to; if None, will use the DataManager's data
@@ -536,14 +545,14 @@ class DataManager(OrderedDataGroup):
                 of the files that were found. It is used to generate the name
                 of the target container. If not given, the basename is used.
             exists_action (str, optional): The behaviour upon existing data.
-                Can be: raise (default), skip, skip_nowarn, overwrite,
-                overwrite_nowarn.
-                With *_nowarn values, no warning is given if an entry already
-                existed.
-                Note that this is ignored if `load_as_attr` is given.
-            unpack_data (bool, optional): If True, and load_as_attr is active,
-                not the DataContainer or DataGroup itself will be stored in
-                the attribute, but the content of its .data attribute.
+                Can be: ``raise`` (default), ``skip``, ``skip_nowarn``,
+                ``overwrite``, ``overwrite_nowarn``. With ``*_nowarn`` values,
+                no warning is given if an entry already existed.
+                Note that this is ignored if ``load_as_attr`` is given.
+            unpack_data (bool, optional): If True, and ``load_as_attr`` is
+                active, not the DataContainer or DataGroup itself will be
+                stored in the attribute, but the content of its ``.data``
+                attribute.
             progress_indicator (bool, optional): Whether to print a progress
                 indicator or not
             parallel (bool, optional): If True, data is loaded in parallel -
@@ -551,8 +560,8 @@ class DataManager(OrderedDataGroup):
             **loader_kwargs: passed on to the loader function
         
         Raises:
-            NotImplementedError: For `parallel == True`
-            ValueError: Bad path_regex
+            NotImplementedError: For ``parallel == True``
+            ValueError: Bad ``path_regex``
         
         Returns:
             int: Number of files that data was loaded from

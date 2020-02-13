@@ -247,10 +247,10 @@ class DoNothingContext:
         pass
 
     def __enter__(self):
-        """Called upon entering the context using the `with` statement"""
+        """Called upon entering the context using the ``with`` statement"""
         pass
 
     def __exit__(self, *args):
-        """Called upon exiting context, with *args being exceptions etc."""
+        """Called upon exiting context, with ``*args`` being exceptions etc."""
         pass
 

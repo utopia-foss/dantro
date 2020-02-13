@@ -65,9 +65,9 @@ class MultiversePlotCreator(ExternalPlotCreator):
         
         This also implements the functionality to select and combine data from
         the Multiverse and provide it to the plot function. It can do so via
-        the associated :py:class:`~dantro.groups.ParamSpaceGroup` directly or
-        by creating a :py:class:`~dantro.dag.TransformationDAG` that leads to
-        the same results.
+        the associated :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`
+        directly or by creating a :py:class:`~dantro.dag.TransformationDAG`
+        that leads to the same results.
         
         .. warning::
         
@@ -78,7 +78,8 @@ class MultiversePlotCreator(ExternalPlotCreator):
         Args:
             *args: Positional arguments to the plot function.
             select (dict, optional): If given, selects and combines multiverse
-                data using :py:meth:`~dantro.groups.ParamSpaceGroup.select`.
+                data using
+                :py:meth:`~dantro.groups.pspgrp.ParamSpaceGroup.select`.
                 The result is an ``xr.Dataset`` and it is made available to
                 the plot function as ``mv_data`` argument.
             select_and_combine (dict, optional): If given, interfaces with the
@@ -143,8 +144,8 @@ class MultiversePlotCreator(ExternalPlotCreator):
         transformations, and a ``combine`` operation, that aligns the data in
         the desired fashion.
         
-        This way, the :py:meth:`~dantro.groups.ParamSpaceGroup.select` method's
-        behaviour is emulated in the DAG.
+        This way, the :py:meth:`~dantro.groups.pspgrp.ParamSpaceGroup.select`
+        method's behaviour is emulated in the DAG.
         
         Args:
             _plot_func (Callable): The plot function; passed on to parent

@@ -2,7 +2,7 @@
 ensure correct loader function signature.
 """
 
-def add_loader(*, TargetCls, omit_self: bool=True):
+def add_loader(*, TargetCls: type, omit_self: bool=True):
     """This decorator should be used to specify loader functions.
     
     Args:

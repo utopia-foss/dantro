@@ -231,10 +231,12 @@ class PlotHelper:
     
     @property
     def ax_coords(self) -> Tuple[int]:
-        """Returns the current axis' coordinates within a subfigure: (col, row)
+        """Returns the current axis coordinates within a subfigure in shape
+        ``(col, row)``.
 
-        For example, the (0, 0) coordinate refers to the top left subplot of
-        the figure. (1, 2) is the axis object in the second column, third row.
+        For example, the ``(0, 0)`` coordinate refers to the top left subplot
+        of the figure. ``(1, 2)`` is the axis object in the second column,
+        third row.
         """
         if self._current_ax_coords is None:
             raise RuntimeError("The current axis coordinate is only defined "

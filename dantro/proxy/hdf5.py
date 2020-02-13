@@ -22,9 +22,9 @@ class Hdf5DataProxy(BaseDataProxy):
     dtype of the dataset.
 
     Depending on the type that this proxy is resolved as via the
-    :py:meth:`.resolve` method, the corresponding ``h5py.File`` object needs
-    to stay open and in memory; it is closed upon garbage-collection of this
-    object.
+    :py:meth:`~dantro.proxy.hdf5.Hdf5DataProxy.resolve` method, the
+    corresponding ``h5py.File`` object needs to stay open and in memory; it is
+    closed upon garbage-collection of this object.
     """
 
     def __init__(self, obj: h5.Dataset, *, resolve_as_dask: bool=False):

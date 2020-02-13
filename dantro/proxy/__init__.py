@@ -1,3 +1,3 @@
 """This modules implements data proxies"""
 
-from .hdf5proxy import Hdf5DataProxy
+from .hdf5 import Hdf5DataProxy

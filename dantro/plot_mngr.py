@@ -89,17 +89,17 @@ class PlotManager:
 
         Specifically:
 
-            1. The `base_cfg` contains a set of plot configurations that form
+            1. The ``base_cfg`` contains a set of plot configurations that form
                 a repertoire of configurations. These are not performed by
                 default, but can be imported.
-            2. The `update_base_cfg` contains plot configurations that are
+            2. The ``update_base_cfg`` contains plot configurations that are
                 possibly derived from the base repertoire. This happens in the
                 following way: First by recursive update of existing entries,
-                and second by resolving the `based_on: a_base_plot` again by
+                and second by resolving the ``based_on: a_base_plot`` again by
                 recursive update.
-            3. The `plots_cfg` holds enabled plot configurations, possibly
+            3. The ``plots_cfg`` holds enabled plot configurations, possibly
                 derived from the base configuration using the `based_on`
-                feature, e.g. `based_on: a_base_plot`; this happens by
+                feature, e.g. ``based_on: a_base_plot``; this happens by
                 recursive update.
 
         Args:
@@ -108,33 +108,39 @@ class PlotManager:
             base_cfg (Union[dict, str], optional): The default base config or a
                 path to a yaml-file to import. The base config defines a set
                 of plot configuration that other plot configurations can
-                declare themselves `based_on`.
+                declare themselves ``based_on``.
             update_base_cfg (Union[dict, str], optional): An update config to
                 the base config or a path to a yaml-file to import which
-                recursively updates the base_cfg.
+                recursively updates the ``base_cfg``.
             plots_cfg (Union[dict, str], optional): The default plots config or
                 a path to a yaml-file to import
             out_dir (Union[str, None], optional): If given, will use this
                 output directory as basis for the output path for each plot.
                 The path can be a format-string; it is evaluated upon call to
-                the plot command. Available keys: `timestamp`, `name`, ...
+                the plot command. Available keys: ``timestamp``, ``name``, ...
                 For a relative path, this will be relative to the DataManager's
                 output directory. Absolute paths remain absolute.
                 If this argument evaluates to False, the DataManager's output
                 directory will be the output directory.
             out_fstrs (dict, optional): Format strings that define how the
                 output path is generated. The dict given here updates the
-                DEFAULT_OUT_FSTRS class variable which holds the default values
-                Keys: `timestamp` (%-style), `path`, `sweep`, `state`,
-                      `plot_cfg`, `state`, `state_no`, `state_join_char`,
-                      `state_vector_join_char`
-                Available keys for `path`: `name`, `timestamp`, `ext`
-                Additionally, for `sweep`: `state_no`, `state_vector`, `state`
+                ``DEFAULT_OUT_FSTRS`` class variable which holds the default
+                values.
+
+                Keys: ``timestamp`` (%-style), ``path``, ``sweep``, ``state``,
+                ``plot_cfg``, ``state``, ``state_no``, ``state_join_char``,
+                ``state_vector_join_char``.
+
+                Available keys for ``path``: ``name``, ``timestamp``, ``ext``.
+
+                Additionally, for ``sweep``: ``state_no``, ``state_vector``,
+                    ``state``.
+
             creator_init_kwargs (Dict[str, dict], optional): If given, these
                 kwargs are passed to the initialization calls of the respective
                 creator classes.
             default_creator (str, optional): If given, a plot without explicit
-                `creator` declaration will use this creator as default.
+                ``creator`` declaration will use this creator as default.
             auto_detect_creator (bool, optional): If true, and no default
                 creator is given, will try to automatically deduce the creator
                 using the given plot arguments. All creators registered with
@@ -145,7 +151,7 @@ class PlotManager:
                 are errors raised from the plot creator or errors in the plot
                 configuration. If False, the errors will only be logged.
             cfg_exists_action (str, optional): Behaviour when a config file
-                already exists. Can be: skip, overwrite, raise.
+                already exists. Can be: ``skip``, ``overwrite``, ``raise``.
         
         Raises:
             InvalidCreator: When an invalid default creator was chosen
@@ -390,7 +396,7 @@ class PlotManager:
     def _resolve_based_on(self, *, cfg: dict,
                           based_on: Union[str, Tuple[str]]=None,
                           work_on_deepcopy: bool=True) -> dict:
-        """Resolves the based_on reference in a plot_cfg
+        """Resolves the ``based_on`` reference in a plot configuration
         
         Args:
             cfg (dict): The plot configuration that will be used to recursively
@@ -400,10 +406,10 @@ class PlotManager:
             work_on_deepcopy (bool, optional): Whether to work on a deepcopy
         
         Returns:
-            plot_cfg (dict): The derived plot configuration
+            dict: The plot configuration derived from the one at ``based_on``
         
         Raises:
-            KeyError: If based_on value not a key in self._base_cfg
+            KeyError: If ``based_on`` value is not a key in ``self._base_cfg``
         """
         if not based_on:
             return cfg
@@ -559,9 +565,9 @@ class PlotManager:
 
     def _invoke_creator(self, plot_creator: Callable, *, out_path: str,
                         **plot_cfg) -> Any:
-        """This method wraps the plot creator's __call__ and is the last
+        """This method wraps the plot creator's ``__call__`` and is the last
         PlotManager method that is called prior to handing over to the selected
-        plot creator. It takes care of invoking the plot creator's __call__
+        plot creator. It takes care of invoking the plot creator's ``__call__``
         method and handling potential error messages and return values.
         
         Args:
@@ -570,7 +576,7 @@ class PlotManager:
             **plot_cfg: The plot configuration
         
         Returns:
-            Any: The return value of the plot creator's ``__call__ `` method
+            Any: The return value of the plot creator's ``__call__`` method
         
         Raises:
             PlotCreatorError: On error within the plot creator

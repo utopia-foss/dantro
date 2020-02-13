@@ -2,6 +2,7 @@
 
 import logging
 import warnings
+from typing import Union
 
 import numpy as np
 
@@ -75,12 +76,12 @@ class ProxySupportMixin:
         """Returns true, if this is proxy data
         
         Returns:
-            bool: Whether the _currently_ stored data is a proxy object
+            bool: Whether the *currently* stored data is a proxy object
         """
         return isinstance(self._data, AbstractDataProxy)
 
     @property
-    def proxy(self) -> AbstractDataProxy:
+    def proxy(self) -> Union[AbstractDataProxy, None]:
         """If the data is proxy, returns the proxy data object without using 
         the .data attribute (which would trigger resolving the proxy); else 
         returns None.
@@ -142,9 +143,11 @@ class ProxySupportMixin:
 
 
 class Hdf5ProxySupportMixin(ProxySupportMixin):
-    """Specializes :py:class:`~dantro.mixins.ProxySupportMixin` to the
-    capabilities of :py:class:`~dantro.proxy.Hdf5DataProxy`, i.e. it allows
-    access to the cached properties of the proxy object without resolving it.
+    """Specializes the
+    :py:class:`~dantro.mixins.proxy_support.ProxySupportMixin` to the
+    capabilities of :py:class:`~dantro.proxy.hdf5.Hdf5DataProxy`, i.e. it
+    allows access to the cached properties of the proxy object without
+    resolving it.
     """
 
     @property
