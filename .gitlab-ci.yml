@@ -115,8 +115,6 @@ deploy:stop_docs:
   when: manual          # ... but is also triggered on branch deletion
   variables:
     GIT_STRATEGY: none  # Don't check out the branch (might already be deleted)
-  needs:
-    - build:docs        # Required in order for 'on_stop' to work
   script:
     - echo "Removing remote directory $DOC_REMOTE_PATH ..."
     - ssh -p $DOC_PORT $DOC_HOST "rm -rf $DOC_REMOTE_PATH"
