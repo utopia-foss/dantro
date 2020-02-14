@@ -65,15 +65,17 @@ class LabelledDataGroup(OrderedDataGroup):
         """Initialize a LabelledDataGroup
         
         Args:
-            *args: Passed on to OrderedDataGroup.__init__
+            *args: Passed on to
+                :py:class:`~dantro.groups.ordered.OrderedDataGroup`
             dims (TDims, optional): The dimensions associated with this group.
-                If not given, will use those defined in the LDG_DIMS class
-                variable. These can _not_ be changed afterwards!
+                If not given, will use those defined in the ``LDG_DIMS`` class
+                variable. These can *not* be changed afterwards!
             allow_deep_selection (bool, optional): Whether to allow deep
-                selection. If not given, will use the LDG_ALLOW_DEEP_SELECTION
-                class variable's value. Behaviour can be changed via the
-                property of the same name.
-            **kwargs: Passed on to OrderedDataGroup.__init__
+                selection. If not given, will use the
+                ``LDG_ALLOW_DEEP_SELECTION`` class variable's value. Behaviour
+                can be changed via the property of the same name.
+            **kwargs: Passed on to
+                :py:class:`~dantro.groups.ordered.OrderedDataGroup`
         """
         super().__init__(*args, **kwargs)
 

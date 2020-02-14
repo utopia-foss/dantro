@@ -133,21 +133,26 @@ class ExternalPlotCreator(BasePlotCreator):
             module (str, optional): If plot_func was the name of the plot
                 function, this needs to be the name of the module to import
             module_file (str, optional): Path to the file to load and look for
-                the `plot_func` in. If `base_module_file_dir` is given, this
-                can also be a path relative to that directory.
+                the ``plot_func`` in. If ``base_module_file_dir`` is given,
+                this can also be a path relative to that directory.
             style (dict, optional): Parameters that determine the aesthetics of
                 the created plot; basically matplotlib rcParams. From them, a
                 style context is entered before calling the plot function.
                 Valid keys:
-                    - `base_style` (str, List[str], optional) names of valid
-                        matplotlib styles
-                    - `rc_file` (str, optional) path to a YAML RC parameter
-                        file that is used to update the base style
-                    - `ignore_defaults` (bool, optional) Whether to ignore the
-                        default style passed to the __init__ method
-                    - further parameters will update the RC parameter dict yet
-                        again. Need be valid matplotlib RC parameters in order
-                        to have any effect.
+
+                    base_style (str, List[str], optional):
+                        names of valid matplotlib styles
+                    rc_file (str, optional):
+                        path to a YAML RC parameter file that is used to
+                        update the base style
+                    ignore_defaults (bool, optional):
+                        Whether to ignore the default style passed to the
+                        __init__ method
+                    further keyword arguments:
+                        will update the RC parameter dict yet again. Need be
+                        valid matplotlib RC parameters in order to have any
+                        effect.
+
             helpers (dict, optional): helper configuration passed to PlotHelper
                 initialization if enabled
             animation (dict, optional): animation configuration
@@ -672,22 +677,27 @@ class ExternalPlotCreator(BasePlotCreator):
             hlpr (PlotHelper): The plot helper
             context: The context to enter before starting animation
             plot_func (Callable): plotting function which is to be animated
-            plot_args (tuple): passed to plot_func
-            plot_kwargs (dict): passed to plot_func
+            plot_args (tuple): positional arguments to ``plot_func``
+            plot_kwargs (dict): keyword arguments to ``plot_func``
             writer (str): name of movie writer with which the frames are saved
             writer_kwargs (dict, optional): A dict of writer parameters. These
                 are associated with the chosen writer via the top level key
-                in `writer_kwargs`. Each dictionary container has three further
-                keys queried, all optional:
-                    - ``init``: passed to Writer.__init__ method
-                    - ``saving``: passed to Writer.saving method
-                    - ``grab_frame``: passed to Writer.grab_frame method
+                in ``writer_kwargs``. Each dictionary container has three
+                further keys queried, all optional:
+
+                    init:
+                        passed to ``Writer.__init__`` method
+                    saving:
+                        passed to ``Writer.saving`` method
+                    grab_frame:
+                        passed to ``Writer.grab_frame`` method
+
             animation_update_kwargs (dict, optional): Passed to the animation
                 update generator call.
         
         Raises:
-            ValueError: - animation not supported by plot_func
-                        - writer not available
+            ValueError: if the animation is not supported by the ``plot_func``
+                or if the writer is not available
         """
         # Check that the plot function actually supports animation
         if not getattr(plot_func, "supports_animation", False):

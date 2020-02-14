@@ -1,5 +1,6 @@
 ---
 stages:
+  - prep
   - test
   - build
   - deploy
@@ -39,6 +40,20 @@ variables:
   
 
 # -----------------------------------------------------------------------------
+# -- Prep Stage ---------------------------------------------------------------
+# ... doing some setup work
+
+prep:noop: # This is a no-op job, used as needs for build:docs
+  stage: prep
+  image: alpine:latest
+  cache: {}
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - echo "Let's get testing!"
+    - echo "(This is a workaround for 'https://gitlab.com/gitlab-org/gitlab/issues/30631')"
+
+
 # -- Test Stage ---------------------------------------------------------------
 # ... for testing with different python environments
 
@@ -63,15 +78,26 @@ test:py37:
 build:docs:
   stage: build
   image: python:3.6
+  allow_failure: true
+  needs: ["prep:noop"]
   before_script:
     - pip3 install .[doc_deps]
   script:
     - cd doc
     - make doc
+  after_script:
+    # Append the error log such that it's more convenient to read
+    - echo "-------- Errors emitted during building of documentation --------"
+    - cat doc/build_errors.log
+  
   artifacts:
-    expire_in: 1h
+    when: always
+    name: "doc-$CI_COMMIT_REF_NAME"
+    expire_in: 3h
+    expose_as: Documentation Build Results - including error log
     paths:
       - doc/_build/html
+      - doc/build_errors.log
 
 
 # -- Deploy Stage -------------------------------------------------------------

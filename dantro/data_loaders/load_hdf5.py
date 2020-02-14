@@ -24,10 +24,10 @@ class Hdf5LoaderMixin:
     It resolves the hdf5 groups into corresponding data groups and the datasets
     into NumpyDataContainers.
 
-    If `enable_mapping` is set, the _HDF5_DSET_MAP and _HDF5_GROUP_MAP class
-    variables are used to map from a string to a container type. The class
-    variable _HDF5_MAP_FROM_ATTR determines the default value of the attribute
-    to read and use as input string for the mapping. 
+    If ``enable_mapping`` is set, the class variables ``_HDF5_DSET_MAP`` and
+    ``_HDF5_GROUP_MAP`` are used to map from a string to a container type. The
+    class variable ``_HDF5_MAP_FROM_ATTR`` determines the default value of the
+    attribute to read and use as input string for the mapping. 
     """
 
     # Define the container classes to use when loading data with this mixin
@@ -57,8 +57,8 @@ class Hdf5LoaderMixin:
                    map_from_attr: str=None,
                    print_params: dict=None
                    ) -> OrderedDataGroup:
-        """Loads the specified hdf5 file into DataGroup and DataContainer-like
-        object; this completely recreates the hierarchic structure of the hdf5
+        """Loads the specified hdf5 file into DataGroup- and DataContainer-like
+        objects; this completely recreates the hierarchic structure of the hdf5
         file. The data can be loaded into memory completely, or be loaded as
         a proxy object.
         
@@ -66,20 +66,21 @@ class Hdf5LoaderMixin:
         DataGroup-derived objects; the Dataset objects to the specified
         DataContainer-derived object.
         
-        All attributes are carried over and are accessible under the `attrs`
-        attribute.
+        All HDF5 group or dataset attributes are carried over and are
+        accessible under the ``attrs`` attribute of the respective dantro
+        objects in the tree.
         
         Args:
             filepath (str): The path to the HDF5 file that is to be loaded
             TargetCls (type): The group type this is loaded into
             load_as_proxy (bool, optional): if True, the leaf datasets are
-                loaded as :py:class:`dantro.proxy.Hdf5DataProxy` objects. That
-                way, the data is only loaded into memory when their ``.data``
-                property is accessed the first time, either directly or
-                indirectly.
+                loaded as :py:class:`dantro.proxy.hdf5.Hdf5DataProxy`
+                objects. That way, the data is only loaded into memory when
+                their ``.data`` property is accessed the first time, either
+                directly or indirectly.
             proxy_kwargs (dict, optional): When loading as proxy, these
                 parameters are unpacked in the ``__init__`` call. For available
-                argument see :py:class:`dantro.proxy.Hdf5DataProxy`.
+                argument see :py:class:`dantro.proxy.hdf5.Hdf5DataProxy`.
             lower_case_keys (bool, optional): whether to use only lower-case
                 versions of the paths encountered in the HDF5 file.
             enable_mapping (bool, optional): If true, will use the class
@@ -89,11 +90,18 @@ class Hdf5LoaderMixin:
             map_from_attr (str, optional): From which attribute to read the
                 key that is used in the mapping. If nothing is given, the
                 class variable _HDF5_MAP_FROM_ATTR is used.
-            print_params (dict, optional): parameters for the status report
-                level: how verbose to print loading info; possible values are:
-                    0: None, 1: on file level, 2: on dataset level
-                fstrs1: format string level 1
-                fstrs2: format string level 2
+            print_params (dict, optional): parameters for the status report.
+                Available keys:
+
+                level (int):
+                    how verbose to print loading info; possible values are:
+                    ``0``: None, ``1``: on file level, ``2``: on dataset level
+                fstr1:
+                    format string level 1, receives keys ``name`` and ``file``,
+                    which is the file path.
+                fstr2:
+                    format string level 2, receives keys ``name``, ``file`` and
+                    ``obj``, which is an ``h5py.Dataset``.
         
         Returns:
             OrderedDataGroup: The populated root-level group, corresponding to
@@ -327,17 +335,17 @@ class Hdf5LoaderMixin:
     @add_loader(TargetCls=OrderedDataGroup, omit_self=False)
     def _load_hdf5_proxy(self, *args, **kwargs) -> OrderedDataGroup:
         """This is a shorthand for
-        :py:meth:`~dantro.data_loaders.Hdf5LoaderMixin._load_hdf5` with the
-        ``load_as_proxy`` flag set.
+        :py:meth:`~dantro.data_loaders.load_hdf5.Hdf5LoaderMixin._load_hdf5`
+        with the ``load_as_proxy`` flag set.
         """
         return self._load_hdf5(*args, load_as_proxy=True, **kwargs)
 
     @add_loader(TargetCls=OrderedDataGroup, omit_self=False)
     def _load_hdf5_as_dask(self, *args, **kwargs) -> OrderedDataGroup:
         """This is a shorthand for
-        :py:meth:`~dantro.data_loaders.Hdf5LoaderMixin._load_hdf5` with the
-        ``load_as_proxy`` flag set and ``resolve_as_dask`` passed as additional
-        arguments to the proxy.
+        :py:meth:`~dantro.data_loaders.load_hdf5.Hdf5LoaderMixin._load_hdf5`
+        with the ``load_as_proxy`` flag set and ``resolve_as_dask`` passed as
+        additional arguments to the proxy via ``proxy_kwargs``.
         """
         return self._load_hdf5(*args,
                                load_as_proxy=True,

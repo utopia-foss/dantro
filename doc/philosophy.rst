@@ -19,6 +19,7 @@ This refers to the idea that functionality can be added to classes using `multip
 For example, if a :py:class`~dantro.data_mngr.DataManager` is desired that needs a certain load functionality, this is specified simply by *additionally* inheriting a certain mixin class:
 
 .. code-block:: python
+
     from dantro import DataManager
     from dantro.data_loaders import YamlLoaderMixin
 

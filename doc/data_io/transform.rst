@@ -152,9 +152,9 @@ Referencing other Transformations
 """""""""""""""""""""""""""""""""
 Other transformations can be referenced in three ways, each with a corresponding Python class and an associated YAML tag:
 
-* :py:class:`~dantro.dag.DAGReference` and ``!dag_ref``: This is the most basic and most explicit reference, using the transformations' **hash** to identify a reference.
-* :py:class:`~dantro.dag.DAGTag` and ``!dag_tag``: References by tag are the preferred references. They use the plain text name specified via the ``tag`` key.
-* :py:class:`~dantro.dag.DAGNode` and ``!dag_node``: Uses the ID of the node within the DAG. Mostly for internal usage!
+* :py:class:`~dantro._dag_utils.DAGReference` and ``!dag_ref``: This is the most basic and most explicit reference, using the transformations' **hash** to identify a reference.
+* :py:class:`~dantro._dag_utils.DAGTag` and ``!dag_tag``: References by tag are the preferred references. They use the plain text name specified via the ``tag`` key.
+* :py:class:`~dantro._dag_utils.DAGNode` and ``!dag_node``: Uses the ID of the node within the DAG. Mostly for internal usage!
 
 .. note::
 
@@ -261,7 +261,7 @@ In case the result of the previous transformation should not be used in place of
 
 Computing Results
 ^^^^^^^^^^^^^^^^^
-To compute the results of the DAG, invoke the :py:class:`~dantro.dag.TransformationDAG`s :py:meth:`~dantro.dag.TransformationDAG.compute` method.
+To compute the results of the DAG, invoke the :py:class:`~dantro.dag.TransformationDAG`\ 's :py:meth:`~dantro.dag.TransformationDAG.compute` method.
 
 It can be called without any arguments, in which case the result of all *tagged* transformations will be computed and returned as a dict.
 If only the result of a subset of tags should be computed, they can also be specified.
@@ -270,7 +270,7 @@ Computing results works as follows:
 
 1. Each tagged :py:class:`~dantro.dag.Transformation` is visited and its own :py:meth:`~dantro.dag.Transformation.compute` method is invoked
 2. A cache lookup occurs, attempting to read the result from a memory or file cache.
-3. The transformations resolve potential references in their arguments: If a :py:class:`~dantro.dag.DAGReference` is encountered, the corresponding :py:class:`~dantro.dag.Transformation` is resolved and that transformation's :py:meth:`~dantro.dag.TransformationDAG.compute` method is invoked. This traverses all the way up the DAG until reaching the root nodes which contain only basic data types (that need no computation).
+3. The transformations resolve potential references in their arguments: If a :py:class:`~dantro._dag_utils.DAGReference` is encountered, the corresponding :py:class:`~dantro.dag.Transformation` is resolved and that transformation's :py:meth:`~dantro.dag.TransformationDAG.compute` method is invoked. This traverses all the way up the DAG until reaching the root nodes which contain only basic data types (that need no computation).
 4. Having resolved all references into results, the arguments are assembled, the operation callable is resolved, and invoked by passing the arguments.
 5. The result is kept in a memory cache. It *can* additionally be stored in a file cache to persist to later invocations.
 6. The result object is returned.
@@ -291,7 +291,7 @@ Resolving and applying operations
 """""""""""""""""""""""""""""""""
 Let's have a brief look into how the ``operation`` argument is actually resolved and how the operation is then applied.
 
-This feature is not specific to the DAG, but the DAG uses the :py:mod:`~dantro.utils.data_ops` module, which implements a database of available operations and the :py:func:`~dantro.utils.apply_operation` function to apply an operation.
+This feature is not specific to the DAG, but the DAG uses the :py:mod:`~dantro.utils.data_ops` module, which implements a database of available operations and the :py:func:`~dantro.utils.data_ops.apply_operation` function to apply an operation.
 Basically, this is a thin wrapper around a function lookup and its invocation.
 
 For a full list of available data operations, see :ref:`here <data_ops_available>`.
@@ -311,7 +311,7 @@ For a full list of available data operations, see :ref:`here <data_ops_available
               high: 10
               size: [2, 3, 4]
 
-    To specifically register additional operations, use the :py:func:`~dantro.utils.register_operation` function.
+    To specifically register additional operations, use the :py:func:`~dantro.utils.data_ops.register_operation` function.
     This should only be done for operations that are not easily usable via the ``import`` and ``call`` operations.
 
 
@@ -635,8 +635,8 @@ For example, it might make sense to store only results that took a very long tim
 Once it is decided that a result is to be written to a cache file, the corresponding storage function is invoked.
 It creates the cache directory, if it does not already exist, and then attempts to save the result object using a set of different storage functions.
 
-There are specific storage functions for numerical data: numpy array are stored via the ``numpy.save`` function, which is also used to store :py:class:`~dantro.containers.NumpyDataContainer` objects.
-Another specific storage function takes care of ``xarray.DataArray`` and :py:class:`~dantro.containers.XrDataContainer` objects.
+There are specific storage functions for numerical data: numpy array are stored via the ``numpy.save`` function, which is also used to store :py:class:`~dantro.containers.numeric.NumpyDataContainer` objects.
+Another specific storage function takes care of ``xarray.DataArray`` and :py:class:`~dantro.containers.xrdatactr.XrDataContainer` objects.
 
 If there is no specific storage function available, it is attempted to pickle the object.
 

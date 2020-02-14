@@ -24,11 +24,12 @@ log = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 
 class ParamSpaceStateGroup(OrderedDataGroup):
-    """A ParamSpaceStateGroup is a member of the ParamSpaceGroup.
+    """A ParamSpaceStateGroup is a member group of the
+    :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`.
 
-    While its own name need be interpretable as a positive integer (enforced
-    in parent :py:class:`~dantro.groups.ParamSpaceGroup` but also here), it
-    can hold members with any name.
+    While its *own* name need be interpretable as a positive integer (enforced
+    in the enclosing :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` but also
+    here), it can *hold* members with any name.
     """
     _NEW_GROUP_CLS = OrderedDataGroup
 

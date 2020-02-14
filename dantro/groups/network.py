@@ -1,9 +1,10 @@
 """In this module, the NetworkGroup is implemented"""
 
 import logging
-from typing import List
+from typing import List, Union
 
 import numpy as np
+import xarray as xr
 import networkx as nx
 import networkx.exception
 
@@ -33,27 +34,29 @@ class NetworkGroup(BaseDataGroup):
 
     # .........................................................................
 
-    def _get_data_at(self, *, data, at_time: int=None, at_time_idx: int=None):
+    def _get_data_at(self, *, data: Union[XrDataContainer, TimeSeriesGroup],
+                     at_time: int=None, at_time_idx: int=None
+                     ) -> Union[xr.DataArray, XrDataContainer]:
         """Extract the data (at a certain time).
         
         Args:
-            data (XrDataArray or TimeSeriesGroup): Description
+            data (Union[XrDataContainer, TimeSeriesGroup]): data to select from
             at_time (int, optional): access data via time coordinate
             at_time_idx (int, optional): access data via index
         
         Returns:
-            XrDataArray: property data
+            Union[xr.DataArray, XrDataContainer]: selected property data
         
         Raises:
             IndexError: selected time index not available
             KeyError: selected time coordinate not available
             TypeError: wrong container for single graph data
-            ValueError: Both 'at_time' and 'at_time_idx' are given
+            ValueError: Both ``at_time`` and ``at_time_idx`` are given
         
         """
         if at_time_idx is not None and at_time is not None:
-            raise ValueError("'at_time' and 'at_time_idx' can not be given"
-                             " at the same time!")
+            raise ValueError("Arguments 'at_time' and 'at_time_idx' can not "
+                             "be given at the same time!")
 
         # If `time` is not available, assume 1d data and return as it is.
         if 'time' not in data.dims:
@@ -66,7 +69,7 @@ class NetworkGroup(BaseDataGroup):
 
             except KeyError as err:
                 raise KeyError("Time key '{}' not available!"
-                    "".format(at_time)) from err
+                               "".format(at_time)) from err
 
         elif at_time_idx is not None:
 
@@ -75,12 +78,12 @@ class NetworkGroup(BaseDataGroup):
 
             except IndexError as err:
                 raise IndexError("Time index '{}' not available!"
-                    "".format(at_time_idx)) from err
+                                 "".format(at_time_idx)) from err
 
         else:
             if not isinstance(data, XrDataContainer):
                 raise TypeError("'data' has to be a XrDataContainer"
-                    ", got '{}'".format(type(data)))
+                                ", got '{}'".format(type(data)))
 
         return data
 
@@ -93,8 +96,8 @@ class NetworkGroup(BaseDataGroup):
         
         Args:
             directed (bool, optional): The graph is directed. If not given, the
-                value given by the group attribute with name _NWG_attr_directed
-                is used instead.
+                value given by the group attribute with name
+                ``_NWG_attr_directed`` is used instead.
             parallel_edges (bool, optional): If true, the graph will allow
                 parallel edges. If not given, the value is tried to be read
                 from the group attribute with name _NWG_attr_parallel.
@@ -232,17 +235,16 @@ class NetworkGroup(BaseDataGroup):
         
         Args:
             g (nx.Graph): The networkx Graph to work on
-            name (str): Name of the container which contains
-                the property values
+            name (str): Name of the container which contains the property
+                values
             at_time (int, optional): access data via time coordinate
             at_time_idx (int, optional): access data via index
         
         Raises:
             AttributeError: specified container not marked as property via
                 the according class attribute
-            KeyError: - name not available in nwgrp
-                      - 'at_time' not available in nwgrp[name]
-        
+            KeyError: The name is not available in ``nwgrp`` or ``at_time`` is
+                not available in ``nwgrp[name]``.
             ValueError: lenght of datasets does not match
         """
 
@@ -274,8 +276,8 @@ class NetworkGroup(BaseDataGroup):
         prop_data = prop_data[np.argsort(node_cont)]
 
         if len(g.nodes) != len(prop_data.values):
-            raise ValueError("Mismatch! '{}' property values for '{}'"
-                    " nodes".format(len(prop_data.values), len(g.nodes)))
+            raise ValueError("Mismatch! '{}' property values for '{}' nodes!"
+                             "".format(len(prop_data.values), len(g.nodes)))
 
         props = dict()
 
@@ -284,7 +286,6 @@ class NetworkGroup(BaseDataGroup):
 
         # add property to graph
         nx.set_node_attributes(g, props, name=name)
-
         
 
     def set_edge_property(self, *, g: nx.Graph, name: str, at_time: int=None,
@@ -293,41 +294,39 @@ class NetworkGroup(BaseDataGroup):
         
         Args:
             g (nx.Graph): The networkx Graph to work on
-            name (str): Name of the container which contains
-                the property values
+            name (str): Name of the container which contains the property
+                values
             at_time (int, optional): access data via time coordinate
             at_time_idx (int, optional): access data via index
         
         Raises:
             AttributeError: specified container not marked as property via
                 the according class attribute
-            KeyError: - name not available in nwgrp
-                      - 'at_time' not available in nwgrp[name]
-        
-            ValueError: lengt of datasets does not match
+            KeyError: The name is not available in ``nwgrp`` or ``at_time`` is
+                not available in ``nwgrp[name]``.
+            ValueError: dataset lengths mismatch
         """
-
         try:
             prop_data = self[name]
 
         except KeyError as err:
-            raise KeyError("No container with name '{}' available in"
-                       " {}!".format(name, self.logstr)) from err
+            raise KeyError("No container with name '{}' available in {}!"
+                           "".format(name, self.logstr)) from err
 
         if not prop_data.attrs.get(self._NWG_attr_edge_prop, False):
-            raise AttributeError("The data in '{}' is not marked as edge"
-                " property! Check that it has the attribute '{}' set to"
-                " True".format(name, self._NWG_attr_edge_prop))
+            raise AttributeError("The data in '{}' is not marked as edge "
+                                 "property! Check that it has the attribute "
+                                 "'{}' set to True"
+                                 "".format(name, self._NWG_attr_edge_prop))
 
         prop_data = self._get_data_at(data=prop_data, at_time=at_time,
-                                        at_time_idx=at_time_idx)
+                                      at_time_idx=at_time_idx)
 
         if len(g.edges) != len(prop_data.values):
-            raise ValueError("Mismatch! '{}' property values for '{}'"
-                    " edges".format(len(prop_data.values), len(g.edges)))
+            raise ValueError("Mismatch! '{}' property values for '{}' edges"
+                             "".format(len(prop_data.values), len(g.edges)))
 
         props = dict()
-
         for edge, val in zip(g.edges, prop_data.values):
             props[edge] = val
 

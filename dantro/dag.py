@@ -22,8 +22,7 @@ from .utils import KeyOrderedDict, apply_operation, register_operation
 from .tools import recursive_update
 from .data_loaders import LOADER_BY_FILE_EXT
 from .containers import ObjectContainer, NumpyDataContainer, XrDataContainer
-from ._dag_utils import (THash, DAGObjects,
-                         DAGReference, DAGTag, DAGNode,
+from ._dag_utils import (DAGObjects, DAGReference, DAGTag, DAGNode,
                          parse_dag_syntax as _parse_dag_syntax,
                          parse_dag_minimal_syntax as _parse_dag_minimal_syntax)
 from ._hash import _hash, SHORT_HASH_LENGTH, FULL_HASH_LENGTH
@@ -52,9 +51,6 @@ DAG_CACHE_RESULT_SAVE_FUNCS = {
         lambda obj, p, **kws: obj.to_netcdf(p+".nc_ds", **kws),
 }
 
-# Type definitions (extending those from _dag_utils module)
-TRefOrAny = TypeVar('TRefOrAny', DAGReference, Any)
-
 
 # -----------------------------------------------------------------------------
 
@@ -75,8 +71,8 @@ class Transformation:
     .. warning::
 
         Objects of this class should under *no* circumstances be changed after
-        they were created!
-        For performance reasons, the ``hashstr`` property is cached; thus,
+        they were created! For performance reasons, the
+        :py:attr:`~dantro.dag.Transformation.hashstr` property is cached; thus,
         changing attributes that are included into the hash computation will
         not lead to a new hash, thus silently creating wrong behaviour.
 
@@ -85,8 +81,8 @@ class Transformation:
     """
 
     def __init__(self, *, operation: str,
-                 args: Sequence[TRefOrAny],
-                 kwargs: Dict[str, TRefOrAny],
+                 args: Sequence[Union[DAGReference, Any]],
+                 kwargs: Dict[str, Union[DAGReference, Any]],
                  dag: 'TransformationDAG'=None,
                  salt: int=None,
                  file_cache: dict=None):
@@ -94,10 +90,11 @@ class Transformation:
         
         Args:
             operation (str): The operation that is to be carried out.
-            args (Sequence[TRefOrAny]): Positional arguments for the
-                operation.
-            kwargs (Dict[str, TRefOrAny]): Keyword arguments for the
-                operation. These are internally stored as a KeyOrderedDict.
+            args (Sequence[Union[DAGReference, Any]]): Positional arguments
+                for the operation.
+            kwargs (Dict[str, Union[DAGReference, Any]]): Keyword arguments
+                for the operation. These are internally stored as a
+                :py:class:`~dantro.utils.ordereddict.KeyOrderedDict`.
             dag (TransformationDAG, optional): An associated DAG that is needed
                 for object lookup. Without an associated DAG, args or kwargs
                 may NOT contain any object references.
@@ -109,55 +106,66 @@ class Transformation:
                 Note that the options given here are NOT reflected in the hash
                 of the object!
 
-                The following arguments are possible under the ``read`` key.
+                The following arguments are possible under the ``read`` key:
 
-                enabled (bool, optional): Whether it should be attempted to
-                    read from the file cache.
-                load_options (dict, optional): Passed on to the load function,
-                    i.e.: :py:meth:`dantro.data_mngr.DataManager.load`.
+                    enabled (bool, optional):
+                        Whether it should be attempted to read from the file
+                        cache.
+                    load_options (dict, optional):
+                        Passed on to the method that loads the cache,
+                        :py:meth:`~dantro.data_mngr.DataManager.load`.
 
-                The following arguments are possible under the ``write`` key.
+                Under the ``write`` key, the following arguments are possible.
                 They are evaluated in the order that they are listed here.
-                See :py:meth:`dantro.dag.Transformation._cache_result` for more
-                information.
+                See :py:meth:`~dantro.dag.Transformation._cache_result` for
+                more information.
 
-                enabled (bool, optional): Whether writing is enabled at all.
-                always (bool, optional): If given, will always write.
-                allow_overwrite (bool, optional): If False, will not write a
-                    cache file if one already exists. If True, a cache file
-                    _might_ be written, although one already exists. This is
-                    still conditional on the evaluation of the other arguments.
-                min_size (int, optional): The minimum size of the result object
-                    that allows writing the cache.
-                max_size (int, optional): The maximum size of the result object
-                    that allows writing the cache.
-                min_compute_time (float, optional): The minimal individual
-                    computation time of this node that is needed in order for
-                    the file cache to be written. Note that this value can be
-                    lower if the node result is not computed but looked up from
-                    the cache.
-                min_cumulative_compute_time (float, optional): The minimal
-                    cumulative computation time of this node and all its
-                    dependencies that is needed in order for the file cache to
-                    be written. Note that this value can be lower if the node
-                    result is not computed but looked up from the cache.
-                storage_options (dict, optional): Passed on to the cache
-                    storage function. The following arguments are available:
+                    enabled (bool, optional):
+                        Whether writing is enabled at all
+                    always (bool, optional):
+                        If given, will always write.
+                    allow_overwrite (bool, optional):
+                        If False, will not write a cache file if one already
+                        exists. If True, a cache file *might* be written,
+                        although one already exists. This is still conditional
+                        on the evaluation of the other arguments.
+                    min_size (int, optional):
+                        The *minimum* size of the result object that allows
+                        writing the cache.
+                    max_size (int, optional):
+                        The *maximum* size of the result object that allows
+                        writing the cache.
+                    min_compute_time (float, optional):
+                        The minimal individual computation time of this node
+                        that is needed in order for the file cache to be
+                        written.
+                        *Note* that this value can be lower if the node result
+                        is not computed but looked up from the cache.
+                    min_cumulative_compute_time (float, optional):
+                        The minimal cumulative computation time of this node
+                        and all its dependencies that is needed in order for
+                        the file cache to be written.
+                        *Note* that this value can be lower if the node result
+                        is not computed but looked up from the cache.
+                    storage_options (dict, optional):
+                        Passed on to the cache storage method,
+                        :py:meth:`dantro.dag.TransformationDAG._write_to_cache_file`.
+                        The following arguments are available:
 
-                    ignore_groups (bool, optional): Whether to store groups.
-                        Disabled by default.
-                    attempt_pickling (bool, optional): Whether it should be
-                        attempted to store results that could not be stored
-                        via a dedicated storage function by pickling them.
-                        Enabled by default.
-                    raise_on_error (bool, optional): Whether to raise on error
-                        to store a result. Disabled by default; useful to
-                        enable this when debugging.
-                    pkl_kwargs (dict, optional): Arguments passed on to the
-                        pickle.dump function.
-                    **save_kwargs: Arguments passed on to the dedicated storage
-                        function.
-            
+                        ignore_groups (bool, optional):
+                            Whether to store groups. Disabled by default.
+                        attempt_pickling (bool, optional):
+                            Whether it should be attempted to store results
+                            that could not be stored via a dedicated storage
+                            function by pickling them. Enabled by default.
+                        raise_on_error (bool, optional):
+                            Whether to raise on error to store a result.
+                            Disabled by default; it is useful to enable this
+                            when debugging.
+                        pkl_kwargs (dict, optional):
+                            Arguments passed on to the pickle.dump function.
+                        further keyword arguments:
+                            Passed on to the chosen storage method.
         """
         # Storage attributes
         self._operation = operation
@@ -219,16 +227,19 @@ class Transformation:
                           salt=repr(self._salt)))
 
     @property
-    def hashstr(self) -> THash:
+    def hashstr(self) -> str:
         """Computes the hash of this Transformation by creating a deterministic
         representation of this Transformation using ``__repr__`` and then
         applying a checksum hash function to it.
-
+        
         Note that this does NOT rely on the built-in hash function but on the
         custom dantro ``_hash`` function which produces a platform-independent
         and deterministic hash. As this is a *string*-based (rather than an
         integer-based) hash, it is not implemented as the ``__hash__`` magic
         method but as this separate property.
+        
+        Returns:
+            str: The hash string for this transformation
         """
         if self._hashstr is None:
             t0 = time.time()
@@ -396,7 +407,8 @@ class Transformation:
 
         return res
 
-    def _update_profile(self, *, cumulative_compute: float=None,
+    def _update_profile(self, *,
+                        cumulative_compute: float=None,
                         **times) -> None:
         """Given some new profiling times, updates the profiling information.
         
@@ -670,7 +682,7 @@ class TransformationDAG:
         return self._dm
 
     @property
-    def hashstr(self) -> THash:
+    def hashstr(self) -> str:
         """Returns the hash of this DAG, which depends solely on the hash of
         the associated DataManager.
         """
@@ -683,14 +695,14 @@ class TransformationDAG:
         return self._objects
 
     @property
-    def tags(self) -> Dict[str, THash]:
+    def tags(self) -> Dict[str, str]:
         """A mapping from tags to objects' hashes; the hashes can be looked
         up in the object database to get to the objects.
         """
         return self._tags
 
     @property
-    def nodes(self) -> List[THash]:
+    def nodes(self) -> List[str]:
         """The nodes of the DAG"""
         return self._nodes
 
@@ -703,10 +715,10 @@ class TransformationDAG:
         return self._cache_dir
 
     @property
-    def cache_files(self) -> Dict[THash, Tuple[str, str]]:
+    def cache_files(self) -> Dict[str, Tuple[str, str]]:
         """Scans the cache directory for cache files and returns a dict that
-        has as keys the hashes and as values a tuple of full path and file
-        extension.
+        has as keys the hash strings and as values a tuple of full path and
+        file extension.
         """
         info = dict()
 
@@ -1019,8 +1031,13 @@ class TransformationDAG:
                 carried out afterwards.
         
         Returns:
-            Sequence[dict]: A sequence of transformation parameters that was
-                brought into a uniform structure.
+            Sequence[dict]:
+                A sequence of transformation parameters that was brought into
+                a uniform structure.
+        
+        Raises:
+            TypeError: On invalid type within entry of ``select``
+            ValueError: When ``file_cache`` is given for selection from base
         """
         # The to-be-populated list of transformations
         trfs = list()
@@ -1185,7 +1202,27 @@ class TransformationDAG:
         Args:
             trf_hash (str): The hash; will be used for the file name
             result (Any): The result object to write as a cache file
-        """        
+            ignore_groups (bool, optional): Whether to store groups. Disabled
+                by default.
+            attempt_pickling (bool, optional): Whether it should be attempted
+                to store results that could not be stored via a dedicated
+                storage function by pickling them. Enabled by default.
+            raise_on_error (bool, optional): Whether to raise on error to
+                store a result. Disabled by default; it is useful to enable
+                this when debugging.
+            pkl_kwargs (dict, optional): Arguments passed on to the
+                pickle.dump function.
+            **save_kwargs: Passed on to the chosen storage method.
+        
+        Returns:
+            bool: Whether a cache file was saved
+        
+        Raises:
+            NotImplementedError: When attempting to store instances of
+                :py:class:`~dantro.base.BaseDataGroup` or a derived class
+            RuntimeError: When ``raise_on_error`` was given and there was an
+                error during saving.
+        """
         # Cannot store groups
         if isinstance(result, BaseDataGroup):
             if not ignore_groups:

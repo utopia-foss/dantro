@@ -273,9 +273,10 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
         self._metadata_was_applied = True
 
     def _postprocess_proxy_resolution(self):
-        """Only invoked from ``ProxySupportMixin``s, which have to be added to
-        the class specifically. This function takes care to apply the
-        potentially existing metadata after the proxy was resolved.
+        """Only invoked from
+        :py:class:`~dantro.mixins.proxy_support.ProxySupportMixin`, which have
+        to be added to the class specifically. This function takes care to
+        apply the potentially existing metadata *after* the proxy was resolved.
         """
         self._apply_metadata()
 

@@ -17,7 +17,7 @@ The :py:class:`~dantro.plot_mngr.PlotManager` manages the creation of plots.
 So far, so obvious.
 
 The idea of the :py:class:`~dantro.plot_mngr.PlotManager` is that it is aware of all available data and then gets instructed to create a set of plots from this data.
-The :py:class`~dantro.plot_mngr.PlotManager` does not actually carry out any plots. Its purpose is to handle the configuration of some :doc:`plot creator <plot_creators` classes; those implement the actual plotting functionality.
+The :py:class`~dantro.plot_mngr.PlotManager` does not actually carry out any plots. Its purpose is to handle the configuration of some :doc:`plot creator <plot_creators>` classes; those implement the actual plotting functionality.
 This way, the plots can be configured in a consistent way, profiting from the shared interface and the already implemented functions, while keeping the flexibility of having multiple ways to create plots.
 
 To create the plots, a set of plot configurations gets passed to the :py:class:`~dantro.plot_mngr.PlotManager` which then determines which plot creator it will need to instantiate.
@@ -36,6 +36,7 @@ The Plot Configuration
 A set of plot configurations may look like this:
 
 .. code-block:: yaml
+
     values_over_time:  # this will also be the final name of the plot (without extension)
       # Select the creator to use
       creator: external
@@ -83,6 +84,7 @@ Parameter sweeps in plot configurations
 With the configuration-based approach, it becomes possible to use **parameter sweeps** in the plot specification; the manager detects that it will need to create multiple plots and does so by repeatedly invoking the instantiated plot creator using the respective arguments for the respective point in the parameter space.
 
 .. code-block:: yaml
+
     multiple_plots: !pspace
       creator: external
       module: .basic
@@ -109,22 +111,22 @@ The :py:class:`~dantro.plot_mngr.PlotManager` has as class variable a dictionary
 Usually, the ``creator`` argument to the :py:class:`~dantro.plot_mngr.PlotManager`\'s :py:meth:`~dantro.plot_mngr.PlotManager.plot` function is used to extract the plot creator type from that dictionary and then initialize the object.
 
 However, the plot manager also has a ``auto_detect_creator`` feature.
-This boolean argument can be given both to :py:meth:`~dantro.plot_mngr.PlotManager.__init__` as well as to :py:meth:`~dantro.plot_mngr.PlotManager.plot` and it can also be part of the plot configuration passed to :py:meth:`~dantro.plot_mngr.PlotManager.plots_from_cfg`.
+This boolean argument can be given both to :py:meth:`~dantro.plot_mngr.PlotManager.__init__` as well as to :py:meth:`~dantro.plot_mngr.PlotManager.plot` and it can also be part of the plot configuration passed to :py:meth:`~dantro.plot_mngr.PlotManager.plot_from_cfg`.
 
 If set, the ``creator`` argument need no longer be given in the plot configuration. By going through all registered :py:const:`~dantro.plot_mngr.PlotManager.CREATORS` and instantiating them, it is found out if they declare that they :py:meth:`~dantro.abc.AbstractPlotCreator.can_plot` the given configuration.
 Each creator can implement this method as they see fit.
 In unambiguous cases, the manager than uses the *single* candidate creator and continues plotting with that creator.
 
 
-Auto-detection for :py:class:`~dantro.plot_creators.ExternalPlotCreator`\ s
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Auto-detection for :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator`\ s
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` and derived classes try auto-detection by checking if it can use the given plot configuration to resolve a plotting function.
 Furthermore, it checks whether the plot function is marked with attributes that may specify which creator to use. The attributes that are looked at are, in this order:
 
 * ``creator_type``: The type of the plot creator to use (or a parent type)
 * ``creator_name``: The name of the plot creator *as registered* in the manager's :py:const:`~dantro.plot_mngr.PlotManager.CREATORS` dict
 
-To conveniently add these attributes to the plot function, the :py:func:`~dantro.plot_creators.is_plot_func` decorator can be used:
+To conveniently add these attributes to the plot function, the :py:func:`~dantro.plot_creators.pcr_ext.is_plot_func` decorator can be used:
 
 .. code-block:: python
 
@@ -153,13 +155,3 @@ To conveniently add these attributes to the plot function, the :py:func:`~dantro
     
     Setting only the ``creator_name`` is recommended for scenarios where the import of the creator type is not desired.
     In other scenarios, it's best to use ``creator_type``
-
-.. deprecated:: 0.10
-
-    If no plot function attributes are given, there is still another way to auto-detect the desired plot creator: inspecting the plot function signature.
-
-    This works, because derived creators *might* require a different plot function signature.
-    For example, :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`) additionally passes ``mv_data`` as keyword-only argument.
-    However, this approach can lead to ambiguous results and thus failing auto-detection. For those cases, it makes sense to specify plot function attributes via the decorator.
-
-    Due to the ambiguity and the many different ways in which a plot function can be defined, this feature will be removed in v0.11.
