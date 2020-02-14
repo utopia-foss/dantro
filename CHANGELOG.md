@@ -6,6 +6,9 @@
 - #124 and !136 fix all broken references in the documentation and the docstrings and improve the Sphinx configuration.
     - Additionally, the CI now exits with a warning if Sphinx emitted any warnings, and a log file is made available via the job artifacts to inspect the Sphinx error log.
 
+## v0.11.1
+- #126 makes it possible to overwrite existing plots
+
 ## v0.11.0
 - !124 adds a condensed data tree representation (as proposed in #112)
 - Minor changes:
