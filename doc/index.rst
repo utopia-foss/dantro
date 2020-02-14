@@ -32,7 +32,8 @@ It allows loading possibly heterogeneous data into a tree-like structure that ca
     :glob:
 
     plotting/plot_manager
-    plotting/plot_creators   
+    plotting/plot_creators
+    plotting/faq
     plotting/*
 
 .. toctree::
