@@ -151,11 +151,12 @@ class PlotManager:
                 are errors raised from the plot creator or errors in the plot
                 configuration. If False, the errors will only be logged.
             cfg_exists_action (str, optional): Behaviour when a config file
-                already exists. Can be: ``skip``, ``overwrite``, ``raise``.
+                already exists. Can be: ``raise`` (default), ``skip``,
+                ``append``, ``overwrite``, or ``overwrite_nowarn``.
         
         Raises:
             InvalidCreator: When an invalid default creator was chosen
-            KeyError: Upon bad `based_on` in `update_base_cfg`
+            KeyError: Upon bad ``based_on`` in ``update_base_cfg``
         """
         # TODO consider making it possible to pass classes for plot creators
 
@@ -293,6 +294,7 @@ class PlotManager:
         out_dir = fstr.format(timestamp=timestr, name=name)
 
         # Make sure it is absolute
+        out_dir = os.path.expanduser(out_dir)
         if not os.path.isabs(out_dir):
             # Regard it as relative to the data manager's output directory
             out_dir = os.path.join(self._dm.dirs['out'], out_dir)
@@ -630,7 +632,7 @@ class PlotManager:
     def _save_plot_cfg(self, cfg: dict,
                        *, name: str, creator_name: str, target_dir: str,
                        exists_action: str=None, is_sweep: bool=False) -> str:
-        """Saves the given configuration under the top-level entry `name` to
+        """Saves the given configuration under the top-level entry ``name`` to
         a yaml file.
         
         Args:
@@ -639,9 +641,9 @@ class PlotManager:
             creator_name (str): The name of the creator
             target_dir (str): The directory path to store the file in
             exists_action (str, optional): What to do if a plot configuration
-                already exists. Can be: overwrite, skip, append, raise.
-                If None, uses the value 'cfg_exists_action' given during
-                initialization of the PlotManager.
+                already exists. Can be: ``overwrite``, ``overwrite_nowarn``,
+                ``skip``, ``append``, ``raise``. If None, uses the value of the
+                ``cfg_exists_action`` argument given during initialization.
             is_sweep (bool, optional): Set if the configuration refers to a
                 plot in sweep mode, for which a different format string is used
         
@@ -649,7 +651,7 @@ class PlotManager:
             str: The path the config was saved at (mainly used for testing)
         
         Raises:
-            ValueError: For invalid `exists_action` argument
+            ValueError: For invalid ``exists_action`` argument
         """
         # Resolve default arguments
         if exists_action is None:
@@ -690,6 +692,10 @@ class PlotManager:
                 write_yml(d, path=save_path, mode='a')
 
             elif exists_action == 'overwrite':
+                log.warning("Overwriting existing plot configuration ...")
+                write_yml(d, path=save_path, mode='w')
+
+            elif exists_action == 'overwrite_nowarn':
                 log.debug("Overwriting ...")
                 write_yml(d, path=save_path, mode='w')
 
@@ -850,7 +856,7 @@ class PlotManager:
                 creator instance. If this is a dict, a ParamSpace is created
                 from it.
             **plot_cfg: The plot configuration, including some parameters that
-                the plot creator already evaluates (and consequently: does not
+                the plot manager will evaluate (and consequently: does not
                 pass on to the plot creator)
         
         Returns:

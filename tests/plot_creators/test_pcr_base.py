@@ -80,6 +80,10 @@ def test_properties(init_kwargs):
     # Assert the get_ext method works (does nothing here)
     assert mpc.get_ext() == mpc.default_ext
 
+    # The BasePlotCreator should never mark itself as `can_plot`
+    assert not mpc.can_plot(creator_name=None,  # need to specify this kwarg
+                            foo="bar", some_plot_param=123)
+
 
 def test_call(init_kwargs, tmpdir):
     """Test the call to the plot creator"""
@@ -91,6 +95,11 @@ def test_call(init_kwargs, tmpdir):
     # Same output path should fail:
     with pytest.raises(FileExistsError, match="There already exists a"):
         mpc(out_path=tmpdir.join("call1"), foo="bar")
+
+    # ... unless the PlotCreator was initialized with the exist_ok argument
+    mpc = MockPlotCreator("test", exist_ok=True, **init_kwargs)
+    mpc(out_path=tmpdir.join("call1"), foo="bar")
+
 
 def test_data_selection_interface(init_kwargs, tmpdir):
     """Tests the data selection interface"""
@@ -152,3 +161,10 @@ def test_data_selection_interface(init_kwargs, tmpdir):
     with pytest.raises(KeyError,
                        match="cannot be the basis of future select operation"):
         mpc._perform_data_selection(use_dag=True, plot_kwargs=params5)
+
+    # Perform data selection via __call__ to test it is carried through
+    # Need to change some class variables for that
+    assert mpc.DAG_INVOKE_IN_BASE
+    assert not mpc.DAG_SUPPORTED
+    mpc.DAG_SUPPORTED = True
+    mpc(out_path=tmpdir.join("foo"), use_dag=True, **params0)

@@ -13,7 +13,7 @@ from dantro.tools import load_yml
 from dantro.data_mngr import DataManager
 from dantro.containers import NumpyDataContainer as NumpyDC
 from dantro.plot_mngr import (PlotManager, PlottingError, PlotConfigError,
-                              InvalidCreator)
+                              InvalidCreator, PlotCreatorError)
 
 # Local constants .............................................................
 # Paths
@@ -206,6 +206,7 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
     assert_num_plots(pm, 4 + 3)
     assert pm.plot_info[-1]['plot_cfg_path'] is None
 
+
 def test_plot_locations(dm, pm_kwargs, pcr_ext_kwargs):
     """Tests the locations of plots and config files are as expected.
 
@@ -242,6 +243,53 @@ def test_plotting_from_file_path(dm, pm_kwargs):
     """Test plotting from file path works"""
     pm = PlotManager(dm=dm, plots_cfg=PLOTS_EXT, **pm_kwargs)
     pm.plot_from_cfg(plots_cfg=PLOTS_EXT_PATH)
+
+
+def test_plotting_overwrite(dm, pm_kwargs, pcr_ext_kwargs,
+                            tmpdir, pspace_plots):
+    """Tests that it is possible to specify a custom output path and overwrite
+    existing plots.
+    """
+    pm = PlotManager(dm=dm, **pm_kwargs)
+    custom_dir = tmpdir.join("custom_dir")
+
+    pc = pm.plot("foo", out_dir=str(custom_dir), **pcr_ext_kwargs)
+
+    # Have two files created now, plot and its config. Get the plots creation
+    # date and time to make sure the later one overwrote this one
+    assert len(custom_dir.listdir()) == 2
+    plot_mtime = custom_dir.join('foo.pdf').mtime()
+
+    # Should not be able to overwrite it
+    with pytest.raises(PlotCreatorError, match="There already exists a file"):
+        pm.plot("foo", out_dir=str(custom_dir), **pcr_ext_kwargs)
+    assert plot_mtime == custom_dir.join('foo.pdf').mtime()
+
+    # Now, with a plot creator that allows overwriting, it should work ... but
+    # the PlotManager will throw an error because the backup of the plot config
+    # already exists
+    with pytest.raises(FileExistsError, match="File exists"):
+        pm.plot("foo", out_dir=str(custom_dir), exist_ok=True,
+                **pcr_ext_kwargs)
+
+    # Set the config_exists_action in the plot manager accordingly
+    pm = PlotManager(dm=dm, **pm_kwargs, cfg_exists_action='overwrite')
+    pc = pm.plot("foo", out_dir=str(custom_dir), exist_ok=True,
+                 **pcr_ext_kwargs)
+    assert len(custom_dir.listdir()) == 2
+    assert plot_mtime < custom_dir.join('foo.pdf').mtime()
+
+    # Also works with a sweep plot
+    pc = pm.plot("bar/baz", from_pspace=pspace_plots["sweep"]._dict,
+                 out_dir=str(custom_dir))
+    assert len(custom_dir.join("bar/baz").listdir()) == 2 + 1  # 2 plots, 1 cfg
+    sweep_plot = custom_dir.join('bar/baz/1__y_vectors-values.pdf')
+    sweep_mtime = sweep_plot.mtime()
+
+    pc = pm.plot("bar/baz", from_pspace=pspace_plots["sweep"]._dict,
+                 out_dir=str(custom_dir), exist_ok=True)
+    assert len(custom_dir.join("bar/baz").listdir()) == 2 + 1
+    assert sweep_mtime < sweep_plot.mtime()
 
 
 def test_plotting_based_on(dm, pm_kwargs):
@@ -427,6 +475,11 @@ def test_save_plot_cfg(tmpdir, dm, pm_kwargs):
     # 'overwrite'
     pm._save_plot_cfg(dict(foo="barzz"), **save_kwargs,
                       exists_action='overwrite')
+    assert os.path.getsize(path) == fsize + 2  # changed, because overwritten
+    
+    # 'overwrite_nowarn'
+    pm._save_plot_cfg(dict(foo="barzz"), **save_kwargs,
+                      exists_action='overwrite_nowarn')
     assert os.path.getsize(path) == fsize + 2  # changed, because overwritten
 
     # 'append'
