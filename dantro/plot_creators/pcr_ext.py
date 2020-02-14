@@ -51,25 +51,6 @@ class ExternalPlotCreator(BasePlotCreator):
     # deciding whether a plot function is to be used with this creator
     _AD_IGNORE_FUNC_ATTRS = False
 
-    # The parameters below are for inspecting the plot function signature. See
-    # https://docs.python.org/3/library/inspect.html#inspect.Parameter.kind
-    # for more information on the specification for argument kinds.
-
-    # Exactly how many POSITIONAL_ONLY arguments to allow; -1 to not check
-    _AD_NUM_POSITIONAL_ONLY = -1
-
-    # Exactly how many POSITIONAL_OR_KEYWORD arguments to allow; -1: no check
-    _AD_NUM_POSITIONAL_OR_KEYWORD = 1
-    
-    # Whether to allow *args
-    _AD_ALLOW_VAR_POSITIONAL = True
-
-    # The KEYWORD_ONLY arguments that are required to be (explicitly!) accepted
-    _AD_KEYWORD_ONLY = ['out_path']
-
-    # Whether to allow **kwargs
-    _AD_ALLOW_VAR_KEYWORD = True
-
 
     # .........................................................................
     # Main API functions, required by PlotManager
@@ -80,8 +61,8 @@ class ExternalPlotCreator(BasePlotCreator):
         
         Args:
             name (str): The name of this plot
-            base_module_file_dir (str, optional): If given, `module_file`
-                arguments to the `_plot` method that are relative paths will
+            base_module_file_dir (str, optional): If given, ``module_file``
+                arguments to the ``_plot`` method that are relative paths will
                 be seen relative to this directory
             style (dict, optional): The default style context defintion to
                 enter before calling the plot function. This can be used to
@@ -91,7 +72,7 @@ class ExternalPlotCreator(BasePlotCreator):
             **parent_kwargs: Passed to the parent __init__
         
         Raises:
-            ValueError: On invalid `base_module_file_dir` argument
+            ValueError: On invalid ``base_module_file_dir`` argument
         """
         super().__init__(name, **parent_kwargs)
 
