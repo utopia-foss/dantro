@@ -31,10 +31,6 @@ class MultiversePlotCreator(ExternalPlotCreator):
     # Where the ``ParamSpaceGroup`` object is expected within the data manager
     PSGRP_PATH = None
 
-    # Configure the auto-detection feature implemented in ExternalPlotCreator:
-    # The KEYWORD_ONLY arguments that are required to be (explicitly!) accepted
-    _AD_KEYWORD_ONLY = ['out_path', 'mv_data']
-
     # .........................................................................
 
     def __init__(self, *args, psgrp_path: str=None, **kwargs):
@@ -380,10 +376,6 @@ class UniversePlotCreator(ExternalPlotCreator):
     """
     # Where the `ParamSpaceGroup` object is expected within the data manager
     PSGRP_PATH = None
-
-    # Configure the auto-detection feature implemented in ExternalPlotCreator:
-    # The KEYWORD_ONLY arguments that are required to be (explicitly!) accepted
-    _AD_KEYWORD_ONLY = ['out_path', 'uni']
 
     # .........................................................................
 
