@@ -138,7 +138,10 @@ deploy:stop_docs:
   stage: deploy
   image: *deploy_image
   <<: *ssh_access
-  when: manual          # ... but is also triggered on branch deletion
+  when: manual          # ... but it is also triggered on branch deletion
+  dependencies: []      # ... otherwise, the same dependencies as deploy:docs
+                        #     are assumed, which leads to failing jobs if the
+                        #     corresponding artifacts have expired
   variables:
     GIT_STRATEGY: none  # Don't check out the branch (might already be deleted)
   script:
