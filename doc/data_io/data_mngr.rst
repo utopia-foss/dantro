@@ -13,11 +13,8 @@ Overview
 --------
 Essentially, the :py:class:`~dantro.data_mngr.DataManager` is a specialization of a :py:class:`~dantro.groups.ordered.OrderedDataGroup` that is extended with data loading capabilities.
 
-It is attached to a data directory which is seen as the directory to load data from.
+It is attached to a so-called "data directory" which is the base directory where data can be loaded from.
 
-.. todo::
-
-    Write more here.
 
 Data Loaders
 ------------
