@@ -60,15 +60,16 @@ setup(
                       "worked with. At the same time, it already provides "
                       "useful functionality, which makes specialization "
                       "easier."),
-    author="Utopia Developers",
-    author_email=("Yunus Sevinchan <Yunus.Sevinchan@iup.uni.heidelberg.de>"),
-    licence='MIT',
+    author="dantro developers",
+    author_email="dantro-dev@iup.uni.heidelberg.de",
+    licence='LGPL-3.0-or-later',
     url='https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro',
     classifiers=[
         'Intended Audience :: Science/Research',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
-        'Topic :: Utilities'
+        'Topic :: Utilities',
+        'License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)'
     ],
     #
     # Distribution details, dependencies, ...
