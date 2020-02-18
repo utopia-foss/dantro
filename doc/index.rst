@@ -16,6 +16,7 @@ It allows loading possibly heterogeneous data into a tree-like structure that ca
     examples
     philosophy
     specializing
+    integrating
 
 .. toctree::
     :caption: Data Handling
