@@ -198,8 +198,78 @@ def test_philosophy_all():
 # -----------------------------------------------------------------------------
 # specializing.rst
 
-def test_specializing_all():
-    ### Start -- specializing_
-    # TODO
-    ### End ---- specializing_
-    pass
+def test_specializing_containers():
+    ### Start -- specializing_mutable_sequence_container
+    # Import the python abstract base class we want to adhere to
+    from collections.abc import MutableSequence
+
+    # Import base container class and the mixins we would like to use
+    from dantro.base import BaseDataContainer
+    from dantro.mixins import ItemAccessMixin, CollectionMixin, CheckDataMixin
+
+    class MutableSequenceContainer(CheckDataMixin,
+                                   ItemAccessMixin,
+                                   CollectionMixin,
+                                   BaseDataContainer,
+                                   MutableSequence):
+        """The MutableSequenceContainer stores sequence-like mutable data"""
+    ### End ---- specializing_mutable_sequence_container
+    
+    ### Start -- specializing_msc_insert
+        def insert(self, idx: int, val) -> None:
+            """Insert an item at a given position.
+            
+            Args:
+                idx (int): The index before which to insert
+                val: The value to insert
+            """
+            self.data.insert(idx, val)
+    ### End ---- specializing_msc_insert
+
+    ### Start -- specializing_using_mutable_sequence
+    dc = MutableSequenceContainer(name="my_mutable_sequence",
+                                  data=[4, 8, 16])
+
+    # Insert values
+    dc.insert(0, 2)
+    dc.insert(0, 1)
+
+    # Item access and collection interface
+    assert 16 in dc
+    assert 32 not in dc
+    assert dc[0] == 1
+
+    for num in dc:
+        print(num, end=", ")
+    # prints:  1, 2, 4, 8, 16,
+    ### End ---- specializing_using_mutable_sequence
+
+    ### Start -- specializing_check_data_mixin
+    class StrictlyListContainer(MutableSequenceContainer):
+        """A MutableSequenceContainer that allows only a list as data"""
+        DATA_EXPECTED_TYPES = (list,)    # as tuple or None (allow all)
+        DATA_UNEXPECTED_ACTION = 'raise' # can be: raise, warn, ignore
+
+    # This will work
+    some_list = StrictlyListContainer(name="some_list", data=["foo", "bar"])
+
+    # The following will fail
+    with pytest.raises(TypeError):
+        StrictlyListContainer(name="some_tuple", data=("foo", "bar"))
+
+    with pytest.raises(TypeError):
+        StrictlyListContainer(name="some_tuple", data="just some string")
+    ### End ---- specializing_check_data_mixin
+
+
+def test_specializing_data_manager():
+    ### Start -- specializing_data_manager    
+    import dantro
+    from dantro.data_loaders import YamlLoaderMixin, PickleLoaderMixin
+
+    class MyDataManager(PickleLoaderMixin,
+                        YamlLoaderMixin,
+                        dantro.DataManager):
+        """A DataManager specialization that can load pickle and yaml data"""
+    ### End ---- specializing_data_manager
+    
