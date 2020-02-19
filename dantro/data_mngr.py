@@ -347,7 +347,7 @@ class DataManager(OrderedDataGroup):
             else:
                 print(self.tree)
 
-    def load(self, entry_name: str, *, loader: str,
+    def load(self, entry_name: str, *, loader: str, enabled: bool=True,
              glob_str: Union[str, List[str]], base_path: str=None,
              target_group: str=None, target_path: str=None,
              print_tree: Union[bool,str]=False,
@@ -358,6 +358,9 @@ class DataManager(OrderedDataGroup):
             entry_name (str): Name of this entry; will also be the name of the
                 created group or container, unless ``target_basename`` is given
             loader (str): The name of the loader to use
+            enabled (bool, optional): Whether the load operation is enabled.
+                If not, simply returns without loading any data or performing
+                any further checks.
             glob_str (Union[str, List[str]]): A glob string or a list of glob
                 strings by which to identify the files within ``data_dir`` that
                 are to be loaded using the given loader function
@@ -429,13 +432,15 @@ class DataManager(OrderedDataGroup):
 
             except (IndexError, KeyError) as err:
                 raise ValueError("Invalid argument `target_path`. Will not be "
-                                 "able to properly evalaute '{}' later due to "
+                                 "able to properly evaluate '{}' later due to "
                                  "a {}: {}".format(target_path,
                                                    type(err), err)) from err
             else:
                 log.debug("Target path will be:  %s", _target_path)    
 
-        # Some preparations
+        if not enabled:
+            log.progress("Skipping loading of data entry '%s' ...", entry_name)
+            return
         log.progress("Loading data entry '%s' ...", entry_name)
 
         # Parse the arguments that result in the target path
