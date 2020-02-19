@@ -5,6 +5,7 @@
 ## v0.12.0 *(WIP)*
 - #124 and !136 fix all broken references in the documentation and the docstrings and improve the Sphinx configuration.
     - Additionally, the CI now exits with a warning if Sphinx emitted any warnings, and a log file is made available via the job artifacts to inspect the Sphinx error log.
+- !140 adds the `.readthedocs.yml` file to enable a configuration-based Read the Docs documentation build.
 
 ## v0.11.1
 - #126 makes it possible to overwrite existing plots
