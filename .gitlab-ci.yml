@@ -77,7 +77,7 @@ test:py37:
 
 build:docs:
   stage: build
-  image: python:3.6
+  image: python:3.7
   allow_failure: true
   needs: ["prep:noop"]
   before_script:
