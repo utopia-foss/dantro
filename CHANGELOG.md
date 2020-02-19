@@ -2,10 +2,8 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
-
-## v0.12.0 *(WIP)*
-- #124 and !136 fix all broken references in the documentation and the docstrings and improve the Sphinx configuration.
-    - Additionally, the CI now exits with a warning if Sphinx emitted any warnings, and a log file is made available via the job artifacts to inspect the Sphinx error log.
+## v0.11.2
+- #127 allows to disable `DataManager.load` operations via keyword argument; this is useful e.g. when passing arguments via recursively updated configuration hierarchies.
 
 ## v0.11.1
 - #126 makes it possible to overwrite existing plots
