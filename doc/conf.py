@@ -106,6 +106,32 @@ autodoc_default_options = {
     'inherited-members': True,
 }
 
+# A function to run apidoc, creating the API documentation
+def run_apidoc(_):
+    ignore_paths = []
+
+    # Get the required directory paths
+    cur_dir = os.path.abspath(os.path.dirname(__file__))
+    out_dir = os.path.join(cur_dir, "api")
+    module = os.path.join(cur_dir, "..", "dantro")
+
+    argv = [
+        "--force",
+        "--separate",
+        "--private",
+        "--module-first",
+        "--no-toc",
+        "-o", out_dir,
+        module
+    ] + ignore_paths
+
+    from sphinx.ext import apidoc
+    apidoc.main(argv)
+
+# Set up apidoc, which creates the API documentation 
+def setup(app):
+    app.connect('builder-inited', run_apidoc)
+
 
 # -- Options for HTML output -------------------------------------------------
 

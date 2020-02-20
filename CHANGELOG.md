@@ -8,7 +8,8 @@
 - #92 adds a test job for a Python 3.8 environment to the CI pipeline
 - #124 and !136 fix all broken references in the documentation and the docstrings and improve the Sphinx configuration.
     - Additionally, the CI now exits with a warning if Sphinx emitted any warnings, and a log file is made available via the job artifacts to inspect the Sphinx error log.
-- !140 adds the `.readthedocs.yml` file to enable a configuration-based Read the Docs documentation build.
+- Furthermore, the dantro documentation is now deployed to Read the Docs, both for [stable versions](https://dantro.readthedocs.io/en/stable/) and for the [latest version](https://dantro.readthedocs.io/en/latest/).
+  See !140 and !143 for more information.
 
 #### Important notes on upgrading
 - Due to the changes introduced in !92, the netcdf4 package is no longer a dependency required by dantro.

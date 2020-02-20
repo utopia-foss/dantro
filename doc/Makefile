@@ -14,18 +14,8 @@ help:
 
 .PHONY: help Makefile
 
-# A target to make the API documentation
-apidoc:
-	sphinx-apidoc -f \
-		--module-first --private --separate --no-toc \
-		--output-dir ./api/ \
-		../dantro
-
 # A target to build the whole HTML documentation, including API documentation
 doc:
-	make apidoc
-	@echo "Built API documentation."
-	@echo ""
 	make html
 	@echo "Built HTML documentation."
 
