@@ -577,6 +577,8 @@ This can be specified via the ``cache_dir`` argument during initialization of a 
 By default, the cache directory is called ``.cache`` and is located inside the data directory associated with the DAG's DataManager.
 It is created once it is needed.
 
+.. _dag_file_cache_defaults:
+
 Default file cache arguments
 """"""""""""""""""""""""""""
 File cache behaviour can be configured separately for each :py:class:`~dantro.dag.Transformation`, as can be seen from the full syntax specification above.
