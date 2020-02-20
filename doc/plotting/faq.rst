@@ -1,8 +1,8 @@
 
 .. _faq_plotting:
 
-Plotting FAQ
-============
+Plotting FAQs
+=============
 
 This page gathers frequently asked questions regarding the dantro plotting interface.
 
@@ -11,6 +11,11 @@ This page gathers frequently asked questions regarding the dantro plotting inter
    :depth: 2
 
 Aside from these FAQs, make sure to have a look :doc:`at other plotting-related documentation pages <../index>`.
+
+.. note::
+
+    If you would like to add a question here, we are happy about contributions!
+    Please visit the `project page <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro>`_ to open an issue or get more information about contributing.
 
 ----
 

@@ -71,6 +71,12 @@ test:py37:
   script:
     - tox -e py37
 
+test:py38:
+  <<: *test_defaults
+  image: python:3.8
+  script:
+    - tox -e py38
+
 
 # -- Build Stage --------------------------------------------------------------
 # ... for building the documentation (and potentially more jobs)
