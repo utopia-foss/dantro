@@ -22,7 +22,7 @@ For installation instructions, have a look at the README.
 Setting up dantro
 -----------------
 To get started with dantro, the first thing to do is specializing it for your use case.
-For the purpose of this example, let's say we are working on a project where we need to handle data stored in the HDF5 data format and some YAML data.
+For the purpose of this example, let's say we are working on a project where we need to handle data stored in the HDF5 format and some YAML data.
 
 The first step is to the :py:class:`~dantro.data_mngr.DataManager` to be able to load HDF5 data:
 
@@ -110,7 +110,7 @@ For each HDF5 dataset, a corresponding :py:class:`~dantro.containers.numeric.Num
 
     The :py:class:`~dantro.data_mngr.DataManager` becomes especially powerful when groups and containers are specialized such that they can make use of knowledge about the structure of the data.
 
-    For example: the ``measurements`` group semantically represents a time series.
+    For example, the ``measurements`` group semantically represents a time series.
     Ideally, the group it is loaded into should be able to combine the measurements for each day into a higher-dimensional object, thus making it easier to work with the data.
     This is possible by :doc:`specializing <specializing>` these groups.
 
@@ -133,8 +133,8 @@ To plot, we invoke the :py:meth:`~dantro.plot_mngr.PlotManager.plot` method:
 
 .. literalinclude:: ../tests/test_doc_examples.py
     :language: python
-    :start-after: ### Start -- examples_plotting_basic_plot
-    :end-before:  ### End ---- examples_plotting_basic_plot
+    :start-after: ### Start -- examples_plotting_basic_lineplot
+    :end-before:  ### End ---- examples_plotting_basic_lineplot
     :dedent: 4
 
 At this point, the arguments given to :py:meth:`~dantro.plot_mngr.PlotManager.plot` have not been explained.

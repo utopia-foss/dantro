@@ -37,6 +37,7 @@ import h5py as h5
 
 # Fixtures --------------------------------------------------------------------
 
+
 @pytest.fixture
 def data_dir(tmpdir):
     """Writes some dummy data to a tmpdir, returning the tmpdir object"""
@@ -66,14 +67,14 @@ def data_dir(tmpdir):
         f.create_dataset("precipitation",
                          data=(np.random.random((N,)) * 1000.), dtype=int)
         # TODO Consider adding coordinates here?!
-        
+
         g = f.create_group("sensor_data")
         g.attrs['some_attribute'] = "this is some group level attribute"
 
         for j in range(23):
             _data = np.random.random((3, np.random.randint(80, 100)))
             g.create_dataset("sensor{:03d}".format(j), data=_data)
-    
+
         f.close()
 
     return tmpdir
@@ -179,7 +180,7 @@ def test_examples_all(data_dir):
             y="measurements/day000/precipitation")
     ### End ---- examples_plotting_basic_lineplot
 
-    
+
 
 # -----------------------------------------------------------------------------
 # philosophy.rst
@@ -214,11 +215,11 @@ def test_specializing_containers():
                                    MutableSequence):
         """The MutableSequenceContainer stores sequence-like mutable data"""
     ### End ---- specializing_mutable_sequence_container
-    
+
     ### Start -- specializing_msc_insert
         def insert(self, idx: int, val) -> None:
             """Insert an item at a given position.
-            
+
             Args:
                 idx (int): The index before which to insert
                 val: The value to insert
@@ -247,8 +248,8 @@ def test_specializing_containers():
     ### Start -- specializing_check_data_mixin
     class StrictlyListContainer(MutableSequenceContainer):
         """A MutableSequenceContainer that allows only a list as data"""
-        DATA_EXPECTED_TYPES = (list,)    # as tuple or None (allow all)
-        DATA_UNEXPECTED_ACTION = 'raise' # can be: raise, warn, ignore
+        DATA_EXPECTED_TYPES = (list,)     # as tuple or None (allow all)
+        DATA_UNEXPECTED_ACTION = 'raise'  # can be: raise, warn, ignore
 
     # This will work
     some_list = StrictlyListContainer(name="some_list", data=["foo", "bar"])
@@ -263,7 +264,7 @@ def test_specializing_containers():
 
 
 def test_specializing_data_manager():
-    ### Start -- specializing_data_manager    
+    ### Start -- specializing_data_manager
     import dantro
     from dantro.data_loaders import YamlLoaderMixin, PickleLoaderMixin
 
@@ -272,4 +273,63 @@ def test_specializing_data_manager():
                         dantro.DataManager):
         """A DataManager specialization that can load pickle and yaml data"""
     ### End ---- specializing_data_manager
-    
+
+
+
+# -----------------------------------------------------------------------------
+# -- data_io ------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+# data_io/data_mngr.rst
+def test_data_io_data_mngr(data_dir):
+    my_data_dir = str(data_dir)
+
+    ### Start -- data_io_data_mngr_example01
+    import dantro
+    from dantro.data_loaders import YamlLoaderMixin
+
+    class MyDataManager(YamlLoaderMixin, dantro.DataManager):
+        """A DataManager specialization that can load YAML data"""
+
+    dm = MyDataManager(data_dir=my_data_dir)
+
+    # Now, data can be loaded using the `load` command:
+    dm.load("some_data",       # where to load the data to
+            loader="yaml",     # which loader to use
+            glob_str="*.yml")  # which files to find and load
+
+    # Access it
+    dm['some_data']
+    # ...
+    ### End ---- data_io_data_mngr_example01
+
+# -----------------------------------------------------------------------------
+# data_io/faq.rst
+def test_data_io_faq():
+    ### Start -- data_io_faq_add_any_object
+    from dantro.groups import OrderedDataGroup
+    from dantro.containers import ObjectContainer, PassthroughContainer
+
+    # The object we want to add to the tree
+    some_object = ("foo", b"bar", 123, 4.56, None)
+
+    # Use an ObjectContainer to store any object and provide simple item access
+    cont1 = ObjectContainer(name="my_object_1", data=some_object)
+
+    assert cont1.data is some_object
+    assert cont1[0] == "foo"
+
+    # For passing attribute calls through, use the PassthroughContainer:
+    cont2 = PassthroughContainer(name="my_object_2", data=some_object)
+
+    assert cont2.count("foo") == 1
+
+    # Add them to a group
+    grp = OrderedDataGroup(name="my_group")
+    grp.add(cont1, cont2)
+    ### End ---- data_io_faq_add_any_object
+
+
+# -----------------------------------------------------------------------------
+# -- plotting -----------------------------------------------------------------
+# -----------------------------------------------------------------------------
