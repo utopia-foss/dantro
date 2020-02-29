@@ -232,11 +232,11 @@ def test_Transformation():
     t0s = Transformation(operation="add", args=[1,2], kwargs=dict(), salt=42)
     assert t0 != t0s
     assert t0.hashstr != t0s.hashstr
-    
+
     # Same arguments should lead to the same hash
     t1 = Transformation(operation="add", args=[1,2], kwargs=dict())
     assert t1.hashstr == t0.hashstr
-    
+
     # Keyword argument order should not play a role for the hash
     t2 = Transformation(operation="foo", args=[], kwargs=dict(a=1, b=2, c=3))
     t3 = Transformation(operation="foo", args=[], kwargs=dict(b=2, c=3, a=1))
@@ -292,7 +292,7 @@ def test_Transformation_dependencies(dm):
     for node_hash in tdag.nodes:
         trf = tdag.objects[node_hash]
         deps = trf.dependencies
-        
+
         if node_hash in [ref1.ref, ref2.ref]:
             assert len(deps) == 0
             continue
@@ -390,7 +390,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
 
             print("Raised error as expected.\n")
             continue
-        
+
         # Check some properties that are unspecific to the params
         assert tdag.dm is dm
         assert isinstance(tdag.objects, dag.DAGObjects)
@@ -416,7 +416,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
         # Compare with expected tree structure and tags etc.
         if expected.get('num_nodes'):
             assert expected['num_nodes'] == len(tdag.nodes)
-        
+
         if expected.get('num_objects'):
             assert expected['num_objects'] == len(tdag.objects)
 
@@ -427,7 +427,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
 
         # Test node hashes
         if expected.get('node_hashes'):
-            assert tdag.nodes == expected['node_hashes']            
+            assert tdag.nodes == expected['node_hashes']
             print("Node hashes consistent.")
 
         # Test number of node dependencies
@@ -435,7 +435,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
             for node_hash, deps in zip(tdag.nodes,
                                        expected['node_dependencies']):
                 node = tdag.objects[node_hash]
-                
+
                 if isinstance(deps, int):
                     assert len(node.dependencies) == deps
                 else:
@@ -446,11 +446,11 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
         compute_only = cfg.get('compute_only')
         print("\nComputing results (compute_only argument: {}) ..."
               "".format(compute_only))
-        
+
         if not _raises or not _raises_on_compute:
             # Compute normally
             results = tdag.compute(compute_only=compute_only)
-            
+
             print("\n".join(["  * {:<20s}  {:}".format(k, v)
                              for k, v in results.items()]))
 
@@ -517,7 +517,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
 
         # Now, check the results ..............................................
         print("\nChecking results ...")
-        
+
         # Should be a dict with certain specified keys
         assert isinstance(results, dict)
 
@@ -540,7 +540,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
             if 'attributes' in to_check:
                 for attr_name, exp_attr_val in to_check['attributes'].items():
                     attr = getattr(res, attr_name)
-                    
+
                     if callable(attr):
                         assert attr() == exp_attr_val
                     else:

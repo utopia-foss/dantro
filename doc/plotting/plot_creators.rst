@@ -1,12 +1,22 @@
+.. _plot_creators:
+
 Plot Creators
 =============
 
 Within the plotting framework, the plot creators are the classes that perform all the actual plotting work.
-This document described what they are and how they can be used.
+This document describes what they are and how they can be used.
 
 .. contents::
    :local:
    :depth: 2
+
+For further reading on the individual plot creators, see:
+
+.. toctree::
+   :maxdepth: 2
+   :glob:
+
+   creators/*
 
 ----
 
@@ -44,15 +54,20 @@ The :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` focusses on cr
 * The plot function can do whatever it wants, also meaning that it *has* to do everything by itself (getting data, saving plots, closing figures ...)
 
 The plot function gets passed some data or the :py:class:`~dantro.data_mngr.DataManager` (to manually select data) and the rest of the plot configuration.
-The required signature of the plot function depends on the chosen additional features of the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator`, e.g. the :py:class:`~dantro.plot_creators._pcr_ext_modules.plot_helper.PlotHelper` or :doc:`plot_data_selection`.
+The required signature of the plot function depends on the chosen additional features of the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator`, e.g., the :py:class:`~dantro.plot_creators._plot_helper.PlotHelper` or :doc:`plot_data_selection`.
+
+For more information, have a look at :ref:`the dedicated documentation page <pcr_ext>`.
 
 
 ``UniversePlotCreator`` & ``MultiversePlotCreator``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Implemented in :py:mod:`dantro.plot_creators.pcr_psp` are plot creators that work tightly with data stored in a :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`, i.e.: data that was created from a parameter sweep.
+These are derived from :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` and inherit all its abilities.
 
-There are two different plot creators to work with this kind of data. The :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator` allows selecting a certain subspace of the parameter space and creating a plot *for each* of these so-called "universes".
+There are two different plot creators to work with this kind of data.
+The :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator` allows selecting a certain subspace of the parameter space and creating a plot *for each* of these so-called "universes".
 
 The :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator` on the other hand uses the capabilities of the :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` to select and combine data from many universes, thus working on the "multiverse".
 For the syntax needed to select the field and the subspace from the data, refer to :py:meth:`dantro.groups.pspgrp.ParamSpaceGroup.select`.
 
+For more information, see :ref:`pcr_psp`.

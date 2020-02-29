@@ -1,3 +1,5 @@
+.. _dag_framework:
+
 Data Transformation Framework
 =============================
 
@@ -15,7 +17,7 @@ Overview
 --------
 
 The purpose of the transformation framework is to be able to *generally* apply mathematical operations on data that is stored in a dantro data tree.
-Specifically, it makes it possible to define transformations without touching actual Python code. 
+Specifically, it makes it possible to define transformations without touching actual Python code.
 To that end, a meta language is defined that makes it possible to define almost arbitrary transformations.
 
 In dantro terminology, a transformation is defined as a set consisting of an operation and some arguments.
@@ -33,7 +35,7 @@ For the example above, the graph is rather small:
         a:(…)   b:(…)
           ^      ^
            \    /
-            \  / 
+            \  /
       (add, a, b)
 
 The nodes in this graph represent transformations.
@@ -62,7 +64,7 @@ It will explain the basic elements and inner workings of the mini-language creat
 
 .. note::
 
-    This explanation goes into quite some detail; and it's quite important to understand the underlying structures of the 
+    This explanation goes into quite some detail; and it's quite important to understand the underlying structures of the
     If you feel like you would like to jump ahead to see what awaits you, have a look at the :ref:`dag_minimal_syntax`.
 
 
@@ -337,10 +339,10 @@ As selecting data from the :py:class:`~dantro.data_mngr.DataManager` is a common
 The ``select`` arguments expects a mapping of tags to either strings (the path within the data tree) or further mappings (where more configurations are possible):
 
 .. code-block:: yaml
-    
+
     select:
       some_data: path/to/some_data
-      more_data: 
+      more_data:
         path: path/to/more_data
         # ... potentially more kwargs
     transform: ~
@@ -499,7 +501,7 @@ Except for ``operation``, ``args``, ``kwargs`` and ``tag``, all entries are set 
       another_kwarg: foobar
     salt: ~                         # Is included in the hash; set a value here
                                     # if you would like to provoke a cache miss
-    
+
     # All arguments _below_ are NOT taken into account when computing the hash
     # of this transformation. Two transformations that differ _only_ in the
     # arguments given below are considered equal to each other.
@@ -620,7 +622,7 @@ Reading from the file cache
 Generally, the best computation is the one you don't need to make.
 If there is no result in memory and reading from cache is enabled, the cache directory is searched for a file that has as its basename the hash of the transformation that is to be computed.
 
-If that is the case, the DataManager is used to load the data into the data tree *and* set the memory cache. (Note that this is Python, i.e. it's not a *copy* but the memory cache is a reference to the object in the data tree.) 
+If that is the case, the DataManager is used to load the data into the data tree *and* set the memory cache. (Note that this is Python, i.e. it's not a *copy* but the memory cache is a reference to the object in the data tree.)
 
 By default, it is *not* attempted to read from the cache directory.
 See above on how to enable it.

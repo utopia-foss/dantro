@@ -7,11 +7,11 @@ It allows loading possibly heterogeneous data into a tree-like structure that ca
 
 .. note::
 
-    If you find any errors in this documentation or would like to contribute to the project, please visit the `project page <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro>`_.
+    If you find any errors in this documentation or would like to contribute to the project, we are happy about your visit on the `project page <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro>`_.
 
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
 
     examples
     philosophy
@@ -20,28 +20,32 @@ It allows loading possibly heterogeneous data into a tree-like structure that ca
 
 .. toctree::
     :caption: Data Handling
-    :maxdepth: 1
+    :maxdepth: 2
     :glob:
-   
+
     data_io/data_mngr
+    data_io/data_ops
+    data_io/transform
+    data_io/large_data
+    data_io/multidim
     data_io/*
 
 
 .. toctree::
     :caption: Plotting
-    :maxdepth: 1
+    :maxdepth: 2
     :glob:
 
     plotting/plot_manager
     plotting/plot_creators
-    plotting/faq
+    plotting/plot_data_selection
     plotting/*
 
 .. toctree::
     :caption: API Reference
     :maxdepth: 1
 
-    API Reference <api/dantro>
+    dantro API Reference <api/dantro>
 
 * :ref:`genindex`
 * :ref:`modindex`

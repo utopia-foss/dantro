@@ -30,10 +30,20 @@ In order to let the tests be independent, even for imports, there should NOT
 be any imports on the global level of this test file!
 """
 
+from pkg_resources import resource_filename
+
 import pytest
 
 import numpy as np
 import h5py as h5
+
+from dantro.tools import load_yml
+
+
+# Local Variables -------------------------------------------------------------
+
+DOC_EXAMPLES_CFG = resource_filename('tests', 'cfg/doc_examples.yml')
+
 
 # Fixtures --------------------------------------------------------------------
 
@@ -53,19 +63,36 @@ def data_dir(tmpdir):
     write_yml(barbaz, path=tmpdir.join("barbaz.yml"))
     write_yml(barbaz, path=tmpdir.join("also_barbaz.yml"))
 
+    # Create a directory with some "config" files
+    cfgdir = tmpdir.mkdir("config")
+
+    for cfg_name in ("defaults", "user", "machine", "update", "combined"):
+        write_yml(dict(),  # empty, but irrelevant
+                  path=cfgdir.join(cfg_name+"_cfg.yml"))
+
     # Create some dummy HDF5 data
     h5dir = tmpdir.mkdir("measurements")
 
     # Create files of the same structure, containing groups and datasets
     for i in range(42):
-        f = h5.File(h5dir.join("day{:03d}.hdf5".format(i)), 'w')
+        # Which day is this about?
+        day = "day{:03d}".format(i)
+
+        # Write some yaml file
+        write_yml(dict(day=i),
+                  path=h5dir.join(day + "_params.yml"))
+
+        # Now the HDF5 data
+        f = h5.File(h5dir.join(day + ".hdf5"), 'w')
 
         N = np.random.randint(100, 200)
 
         f.create_dataset("temperatures",
-                         data=((np.random.random((N,)) - .4) * 70))
+                         data=((np.random.random((N,)) - .4) * 70),
+                         chunks=True)
         f.create_dataset("precipitation",
-                         data=(np.random.random((N,)) * 1000.), dtype=int)
+                         data=(np.random.random((N,)) * 1000.), dtype=int,
+                         chunks=True)
         # TODO Consider adding coordinates here?!
 
         g = f.create_group("sensor_data")
@@ -79,6 +106,11 @@ def data_dir(tmpdir):
 
     return tmpdir
 
+
+@pytest.fixture
+def cfg() -> dict:
+    """Loads the documentation examples config file"""
+    return load_yml(DOC_EXAMPLES_CFG)
 
 # -----------------------------------------------------------------------------
 # examples.rst
@@ -275,12 +307,11 @@ def test_specializing_data_manager():
     ### End ---- specializing_data_manager
 
 
-
 # -----------------------------------------------------------------------------
 # -- data_io ------------------------------------------------------------------
 # -----------------------------------------------------------------------------
-
 # data_io/data_mngr.rst
+
 def test_data_io_data_mngr(data_dir):
     my_data_dir = str(data_dir)
 
@@ -303,8 +334,159 @@ def test_data_io_data_mngr(data_dir):
     # ...
     ### End ---- data_io_data_mngr_example01
 
+
+def test_data_io_load_cfg(data_dir, cfg):
+    my_data_dir = str(data_dir)
+    cfg = cfg['data_io_load_cfg']
+    my_load_cfg = {}  # dummy here
+
+    ### Start -- data_io_load_cfg_setup
+    import dantro
+    from dantro.data_loaders import AllAvailableLoadersMixin
+
+    class MyDataManager(AllAvailableLoadersMixin, dantro.DataManager):
+        """A DataManager specialization that can load various kinds of data"""
+
+    dm = MyDataManager(data_dir=my_data_dir, load_cfg=my_load_cfg)
+    ### End ---- data_io_load_cfg_setup
+
+    # Use a new DataManager, without output directory
+    dm = MyDataManager(data_dir=my_data_dir, out_dir=False,
+                       load_cfg=cfg['example01'])
+    ### Start -- data_io_load_cfg_example01
+    dm.load_from_cfg(print_tree=True)
+    # Will print something like:
+    # Tree of MyDataManager, 1 member, 0 attributes
+    #  └─ cfg                         <OrderedDataGroup, 5 members, 0 attributes>
+    #     └┬ combined                 <MutableMappingContainer, 1 attribute>
+    #      ├ defaults                 <MutableMappingContainer, 1 attribute>
+    #      ├ machine                  <MutableMappingContainer, 1 attribute>
+    #      ├ update                   <MutableMappingContainer, 1 attribute>
+    #      └ user                     <MutableMappingContainer, 1 attribute>
+    ### End ---- data_io_load_cfg_example01
+
+    dm = MyDataManager(data_dir=my_data_dir, out_dir=False,
+                       load_cfg=cfg['example02'])
+    ### Start -- data_io_load_cfg_example02
+    dm.load_from_cfg(print_tree='condensed')
+    # Will print something like:
+    # Tree of MyDataManager, 1 member, 0 attributes
+    #  └─ measurements                <OrderedDataGroup, 42 members, 0 attributes>
+    #     └┬ 000                      <OrderedDataGroup, 2 members, 0 attributes>
+    #        └┬ params                <MutableMappingContainer, 1 attribute>
+    #         └ data                  <OrderedDataGroup, 3 members, 0 attributes>
+    #           └┬ precipitation      <NumpyDataContainer, int64, shape (126,), 0 at…
+    #            ├ sensor_data        <OrderedDataGroup, 23 members, 1 attribute>
+    #              └┬ sensor000       <NumpyDataContainer, float64, shape (3, 89), 0 attributes>
+    #               ├ sensor001       <NumpyDataContainer, float64, shape (3, 85), 0 attributes>
+    #               ├ sensor002       <NumpyDataContainer, float64, shape (3, 94), 0 attributes>
+    #               ├ ...             ... (18 more) ...
+    #               ├ sensor021       <NumpyDataContainer, float64, shape (3, 80), 0 attributes>
+    #               └ sensor022       <NumpyDataContainer, float64, shape (3, 99), 0 attributes>
+    #            └ temperatures       <NumpyDataContainer, float64, shape (126,), 0 attributes>
+    #      ├ 001                      <OrderedDataGroup, 2 members, 0 attributes>
+    #        └┬ params                <MutableMappingContainer, 1 attribute>
+    #         └ data                  <OrderedDataGroup, 3 members, 0 attributes>
+    #           └┬ precipitation      <NumpyDataContainer, int64, shape (150,), 0 attributes>
+    #            ├ sensor_data        <OrderedDataGroup, 23 members, 1 attribute>
+    #              └┬ sensor000       <NumpyDataContainer, float64, shape (3, 99), 0 attributes>
+    #               ├ sensor001       <NumpyDataContainer, float64, shape (3, 85), 0 attributes>
+    #               ├ ...
+    ### End ---- data_io_load_cfg_example02
+
+    dm = MyDataManager(data_dir=my_data_dir, out_dir=False,
+                       load_cfg=cfg['example03'])
+    ### Start -- data_io_load_cfg_example03
+    dm.load_from_cfg(print_tree='condensed')
+    # Will print something like:
+    # Tree of MyDataManager , 1 member, 0 attributes
+    #  └─ measurements                <OrderedDataGroup, 42 members, 0 attributes>
+    #     └┬ 000                      <OrderedDataGroup, 3 members, 1 attribute>
+    #        └┬ precipitation         <NumpyDataContainer, int64, shape (165,), 0 attributes>
+    #         ├ sensor_data           <OrderedDataGroup, 23 members, 1 attribute>
+    #           └┬ sensor000          <NumpyDataContainer, float64, shape (3, 92), 0 attributes>
+    #            ├ sensor001          <NumpyDataContainer, float64, shape (3, 91), 0 attributes>
+    #            ├ sensor002          <NumpyDataContainer, float64, shape (3, 93), 0 attributes>
+    #            ├ ...                ... (18 more) ...
+    #            ├ sensor021          <NumpyDataContainer, float64, shape (3, 83), 0 attributes>
+    #            └ sensor022          <NumpyDataContainer, float64, shape (3, 97), 0 attributes>
+    #         └ temperatures          <NumpyDataContainer, float64, shape (165,), 0 attributes>
+    #      ├ 001                      <OrderedDataGroup, 3 members, 1 attribute>
+    #        └┬ precipitation         <NumpyDataContainer, int64, shape (181,), 0 attributes>
+    #         ├ sensor_data           <OrderedDataGroup, 23 members, 1 attribute>
+    #           └┬ sensor000          <NumpyDataContainer, float64, shape (3, 84), 0 attributes>
+    #            ├ sensor001          <NumpyDataContainer, float64, shape (3, 85), 0 attributes>
+    #            ├ ...
+
+    # Check attribute access to the parameters
+    for cont_name, data in dm['measurements'].items():
+        params = data.attrs['params']
+        assert params['day'] == int(cont_name)
+    ### End ---- data_io_load_cfg_example03
+
+    my_load_cfg = cfg['example04']
+    ### Start -- data_io_load_cfg_example04
+    from dantro.groups import TimeSeriesGroup
+
+    dm = MyDataManager(data_dir=my_data_dir, out_dir=False,
+                       load_cfg=my_load_cfg,
+                       create_groups=[dict(path='measurements',
+                                           Cls=TimeSeriesGroup)])
+
+    dm.load_from_cfg(print_tree='condensed')
+    # Will print something like:
+    # Tree of MyDataManager , 1 member, 0 attributes
+    #  └─ measurements                <TimeSeriesGroup, 42 members, 0 attributes>
+    #     └┬ 000                      <OrderedDataGroup, 3 members, 0 attributes>
+    #        └┬ precipitation         <NumpyDataContainer, int64, shape (165,), 0 attributes>
+    #         ├ sensor_data           <OrderedDataGroup, 23 members, 1 attribute>
+    #           └┬ sensor000          <NumpyDataContainer, float64, shape (3, 92), 0 attributes>
+    #            ├ sensor001          <NumpyDataContainer, float64, shape (3, 91), 0 attributes>
+    #            ├ sensor002          <NumpyDataContainer, float64, shape (3, 93), 0 attributes>
+    #            ├ ...
+    ### End ---- data_io_load_cfg_example04
+
+
+    my_load_cfg = cfg['example05']
+    ### Start -- data_io_load_cfg_example05
+    from dantro.containers import XrDataContainer
+    from dantro.mixins import Hdf5ProxySupportMixin
+
+    class MyXrDataContainer(Hdf5ProxySupportMixin, XrDataContainer):
+        """An xarray data container that allows proxy data"""
+
+    class MyDataManager(AllAvailableLoadersMixin, dantro.DataManager):
+        """A DataManager specialization that can load various kinds of data
+        and uses containers that supply proxy support
+        """
+        # Configure the HDF5 loader to use the custom xarray container
+        _HDF5_DSET_DEFAULT_CLS = MyXrDataContainer
+
+    dm = MyDataManager(data_dir=my_data_dir, out_dir=False,
+                       load_cfg=my_load_cfg)
+    dm.load_from_cfg(print_tree='condensed')
+    # Will print something like:
+    # Tree of MyDataManager , 1 member, 0 attributes
+    #  └─ measurements                <OrderedDataGroup, 42 members, 0 attributes>
+    #     └┬ 000                      <OrderedDataGroup, 3 members, 0 attributes>
+    #        └┬ precipitation         <MyXrDataContainer, proxy (hdf5, dask), int64, shape (165,), 0 attributes>
+    #         ├ sensor_data           <OrderedDataGroup, 23 members, 1 attribute>
+    #           └┬ sensor000          <MyXrDataContainer, proxy (hdf5, dask), float64, shape (3, 92), 0 attributes>
+    #            ├ sensor001          <MyXrDataContainer, proxy (hdf5, dask), float64, shape (3, 91), 0 attributes>
+    #            ├ sensor002          <MyXrDataContainer, proxy (hdf5, dask), float64, shape (3, 93), 0 attributes>
+    #            ├ ...
+
+    # Work with the data in the same way as before; it's loaded on the fly
+    total_precipitation = 0.
+    for day_data in dm['measurements'].values():
+        total_precipitation += day_data['precipitation'].sum()
+    ### End ---- data_io_load_cfg_example05
+
+
 # -----------------------------------------------------------------------------
 # data_io/faq.rst
+
+
 def test_data_io_faq():
     ### Start -- data_io_faq_add_any_object
     from dantro.groups import OrderedDataGroup

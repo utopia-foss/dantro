@@ -15,7 +15,8 @@ from dantro.tools import load_yml
 from dantro.data_mngr import DataManager
 from dantro.plot_creators import ExternalPlotCreator
 from dantro.plot_creators import PlotHelper, is_plot_func
-from dantro.plot_creators._pcr_ext_modules.plot_helper import temporarily_changed_axis, coords_match
+from dantro.plot_creators._plot_helper import (temporarily_changed_axis,
+                                               coords_match)
 
 # Local constants
 # Paths
@@ -52,7 +53,7 @@ def plot1(dm: DataManager, *, out_path: str):
 @is_plot_func(creator_name='external', supports_animation=True)
 def plot2(dm: DataManager, *, hlpr: PlotHelper):
     """Test plot that uses different PlotHelper methods.
-    
+
     Args:
         dm (DataManager): The data manager from which to retrieve the data
         hlpr (PlotHelper): Description
@@ -65,7 +66,7 @@ def plot2(dm: DataManager, *, hlpr: PlotHelper):
               supports_animation=True)
 def plot3(dm: DataManager, *, hlpr: PlotHelper):
     """Test plot with helper defaults in decorator.
-    
+
     Args:
         dm (DataManager): The data manager from which to retrieve the data
         hlpr (PlotHelper): Description
@@ -188,19 +189,19 @@ def test_figure_setup_subplots(hlpr):
     assert hlpr._cfg[(1, 0)]['set_title']['title'] == "last column"
     assert hlpr._cfg[(1, 0)]['set_title']['color'] == "green"
     assert hlpr._cfg[(1, 0)]['set_title']['size'] == 5
-    
+
     assert hlpr._cfg[(1, 1)]['set_title']['title'] == "last column"
     assert hlpr._cfg[(1, 1)]['set_title']['color'] == "green"
     assert hlpr._cfg[(1, 1)]['set_title']['size'] == 5
-    
+
     assert hlpr._cfg[(1, 2)]['set_title']['title'] == "bottom right hand"
     assert hlpr._cfg[(1, 2)]['set_title']['color'] == "green"
     assert hlpr._cfg[(1, 2)]['set_title']['size'] == 5
-    
+
     assert hlpr._cfg[(0, 1)]['set_title']['title'] == "Test Title"
     assert hlpr._cfg[(0, 1)]['set_title']['color'] == "green"
     assert hlpr._cfg[(0, 1)]['set_title']['size'] == 5
-    
+
     assert hlpr._cfg[(0, 2)]['set_title']['title'] == "Test Title"
     assert hlpr._cfg[(0, 2)]['set_title']['color'] == "green"
     assert hlpr._cfg[(0, 2)]['set_title']['size'] == 5
@@ -218,7 +219,7 @@ def test_figure_setup_subplots(hlpr):
     assert hlpr._cfg[(1, 0)]['set_title']['title'] == "last column"
     assert hlpr._cfg[(1, 0)]['set_title']['color'] == "green"
     assert hlpr._cfg[(1, 0)]['set_title']['size'] == 5
-    
+
     assert hlpr._cfg[(1, 1)]['set_title']['title'] == "last column"
     assert hlpr._cfg[(1, 1)]['set_title']['color'] == "green"
     assert hlpr._cfg[(1, 1)]['set_title']['size'] == 5
@@ -226,11 +227,11 @@ def test_figure_setup_subplots(hlpr):
     assert hlpr._cfg[(1, 3)]['set_title']['title'] == "bottom right hand"
     assert hlpr._cfg[(1, 3)]['set_title']['color'] == "green"
     assert hlpr._cfg[(1, 3)]['set_title']['size'] == 5
-    
+
     assert hlpr._cfg[(0, 1)]['set_title']['title'] == "Test Title"
     assert hlpr._cfg[(0, 1)]['set_title']['color'] == "green"
     assert hlpr._cfg[(0, 1)]['set_title']['size'] == 5
-    
+
     assert hlpr._cfg[(0, 2)]['set_title']['title'] == "Test Title"
     assert hlpr._cfg[(0, 2)]['set_title']['color'] == "green"
     assert hlpr._cfg[(0, 2)]['set_title']['size'] == 5
@@ -400,7 +401,7 @@ def test_coords_match():
     """Test the coords_match function"""
     full_shape = (5, 4)
     match = lambda c, m: coords_match(c, match=m, full_shape=full_shape)
-    
+
     assert match((0, 0), (0, 0))
     assert match((0, 0), (None, None))
     assert match((0, 0), (Ellipsis, Ellipsis))
@@ -426,11 +427,11 @@ def test_coords_match():
     # And lengths always have to match
     with pytest.raises(ValueError, match="Need 2-tuples for arguments"):
         match((0, 0), (0, 0, 0))
-    
-    # And values should not exceed the full shape 
+
+    # And values should not exceed the full shape
     with pytest.raises(ValueError, match="exceeding the shape"):
         match((0, 0), (5, 3))
-    
+
     with pytest.raises(ValueError, match="exceeding the shape"):
         match((0, 0), (4, 4))
 
@@ -492,7 +493,7 @@ def test_axis_specificity(hlpr):
 
     hlpr.select_axis(-1, -1)
     assert hlpr.ax_coords == (3, 2)
-    
+
     hlpr.select_axis(0, 0)
     assert hlpr.ax_coords == (0, 0)
 
@@ -527,7 +528,7 @@ def test_axis_specificity(hlpr):
 
     for ax in chain(hlpr.axes[:, 1], hlpr.axes[:, 1]):
         assert ax.title.get_text() == "default"
-    
+
 def test_animation(epc, tmpdir):
     """Test the animation feature"""
     # Test error messages . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -547,12 +548,12 @@ def test_animation(epc, tmpdir):
                        match="missing 1 required keyword-only argument: 'wri"):
         epc.plot(out_path=tmpdir.join("test.pdf"), plot_func=plot3,
                  animation=CFG_ANIM['missing_writer'])
-    
+
     # unavailable writer
     with pytest.raises(ValueError, match="'foo' is not available"):
         epc.plot(out_path=tmpdir.join("test.pdf"), plot_func=plot3,
                  animation=CFG_ANIM['unavailable_writer'])
-    
+
     # Test behaviour . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     # this should work correctly
     epc.plot(out_path=tmpdir.join("basic.pdf"), plot_func=plot3,
@@ -579,7 +580,7 @@ def test_animation(epc, tmpdir):
               "".format(i, anim_cfg))
         epc.plot(out_path=tmpdir.join(str(i) + ".pdf"), plot_func=plot3,
                  animation=dict(enabled=True, **anim_cfg))
-    
+
     for i, anim_cfg in enumerate(CFG_ANIM['should_not_work']):
         print("Testing 'should_not_work' animation config #{} ...\n  {}"
               "".format(i, anim_cfg))
