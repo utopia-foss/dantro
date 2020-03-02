@@ -11,6 +11,7 @@
 - #92 adds a test job for a Python 3.8 environment to the CI pipeline
 - Various documentation improvements
     - #124 and !136 fix all broken references in the documentation and the docstrings and improve the Sphinx configuration.
+    - !135 adds usage examples and includes code snippets from tests, thus automatically making sure that they work as intended.
     - Additionally, the CI now exits with a warning if Sphinx emitted any warnings, and a log file is made available via the job artifacts to inspect the Sphinx error log.
 
 #### Important notes on upgrading

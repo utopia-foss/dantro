@@ -13,11 +13,8 @@ Overview
 --------
 Essentially, the :py:class:`~dantro.data_mngr.DataManager` is a specialization of a :py:class:`~dantro.groups.ordered.OrderedDataGroup` that is extended with data loading capabilities.
 
-It is attached to a data directory which is seen as the directory to load data from.
+It is attached to a so-called "data directory" which is the base directory where data can be loaded from.
 
-.. todo::
-
-    Write more here.
 
 Data Loaders
 ------------
@@ -41,18 +38,12 @@ To load data into the data tree, there are two methods:
 
 For example, having :ref:`specialized <spec_data_mngr>` a data manager, data can be loaded in the following way:
 
-.. code-block:: python
+.. literalinclude:: ../../tests/test_doc_examples.py
+    :language: python
+    :start-after: ### Start -- data_io_data_mngr_example01
+    :end-before:  ### End ---- data_io_data_mngr_example01
+    :dedent: 4
 
-    dm = MyDataManager(data_dir="~/my_data")
-
-    # Now, data can be loaded using the `load` command:
-    dm.load("some_data",       # where to load the data to
-            loader="yaml",     # which loader to use
-            glob_str="*.yml")  # which files to find and load
-
-    # Access it
-    dm['some_data']
-    # ...
 
 
 The Load Configuration
@@ -70,15 +61,13 @@ An example for a rather complex load configuration is from the Utopia project:
     # Supply a default load configuration for the DataManager
     load_cfg:
       # Load the frontend configuration files from the config/ directory
-      # Each file refers to a level of the configuration that is supplied to
-      # the Multiverse: base <- user <- model <- run <- update
       cfg:
         loader: yaml
         glob_str: 'config/*.yml'
         required: true
         path_regex: config/(\w+)_cfg.yml
         target_path: cfg/{match:}
-  
+
       # Load the configuration files that are generated for _each_ simulation
       # These hold all information that is available to a single simulation and
       # are in an explicit, human-readable form.
@@ -88,7 +77,7 @@ An example for a rather complex load configuration is from the Utopia project:
         required: true
         path_regex: universes/uni(\d+)/config.yml
         target_path: uni/{match:}/cfg
-  
+
       # Load the binary output data from each simulation.
       data:
         loader: hdf5_proxy
@@ -119,7 +108,7 @@ The resulting data tree is:
         └┬ 0
            └┬ cfg
             └ data
-              └─ ...         
+              └─ ...
          ├ 1
          ...
 
@@ -130,7 +119,7 @@ The resulting data tree is:
     # Access the data
     meta_cfg = dm['cfg/meta']
     some_param = cfg['some']['parameter']
-    
+
     # Do something with the universes
     for uni_name, uni in dm['uni'].items():
         print("Current universe: ", uni_name)

@@ -22,7 +22,28 @@ Aside from these FAQs, make sure to have a look :doc:`at other documentation pag
 The :py:class:`~dantro.data_mngr.DataManager`
 ---------------------------------------------
 
-*No FAQs yet, sorry*
+*No FAQs yet. Feel free to ask the first one!*
+
+
+Data :py:mod:`~dantro.groups` and :py:mod:`~dantro.containers`
+--------------------------------------------------------------
+
+Can I add any object to the data tree?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+In principle, yes. But the object needs to be wrapped in order to concur to the required interface.
+
+The easiest way to achieve this for leaves of the data tree is by using the :py:class:`~dantro.containers.general.ObjectContainer` or the :py:class:`~dantro.containers.general.PassthroughContainer`:
+
+.. literalinclude:: ../../tests/test_doc_examples.py
+    :language: python
+    :start-after: ### Start -- data_io_faq_add_any_object
+    :end-before:  ### End ---- data_io_faq_add_any_object
+    :dedent: 4
+
+As demonstrated above, these container types provide a thin wrapping around the stored object.
+
+**Background:** Objects that make up the data tree need to concur to the :py:class:`~dantro.abc.AbstractDataContainer` or :py:class:`~dantro.abc.AbstractDataGroup` interface.
+While such a type can also be constructed fully manually (see :doc:`../specializing`), many use cases can be covered by combining an already existing type from the :py:mod:`~dantro.containers` or :py:mod:`~dantro.groups` modules with some :py:mod:`~dantro.mixins`.
 
 
 

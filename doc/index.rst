@@ -1,21 +1,22 @@
 Welcome to dantro's documentation!
 ==================================
 
-The :py:mod:`dantro` package — from *data* and *dentro* (gr., for tree) – is a Python package to work with hierarchically organized data.
+The :py:mod:`dantro` package — from *data* and *dentro* (gr., for tree) – is a Python package to work with hierarchically organized data using a uniform interface.
 It allows loading possibly heterogeneous data into a tree-like structure that can be conveniently handled for data manipulation, analysis, and plotting.
 
 
 .. note::
 
-    This documentation is work in progress.
-    If you find any errors or would like to contribute to it, please visit the `project page <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro>`_ and open an issue there.
+    If you find any errors in this documentation or would like to contribute to the project, please visit the `project page <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro>`_.
 
 
 .. toctree::
     :maxdepth: 1
 
+    examples
     philosophy
     specializing
+    integrating
 
 .. toctree::
     :caption: Data Handling
