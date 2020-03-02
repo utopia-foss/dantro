@@ -13,6 +13,7 @@
     - #124 and !136 fix all broken references in the documentation and the docstrings and improve the Sphinx configuration.
     - !135 adds usage examples and includes code snippets from tests, thus automatically making sure that they work as intended.
     - Additionally, the CI now exits with a warning if Sphinx emitted any warnings, and a log file is made available via the job artifacts to inspect the Sphinx error log.
+- !141 adds automatic deployment of dantro to the [PyPI](https://pypi.org/project/dantro/).
 
 #### Important notes on upgrading
 - Due to the changes introduced in !92, the netcdf4 package is no longer a dependency required by dantro.

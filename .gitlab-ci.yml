@@ -4,6 +4,7 @@ stages:
   - test
   - build
   - deploy
+  - post_deploy
 
 variables:
   # Documentation server configuration
@@ -107,7 +108,8 @@ build:docs:
 
 
 # -- Deploy Stage -------------------------------------------------------------
-# ... for deployment of the documentation (and potentially more jobs)
+# ... for deployment of the documentation, deployment of dantro to the PyPI
+#     (and potentially more jobs)
 
 # Deploy the documentation to a self-hosted web server
 deploy:docs:
@@ -158,3 +160,55 @@ deploy:stop_docs:
   environment:
     name: docs/$CI_COMMIT_REF_NAME
     action: stop
+
+# Deploy dantro to PyPI
+deploy:pypi:
+  stage: deploy
+  image: python:3.7
+  <<: *ssh_access
+  only: &to_deploy
+    - tags    # Triggered when a new tag is added
+    - web     # Use this for pre-release deployment
+  script:
+    # Define a regex for matching the tag name, see https://regex101.com/r/AsCCJo/2
+    # Expects fully-qualified version specifiers, like v1.2.3 or v1.2.3a4
+    # Does NOT accept tags like 1.2.3 (missing v) or v1.0 (missing patch version)
+    - export VERSION_PATTERN="v([[:digit:]]+)\.([[:digit:]]+)\.([[:digit:]]+)([[:lower:]]\d+)?"
+    # Before checking that the tag matches the expected pattern, check the regex
+    # pattern with a few allowed versions.
+    - "[[ \"v1.2.3\" =~ ${VERSION_PATTERN} ]]"
+    - "[[ \"v1.23.4a5\" =~ ${VERSION_PATTERN} ]]"
+
+    # Now do the actual check
+    - "[[ ${CI_COMMIT_TAG} =~ ${VERSION_PATTERN} ]]"
+    # Tag is of the correct form, yay!
+
+    - pip install -U twine
+
+    # Create distribution files
+    - python setup.py sdist bdist_wheel
+
+    # Check whether description will render correctly on PyPI
+    - twine check dist/*
+
+    # Upload to the TEST PyPI index (using separate credentials)
+    - twine upload --repository-url https://test.pypi.org/legacy/ -u ${PYPI_TEST_USER} -p ${PYPI_TEST_PASSWORD} dist/*
+
+    # If this worked, continue and upload to actual package index
+    - twine upload -u ${PYPI_USER} -p ${PYPI_PASSWORD} dist/*
+
+
+# -- Test Deploy Stage --------------------------------------------------------
+# ... for testing the deployment to the PyPI (and potentially more jobs)
+
+# Install dantro from the PyPI via pip to test automatic deployment
+post_deploy:install_from_pypi:
+  stage: post_deploy
+  image: python:3.7
+  only: *to_deploy
+  needs:
+    - "deploy:pypi"
+  script:
+    # Install the newly deployed dantro version via PyPI. The current version
+    # number is given by the commit tag without the prefixed 'v'.
+    - pip install dantro==${CI_COMMIT_TAG#v}

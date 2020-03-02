@@ -14,20 +14,25 @@ The development history can be inspected in the [changelog](CHANGELOG.md).
 ## Installing dantro
 If the project you want to use `dantro` with uses a virtual environment, enter it now.
 
-To then install dantro, use pip and the clone link of this project:
+The `dantro` package is available [on the Python Package Index](https://pypi.org/project/dantro/). The recommended way of installing it is via [`pip`](https://pip.pypa.io/en/stable/):
 
 ```bash
-(some-venv) $ pip install git+<clone-link>
+(some-venv) $ pip install dantro
 ```
-
-If you do not have SSH keys available, use the HTTPS link.
-To install a certain branch, tag, or commit, see the [`pip` documentation](https://pip.pypa.io/en/stable/reference/pip_install/#git).
-Available release branches can be found [on the project page](https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/-/branches/all?utf8=✓&search=release%2F).
 
 
 
 ## Developing dantro
 ### Installation for developers
+
+For installation of versions that are not on the PyPI, `pip` allows specifying a git repository:
+
+```bash
+(some-venv) $ pip install git+<clone-link>@<some-branch-name>
+```
+
+Here, replace `clone-link` with the clone URL of this project and `some-branch-name` with the name of the branch that you want to install the package from (see the [`pip` documentation](https://pip.pypa.io/en/stable/reference/pip_install/#git) for details). Alternatively, omit the `@` and everything after it. If you do not have SSH keys available, use the HTTPS link.
+
 If you would like to contribute to `dantro` (yeah!), you should clone the repository to a local directory:
 
 ```bash
