@@ -1,6 +1,6 @@
 # Release Guide
 
-This document describes the procedure of working on new dantro releases and the procedure of releasing a new dantro version.
+This document describes the procedure of working on new dantro releases and the procedure of releasing a new dantro version. New releases are automatically deployed to the [PyPI](https://pypi.org/project/dantro/).
 
 Below, replace all mentions of `vX.Y` with the to-be-released version number.
 For patch releases, not all of the steps below apply; see [below](#bangbang-important-remarks).
