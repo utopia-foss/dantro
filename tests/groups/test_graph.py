@@ -1,4 +1,4 @@
-"""Test the NetworkGroup"""
+"""Test the GraphGroup"""
 
 from pkg_resources import resource_filename
 from typing import Union
@@ -13,12 +13,12 @@ from networkx.classes.multigraph import MultiGraph
 # Import the dantro objects to test here
 from dantro.base import BaseDataGroup
 from dantro.containers import NumpyDataContainer, XrDataContainer
-from dantro.groups import NetworkGroup, TimeSeriesGroup
+from dantro.groups import GraphGroup, TimeSeriesGroup
 from dantro.tools import load_yml
 
 
 # Local paths
-NW_GRP_PATH = resource_filename('tests', 'cfg/nw_grps.yml')
+GRAPH_GRP_PATH = resource_filename('tests', 'cfg/graph_grps.yml')
 
 # Helper functions ------------------------------------------------------------
 
@@ -26,17 +26,17 @@ NW_GRP_PATH = resource_filename('tests', 'cfg/nw_grps.yml')
 # Fixtures --------------------------------------------------------------------
 
 @pytest.fixture()
-def nw_grp_cfgs() -> dict:
-    """Returns the dict of NetworkGroup configurations"""
-    return load_yml(NW_GRP_PATH)
+def graph_grp_cfgs() -> dict:
+    """Returns the dict of GraphGroup configurations"""
+    return load_yml(GRAPH_GRP_PATH)
 
 @pytest.fixture()
-def nw_grps(nw_grp_cfgs) -> Union[dict, dict]:
-    """Creates a NetworkGroup to be tested below"""
+def graph_grps(graph_grp_cfgs) -> Union[dict, dict]:
+    """Creates a GraphGroup to be tested below"""
     grps = dict()
 
-    for name, cfg in nw_grp_cfgs.items():
-        grps[name] = NetworkGroup(name=name, attrs=cfg["attrs"])
+    for name, cfg in graph_grp_cfgs.items():
+        grps[name] = GraphGroup(name=name, attrs=cfg["attrs"])
         
         # Add nodes, edges and properties from config
         # ... if this is not one of the keys where no nodes should be added:
@@ -102,25 +102,25 @@ def nw_grps(nw_grp_cfgs) -> Union[dict, dict]:
                                      data=cfg.get('ep1',[]), dims=['time'],
                                      attrs=cfg.get('attrs_edge_props', None))
 
-    return (grps, nw_grp_cfgs)
+    return (grps, graph_grp_cfgs)
 
 # Tests -----------------------------------------------------------------------
 
-def test_network_group_basics(nw_grps):
-    """Test the NetworkGroup.create_graph function"""
+def test_graph_group_basics(graph_grps):
+    """Test the GraphGroup.create_graph function"""
 
     # Helper functions --------------------------------------------------------
-    def basic_network_creation_test(nw, cfg, *, name: str):
+    def basic_graph_creation_test(nw, cfg, *, name: str):
         # Get the attributes
         attrs = cfg["attrs"]
         directed = attrs["directed"]
         parallel = attrs["parallel"]
 
-        # Check that the network is not empty, (not) directed ...
+        # Check that the graph is not empty, (not) directed ...
         assert nx.is_empty(nw) == False
         assert nx.is_directed(nw) == directed
 
-        # Check the data type of the network
+        # Check the data type of the graph
         if not directed and not parallel:
             assert isinstance(nw, nx.Graph)
 
@@ -134,7 +134,7 @@ def test_network_group_basics(nw_grps):
             assert isinstance(nw, nx.MultiDiGraph)
 
         # Check that the nodes and edges given in the config coincide with
-        # the ones stored inside of the network
+        # the ones stored inside of the graph
         nodes = cfg["nodes"]
         edges = cfg["edges"]
 
@@ -184,7 +184,7 @@ def test_network_group_basics(nw_grps):
 
     # Actual test -------------------------------------------------------------
     # Get the groups and their corresponding configurations
-    (grps, cfgs) = nw_grps
+    (grps, cfgs) = graph_grps
 
     for name, grp in grps.items():
         print("Testing configuration {} ...".format(name))
@@ -198,7 +198,7 @@ def test_network_group_basics(nw_grps):
         # test the failing cases
         if name == 'wrong_nodes':
             with pytest.raises(KeyError,
-                               match=r"Check if .* _NWG_node_container"):
+                               match=r"Check if .* _GG_node_container"):
                 grp.create_graph(at_time_idx=(cfg.get('at_time', None)),
                                  node_props=(cfg.get('node_props', None)),
                                  edge_props=(cfg.get('edge_props', None)))
@@ -208,7 +208,7 @@ def test_network_group_basics(nw_grps):
 
         elif name == 'wrong_edges':
             with pytest.raises(KeyError,
-                               match=r"Check if .* _NWG_edge_container"):
+                               match=r"Check if .* _GG_edge_container"):
                 grp.create_graph(at_time_idx=(cfg.get('at_time', None)),
                                  node_props=(cfg.get('node_props', None)),
                                  edge_props=(cfg.get('edge_props', None)))
@@ -251,13 +251,13 @@ def test_network_group_basics(nw_grps):
                                   edge_props=(cfg.get('edge_props', None)))
 
         # Check that the basic graph creation works
-        basic_network_creation_test(nw, cfg, name=name)
+        basic_graph_creation_test(nw, cfg, name=name)
 
-def test_set_property_functions(nw_grps):
-    """Test the NetworkGroup.set_node_property
-            and NetworkGroup.set_edge_property function
+def test_set_property_functions(graph_grps):
+    """Test the GraphGroup.set_node_property
+            and GraphGroup.set_edge_property function
     """
-    (grps, cfgs) = nw_grps
+    (grps, cfgs) = graph_grps
     grp = grps['grp_prop']
     cfg = cfgs['grp_prop']
 
