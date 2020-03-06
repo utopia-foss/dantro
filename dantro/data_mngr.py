@@ -61,7 +61,7 @@ class NoMatchWarning(UserWarning):
 class DataManager(OrderedDataGroup):
     """The DataManager is the root of a data tree, coupled to a specific data
     directory.
-    
+
     It handles the loading of data and can be used for interactive work with
     the data.
     """
@@ -88,7 +88,7 @@ class DataManager(OrderedDataGroup):
                  create_groups: List[Union[str, dict]]=None,
                  condensed_tree_params: dict=None):
         """Initializes a DataManager for the specified data directory.
-        
+
         Args:
             data_dir (str): the directory the data can be found in. If this is
                 a relative path, it is considered relative to the current
@@ -101,7 +101,7 @@ class DataManager(OrderedDataGroup):
                 :py:meth:`~dantro.data_mngr.DataManager.load` method.
             out_dir (Union[str, bool], optional): where output is written to.
                 If this is given as a relative path, it is considered relative
-                to the ``data_dir``. A formatting operation with the keys 
+                to the ``data_dir``. A formatting operation with the keys
                 ``timestamp`` and ``name`` is performed on this, where the
                 latter is the name of the data manager. If set to False, no
                 output directory is created.
@@ -125,7 +125,7 @@ class DataManager(OrderedDataGroup):
         if not name:
             basename = os.path.basename(os.path.abspath(data_dir))
             name = "{}_Manager".format(basename.replace(" ", "_"))
-        
+
         log.info("Initializing %s '%s'...", self.classname, name)
 
         # Initialize as a data group via parent class
@@ -168,7 +168,7 @@ class DataManager(OrderedDataGroup):
             for spec in specs:
                 if isinstance(spec, dict):
                     # Got a more elaborate group specification
-                    self.new_group(**spec) 
+                    self.new_group(**spec)
 
                 else:
                     # Assume this is the group name; use the default class
@@ -193,9 +193,9 @@ class DataManager(OrderedDataGroup):
                    exist_ok: bool=False) -> Dict[str, str]:
         """Initializes the directories managed by this DataManager and returns
         a dictionary that stores the absolute paths to these directories.
-        
+
         If they do not exist, they will be created.
-        
+
         Args:
             data_dir (str): the directory the data can be found in. If this is
                 a relative path, it is considered relative to the current
@@ -214,7 +214,7 @@ class DataManager(OrderedDataGroup):
                 Note that it only makes sense to set this to True if you can
                 be sure that there will be no file conflicts! Otherwise the
                 errors will just occur at a later stage.
-        
+
         Returns:
             Dict[str, str]: The directory paths registered under certain keys,
                 e.g. ``data`` and ``out``.
@@ -243,7 +243,7 @@ class DataManager(OrderedDataGroup):
             if not os.path.isabs(out_dir):
                 # By joining them together, out_dir is now relative
                 out_dir = os.path.join(data_dir, out_dir)
-    
+
             # Make path absolute and store in dict
             dirs['out'] = os.path.abspath(out_dir)
 
@@ -286,9 +286,9 @@ class DataManager(OrderedDataGroup):
     def load_from_cfg(self, *, load_cfg: dict=None,
                       update_load_cfg: dict=None,
                       exists_action: str='raise',
-                      print_tree: Union[bool,str]=False) -> None:
+                      print_tree: Union[bool, str]=False) -> None:
         """Load multiple data entries using the specified load configuration.
-        
+
         Args:
             load_cfg (dict, optional): The load configuration to use. If not
                 given, the one specified during initialization is used.
@@ -302,9 +302,9 @@ class DataManager(OrderedDataGroup):
                 representation of the DataManager is printed after the data
                 was loaded. If ``'condensed'``, the condensed tree will be
                 printed.
-        
+
         Raises:
-            TypeError: Raised if a given configuration entry was of invalid 
+            TypeError: Raised if a given configuration entry was of invalid
                 type, i.e. not a dict
         """
         # Determine which load configuration to use
@@ -337,7 +337,7 @@ class DataManager(OrderedDataGroup):
             self.load(entry_name, exists_action=exists_action,
                       print_tree=False,  # to not have prints during loading
                       **params)
-        
+
         # All done
         log.success("Successfully loaded %d data entries.", len(load_cfg))
 
@@ -351,10 +351,10 @@ class DataManager(OrderedDataGroup):
     def load(self, entry_name: str, *, loader: str, enabled: bool=True,
              glob_str: Union[str, List[str]], base_path: str=None,
              target_group: str=None, target_path: str=None,
-             print_tree: Union[bool,str]=False,
+             print_tree: Union[bool, str]=False,
              load_as_attr: bool=False, **load_params) -> None:
         """Performs a single load operation.
-        
+
         Args:
             entry_name (str): Name of this entry; will also be the name of the
                 created group or container, unless ``target_basename`` is given
@@ -388,7 +388,7 @@ class DataManager(OrderedDataGroup):
                 The name of the attribute will be the ``entry_name``.
             **load_params: Further loading parameters, all optional. These are
                 evaluated by :py:meth:`~dantro.data_mngr.DataManager._load`.
-        
+
                 ignore (list):
                     The exact file names in this list will be ignored during
                     loading. Paths are seen as elative to the data directory
@@ -399,7 +399,7 @@ class DataManager(OrderedDataGroup):
                 path_regex (str):
                     This pattern can be used to match the path of the file
                     that is being loaded. The match result is available to the
-                    format string under the `match` key.
+                    format string under the ``match`` key.
                 exists_action (str):
                     The behaviour upon existing data.
                     Can be: ``raise`` (default), ``skip``, ``skip_nowarn``,
@@ -418,10 +418,10 @@ class DataManager(OrderedDataGroup):
                     implemented yet!
                 any further kwargs:
                     passed on to the loader function
-        
+
         Returns:
             None
-        
+
         Raises:
             ValueError: Upon invalid combination of ``target_group`` and
                 ``target_path`` arguments
@@ -444,7 +444,7 @@ class DataManager(OrderedDataGroup):
                                  "a {}: {}".format(target_path,
                                                    type(err), err)) from err
             else:
-                log.debug("Target path will be:  %s", _target_path)    
+                log.debug("Target path will be:  %s", _target_path)
 
         if not enabled:
             log.progress("Skipping loading of data entry '%s' ...", entry_name)
@@ -525,7 +525,7 @@ class DataManager(OrderedDataGroup):
               progress_indicator: bool=True, parallel: bool=False,
               **loader_kwargs) -> int:
         """Helper function that loads a data entry to the specified path.
-        
+
         Args:
             target_path (str): The path to load the result of the loader to.
                 This can be a format string; it is evaluated for each file.
@@ -563,11 +563,11 @@ class DataManager(OrderedDataGroup):
             parallel (bool, optional): If True, data is loaded in parallel -
                 not implemented yet!
             **loader_kwargs: passed on to the loader function
-        
+
         Raises:
             NotImplementedError: For ``parallel == True``
             ValueError: Bad ``path_regex``
-        
+
         Returns:
             int: Number of files that data was loaded from
         """
@@ -601,10 +601,10 @@ class DataManager(OrderedDataGroup):
                               ignore: List[str], base_path: str=None,
                               required: bool=False, sort: bool=False) -> list:
             """Create the list of file paths to load from.
-            
+
             Internally, this uses a set, thus ensuring that the paths are
             unique. The set is converted to a list before returning.
-            
+
             Args:
                 glob_str (Union[str, List[str]]): The glob pattern or a list of
                     glob patterns
@@ -614,10 +614,10 @@ class DataManager(OrderedDataGroup):
                 required (bool, optional): Will lead to an error being raised
                     if no files could be matched
                 sort (bool, optional): If true, sorts the list before returning
-            
+
             Returns:
                 list: the file paths to load
-            
+
             Raises:
                 MissingDataError: If no files could be matched
                 RequiredDataMissingError: If no files could be matched but were
@@ -628,7 +628,7 @@ class DataManager(OrderedDataGroup):
 
             # Assure it is a list of strings
             if isinstance(glob_str, str):
-                # Is a single glob string                
+                # Is a single glob string
                 # Put it into a list to handle the same as the given arg
                 glob_str = [glob_str]
 
@@ -659,7 +659,7 @@ class DataManager(OrderedDataGroup):
             # See if some files should be ignored
             if ignore:
                 log.debug("Got list of files to ignore:\n  %s", ignore)
-                
+
                 # Make absolute and generate list of files to exclude
                 ignore = [os.path.join(self.dirs['data'], path)
                           for path in ignore]
@@ -716,7 +716,7 @@ class DataManager(OrderedDataGroup):
             if path_sre:
                 try:
                     _match = path_sre.findall(filepath)[0]
-                
+
                 except IndexError:
                     # nothing could be found
                     warnings.warn("Could not extract a name using the "
@@ -725,11 +725,11 @@ class DataManager(OrderedDataGroup):
                                   "".format(path_sre, filepath),
                                   NoMatchWarning)
                     _match = fps['basename']
-                
+
                 else:
                     log.debug("Matched '%s' in file path '%s'.",
                               _match, filepath)
-                
+
                 fps['match'] = _match
 
             # Parse the format string to generate the file path
@@ -744,16 +744,16 @@ class DataManager(OrderedDataGroup):
         def skip_path(path: str, *, exists_action: str) -> bool:
             """Check whether a given path exists and — depending on the
             `exists_action` – decides whether to skip this path or now.
-            
+
             Args:
                 path (str): The path to check for existence.
                 exists_action (str): The behaviour upon existing data. Can be:
                     raise, skip, skip_nowarn, overwrite, overwrite_nowarn.
                     The *_nowarn arguments suppress the warning
-            
+
             Returns:
                 bool: Whether to skip this path
-            
+
             Raises:
                 ExistingDataError: Raised when `exists_action == 'raise'`
                 ValueError: Raised for invalid `exists_action` value
@@ -797,21 +797,21 @@ class DataManager(OrderedDataGroup):
                   target_path: List[str], as_attr: Union[str, None],
                   unpack_data: bool) -> None:
             """Store the given `obj` at the supplied `path`.
-            
+
             Note that this will automatically overwrite, assuming that all
             checks have been made prior to the call to this function.
-            
+
             Args:
                 obj (Union[BaseDataGroup, BaseDataContainer]): Object to store
                 target_path (List[str]): The path to store the object at
                 as_attr (Union[str, None]): If a string, store the object in
                     the attributes of the container or group at target_path
-            
+
             Raises:
                 ExistingDataError: If non-group-like data already existed at
                     that path
                 RequiredDataMissingError: If storing as attribute was selected
-                    but there was no object at the given target_path 
+                    but there was no object at the given target_path
             """
             # First, handle the (easy) case where the object is to be stored
             # as the attribute at the target_path
@@ -844,7 +844,7 @@ class DataManager(OrderedDataGroup):
                     target.attrs[as_attr] = obj
                 else:
                     target.attrs[as_attr] = obj.data
-                    
+
                 log.debug("Stored %s as attribute '%s' of %s.",
                           obj.classname, as_attr, target.logstr)
 
@@ -884,7 +884,7 @@ class DataManager(OrderedDataGroup):
 
                 # Now the group path will point to a group
                 group = self[group_path]
-            
+
             # Store data, if possible
             if basename in group:
                 # Already exists. Delete the old one, then store the new one
@@ -892,7 +892,7 @@ class DataManager(OrderedDataGroup):
 
             # Can add now
             group.add(obj)
-            
+
             # Done
             log.debug("Successfully stored %s at '%s'.",
                       _data.logstr, PATH_JOIN_CHAR.join(target_path))
@@ -905,7 +905,7 @@ class DataManager(OrderedDataGroup):
         files = create_files_list(glob_str=glob_str, ignore=ignore,
                                   required=required, base_path=base_path,
                                   sort=True)
-        
+
         # If a regex pattern was specified, compile it
         path_sre = re.compile(path_regex) if path_regex else None
 
@@ -920,7 +920,7 @@ class DataManager(OrderedDataGroup):
         if parallel:
             # TODO could be implemented by parallelising the below for loop
             raise NotImplementedError("Cannot load in parallel yet.")
-        
+
         # Ready for loading files now . . . . . . . . . . . . . . . . . . . . .
         # Go over the files and load them
         for n, file in enumerate(files):
@@ -954,11 +954,11 @@ class DataManager(OrderedDataGroup):
             _data = load_func(file, TargetCls=_TargetCls, **loader_kwargs)
             log.debug("Successfully loaded file '%s' into %s.",
                       file, _data.logstr)
-            
+
             # If this succeeded, store the data
             store(_data, target_path=_target_path,
                   as_attr=load_as_attr, unpack_data=unpack_data)
-            
+
             # Done with this file. Go to next iteration
 
         # Clear the line to get rid of the load indicator, if there was one
@@ -972,15 +972,15 @@ class DataManager(OrderedDataGroup):
     def _contains_group(self, path: Union[str, List[str]], *,
                         base_group: BaseDataGroup=None) -> bool:
         """Recursively checks if the given path is available _and_ a group.
-        
+
         Args:
             path (Union[str, List[str]]): The path to check.
             base_group (BaseDataGroup): The group to start from. If not
                 given, will use self.
-        
+
         Returns:
             bool: Whether the path points to a group
-        
+
         """
         def check(path: str, base_group: BaseDataGroup) -> bool:
             """Returns True if the object at path within base_group is
@@ -1010,7 +1010,7 @@ class DataManager(OrderedDataGroup):
                        GroupCls: Union[type, str]=None, exist_ok: bool=True):
         """Recursively create groups for the given path. Unlike new_group, this
         also creates the groups at the intermediate paths.
-        
+
         Args:
             path (Union[str, List[str]]): The path to create groups along
             base_group (BaseDataGroup, optional): The group to start from. If
@@ -1022,7 +1022,7 @@ class DataManager(OrderedDataGroup):
             exist_ok (bool, optional): Whether it is ok that groups along the
                 path already exist. These might also be of different type.
                 Default: True
-        
+
         Raises:
             ExistingDataError: If not `exist_ok`
             ExistingGroupError: If not `exist_ok` and a group already exists
@@ -1066,15 +1066,15 @@ class DataManager(OrderedDataGroup):
 
     def _determine_group_class(self, Cls: Union[type, str]) -> type:
         """Helper function to determine the type of a group from an argument.
-        
+
         Args:
             Cls (Union[type, str]): If None, uses the _DATA_GROUP_DEFAULT_CLS.
                 If a string, tries to extract it from the _DATA_GROUP_CLASSES
-                class variable. Otherwise, assumes this is already a type. 
-        
+                class variable. Otherwise, assumes this is already a type.
+
         Returns:
             type: The group class to use
-        
+
         Raises:
             KeyError: If the string class name was not registered
             ValueError: If no _DATA_GROUP_CLASSES variable was populated
@@ -1084,12 +1084,12 @@ class DataManager(OrderedDataGroup):
 
         if isinstance(Cls, str):
             cls_name = Cls
-            
+
             if not self._DATA_GROUP_CLASSES:
                 raise ValueError("The class variable _DATA_GROUP_CLASSES is "
                                  "empty; cannot look up class type by the "
                                  "given name '{}'.".format(cls_name))
-            
+
             elif cls_name not in self._DATA_GROUP_CLASSES:
                 raise KeyError("The given class name '{}' was not registered "
                                "with this {}! Available classes: {}"
@@ -1107,11 +1107,11 @@ class DataManager(OrderedDataGroup):
 
     def new_group(self, path: str, *, Cls: Union[type, str]=None, **kwargs):
         """Creates a new group at the given path.
-        
+
         This is a slightly advanced version of the new_group method of the
         BaseDataGroup. It not only adjusts the default type, but also allows
         more ways how to specify the type of the group to create.
-        
+
         Args:
             path (str): Where to create the group. Note that the intermediates
                 of this path need to already exist.
@@ -1120,7 +1120,7 @@ class DataManager(OrderedDataGroup):
                 the _DATA_GROUP_CLASSES class variable. If None, uses the
                 default data group type of the data manager.
             **kwargs: Passed on to Cls.__init__
-        
+
         Returns:
             Cls: the created group
         """

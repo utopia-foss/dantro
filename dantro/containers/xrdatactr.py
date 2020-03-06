@@ -31,7 +31,7 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
     # Define as class variable the name of the attribute that determines the
     # dimensions of the xarray.DataArray
     _XRC_DIMS_ATTR = 'dims'
-    
+
     # Attributes prefixed with this string can be used to set names for
     # specific dimensions. The prefix should be followed by an integer-parsable
     # string, e.g. `dim_name__0` would be the dimension name for the 0th dim.
@@ -65,7 +65,7 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
                  **dc_kwargs):
         """Initialize a XrDataContainer and extract dimension and coordinate
         labels.
-        
+
         Args:
             name (str): which name to give to the XrDataContainer
             data (Union[np.ndarray, xr.DataArray]): The data to store; anything
@@ -138,7 +138,7 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
 
     def copy(self):
         """Return a new object with a deep copy of the data.
-        
+
         Returns:
             XrDataContainer: A deep copy of this object.
         """
@@ -159,14 +159,14 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
     def save(self, path: str, **save_kwargs):
         """Saves the XrDataContainer to a file by invoking the .to_netcdf
         method of the underlying data.
-        
+
         The recommended file extension is ``.xrdc`` or ``.nc_da``, which are
         compatible with the xarray-based data loader.
-        
+
         .. warning::
-        
+
             This does NOT store container attributes!
-        
+
         Args:
             path (str): The path to save the file at
             **save_kwargs: Passed to the .to_netcdf method
@@ -180,7 +180,7 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
         in the ``_dim_names`` and ``_dim_to_coords_map`` cache attributes.
         """
         log.trace("Extracting metadata for labelling %s ...", self.logstr)
-        
+
         # First: the dimension names
         if self._dim_names is None:
             try:
@@ -192,7 +192,7 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
                 raise type(exc)("Failed extracting dimension names from the "
                                 "attributes of {}! {}"
                                 "".format(self.logstr, exc)) from exc
-            
+
             else:
                 self._dim_names = dims
 
@@ -223,7 +223,7 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
         for attr_name, attr_val in self.attrs.items():
             if not skip(attr_name):
                 self.data.attrs[attr_name] = attr_val
-    
+
     def _apply_metadata(self):
         """Applies the cached metadata to the underlying xr.DataArray"""
         # Make sure that data is an xarray
@@ -239,7 +239,7 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
             new_names = {old: new
                          for old, new in zip(self.data.dims, self._dim_names)
                          if new is not None}
-            
+
             log.trace("Renaming dimensions:  %s", new_names)
             self._data = self.data.rename(new_names)
 
@@ -257,14 +257,14 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
                 # Can associate now.
                 try:
                     self.data.coords[dim_name] = coords
-                
+
                 except Exception as err:
                     raise ValueError("Could not associate coordinates {} for "
                                      "dimension '{}' due to a {}: {}."
                                      "".format(coords, dim_name,
                                                err.__class__.__name__, err)
                                      ) from err
-        
+
         # Now write the rest of the attributes of the dataset to the xarray
         if self._XRC_INHERIT_CONTAINER_ATTRIBUTES:
             self._inherit_attrs()

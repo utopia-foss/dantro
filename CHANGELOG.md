@@ -5,6 +5,7 @@
 
 ## v0.12.0 *(WIP)*
 - As of this release, dantro is licensed under the [LGPLv3+ license](COPYING.md), added in !133.
+- !141 adds automatic deployment of dantro to the [PyPI](https://pypi.org/project/dantro/).
 - !134 adds a [Contribution Guide](CONTRIBUTING.md) and a [Code of Conduct](CODE_OF_CONDUCT.md).
 - Furthermore, the dantro documentation is now deployed to Read the Docs, both for [stable versions](https://dantro.readthedocs.io/en/stable/) and for the [latest version](https://dantro.readthedocs.io/en/latest/).
   See !140 and !143 for more information.
@@ -13,7 +14,7 @@
     - #124 and !136 fix all broken references in the documentation and the docstrings and improve the Sphinx configuration.
     - !135 adds usage examples and includes code snippets from tests, thus automatically making sure that they work as intended.
     - Additionally, the CI now exits with a warning if Sphinx emitted any warnings, and a log file is made available via the job artifacts to inspect the Sphinx error log.
-- !141 adds automatic deployment of dantro to the [PyPI](https://pypi.org/project/dantro/).
+    - #117 improves, restructures, and extents the documentation, now covering the full range of dantro applications.
 
 #### Important notes on upgrading
 - Due to the changes introduced in !92, the netcdf4 package is no longer a dependency required by dantro.

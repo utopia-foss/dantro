@@ -32,7 +32,7 @@ The :py:class:`~dantro.base.BaseDataContainer` is what makes this object a dantr
 It implements some of the required methods to concur to the ``MutableSequence`` interface, but leaves others abstract.
 
 Now, we need to supply implementations of these abstract methods.
-That is the job of the following two (reading from right to left) mixin classes.  
+That is the job of the following two (reading from right to left) mixin classes.
 In this case, the ``Sequence`` interface has to be fulfilled.
 As a ``Sequence`` is nothing more than a ``Collection`` with item access, we can fulfill this by inheriting from the :py:class:`~dantro.mixins.base.CollectionMixin` and the :py:class:`~dantro.mixins.base.ItemAccessMixin`.
 
@@ -107,6 +107,6 @@ That's all.
 For more information, see :doc:`data_io/data_mngr`.
 
 .. note::
-    
+
     As an example, you can have a look at `data manager used in utopya <https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia/blob/master/python/utopya/utopya/datamanager.py>`_.
 

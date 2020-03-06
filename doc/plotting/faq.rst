@@ -81,3 +81,15 @@ Follow these steps to achieve overwriting of existing plot output:
 - **Tell the plot manager to overwrite existing plot configuration files** that are stored alongside each plot; otherwise, this would also create a conflict.
   To do so, pass ``cfg_exists_action='overwrite'`` during initialization of the :py:class:`~dantro.plot_mngr.PlotManager`.
   To suppress a warning, use ``overwrite_nowarn``.
+
+
+
+:py:class:`~dantro.plot_creators._plot_helper.PlotHelper` FAQs
+--------------------------------------------------------------
+
+Can I assign a custom figure to the PlotHelper?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Yes.
+
+When using the :py:class:`~dantro.plot_creators._plot_helper.PlotHelper`, it automatically sets up a figure instance and an axis initially, even before the plot function is called.
+However, they can be replaced using the :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.attach_figure_and_axes` method.

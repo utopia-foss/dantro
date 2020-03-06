@@ -1,0 +1,81 @@
+# Example configuratiosn used in the test_doc_examples test module
+---
+# -----------------------------------------------------------------------------
+# data_io/data_mngr.rst
+data_io_load_cfg:
+  example01:
+    ### Start -- data_io_load_cfg_example01
+    my_config_files:
+      loader: yaml
+      glob_str: 'config/*.yml'
+      required: true
+
+      # Use information from the file name to generate the target path
+      path_regex: config/(\w+)_cfg.yml
+      target_path: cfg/{match:}
+  ### End ---- data_io_load_cfg_example01
+
+  example02:
+    ### Start -- data_io_load_cfg_example02
+    # Load the (binary) measurement data for each day
+    measurement_data:
+      loader: hdf5
+      glob_str: measurements/day*.hdf5
+      required: true
+      path_regex: measurements/day(\d+).hdf5
+      target_path: measurements/{match:}/data
+
+    # Load the parameter files, containing information about each day
+    measurement_parameters:
+      loader: yaml
+      glob_str: measurements/day*_params.yml
+      required: true
+      path_regex: measurements/day(\d+)_params.yml
+      target_path: measurements/{match:}/params
+    ### End ---- data_io_load_cfg_example02
+
+  example03:
+    ### Start -- data_io_load_cfg_example03
+    # Load the (binary) measurement data for each day
+    measurement_data:
+      loader: hdf5
+      glob_str: measurements/day*.hdf5
+      required: true
+      path_regex: measurements/day(\d+).hdf5
+      target_path: measurements/{match:}
+
+    # Load the parameter files as container attributes
+    params:
+      loader: yaml
+      glob_str: measurements/day*_params.yml
+      required: true
+      load_as_attr: true
+      unpack_data: true
+      path_regex: measurements/day(\d+)_params.yml
+      target_path: measurements/{match:}
+    ### End ---- data_io_load_cfg_example03
+
+  example04:
+    ### Start -- data_io_load_cfg_example04
+    # Load the (binary) measurement data for each day
+    measurement_data:
+      loader: hdf5
+      glob_str: measurements/day*.hdf5
+      required: true
+      path_regex: measurements/day(\d+).hdf5
+      target_path: measurements/{match:}
+    ### End ---- data_io_load_cfg_example04
+
+  example05:
+    ### Start -- data_io_load_cfg_example05
+    # Load the (binary) measurement data for each day
+    measurement_data:
+      loader: hdf5
+      glob_str: measurements/day*.hdf5
+      required: true
+      path_regex: measurements/day(\d+).hdf5
+      target_path: measurements/{match:}
+      load_as_proxy: true
+      proxy_kwargs:
+        resolve_as_dask: true
+    ### End ---- data_io_load_cfg_example05

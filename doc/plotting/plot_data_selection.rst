@@ -40,6 +40,8 @@ To use the DAG for data selection, all you need to do is add the ``use_dag=True`
 
       # ... more arguments
 
+.. _plot_creator_dag_args:
+
 Arguments to control DAG behaviour
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 You then have the following arguments available to control its behaviour:
@@ -154,23 +156,23 @@ The DAG can be configured in the same way as :ref:`in the general case <plot_cre
                       unpack_dag_results=True)
         def simple_lineplot(*, x, y, hlpr: PlotHelper, **plt_kwargs):
             """Creates a simple line plot for selected x and y data"""
-            hlpr.ax.plot(x, y, **plt_kwargs)    
+            hlpr.ax.plot(x, y, **plt_kwargs)
 
 
 Accessing the :py:class:`~dantro.data_mngr.DataManager`
 """""""""""""""""""""""""""""""""""""""""""""""""""""""
 As visible from the plot function above, the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` does **not** pass along the current :py:class:`~dantro.data_mngr.DataManager` instance as first positional argument (``dm``) when DAG usage is enabled.
 This makes the plot function signature simpler and allows the creator-averse definition of plot functions while not restricting access to the data manager:
-    
+
 The data manager can still be accessed directly via the ``dm`` DAG tag.
 Make sure to specify that it should be included, e.g. via ``compute_only`` or the ``required_dag_tags`` argument to the decorator.
 
 
-
+.. _plot_data_selection_uni:
 
 Special case: :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-For the :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator`, data selection and transformation has to occur based on data from the currently selected universe. 
+For the :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator`, data selection and transformation has to occur based on data from the currently selected universe.
 This is taken care of automatically by this creator: it dynamically sets the :py:meth:`~dantro.dag.TransformationDAG.select_base` property to the current universe, not requiring any further user action.
 In effect, the ``select`` argument acts as if selections were to happen directly from the universe.
 
@@ -199,6 +201,7 @@ The following suffices to define a :py:class:`~dantro.plot_creators.pcr_psp.Univ
 The DAG can be configured in the same way as :ref:`in the general case <plot_creator_dag_usage>`.
 
 
+.. _plot_data_selection_mv:
 
 Special case: :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -311,10 +314,10 @@ An example for all options available in the :py:class:`~dantro.plot_creators.pcr
                   # operation took a large amount of time.
                   min_cumulative_compute_time: 20.
             transform:
-              - mean: !dag_prev 
+              - mean: !dag_prev
               - increment: [!dag_prev ]
               - some_op_with_kwargs:
-                  data: !dag_prev 
+                  data: !dag_prev
                   foo: bar
                   spam: 42
               - operation: my_operation
