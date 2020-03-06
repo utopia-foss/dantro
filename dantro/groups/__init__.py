@@ -4,4 +4,4 @@ from .ordered import OrderedDataGroup, IndexedDataGroup
 from .labelled import LabelledDataGroup
 from .time_series import TimeSeriesGroup, HeterogeneousTimeSeriesGroup
 from .pspgrp import ParamSpaceStateGroup, ParamSpaceGroup
-from .network import NetworkGroup
+from .graph import GraphGroup

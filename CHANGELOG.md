@@ -10,16 +10,19 @@
 - Furthermore, the dantro documentation is now deployed to Read the Docs, both for [stable versions](https://dantro.readthedocs.io/en/stable/) and for the [latest version](https://dantro.readthedocs.io/en/latest/).
   See !140 and !143 for more information.
 - #92 adds a test job for a Python 3.8 environment to the CI pipeline
+- #132 updates the graph-related vocabulary to `graph`, `nodes`, and `edges`.
 - Various documentation improvements
     - #124 and !136 fix all broken references in the documentation and the docstrings and improve the Sphinx configuration.
     - !135 adds usage examples and includes code snippets from tests, thus automatically making sure that they work as intended.
     - Additionally, the CI now exits with a warning if Sphinx emitted any warnings, and a log file is made available via the job artifacts to inspect the Sphinx error log.
     - #117 improves, restructures, and extents the documentation, now covering the full range of dantro applications.
 
+
 #### Important notes on upgrading
 - Due to the changes introduced in !92, the netcdf4 package is no longer a dependency required by dantro.
   It is replaced by the more commonly used scipy package.
   To ensure that no interference occurs between a remaining installation of netcdf4 and the new dependencies, we suggest to uninstall it using `pip uninstall netcdf4`.
+- With #132, the former `NetworkGroup` (now `GraphGroup`) and some of its attributes are renamed.
 
 
 ## v0.11.2

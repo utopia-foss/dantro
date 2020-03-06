@@ -1,4 +1,4 @@
-# Configuration (including data) for NetworkGroup tests
+# Configuration (including data) for GraphGroup tests
 ---
 basic_dir_par: &base
   nodes: [0,1,2,3,4]

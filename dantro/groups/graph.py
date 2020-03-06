@@ -1,4 +1,4 @@
-"""In this module, the NetworkGroup is implemented"""
+"""In this module, the GraphGroup is implemented"""
 
 import logging
 from typing import List, Union
@@ -17,20 +17,20 @@ log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
-class NetworkGroup(BaseDataGroup):
-    """The NetworkGroup class manages groups of network data containers."""
+class GraphGroup(BaseDataGroup):
+    """The GraphGroup class manages groups of graph data containers."""
 
     # Define allowed member container types
     _ALLOWED_CONT_TYPES = (XrDataContainer, TimeSeriesGroup)
 
     # Define, as class variables, in which containers or attributes to find the
     # info on the nodes and edges.
-    _NWG_node_container = "nodes"
-    _NWG_edge_container = "edges"
-    _NWG_attr_directed = "directed"
-    _NWG_attr_parallel = "parallel"
-    _NWG_attr_node_prop = "node_prop"
-    _NWG_attr_edge_prop = "edge_prop"
+    _GG_node_container = "nodes"
+    _GG_edge_container = "edges"
+    _GG_attr_directed = "directed"
+    _GG_attr_parallel = "parallel"
+    _GG_attr_node_prop = "node_prop"
+    _GG_attr_edge_prop = "edge_prop"
 
     # .........................................................................
 
@@ -97,10 +97,10 @@ class NetworkGroup(BaseDataGroup):
         Args:
             directed (bool, optional): The graph is directed. If not given, the
                 value given by the group attribute with name
-                ``_NWG_attr_directed`` is used instead.
+                ``_GG_attr_directed`` is used instead.
             parallel_edges (bool, optional): If true, the graph will allow
                 parallel edges. If not given, the value is tried to be read
-                from the group attribute with name _NWG_attr_parallel.
+                from the group attribute with name _GG_attr_parallel.
             at_time (int, optional): access data via time coordinate
             at_time_idx (int, optional): access data via index
             node_props (list, optional): list of names specifying the
@@ -125,23 +125,23 @@ class NetworkGroup(BaseDataGroup):
         log.debug("Checking whether node and edge container are available...")
         
         try:
-            node_cont = self[self._NWG_node_container]
+            node_cont = self[self._GG_node_container]
 
         except KeyError as err:
             raise KeyError("No container with name '{}' available in {}! "
-                           "Check if the class variable _NWG_node_container "
+                           "Check if the class variable _GG_node_container "
                            "is set to the correct value."
-                           "".format(self._NWG_node_container, self.logstr)
+                           "".format(self._GG_node_container, self.logstr)
                            ) from err
 
         try:
-            edge_cont = self[self._NWG_edge_container]
+            edge_cont = self[self._GG_edge_container]
 
         except KeyError as err:
             raise KeyError("No container with name '{}' available in {}! "
-                           "Check if the class variable _NWG_edge_container "
+                           "Check if the class variable _GG_edge_container "
                            "is set to the correct value."
-                           "".format(self._NWG_edge_container, self.logstr)
+                           "".format(self._GG_edge_container, self.logstr)
                            ) from err
 
         # Get node and edge data. If only data for a single time step was
@@ -163,10 +163,10 @@ class NetworkGroup(BaseDataGroup):
         # Get info on directed and parallel edges from attributes, if not
         # explicitly given
         if directed is None:
-            directed = self.attrs[self._NWG_attr_directed]
+            directed = self.attrs[self._GG_attr_directed]
         
         if parallel_edges is None:
-            parallel_edges = self.attrs[self._NWG_attr_parallel]
+            parallel_edges = self.attrs[self._GG_attr_parallel]
 
         # sort nodes
         node_cont = node_cont[np.argsort(node_cont)]
@@ -243,8 +243,8 @@ class NetworkGroup(BaseDataGroup):
         Raises:
             AttributeError: specified container not marked as property via
                 the according class attribute
-            KeyError: The name is not available in ``nwgrp`` or ``at_time`` is
-                not available in ``nwgrp[name]``.
+            KeyError: The name is not available in ``graph_grp`` or ``at_time``
+                is not available in ``graph_grp[name]``.
             ValueError: lenght of datasets does not match
         """
 
@@ -255,16 +255,16 @@ class NetworkGroup(BaseDataGroup):
             raise KeyError("No container with name '{}' available in"
                            " {}!".format(name, self.logstr)) from err
 
-        if not prop_data.attrs.get(self._NWG_attr_node_prop, False):
+        if not prop_data.attrs.get(self._GG_attr_node_prop, False):
             raise AttributeError("The data in '{}' is not marked as node"
                 " property! Check that it has the attribute '{}' set to"
-                " True".format(name, self._NWG_attr_node_prop))
+                " True".format(name, self._GG_attr_node_prop))
 
         prop_data = self._get_data_at(data=prop_data, at_time=at_time,
                                         at_time_idx=at_time_idx)
 
         # sort data along the node id's
-        node_cont = self[self._NWG_node_container]
+        node_cont = self[self._GG_node_container]
 
         if ('time' in node_cont.dims
             and len(node_cont.coords['time']) == 1):
@@ -302,8 +302,8 @@ class NetworkGroup(BaseDataGroup):
         Raises:
             AttributeError: specified container not marked as property via
                 the according class attribute
-            KeyError: The name is not available in ``nwgrp`` or ``at_time`` is
-                not available in ``nwgrp[name]``.
+            KeyError: The name is not available in ``graph_grp`` or ``at_time``
+                is not available in ``graph_grp[name]``.
             ValueError: dataset lengths mismatch
         """
         try:
@@ -313,11 +313,11 @@ class NetworkGroup(BaseDataGroup):
             raise KeyError("No container with name '{}' available in {}!"
                            "".format(name, self.logstr)) from err
 
-        if not prop_data.attrs.get(self._NWG_attr_edge_prop, False):
+        if not prop_data.attrs.get(self._GG_attr_edge_prop, False):
             raise AttributeError("The data in '{}' is not marked as edge "
                                  "property! Check that it has the attribute "
                                  "'{}' set to True"
-                                 "".format(name, self._NWG_attr_edge_prop))
+                                 "".format(name, self._GG_attr_edge_prop))
 
         prop_data = self._get_data_at(data=prop_data, at_time=at_time,
                                       at_time_idx=at_time_idx)
