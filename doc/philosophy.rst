@@ -1,8 +1,8 @@
 Philosophy and Design Concepts
 ==============================
 
-:py:mod:`dantro` aims to be a general package for handling, processing, and visualizing hierarchically organized data using a uniform interface.
-This page gives an overview of the key design concepts of dantro.
+:py:mod:`dantro` aims to be a general package for handling, transforming, and visualizing hierarchically organized data using a uniform interface.
+This page gives an overview of key design concepts and use cases of dantro.
 
 .. contents::
     :local:
