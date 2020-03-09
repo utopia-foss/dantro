@@ -7,7 +7,7 @@ For installation instructions, have a look at the README.
 
 .. note::
 
-    These examples do **not** go into depth about all dantro features, but aim to give an overview.
+    These examples do **not** go into depth about all dantro features but aim to give an overview.
     To get a deeper look, follow the links provided on this page and in the :doc:`rest of the documentation <index>`.
 
     Specifically, these examples do **not** show how dantro can be specialized for your use case and tightly integrated into your workflow.

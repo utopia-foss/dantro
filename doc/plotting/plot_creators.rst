@@ -26,9 +26,9 @@ A Family of Plot Creators
 ``AbstractPlotCreator`` - The plot creator interface
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-As defined in :py:mod:`dantro.abc`, the :py:class:`~dantro.abc.AbstractPlotCreator` defines the interface for plot creators, i.e.: all the methods the :py:class:`~dantro.plot_mngr.PlotManager` expects and requires in order to create a plot.
+As defined in :py:mod:`dantro.abc`, the :py:class:`~dantro.abc.AbstractPlotCreator` defines the interface for plot creators, i.e.: all the methods the :py:class:`~dantro.plot_mngr.PlotManager` expects and requires to create a plot.
 
-By implementing the abstract methods, the behaviour of the plot creators can be specified.
+By implementing the abstract methods, the behavior of the plot creators can be specified.
 
 Part of the interface is that a plot creator will be initialized with the knowledge about a :py:class:`~dantro.data_mngr.DataManager`, that holds the data that should be used for plotting.
 
@@ -36,7 +36,7 @@ Part of the interface is that a plot creator will be initialized with the knowle
 ``BasePlotCreator`` - Implementing some default behaviour
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator` implements some of the abstract functions in order to make deriving new plot creators easier.
+The :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator` implements some of the abstract functions to make deriving new plot creators easier.
 
 
 ``ExternalPlotCreator`` - Creating plots from imported python modules

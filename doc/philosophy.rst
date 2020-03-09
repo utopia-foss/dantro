@@ -2,7 +2,7 @@ Philosophy and Design Concepts
 ==============================
 
 :py:mod:`dantro` aims to be a general package for handling, processing, and visualizing hierarchically organized data using a uniform interface.
-This page gives an overview of key design concepts of dantro.
+This page gives an overview of the key design concepts of dantro.
 
 .. contents::
     :local:
@@ -40,7 +40,7 @@ Subsequently, one central aim of dantro is to **not impose restrictions** on:
 
 Typically, when desiring to achieve this, a package may provide an interface that the projects that use it have to adhere to.
 However, any specializations going beyond the provided interface are then typically outsourced to the projects that require these specializations.
-This may result in needing to write (and re-write) a lot of code, which might not only be redundant, but can also become hard to maintain.
+This may result in needing to write (and re-write) a lot of code, which might not only be redundant but can also become hard to maintain.
 
 In order to avoid this, :py:mod:`dantro` not only supplies an interface, but also provides the means to easily specialize the data structures in order to fit the different needs of certain use cases.
 It already provides a set of specializations and implements them in an efficient way.
@@ -61,8 +61,8 @@ For example, if a :py:class:`~dantro.data_mngr.DataManager` is desired that need
     :dedent: 4
 
 In dantro, this is used by :py:mod:`~dantro.containers`, :py:mod:`~dantro.groups`, :py:mod:`~dantro.data_loaders` and even :py:mod:`~dantro.plot_creators`.
-It allows to add functionality to classes in a granular fashion, customizing them for a particular use case.
-At the same time, this approach makes it easy to retain a shared interface which allows to store all these heterogeneous objects in the same :ref:`data tree <phil_data_tree>`.
+It allows adding functionality to classes in a granular fashion, customizing them for a particular use case.
+At the same time, this approach makes it easy to retain a shared interface that allows storing all these heterogeneous objects in the same :ref:`data tree <phil_data_tree>`.
 
 For more information on how to specialize dantro for use in your project, see :doc:`specializing`.
 
@@ -74,7 +74,7 @@ Configurability
 Another core concept of dantro is to make as many parameters as possible accessible via a consistent, hierarchical, dict-based interface.
 Ideally, relevant parameters can be passed through from the highest modularization level down to the lowest one.
 
-This approach is used throughout dantro, but is most apparent in the :py:class:`~dantro.data_mngr.DataManager`, the :py:class:`~dantro.plot_mngr.PlotManager` and the whole plotting interface.
+This approach is used throughout dantro but is most apparent in the :py:class:`~dantro.data_mngr.DataManager`, the :py:class:`~dantro.plot_mngr.PlotManager`, and the whole plotting interface.
 
 
 Default Parameters

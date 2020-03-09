@@ -6,7 +6,7 @@ Handling Large Amounts of Data
 When working with large amounts of data, memory is often a limitation.
 Dantro provides capabilities to work with data even when it cannot be loaded into memory at the same time.
 
-It does so, by providing a general proxy mechanism, that allows to postpone the actual loading of data up to the point where the data is actually needed.
+It does so, by providing a general proxy mechanism, that allows postponing the actual loading of data up to the point where the data is actually needed.
 Furthermore, for numerical data, it integrates with the `dask <https://dask.org>`_ framework, which allows `delayed <https://docs.dask.org/en/latest/delayed.html>`_ computations.
 
 .. contents::
@@ -56,9 +56,9 @@ This is an important aspect of making the data proxies drop-in replacements.
 Example: :py:class:`~dantro.proxy.hdf5.Hdf5DataProxy`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The :py:class:`~dantro.data_loaders.load_hdf5.Hdf5LoaderMixin` provides proxy loading capabilities for HDF5 data.
-Instead of loading the datasets directly into memory, the structure and metadata of the HDF5 file is used to generate the tree, but for data containers, :py:class:`~dantro.proxy.hdf5.Hdf5DataProxy` objects are placed.
+Instead of loading the datasets directly into memory, the structure and metadata of the HDF5 file are used to generate the tree, but for data containers, :py:class:`~dantro.proxy.hdf5.Hdf5DataProxy` objects are placed.
 
-Additionally, it stores metadata about the dataset, e.g. it's shape, data type, dimensionality, dataset attributes.
+Additionally, it stores metadata about the dataset, e.g. its shape, data type, dimensionality, dataset attributes.
 Accessing those metadata attributes of the resulting container does **not** result in proxy resolution; they are resolved only when the *actual* data is needed.
 
 To load HDF5 data as proxy:
@@ -77,7 +77,7 @@ Here, proxy objects don't help, as they only *postpone* the loading.
 This is often the case for numerical data, typically represented in dantro by the :py:class:`~dantro.containers.xrdatactr.XrDataContainer`, which are based on `xarray <http://xarray.pydata.org/en/stable/>`_ data structures.
 As xarray provides an interface to the `dask <https://dask.org>`_ framework and its delayed computation capabilities, dantro can make use of that interface as well.
 
-The dask package allows to work on chunked data, e.g. HDF5 data, and only load those parts that are necessary for a calculation, afterwards freeing up the memory again.
+The dask package allows working on chunked data, e.g. HDF5 data, and only load those parts that are necessary for a calculation, afterward freeing up the memory again.
 Additionally, it does clever things by first building a tree of operations that are to be performed, then optimizing that tree, and only when the actual numerical result is needed, does the data need to be loaded.
 Furthermore, as the data is chunked, it can potentially profit from parallel computation.
 More info on that can be found `in the corresponding section of the xarray documentation <https://xarray.pydata.org/en/stable/dask.html>`_.

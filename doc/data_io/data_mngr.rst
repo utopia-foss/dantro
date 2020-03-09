@@ -65,7 +65,7 @@ Example Load Configurations
 
 In the following, some advanced examples for specific load configurations are shown.
 These illustrate the various ways in which data can be loaded into the data tree.
-While most examples use only a single data entry, these can be readily combined into a common load configuration.
+While most examples use only one single data entry, these can be readily combined into a common load configuration.
 
 The basic setup for all the examples is as follows:
 
@@ -150,7 +150,7 @@ Remarks:
 * By using ``load_as_attr``, the measurement parameters are made available as *container* attribute and become accessible via its :py:attr:`~dantro.base.BaseDataGroup.attrs` property.
   (This is not to be confused with regular python object attributes.)
 * When using ``load_as_attr``, the entry name is used as the attribute name.
-* The ``unpack_data`` option makes the stored object a dictionary, rather then a ``MutableMappingContainer``, reducing one level of indirection.
+* The ``unpack_data`` option makes the stored object a dictionary, rather than a ``MutableMappingContainer``, reducing one level of indirection.
 
 
 Prescribing tree structure and specializations
@@ -174,7 +174,7 @@ Remarks:
 
 * Multiple paths can be specified in ``create_groups``.
 * Paths can also have multiple segments, like ``my/custom/group/path``.
-* The ``dm['measurements']`` entry is now a :py:class:`~dantro.groups.time_series.TimeSeriesGroup`, and thus represents one dimension of the stored data, e.g. the ``precipiation`` data.
+* The ``dm['measurements']`` entry is now a :py:class:`~dantro.groups.time_series.TimeSeriesGroup`, and thus represents one dimension of the stored data, e.g. the ``precipitation`` data.
 
 
 .. _load_cfg_example_dask:
@@ -182,7 +182,7 @@ Remarks:
 Loading data as proxy
 """""""""""""""""""""
 Sometimes, data is too large to be loaded into memory completely.
-For example, if we are only interested in the precipiation data, the sensor data should not be loaded into memory.
+For example, if we are only interested in the precipitation data, the sensor data should not be loaded into memory.
 
 Dantro :ref:`provides a mechanism <handling_large_data>` to build the data tree using placeholder objects, so-called *proxies*.
 The following example illustrates that, and furthermore uses the `dask <https://dask.org>`_ framework to allow delayed computations.

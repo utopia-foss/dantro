@@ -7,7 +7,7 @@ It allows loading possibly heterogeneous data into a tree-like structure that ca
 
 .. note::
 
-    If you find any errors in this documentation or would like to contribute to the project, we are happy about your visit on the `project page <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro>`_.
+    If you find any errors in this documentation or would like to contribute to the project, we are happy about your visit to the `project page <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro>`_.
 
 
 .. toctree::
