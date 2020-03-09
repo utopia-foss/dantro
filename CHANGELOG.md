@@ -16,6 +16,7 @@
     - !135 adds usage examples and includes code snippets from tests, thus automatically making sure that they work as intended.
     - Additionally, the CI now exits with a warning if Sphinx emitted any warnings, and a log file is made available via the job artifacts to inspect the Sphinx error log.
     - #117 improves, restructures, and extents the documentation, now covering the full range of dantro applications.
+    - #135 eliminates typos and grammar issues in the documentation making it consistently use American English.
 
 
 #### Important notes on upgrading
