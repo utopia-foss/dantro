@@ -2,7 +2,7 @@ Specializing :py:mod:`dantro` Classes
 =====================================
 
 This page shows a few examples of how to specialize :py:mod:`dantro` classes to your liking.
-This step is an important aspect of adapting dantro to work with the data structures that you are frequently using, which is beneficial for a good :doc:`integration <integrating>` into your workflow.
+This step is an important aspect of adapting dantro to work with the data structures that you are frequently using, which is beneficial for good :doc:`integration <integrating>` into your workflow.
 
 .. contents::
     :local:
@@ -29,7 +29,7 @@ The ``collections.abc`` python module is also used by python to specify the inte
 
 As we want the resulting container to adhere to this interface, we set ``MutableSequence`` as the first class to inherit from.
 The :py:class:`~dantro.base.BaseDataContainer` is what makes this object a dantro data container.
-It implements some of the required methods to concur to the ``MutableSequence`` interface, but leaves others abstract.
+It implements some of the required methods to concur with the ``MutableSequence`` interface but leaves others abstract.
 
 Now, we need to supply implementations of these abstract methods.
 That is the job of the following two (reading from right to left) mixin classes.
@@ -39,7 +39,7 @@ As a ``Sequence`` is nothing more than a ``Collection`` with item access, we can
 The :py:class:`~dantro.mixins.base.CheckDataMixin` is an example of how functionality can be added to the container while still adhering to the interface.
 This mixin checks the provided data before storing it and allows specifying whether unexpected data should lead to warnings or exceptions; for an example, see :ref:`below <spec_configuring_mixins>`
 
-Some methods will still remain abstract, in this case: ``insert``.
+Some methods will remain abstract, in this case: ``insert``.
 These need to be manually defined; the :py:class:`~dantro.containers.general.MutableSequenceContainer`\ 's :py:meth:`~dantro.containers.general.MutableSequenceContainer.insert` method does exactly that, thus becoming a fully non-abstract class:
 
 .. literalinclude:: ../tests/test_doc_examples.py
@@ -77,7 +77,7 @@ To do so, we set the :py:const:`~dantro.mixins.base.CheckDataMixin.DATA_EXPECTED
     :end-before:  ### End ---- specializing_check_data_mixin
     :dedent: 4
 
-Other mixins provide other class variables for specializing behaviour.
+Other mixins provide other class variables for specializing behavior.
 Consult the documentation or the source code to find out which ones.
 
 .. note::
@@ -87,7 +87,7 @@ Consult the documentation or the source code to find out which ones.
 
 .. warning::
 
-    We advice *against* overwriting class variables during the lifetime of an object.
+    We advise *against* overwriting class variables during the lifetime of an object.
 
 
 .. _spec_data_mngr:

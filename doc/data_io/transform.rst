@@ -77,7 +77,7 @@ In the following, all YAML examples will represent the arguments that are passed
 Basics
 ^^^^^^
 Ok, let's start with the basics: How can transformations be defined?
-For the sake of simplicity, let's only look at transformations that are fully independent from other transformations.
+For the sake of simplicity, let's only look at transformations that are fully independent of other transformations.
 
 Explicit syntax
 """""""""""""""
@@ -118,8 +118,8 @@ To specify multiple transformations, simply add more entries to the ``transform`
 
 Assigning tags
 """"""""""""""
-Nodes of the DAG all have a unique identifier in form of a hash string, which is a 32 character hexadecimal string.
-While it can be used to identify a transformation, the easiest way to refer to it is using a so-called *tag*.
+Nodes of the DAG all have a unique identifier in the form of a hash string, which is a 32 character hexadecimal string.
+While it can be used to identify a transformation, the easiest way to refer to it is by using a so-called *tag*.
 
 Tags are simply plain text pointers to a specific hash, which in turn denotes a specific transformation.
 To add a tag to a transformation, use the ``tag`` key.
@@ -144,7 +144,7 @@ To add a tag to a transformation, use the ``tag`` key.
 
 Advanced Referencing
 ^^^^^^^^^^^^^^^^^^^^
-In the examples above, all transformations were independent from each other.
+In the examples above, all transformations were independent of each other.
 Having completely independent and disconnected nodes, of course, defeats the purpose of having a DAG structure.
 
 Now let's look at proper, non-trivial DAGs, where individual transformations use the results of other transformations.
@@ -163,7 +163,7 @@ Other transformations can be referenced in three ways, each with a corresponding
     When the DAG is built, all references are brought into the most explicit format: :py:class:`~dantro._dag_utils.DAGReference` s.
     Thus, internally, the transformation framework works *only* with hash references.
 
-The **best way** to refer to other transformations is **by tag**: there is no ambiguity, it is easy to define, and it allows to easily built a DAG tree structure.
+The **best way** to refer to other transformations is **by tag**: there is no ambiguity, it is easy to define, and it allows you to easily build a DAG tree structure.
 A simple example with three nodes would be the following:
 
 .. code-block:: yaml
@@ -233,7 +233,7 @@ Thus, it is no longer necessary to define a tag.
         with_previous_result: true
         tag: f5
 
-Note that the ``args`` in that case specify one fewer positional argument.
+Note that the ``args``, in that case, specify one fewer positional argument.
 
 .. warning::
 
@@ -336,7 +336,7 @@ The ``select`` interface
 """"""""""""""""""""""""
 As selecting data from the :py:class:`~dantro.data_mngr.DataManager` is a common use case, the :py:class:`~dantro.dag.TransformationDAG` supports the ``select`` argument besides the ``transform`` argument.
 
-The ``select`` arguments expects a mapping of tags to either strings (the path within the data tree) or further mappings (where more configurations are possible):
+The ``select`` argument expects a mapping of tags to either strings (the path within the data tree) or further mappings (where more configurations are possible):
 
 .. code-block:: yaml
 
@@ -407,12 +407,12 @@ As visible there, within the ``select`` interface, the ``with_previous_result`` 
 Changing the selection base
 """""""""""""""""""""""""""
 By default, selection happens from the associated :py:class:`~dantro.data_mngr.DataManager`, tagged ``dm``.
-This option can be controlled via the ``select_base`` property, which can be set both as argument to ``__init__`` and afterwards via the property.
+This option can be controlled via the ``select_base`` property, which can be set both as argument to ``__init__`` and afterward via the property.
 The property expects either a ``DAGReference`` object or a valid tag string.
 
 If set, all following ``select`` arguments are using that reference as the basis, leading to ``getitem`` operations on that object rather than on the data manager.
 
-As the ``select`` arguments are evaluated prior to any transform operations, only the default tags are available during initialization.
+As the ``select`` arguments are evaluated before any transform operations, only the default tags are available during initialization.
 To widen the possibilities, the :py:class:`~dantro.dag.TransformationDAG` allows the ``base_transform`` argument during initialization; this is just a sequence of transform specifications, which are applied *before* the ``select`` argument is evaluated, thus allowing to select some object, tag it, and use that tag for the ``select_base`` argument.
 
 .. note::
@@ -423,11 +423,11 @@ To widen the possibilities, the :py:class:`~dantro.dag.TransformationDAG` allows
 
 Individually adding nodes
 ^^^^^^^^^^^^^^^^^^^^^^^^^
-Nodes can be added to :py:class:`~dantro.dag.TransformationDAG` during initialization; all the examples above are written in such a way.
+Nodes can be added to :py:class:`~dantro.dag.TransformationDAG` during initialization; all the examples above are written in that way.
 However, transformation nodes can also be added after initialization using the following two methods:
 
 - :py:meth:`~dantro.dag.TransformationDAG.add_node` adds a single node and returns its reference.
-- :py:meth:`~dantro.dag.TransformationDAG.add_nodes` adds multiple nodes, allowing the both the ``select`` and ``transform`` arguments in the same syntax as during initialization.
+- :py:meth:`~dantro.dag.TransformationDAG.add_nodes` adds multiple nodes, allowing both the ``select`` and ``transform`` arguments in the same syntax as during initialization.
   Internally, this parses the arguments and calls :py:meth:`~dantro.dag.TransformationDAG.add_node`.
 
 
@@ -435,7 +435,7 @@ However, transformation nodes can also be added after initialization using the f
 
 Minimal Syntax
 ^^^^^^^^^^^^^^
-To make definition a bit less verbose, there is a so-called *minimal syntax*, which is translated into the explicit and verbose one:
+To make the definition a bit less verbose, there is a so-called *minimal syntax*, which is translated into the explicit and verbose one:
 
 .. code-block:: yaml
 
@@ -526,7 +526,7 @@ Except for ``operation``, ``args``, ``kwargs`` and ``tag``, all entries are set 
         min_compute_time: ~         # If given, a cache file is only written
                                     # if the computation time of this node on
                                     # its own, i.e. without the computation
-                                    # time of the dependencies, exceeded this
+                                    # time of the dependencies exceeded this
                                     # value.
         min_cumulative_compute_time: ~  # Like min_compute_time, but actually
                                     # taking into account the time it took to
@@ -563,9 +563,9 @@ Then the object database contains a single transformation T, which is used in pl
 Thus, if the result of one of the nodes is computed, the other should already know the result and not need to re-compute it.
 
 That is what is called the **memory cache**: once a result is computed, it stays in memory, such that it need not be recomputed again.
-This is useful not only in the above situation, but also when doing DAG traversal during computation.
+This is useful not only in the above situation but also when doing DAG traversal during computation.
 
-The **file cache** is not much different than the memory cache: it aims to make computation results persist in order to reduce computational resources.
+The **file cache** is not much different than the memory cache: it aims to make computation results persist to reduce computational resources.
 With the file cache, the results can persist over multiple invocations of the transformations framework.
 
 
@@ -573,8 +573,8 @@ Configuration
 ^^^^^^^^^^^^^
 Cache directory
 """""""""""""""
-Cache files need to be written some place.
-This can be specified via the ``cache_dir`` argument during initialization of a :py:class:`~dantro.dag.TransformationDAG`; see there for details.
+Cache files need to be written in some place.
+This can be specified via the ``cache_dir`` argument during the initialization of a :py:class:`~dantro.dag.TransformationDAG`; see there for details.
 
 By default, the cache directory is called ``.cache`` and is located inside the data directory associated with the DAG's DataManager.
 It is created once it is needed.
@@ -583,7 +583,7 @@ It is created once it is needed.
 
 Default file cache arguments
 """"""""""""""""""""""""""""
-File cache behaviour can be configured separately for each :py:class:`~dantro.dag.Transformation`, as can be seen from the full syntax specification above.
+File cache behavior can be configured separately for each :py:class:`~dantro.dag.Transformation`, as can be seen from the full syntax specification above.
 
 However, it's often useful to have default values defined that all transformations share.
 To do so, pass a dict to the ``file_cache_defaults`` argument.
@@ -598,8 +598,8 @@ In the simplest form, it looks like this:
       - # ...
 
 This enables both reading from the cache directory and writing to it.
-When passing booleans, to ``read`` and ``write``, default behaviour is used.
-To more specifically configure the behaviour, again see the full syntax specification above.
+When passing booleans, to ``read`` and ``write``, the default behavior is used.
+To more specifically configure the behavior, again see the full syntax specification above.
 
 When specifying additional ``file_cache`` arguments within ``transform``, the values specified there recursively update the ones given by ``file_cache_defaults``.
 
@@ -610,7 +610,7 @@ When specifying additional ``file_cache`` arguments within ``transform``, the va
 .. warning::
 
     The file cache arguments are not taken into account for computation of the transformations' hash.
-    Thus, if there are two transformations with the same hash, only the additional file cache arguments given to the *first* one are taken into account; the second have no effect, because the second transformation object is discarded altogether.
+    Thus, if there are two transformations with the same hash, only the additional file cache arguments given to the *first* one are taken into account; the second ones have no effect because the second transformation object is discarded altogether.
 
 .. warning::
 
@@ -633,13 +633,13 @@ Writing to the file cache
 After a computation result was either looked up from the cache or computed, it can be stored in the file cache.
 By default, writing to the cache is *not* enabled, either. See above on how to enable it.
 
-When writing a cache file, there are many options that can trigger that a transformation's result is written to a file.
+When writing a cache file, many options can trigger that a transformation's result is written to a file.
 For example, it might make sense to store only results that took a very long time to compute or that are very large.
 
 Once it is decided that a result is to be written to a cache file, the corresponding storage function is invoked.
 It creates the cache directory, if it does not already exist, and then attempts to save the result object using a set of different storage functions.
 
-There are specific storage functions for numerical data: numpy array are stored via the ``numpy.save`` function, which is also used to store :py:class:`~dantro.containers.numeric.NumpyDataContainer` objects.
+There are specific storage functions for numerical data: numpy arrays are stored via the ``numpy.save`` function, which is also used to store :py:class:`~dantro.containers.numeric.NumpyDataContainer` objects.
 Another specific storage function takes care of ``xarray.DataArray`` and :py:class:`~dantro.containers.xrdatactr.XrDataContainer` objects.
 
 If there is no specific storage function available, it is attempted to pickle the object.

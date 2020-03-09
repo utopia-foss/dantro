@@ -78,8 +78,8 @@ Follow these steps to achieve overwriting of existing plot output:
         That variable defines the default behavior.
         It is overwritten by the ``exist_ok`` argument passed during initialization of a :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator` (or derived creator) and by the value given in the plot configuration.
 
-- **Tell the plot manager to overwrite existing plot configuration files** that are stored alongside each plot; otherwise, this would also create a conflict.
-  To do so, pass ``cfg_exists_action='overwrite'`` during initialization of the :py:class:`~dantro.plot_mngr.PlotManager`.
+- **Tell the plot manager to overwrite existing plot configuration files** that are stored alongside each plot; otherwise, this would also create conflict.
+  To do so, pass ``cfg_exists_action='overwrite'`` during the initialization of the :py:class:`~dantro.plot_mngr.PlotManager`.
   To suppress a warning, use ``overwrite_nowarn``.
 
 

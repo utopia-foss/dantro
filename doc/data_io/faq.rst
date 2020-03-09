@@ -30,7 +30,7 @@ Data :py:mod:`~dantro.groups` and :py:mod:`~dantro.containers`
 
 Can I add any object to the data tree?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-In principle, yes. But the object needs to be wrapped in order to concur to the required interface.
+In principle, yes. But the object needs to be wrapped to concur with the required interface.
 
 The easiest way to achieve this for leaves of the data tree is by using the :py:class:`~dantro.containers.general.ObjectContainer` or the :py:class:`~dantro.containers.general.PassthroughContainer`:
 

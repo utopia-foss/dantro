@@ -17,8 +17,8 @@ The :py:class:`~dantro.plot_mngr.PlotManager` manages the creation of plots.
 So far, so obvious.
 
 The idea of the :py:class:`~dantro.plot_mngr.PlotManager` is that it is aware of all available data and then gets instructed to create a set of plots from this data.
-The :py:class`~dantro.plot_mngr.PlotManager` does not actually carry out any plots. Its purpose is to handle the *configuration* of some :doc:`plot creator <plot_creators>` classes; those implement the actual plotting functionality.
-This way, the plots can be configured in a consistent way, profiting from the shared interface and the already implemented functions, while keeping the flexibility of having multiple ways to create plots.
+The :py:class`~dantro.plot_mngr.PlotManager` does not carry out any plots. Its purpose is to handle the *configuration* of some :doc:`plot creator <plot_creators>` classes; those implement the actual plotting functionality.
+This way, the plots can be configured consistently, profiting from the shared interface and the already implemented functions, while keeping the flexibility of having multiple ways to create plots.
 
 To create the plots, a set of plot configurations gets passed to the :py:class:`~dantro.plot_mngr.PlotManager` which then determines which plot creator it will need to instantiate.
 It then passes the plot configuration on to the respective plot creator, which takes care of all the actual plotting work.
@@ -55,7 +55,7 @@ A set of plot configurations may look like this:
       # Select the creator to use
       creator: external
       # NOTE: This has to be known to PlotManager under this name.
-      #       It can also be set as default during PlotManager initialisation.
+      #       It can also be set as default during PlotManager initialization.
 
       # Specify the module to find the plot_function in
       module: .basic  # Uses the dantro-internal plot functions
@@ -81,7 +81,7 @@ A set of plot configurations may look like this:
 
       # This time, get the module from a file
       module_file: /path/to/my/fancy/plotting/script.py
-      # NOTE Can also be a relative path, if `base_module_file_dir` was set
+      # NOTE Can also be a relative path if `base_module_file_dir` was set
 
       # Get the plot function from that module
       plot_func: my_plot_func
@@ -176,7 +176,7 @@ It is then recursively updated with the other keys, here ``x`` and ``y``.
 .. note::
 
     **Reminder:** *Recursively* updating means that all levels of the configuration hierarchy can be updated.
-    This happens by traversing along all mapping-like parts of the configuration and updating their keys.
+    This happens by traversing along with all mapping-like parts of the configuration and updating their keys.
 
 When providing a sequence, e.g. ``based_on: [foo, bar, baz]``, the first configuration is used as the base and is subsequently recursively updated with those that follow.
 This can be used to subsequently build a configuration from several parts.
@@ -225,9 +225,9 @@ Usually, the ``creator`` argument to the :py:class:`~dantro.plot_mngr.PlotManage
 However, the plot manager also has a ``auto_detect_creator`` feature.
 This boolean argument can be given both to :py:meth:`~dantro.plot_mngr.PlotManager.__init__` as well as to :py:meth:`~dantro.plot_mngr.PlotManager.plot` and it can also be part of the plot configuration passed to :py:meth:`~dantro.plot_mngr.PlotManager.plot_from_cfg`.
 
-If set, the ``creator`` argument need no longer be given in the plot configuration. By going through all registered :py:const:`~dantro.plot_mngr.PlotManager.CREATORS` and instantiating them, it is found out if they declare that they :py:meth:`~dantro.abc.AbstractPlotCreator.can_plot` the given configuration.
+If set, the ``creator`` argument needs no longer be given in the plot configuration. By going through all registered :py:const:`~dantro.plot_mngr.PlotManager.CREATORS` and instantiating them, it is found out if they declare that they :py:meth:`~dantro.abc.AbstractPlotCreator.can_plot` the given configuration.
 Each creator can implement this method as they see fit.
-In unambiguous cases, the manager than uses the *single* candidate creator and continues plotting with that creator.
+In unambiguous cases, the manager then uses the *single* candidate creator and continues plotting with that creator.
 
 
 Auto-detection for :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator`\ s
