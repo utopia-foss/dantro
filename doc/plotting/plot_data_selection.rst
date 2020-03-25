@@ -7,13 +7,13 @@ Each plot creator is associated with a :py:class:`~dantro.data_mngr.DataManager`
 This data is usually made available to you such that you can select data which you can then pass on to whatever you use for plotting.
 
 While manual selection directly from the data manager suffices for specific cases, automation is often desired.
-The uniform interface of the :py:class:`~dantro.data_mngr.DataManager` paired with the :py:class:`~dantro.dag.TransformationDAG` framework makes automated data selection and transformation for plotting possible, while making available all the benefits of the :doc:`../data_io/transform` framework:
+The uniform interface of the :py:class:`~dantro.data_mngr.DataManager` paired with the :py:class:`~dantro.dag.TransformationDAG` framework makes automated data selection and transformation for plotting possible while making available all the benefits of the :doc:`../data_io/transform` framework:
 
 - Generic application of transformations on data
 - Fully configuration-based interface
 - Caching of computationally expensive results
 
-This functionality is embedded at the level of the :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator`, making it available for all plot creators and allowing subclasses to taylor it to their needs.
+This functionality is embedded at the level of the :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator`, making it available for all plot creators and allowing subclasses to tailor it to their needs.
 
 
 .. contents::
@@ -39,6 +39,8 @@ To use the DAG for data selection, all you need to do is add the ``use_dag=True`
       use_dag: true
 
       # ... more arguments
+
+.. _plot_creator_dag_args:
 
 Arguments to control DAG behaviour
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -90,15 +92,15 @@ Some example plot configuration to select some containers from the data manager,
         # ... other parameters here are passed on to TransformationDAG.__init__
 
 
-DAG usage with :py:class:`~dantro.plot_creators.ExternalPlotCreator`
+DAG usage with :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator`
 ----------------------------------------------------------------------------
-The :py:class:`~dantro.plot_creators.ExternalPlotCreator` works exactly the same as in the general case.
+The :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` works exactly the same as in the general case.
 After computation, the results are made available to the selected python plot function via the ``data`` keyword argument, which is a dictionary of the tags that were selected to be computed.
 
 With this additional keyword argument being passed to the plot function, the plot function's signature also needs to support DAG usage, which makes it less comfortable to control DAG usage via the ``use_dag`` argument in the plot *configuration*.
 
-Instead, the **best way** of implementing DAG support is via the :py:func:`~dantro.plot_creators.is_plot_func` decorator.
-It provides the following arguments that have an effect on DAG usage:
+Instead, the **best way** of implementing DAG support is via the :py:func:`~dantro.plot_creators.pcr_ext.is_plot_func` decorator.
+It provides the following arguments that affect DAG usage:
 
 - ``use_dag``: to enable or disable DAG usage. Disabled by default.
 - ``required_dag_tags``: can be used to specify which tags are expected by the plot function; if these are not defined or not computed, an error will be raised.
@@ -115,7 +117,7 @@ Decorator usage puts all the relevant arguments for using the DAG framework into
 
 Defining a generic plot function
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-A plot function can then be defined via the following signature and the :py:func:`~dantro.plot_creators.is_plot_func` decorator:
+A plot function can then be defined via the following signature and the :py:func:`~dantro.plot_creators.pcr_ext.is_plot_func` decorator:
 
 .. code-block:: python
 
@@ -127,7 +129,7 @@ A plot function can then be defined via the following signature and the :py:func
 The only required arguments here are ``data`` and ``hlpr``.
 The former contains all results from the DAG computation; the latter is the plot helper, which effectively is the interface to the visualization of the data.
 
-**Importantly,** this makes the plot function averse to the specific choice of a creator: the plot function can be used with the :py:class:`~dantro.plot_creators.ExternalPlotCreator` and from its specializations, :py:class:`~dantro.plot_creators.UniversePlotCreator` and :py:class:`~dantro.plot_creators.MultiversePlotCreator`.
+**Importantly,** this makes the plot function averse to the specific choice of a creator: the plot function can be used with the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` and from its specializations, :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator` and :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`.
 In such cases, the ``creator_type`` should not be specified in the decorator, but it should be given in the plot configuration.
 
 
@@ -154,23 +156,23 @@ The DAG can be configured in the same way as :ref:`in the general case <plot_cre
                       unpack_dag_results=True)
         def simple_lineplot(*, x, y, hlpr: PlotHelper, **plt_kwargs):
             """Creates a simple line plot for selected x and y data"""
-            hlpr.ax.plot(x, y, **plt_kwargs)    
+            hlpr.ax.plot(x, y, **plt_kwargs)
 
 
 Accessing the :py:class:`~dantro.data_mngr.DataManager`
 """""""""""""""""""""""""""""""""""""""""""""""""""""""
-As visible from the plot function above, the :py:class:`~dantro.plot_creators.ExternalPlotCreator` does **not** pass along the current :py:class:`~dantro.data_mngr.DataManager` instance as first positional argument (``dm``) when DAG usage is enabled.
+As visible from the plot function above, the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` does **not** pass along the current :py:class:`~dantro.data_mngr.DataManager` instance as first positional argument (``dm``) when DAG usage is enabled.
 This makes the plot function signature simpler and allows the creator-averse definition of plot functions while not restricting access to the data manager:
-    
+
 The data manager can still be accessed directly via the ``dm`` DAG tag.
 Make sure to specify that it should be included, e.g. via ``compute_only`` or the ``required_dag_tags`` argument to the decorator.
 
 
-
+.. _plot_data_selection_uni:
 
 Special case: :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-For the :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator`, data selection and transformation has to occur based on data from the currently selected universe. 
+For the :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator`, data selection and transformation has to occur based on data from the currently selected universe.
 This is taken care of automatically by this creator: it dynamically sets the :py:meth:`~dantro.dag.TransformationDAG.select_base` property to the current universe, not requiring any further user action.
 In effect, the ``select`` argument acts as if selections were to happen directly from the universe.
 
@@ -199,6 +201,7 @@ The following suffices to define a :py:class:`~dantro.plot_creators.pcr_psp.Univ
 The DAG can be configured in the same way as :ref:`in the general case <plot_creator_dag_usage>`.
 
 
+.. _plot_data_selection_mv:
 
 Special case: :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -208,13 +211,13 @@ It does so fully within the DAG framework by building a separate DAG branch for 
 This happens via the ``select_and_combine`` argument.
 
 **Important:** The ``select_and_combine`` argument behaves differently to the ``select`` argument of the DAG interface!
-This is because it has to accomodate various further configuration parameters that control the selection of universes and the multidimensional combination of the selected data.
+This is because it has to accommodate various further configuration parameters that control the selection of universes and the multidimensional combination of the selected data.
 
 The ``select_and_combine`` argument expects the following keys:
 
 - ``fields``: all keys given here will appear as tags in the results dictionary.
-  The values of these keys are dicts that contain the same parameters that can also be given to the ``select`` argument of the DAG interface.
-  In other words: paths you would like to select form within each universe should be specified at ``select_and_combine.fields.<result_tag>.path`` rather than at ``select.<result_tag>.path``.
+  The values of these keys are dictionaries that contain the same parameters that can also be given to the ``select`` argument of the DAG interface.
+  In other words: paths you would like to select from within each universe should be specified at ``select_and_combine.fields.<result_tag>.path`` rather than at ``select.<result_tag>.path``.
 - ``base_path`` (optional): if given, this path is prepended to all paths given under ``fields``
 - ``combination_method`` (optional, default: ``concat``): how to combine the selected and transformed data from the various universes. Available parameters:
 
@@ -228,7 +231,7 @@ The ``select_and_combine`` argument expects the following keys:
 Remarks
 """""""
 - The select operations on each universe set the ``omit_tag`` flag in order not to create a flood of only-internally-used tags. Setting tags manually here does not make sense, as the tag names would collide with tags from other universe branches.
-- File caching is hard-coded to be disabled for the initial select operation and for the operation that attaches the parameter space coordinates to it. This behaviour cannot be influenced.
+- File caching is hard-coded to be disabled for the initial select operation and for the operation that attaches the parameter space coordinates to it. This behavior cannot be influenced.
 - The best place to cache is the result of the combination method.
 - The regular ``select`` argument is still available, but it is applied only *after* the ``select_and_combine``-defined nodes were added and it does only act *globally*, i.e. not on *each* universe.
 - The ``select_path_prefix`` argument to :py:class:`~dantro.dag.TransformationDAG` is not allowed for the :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`. Use the ``select_and_combine.base_path`` argument instead.
@@ -276,7 +279,7 @@ An associated plot configuration might look like this:
 
 Full DAG configuration interface for multiverse selection
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""
-An example for all options available in the :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`.
+An example of all options available in the :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`.
 
 
 .. code-block:: yaml
@@ -311,10 +314,10 @@ An example for all options available in the :py:class:`~dantro.plot_creators.pcr
                   # operation took a large amount of time.
                   min_cumulative_compute_time: 20.
             transform:
-              - mean: !dag_prev 
+              - mean: !dag_prev
               - increment: [!dag_prev ]
               - some_op_with_kwargs:
-                  data: !dag_prev 
+                  data: !dag_prev
                   foo: bar
                   spam: 42
               - operation: my_operation
@@ -338,6 +341,6 @@ An example for all options available in the :py:class:`~dantro.plot_creators.pcr
 
 .. note::
 
-    This does not include *all* possible options for DAG configuration, but focusses on those options added by :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator` to work with multiverse data, e.g. ``subspace``, ``combination_kwargs``.
+    This does not include *all* possible options for DAG configuration but focusses on those options added by :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator` to work with multiverse data, e.g. ``subspace``, ``combination_kwargs``.
 
     For other arguments, see :ref:`dag_transform_full_syntax_spec`.

@@ -3,11 +3,8 @@
 NOTE This is imported by dantro.tools to register classes with YAML.
 """
 
-from typing import NewType, TypeVar, Any, Union
+from typing import Any, Union
 
-# Type definitions
-THash = NewType('THash', str)
-TDAGHashable = TypeVar('TDAGHashable', 'DataManager', 'Transformation')
 
 # -----------------------------------------------------------------------------
 
@@ -17,7 +14,7 @@ class DAGReference:
     While it does not implement __hash__ by itself, it is yaml-representable
     and thus hashable after a parent object created a YAML representation.
     """
-    def __init__(self, ref: THash):
+    def __init__(self, ref: str):
         """Initialize a DAGReference object from a hash."""
         if not isinstance(ref, str):
             raise TypeError("DAGReference requires a string-like argument, "
@@ -41,11 +38,11 @@ class DAGReference:
         return hash(repr(self))
 
     @property
-    def ref(self) -> THash:
+    def ref(self) -> str:
         """The associated reference of this object"""
         return self._data
 
-    def _resolve_ref(self, *, dag: 'TransformationDAG') -> THash:
+    def _resolve_ref(self, *, dag: 'TransformationDAG') -> str:
         """Return the hash reference; for the base class, the data is already
         the hash reference, so no DAG is needed. Derived classes _might_ need
         the DAG to resolve their reference hash.
@@ -103,7 +100,7 @@ class DAGTag(DAGReference):
         """The name of the tag within the DAG that this object references"""
         return self._data
 
-    def _resolve_ref(self, *, dag: 'TransformationDAG') -> THash:
+    def _resolve_ref(self, *, dag: 'TransformationDAG') -> str:
         """Return the hash reference by looking up the tag in the DAG"""
         return dag.tags[self.name]
 
@@ -143,7 +140,7 @@ class DAGNode(DAGReference):
         """The idx to the referenced node within the DAG's node list"""
         return self._data
 
-    def _resolve_ref(self, *, dag: 'TransformationDAG') -> THash:
+    def _resolve_ref(self, *, dag: 'TransformationDAG') -> str:
         """Return the hash reference by looking up the node index in the DAG"""
         return dag.nodes[self.idx]
 
@@ -173,16 +170,32 @@ class DAGObjects:
         return ("<DAGObjects database with {:d} entr{}>"
                 "".format(len(self), "ies" if len(self) != 1 else "y"))
 
-    def add_object(self, obj: TDAGHashable, *, custom_hash: str=None) -> THash:
+    def add_object(self, obj, *, custom_hash: str=None) -> str:
         """Add an object to the object database, storing it under its hash.
-
+        
         Note that the object cannot be just any object that is hashable but it
         needs to return a string-based hash via the ``hashstr`` property. This
         is a dantro DAG framework-internal interface.
-
+        
         Also note that the object will NOT be added if an object with the same
         hash is already present. The object itself is of no importance, only
         the returned hash is.
+        
+        Args:
+            obj: Some object that has the ``hashstr`` property, i.e. is
+                hashable as required by the DAG interface
+            custom_hash (str, optional): A custom hash to use instead of the
+                hash extracted from ``obj``. Can only be given when ``obj``
+                does *not* have a ``hashstr`` property.
+        
+        Returns:
+            str: The hash string of the given object. If a custom hash string
+                was given, it is also the return value
+        
+        Raises:
+            TypeError: When attempting to pass ``custom_hash`` while ``obj``
+                *has* a ``hashstr`` property
+            ValueError: If the given ``custom_hash`` already exists.
         """
         if custom_hash is not None:
             if hasattr(obj, 'hashstr'):
@@ -208,7 +221,7 @@ class DAGObjects:
             self._d[key] = obj
         return key
 
-    def __getitem__(self, key: THash) -> TDAGHashable:
+    def __getitem__(self, key: str) -> object:
         """Return the object associated with the given hash"""
         return self._d[key]
 
@@ -216,7 +229,7 @@ class DAGObjects:
         """Returns the number of objects in the objects database"""
         return len(self._d)
 
-    def __contains__(self, key: THash) -> bool:
+    def __contains__(self, key: str) -> bool:
         """Whether the given hash refers to an object in this database"""
         return key in self._d
 

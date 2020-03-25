@@ -3,9 +3,12 @@
 !.coveragerc
 .pytest_cache
 .tox
+__pycache__
+
+# Ignore packaging-related files and directories
+dantro.egg-info
 
 # Ignore documentation build directory and auto-generated API reference
 doc/_build
 doc/api
-__pycache__
-dantro.egg-info
+doc/**/*.log

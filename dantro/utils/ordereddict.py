@@ -322,7 +322,8 @@ class KeyOrderedDict(dict):
 # Specializations
 
 class IntOrderedDict(KeyOrderedDict):
-    """A :py:class:`dantro._utils.KeyOrderedDict` specialization that assumes
-    keys to be castable to integer and using the comparison of the resulting
-    integer values for maintaining the order"""
+    """A :py:class:`~dantro.utils.ordereddict.KeyOrderedDict` specialization
+    that assumes keys to be castable to integer and using the comparison of
+    the resulting integer values for maintaining the order
+    """
     DEFAULT_KEY_COMPARATOR = lambda _, k: int(k)

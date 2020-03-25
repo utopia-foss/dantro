@@ -38,7 +38,7 @@ If you are registering multiple custom operations, consider using a common prefi
 .. note::
 
     It is not necessary to register operations that are *importable*!
-    Just use a combination of the ``import`` and ``call`` operations to achieve this behaviour.
+    Just use a combination of the ``import`` and ``call`` operations to achieve this behavior.
 
     Operations should only be registered if the above does not work comfortably.
 
@@ -50,10 +50,10 @@ Available operations
 Below, you will find a full list of operations that are available by default.
 
 For some entries, functions defined in the :py:mod:`~dantro.utils.data_ops` module are used as callables; see there for more information.
-Also, the callables are frequently defined as lambdas in order to concur to the requirement that all operations need to be callable via positional and keyword arguments.
-For example, an attribute call need be wrapped to a regular function call where — by convention — the first positional argument is regarded as the object whose attribute is to be called.
+Also, the callables are frequently defined as lambdas to concur with the requirement that all operations need to be callable via positional and keyword arguments.
+For example, an attribute call needs to be wrapped to a regular function call where — by convention — the first positional argument is regarded as the object whose attribute is to be called.
 
-To dynamically find out which operations are available, use the :py:func:`~dantro.utils.available_operations` function, which also includes the names of additionally registered operations.
+To dynamically find out which operations are available, use the :py:func:`~dantro.utils.data_ops.available_operations` (importable from :py:mod:`dantro.utils`) function, which also includes the names of additionally registered operations.
 
 .. literalinclude:: ../../dantro/utils/data_ops.py
    :start-after: _OPERATIONS = KeyOrderedDict({
@@ -69,5 +69,5 @@ Additionally, the following boolean operations are available.
 
 .. warning::
 
-    While the operations database should be regarded as an append-only database and changing it is highly discouraged, it *can* be changed, e.g. via the ``overwrite_existing`` argument to :py:func:`~dantro.utils.register_operation`.
+    While the operations database should be regarded as an append-only database and changing it is highly discouraged, it *can* be changed, e.g. via the ``overwrite_existing`` argument to :py:func:`~dantro.utils.data_ops.register_operation`, importable from :py:mod:`dantro.utils`.
     Therefore, the list above *might* not reflect the current status of the database.

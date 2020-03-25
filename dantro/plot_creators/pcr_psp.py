@@ -31,10 +31,6 @@ class MultiversePlotCreator(ExternalPlotCreator):
     # Where the ``ParamSpaceGroup`` object is expected within the data manager
     PSGRP_PATH = None
 
-    # Configure the auto-detection feature implemented in ExternalPlotCreator:
-    # The KEYWORD_ONLY arguments that are required to be (explicitly!) accepted
-    _AD_KEYWORD_ONLY = ['out_path', 'mv_data']
-
     # .........................................................................
 
     def __init__(self, *args, psgrp_path: str=None, **kwargs):
@@ -62,23 +58,24 @@ class MultiversePlotCreator(ExternalPlotCreator):
                                 select_and_combine: dict=None,
                                 **kwargs) -> Tuple[tuple, dict]:
         """Prepares the arguments for the plot function.
-        
+
         This also implements the functionality to select and combine data from
         the Multiverse and provide it to the plot function. It can do so via
-        the associated :py:class:`~dantro.groups.ParamSpaceGroup` directly or
-        by creating a :py:class:`~dantro.dag.TransformationDAG` that leads to
-        the same results.
-        
+        the associated :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`
+        directly or by creating a :py:class:`~dantro.dag.TransformationDAG`
+        that leads to the same results.
+
         .. warning::
-        
+
             The ``select_and_combine`` argument behaves slightly different to
             the ``select`` argument! In the long term, the ``select`` argument
             will be deprecated.
-        
+
         Args:
             *args: Positional arguments to the plot function.
             select (dict, optional): If given, selects and combines multiverse
-                data using :py:meth:`~dantro.groups.ParamSpaceGroup.select`.
+                data using
+                :py:meth:`~dantro.groups.pspgrp.ParamSpaceGroup.select`.
                 The result is an ``xr.Dataset`` and it is made available to
                 the plot function as ``mv_data`` argument.
             select_and_combine (dict, optional): If given, interfaces with the
@@ -87,12 +84,12 @@ class MultiversePlotCreator(ExternalPlotCreator):
             **kwargs: Keyword arguments for the plot function. If DAG usage is
                 enabled, these contain further arguments like ``transform``
                 that are filtered out accordingly.
-        
+
         Returns:
             Tuple[tuple, dict]: The (args, kwargs) tuple for calling the plot
                 function. These now include either the DAG results or the
                 additional ``mv_data`` key.
-        
+
         Raises:
             TypeError: If both or neither of the arguments ``select`` and/or
                 ``select_and_combine`` were given.
@@ -142,10 +139,10 @@ class MultiversePlotCreator(ExternalPlotCreator):
         argument into selection of tags from a universe subspace, subsequent
         transformations, and a ``combine`` operation, that aligns the data in
         the desired fashion.
-        
-        This way, the :py:meth:`~dantro.groups.ParamSpaceGroup.select` method's
-        behaviour is emulated in the DAG.
-        
+
+        This way, the :py:meth:`~dantro.groups.pspgrp.ParamSpaceGroup.select`
+        method's behaviour is emulated in the DAG.
+
         Args:
             _plot_func (Callable): The plot function; passed on to parent
                 method, where tag availability is checked.
@@ -167,7 +164,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
             select_path_prefix (str, optional): The selection path prefix for
                 the ``select`` argument. Cannot be used here.
             **dag_init_params: Further initialization arguments to the DAG.
-        
+
         Returns:
             TransformationDAG: The populated DAG object.
         """
@@ -181,7 +178,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
             preparation to the combination of all single-universe DAG strands.
             The last transformation node that is added by this helper is the
             one that is used as input to the combination methods.
-            
+
             The easiest way to add a sequence of transformations that is based
             on a selection from the DataManager is to use TransformationDAG's
             :py:meth:`~dantro.dag.TransformationDAG.add_nodes` method. To that
@@ -197,12 +194,12 @@ class MultiversePlotCreator(ExternalPlotCreator):
             # base (the ParamSpaceGroup) to the desired path within the
             # current universe.
             field_path = PATH_JOIN_CHAR.join([uni.name, path])
-            
+
             # Prepare arguments for the select operation
             select = dict()
             select[uni.name] = dict(path=field_path, transform=transform,
                                     omit_tag=True, **select_kwargs)
-            
+
             # Add the nodes that handle the selection and optional transform
             # operations on the selected data. This is all user-determined.
             # The selection base is the DataManager.
@@ -230,7 +227,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
                 """Given a state number, returns the corresponding universe"""
                 try:
                     return self.psgrp[state_no]
-                
+
                 except Exception as exc:
                     if combination_method not in ['merge']:
                         raise ValueError("Missing data for universe {}, which "
@@ -301,7 +298,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
                                     base_path: str=None) -> None:
             """Adds transformations to the given DAG that select data from the
             selected multiverse subspace.
-            
+
             Args:
                 dag (TransformationDAG): The DAG to add nodes to that represent
                     the select-and-combine operations.
@@ -339,7 +336,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
 
                 # Add the transformations for this specific tag
                 add_transformations(dag, tag=tag, **spec)
-        
+
             # Done. :)
             log.remark("Added select-and-combine transformations for "
                        "tags: %s. The DAG contains %d nodes now.",
@@ -368,7 +365,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
         # the other user-specified transformations
         dag.select_base = select_base
         dag.add_nodes(select=select, transform=transform)
-        
+
         return dag
 
 
@@ -380,10 +377,6 @@ class UniversePlotCreator(ExternalPlotCreator):
     """
     # Where the `ParamSpaceGroup` object is expected within the data manager
     PSGRP_PATH = None
-
-    # Configure the auto-detection feature implemented in ExternalPlotCreator:
-    # The KEYWORD_ONLY arguments that are required to be (explicitly!) accepted
-    _AD_KEYWORD_ONLY = ['out_path', 'uni']
 
     # .........................................................................
 
@@ -443,7 +436,7 @@ class UniversePlotCreator(ExternalPlotCreator):
         # Identify those keys that specify which universes to loop over
         try:
             unis = plot_cfg.pop('universes')
-        
+
         except KeyError as err:
             raise ValueError("Missing required keyword-argument `universes` "
                              "in plot configuration!") from err
@@ -548,7 +541,7 @@ class UniversePlotCreator(ExternalPlotCreator):
             #      that might be defined in the plot configuration ...
             _pdim._order = -100000000 + dim_num
             # FIXME internal API usage
-            
+
             # Now store it in the dict
             coords[name] = _pdim
 
@@ -581,14 +574,14 @@ class UniversePlotCreator(ExternalPlotCreator):
         """Prepares the arguments for the plot function and implements the
         special arguments required for ParamSpaceGroup-like data: selection of
         a single universe from the given coordinates.
-        
+
         Args:
             *args: Passed along to parent method
             _coords (dict): The current coordinate descriptor which is then
                 used to retrieve a certain point in parameter space from the
                 state map attribute.
             **kwargs: Passed along to parent method
-        
+
         Returns:
             tuple: (args, kwargs) for the plot function
         """
@@ -608,7 +601,7 @@ class UniversePlotCreator(ExternalPlotCreator):
         # Select the corresponding universe from the ParamSpaceGroup
         uni = self.psgrp[uni_id]
         log.note("Using data of:        %s", uni.logstr)
-        
+
         # Let the parent function, implemented in ExternalPlotCreator, do its
         # thing. This will return the (args, kwargs) tuple and will also take
         # care of data transformation using the DAG framework, for which some

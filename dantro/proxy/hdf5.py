@@ -1,7 +1,6 @@
 """This module implements a BaseDataProxy specialization for Hdf5 data."""
 
 import logging
-from typing import Union
 
 import numpy as np
 import h5py as h5
@@ -14,6 +13,7 @@ log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
+
 class Hdf5DataProxy(BaseDataProxy):
     """The Hdf5DataProxy is a placeholder for Hdf5 datasets.
 
@@ -22,14 +22,14 @@ class Hdf5DataProxy(BaseDataProxy):
     dtype of the dataset.
 
     Depending on the type that this proxy is resolved as via the
-    :py:meth:`.resolve` method, the corresponding ``h5py.File`` object needs
-    to stay open and in memory; it is closed upon garbage-collection of this
-    object.
+    :py:meth:`~dantro.proxy.hdf5.Hdf5DataProxy.resolve` method, the
+    corresponding ``h5py.File`` object needs to stay open and in memory; it is
+    closed upon garbage-collection of this object.
     """
 
     def __init__(self, obj: h5.Dataset, *, resolve_as_dask: bool=False):
         """Initializes a proxy object for Hdf5 datasets.
-        
+
         Args:
             obj (h5.Dataset): The dataset object to be proxy for
             resolve_as_dask (bool, optional): Whether to resolve the dataset
@@ -63,20 +63,19 @@ class Hdf5DataProxy(BaseDataProxy):
         if self._resolve_as_dask:
             self._tags += ('dask',)
 
-
     def resolve(self, *, astype: type=None):
         """Resolve the data of this proxy by opening the hdf5 file and loading
         the dataset into a numpy array or a type specified by ``astype``.
-        
+
         Args:
             astype (type, optional): As which type to return the data from the
                 dataset this object is proxy for. If None, will return as
                 np.array. For `h5py.Dataset`, the h5py.File object stays in
-                memory until the proxy is deleted. 
+                memory until the proxy is deleted.
                 Note that if ``resolve_as_dask`` was specified, the data will
                 be loaded as ``dask.array.core.Array(h5py.Dataset)`` only if
                 ``astype`` is _not_ specified in this call!
-        
+
         Returns:
             type specified by ``astype``: the resolved data.
         """
@@ -94,8 +93,8 @@ class Hdf5DataProxy(BaseDataProxy):
 
         elif astype is None and self._resolve_as_dask:
             log.debug("Resolving %s as h5py.Dataset from dataset %s in file "
-                    "at %s into a delayed dask array object...",
-                    self.classname, self._name, self._fname)
+                      "at %s into a delayed dask array object...",
+                      self.classname, self._name, self._fname)
 
             # Open the file and keep it in scope
             h5file = self._open_h5file()
@@ -122,7 +121,7 @@ class Hdf5DataProxy(BaseDataProxy):
         """Opens the associated HDF5 file and stores it in _h5files in order
         to keep it in scope. These file objects are only closed upon deletion
         of this proxy object!
-        
+
         Returns:
             h5.File: The newly opened HDF5 file
         """
@@ -136,7 +135,7 @@ class Hdf5DataProxy(BaseDataProxy):
             try:
                 f.close()
 
-            except:
+            except Exception:
                 # Can no longer close it; garbace collection probably already
                 # took care of it ... which is fine.
                 pass

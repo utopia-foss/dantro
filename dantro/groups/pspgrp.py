@@ -4,7 +4,7 @@ from the paramspace package are implemented.
 
 import copy
 import logging
-from typing import Union, List, Dict, Callable, Sequence
+from typing import Union, List, Dict, Sequence
 
 import numpy as np
 import numpy.ma
@@ -15,7 +15,7 @@ from paramspace import ParamSpace
 from .ordered import OrderedDataGroup, IndexedDataGroup
 from ..utils.data_ops import multi_concat as _multi_concat
 from ..base import PATH_JOIN_CHAR
-from ..containers import NumpyDataContainer, XrDataContainer
+from ..containers import XrDataContainer
 from ..mixins import PaddedIntegerItemAccessMixin
 
 # Local constants
@@ -23,12 +23,14 @@ log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
-class ParamSpaceStateGroup(OrderedDataGroup):
-    """A ParamSpaceStateGroup is a member of the ParamSpaceGroup.
 
-    While its own name need be interpretable as a positive integer (enforced
-    in parent :py:class:`~dantro.groups.ParamSpaceGroup` but also here), it
-    can hold members with any name.
+class ParamSpaceStateGroup(OrderedDataGroup):
+    """A ParamSpaceStateGroup is a member group of the
+    :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`.
+
+    While its *own* name need be interpretable as a positive integer (enforced
+    in the enclosing :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` but also
+    here), it can *hold* members with any name.
     """
     _NEW_GROUP_CLS = OrderedDataGroup
 
@@ -84,7 +86,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
     def __init__(self, *, name: str, pspace: ParamSpace=None,
                  containers: list=None, **kwargs):
         """Initialize a OrderedDataGroup from the list of given containers.
-        
+
         Args:
             name (str): The name of this group.
             pspace (ParamSpace, optional): Can already pass a ParamSpace object
@@ -106,7 +108,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
     def pspace(self) -> Union[ParamSpace, None]:
         """Reads the entry named _PSPGRP_PSPACE_ATTR_NAME in .attrs and
         returns a ParamSpace object, if available there.
-        
+
         Returns:
             Union[ParamSpace, None]: The associated parameter space, or None,
                 if there is none associated yet.
@@ -123,7 +125,6 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                                "{} was already set, cannot set it again!"
                                "".format(self.logstr))
 
-        
         elif not isinstance(val, ParamSpace):
             raise TypeError("The attribute for the parameter space of {} "
                             "needs to be a ParamSpace-derived object, was {}!"
@@ -141,7 +142,6 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
         """
         return (len(self) == 1) and (0 in self)
 
-
     # Data access .............................................................
 
     def select(self, *,
@@ -155,7 +155,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
         """Selects a multi-dimensional slab of this ParamSpaceGroup and the
         specified fields and returns them bundled into an ``xarray.Dataset``
         with labelled dimensions and coordinates.
-        
+
         Args:
             field (Union[str, List[str]], optional): The field of data to
                 select. Should be path or a list of strings that points to an
@@ -172,13 +172,13 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 parameter space. Adheres to the ParamSpace.activate_subspace
                 signature.
             method (str, optional): How to combine the selected datasets.
-        
+
                     - ``concat``: concatenate sequentially along all parameter
                       space dimensions. This can preserve the data type but
                       it does not work if one data point is missing.
                     - ``merge``: merge always works, even if data points are
                       missing, but will convert all dtypes to float.
-        
+
             idx_as_label (bool, optional): If true, adds the trivial indices
                 as labels for those dimensions where coordinate labels were not
                 extractable from the loaded field. This allows merging for data
@@ -187,17 +187,17 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 each field can be seen as relative to this path
             **kwargs: Passed along either to xr.concat or xr.merge, depending
                 on the ``method`` argument.
-        
+
         Raises:
             KeyError: Description
             ValueError: Raised in multiple scenarios:
-        
+
                 - If no ParamSpace was associated with this group
                 - For wrong argument values
                 - If the data to select cannot be extracted with the given
                   argument values
                 - Exceptions passed on from xarray
-        
+
         Returns:
             xr.Dataset: The selected hyperslab of the parameter space, holding
                 the desired fields.
@@ -243,7 +243,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
 
                     if isinstance(path, str):
                         path = path.split(PATH_JOIN_CHAR)
-                    
+
                 else:
                     path = list(field)
                     kwargs = {}
@@ -258,7 +258,6 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 raise TypeError("Argument `fields` needs to be a dict, "
                                 "but was {}!".format(type(fields)))
 
-            
             # Ensure values of the dict are dicts of the proper structre
             for name, field in fields.items():
                 if isinstance(field, str):
@@ -293,11 +292,11 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
             """Extracts the field specified by the given path and returns it as
             either an xr.Variable or (for supported containers) directly as an
             xr.DataArray.
-            
+
             We are using xr.Variables as defaults here, as they provide higher
             performance than xr.DataArrays; the latter have to be frequently
             unpacked and restructured in the merge operations.
-            
+
             Args:
                 state_grp (ParamSpaceStateGroup): The group to search `path` in
                 path (List[str]): The path to a data container.
@@ -310,13 +309,13 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 transform (Sequence[dict], optional): Optional transform
                     arguments; passed on to transformator as *args.
                 **transform_kwargs: Passed on to the transformator as **kwargs.
-            
+
             Returns:
                 Union[xr.Variable, xr.DataArray]: The extracted data, which
                     can be either a data array (if the path led to an
                     xarray-interface supporting container) or an xr.Variable
                     (if not).
-            
+
             Raises:
                 ValueError: Description
             """
@@ -350,7 +349,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 # Invoke the transformator on the container
                 cont = self._PSPGRP_TRANSFORMATOR(cont, *transform,
                                                   **transform_kwargs)
-            
+
             # Shortcut: specialised containers might already supply all the
             # information, including coordinates. In that case, return it as
             # a data array.
@@ -363,7 +362,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                     darr = convert_dtype(darr, dtype, path=path)
 
                 if dims is not None:
-                    darr = darr.rename({old:new for old, new
+                    darr = darr.rename({old: new for old, new
                                         in zip(darr.dims, dims)})
 
                 return darr
@@ -429,7 +428,6 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
             log.remark("Concatenation successful.")
 
             return reduced
-
 
         # End of definition of helper functions.
         # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

@@ -49,6 +49,9 @@ class BasePlotCreator(AbstractPlotCreator):
             an error will be raised.
         EXTENSIONS (tuple): The supported extensions. If 'all', no checks for
             the extensions are performed
+        OUT_PATH_EXIST_OK (bool): Whether a warning should be shown (instead
+            of an error, when a plot file already exists at the specified
+            output path
         POSTPONE_PATH_PREPARATION (bool): Whether to prepare paths in the base
             class's __call__ method or not. If the derived class wants to
             take care of this on their own, this should be set to True and the
@@ -59,21 +62,29 @@ class BasePlotCreator(AbstractPlotCreator):
     DEFAULT_EXT = None
     DEFAULT_EXT_REQUIRED = True
     POSTPONE_PATH_PREPARATION = False
+    OUT_PATH_EXIST_OK = False
     DAG_SUPPORTED = False
     DAG_INVOKE_IN_BASE = True
 
-    def __init__(self, name: str, *, dm: DataManager, default_ext: str=None,
+    def __init__(self, name: str, *, dm: DataManager,
+                 default_ext: str=None,
+                 exist_ok: bool=None,
                  **plot_cfg):
-        """Create a PlotCreator instance for a plot with the given `name`.
+        """Create a PlotCreator instance for a plot with the given ``name``.
         
         Args:
             name (str): The name of this plot
             dm (DataManager): The data manager that contains the data to plot
             default_ext (str, optional): The default extension to use; needs
-                to be in EXTENSIONS, if that class variable is not set to
+                to be in ``EXTENSIONS``, if that class variable is not set to
                 'all'. The value given here is needed by the PlotManager to
                 build the output path.
-            **plot_cfg: The default plot configuration
+            exist_ok (bool, optional): If True, no error will be raised when
+                a plot already exists at the specified output path. If None,
+                the value specified in the ``OUT_PATH_EXIST_OK`` class variable
+                will be used to determine this behaviour.
+            **plot_cfg: The default configuration for the plot(s) that this
+                creator is supposed to create.
         
         Raises:
             ValueError: On bad `default_ext` argument
@@ -81,6 +92,8 @@ class BasePlotCreator(AbstractPlotCreator):
         self._name = name
         self._dm = dm
         self._plot_cfg = plot_cfg
+        self._exist_ok = (self.OUT_PATH_EXIST_OK if exist_ok is None
+                          else exist_ok)
 
         # Initialize property-managed attributes
         self._logstr = None
@@ -164,7 +177,10 @@ class BasePlotCreator(AbstractPlotCreator):
                 configuration
         
         Returns:
-            The return value of the _plot function
+            The return value of the
+            :py:meth:`~dantro.plot_creators.pcr_base.BasePlotCreator.plot`
+            method, which is an abstract method in
+            :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator`.
         """
         # TODO add logging messages
 
@@ -173,19 +189,25 @@ class BasePlotCreator(AbstractPlotCreator):
 
         # Check if a recursive update needs to take place
         if update_plot_cfg:
-            cfg = recursive_update(cfg, update_plot_cfg)
+            cfg = recursive_update(cfg, copy.deepcopy(update_plot_cfg))
 
-        # Prepare the output path
+        # Find out if it's ok if out_path already exists, then prepare the path
+        exist_ok = self._exist_ok
+        if 'exist_ok' in cfg:
+            exist_ok = cfg.pop('exist_ok')
+
         if not self.POSTPONE_PATH_PREPARATION:
-            self._prepare_path(out_path)
+            self._prepare_path(out_path, exist_ok=exist_ok)
 
         # Perform data selection and transformation, if the plot creator class
         # supports it. 
         # Even if the creator supports it, it might be disabled in the config;
         # in that case, the method below behaves like a passthrough of the cfg,
-        # only filtering out the `use_dag` key.
+        # filtering out all transformation-related arguments.
         if self.DAG_SUPPORTED and self.DAG_INVOKE_IN_BASE:
-            _, cfg = self._perform_data_selection(**cfg)
+            use_dag = cfg.pop('use_dag', None)
+            _, cfg = self._perform_data_selection(use_dag=use_dag,
+                                                  plot_kwargs=cfg)
 
         # Now call the plottig function with these arguments
         return self.plot(out_path=out_path, **cfg)
@@ -228,7 +250,7 @@ class BasePlotCreator(AbstractPlotCreator):
     # .........................................................................
     # Helpers
 
-    def _prepare_path(self, out_path: str) -> None:
+    def _prepare_path(self, out_path: str, *, exist_ok: bool) -> None:
         """Prepares the output path, creating directories if needed, then
         returning the full absolute path.
         
@@ -237,12 +259,19 @@ class BasePlotCreator(AbstractPlotCreator):
         
         Args:
             out_path (str): The absolute output path to start with
+            exist_ok (bool): If True, will emit a warning instead of an error
+        
+        Raises:
+            FileExistsError: Raised on already existing out path and exist_ok
+                being False.
         """
         # Check that the file path does not already exist:
         if os.path.exists(out_path):
-            raise FileExistsError("There already exists a file at the desired "
-                                  "output path for {} at: {}"
-                                  "".format(self.logstr, out_path))
+            msg = ("There already exists a file at the specified output path "
+                   "for {}:\n  {}".format(self.logstr, out_path))
+            if not exist_ok:
+                raise FileExistsError(msg)
+            log.warning(msg)
 
         # Ensure that all necessary directories exist
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
@@ -332,17 +361,14 @@ class BasePlotCreator(AbstractPlotCreator):
 
         return dict(init=init_kwargs, compute=compute_kwargs), plot_kwargs
 
-    def _use_dag(self, *, use_dag: bool, plot_kwargs: dict, **_) -> bool:
+    def _use_dag(self, *, use_dag: bool, plot_kwargs: dict, **_kws) -> bool:
         """Whether the data transformation framework should be used.
         
         Args:
             use_dag (bool): The value from the plot configuration
             plot_kwargs (dict): The plot configuration
-            **_: Any further kwargs that can be used to assess whether the DAG
-                should be used or not. Ignored here.
-        
-        Deleted Parameters:
-            **plot_kwargs: The remaining plot configuration; ignored here
+            **_kws: Any further kwargs that can be used to assess whether the
+                DAG should be used or not. Ignored here.
         
         Returns:
             bool: Whether the DAG should be used or not

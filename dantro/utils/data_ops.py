@@ -115,7 +115,7 @@ def create_mask(data: xr.DataArray,
         data (xr.DataArray): The data to apply the comparison to. This is the
             lhs of the comparison.
         operator_name (str): The name of the binary operator function as
-            registered in :py:const:`dantro.utils.data_ops.BOOLEAN_OPERATORS`
+            registered in the ``BOOLEAN_OPERATORS`` constant.
         rhs_value (float): The right-hand-side value
     
     Raises:
@@ -219,7 +219,7 @@ def multi_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> xr.DataArray:
     is increased by ``dims``, while their dtype can be maintained.
 
     For the sequential application of ``xr.concat`` along the outer dimensions,
-    the custom :py:function:`dantro.tools.apply_along_axis` is used.
+    the custom :py:func:`dantro.tools.apply_along_axis` is used.
     
     Args:
         arrs (np.ndarray): The array containing xarray objects which are to be

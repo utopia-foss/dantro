@@ -2,6 +2,38 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+
+## v0.12.0
+- As of this release, dantro is licensed under the [LGPLv3+ license](COPYING.md), added in !133.
+- !141 adds automatic deployment of dantro to the [PyPI](https://pypi.org/project/dantro/).
+- !134 adds a [Contribution Guide](CONTRIBUTING.md) and a [Code of Conduct](CODE_OF_CONDUCT.md).
+- Furthermore, the dantro documentation is now deployed to Read the Docs, both for [stable versions](https://dantro.readthedocs.io/en/stable/) and for the [latest version](https://dantro.readthedocs.io/en/latest/).
+  See !140 and !143 for more information.
+- #92 adds a test job for a Python 3.8 environment to the CI pipeline
+- #132 updates the graph-related vocabulary to `graph`, `nodes`, and `edges`.
+- Various documentation improvements
+    - #124 and !136 fix all broken references in the documentation and the docstrings and improve the Sphinx configuration.
+    - !135 adds usage examples and includes code snippets from tests, thus automatically making sure that they work as intended.
+    - Additionally, the CI now exits with a warning if Sphinx emitted any warnings, and a log file is made available via the job artifacts to inspect the Sphinx error log.
+    - #117 improves, restructures, and extents the documentation, now covering the full range of dantro applications.
+    - #135 eliminates typos and grammar issues in the documentation making it consistently use American English.
+
+
+#### Important notes on upgrading
+- Due to the changes introduced in !92, the netcdf4 package is no longer a dependency required by dantro.
+  It is replaced by the more commonly used scipy package.
+  To ensure that no interference occurs between a remaining installation of netcdf4 and the new dependencies, we suggest to uninstall it using `pip uninstall netcdf4`.
+- With #132, the former `NetworkGroup` (now `GraphGroup`) and some of its attributes are renamed.
+
+
+## v0.11.2
+- #127 allows to disable `DataManager.load` operations via keyword argument; this is useful e.g. when passing arguments via recursively updated configuration hierarchies.
+
+
+## v0.11.1
+- #126 makes it possible to overwrite existing plots
+
+
 ## v0.11.0
 - !124 adds a condensed data tree representation (as proposed in #112)
 - Minor changes:
@@ -53,10 +85,12 @@
     - #102 makes the documentation available [online](https://hermes.iup.uni-heidelberg.de/dantro_doc/master/html/)
     - #107 extends and improves the documentation
 
+
 ## v0.9.1
 - !100 adds experimental (!) transformator capabilities to `ParamSpaceGroup.select`, improves logging, and resolves minor bugs and inconsistencies.
 - !101 adds `base_path` argument to `ParamSpaceGroup.select`, allowing for all other paths to be specified relative to it.
 - !102 fixes #88 and a bug in `UniversePlotCreator` when providing a `ParamSpace` as plot configuration.
+
 
 ## v0.9.0
 - #76 and !91 improve working interactively with dantro, e.g. by providing the `__repr__` method and adding IPython key completion for group members.

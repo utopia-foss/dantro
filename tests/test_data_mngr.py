@@ -370,8 +370,12 @@ def test_loading(dm):
     # Load another single entry, this time forcing a group to be created
     dm.load('barbaz', loader='yaml', glob_str="foobar.yml",
             print_tree=True)
-
     assert 'barbaz' in dm
+    barbaz = dm['barbaz']
+
+    # Loading can also be disabled (would lead to a collision otherwise)
+    dm.load('barbaz', loader='yaml', glob_str="foobar.yml", enabled=False)
+    assert dm['barbaz'] is barbaz
 
     # Load with the yaml object loader
     dm.load('barbaz_obj', loader='yaml_to_object', glob_str="foobar.yml",
@@ -438,6 +442,9 @@ def test_loading_errors(dm):
     # With name collisions, an error should be raised
     with pytest.raises(dantro.data_mngr.ExistingDataError):
         dm.load('barfoo', loader='yaml', glob_str="foobar.yml")
+
+    # Unless loading is disabled anyway
+    dm.load('barfoo', loader='yaml', glob_str="foobar.yml", enabled=False)
 
     # Relative base paths should not work
     with pytest.raises(ValueError, match="needs be an absolute path"):

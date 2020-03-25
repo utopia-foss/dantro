@@ -12,6 +12,7 @@ log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
+
 class ObjectContainer(ItemAccessMixin, BaseDataContainer):
     """Generically stores any Python object
 
@@ -22,6 +23,7 @@ class ObjectContainer(ItemAccessMixin, BaseDataContainer):
         """A __format__ helper function: returns info about the stored data"""
         return "{} stored, {}".format(type(self.data).__name__,
                                       super()._format_info())
+
 
 class PassthroughContainer(ForwardAttrsToDataMixin, ObjectContainer):
     """An object container that forwards all attribute calls to .data"""
@@ -39,9 +41,9 @@ class MutableSequenceContainer(CheckDataMixin, ItemAccessMixin,
     DATA_UNEXPECTED_ACTION = 'warn'
 
     def insert(self, idx: int, val) -> None:
-        """Insert an item at a given position. The first argument is the index 
-        of the element before which to insert, so a.insert(0, x) inserts at 
-        the front of the list, and a.insert(len(a), x) is equivalent to 
+        """Insert an item at a given position. The first argument is the index
+        of the element before which to insert, so a.insert(0, x) inserts at
+        the front of the list, and a.insert(len(a), x) is equivalent to
         a.append(x).
         
         Args:

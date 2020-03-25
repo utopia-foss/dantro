@@ -19,8 +19,8 @@ from ..tools import load_yml, recursive_update, DoNothingContext
 from .pcr_base import BasePlotCreator
 from ..dag import TransformationDAG
 
-from ._pcr_ext_modules.movie_writers import FileWriter
-from ._pcr_ext_modules.plot_helper import PlotHelper
+from ._movie_writers import FileWriter
+from ._plot_helper import PlotHelper
 
 
 # Local constants
@@ -51,37 +51,17 @@ class ExternalPlotCreator(BasePlotCreator):
     # deciding whether a plot function is to be used with this creator
     _AD_IGNORE_FUNC_ATTRS = False
 
-    # The parameters below are for inspecting the plot function signature. See
-    # https://docs.python.org/3/library/inspect.html#inspect.Parameter.kind
-    # for more information on the specification for argument kinds.
-
-    # Exactly how many POSITIONAL_ONLY arguments to allow; -1 to not check
-    _AD_NUM_POSITIONAL_ONLY = -1
-
-    # Exactly how many POSITIONAL_OR_KEYWORD arguments to allow; -1: no check
-    _AD_NUM_POSITIONAL_OR_KEYWORD = 1
-    
-    # Whether to allow *args
-    _AD_ALLOW_VAR_POSITIONAL = True
-
-    # The KEYWORD_ONLY arguments that are required to be (explicitly!) accepted
-    _AD_KEYWORD_ONLY = ['out_path']
-
-    # Whether to allow **kwargs
-    _AD_ALLOW_VAR_KEYWORD = True
-
-
     # .........................................................................
     # Main API functions, required by PlotManager
 
     def __init__(self, name: str, *, base_module_file_dir: str=None,
                  style: dict=None, **parent_kwargs):
         """Initialize an ExternalPlotCreator.
-        
+
         Args:
             name (str): The name of this plot
-            base_module_file_dir (str, optional): If given, `module_file`
-                arguments to the `_plot` method that are relative paths will
+            base_module_file_dir (str, optional): If given, ``module_file``
+                arguments to the ``_plot`` method that are relative paths will
                 be seen relative to this directory
             style (dict, optional): The default style context defintion to
                 enter before calling the plot function. This can be used to
@@ -89,20 +69,20 @@ class ExternalPlotCreator(BasePlotCreator):
                 stored as attribute, and can be updated when the plot method
                 is called.
             **parent_kwargs: Passed to the parent __init__
-        
+
         Raises:
-            ValueError: On invalid `base_module_file_dir` argument
+            ValueError: On invalid ``base_module_file_dir`` argument
         """
         super().__init__(name, **parent_kwargs)
 
         # If given, check the base module file dir argument is valid
         if base_module_file_dir:
             bmfd = os.path.expanduser(base_module_file_dir)
-            
+
             if not os.path.isabs(bmfd):
                 raise ValueError("Argument `base_module_file_dir` needs to be "
                                  "an absolute path, was not! Got: "+str(bmfd))
-            
+
             elif not os.path.exists(bmfd) or not os.path.isdir(bmfd):
                 raise ValueError("Argument `base_module_file_dir` does not "
                                  "exists or does not point to a directory!")
@@ -120,12 +100,12 @@ class ExternalPlotCreator(BasePlotCreator):
              helpers: dict=None, animation: dict=None, use_dag: bool=None,
              **func_kwargs):
         """Performs the plot operation by calling a specified plot function.
-        
+
         The plot function is specified by its name, which is interpreted as a
         full module string, or by directly passing a callable.
-        
+
         Alternatively, the base module can be loaded from a file path.
-        
+
         Args:
             out_path (str): The output path for the resulting file
             plot_func (Union[str, Callable]): The plot function or a name or
@@ -133,21 +113,26 @@ class ExternalPlotCreator(BasePlotCreator):
             module (str, optional): If plot_func was the name of the plot
                 function, this needs to be the name of the module to import
             module_file (str, optional): Path to the file to load and look for
-                the `plot_func` in. If `base_module_file_dir` is given, this
-                can also be a path relative to that directory.
+                the ``plot_func`` in. If ``base_module_file_dir`` is given,
+                this can also be a path relative to that directory.
             style (dict, optional): Parameters that determine the aesthetics of
                 the created plot; basically matplotlib rcParams. From them, a
                 style context is entered before calling the plot function.
                 Valid keys:
-                    - `base_style` (str, List[str], optional) names of valid
-                        matplotlib styles
-                    - `rc_file` (str, optional) path to a YAML RC parameter
-                        file that is used to update the base style
-                    - `ignore_defaults` (bool, optional) Whether to ignore the
-                        default style passed to the __init__ method
-                    - further parameters will update the RC parameter dict yet
-                        again. Need be valid matplotlib RC parameters in order
-                        to have any effect.
+
+                    base_style (str, List[str], optional):
+                        names of valid matplotlib styles
+                    rc_file (str, optional):
+                        path to a YAML RC parameter file that is used to
+                        update the base style
+                    ignore_defaults (bool, optional):
+                        Whether to ignore the default style passed to the
+                        __init__ method
+                    further keyword arguments:
+                        will update the RC parameter dict yet again. Need be
+                        valid matplotlib RC parameters in order to have any
+                        effect.
+
             helpers (dict, optional): helper configuration passed to PlotHelper
                 initialization if enabled
             animation (dict, optional): animation configuration
@@ -156,7 +141,7 @@ class ExternalPlotCreator(BasePlotCreator):
                 function. If not given, will query the plot function attributes
                 for whether the DAG should be used.
             **func_kwargs: Passed to the imported function
-        
+
         Raises:
             ValueError: On superfluous `helpers` or `animation` arguments in
                 cases where these are not supported
@@ -184,7 +169,7 @@ class ExternalPlotCreator(BasePlotCreator):
             hlpr = self.PLOT_HELPER_CLS(out_path=out_path,
                                         helper_defaults=helper_defaults,
                                         update_helper_cfg=helpers)
-            
+
             # Prepare the arguments. The DataManager is added to args there
             # and data transformation via DAG occurs there as well.
             args, kwargs = self._prepare_plot_func_args(plot_func,
@@ -248,17 +233,17 @@ class ExternalPlotCreator(BasePlotCreator):
     def can_plot(self, creator_name: str, **cfg) -> bool:
         """Whether this plot creator is able to make a plot for the given plot
         configuration.
-        
+
         This checks whether the configuration allows resolving a plot function.
         If that is the case, it checks whether the plot function has defined
         some attributes that provide further information on whether the current
         creator is the desired one.
-        
+
         Args:
             creator_name (str): The name for this creator used within the
                 PlotManager.
             **cfg: The plot configuration with which to decide this ...
-        
+
         Returns:
             bool: Whether this creator can be used for plotting or not
         """
@@ -308,22 +293,22 @@ class ExternalPlotCreator(BasePlotCreator):
             module_file (str): Path to the file to load and look for
                 the `plot_func` in. If `base_module_file_dir` is given, this
                 can also be a path relative to that directory.
-        
+
         Returns:
             Callable: The resolved plot function
-        
+
         Raises:
             TypeError: Upon wrong argument types
         """
         if callable(plot_func):
             log.debug("Received plotting function:  %s", str(plot_func))
             return plot_func
-        
+
         elif not isinstance(plot_func, str):
             raise TypeError("Argument `plot_func` needs to be a string or a "
                             "callable, was {} with value '{}'."
                             "".format(type(plot_func), plot_func))
-        
+
         # else: need to resolve the module and find the plot_func in it
         # First resolve the module, either from file or via import
         if module_file:
@@ -331,7 +316,7 @@ class ExternalPlotCreator(BasePlotCreator):
 
         elif isinstance(module, str):
             mod = self._get_module_via_import(module)
-        
+
         else:
             raise TypeError("Could not import a module, because neither "
                             "argument `module_file` was given nor did "
@@ -390,17 +375,17 @@ class ExternalPlotCreator(BasePlotCreator):
                                 *args, use_dag: bool=None,
                                 **kwargs) -> Tuple[tuple, dict]:
         """Prepares the args and kwargs passed to the plot function.
-        
+
         The passed args and kwargs are carried over, while the positional
         arguments are prepended with passing of the data manager.
 
         When subclassing this function, the parent method (this one) should
         still be called to maintain base functionality.
-        
+
         Args:
             *args: Additional args
             **kwargs: Additional kwargs
-        
+
         Returns:
             tuple: (args: tuple, kwargs: dict)
         """
@@ -526,7 +511,7 @@ class ExternalPlotCreator(BasePlotCreator):
         # Now, compute, using the parent method
         return super()._compute_dag(dag, compute_only=compute_only,
                                     **compute_kwargs)
-    
+
     def _combine_dag_results_and_plot_cfg(self, *, dag: TransformationDAG,
                                           dag_results: dict, dag_params: dict,
                                           plot_kwargs: dict) -> dict:
@@ -581,7 +566,7 @@ class ExternalPlotCreator(BasePlotCreator):
                                rc_file: str=None, ignore_defaults: bool=False,
                                **update_rc_params) -> dict:
         """Builds a dictionary with rcparams for use in a matplotlib rc context
-        
+
         Args:
             base_style (Union[str, List[str]], optional): The matplotlib
                 style to use as a basis for the generated rc parameters dict.
@@ -591,11 +576,11 @@ class ExternalPlotCreator(BasePlotCreator):
                 parameters that were given to the __init__ method
             **update_rc_params: All further parameters update those that are
                 already provided by base_style and/or rc_file arguments.
-        
+
         Returns:
             dict: The rc parameters dictionary, a valid dict to enter a
                 matplotlib style context with
-        
+
         Raises:
             ValueError: On invalid arguments
         """
@@ -637,7 +622,7 @@ class ExternalPlotCreator(BasePlotCreator):
 
                 rc_dict = recursive_update(rc_dict,
                                            plt.style.library[style_name])
-        
+
         # If a `rc_file` is specifed update the `rc_dict`
         if rc_file:
             path_to_rc = os.path.expanduser(rc_file)
@@ -667,27 +652,32 @@ class ExternalPlotCreator(BasePlotCreator):
                            writer_kwargs: dict=None,
                            animation_update_kwargs: dict=None):
         """Prepares the Writer and checks for valid animation config.
-        
+
         Args:
             hlpr (PlotHelper): The plot helper
             context: The context to enter before starting animation
             plot_func (Callable): plotting function which is to be animated
-            plot_args (tuple): passed to plot_func
-            plot_kwargs (dict): passed to plot_func
+            plot_args (tuple): positional arguments to ``plot_func``
+            plot_kwargs (dict): keyword arguments to ``plot_func``
             writer (str): name of movie writer with which the frames are saved
             writer_kwargs (dict, optional): A dict of writer parameters. These
                 are associated with the chosen writer via the top level key
-                in `writer_kwargs`. Each dictionary container has three further
-                keys queried, all optional:
-                    - ``init``: passed to Writer.__init__ method
-                    - ``saving``: passed to Writer.saving method
-                    - ``grab_frame``: passed to Writer.grab_frame method
+                in ``writer_kwargs``. Each dictionary container has three
+                further keys queried, all optional:
+
+                    init:
+                        passed to ``Writer.__init__`` method
+                    saving:
+                        passed to ``Writer.saving`` method
+                    grab_frame:
+                        passed to ``Writer.grab_frame`` method
+
             animation_update_kwargs (dict, optional): Passed to the animation
                 update generator call.
-        
+
         Raises:
-            ValueError: - animation not supported by plot_func
-                        - writer not available
+            ValueError: if the animation is not supported by the ``plot_func``
+                or if the writer is not available
         """
         # Check that the plot function actually supports animation
         if not getattr(plot_func, "supports_animation", False):
@@ -735,7 +725,7 @@ class ExternalPlotCreator(BasePlotCreator):
             # Enter context manager of movie writer
             with writer.saving(hlpr.fig, hlpr.out_path, dpi,
                                **writer_cfg.get('saving', {})):
-                
+
                 # Create the iterator for the animation
                 anim_it = hlpr.animation_update(**(animation_update_kwargs
                                                    if animation_update_kwargs
@@ -747,11 +737,11 @@ class ExternalPlotCreator(BasePlotCreator):
                     # This already has created the new frame
                     # Grab it; the writer takes care of saving it
                     writer.grab_frame(**writer_cfg.get('grab_frame', {}))
-            
+
             # Exited 'saving' conext
             # Make sure the figure is closed
             hlpr.close_figure()
-        
+
         # Exited externally given context. Done now.
         log.debug("Animation finished after %s frames.", frame_no + 1)
 
@@ -762,12 +752,12 @@ class ExternalPlotCreator(BasePlotCreator):
                                      creator_name: str) -> bool:
         """Checks whether the given function has attributes set that declare
         it as a plotting function that is to be used with this creator.
-        
+
         Args:
             pf (Callable): The plot function to check attributes of
             creator_name (str): The name under which this creator type is
                 registered to the PlotManager.
-        
+
         Returns:
             bool: Whether the plot function attributes declare the given plot
                 function as suitable for working with this specific creator.
@@ -816,7 +806,7 @@ class is_plot_func:
                  supports_animation=False, add_attributes: dict=None):
         """Initialize the decorator. Note that the function to be decorated is
         not passed to this method.
-        
+
         Args:
             creator_type (type, optional): The type of plot creator to use
             creator_name (str, optional): The name of the plot creator to use
@@ -843,7 +833,7 @@ class is_plot_func:
                 supports animation.
             add_attributes (dict, optional): Additional attributes to add to
                 the plot function.
-        
+
         Raises:
             ValueError: If `helper_defaults` was a string but not an absolute
                 path.
@@ -858,7 +848,7 @@ class is_plot_func:
                                  "relative path: {}, but needs to be either a "
                                  "dict or an absolute path (~ allowed)."
                                  "".format(fpath))
-            
+
             log.debug("Loading helper defaults from file %s ...", fpath)
             helper_defaults = load_yml(fpath)
 

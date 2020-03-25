@@ -8,8 +8,7 @@ stored data.
 """
 
 import logging
-from itertools import product
-from typing import TypeVar, Tuple, Dict, Sequence, Union, List
+from typing import Tuple, Dict, Union, List
 
 import numpy as np
 import xarray as xr
@@ -25,6 +24,7 @@ from ..tools import apply_along_axis
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
+
 
 class LabelledDataGroup(OrderedDataGroup):
     """A group that assumes that the members it contains can be labelled
@@ -49,7 +49,7 @@ class LabelledDataGroup(OrderedDataGroup):
     # `dantro.utils.coords.extract_coords` function.
     LDG_EXTRACT_COORDS_FROM = 'data'
 
-    # Configuration for mode 'attrs' . . . . . . . . . . . . . . . . . . . . . 
+    # Configuration for mode 'attrs' . . . . . . . . . . . . . . . . . . . . .
     LDG_COORDS_ATTR_PREFIX = 'ext_coords__'
     LDG_COORDS_MODE_ATTR_PREFIX = 'ext_coords_mode__'
     LDG_COORDS_MODE_DEFAULT = 'scalar'
@@ -63,17 +63,19 @@ class LabelledDataGroup(OrderedDataGroup):
     def __init__(self, *args, dims: TDims=None,
                  allow_deep_selection: bool=None, **kwargs):
         """Initialize a LabelledDataGroup
-        
+
         Args:
-            *args: Passed on to OrderedDataGroup.__init__
+            *args: Passed on to
+                :py:class:`~dantro.groups.ordered.OrderedDataGroup`
             dims (TDims, optional): The dimensions associated with this group.
-                If not given, will use those defined in the LDG_DIMS class
-                variable. These can _not_ be changed afterwards!
+                If not given, will use those defined in the ``LDG_DIMS`` class
+                variable. These can *not* be changed afterwards!
             allow_deep_selection (bool, optional): Whether to allow deep
-                selection. If not given, will use the LDG_ALLOW_DEEP_SELECTION
-                class variable's value. Behaviour can be changed via the
-                property of the same name.
-            **kwargs: Passed on to OrderedDataGroup.__init__
+                selection. If not given, will use the
+                ``LDG_ALLOW_DEEP_SELECTION`` class variable's value. Behaviour
+                can be changed via the property of the same name.
+            **kwargs: Passed on to
+                :py:class:`~dantro.groups.ordered.OrderedDataGroup`
         """
         super().__init__(*args, **kwargs)
 
@@ -83,7 +85,6 @@ class LabelledDataGroup(OrderedDataGroup):
         self._allow_deep_selection = self.LDG_ALLOW_DEEP_SELECTION
         if allow_deep_selection is not None:
             self._allow_deep_selection = allow_deep_selection
-
 
     # Dimension and coordinates ...............................................
 
@@ -139,7 +140,6 @@ class LabelledDataGroup(OrderedDataGroup):
         # Need to derive it from the coordinates
         coords = self.coords
         return tuple([len(coords[dim_name]) for dim_name in self.dims])
-    
 
     # Additional properties ...................................................
 
@@ -196,7 +196,6 @@ class LabelledDataGroup(OrderedDataGroup):
     def member_map_available(self) -> bool:
         """Whether the member map is available yet."""
         return (self.__member_map is not None)
-    
 
     # Selection interface .....................................................
 
@@ -205,11 +204,11 @@ class LabelledDataGroup(OrderedDataGroup):
              **indexers_kwargs) -> xr.DataArray:
         """Return a new labelled `xr.DataArray` with an index-selected subset
         of members of this group.
-        
+
         If deep selection is activated, those indexers that are not available
         in the group-managed dimensions are looked up in the members of this
         group.
-        
+
         Args:
             indexers (dict, optional): A dict with keys matching dimensions and
                 values given by scalars, slices or arrays of tick indices.
@@ -219,23 +218,23 @@ class LabelledDataGroup(OrderedDataGroup):
                 them scalar.
             combination_method (str, optional): How to combine group-level data
                 with member-level data. Can be:
-        
+
                     * ``concat``: Concatenate. This can preserve the dtype, but
                         requires that no data is missing.
                     * ``merge``: Merge, using `xarray.merge`. This leads to a
                         type conversion to ``float64``, but allows members
-                        being missing or coordinates not fully filling the 
+                        being missing or coordinates not fully filling the
                         available space.
                     * ``try_concat``: Try concatenation, fall back to merging
                         if that was unsuccessful.
-        
+
             deep (bool, optional): Whether to allow deep indexing, i.e.: that
                 ``indexers`` may contain dimensions that don't refer to group-
                 level dimensions but to dimensions that are only availble among
                 the member data. If ``None``, will use the value returned by
                 the ``allow_deep_selection`` property.
             **indexers_kwargs: Additional indexers
-        
+
         Returns:
             xr.DataArray: The selected data, potentially a combination of data
                 on group level and member-level data.
@@ -254,7 +253,7 @@ class LabelledDataGroup(OrderedDataGroup):
             if not deep_idxrs:
                 return cont
             return cont.isel(deep_idxrs, drop=drop)
-        
+
         # Now, combine them, potentially also applying deep indexing
         return self._combine(tbc, combination_method=combination_method,
                              deep_indexers=deep_idxrs, by_index=True,
@@ -270,7 +269,7 @@ class LabelledDataGroup(OrderedDataGroup):
         If deep selection is activated, those indexers that are not available
         in the group-managed dimensions are looked up in the members of this
         group.
-        
+
         Args:
             indexers (dict, optional): A dict with keys matching dimensions and
                 values given by scalars, slices or arrays of tick labels.
@@ -288,7 +287,7 @@ class LabelledDataGroup(OrderedDataGroup):
                         requires that no data is missing.
                     * ``merge``: Merge, using `xarray.merge`. This leads to a
                         type conversion to ``float64``, but allows members
-                        being missing or coordinates not fully filling the 
+                        being missing or coordinates not fully filling the
                         available space.
                     * ``try_concat``: Try concatenation, fall back to merging
                         if that was unsuccessful.
@@ -299,7 +298,7 @@ class LabelledDataGroup(OrderedDataGroup):
                 the member data. If ``None``, will use the value returned by
                 the ``allow_deep_selection`` property.
             **indexers_kwargs: Additional indexers
-        
+
         Returns:
             xr.DataArray: The selected data, potentially a combination of data
                 on group level and member-level data.
@@ -320,7 +319,7 @@ class LabelledDataGroup(OrderedDataGroup):
                 return cont
             return cont.sel(deep_idxrs, method=method,
                             tolerance=tolerance, drop=drop)
-        
+
         # Now, combine them, potentially also applying deep indexing
         return self._combine(tbc, combination_method=combination_method,
                              deep_indexers=deep_idxrs, by_index=False,
@@ -333,14 +332,14 @@ class LabelledDataGroup(OrderedDataGroup):
                        mode=None) -> TCoordsDict:
         """Extract the coordinates for the given object using the
         `dantro.utils.coords.extract_coords` function.
-        
+
         Args:
             obj (AbstractDataContainer): The object to get the coordinates of.
             mode (None, optional): By which coordiante extraction mode to get
                 the coordinates from the object. Can be ``attrs``, ``name``,
                 ``data`` or anything else specified in
                 ~`dantro.utils.coords.extract_coords`.
-        
+
         Returns:
             TCoordsDict: The extracted coordinates
         """
@@ -367,10 +366,10 @@ class LabelledDataGroup(OrderedDataGroup):
         If it can be accomodated, the member map will be adjusted such that for
         all coordinates associated with the given ``cont``, the member map
         points to the newly added container.
-        
+
         Args:
             cont (AbstractDataContainer): The newly added container
-        
+
         Returns:
             None: Description
         """
@@ -383,11 +382,11 @@ class LabelledDataGroup(OrderedDataGroup):
 
         # There is a map. Check if it can accomodate the new container
         coords = self._get_coords_of(cont)
-        
+
         try:
             self.__member_map.loc[coords] = cont.name
 
-        except:
+        except Exception:
             # Cannot accomodate it -> invalidate it
             self.__member_map = None
 
@@ -397,15 +396,15 @@ class LabelledDataGroup(OrderedDataGroup):
                         **indexers_kwargs) -> Tuple[dict, dict]:
         """Parses the given indexer arguments and split them into indexers for
         the selection of group members and deep selection.
-        
+
         Args:
             indexers (dict): The indexers dict, may be empty
             allow_deep (bool): Whether to allow deep selection
             **indexers_kwargs: Additional indexers
-        
+
         Returns:
             Tuple[dict, dict]: (shallow indexers, deep indexers)
-        
+
         Raises:
             ValueError: If deep indexers were given but deep selection was not
                 enabled
@@ -433,25 +432,25 @@ class LabelledDataGroup(OrderedDataGroup):
                  **sel_kwargs) -> xr.Dataset:
         """Combine the given objects by the specified method. If deep indexers
         are given, apply the deep indexing on each of the members.
-        
+
         This method receives a labelled array of container names, on which the
         selection already took place. The aim is now to align the objects these
         names refer to, including their coordinates, and thereby construct an
         array that contains both the dimensions given by the ``cont_names``
         array and each members' data dimensions.
-        
+
         Available combination methods are based either on `xarray.merge`
         operations or `xarray.concat` along each dimension. For both these
         combination methods, the members of this group need to be prepared such
         that the operation can be applied, i.e.: they need to already be in an
         array capable of that operation and they need to directly or indirectly
         preserve coordinate information.
-        
+
         For that purpose, an object-array is constructed that has the same
         shape as the given ``cont_names``. As the `xarray.Dataset` and
         `xarray.DataArray` types have issues with handling array-like objects
         in object arrays, this is done via a `numpy.ndarray`.
-        
+
         Args:
             cont_names (xr.DataArray): The pre-selected member map object, i.e.
                 a labelled array containing names of the desired members that
@@ -464,11 +463,11 @@ class LabelledDataGroup(OrderedDataGroup):
             by_index (bool): Whether the deep indexing should take place by
                 index; if False, will use label-based selection.
             **sel_kwargs: Passed on to ``.sel`` or ``.isel``.
-        
+
         Returns:
             xr.Dataset: The data of the members from ``cont_names``, combined
                 using the given combination method.
-        
+
         Raises:
             ValueError: Invalid combination method
             KeyError: In ``concat`` mode, upon missing members.
@@ -515,7 +514,7 @@ class LabelledDataGroup(OrderedDataGroup):
             # coordinate combination is extracted from it (instead of selecting
             # all at once; which would however require a different architecture
             # and not allow using the convenient xarray interface).
-            
+
             # Apply the deep indexers
             if by_index:
                 darr = darr.isel(deep_indexers, **sel_kwargs)
@@ -608,11 +607,11 @@ class LabelledDataGroup(OrderedDataGroup):
     @classmethod
     def _combine_by_merge(cls, dsets: np.ndarray) -> xr.Dataset:
         """Combine the given datasets by merging using `xarray.merge`.
-        
+
         Args:
             dsets (np.ndarray): The object-dtype array of xr.Datasets that are
                 to be combined.
-        
+
         Returns:
             xr.Dataset: All datasets, aligned and combined via `xarray.merge`
         """
@@ -622,19 +621,19 @@ class LabelledDataGroup(OrderedDataGroup):
 
         log.debug("Merge successful.")
         return dset
-    
+
     @classmethod
     def _combine_by_concatenation(cls, dsets: np.ndarray, *,
                                   dims: TDims) -> xr.Dataset:
         """Combine the given datasets by concatenation using `xarray.concat`
         and subsequent application along all dimensions specified in ``dims``.
-        
+
         Args:
             dsets (np.ndarray): The object-dtype array of xr.Dataset objects
                 that are to be combined by concatenation.
             dims (TDims): The dimension names corresponding to _all_ the
                 dimensions of the ``dsets`` array.
-        
+
         Returns:
             xr.Dataset: The dataset resulting from the concatenation
         """
