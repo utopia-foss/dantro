@@ -45,6 +45,9 @@ See [important remarks](#bangbang-important-remarks) below for more info.
     * Remove the `WIP` flag from the corresponding changelog section for this release.
 1. Commit both changes together with the following message: `Prepare release of vX.Y`
 1. Push the branch and open a Merge Request, using the corresponding MR template. Follow additional procedures as described there.
+    * On all branches starting with `prepare-release-`, an additional `test_minimal_deps` stage is carried out in the CI. It runs all tests anew, but with the lowest specified version of all dependencies.
+    * Versions are specified in the `setup.py` file using the `>=` comparator. The lower bound is created by strictly requiring the specified version using `==`.
+    * It *might* become necessary to update these lower version bounds if the corresponding jobs fail. Try to choose the lowest possible version that makes the pipeline pass for *all* Python versions.
 1. After the MR is merged, pull the latest changes and update the release branch.
     ```bash
     git checkout master
