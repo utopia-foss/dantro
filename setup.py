@@ -4,18 +4,21 @@ from setuptools import setup, find_packages
 
 # Dependencies for dantro itself
 install_deps = [
-    'numpy>=1.14',
-    'xarray>=0.15.0',
+    'numpy>=1.17.4',
+    'xarray>=0.15.1',
     'dask>=2.10.1',
     'toolz>=0.10.0',        # Needed for dask.delayed
     'distributed>=2.10.0',  # Needed for dask's distributed scheduler
     'scipy>=1.4.1',         # Used as a netcdf4 storage engine for xarray
-    'h5py>=2.7.0',
+    'h5py>=2.10.0',
     'networkx>=2.2',
-    'ruamel.yaml>=0.16.5',
+    'ruamel.yaml>=0.16.10',
     'matplotlib>=3.1.3',
     'paramspace>=2.2.3'
     ]
+
+# Minimal versions of all of the above
+minimal_install_deps = [dep.replace(">=", "==") for dep in install_deps]
 
 # Dependencies for the tests
 test_deps = ['pytest>=3.4.0', 'pytest-cov>=2.5.1', 'tox>=3.1.2']
@@ -30,7 +33,7 @@ LONG_DESCRIPTION = """
 ``dantro``: handle, transform, and visualize hierarchically structured data
 ===========================================================================
 
-``dantro``—from *data* and *dentro* (Greek for *tree*)—is a Python
+``dantro`` – from *data* and *dentro* (Greek for *tree*) – is a Python
 package that provides a uniform interface for hierarchically structured
 and semantically heterogeneous data. It is built around three main
 features:
@@ -125,5 +128,6 @@ setup(
     install_requires=install_deps,
     tests_require=test_deps,
     test_suite='py.test',
-    extras_require=dict(test_deps=test_deps, doc_deps=doc_deps)
+    extras_require=dict(minimal_deps=minimal_install_deps,
+                        test_deps=test_deps, doc_deps=doc_deps)
 )
