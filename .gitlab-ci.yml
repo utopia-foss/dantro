@@ -2,6 +2,7 @@
 stages:
   - prep
   - test
+  - test_minimal_deps
   - build
   - deploy
   - post_deploy
@@ -24,27 +25,27 @@ variables:
     #   https://docs.gitlab.com/ce/ci/ssh_keys/
     # Run ssh-agent (inside the build environment)
     - eval $(ssh-agent -s)
-    
+
     # Add the SSH key stored in SSH_PRIVATE_KEY variable to the agent store
     # We're using tr to fix line endings which makes ed25519 keys work
     # without extra base64 encoding.
     # https://gitlab.com/gitlab-examples/ssh-private-key/issues/1#note_48526556
     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
-    
+
     # Create the SSH directory and give it the right permissions
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
-    
+
     # Add the known hosts lists to ensure this ssh connection is the right one
     - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
     - chmod 644 ~/.ssh/known_hosts
-  
+
 
 # -----------------------------------------------------------------------------
 # -- Prep Stage ---------------------------------------------------------------
 # ... doing some setup work
 
-prep:noop: # This is a no-op job, used as needs for build:docs
+prep:noop:  # This is a no-op job, used as `needs` for build:docs
   stage: prep
   image: alpine:latest
   cache: {}
@@ -63,7 +64,7 @@ test:py36: &test_defaults
   image: python:3.6
   before_script:
     - pip3 install tox
-  script: 
+  script:
     - tox -e py36
 
 test:py37:
@@ -77,6 +78,40 @@ test:py38:
   image: python:3.8
   script:
     - tox -e py38
+
+
+# ... and again, this time with minimal versions of all dependencies
+
+test_minimal_deps:py36: &test_minimal
+  <<: *test_defaults
+  stage: test_minimal_deps
+  only:
+    - master
+    - tags
+    - web
+    - /^prepare-release-/i
+    - /^137-/i  # FIXME remove
+  allow_failure: true
+  needs:
+    - test:py36
+  script:
+    - tox -e py36-minimal_deps
+
+test_minimal_deps:py37:
+  <<: *test_minimal
+  image: python:3.7
+  needs:
+    - test:py37
+  script:
+    - tox -e py37-minimal_deps
+
+test_minimal_deps:py38:
+  <<: *test_minimal
+  image: python:3.8
+  needs:
+    - test:py38
+  script:
+    - tox -e py38-minimal_deps
 
 
 # -- Build Stage --------------------------------------------------------------
@@ -96,7 +131,7 @@ build:docs:
     # Append the error log such that it's more convenient to read
     - echo "-------- Errors emitted during building of documentation --------"
     - cat doc/build_errors.log
-  
+
   artifacts:
     when: always
     name: "doc-$CI_COMMIT_REF_NAME"
@@ -120,7 +155,7 @@ deploy:docs:
     - branches@utopia/dantro
   dependencies:
     - build:docs
-  needs: 
+  needs:
     - build:docs
   script:
     # Create the directory on the remote, removing any prior version
