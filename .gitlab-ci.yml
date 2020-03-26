@@ -90,7 +90,6 @@ test_minimal_deps:py36: &test_minimal
     - tags
     - web
     - /^prepare-release-/i
-    - /^137-/i  # FIXME remove
   allow_failure: true
   needs:
     - test:py36
