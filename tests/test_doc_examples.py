@@ -513,5 +513,80 @@ def test_data_io_faq():
 
 
 # -----------------------------------------------------------------------------
+# -- data_structures/groups ---------------------------------------------------
+# -----------------------------------------------------------------------------
+# data_structures/groups/graph.rst
+
+def test_groups_graphgroup():
+
+    from dantro.containers import XrDataContainer
+    from dantro.groups import GraphGroup, TimeSeriesGroup
+
+    # Create some node data
+    nodes               = XrDataContainer(name="nodes", data=np.arange(0, 10))
+    node_prop           = XrDataContainer(name="some_node_prop",
+                                          data=np.random.random(size=(10,2)),
+                                          # declare this as a node property
+                                          attrs={"node_prop": True})
+    other_node_prop     = XrDataContainer(name="other_node_prop",
+                                          data=np.random.random(size=(10,2)),
+                                          attrs={"node_prop": True})
+
+    # Create some dynamic edge data at two different time steps
+    edges_initial       = XrDataContainer(name="0",
+                                    data=np.random.randint(0, 10, size=(2,9)))
+    edges_final         = XrDataContainer(name="10",
+                                    data=np.random.randint(0, 10, size=(2,6)))
+    edge_prop_initial   = XrDataContainer(name="0",
+                                          data=np.random.random(size=(2,9)))
+    edge_prop_final     = XrDataContainer(name="10",
+                                          data=np.random.random(size=(2,6)))
+
+    # Create a GraphGroup and add the static node data
+    graph_group = GraphGroup(name="graph_group",
+                             containers=[nodes, node_prop, other_node_prop],
+                             attrs={"directed": False, "parallel": False})
+
+    # Add dynamic edge data as TimeSeriesGroup
+    graph_group.new_group("edges", Cls=TimeSeriesGroup,
+                          containers=[edges_initial, edges_final])
+    graph_group.new_group("some_edge_prop", Cls=TimeSeriesGroup,
+                          containers=[edge_prop_initial, edge_prop_final],
+                          # declare this as an edge property
+                          attrs={"edge_prop": True})
+
+    # The resulting tree structure is the following:
+    ### Start -- groups_graphgroup_datatree
+    # graph_group                   <GraphGroup, 4 members, 2 attributes>
+    # └┬ nodes                      <XrDataContainer, ..., shape (10,), 0 attributes>
+    #  ├ some_node_prop             <XrDataContainer, ..., shape (10,2), 1 attribute>
+    #  ├ other_node_prop            <XrDataContainer, ..., shape (10,2), 1 attribute>
+    #  ├ edges                      <TimeSeriesGroup, 2 members, 0 attribute>
+    #    └┬ 0                       <XrDataContainer, ..., shape (9,), 0 attributes>
+    #     └ 10                      <XrDataContainer, ..., shape (6,), 0 attributes>
+    #  └ some_edge_prop             <TimeSeriesGroup, 2 members, 1 attribute>
+    #    └┬ 0                       <XrDataContainer, ..., shape (9,), 0 attributes>
+    #     └ 10                      <XrDataContainer, ..., shape (6,), 0 attributes>
+    ### End ---- groups_graphgroup_datatree
+
+    ### Start -- groups_graphgroup_create_graph
+    # Create the initial graph from the graph group without node/edge properties
+    g = graph_group.create_graph(at_time=0) # time specified by value
+
+    # Now, create the final graph with `some_node_prop` as node property and
+    # `some_edge_prop` as edge property.
+    g = graph_group.create_graph(at_time_idx=-1, # time specified via index
+                                 node_prop="some_node_prop", 
+                                 edge_prop="some_edge_prop")
+    ### End ---- groups_graphgroup_create_graph
+
+    ### Start -- groups_graphgroup_set_properties
+    # Set the node property manually from the `other_node_prop` data container
+    # and select the data of the last time step
+    graph_group.set_node_property(g=g, name="other_node_prop", at_time_idx=-1)
+    ### End ---- groups_graphgroup_set_properties
+
+
+# -----------------------------------------------------------------------------
 # -- plotting -----------------------------------------------------------------
 # -----------------------------------------------------------------------------
