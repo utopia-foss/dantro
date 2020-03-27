@@ -40,6 +40,9 @@ variables:
     - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
     - chmod 644 ~/.ssh/known_hosts
 
+# Specify default tag, which is picked up both by single- and multicore runners
+.tags: &tags
+  - default
 
 # -----------------------------------------------------------------------------
 # -- Prep Stage ---------------------------------------------------------------
@@ -48,6 +51,7 @@ variables:
 prep:noop:  # This is a no-op job, used as `needs` for build:docs
   stage: prep
   image: alpine:latest
+  tags: *tags
   cache: {}
   variables:
     GIT_STRATEGY: none
@@ -62,6 +66,7 @@ prep:noop:  # This is a no-op job, used as `needs` for build:docs
 test:py36: &test_defaults
   stage: test
   image: python:3.6
+  tags: *tags
   before_script:
     - pip3 install tox
   script:
@@ -119,6 +124,7 @@ test_minimal_deps:py38:
 build:docs:
   stage: build
   image: python:3.7
+  tags: *tags
   allow_failure: true
   needs: ["prep:noop"]
   before_script:
@@ -150,6 +156,7 @@ deploy:docs:
   stage: deploy
   image: &deploy_image ccees/utopia-base:v2.1  # overkill, but sshd installed
   <<: *ssh_access
+  tags: *tags
   only:
     - branches@utopia/dantro
   dependencies:
@@ -179,6 +186,7 @@ deploy:docs:
 deploy:stop_docs:
   stage: deploy
   image: *deploy_image
+  tags: *tags
   <<: *ssh_access
   when: manual          # ... but it is also triggered on branch deletion
   dependencies: []      # ... otherwise, the same dependencies as deploy:docs
@@ -199,6 +207,7 @@ deploy:stop_docs:
 deploy:pypi:
   stage: deploy
   image: python:3.7
+  tags: *tags
   <<: *ssh_access
   only: &to_deploy
     - tags    # Triggered when a new tag is added
@@ -239,6 +248,7 @@ deploy:pypi:
 post_deploy:install_from_pypi:
   stage: post_deploy
   image: python:3.7
+  tags: *tags
   only: *to_deploy
   needs:
     - "deploy:pypi"
