@@ -165,6 +165,13 @@ def test_MultiversePlotCreator_DAG_usage(init_kwargs):
     assert (kwargs['data']['randints'] == state).all()
     assert len(kwargs['dag'].nodes) == len(dag.nodes)
 
+    # Do the same again, but with short syntax
+    sac_bp_short = dict(fields=dict(randints="randints"), base_path='labelled')
+    _, kwargs = mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
+                                            select_and_combine=sac_bp_short)
+    assert (kwargs['data']['randints'] == state).all()
+    assert len(kwargs['dag'].nodes) == len(dag.nodes)
+
     # Add transformations to each universe ...
     sac_trf = dict(fields=dict(state_plus1=dict(path="labelled/randints",
                                                 transform=['increment'])))
@@ -183,7 +190,7 @@ def test_MultiversePlotCreator_DAG_usage(init_kwargs):
                                                 subspace=subspace))
     data = kwargs['data']
     assert len(data) == 1
-    
+
     state = data['state']
     assert isinstance(state, xr.DataArray)
     assert state.sizes == dict(p0=1, a0=1, p1=2, p2=1, x=3, y=4, z=5)
@@ -205,7 +212,7 @@ def test_MultiversePlotCreator_DAG_usage(init_kwargs):
                                             select_and_combine=sac_sub)
     assert (kwargs['data']['randints'] == state).all()  # state from above
 
-    
+
     # Test combination via merge
     _, kwargs = mpc._prepare_plot_func_args(mock_pfunc, use_dag=True,
                                             select_and_combine=dict(**sac,
@@ -327,18 +334,18 @@ def test_UniversePlotCreator(init_kwargs):
 
     assert psp.num_dims == 4
     assert psp.volume == 1 * 1 * 1 * 1
-    
+
     for cfg in psp:
         args, kwargs = upc._prepare_plot_func_args(mock_pfunc, **cfg)
         assert kwargs['uni'].name == '151'  # first non-default
-    
+
 
     # 'random'/'any' universe
     cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes='any'), pspace=None)
 
     assert psp.num_dims == 4
     assert psp.volume == 1 * 1 * 1 * 1
-    
+
     for cfg in psp:
         args, kwargs = upc._prepare_plot_func_args(mock_pfunc, **cfg)
         # ID is >= first possible ID and smaller than maximum ID
@@ -358,7 +365,7 @@ def test_UniversePlotCreator(init_kwargs):
         upc.prepare_cfg(plot_cfg=dict(universes=dict(p0=[-1],
                                                      p1=slice(1.5, 3.5))),
                          pspace=None)
-    
+
     # Fails (in paramspace) if dimension would be squeezed away
     with pytest.raises(ValueError, match="'p0' would be totally masked"):
         upc.prepare_cfg(plot_cfg=dict(universes=dict(p0=slice(10, None),
@@ -430,7 +437,7 @@ def test_UniversePlotCreator_default_only(init_kwargs):
     # Should also be able to pass a parameter space additionally
     pspace = ParamSpace(dict(foo=ParamDim(default=0, range=[5])))
     cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes='all'), pspace=pspace)
-    
+
     assert not cfg
     assert isinstance(psp, ParamSpace)
     assert psp.num_dims == 1
