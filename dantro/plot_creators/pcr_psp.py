@@ -322,6 +322,10 @@ class MultiversePlotCreator(ExternalPlotCreator):
                 # For safety, work on a copy
                 spec = copy.deepcopy(spec)
 
+                # The field might be given in short (path-only) syntax
+                if not isinstance(spec, dict):
+                    spec = dict(path=spec)
+
                 # If a base path was given, prepend it. This is the path that
                 # is selected *within* each universe.
                 if base_path is not None:
