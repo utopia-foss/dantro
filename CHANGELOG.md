@@ -3,6 +3,10 @@
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
 
+## v0.12.2
+- !152 addresses a bug (#138) that prohibited using the short syntax in the `select_and_combine` field of the `MultiversePlotCreator`
+
+
 ## v0.12.1
 - !149 updates dantro's requirements lists and extends the CI to also test for lower bounds of version requirements.
 
