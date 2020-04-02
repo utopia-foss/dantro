@@ -3,6 +3,10 @@
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
 
+## v0.12.3
+- !153 adds the DAG-based generic `facet_grid` plot function that wraps [`xarray.plot`](http://xarray.pydata.org/en/stable/plotting.html) functionality generating [`xarray.FacetGrid`](http://xarray.pydata.org/en/stable/generated/xarray.plot.FacetGrid.html) objects.
+
+
 ## v0.12.2
 - !152 addresses a bug (#138) that prohibited using the short syntax in the `select_and_combine` field of the `MultiversePlotCreator`
 
