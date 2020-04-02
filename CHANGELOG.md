@@ -7,6 +7,7 @@
 - !153 adds the DAG-based generic `facet_grid` plot function that wraps [`xarray.plot`](http://xarray.pydata.org/en/stable/plotting.html) functionality and makes plots of high-dimensional data very convenient.
   More information can be found in [the documentation](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html).
 - !154 adds the possibility to dynamically enter or exit animation mode from any `ExternalPlotCreator`-managed plot function.
+- !155 addresses a bug (#141) that prohibited passing containers during initialization of `LabelledDataGroup` objects or objects of derived classes.
 
 
 ## v0.12.2
