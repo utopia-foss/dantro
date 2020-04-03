@@ -3,13 +3,19 @@
 import matplotlib.pyplot as plt
 
 from ..pcr_ext import is_plot_func
-from .._plot_helper import PlotHelper
+from .._plot_helper import PlotHelper, EnterAnimationMode
 
 # -----------------------------------------------------------------------------
 
 
-@is_plot_func(use_dag=True, required_dag_tags=('data',))
-def facet_grid(*, data: dict, hlpr: PlotHelper, kind: str = None, **plot_kwargs):
+@is_plot_func(use_dag=True, required_dag_tags=('data',),
+              supports_animation=True)
+def facet_grid(*,
+               data: dict,
+               hlpr: PlotHelper,
+               kind: str = None,
+               frames: str = None,
+               **plot_kwargs):
     """This is a generic FacetGrid plot function with preprocessed DAG data.
 
     This function calls the data['data'].plot function if no plot kind is given 
@@ -34,60 +40,103 @@ def facet_grid(*, data: dict, hlpr: PlotHelper, kind: str = None, **plot_kwargs)
             ``contour``, ``imshow``, ``line``, ``pcolormesh``, ``step``, 
             ``hist``, ``scatter``. If None is given, xarray automatically 
             determines it using the dimensionality of the data.
+        frames (str): The dimension from which to create frames which results
+            in the creation of an animation. If frames=None a single plot
+            is generated.
         **plot_kwargs: Passed on ot xarray.plot or xarray.plot.<kind>
     """
+    # If `frames` argument is given, enter animation mode
+    if frames is not None:
+        # Enable the animation mode
+        hlpr.enable_animation()
+
+        # Check that frames is of type string
+        if not isinstance(frames, str):
+            raise TypeError("'frames' needs to be a string but was of type {}!"
+                            "".format(type(frames)))
+
     # Get the Dataset or DataArray to plot
     d = data['data']
 
-    # Use the automatically deduced, default plot kind, e.g. line plot for 1D
-    if kind is None:
-        # Directly call the plot function of the underlying data object
-        # NOTE rv usually is a xarray.FaceGrid object but not always:
-        #      `hist` returns what matplotlib.pyplot.hist returns
-        rv = d.plot(**plot_kwargs)
-
-    # Use a specific kind of plot function
-    else:
-        # Gather all possible kinds of plots
-        KINDS = ('contourf', 'contour', 'imshow', 'line', 'pcolormesh', 'step',
-                 'hist', 'scatter')
-
-        # Raise an error if the given kind is unknown
-        if kind not in KINDS:
-            raise ValueError("Got an unknown plot kind `{}`! Valid choices "
-                             "are: {}".format(kind, ", ".join(KINDS)))
-
-        try:
-            # Retrieve the specialized plot function
+    def plot_frame(_d):
+        """Plot a FaceGrid frame"""
+        # Use the automatically deduced, default plot kind, e.g. line plot for 1D
+        if kind is None:
+            # Directly call the plot function of the underlying data object
             # NOTE rv usually is a xarray.FaceGrid object but not always:
-            #      `hist` returns what matplotlib.pyplot.hist returns.
-            #      This leads to the question why `hist`s do not seem to be
-            #      possible in `xarray.FacetGrid`s, although they would be
-            #      useful? Gaining a deeper understanding of this issue and
-            #      corresponding xarray functionality is something to
-            #      investigate in the future. :)
-            plot_func = getattr(d.plot, kind)
+            #      `hist` returns what matplotlib.pyplot.hist returns
+            rv = _d.plot(**plot_kwargs)
 
-        except AttributeError as err:
-            raise AttributeError("The plot kind '{}' seems not to be available "
-                                 "for data of type {}! Please check the "
-                                 "documentation regarding the expected data "
-                                 "types."
-                                 .format(kind, type(d))) from err
+        # Use a specific kind of plot function
+        else:
+            # Gather all possible kinds of plots
+            KINDS = ('contourf', 'contour', 'imshow', 'line', 'pcolormesh', 'step',
+                     'hist', 'scatter')
 
-        # Invoke the specialized plot function
-        rv = plot_func(**plot_kwargs)
+            # Raise an error if the given kind is unknown
+            if kind not in KINDS:
+                raise ValueError("Got an unknown plot kind `{}`! Valid choices "
+                                 "are: {}".format(kind, ", ".join(KINDS)))
 
-    # Attach the figure and the axes to the PlotHelper
-    fig = plt.gcf()
+            try:
+                # Retrieve the specialized plot function
+                # NOTE rv usually is a xarray.FaceGrid object but not always:
+                #      `hist` returns what matplotlib.pyplot.hist returns.
+                #      This leads to the question why `hist`s do not seem to be
+                #      possible in `xarray.FacetGrid`s, although they would be
+                #      useful? Gaining a deeper understanding of this issue and
+                #      corresponding xarray functionality is something to
+                #      investigate in the future. :)
+                plot_func = getattr(_d.plot, kind)
 
-    # get the axes of the FaceGrid plot.
-    # NOTE 'hist': in case of a histogram, the interface is different because
-    #      the plot.hist method does not return a FacetGrid object but
-    #      a single matlotlib.pyplot.hist object
-    if kind == 'hist':
-        axes = fig.gca()
+            except AttributeError as err:
+                raise AttributeError("The plot kind '{}' seems not to be available "
+                                     "for data of type {}! Please check the "
+                                     "documentation regarding the expected data "
+                                     "types."
+                                     .format(kind, type(d))) from err
+
+            # Invoke the specialized plot function
+            rv = plot_func(**plot_kwargs)
+
+        # Attach the figure and the axes to the PlotHelper
+        fig = plt.gcf()
+
+        # get the axes of the FaceGrid plot.
+        # NOTE 'hist': in case of a histogram, the interface is different because
+        #      the plot.hist method does not return a FacetGrid object but
+        #      a single matlotlib.pyplot.hist object
+        if kind == 'hist':
+            axes = fig.gca()
+        else:
+            axes = rv.axes
+
+        hlpr.attach_figure_and_axes(fig=fig, axes=axes)
+
+    def update():
+        """The animation update function: a python generator"""
+        # Go over all available frame data dimension
+        for f_value, f_data in d.groupby(frames):
+            # Plot the frame
+            plot_frame(f_data)
+
+            # Set the title with current time step
+            hlpr.invoke_helper('set_title',
+                               title="Frames from dimenstion `{}` at value {}"
+                               .format(frames, f_value.values))
+
+            # Done with this frame. Yield control to the plot framework,
+            # which will take care of grabbing the frame.
+            yield
+
+    # If `frames` argument is given select the data corresponding to the
+    # first frames value.
+    if frames is not None:
+        # Plot the first frame
+        plot_frame(d.isel({frames: 0}))
     else:
-        axes = rv.axes
+        # Just plot a figure which will not be updated.
+        plot_frame(d)
 
-    hlpr.attach_figure_and_axes(fig=fig, axes=axes)
+    # Register the animation update with the helper
+    hlpr.register_animation_update(update)

@@ -53,6 +53,7 @@ def test_facet_grid(tmpdir, hlpr, data, data_dataset):
     test_dim_error_cases['default_0'] = dict()
     test_cases['default_1'] = dict(col='dim_1')
     test_cases['default_2'] = dict(row='dim_1', hue='dim_2')
+    test_cases['default_anim'] = dict(frames='dim_1', col='dim_2')
 
     # Add 1D plot kinds to the test cases
     for k in KINDS_1D:
@@ -66,6 +67,8 @@ def test_facet_grid(tmpdir, hlpr, data, data_dataset):
     # Add 2D plot cases to the test cases
     for k in KINDS_2D:
         test_cases['_'.join([k, '1'])] = dict(kind=k, col='dim_1')
+        test_cases['_'.join([k, 'anim_1'])] = dict(
+            kind=k, frames='dim_1')
 
     # .. Tests ................................................................
     for _, plot_kwargs in test_dim_error_cases.items():
