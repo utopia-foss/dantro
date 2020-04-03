@@ -9,6 +9,7 @@ import numpy as np
 
 from dantro.groups import (LabelledDataGroup,
                            TimeSeriesGroup, HeterogeneousTimeSeriesGroup)
+from dantro.containers import XrDataContainer
 
 # -----------------------------------------------------------------------------
 
@@ -16,15 +17,29 @@ def test_LabelledDataGroup_basics():
     """Test the basics of the LabelledDataGroup, e.g. reading the coordinates,
     building the member map, basic selection calls, ...
     """
-    ldg = LabelledDataGroup(name="test", dims=('foo', 'bar'))
-    ldg.LDG_EXTRACT_COORDS_FROM = 'name'
+    # Specify some names and data, intentionally unordered
+    names_and_data = [("{};{}".format(f, b), np.ones((2,2)) * b + f)
+                      for f, b in product((.1, .2, .5, .3), (2, 8, 4))]
 
-    # Add some members (in 2D space), with names intentionally unordered
-    for f, b in product((.1, .2, .5, .3), (2, 8, 4)):
-        ldg.new_container("{};{}".format(f, b), data=np.ones((2,2)) * b + f,
+    # Test initialization
+    ldg = LabelledDataGroup(name="test", dims=('foo', 'bar'))
+    ldg.LDG_EXTRACT_COORDS_FROM = 'name'  # can do this here because no members
+                                          # were added yet
+
+    # Add some members (in 2D space)
+    for name, data in names_and_data:
+        ldg.new_container(name, data=data,
                           attrs=dict(dims=('subfoo', 'subbar')))
 
     print(ldg.tree)
+
+    # It's also possible to directly add members during initialization
+    class LDGnames(LabelledDataGroup):
+        LDG_EXTRACT_COORDS_FROM = 'name'
+
+    LDGnames(name="test2", dims=('foo', 'bar'),
+             containers=[XrDataContainer(name=name, data=data)
+                         for name, data in names_and_data])
 
     # Access coordinates and other properties prior to member map creation
     assert not ldg.member_map_available
@@ -32,7 +47,7 @@ def test_LabelledDataGroup_basics():
     ndim = ldg.ndim
     coords = ldg.coords
     shape = ldg.shape
-    
+
     assert not ldg.member_map_available
     assert dims == ('foo', 'bar')
     assert ndim == 2
@@ -123,20 +138,25 @@ def test_TimeSeriesGroup():
     """Test the TimeSeriesGroup, a specialization of LabelledDataGroup"""
     TSG = TimeSeriesGroup
 
+    # Can initialize it with containers
+    TSG(name="with_containers",
+        containers=[XrDataContainer(name=str(i), data=np.zeros((2,3,4)))
+                    for i in range(5)])
+
     # Build and populate
     tsg = TSG(name="test")
     keys = ['4', '41', '5', '51', '50']
     keys_ordered = sorted(keys, key=int)
-    
+
     for k in keys:
         tsg.new_container(k, data=np.ones((13,)) * int(k),
                           attrs=dict(dims=('some_dim_name',)))
 
     assert len(tsg) == 5
-        
+
     # Test dimensions
     assert tsg.dims == ('time',)
-    
+
     # Test coordinates
     coords = tsg.coords
     print("Coordinates: ", coords)
@@ -149,7 +169,7 @@ def test_TimeSeriesGroup():
     # By value
     for c, k in ((4, '4'), (41, '41'), (51, '51'), (5, '5'), (50, '50')):
         assert tsg.sel(time=c) is tsg[k]
-    
+
     # By index
     for i, k in ((4, '51'), (0, '4'), (-1, '51'), (2, 41), (0, 4)):
         assert tsg.isel(time=i) is tsg[k]
@@ -160,13 +180,13 @@ def test_TimeSeriesGroup():
     assert t550.sizes == dict(time=2, some_dim_name=13)
     assert t550.shape == (2, 13)
     assert (t550.coords['time'] == [5, 50]).all()
-    
+
     ti13 = tsg.isel(time=[1, 3])
     assert 'time' in ti13.dims
     assert ti13.sizes == dict(time=2, some_dim_name=13)
     assert ti13.shape == (2, 13)
     assert (ti13.coords['time'] == [5, 50]).all()
-    
+
     # Check that the selected data is correct
     assert (t550 == ti13).all()
     assert (t550.sel(time=5) == 5).all()
@@ -184,21 +204,21 @@ def test_HeterogeneousTimeSeriesGroup_continuous():
     itsg.new_container('0', data=np.ones((3, 5), dtype=dt) * 0,
                        attrs=dict(coords__time=[0, 1, 2],
                                   **coord_attrs))
-    
+
     itsg.new_container('3', data=np.ones((5, 5), dtype=dt) * 3,
                        attrs=dict(coords__time=[3, 4, 5, 6, 7],
                                   **coord_attrs))
-    
+
     itsg.new_container('8', data=np.ones((2, 5), dtype=dt) * 8,
                        attrs=dict(coords__time=[8, 9],
                                   **coord_attrs))
-    
+
     itsg.new_container('10', data=np.ones((5, 5), dtype=dt) * 10,
                        attrs=dict(coords__time=[10, 12, 14, 16, 18],
                                   **coord_attrs))
 
     print(itsg.tree)
-    
+
     # Expected data (integer!)
     #             id ->  0   2   3   4  10     time
     expctd = np.array([[ 0,  0,  0,  0,  0], #   0
@@ -216,7 +236,7 @@ def test_HeterogeneousTimeSeriesGroup_continuous():
                        [10, 10, 10, 10, 10], #  14
                        [10, 10, 10, 10, 10], #  16
                        [10, 10, 10, 10, 10]]) # 18
-    
+
     # Now, select all data and compare to the selected one
     all_data = itsg.sel()
 
@@ -230,7 +250,7 @@ def test_HeterogeneousTimeSeriesGroup_continuous():
     assert (   all_data.coords['time'].values
             == list(range(10)) + list(range(10, 20, 2))).all()
     assert (all_data.coords['id'].values == [0, 2, 3, 4, 10]).all()
-    
+
     # Select a single time step
     time18 = itsg.sel(time=18)
 
@@ -248,7 +268,7 @@ def test_HeterogeneousTimeSeriesGroup_continuous():
     assert id2.dtype == 'int8'
     assert id2.sizes == dict(time=15)
     assert (id2 == itsg.isel(id=1)).all()
-    
+
     # Can also select multiple
     assert dict(itsg.sel(id=[2, 10]).sizes) == dict(time=15, id=2)
     assert dict(itsg.isel(id=[1, 3]).sizes) == dict(time=15, id=2)
@@ -256,10 +276,10 @@ def test_HeterogeneousTimeSeriesGroup_continuous():
     # Select a single value
     item_via_sel = itsg.sel(time=16, id=10)
     print(item_via_sel)
-    
+
     item_via_isel = itsg.isel(time=-2, id=-1)
     print(item_via_isel)
-    
+
     assert (item_via_isel == item_via_sel).all()
 
     # With deep selection disabled, an error is raised
@@ -269,7 +289,7 @@ def test_HeterogeneousTimeSeriesGroup_continuous():
 
 
 def test_HeterogeneousTimeSeriesGroup_discontinuous():
-    """Test the HeterogeneousTimeSeriesGroup, i.e. where the data and the 
+    """Test the HeterogeneousTimeSeriesGroup, i.e. where the data and the
     """
     itsg = HeterogeneousTimeSeriesGroup(name="test")
 
@@ -282,24 +302,24 @@ def test_HeterogeneousTimeSeriesGroup_discontinuous():
                        attrs=dict(coords__time=[0, 1, 2],
                                   coords__idx=[1, 2, 3, 4, 5],
                                   **coord_attrs))
-    
+
     itsg.new_container('3', data=np.ones((5, 4), dtype=dt) * 3,
                        attrs=dict(coords__time=[3, 4, 5, 6, 7],
                                   coords__idx=[1, 3, 4, 5],
                                   **coord_attrs))
-    
+
     itsg.new_container('8', data=np.ones((2, 1), dtype=dt) * 8,
                        attrs=dict(coords__time=[8, 9],
                                   coords__idx=[6],
                                   **coord_attrs))
-    
+
     itsg.new_container('10', data=np.ones((5, 4), dtype=dt) * 10,
                        attrs=dict(coords__time=[10, 12, 14, 16, 18],
                                   coords__idx=[0, 8, 7, 9],
                                   **coord_attrs))
 
     print(itsg.tree)
-    
+
     # Expected data
     nan = np.nan
     #            idx -> 0     1    2    3    4    5   6    7    8    9   time v
@@ -318,7 +338,7 @@ def test_HeterogeneousTimeSeriesGroup_discontinuous():
                        [10., nan, nan, nan, nan, nan, nan, 10., 10., 10.], # 14
                        [10., nan, nan, nan, nan, nan, nan, 10., 10., 10.], # 16
                        [10., nan, nan, nan, nan, nan, nan, 10., 10., 10.]]) #18
-    
+
     # Now, select all data and compare to the selected one
     all_data = itsg.sel()
 

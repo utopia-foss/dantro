@@ -77,10 +77,13 @@ class LabelledDataGroup(OrderedDataGroup):
             **kwargs: Passed on to
                 :py:class:`~dantro.groups.ordered.OrderedDataGroup`
         """
+        # Initialize the member map, which is needed if containers are added
+        # during initialization (thus invoking _add_container_callback)
+        self.__member_map = None
+
         super().__init__(*args, **kwargs)
 
         self._dims = dims if dims is not None else tuple(self.LDG_DIMS)
-        self.__member_map = None
 
         self._allow_deep_selection = self.LDG_ALLOW_DEEP_SELECTION
         if allow_deep_selection is not None:
