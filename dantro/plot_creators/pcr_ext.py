@@ -20,7 +20,7 @@ from .pcr_base import BasePlotCreator
 from ..dag import TransformationDAG
 
 from ._movie_writers import FileWriter
-from ._plot_helper import PlotHelper
+from ._plot_helper import PlotHelper, EnterAnimationMode, ExitAnimationMode
 
 
 # Local constants
@@ -143,8 +143,8 @@ class ExternalPlotCreator(BasePlotCreator):
             **func_kwargs: Passed to the imported function
 
         Raises:
-            ValueError: On superfluous `helpers` or `animation` arguments in
-                cases where these are not supported
+            ValueError: On superfluous ``helpers`` or ``animation`` arguments
+                in cases where these are not supported
         """
         # Get the plotting function
         plot_func = self._resolve_plot_func(plot_func=plot_func,
@@ -163,41 +163,54 @@ class ExternalPlotCreator(BasePlotCreator):
 
         # Check if PlotHelper is to be used
         if getattr(plot_func, 'use_helper', False):
-            # Initialize a PlotHelper instance that will take care of figure
-            # setup, invoking helper-functions and saving the figure
-            helper_defaults = getattr(plot_func, 'helper_defaults', None)
-            hlpr = self.PLOT_HELPER_CLS(out_path=out_path,
-                                        helper_defaults=helper_defaults,
-                                        update_helper_cfg=helpers)
+            switch_anim_mode = False
 
-            # Prepare the arguments. The DataManager is added to args there
-            # and data transformation via DAG occurs there as well.
-            args, kwargs = self._prepare_plot_func_args(plot_func,
-                                                        use_dag=use_dag,
-                                                        hlpr=hlpr,
-                                                        **func_kwargs)
+            # Delegate to private helper method that performs the plot or the
+            # animation. In case that animation mode is to be entered or
+            # exited, adjust the animation-related parameters accordingly.
+            try:
+                self._plot_with_helper(out_path=out_path, plot_func=plot_func,
+                                       helpers=helpers, context=context,
+                                       func_kwargs=func_kwargs,
+                                       use_dag=use_dag, animation=animation)
 
-            # Prepare animation parameters
-            animation = copy.deepcopy(animation) if animation else {}
+            except EnterAnimationMode:
+                if not animation:
+                    raise ValueError("Cannot dynamically enter animation mode "
+                                     "without any `animation` parameters "
+                                     "having been specified in the "
+                                     "configuration of the {} '{}' plot!"
+                                     "".format(self.classname, self.name))
 
-            # Check if an animation is to be done
-            if animation and animation.pop('enabled', False):
-                # Let the helper method do the rest
-                self._perform_animation(hlpr=hlpr, context=context,
-                                        plot_func=plot_func,
-                                        plot_args=args, plot_kwargs=kwargs,
-                                        **animation)
+                switch_anim_mode = True
+                animation = copy.deepcopy(animation)
+                animation['enabled'] = True
 
-            else:
-                # No animation to be done.
-                # Enter the context (either style context or DoNothingContext)
-                with context:
-                    hlpr.setup_figure()
-                    log.debug("Calling plotting function '%s' ...",
-                              plot_func.__name__)
-                    plot_func(*args, **kwargs)
-                    hlpr.invoke_enabled(axes='all')
-                    hlpr.save_figure()
+            except ExitAnimationMode:
+                switch_anim_mode = True
+                animation = None
+
+            # else: animation was successful.
+
+            # In case of the mode having switched, plot anew.
+            if switch_anim_mode:
+                log.debug("Plotting anew (with change in animation mode) ...")
+                try:
+                    self._plot_with_helper(out_path=out_path,
+                                           plot_func=plot_func,
+                                           helpers=helpers, context=context,
+                                           func_kwargs=func_kwargs,
+                                           use_dag=use_dag,
+                                           animation=animation)
+
+                except (EnterAnimationMode, ExitAnimationMode):
+                    raise RuntimeError("Cannot repeatedly enter or exit "
+                                       "animation mode! Make sure that the "
+                                       "plotting function of {} respects "
+                                       "this requirement and that the plot "
+                                       "configuration you specified does not "
+                                       "contradict itself."
+                                       "".format(self.logstr))
 
         else:
             # Call only the plot function
@@ -277,6 +290,62 @@ class ExternalPlotCreator(BasePlotCreator):
 
         # Nothing worked: This creator is not suitable.
         return False
+
+    # .........................................................................
+    # Helpers: Main plot routines
+
+    def _plot_with_helper(self, *, out_path: str, plot_func: Callable,
+                          helpers: dict, context, func_kwargs: dict,
+                          animation: dict, use_dag: bool):
+        """A helper method that performs plotting using the
+        :py:class:`~dantro.plot_creators._plot_helper.PlotHelper`.
+
+        Args:
+            out_path (str): The output path
+            plot_func (Callable): The resolved plot function
+            helpers (dict): The helper configuration
+            context: A style context
+            func_kwargs (dict): Plot function arguments
+            animation (dict): Animation parameters
+            use_dag (bool): Whether a DAG is used in preprocessing or not
+        """
+        # Determine if animation is enabled, which is relevant for PlotHelper
+        animation = copy.deepcopy(animation) if animation else {}
+        animation_enabled = animation.pop('enabled', False)
+
+        # Initialize a PlotHelper instance that will take care of figure
+        # setup, invoking helper-functions and saving the figure
+        helper_defaults = getattr(plot_func, 'helper_defaults', None)
+        hlpr = self.PLOT_HELPER_CLS(out_path=out_path,
+                                    animation_enabled=animation_enabled,
+                                    helper_defaults=helper_defaults,
+                                    update_helper_cfg=helpers)
+
+        # Prepare the arguments. The DataManager is added to args there
+        # and data transformation via DAG occurs there as well.
+        args, kwargs = self._prepare_plot_func_args(plot_func,
+                                                    use_dag=use_dag,
+                                                    hlpr=hlpr,
+                                                    **func_kwargs)
+
+        # Check if an animation is to be done
+        if animation_enabled:
+            # Let the private animation helper method do the rest
+            self._perform_animation(hlpr=hlpr, context=context,
+                                    plot_func=plot_func,
+                                    plot_args=args, plot_kwargs=kwargs,
+                                    **animation)
+
+        else:
+            # No animation to be done.
+            # Enter the context (either style context or DoNothingContext)
+            with context:
+                hlpr.setup_figure()
+                log.debug("Calling plotting function '%s' ...",
+                          plot_func.__name__)
+                plot_func(*args, **kwargs)
+                hlpr.invoke_enabled(axes='all')
+                hlpr.save_figure()
 
     # .........................................................................
     # Helpers: Plot function resolution and argument preparation

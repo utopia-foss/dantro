@@ -545,4 +545,61 @@ An example for an animation configuration is the following:
             dpi: 92
           grab_frame: {}  # passed to Writer.grab_frame and from there to savefig
 
-      animation_update_kwargs:  {} # passed to the animation update function
+      animation_update_kwargs: {}  # passed to the animation update function
+
+
+.. _pcr_ext_animation_mode_switching:
+
+Dynamically entering/exiting animation mode
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+In some situations, one might want to dynamically determine if an animation should be carried out or not.
+For instance, this could be dependent on whether the dimensionality of the data requires another representation mode (the animation) or not.
+
+For that purpose, the :py:class:`~dantro.plot_creators._plot_helper.PlotHelper` supplies two methods to enter or exit animation mode, :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.enable_animation` and :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.disable_animation`.
+When these are invoked, the plot function is *directly* left, the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` enables or disables the animation, and the plot function is invoked anew.
+
+A few remarks:
+
+    * The decision on entering or exiting animation mode should ideally occur as early as possible within a plot function.
+    * Repeatedly switching between modes is *not* possible.
+      You should implement the logic for entering or exiting animation mode in such a way, that flip-flopping between the two modes is not possible.
+    * The ``animation`` parameters need to be given if *entering* into animation mode is desired.
+      In such cases, ``animation.enabled`` key should be set to ``False``.
+    * The :py:class:`~dantro.plot_creators._plot_helper.PlotHelper` instance of the first plot function invocation will be discarded and a new instance will be created for the second invocation.
+
+A plot function could then look like this:
+
+.. code-block:: python
+
+    from dantro.plot_creators import is_plot_func, PlotHelper
+
+    @is_plot_func(use_dag=True, required_dag_tags=('nd_data',),
+                  supports_animation=True)
+    def plot_nd(*, data: dict, hlpr: PlotHelper,
+                x: str, y: str, frames: str=None):
+        """Performs an (animated) heatmap plot of 2D or 3D data.
+
+        The ``x``, ``y``, and ``frames`` arguments specify which data dimension
+        to associate with which representation.
+        If the ``frames`` argument is not given, the data needs to be 2D.
+        """
+        d = data['nd_data']
+
+        if frames and d.ndim == 3:
+            hlpr.enable_animation()
+        elif not frames and d.ndim == 2:
+            hlpr.disable_animation()
+        else:
+            raise ValueError("Need either 2D data without the `frames` "
+                             "argument, or 3D data with the `frames` argument "
+                             "specified!")
+
+        # Do the 2D plotting for x and y dimensions here
+        # ...
+
+        def update():
+            """Update the heatmap using the ``frames`` argument"""
+            # ...
+
+        hlpr.register_animation_update(update)
+
