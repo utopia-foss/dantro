@@ -93,3 +93,8 @@ Yes.
 
 When using the :py:class:`~dantro.plot_creators._plot_helper.PlotHelper`, it automatically sets up a figure instance and an axis initially, even before the plot function is called.
 However, they can be replaced using the :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.attach_figure_and_axes` method.
+
+
+Can I let the plot function decide whether to perform an animation?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Yes. See :ref:`pcr_ext_animation_mode_switching` for more information.

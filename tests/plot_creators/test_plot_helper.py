@@ -16,7 +16,9 @@ from dantro.data_mngr import DataManager
 from dantro.plot_creators import ExternalPlotCreator
 from dantro.plot_creators import PlotHelper, is_plot_func
 from dantro.plot_creators._plot_helper import (temporarily_changed_axis,
-                                               coords_match)
+                                               coords_match,
+                                               ExitAnimationMode,
+                                               EnterAnimationMode)
 
 # Local constants
 # Paths
@@ -65,12 +67,7 @@ def plot2(dm: DataManager, *, hlpr: PlotHelper):
               helper_defaults={'set_title': {'title': "Title"}},
               supports_animation=True)
 def plot3(dm: DataManager, *, hlpr: PlotHelper):
-    """Test plot with helper defaults in decorator.
-
-    Args:
-        dm (DataManager): The data manager from which to retrieve the data
-        hlpr (PlotHelper): Description
-    """
+    """Test plot with helper defaults in decorator"""
     # Get the data
     x_data = dm['vectors/times']
     y_data = dm['vectors/values']
@@ -88,11 +85,24 @@ def plot3(dm: DataManager, *, hlpr: PlotHelper):
     # register it
     hlpr.register_animation_update(update)
 
+@is_plot_func(creator_name='external', supports_animation=True)
+def plot3_mode_switching(dm: DataManager, *, hlpr: PlotHelper,
+                         should_exit: bool=None, should_enter: bool=None):
+    """Test a plot function that exits animation mode"""
+    if should_exit:
+        hlpr.disable_animation()
+    if should_enter:
+        hlpr.enable_animation()
+    # NOTE NEVER do this if-if construct in production code; it should never be
+    #      possible to repeatedly change the animation mode. Ideally, use only
+    #      one of the two indicators and make sure that it cannot flip-flop.
+
+    plot3(dm, hlpr=hlpr)
+
 @is_plot_func(creator_name='external')
 def plot4(dm: DataManager, *, hlpr:PlotHelper):
     """Test plot that does nothing"""
     pass
-
 
 
 
@@ -396,7 +406,6 @@ def test_invocation(hlpr):
     # Finally, save and close the figure
     hlpr.save_figure()
 
-
 def test_coords_match():
     """Test the coords_match function"""
     full_shape = (5, 4)
@@ -434,7 +443,6 @@ def test_coords_match():
 
     with pytest.raises(ValueError, match="exceeding the shape"):
         match((0, 0), (4, 4))
-
 
 def test_tmp_axis_context_manager(hlpr):
     """Test the temporarily_changed_axis context manager"""
@@ -566,6 +574,7 @@ def test_animation(epc, tmpdir):
     assert '0000002.pdf' in files_in_plot_dir
     assert '0000003.pdf' in files_in_plot_dir
     assert '0000004.pdf' in files_in_plot_dir
+    assert '0000005.pdf' not in files_in_plot_dir
 
     # test that no animation is created when marked as disabled
     # this should work correctly
@@ -587,6 +596,78 @@ def test_animation(epc, tmpdir):
         with pytest.raises(Exception):
             epc.plot(out_path=tmpdir.join(str(i) + ".pdf"), plot_func=plot3,
                      animation=dict(enabled=True, **anim_cfg))
+
+def test_animation_mode_switching(hlpr, epc, tmpdir):
+    """Tests the feature that allows entering and exiting animation mode"""
+    # -- Part 1: Helper raises the right control exceptions . . . . . . . . . .
+    # Animation mode disabled
+    assert not hlpr.animation_enabled
+    hlpr.disable_animation()  # no exception
+    with pytest.raises(EnterAnimationMode):
+        hlpr.enable_animation()
+    assert hlpr.animation_enabled
+
+    # Animation mode now enabled
+    assert hlpr.animation_enabled
+    hlpr.enable_animation()
+    with pytest.raises(ExitAnimationMode):
+        hlpr.disable_animation()
+    assert not hlpr.animation_enabled
+
+    # -- Part 2: Switching between modes within ExternalPlotCreator . . . . . .
+    # Animation-enabled plot --> NOT exiting --> directory with multiple plots
+    plot_name = "not_exiting"
+    epc.plot(out_path=tmpdir.join(plot_name + ".pdf"),
+             plot_func=plot3_mode_switching, should_exit=False,
+             animation=CFG_ANIM['complete'])
+    assert not tmpdir.join(plot_name + ".pdf").isfile()
+    assert tmpdir.join(plot_name).isdir()
+    assert len(tmpdir.join(plot_name).listdir()) == 5
+
+    # Animation-enabled plot --> exiting --> single plot
+    plot_name = "exiting"
+    epc.plot(out_path=tmpdir.join(plot_name + ".pdf"),
+             plot_func=plot3_mode_switching, should_exit=True,
+             animation=CFG_ANIM['complete'])
+    assert tmpdir.join(plot_name + ".pdf").isfile()
+    assert not tmpdir.join(plot_name).isdir()
+
+    # Animation-disabled plot --> entering --> directory with multiple plots
+    plot_name = "entering"
+    anim_cfg = copy.deepcopy(CFG_ANIM['complete'])
+    anim_cfg['enabled'] = False
+    epc.plot(out_path=tmpdir.join(plot_name + ".pdf"),
+             plot_func=plot3_mode_switching, should_enter=True,
+             animation=anim_cfg)
+    assert not tmpdir.join(plot_name + ".pdf").isfile()
+    assert tmpdir.join(plot_name).isdir()
+    assert len(tmpdir.join(plot_name).listdir()) == 5
+
+    plot_name = "not_entering"
+    epc.plot(out_path=tmpdir.join(plot_name + ".pdf"),
+             plot_func=plot3_mode_switching, should_enter=False,
+             animation=anim_cfg)
+    assert tmpdir.join(plot_name + ".pdf").isfile()
+    assert not tmpdir.join(plot_name).isdir()
+
+
+    # -- Part 3: Error messages . . . . . . . . . . . . . . . . . . . . . . . .
+    plot_name = "entering_with_missing_kwargs"
+    with pytest.raises(ValueError, match="Cannot dynamically enter animation"):
+        epc.plot(out_path=tmpdir.join(plot_name + ".pdf"),
+                 plot_func=plot3_mode_switching, should_enter=True,
+                 animation=None)  # <-- missing animation kwargs here
+    assert not tmpdir.join(plot_name + ".pdf").isfile()
+    assert not tmpdir.join(plot_name).isdir()
+
+    plot_name = "repeatedly_switching"
+    with pytest.raises(RuntimeError, match="Cannot repeatedly enter or exit"):
+        epc.plot(out_path=tmpdir.join(plot_name + ".pdf"),
+                 plot_func=plot3_mode_switching,
+                 should_enter=True, should_exit=True,  # <-- repeated switching
+                 animation=anim_cfg)
+    assert not tmpdir.join(plot_name + ".pdf").isfile()
+    assert not tmpdir.join(plot_name).isdir()
 
 def test_helper_functions(hlpr):
     """Test all helper functions directly"""
