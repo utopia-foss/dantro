@@ -3,7 +3,7 @@
 import matplotlib.pyplot as plt
 
 from ..pcr_ext import is_plot_func
-from .._plot_helper import PlotHelper, EnterAnimationMode
+from .._plot_helper import PlotHelper
 
 # -----------------------------------------------------------------------------
 
@@ -106,10 +106,10 @@ def facet_grid(*,
         # NOTE 'hist': in case of a histogram, the interface is different because
         #      the plot.hist method does not return a FacetGrid object but
         #      a single matlotlib.pyplot.hist object
-        if kind == 'hist':
-            axes = fig.gca()
-        else:
-            axes = rv.axes
+        # if kind == 'hist':
+        axes = fig.gca()
+        # else:
+        #     axes = rv.axes
 
         hlpr.attach_figure_and_axes(fig=fig, axes=axes)
 
@@ -117,16 +117,31 @@ def facet_grid(*,
         """The animation update function: a python generator"""
         # Go over all available frame data dimension
         for f_value, f_data in d.groupby(frames):
-            # Plot the frame
+            # Clear the axis and plot the frame
+            hlpr.ax.clear()
             plot_frame(f_data)
 
             # Set the title with current time step
             hlpr.invoke_helper('set_title',
-                               title="Frames from dimenstion `{}` at value {}"
-                               .format(frames, f_value.values))
+                               title="Frames from dimension `{}` at value {}"
+                               .format(frames, f_value))
 
             # Done with this frame. Yield control to the plot framework,
             # which will take care of grabbing the frame.
+
+            # Attach the figure and the axes to the PlotHelper
+            fig = plt.gcf()
+
+            # get the axes of the FaceGrid plot.
+            # NOTE 'hist': in case of a histogram, the interface is different because
+            #      the plot.hist method does not return a FacetGrid object but
+            #      a single matlotlib.pyplot.hist object
+            # if kind == 'hist':
+            axes = fig.gca()
+            # else:
+            #     axes = rv.axes
+
+            hlpr.attach_figure_and_axes(fig=fig, axes=axes)
             yield
 
     # If `frames` argument is given select the data corresponding to the

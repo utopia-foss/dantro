@@ -12,3 +12,10 @@ dantro.egg-info
 doc/_build
 doc/api
 doc/**/*.log
+
+# To be on the safe side, ignore potential plotting output
+**.pdf
+**.png 
+**.jpg
+**.mp4
+
