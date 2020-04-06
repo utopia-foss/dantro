@@ -103,7 +103,8 @@ def test_facet_grid_animation(dm, anim_disabled, anim_enabled, out_dir):
 
     # Add general cases without kind specification to the test cases
     test_cases['default_1'] = dict(col='dim_1')
-    test_cases['default_2'] = dict(row='dim_1', hue='dim_2', )
+    test_cases['default_2'] = dict(row='dim_1', hue='dim_2',)
+    test_cases['default_3'] = dict(row='dim_1', frames='dim_0')
     test_cases['default_anim'] = dict(frames='dim_1', col='dim_2', )
 
     # Add 1D plot kinds to the test cases
@@ -135,16 +136,16 @@ def test_facet_grid_animation(dm, anim_disabled, anim_enabled, out_dir):
                  plot_func=facet_grid,
                  animation=anim_disabled, **plot_kwargs, **DATAARRAY_PATH)
 
-    # # .. Special Cases ........................................................
+    # .. Special Cases ........................................................
     # hist
     # Invoke plotting function via plot creator
-    epc.plot(out_path="/".join([out_dir, "test_{}".format(name)]),
+    epc.plot(out_path="/".join([out_dir, "test_hist"]),
              plot_func=facet_grid,
              animation=anim_disabled, kind='hist', **DATAARRAY_PATH)
 
     # scatter: Is only valid for dataset data
     # Invoke plotting function via plot creator
-    epc.plot(out_path="/".join([out_dir, "test_{}".format(name)]),
+    epc.plot(out_path="/".join([out_dir, "test_scatter"]),
              plot_func=facet_grid,
              animation=anim_disabled, kind='scatter', x='d0', y='d1',
              **DATASET_PATH)

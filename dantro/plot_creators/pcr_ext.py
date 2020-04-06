@@ -803,6 +803,12 @@ class ExternalPlotCreator(BasePlotCreator):
                 # Create generator and perform the iteration. The return value
                 # of the generator currently is ignored.
                 for frame_no, _ in enumerate(anim_it):
+                    # Update the figure used in the writer
+                    # This is required for cases in which each frame is given
+                    # by a new figure.
+                    if writer.fig is not hlpr.fig:
+                        writer.fig = hlpr.fig
+
                     # This already has created the new frame
                     # Grab it; the writer takes care of saving it
                     writer.grab_frame(**writer_cfg.get('grab_frame', {}))
