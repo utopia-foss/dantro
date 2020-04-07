@@ -38,6 +38,7 @@ It allows loading possibly heterogeneous data into a tree-like structure that ca
     plotting/plot_manager
     plotting/plot_creators
     plotting/plot_data_selection
+    plotting/plot_functions
     plotting/*
 
 .. toctree::
