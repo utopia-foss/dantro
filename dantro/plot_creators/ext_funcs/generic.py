@@ -1,13 +1,19 @@
 """Generic, DAG-supporting plots"""
 
+import copy
+
 import matplotlib.pyplot as plt
 import xarray as xr
 
-from ..pcr_ext import is_plot_func
-from .._plot_helper import PlotHelper
+from ..pcr_ext import is_plot_func, PlotHelper
+
+# Local variables
+# The available plot kinds for the xarray plotting interface
+_XR_PLOT_KINDS = ('contourf', 'contour', 'imshow', 'line', 'pcolormesh',
+                  'step', 'hist', 'scatter')
+
 
 # -----------------------------------------------------------------------------
-
 
 @is_plot_func(use_dag=True, required_dag_tags=('data',),
               supports_animation=True)
@@ -20,54 +26,62 @@ def facet_grid(*,
                **plot_kwargs):
     """This is a generic FacetGrid plot function with preprocessed DAG data.
 
-    This function calls the data['data'].plot function if no plot kind is given 
-    else the specified data['data'].plot.<kind> function. It is designed for 
+    This function calls the data['data'].plot function if no plot kind is given
+    else the specified data['data'].plot.<kind> function. It is designed for
     `xarray plotting <http://xarray.pydata.org/en/stable/plotting.html>`_ i.e.
-    xarray.DataArray and xarray.Dataset plotting capabilities. 
-    Specifying the kind of plot requires the data to either be an 
+    xarray.DataArray and xarray.Dataset plotting capabilities.
+    Specifying the kind of plot requires the data to either be an
     xarray.DataArray or xarray.Dataset of specific dimensionality, see
-    `the correponding docu <http://xarray.pydata.org/en/stable/api.html#plotting>`_. 
-    The function creates a `FacetGrid <http://xarray.pydata.org/en/stable/generated/xarray.plot.FacetGrid.html`>_
-    object that automatically layouts and chooses a visual representation 
-    of the data through a declarative approach if not explicitely specified: 
-    users can specify the data plotted as ``x``, ``y``, ``row``, ``col``, 
-    and/or ``hue`` (available options are listed in the corresponding
-    `plot function documentation <http://xarray.pydata.org/en/stable/api.html#plotting>`_
-    ). 
+    `the correponding documentation <http://xarray.pydata.org/en/stable/api.html#plotting>`_.
+
+    In most cases, the function creates a so-called
+    `FacetGrid <http://xarray.pydata.org/en/stable/generated/xarray.plot.FacetGrid.html`>_
+    object that automatically layouts and chooses a visual representation that
+    fits the dimensionality of the data.
+    To specify which data dimension should be represented in which way, it
+    supports a basic declarative syntax: via the optional keyword arguments
+    ``x``, ``y``, ``row``, ``col``, and/or ``hue`` (available options are
+    listed in the corresponding
+    `plot function documentation <http://xarray.pydata.org/en/stable/api.html#plotting>`_),
+    the data dimensions to represent in the corresponding way can be selected.
+
+    dantro adds the ``frames`` argument, which behaves in a similar way but
+    leads to an animation being generated, thus opening up one further
+    dimension of representation.
+
+    .. note::
+
+        When specifying ``frames``, the ``animation`` arguments need to be
+        specified. See :ref:`here <pcr_ext_animations>` for more information
+        on the expected animation parameters.
+
+        The value of the ``animation.enabled`` key is not relevant for this
+        function; it will automatically enter or exit animation mode,
+        depending on whether the ``frames`` argument is given or not. This uses
+        the :ref:`animation mode switching <pcr_ext_animation_mode_switching>`
+        feature.
 
     Args:
         data (dict): The data selected by the DAG framework
         hlpr (PlotHelper): The plot helper
-        kind (str): The kind of plot to use. Options are ``contourf``, 
-            ``contour``, ``imshow``, ``line``, ``pcolormesh``, ``step``, 
-            ``hist``, ``scatter``. If None is given, xarray automatically 
-            determines it using the dimensionality of the data.
-        frames (str): The dimension from which to create frames which results
-            in the creation of an animation. If frames=None a single plot
-            is generated.
-        suptitle_kwargs (dict): Kwargs passed on to the PlotHelper's
-            `set_suptitle` function in case of enabled animation.
-            If no title is given in the suptitle kwargs the frame dimension
-            and its current value are used as title.
-        **plot_kwargs: Passed on ot xarray.plot or xarray.plot.<kind>
+        kind (str, optional): The kind of plot to use. Options are:
+            ``contourf``, ``contour``, ``imshow``, ``line``, ``pcolormesh``,
+            ``step``, ``hist``, ``scatter``.
+            If None is given, xarray automatically determines it using the
+            dimensionality of the data.
+        frames (str, optional): The data dimension from which to create frames.
+            If given, this results in the creation of an animation. If not
+            given, a single plot is generated.
+        suptitle_kwargs (dict, optional): Key passed on to the PlotHelper's
+            ``set_suptitle`` helper function. Only used if animations are
+            enabled. The ``title`` entry can be a format string with the
+            following keys, which are updated for each frame of the animation:
+            ``dim``, ``value``. Example: ``{dim:} : {value:.2g}``.
+        **plot_kwargs: Passed on to ``<data>.plot`` or ``<data>.plot.<kind>``
     """
-    # If `frames` argument is given, enter animation mode
-    if frames is not None:
-        # Enable the animation mode
-        hlpr.enable_animation()
-
-        # Check that frames is of type string
-        if not isinstance(frames, str):
-            raise TypeError("'frames' needs to be a string but was of type {}!"
-                            "".format(type(frames)))
-
-    # Get the Dataset or DataArray to plot
-    d = data['data']
-
     def plot_frame(_d):
         """Plot a FacetGrid frame"""
-        # Use the automatically deduced, default plot kind, e.g. line plot for
-        # 1D
+        # Use the automatically deduced plot kind, e.g. line plot for 1D
         if kind is None:
             # Directly call the plot function of the underlying data object
             # NOTE rv usually is a xarray.FaceGrid object but not always:
@@ -76,15 +90,6 @@ def facet_grid(*,
 
         # Use a specific kind of plot function
         else:
-            # Gather all possible kinds of plots
-            KINDS = ('contourf', 'contour', 'imshow', 'line', 'pcolormesh',
-                     'step', 'hist', 'scatter')
-
-            # Raise an error if the given kind is unknown
-            if kind not in KINDS:
-                raise ValueError("Got an unknown plot kind `{}`! Valid choices "
-                                 "are: {}".format(kind, ", ".join(KINDS)))
-
             try:
                 # Retrieve the specialized plot function
                 # NOTE rv usually is a xarray.FaceGrid object but not always:
@@ -100,18 +105,21 @@ def facet_grid(*,
                 raise AttributeError("The plot kind '{}' seems not to be "
                                      "available for data of type {}! Please "
                                      "check the documentation regarding the "
-                                     "expected data types."
-                                     "".format(kind, type(_d))) from err
+                                     "expected data types. For xarray data "
+                                     "structures, valid choices are: {}"
+                                     "".format(kind, type(_d),
+                                               ", ".join(_XR_PLOT_KINDS))
+                                     ) from err
             # Before invoking the plot function it is important to first
             # close the PlotHelper figure because it will be overwritten
-            # and then generate a new figure because the spezialized plot 
+            # and then generate a new figure because the spezialized plot
             # functions do not generate a new figure automatically.
             hlpr.close_figure()
-            figure = plt.figure()
+            plt.figure()
 
             # Invoke the specialized plot function
             rv = plot_func(**plot_kwargs)
-            
+
         # Attach the figure and the axes to the PlotHelper
         if isinstance(rv, xr.plot.FacetGrid):
             fig = rv.fig
@@ -123,7 +131,35 @@ def facet_grid(*,
             axes = plt.gca()
 
         hlpr.attach_figure_and_axes(fig=fig, axes=axes)
+        # Done with this frame now.
 
+    # Actual plotting routine starts here .....................................
+
+    # Get the Dataset, DataArray, or other compatible data
+    d = data['data']
+
+    # If no animation is desired, the plotting routine is really simple
+    if not frames:
+        # Exit animation mode, if it was enabled. Then plot the figure. Done.
+        hlpr.disable_animation()
+        plot_frame(d)
+
+        return
+
+    # else: Animation is desired. Might have to enable it.
+    # If not already in animation mode, the plot function will be exited here
+    # and be invoked anew in animation mode. It will end up in this branch
+    # again, and will then be able to proceed past this point...
+    hlpr.enable_animation()
+
+    # Prepare some parameters for the update routine
+    suptitle_kwargs = suptitle_kwargs if suptitle_kwargs else {}
+    if 'title' not in suptitle_kwargs:
+        suptitle_kwargs['title'] = "{dim:} = {value:.3g}"
+
+    # Define an animation update function. All frames are plotted therein.
+    # There is no need to plot the first frame _outside_ the update function,
+    # because it would be discarded anyway.
     def update():
         """The animation update function: a python generator"""
         # Go over all available frame data dimension
@@ -131,29 +167,14 @@ def facet_grid(*,
             # Plot a frame. It attaches the new figure and axes to the hlpr
             plot_frame(f_data)
 
-            if suptitle_kwargs is not None:
-                if 'title' not in suptitle_kwargs:
-                    suptitle_kwargs['title'] = "{dim:} : {value:}".format(
-                        dim=frames, value=f_value)
+            # Apply the suptitle format string, then invoke the helper
+            st_kwargs = copy.deepcopy(suptitle_kwargs)
+            st_kwargs['title'] = st_kwargs['title'].format(dim=frames,
+                                                           value=f_value)
+            hlpr.invoke_helper('set_suptitle', **st_kwargs)
 
-            # Set the title with current time step
-            if suptitle_kwargs is not None:
-                hlpr.invoke_helper('set_suptitle', suptitle_kwargs)
-            else:
-                hlpr.invoke_helper('set_suptitle',
-                                   title="{dim:} : {value:}".format(
-                                       dim=frames, value=f_value))
-
+            # Done with this frame. Let the writer grab it.
             yield
-
-    # If `frames` argument is given select the data corresponding to the
-    # first frames value.
-    if frames is not None:
-        # Plot the first frame
-        plot_frame(d.isel({frames: 0}))
-    else:
-        # Just plot a figure which will not be updated.
-        plot_frame(d)
 
     # Register the animation update with the helper
     hlpr.register_animation_update(update)
