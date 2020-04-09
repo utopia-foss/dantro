@@ -115,10 +115,16 @@ def facet_grid(*,
             # and then generate a new figure because the spezialized plot
             # functions do not generate a new figure automatically.
             hlpr.close_figure()
-            plt.figure()
+            fig = plt.figure()
 
-            # Invoke the specialized plot function
-            rv = plot_func(**plot_kwargs)
+            # Invoke the specialized plot function. If that fails for any
+            # reason, the newly opened figure should be properly closed.
+            try:
+                rv = plot_func(**plot_kwargs)
+
+            except Exception:
+                plt.close(fig)
+                raise
 
         # Attach the figure and the axes to the PlotHelper
         if isinstance(rv, xr.plot.FacetGrid):
