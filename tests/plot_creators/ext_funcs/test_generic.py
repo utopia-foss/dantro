@@ -20,11 +20,16 @@ from dantro.plot_creators import PlotHelper, ExternalPlotCreator
 from dantro.containers import XrDataContainer, PassthroughContainer
 
 
-# Local variables .............................................................
+# Local variables and configuration ...........................................
+# If True, runs all tests. If False, runs only the basics (much faster)
+FULL_TEST = False
+skip_if_not_full = pytest.mark.skipif(not FULL_TEST,
+                                      reason="Will only run with FULL_TEST.")
+
 # Whether to write test output to a temporary directory
 # NOTE When manually debugging, it's useful to set this to False, such that the
 #      output can be inspected in TEST_OUTPUT_PATH
-USE_TMPDIR = False
+USE_TMPDIR = True
 
 # If not using a temporary directory, the desired output directory
 TEST_OUTPUT_PATH = os.path.abspath("test_output")
@@ -32,11 +37,7 @@ TEST_OUTPUT_PATH = os.path.abspath("test_output")
 # Test configuration
 PLOTS_CFG = load_yml(resource_filename("tests", "cfg/plots_facet_grid.yml"))
 
-# The facet_grid plot kinds that can be created with the generic plot function
-KINDS_1D = ('line', 'step')
-KINDS_2D = ('contourf', 'contour', 'imshow', 'pcolormesh')
-
-# Disable matplotlib logger
+# Disable matplotlib logger (much too verbose)
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
 
@@ -97,18 +98,19 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int=1):
     for case_name, cfg in to_test.items():
         kinds = cfg.get('kinds')
         specifiers = cfg['specifiers']
-        max_dims_to_test = cfg['max_dims_to_test']
+        min_dims = cfg.get('min_dims', 0)
+        max_dims = cfg['max_dims']
         raises = cfg.get('raises', {})
         plot_kwargs = cfg.get('plot_kwargs', {})
 
-        print("\nTesting scenario '{}' up to {}-dimensional data ..."
-              "".format(case_name, max_dims_to_test))
+        print("Testing scenario '{}' with {}…{}-dimensional data ..."
+              "".format(case_name, min_dims, max_dims))
         print("Kinds:          ", ", ".join(kinds) if kinds else "auto")
         print("All specifiers: ", specifiers)
 
         # Restrict the container iteration to the maximum dimensionality
         conts_it = [(name, cont) for name, cont in dm['ndim_da'].items()
-                    if cont.ndim <= max_dims_to_test]
+                    if cont.ndim in range(min_dims, max_dims+1)]
         kinds_it = kinds if kinds else [None]
 
         # Now, iterate over these combinations
@@ -130,7 +132,7 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int=1):
 
             # Now, run the plot function in that context
             with context:
-                epc.plot(**out_path("{case:}__{kind:}_{data:}_{specs:}"
+                epc.plot(**out_path("{kind:}__{case:}_{data:}_{specs:}"
                                     "".format(kind=kind if kind else 'auto',
                                               case=case_name, data=cont.name,
                                               specs="-".join(aspecs))),
@@ -140,9 +142,12 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int=1):
 
             # Check plot figure count
             fignums = plt.get_fignums()
-            print("    Succeeded.")
+            print("    Plot finished as expected.")
             print("    Open figures: ", fignums)
             assert len(fignums) <= max_num_figs
+
+        print("Scenario '{}' succeeded.\n".format(case_name))
+    print("All scenarios tested successfully.")
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -150,36 +155,16 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int=1):
 from ...test_plot_mngr import dm as _dm
 
 @pytest.fixture
-def data_dataarray() -> dict:
-    """Create a test xarray.DaraArray"""
-    return xr.DataArray(np.random.rand(5, 4, 3))
-
-
-@pytest.fixture
-def data_dataset() -> dict:
-    """Create a test xarray.Daraset"""
-    d0 = xr.DataArray(np.random.rand(5, 4, 3))
-    d1 = xr.DataArray(np.random.rand(5, 4, 3))
-
-    ds = xr.Dataset()
-    ds['d0'] = d0
-    ds['d1'] = d1
-
-    return ds
-
-
-@pytest.fixture
-def dm(_dm, data_dataarray, data_dataset):
+def dm(_dm):
     """Returns a data manager populated with some high-dimensional test data"""
-    # Add a test xr.DataArray
-    grp_dataarray = _dm.new_group("dataarray")
-    grp_dataarray.add(XrDataContainer(name="data", data=data_dataarray))
+    # Add xr.Datasets for testing
+    ds = xr.Dataset(dict(foo=xr.DataArray(np.random.rand(5, 4, 3)),
+                         bar=xr.DataArray(np.random.rand(5, 4, 3))))
 
-    # Add a test xr.Dataset
-    grp_dataset = _dm.new_group("dataset")
-    grp_dataset.add(PassthroughContainer(name="data", data=data_dataset))
+    grp_dataset = _dm.new_group("datasets")
+    grp_dataset.add(PassthroughContainer(name="foobar3D", data=ds))
 
-    # Add ndim random data for DataArrays, going up to 7 dimensions
+    # Add ndim random data for DataArrays, going from 0 to 7 dimensions
     grp_ndim_da = _dm.new_group("ndim_da")
     grp_ndim_da.add(*[XrDataContainer(name="{:d}D".format(n),
                                       data=create_nd_data(n))
@@ -187,21 +172,11 @@ def dm(_dm, data_dataarray, data_dataset):
 
     return _dm
 
-
 @pytest.fixture
 def anim_disabled() -> dict:
     """Returns a dict with default (disabled) animation kwargs"""
     return dict(enabled=False, writer='frames',
                 writer_kwargs=dict(frames=dict(saving=(dict(dpi=36)))))
-
-
-@pytest.fixture
-def anim_enabled(anim_disabled) -> dict:
-    """Returns a dict with default (enabled) animation kwargs"""
-    d = copy.deepcopy(anim_disabled)
-    d['enabled'] = True
-    return d
-
 
 @pytest.fixture
 def out_dir(tmpdir) -> str:
@@ -230,18 +205,15 @@ def test_facet_grid(dm, out_dir, anim_disabled):
     plt.close('all')
     assert len(plt.get_fignums()) == 0
 
-    # Some simple, explicit invocation.
-    epc.plot(**out_path("manual_2d"), **shared_kwargs,
-             select=dict(data='ndim_da/2D'))
-
-    # The current figure should survive from this.
-    assert len(plt.get_fignums()) == 1
-
-    # More systematically invoke the plotting function with data of different
-    # dimensionality. This should succeed even for high-dimensional data.
+    # Invoke the plotting function with data of different dimensionality.
+    # This should succeed even for high-dimensional data, because a plot kind
+    # is not explicitly given, thus always falling back to `hist`.
     for cont_name in dm['ndim_da']:
         epc.plot(**out_path("auto__no_specs_" + cont_name), **shared_kwargs,
                  select=dict(data="ndim_da/" + cont_name))
+
+    # The last figure should survive from this.
+    assert len(plt.get_fignums()) == 1
 
     # Error message upon invalid kind. There should be no figure surviving from
     # such an invocation ...
@@ -258,97 +230,30 @@ def test_facet_grid(dm, out_dir, anim_disabled):
     # Special cases . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     # scatter: Is only valid for dataset data
     epc.plot(**out_path("scatter_ds"), **shared_kwargs,
-             kind='scatter', x='d0', y='d1',
-             select=dict(data='dataset/data'))
+             kind='scatter', x='foo', y='bar',
+             select=dict(data='datasets/foobar3D'))
 
 def test_facet_grid_auto(dm, out_dir):
     """Tests the facet_grid without a ``kind`` specified"""
-    invoke_facet_grid(dm=dm, out_dir=out_dir,
-                      to_test=PLOTS_CFG['test_facet_grid_auto'])
+    invoke_facet_grid(dm=dm, out_dir=out_dir, to_test=PLOTS_CFG['auto'])
 
+def test_facet_grid_kinds(dm, out_dir):
+    """Very briefly tests the different facet_grid ``kind``s. Mor extended
+    tests are part of the full test suite.
+    """
+    invoke_facet_grid(dm=dm, out_dir=out_dir, to_test=PLOTS_CFG['kinds'])
+
+@skip_if_not_full
 def test_facet_grid_line(dm, out_dir):
     """Tests the facet_grid without a ``kind`` specified"""
-    invoke_facet_grid(dm=dm, out_dir=out_dir,
-                      to_test=PLOTS_CFG['test_facet_grid_line'])
+    invoke_facet_grid(dm=dm, out_dir=out_dir, to_test=PLOTS_CFG['line'])
 
+@skip_if_not_full
 def test_facet_grid_2d(dm, out_dir):
     """Tests the facet_grid without a ``kind`` specified"""
-    invoke_facet_grid(dm=dm, out_dir=out_dir,
-                      to_test=PLOTS_CFG['test_facet_grid_2d'])
+    invoke_facet_grid(dm=dm, out_dir=out_dir, to_test=PLOTS_CFG['2d'])
 
+@skip_if_not_full
 def test_facet_grid_hist(dm, out_dir):
     """Tests the facet_grid without a ``kind`` specified"""
-    invoke_facet_grid(dm=dm, out_dir=out_dir,
-                      to_test=PLOTS_CFG['test_facet_grid_hist'])
-
-
-@pytest.mark.skip()
-def test_facet_grid_animation(dm, anim_disabled, anim_enabled, out_dir):
-    """Test the FacetGrid animation; requires invocation via a plot creator"""
-    epc = ExternalPlotCreator("test_facet_grid_anim", dm=dm)
-
-    # The data paths to the test xr.DataArray and xr.Dataset
-    DATAARRAY_PATH = dict(select=dict(data='dataarray/data'))
-    DATASET_PATH = dict(select=dict(data='dataset/data'))
-
-    # Dictionary to collect passing test cases
-    test_cases = {}
-
-    # Dictionary to collect from dimension cases
-    test_dim_error_cases = {}
-
-    # Add general cases without kind specification to the test cases
-    test_cases['default_1'] = dict(col='dim_1')
-    test_cases['default_2'] = dict(row='dim_1', hue='dim_2',)
-    test_cases['default_3'] = dict(row='dim_1', frames='dim_0')
-    test_cases['default_anim'] = dict(frames='dim_1', col='dim_2', )
-
-    # Add 1D plot kinds to the test cases
-    for k in KINDS_1D:
-        test_dim_error_cases['_'.join([k, '0'])] = dict(kind=k)
-        test_dim_error_cases['_'.join([k, '1'])] = dict(kind=k, col='dim_1')
-        test_cases['_'.join([k, '2'])] = dict(kind=k,
-                                              row='dim_1',
-                                              hue='dim_2',
-                                              col='dim_0', )
-
-    # Add 2D plot cases to the test cases
-    for k in KINDS_2D:
-        test_cases['_'.join([k, '1'])] = dict(kind=k, col='dim_1')
-        test_cases['_'.join([k, 'anim_1'])] = dict(
-            kind=k, frames='dim_1')
-
-    # .. Tests ................................................................
-    for name, plot_kwargs in test_dim_error_cases.items():
-        with pytest.raises(Exception):
-            # Invoke plotting function via plot creator
-            epc.plot(out_path=None,
-                     plot_func=facet_grid,
-                     animation=anim_disabled, **plot_kwargs, **DATAARRAY_PATH)
-
-    for name, plot_kwargs in test_cases.items():
-        # Invoke plotting function via plot creator
-        epc.plot(out_path=os.path.join(out_dir, "test_{}".format(name)),
-                 plot_func=facet_grid,
-                 animation=anim_disabled, **plot_kwargs, **DATAARRAY_PATH)
-
-    # .. Special Cases ........................................................
-    # hist
-    # Invoke plotting function via plot creator
-    epc.plot(out_path="/".join([out_dir, "test_hist"]),
-             plot_func=facet_grid,
-             animation=anim_disabled, kind='hist', **DATAARRAY_PATH)
-
-    # scatter: Is only valid for dataset data
-    # Invoke plotting function via plot creator
-    epc.plot(out_path="/".join([out_dir, "test_scatter"]),
-             plot_func=facet_grid,
-             animation=anim_disabled, kind='scatter', x='d0', y='d1',
-             **DATASET_PATH)
-
-    # .. Errors ...............................................................
-    with pytest.raises(ValueError, match="Got an unknown plot kind"):
-        # Invoke plotting function via plot creator
-        epc.plot(out_path="/".join([out_dir, "test_{}".format(name)]),
-                 plot_func=facet_grid,
-                 animation=anim_disabled, kind='wrong', **DATAARRAY_PATH)
+    invoke_facet_grid(dm=dm, out_dir=out_dir, to_test=PLOTS_CFG['hist'])

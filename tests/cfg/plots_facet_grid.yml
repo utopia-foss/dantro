@@ -1,18 +1,17 @@
 # Configuration for the generic DAG facet grid plotting function
 ---
-# -- facet_grid ---------------------------------------------------------------
 # .. Automatic, i.e.: no `kind` specified .....................................
-test_facet_grid_auto:
+auto:
   no_hue: &no_hue
     specifiers: [x, 'y', row, col, frames]
-    max_dims_to_test: 7
+    max_dims: 7
     raises:
       6: &only_1d_and_2d [ValueError, Only 1d and 2d plots are supported]
       7: *only_1d_and_2d
 
   line_plots: &line_plots
     specifiers: [x, hue]
-    max_dims_to_test: 4
+    max_dims: 4
     raises:
       3: &line_plots_1d_or_2d [ValueError, Line plots are for 1- or 2-dimensio]
       4: *only_1d_and_2d
@@ -20,77 +19,125 @@ test_facet_grid_auto:
   line_plots_anim:
     <<: *line_plots
     specifiers: [x, hue, frames]
-    max_dims_to_test: 5
+    max_dims: 5
     raises:
       4: *line_plots_1d_or_2d
       5: *only_1d_and_2d
 
   col_wrap:
     specifiers: [x, 'y', col, frames]
-    max_dims_to_test: 5
+    max_dims: 5
     plot_kwargs:
       col_wrap: 2
     raises:
       5: *only_1d_and_2d
 
 # .. With `kind` specified ....................................................
-# .. line-like plots . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-test_facet_grid_line:
-  line:
+# A brief test of all various kinds.
+kinds:
+  line: &line
     kinds: [line]
-    specifiers: [x, row, col, hue, frames]
-    max_dims_to_test: 6
-    raises:
-      0: &Exception [Exception, '']
-      6: *line_plots_1d_or_2d
+    specifiers: [x, row, hue, frames]
+    min_dims: 3
+    max_dims: 4
+    plot_kwargs:
+      col_wrap: 2
 
-  # basically the same as line, but does not support hue (for some reason)
   step:
+    <<: *line
     kinds: [step]
-    specifiers: [x, row, col, frames]
-    max_dims_to_test: 5
-    raises:
-      0: *Exception
-      5: *Exception
+    specifiers: [x, row, frames, col]
+    plot_kwargs: {}
 
-# .. 2D plots . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-test_facet_grid_2d:
-  # contour plots can plot 2-5 dimensions
   contour: &contour
     kinds: [contourf, contour]
-    specifiers: [x, 'y', row, col, frames]
-    max_dims_to_test: 6
-    raises:
-      0: *Exception
-      1: *Exception
-      6: *Exception
+    specifiers: [x, 'y', col, frames]
+    min_dims: 3
+    max_dims: 4
+    plot_kwargs:
+      col_wrap: 2
 
   heatmap:
     <<: *contour
     kinds: [pcolormesh]
 
-  # image plots can plot 2-6 dimensions, interpreting as RGB?
-  image:
+  imshow:
+    <<: *contour
+    kinds: [imshow]
+
+  hist1d:
+    kinds: [hist]
+    specifiers: [frames]
+    min_dims: 1
+    max_dims: 1
+
+  hist4d:
+    kinds: [hist]
+    specifiers: [frames]
+    min_dims: 4
+    max_dims: 4
+
+
+# NOTE: All below are extended tests, i.e.: only run if FULL_TEST is set!
+# .. line-like plots . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+line:
+  line_ext:
+    kinds: [line]
+    specifiers: [x, row, col, hue, frames]
+    max_dims: 6
+    raises:
+      0: &Exception [Exception, '']
+      6: *line_plots_1d_or_2d
+
+  # basically the same as line, but does not support hue (for some reason)
+  step_ext:
+    kinds: [step]
+    specifiers: [x, row, col, frames]
+    max_dims: 5
+    raises:
+      0: *Exception
+      5: *Exception
+
+# .. 2D plots . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+2d:
+  # contour plots can plot 2-5 dimensions
+  contour_ext: &contour_extended
+    kinds: [contourf, contour]
+    specifiers: [x, 'y', col, row, frames]
+    min_dims: 0
+    max_dims: 6
+    raises:
+      0: *Exception
+      1: *Exception
+      6: *Exception
+    plot_kwargs: {}
+
+  heatmap_ext:
+    <<: *contour_extended
+    kinds: [pcolormesh]
+
+  # imshow plots can plot 2-6 dimensions, interpreting some values as RGB
+  imshow_ext:
     kinds: [imshow]
     specifiers: [x, 'y', row, col, frames]
-    max_dims_to_test: 7
+    max_dims: 7
     raises:
       0: *Exception
       1: *Exception
       7: *Exception
 
 # .. histograms . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-test_facet_grid_hist:
+hist:
   # hist can only be used with frames, but then it accepts any dimensionality
-  hist:
+  hist_ext:
     kinds: [hist]
     specifiers: [frames]
-    max_dims_to_test: 6
+    max_dims: 6
 
-  hist_error:
+  hist_errors:
     kinds: [hist]
     specifiers: [x, frames]
-    max_dims_to_test: 3
+    max_dims: 3
     raises:
       1: &hist_type_err [TypeError, 'hist\(\) got multiple values for arg']
       2: *hist_type_err
