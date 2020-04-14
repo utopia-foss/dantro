@@ -27,6 +27,66 @@ from ._plot_helper import PlotHelper, EnterAnimationMode, ExitAnimationMode
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
+# Tools
+
+class figure_leak_prevention:
+    """Context manager that aims to prevent superfluous matplotlib figures
+    persisting beyond the context. Such figure objects can aggregate and start
+    memory issues or even representation errors.
+
+    Specifically, it does the following:
+
+        * When entering, stores all current figure numbers
+        * When exiting regularly, all figures that were opened within the
+          context are closed, except the currently selected figure.
+        * When exiting with an exception, the behaviour is the same, unless the
+          ``close_current_fig_on_raise`` is set, in which case the currently
+          selected figure is **not** excluded from closing.
+
+    """
+
+    def __init__(self, *, close_current_fig_on_raise: bool=False):
+        """Initialize the context manager
+
+        Args:
+            close_current_fig_on_raise (bool, optional): If True, the
+                currently selected figure will **not** be exempt from the
+                figure closure in case an exception occurs. This flag has no
+                effect when the context is exited without an exception.
+        """
+        self._fignums = None
+        self._close_current = close_current_fig_on_raise
+
+    def __enter__(self):
+        """Upon entering, store all currently open figure numbers"""
+        self._fignums = plt.get_fignums()
+        log.trace("Entering figure_leak_prevention context. Open figures: %s",
+                  self._fignums)
+
+    def __exit__(self, exc_type: type, *args) -> None:
+        """Iterates over all currently open figures and closes all figures
+        that were not previously open, except the currently selected figure.
+
+        If an exception is detected, i.e. ``exc_type` is **not** None, the
+        current figure is only closed if the context manager was entered with
+        the ``close_current_fig_on_raise`` flag set.
+        """
+        log.trace("Exiting figure_leak_prevention (exception: %s) ...",
+                  exc_type)
+
+        # Determine whether to exclude the current figure or not
+        exclude_current = (not self._close_current or exc_type is None)
+        cfn = plt.gcf().number
+        log.trace("  Current figure: %d", cfn)
+
+        for n in plt.get_fignums():
+            if n in self._fignums or (exclude_current and n == cfn):
+                continue
+            plt.close(n)
+            log.trace("  Closed figure %d.", n)
+
+
+# -----------------------------------------------------------------------------
 
 
 class ExternalPlotCreator(BasePlotCreator):
@@ -157,9 +217,9 @@ class ExternalPlotCreator(BasePlotCreator):
         # Get style context
         if rc_params:
             log.debug("Using custom style context ...")
-            context = plt.rc_context(rc=rc_params)
+            style_context = plt.rc_context(rc=rc_params)
         else:
-            context = DoNothingContext()
+            style_context = DoNothingContext()
 
         # Check if PlotHelper is to be used
         if getattr(plot_func, 'use_helper', False):
@@ -170,7 +230,8 @@ class ExternalPlotCreator(BasePlotCreator):
             # exited, adjust the animation-related parameters accordingly.
             try:
                 self._plot_with_helper(out_path=out_path, plot_func=plot_func,
-                                       helpers=helpers, context=context,
+                                       helpers=helpers,
+                                       style_context=style_context,
                                        func_kwargs=func_kwargs,
                                        use_dag=use_dag, animation=animation)
 
@@ -198,7 +259,8 @@ class ExternalPlotCreator(BasePlotCreator):
                 try:
                     self._plot_with_helper(out_path=out_path,
                                            plot_func=plot_func,
-                                           helpers=helpers, context=context,
+                                           helpers=helpers,
+                                           style_context=style_context,
                                            func_kwargs=func_kwargs,
                                            use_dag=use_dag,
                                            animation=animation)
@@ -236,8 +298,8 @@ class ExternalPlotCreator(BasePlotCreator):
                                                         out_path=out_path,
                                                         **func_kwargs)
 
-            # Enter the context (either a style context or DoNothingContext)
-            with context:
+            # Enter the stlye context (can also be DoNothingContext, see above)
+            with style_context:
                 log.debug("Calling plotting function '%s' ...",
                           plot_func.__name__)
                 plot_func(*args, **kwargs)
@@ -295,7 +357,7 @@ class ExternalPlotCreator(BasePlotCreator):
     # Helpers: Main plot routines
 
     def _plot_with_helper(self, *, out_path: str, plot_func: Callable,
-                          helpers: dict, context, func_kwargs: dict,
+                          helpers: dict, style_context, func_kwargs: dict,
                           animation: dict, use_dag: bool):
         """A helper method that performs plotting using the
         :py:class:`~dantro.plot_creators._plot_helper.PlotHelper`.
@@ -304,7 +366,8 @@ class ExternalPlotCreator(BasePlotCreator):
             out_path (str): The output path
             plot_func (Callable): The resolved plot function
             helpers (dict): The helper configuration
-            context: A style context
+            style_context: A style context; can also be DoNothingContext, if
+                no style adjustments are to take place.
             func_kwargs (dict): Plot function arguments
             animation (dict): Animation parameters
             use_dag (bool): Whether a DAG is used in preprocessing or not
@@ -331,19 +394,24 @@ class ExternalPlotCreator(BasePlotCreator):
         # Check if an animation is to be done
         if animation_enabled:
             # Let the private animation helper method do the rest
-            self._perform_animation(hlpr=hlpr, context=context,
+            self._perform_animation(hlpr=hlpr, style_context=style_context,
                                     plot_func=plot_func,
                                     plot_args=args, plot_kwargs=kwargs,
                                     **animation)
 
         else:
             # No animation to be done.
-            # Enter the context (either style context or DoNothingContext)
-            with context:
+            # Enter two context: one for style (could also be DoNothingContext)
+            # and one for prevention of figures leaking from the plot function.
+            leak_prev = figure_leak_prevention(close_current_fig_on_raise=True)
+
+            with style_context, leak_prev:
                 hlpr.setup_figure()
+
                 log.debug("Calling plotting function '%s' ...",
                           plot_func.__name__)
                 plot_func(*args, **kwargs)
+
                 hlpr.invoke_enabled(axes='all')
                 hlpr.save_figure()
 
@@ -714,7 +782,7 @@ class ExternalPlotCreator(BasePlotCreator):
 
         return rc_dict
 
-    def _perform_animation(self, *, hlpr: PlotHelper, context,
+    def _perform_animation(self, *, hlpr: PlotHelper, style_context,
                            plot_func: Callable,
                            plot_args: tuple, plot_kwargs: dict,
                            writer: str,
@@ -724,7 +792,7 @@ class ExternalPlotCreator(BasePlotCreator):
 
         Args:
             hlpr (PlotHelper): The plot helper
-            context: The context to enter before starting animation
+            style_context: The style context to enter before starting animation
             plot_func (Callable): plotting function which is to be animated
             plot_args (tuple): positional arguments to ``plot_func``
             plot_kwargs (dict): keyword arguments to ``plot_func``
@@ -776,11 +844,17 @@ class ExternalPlotCreator(BasePlotCreator):
                              "".format(writer_name, ", ".join(writers_avail)))
 
         # Now got the writer.
-        # Can enter the context and perform animation now
+
+        # Can enter the style context and perform animation now.
+        # In order to not aggregate additional figures during this process,
+        # also enter an additional context manager, which prevents figures
+        # leaking from the plot function or the animation generator.
+        leak_prev = figure_leak_prevention(close_current_fig_on_raise=True)
+
         log.debug("Performing animation of plot function '%s' using "
                   "writer %s ...", plot_func.__name__, writer_name)
 
-        with context:
+        with style_context, leak_prev:
             hlpr.setup_figure()
 
             # Call the plot function
@@ -809,15 +883,16 @@ class ExternalPlotCreator(BasePlotCreator):
                     if writer.fig is not hlpr.fig:
                         writer.fig = hlpr.fig
 
-                    # This already has created the new frame
+                    # The anim_it invocation has already created the new frame.
                     # Grab it; the writer takes care of saving it
                     writer.grab_frame(**writer_cfg.get('grab_frame', {}))
 
-            # Exited 'saving' conext
+            # Exited 'saving' context
             # Make sure the figure is closed
             hlpr.close_figure()
 
-        # Exited externally given context. Done now.
+        # Exited externally given style context and figure_leak_prevention.
+        # Done now.
         log.debug("Animation finished after %s frames.", frame_no + 1)
 
     # .........................................................................
