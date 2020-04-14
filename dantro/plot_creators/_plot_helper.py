@@ -358,10 +358,9 @@ class PlotHelper:
             ValueError: On multiple axes not being passed in 2d format.
 
         """
-        if self._fig is not None:
-            log.debug("Closing existing figure and re-associating with a new "
-                      "figure ...")
-            self.close_figure()
+        log.debug("Closing existing figure and re-associating with a new "
+                  "figure ...")
+        self.close_figure()
 
         # Assign the new figure
         self._fig = fig
@@ -389,14 +388,13 @@ class PlotHelper:
         # Everything ok, attach axes
         self._axes = axes
 
-        log.debug("Figure and axes attached.")
+        log.debug("Figure %d and axes attached.", fig.number)
 
         # Select the (0, 0) axis, for consistency
         self.select_axis(0, 0)
 
         # Can now evaluate the axis-specific configuration
         self._cfg = self._compile_axis_specific_cfg()
-
 
     def setup_figure(self, **update_fig_kwargs):
         """Sets up a matplotlib figure instance and axes with the given
@@ -422,7 +420,7 @@ class PlotHelper:
 
         # Now, create the figure and axes and attach them
         fig, axes = plt.subplots(squeeze=False, **fig_kwargs)
-        log.debug("Figure created.")
+        log.debug("Figure %d created.", fig.number)
 
         self.attach_figure_and_axes(fig=fig, axes=axes)
 
@@ -451,14 +449,20 @@ class PlotHelper:
             self.close_figure()
 
     def close_figure(self):
-        """Closes the figure and disassociates it from the helper.
+        """Closes the figure and disassociates it from the helper. This method
+        has no effect if no figure is currently associated.
 
         This also removes the axes objects and deletes the axis-specific
         configuration. All information provided via provide_defaults and the
         mark_* methods is lost.
         """
+        if self._fig is None:
+            log.debug("No figure currently associated; nothing to close.")
+            return
+
+        fignum = self.fig.number
         plt.close(self.fig)
-        log.debug("Figure closed.")
+        log.debug("Figure %d closed.", fignum)
 
         self._fig = None
         self._axes = None
