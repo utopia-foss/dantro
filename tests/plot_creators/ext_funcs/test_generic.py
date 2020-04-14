@@ -76,8 +76,13 @@ def associate_specifiers(data, *,
     return {spec: dim_name for spec, dim_name in zip(specifiers, dim_names)}
 
 
-def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int=5):
-    """Repeatedly invokes the facet_grid plot function"""
+def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int=1):
+    """Repeatedly invokes the facet_grid plot function and checks whether it
+    runs through as expected or generates an exception as expected.
+
+    After each invocation, if the number of open figures is checked, which can
+    be used to detect figure leakage.
+    """
     epc = ExternalPlotCreator("test_facet_grid", dm=dm)
 
     # Shortcuts
@@ -174,11 +179,11 @@ def dm(_dm, data_dataarray, data_dataset):
     grp_dataset = _dm.new_group("dataset")
     grp_dataset.add(PassthroughContainer(name="data", data=data_dataset))
 
-    # Add ndim random data for DataArrays
+    # Add ndim random data for DataArrays, going up to 7 dimensions
     grp_ndim_da = _dm.new_group("ndim_da")
     grp_ndim_da.add(*[XrDataContainer(name="{:d}D".format(n),
                                       data=create_nd_data(n))
-                      for n in range(8)])
+                      for n in range(7)])
 
     return _dm
 
@@ -220,9 +225,17 @@ def test_facet_grid(dm, out_dir, anim_disabled):
     shared_kwargs = dict(plot_func=facet_grid, animation=anim_disabled)
     out_path = lambda name: dict(out_path=os.path.join(out_dir, name + ".pdf"))
 
-    # Some simple, explicit invocation
+    # Make sure there are no figures currently open, in order to be able to
+    # track whether any figures leak from the plot function ...
+    plt.close('all')
+    assert len(plt.get_fignums()) == 0
+
+    # Some simple, explicit invocation.
     epc.plot(**out_path("manual_2d"), **shared_kwargs,
              select=dict(data='ndim_da/2D'))
+
+    # The current figure should survive from this.
+    assert len(plt.get_fignums()) == 1
 
     # More systematically invoke the plotting function with data of different
     # dimensionality. This should succeed even for high-dimensional data.
@@ -230,19 +243,23 @@ def test_facet_grid(dm, out_dir, anim_disabled):
         epc.plot(**out_path("auto__no_specs_" + cont_name), **shared_kwargs,
                  select=dict(data="ndim_da/" + cont_name))
 
-    # Error message upon invalid kind
+    # Error message upon invalid kind. There should be no figure surviving from
+    # such an invocation ...
+    plt.close('all')
+
     for cont_name in dm['ndim_da']:
         with pytest.raises(AttributeError, match="seems not to be available"):
             epc.plot(**out_path("bad_kind__" + cont_name), **shared_kwargs,
                      select=dict(data="ndim_da/" + cont_name),
                      kind='some_invalid_plot_kind')
 
+    assert len(plt.get_fignums()) == 0
+
     # Special cases . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     # scatter: Is only valid for dataset data
     epc.plot(**out_path("scatter_ds"), **shared_kwargs,
              kind='scatter', x='d0', y='d1',
              select=dict(data='dataset/data'))
-
 
 def test_facet_grid_auto(dm, out_dir):
     """Tests the facet_grid without a ``kind`` specified"""

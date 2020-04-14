@@ -5,7 +5,7 @@ import copy
 import matplotlib.pyplot as plt
 import xarray as xr
 
-from ..pcr_ext import is_plot_func, PlotHelper
+from ..pcr_ext import is_plot_func, PlotHelper, figure_leak_prevention
 
 # Local variables
 # The available plot kinds for the xarray plotting interface
@@ -61,6 +61,18 @@ def facet_grid(*,
         the :ref:`animation mode switching <pcr_ext_animation_mode_switching>`
         feature.
 
+    .. warning::
+
+        Depending on ``kind`` and the dimensionality of the data, some plot
+        functions might create their own figure, disregarding any previously
+        set up figure. This includes the figure from the plot helper.
+
+        To control figure aesthetics, you can either specify matplotlib RC
+        :ref:`style parameters <pcr_ext_style>` (via the ``style`` argument),
+        or you can use the ``plot_kwargs`` to pass arguments to the respective
+        plot functions. For the latter, refer to the respective documentation
+        to find out about available arguments.
+
     Args:
         data (dict): The data selected by the DAG framework
         hlpr (PlotHelper): The plot helper
@@ -76,29 +88,28 @@ def facet_grid(*,
             ``set_suptitle`` helper function. Only used if animations are
             enabled. The ``title`` entry can be a format string with the
             following keys, which are updated for each frame of the animation:
-            ``dim``, ``value``. Example: ``{dim:} : {value:.2g}``.
+            ``dim``, ``value``. Default: ``{dim:} = {value:.3g}``.
         **plot_kwargs: Passed on to ``<data>.plot`` or ``<data>.plot.<kind>``
     """
     def plot_frame(_d):
         """Plot a FacetGrid frame"""
         # Use the automatically deduced plot kind, e.g. line plot for 1D
         if kind is None:
-            # Directly call the plot function of the underlying data object
-            # NOTE rv usually is a xarray.FaceGrid object but not always:
-            #      `hist` returns what matplotlib.pyplot.hist returns
-            rv = _d.plot(**plot_kwargs)
+            # If the helper figure is to be used, make sure there's absolutely
+            # nothing on it; this prevents plotting artifacts.
+            hlpr.fig.clear()
+
+            # Directly call the plot function of the underlying data object,
+            # making sure that any additionally created figure will not survive
+            # in case of an exception being raised from that plot function.
+            with figure_leak_prevention(close_current_fig_on_raise=True):
+                rv = _d.plot(**plot_kwargs)
+            # NOTE See extended NOTE below about the type of the return value.
 
         # Use a specific kind of plot function
         else:
+            # Retrieve the specialized plot function
             try:
-                # Retrieve the specialized plot function
-                # NOTE rv usually is a xarray.FaceGrid object but not always:
-                #      `hist` returns what matplotlib.pyplot.hist returns.
-                #      This leads to the question why `hist`s do not seem to be
-                #      possible in `xarray.FacetGrid`s, although they would be
-                #      useful? Gaining a deeper understanding of this issue and
-                #      corresponding xarray functionality is something to
-                #      investigate in the future. :)
                 plot_func = getattr(_d.plot, kind)
 
             except AttributeError as err:
@@ -110,37 +121,45 @@ def facet_grid(*,
                                      "".format(kind, type(_d),
                                                ", ".join(_XR_PLOT_KINDS))
                                      ) from err
-            # Before invoking the plot function it is important to first
-            # close the PlotHelper figure because it will be overwritten
-            # and then generate a new figure because the spezialized plot
-            # functions do not generate a new figure automatically.
-            hlpr.close_figure()
-            fig = plt.figure()
 
-            # Invoke the specialized plot function. If that fails for any
-            # reason, the newly opened figure should be properly closed.
-            try:
+            # Make sure to work on a fully cleared figure. This is important
+            # for *some* specialized plot functions and for certain
+            # dimensionality of the data: in these specific cases, an existing
+            # figure can be re-used, in some cases leading to plotting
+            # artifacts.
+            # In other cases, a new figure is opened by the plot function. The
+            # currently attached helper figure is then discarded below.
+            hlpr.fig.clear()
+
+            # Invoke the specialized plot function, taking care that no figures
+            # that are additionally created survive beyond that point, which
+            # would lead to figure leakage, gobbling up memory.
+            with figure_leak_prevention(close_current_fig_on_raise=True):
                 rv = plot_func(**plot_kwargs)
+            # NOTE rv usually is a xarray.FaceGrid object but not always:
+            #      `hist` returns what matplotlib.pyplot.hist returns.
+            #      This leads to the question why `hist`s do not seem to be
+            #      possible in `xarray.FacetGrid`s, although they would be
+            #      useful? Gaining a deeper understanding of this issue and
+            #      corresponding xarray functionality is something to
+            #      investigate in the future. :)
 
-            except Exception:
-                plt.close(fig)
-                raise
-
-        # Attach the figure and the axes to the PlotHelper
+        # Determine which figure and axes to attach to the PlotHelper
         if isinstance(rv, xr.plot.FacetGrid):
             fig = rv.fig
             axes = rv.axes
         else:
-            # Best guess: there's only one axis and figure, attach those to the
-            # helper
+            # Best guess: there's only one axis and figure, use those
             fig = plt.gcf()
             axes = plt.gca()
 
+        # When now attaching the new figure and axes, the previously existing
+        # figure (the one .clear()-ed above) is closed and discarded.
         hlpr.attach_figure_and_axes(fig=fig, axes=axes)
+
         # Done with this frame now.
 
     # Actual plotting routine starts here .....................................
-
     # Get the Dataset, DataArray, or other compatible data
     d = data['data']
 
