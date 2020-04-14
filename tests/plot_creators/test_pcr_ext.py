@@ -9,6 +9,7 @@ from dantro.data_mngr import DataManager
 from dantro.tools import load_yml, recursive_update
 from dantro.plot_creators import ExternalPlotCreator, UniversePlotCreator
 from dantro.plot_creators import is_plot_func, PlotHelper
+from dantro.plot_creators.pcr_ext import figure_leak_prevention
 from dantro.dag import TransformationDAG
 
 # Load configuration files
@@ -67,7 +68,7 @@ def test_init(init_kwargs, tmpdir):
     # Test passing a base_module_file_dir
     ExternalPlotCreator("init", **init_kwargs,
                         base_module_file_dir=tmpdir)
-    
+
     # Check with invalid directories
     with pytest.raises(ValueError, match="needs to be an absolute path"):
         ExternalPlotCreator("init", **init_kwargs,
@@ -109,7 +110,7 @@ def test_style_context(init_kwargs, tmp_rc_file):
 
     # .. Integration tests ....................................................
     # Style dict for use in the test
-    style = {"base_style" : ["classic", "dark_background"], 
+    style = {"base_style" : ["classic", "dark_background"],
              "rc_file" : tmp_rc_file, "font.size" : 2.0}
 
     # Test plot function to check wether the given style context is entered
@@ -126,7 +127,7 @@ def test_style_context(init_kwargs, tmp_rc_file):
             assert plt.rcParams[key] == expected_val
 
         print("All RC parameters matched.", end="\n\n")
-    
+
     # .. Without style given to init ..........................................
     epc = ExternalPlotCreator("without_defaults", **init_kwargs)
 
@@ -143,7 +144,7 @@ def test_style_context(init_kwargs, tmp_rc_file):
              expected_rc_params=epc._prepare_style_context(**style))
 
     # Custom style
-    test_style = recursive_update(epc._prepare_style_context(**style), 
+    test_style = recursive_update(epc._prepare_style_context(**style),
                                   {"font.size" : 20.0})
     epc.plot(out_path="test_path", plot_func=test_plot_func, style=test_style,
              expected_rc_params=epc._prepare_style_context(**test_style))
@@ -154,11 +155,11 @@ def test_style_context(init_kwargs, tmp_rc_file):
              expected_rc_params=epc._prepare_style_context(**test_style))
 
     # .. With style given to init .............................................
-    # Initialize plot creators with and without a default style 
+    # Initialize plot creators with and without a default style
     epc = ExternalPlotCreator("with_defaults", **init_kwargs, style=style)
 
     # Check wether the default style contains the correct parameters, this
-    # should serve as a test for the _prepare_style_context method 
+    # should serve as a test for the _prepare_style_context method
     assert epc._default_rc_params["axes.facecolor"] == "black"
     assert epc._default_rc_params["figure.dpi"] == 10
     assert epc._default_rc_params["axes.grid"]
@@ -206,7 +207,7 @@ def test_resolve_plot_func(init_kwargs, tmpdir, tmp_module):
     # Not giving enough arguments will fail
     with pytest.raises(TypeError, match="neither argument"):
         resolve(plot_func="foo")
-    
+
     # So will a plot_func of wrong type
     with pytest.raises(TypeError, match="needs to be a string or a callable"):
         resolve(plot_func=666, module="foo")
@@ -231,7 +232,7 @@ def test_use_dag(tmpdir, init_kwargs):
     def pf_with_dag(*, data, out_path: str):
         assert isinstance(data, dict)
         assert isinstance(out_path, str)
-    
+
     def pf_without_dag(dm, *, out_path: str):
         assert isinstance(dm, DataManager)
         assert isinstance(out_path, str)
@@ -239,18 +240,18 @@ def test_use_dag(tmpdir, init_kwargs):
     # Invoke plots with different callable vs. dag-usage combinations
     epc.plot(out_path=out_path,
              plot_func=pf_with_dag, use_dag=True)
-    
+
     with pytest.raises(TypeError, match="unexpected keyword argument 'data'"):
         epc.plot(out_path=out_path,
                  plot_func=pf_without_dag, use_dag=True)
 
     epc.plot(out_path=out_path,
              plot_func=pf_without_dag, use_dag=False)
-    
+
     with pytest.raises(TypeError, match="takes 0 positional arguments"):
         epc.plot(out_path=out_path,
                  plot_func=pf_with_dag, use_dag=False)
-    
+
     # Passing the DAG object along to plot function, using function attributes
     def pf_with_dag_object(*, data, dag, out_path):
         assert isinstance(data, dict)
@@ -268,7 +269,7 @@ def test_use_dag(tmpdir, init_kwargs):
         assert isinstance(hlpr, PlotHelper)
     pf_with_dag_and_helper.use_dag = True
     pf_with_dag_and_helper.use_helper = True
-    
+
     epc.plot(out_path=out_path,
              plot_func=pf_with_dag_and_helper)
 
@@ -279,7 +280,7 @@ def test_use_dag(tmpdir, init_kwargs):
     pf_with_dag_and_helper_and_dag_object.use_dag = True
     pf_with_dag_and_helper_and_dag_object.use_helper = True
     pf_with_dag_and_helper_and_dag_object.pass_dag_object_along = True
-    
+
     epc.plot(out_path=out_path,
              plot_func=pf_with_dag_and_helper_and_dag_object)
 
@@ -288,7 +289,7 @@ def test_use_dag(tmpdir, init_kwargs):
         assert isinstance(dm, DataManager)
     pf_with_dag_disabled_via_cfg.use_dag = True
     pf_with_dag_disabled_via_cfg.pass_dag_object_along = True
-    
+
     epc.plot(out_path=out_path,
              plot_func=pf_with_dag_disabled_via_cfg,
              use_dag=False)
@@ -335,7 +336,7 @@ def test_dag_required_tags(tmpdir, init_kwargs):
     # Without required tags given, there should be no checks
     epc.plot(out_path=out_path, plot_func=pf, transform=sum_and_sub,
              expected_tags=None)
-    
+
     # Now, require some tags. These should be the only ones set now.
     pf.required_dag_tags = ('sum', 'sub')
     epc.plot(out_path=out_path, plot_func=pf, transform=sum_and_sub,
@@ -370,7 +371,7 @@ def test_dag_required_tags(tmpdir, init_kwargs):
              transform=sum_and_sub + [dict(mul=[1,1], tag="mul"),
                                       dict(div=[1,0], tag="div")],
              expected_tags={'sum', 'sub'})
-    
+
     # ... but the compute_only argument is stronger:
     with pytest.raises(ValueError,
                        match="required tags that were not set to be computed "
@@ -416,7 +417,7 @@ def test_dag_required_tags(tmpdir, init_kwargs):
     epc.plot(out_path=out_path, plot_func=pf_dec,
              transform=sum_and_sub + [dict(mul=[1,1], tag="mul")],
              compute_only=['sum'], expected_tags={'sum'})
-    
+
     # ... with required DAG tags (and compute_only_required_dag_tags ENABLED)
     pf_dec.required_dag_tags = ('sum', 'sub')
 
@@ -476,19 +477,19 @@ def test_can_plot(init_kwargs, tmp_module):
     @is_plot_func(creator_name="external")
     def pfdec_name():
         pass
-    
+
     @is_plot_func(creator_type=ExternalPlotCreator)
     def pfdec_type():
         pass
-    
+
     @is_plot_func(creator_type=ExternalPlotCreator, creator_name="foo")
     def pfdec_type_and_name():
         pass
-    
+
     @is_plot_func(creator_type=UniversePlotCreator)
     def pfdec_subtype():
         pass
-    
+
     @is_plot_func(creator_name="universe")
     def pfdec_subtype_name():
         pass
@@ -544,3 +545,31 @@ def test_decorator(tmpdir):
     # Relative path not allowed
     with pytest.raises(ValueError, match="was a relative path: some/rel"):
         is_plot_func(helper_defaults="some/relative/path")
+
+
+def test_figure_leak_prevention():
+    """Tests the figure_leak_prevention context manager"""
+    # After a fresh start, open some figures
+    plt.close('all')
+    figs = [plt.figure() for i in range(3)]
+    assert plt.get_fignums() == [1, 2, 3]
+
+    with figure_leak_prevention():
+        # Open some more. These should be closed when exiting.
+        figs = [plt.figure() for i in range(3)]
+        assert plt.get_fignums() == [1, 2, 3, 4, 5, 6]
+        assert plt.gcf().number == 6
+
+    assert plt.get_fignums() == [1, 2, 3, 6]
+
+    # Once more, now with an exception, which should lead to the current fig
+    # not surviving beyond the context
+    with pytest.raises(Exception):
+        with figure_leak_prevention(close_current_fig_on_raise=True):
+            figs = [plt.figure() for i in range(2)]
+            assert plt.get_fignums() == [1, 2, 3, 6, 7, 8]
+            assert plt.gcf().number == 8
+
+            raise Exception()
+
+    assert plt.get_fignums() == [1, 2, 3, 6]
