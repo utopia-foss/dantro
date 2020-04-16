@@ -29,6 +29,11 @@ It allows loading possibly heterogeneous data into a tree-like structure that ca
     data_io/multidim
     data_io/*
 
+.. toctree::
+    :caption: Data Structures
+    :maxdepth: 2
+
+    data_structures/index
 
 .. toctree::
     :caption: Plotting

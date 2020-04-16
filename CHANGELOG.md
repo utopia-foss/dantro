@@ -2,6 +2,9 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.12.4
+- !151 adds documentation of the `GraphGroup`.
+
 
 ## v0.12.3
 - !153 adds the DAG-based generic `facet_grid` plot function that wraps [`xarray.plot`](http://xarray.pydata.org/en/stable/plotting.html) functionality and makes plots of high-dimensional data very convenient.
