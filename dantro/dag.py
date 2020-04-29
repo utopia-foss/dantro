@@ -29,6 +29,7 @@ from ._hash import _hash, SHORT_HASH_LENGTH, FULL_HASH_LENGTH
 
 
 # Local constants .............................................................
+
 log = logging.getLogger(__name__)
 
 # The path within the DAG's associated DataManager to which caches are loaded
@@ -36,6 +37,8 @@ DAG_CACHE_DM_PATH = 'cache/dag'
 
 # Functions that can store the DAG computation result objects, distinguishing
 # by their type.
+# NOTE It is important that these methods all _overwrite_ an already existing
+#      file at the given location _by default_!
 DAG_CACHE_RESULT_SAVE_FUNCS = {
     # Saving functions of specific dantro objects
     (NumpyDataContainer,):
@@ -88,7 +91,7 @@ class Transformation:
                  salt: int=None,
                  file_cache: dict=None):
         """Initialize a Transformation object.
-        
+
         Args:
             operation (str): The operation that is to be carried out.
             args (Sequence[Union[DAGReference, Any]]): Positional arguments
@@ -180,12 +183,12 @@ class Transformation:
 
         # Parse file cache options, making sure it's a dict with default values
         self._fc_opts = file_cache if file_cache is not None else {}
-        
+
         if isinstance(self._fc_opts.get('write', {}), bool):
             self._fc_opts['write'] = dict(enabled=self._fc_opts['write'])
         elif 'write' not in self._fc_opts:
             self._fc_opts['write'] = dict(enabled=False)
-        
+
         if isinstance(self._fc_opts.get('read', {}), bool):
             self._fc_opts['read'] = dict(enabled=self._fc_opts['read'])
         elif 'read' not in self._fc_opts:
@@ -232,13 +235,13 @@ class Transformation:
         """Computes the hash of this Transformation by creating a deterministic
         representation of this Transformation using ``__repr__`` and then
         applying a checksum hash function to it.
-        
+
         Note that this does NOT rely on the built-in hash function but on the
         custom dantro ``_hash`` function which produces a platform-independent
         and deterministic hash. As this is a *string*-based (rather than an
         integer-based) hash, it is not implemented as the ``__hash__`` magic
         method but as this separate property.
-        
+
         Returns:
             str: The hash string for this transformation
         """
@@ -314,7 +317,7 @@ class Transformation:
         d = dict(operation=node._operation,
                  args=node._args,
                  kwargs=dict(node._kwargs))
-        
+
         # If a specific salt was given, add that to the dict as well
         if node._salt is not None:
             d['salt'] = node._salt
@@ -328,10 +331,10 @@ class Transformation:
     def compute(self) -> Any:
         """Computes the result of this transformation by recursively resolving
         objects and carrying out operations.
-        
+
         This method can also be called if the result is already computed; this
         will lead only to a cache-lookup, not a re-computation.
-        
+
         Returns:
             Any: The result of the operation
         """
@@ -351,7 +354,7 @@ class Transformation:
 
             # Let the reference resolve the corresponding object from the DAG
             obj = ref.resolve_object(dag=self.dag)
-            
+
             # Check if this refers to an object that is NOT a transformation.
             # This could be the DataManager or the DAG itself, but also other
             # objects in the DAG's object database. Performing computation on
@@ -365,7 +368,7 @@ class Transformation:
 
         # Try to look up an already computed result from memory or file cache
         success, res = self._lookup_result()
-        
+
         if not success:
             # Did not find a result in memory or file cache -> Compute it.
             # First, compute the result of the references in the arguments.
@@ -412,7 +415,7 @@ class Transformation:
                         cumulative_compute: float=None,
                         **times) -> None:
         """Given some new profiling times, updates the profiling information.
-        
+
         Args:
             cumulative_compute (float, optional): The cumulative computation
                 time; if given, additionally computes the computation time for
@@ -467,7 +470,7 @@ class Transformation:
             self._update_profile(cache_lookup=(time.time() - t0))
 
         return success, res
-    
+
     def _cache_result(self, result: Any) -> None:
         """Stores a computed result in the cache"""
         def should_write(*, enabled: bool, always: bool=False,
@@ -479,7 +482,7 @@ class Transformation:
                          ) -> bool:
             """A helper function to evaluate _whether_ the file cache is to be
             written or not.
-            
+
             Args:
                 enabled (bool): Whether writing is enabled at all
                 always (bool, optional): If given, will always write.
@@ -502,7 +505,7 @@ class Transformation:
                     be written. Note that this value can be lower if the node
                     result is not computed but looked up from the cache.
                 storage_options (dict, optional): (ignored here)
-            
+
             Returns:
                 bool: Whether to write the file cache or not.
             """
@@ -548,15 +551,15 @@ class Transformation:
         # NOTE If instead of a proper computation, the passed result object was
         #      previously looked up from the cache, this will not have an
         #      effect.
-        
-        # Get file cache writing parameters; don't write if not 
+
+        # Get file cache writing parameters; don't write if not
         write_opts = self._fc_opts['write']
 
         # Determine whether to write to a file
         if self.dag is not None and should_write(**write_opts):
             # Setup profiling
             t0 = time.time()
-            
+
             # Write the result to a file inside the DAG's cache directory. This
             # is handled by the DAG itself, because the Transformation does not
             # know (and should not care) aboute the cache directory ...
@@ -596,7 +599,7 @@ class TransformationDAG:
                  select_path_prefix: str=None):
         """Initialize a DAG which is associated with a DataManager and load the
         specified transformations configuration into it.
-        
+
         Args:
             dm (DataManager): The associated data manager
             select (dict, optional): Selection specifications, which are
@@ -642,7 +645,7 @@ class TransformationDAG:
         self._select_base = None
         self._profile = dict(add_node=0., compute=0.)
         self._select_path_prefix = select_path_prefix
-        
+
         # Determine cache directory path; relative path interpreted as relative
         # to the DataManager's data directory
         if os.path.isabs(cache_dir):
@@ -668,7 +671,7 @@ class TransformationDAG:
         self.add_nodes(select=select, transform=transform)
 
     # .........................................................................
-    
+
     def __str__(self) -> str:
         """A human-readable string characterizing this TransformationDAG"""
         return ("<TransformationDAG, "
@@ -785,7 +788,7 @@ class TransformationDAG:
     def profile(self) -> Dict[str, float]:
         """Returns the profiling information for the DAG."""
         return self._profile
-    
+
     @property
     def profile_extended(self) -> Dict[str, Union[float, Dict[str, float]]]:
         """Builds an extended profile that includes the profiles from all
@@ -794,7 +797,7 @@ class TransformationDAG:
         This is calculated anew upon each invocation; the result is not cached.
         """
         prof = copy.deepcopy(self.profile)
-        
+
         # Add tag-specific information
         prof['tags'] = dict()
         for tag, obj_hash in self.tags.items():
@@ -840,7 +843,7 @@ class TransformationDAG:
                  **trf_kwargs) -> DAGReference:
         """Add a new node by creating a new Transformation object and adding it
         to the node list.
-        
+
         Args:
             operation (str): The name of the operation
             args (list, optional): Positional arguments to the operation
@@ -851,10 +854,10 @@ class TransformationDAG:
                 this node. If defaults were given during initialization, those
                 defaults will be updated with the given dict.
             **trf_kwargs: Passed on to Transformation.__init__
-        
+
         Raises:
             ValueError: If the tag already exists
-        
+
         Returns:
             DAGReference: The reference to the created node
         """
@@ -884,10 +887,10 @@ class TransformationDAG:
                                    replace_func=convert_to_ref)
         kwargs = recursive_replace(kwargs, select_func=not_proper_ref,
                                    replace_func=convert_to_ref)
-        
+
         # Parse file cache parameters
         fc_opts = copy.deepcopy(self._fc_opts)  # Always a dict
-        
+
         if file_cache is not None:
             fc_opts = recursive_update(fc_opts, file_cache)
 
@@ -917,11 +920,11 @@ class TransformationDAG:
 
         # Return a reference to the newly created node
         return DAGReference(trf_hash)
-    
+
     def add_nodes(self, *, select: dict=None, transform: Sequence[dict]=None):
         """Adds multiple nodes by parsing the specification given via the
         ``select`` and ``transform`` arguments.
-        
+
         Args:
             select (dict, optional): Selection specifications, which are
                 translated into regular transformations based on ``getitem``
@@ -934,19 +937,19 @@ class TransformationDAG:
         specs = self._parse_trfs(select=select, transform=transform)
         if not specs:
             return
-        
+
         for spec in specs:
             self.add_node(**spec)
-    
+
     def compute(self, *, compute_only: Sequence[str]=None) -> Dict[str, Any]:
         """Computes all specified tags and returns a result dict.
-        
+
         Args:
             compute_only (Sequence[str], optional): The tags to compute. If not
                 given, will compute all associated tags.
             cache_options (dict, optional): Cache options. These will update
                 the default cache options given at initialization of the DAG.
-        
+
         Returns:
             Dict[str, Any]: A mapping from tags to fully computed results.
         """
@@ -965,7 +968,7 @@ class TransformationDAG:
                 res = res.data
 
             return res
-        
+
         # Initiate start time for profiling
         t0 = time.time()
 
@@ -1024,18 +1027,18 @@ class TransformationDAG:
                     transform: Sequence[dict]) -> Sequence[dict]:
         """Parse the given arguments to bring them into a uniform format: a
         sequence of parameters for transformation operations.
-        
+
         Args:
             select (dict): The shorthand to select certain objects from the
                 DataManager. These may also include transformations.
             transform (Sequence[dict]): Actual transformation operations,
                 carried out afterwards.
-        
+
         Returns:
             Sequence[dict]:
                 A sequence of transformation parameters that was brought into
                 a uniform structure.
-        
+
         Raises:
             TypeError: On invalid type within entry of ``select``
             ValueError: When ``file_cache`` is given for selection from base
@@ -1092,14 +1095,14 @@ class TransformationDAG:
                            args=[self.select_base, path],
                            kwargs=dict(),
                            file_cache=dict(read=False, write=False))
-            
+
             # Carry additional parameters only if given
             if salt is not None:
                 sel_trf['salt'] = salt
 
             # Now finished with the formulation of the select operation.
             trfs.append(sel_trf)
-            
+
             if not more_trfs:
                 # Done with this select operation.
                 continue
@@ -1111,7 +1114,7 @@ class TransformationDAG:
                 # Might have to use the previous result ...
                 if 'with_previous_result' not in trf_params:
                     trf_params['with_previous_result'] = with_previous_result
-                
+
                 # Can now parse the regular syntax
                 trf_params = _parse_dag_syntax(**trf_params)
 
@@ -1125,7 +1128,7 @@ class TransformationDAG:
                                          "parameters for selection of tag "
                                          "'{}'.".format(tag))
                         # TODO Could actually allow multiple tags here ...
-                    
+
                     # Add the tag to the parameters
                     trf_params['tag'] = tag
 
@@ -1169,7 +1172,7 @@ class TransformationDAG:
         # Parse load options
         if 'exists_action' not in load_kwargs:
             load_kwargs['exists_action'] = 'skip_nowarn'
-            
+
         # else: There was a file. Let the DataManager load it.
         file_ext = cache_files[trf_hash]['ext']
         self.dm.load('dag_cache',
@@ -1183,9 +1186,13 @@ class TransformationDAG:
         #      loaded again. Thus, the DataManager acts as a persistent
         #      storage for loaded cache files. Consequently, these are shared
         #      among all TransformationDAG objects.
-        
+
         # Retrieve from the DataManager
         res = self.dm[DAG_CACHE_DM_PATH][trf_hash]
+
+        # Have to unpack Object containers
+        if isinstance(res, ObjectContainer):
+            res = res.data
 
         # Done.
         success = True
@@ -1199,7 +1206,7 @@ class TransformationDAG:
                              **save_kwargs) -> bool:
         """Writes the given result object to a hash file, overwriting existing
         ones.
-        
+
         Args:
             trf_hash (str): The hash; will be used for the file name
             result (Any): The result object to write as a cache file
@@ -1214,10 +1221,10 @@ class TransformationDAG:
             pkl_kwargs (dict, optional): Arguments passed on to the
                 pickle.dump function.
             **save_kwargs: Passed on to the chosen storage method.
-        
+
         Returns:
             bool: Whether a cache file was saved
-        
+
         Raises:
             NotImplementedError: When attempting to store instances of
                 :py:class:`~dantro.base.BaseDataGroup` or a derived class
@@ -1250,30 +1257,44 @@ class TransformationDAG:
                 sfunc(result, fpath, **save_kwargs)
 
             except Exception as exc:
+                # Make sure that sfunc had no side effects, e.g. a corrupt file
+                # that would lead to duplicate cache files.
+                # As we ensure that there are no duplicate cache files and
+                # because storage functions do not fail upon an existing file,
+                # we can use the hash for deletion; and have to, because we do
+                # not know the file extension ...
+                for bad_fpath in glob.glob(fpath + "*"):
+                    os.remove(bad_fpath)
+                    log.trace("Removed cache file after storage failure: %s",
+                              bad_fpath)
+
+                # Generate an error or warning message
                 msg = ("Failed saving transformation cache file for result of "
                        "type {} using storage function for type(s) {}. Value "
-                       "of result: {}. Additional keyword arguments: {}"
+                       "of result:\n{}.\n\nAdditional keyword arguments: {}"
                        "".format(type(result), types, result, save_kwargs))
                 if raise_on_error:
                     raise RuntimeError(msg) from exc
+                log.warning("%s.\n%s: %s", msg, exc.__class__.__name__, exc)
 
-                log.warning("%s. %s: %s", msg, exc.__class__.__name__, exc)
-                # ... will attempt pickling below
-            
+                # Don't return here; might attempt pickling below or have
+                # another specialized saving method available ...
+
             else:
                 # Success
+                log.trace("Successfully stored cache file for %s.", trf_hash)
                 return True
 
         # Reached the end of the loop without returning -> not saved yet
         if not attempt_pickling:
             return False
-        
+
         # Try to pickle it
         try:
             with open(fpath + ".pkl", mode='wb') as pkl_file:
                 pkl.dump(result, pkl_file,
                          **(pkl_kwargs if pkl_kwargs else {}))
-        
+
         except Exception as exc:
             msg = ("Failed saving transformation cache file. Cannot pickle "
                    "result object of type {} and with value {}. Consider "
@@ -1282,10 +1303,10 @@ class TransformationDAG:
                    "".format(type(result), result))
             if raise_on_error:
                 raise RuntimeError(msg) from exc
-                
             log.warning("%s. %s: %s", msg, exc.__class__.__name__, exc)
-            return False
-        
-        # else: Success
-        return True
 
+            return False
+
+        # else: Success
+        log.trace("Successfully stored cache file for %s.", trf_hash)
+        return True

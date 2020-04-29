@@ -331,7 +331,7 @@ duplicates_and_salted:
         args:
           - !dag_tag zero_raw
         tag: ones
-      
+
       - operation: increment
         args:
           - !dag_tag zero_raw
@@ -394,7 +394,7 @@ numpy_and_xarray_data:
       - increment: [!dag_tag zeros_raw]
         tag: ones
 
-  expected: 
+  expected:
     num_nodes: 3
     num_objects: 5
     tags: [dag, dm, zeros_raw, random_raw, ones]
@@ -423,7 +423,7 @@ numpy_and_xarray_data_2nd_run:
         tag: ones
       - getitem: [!dag_tag dm, cache/dag/50749352642a34a09bfcda6742ee1963]
         tag: ones_tree
-  
+
   expected:
     num_nodes: 3
     num_objects: 5
@@ -448,7 +448,7 @@ numpy_and_xarray_data_3rd_run:
     transform:
       - increment: [!dag_tag zeros_raw]
         tag: ones
-  
+
   expected:
     num_nodes: 2
     num_objects: 4
@@ -497,7 +497,7 @@ file_cache_kwargs_to_transformation:
             enabled: true
             always: true
 
-  expected: 
+  expected:
     num_nodes: 3
     num_objects: 5
     tags: [dag, dm, zeros_raw, ones, twos]
@@ -528,7 +528,7 @@ file_cache_kwargs_to_select:
 
     transform: []
 
-  expected: 
+  expected:
     num_nodes: 4
     num_objects: 6
     tags: [dag, dm, zeros_raw, random_plus_minus]
@@ -561,7 +561,7 @@ file_cache_object_size:
           write:
             min_size: 1
 
-  expected: 
+  expected:
     num_nodes: 3
     num_objects: 5
     tags: [dag, dm, zeros_raw, ones, twos]
@@ -594,7 +594,7 @@ file_cache_min_compute_time:
             min_compute_time: 0.
             min_cumulative_compute_time: ~
 
-  expected: 
+  expected:
     num_nodes: 3
     num_objects: 5
     tags: [dag, dm, zeros_raw, ones, twos]
@@ -625,7 +625,7 @@ file_cache_min_cumulative_compute_time:
           write:
             min_cumulative_compute_time: 0.
 
-  expected: 
+  expected:
     num_nodes: 3
     num_objects: 5
     tags: [dag, dm, zeros_raw, ones, twos]
@@ -662,7 +662,7 @@ file_cache_invariant_hash:
         file_cache:
           read: true
 
-  expected: 
+  expected:
     num_nodes: 5
     num_objects: 5
     tags: [dag, dm, zeros_raw, ones_v1, ones_v2, ones_v3, ones_v4]
@@ -692,7 +692,7 @@ file_cache_with_callable_result:
               raise_on_error: true
         tag: numpy.random.randint
 
-  expected: 
+  expected:
     num_nodes: 2
     num_objects: 4
     tags: [dag, dm, nocache, numpy.random.randint]
@@ -701,8 +701,38 @@ file_cache_with_callable_result:
       - 041086b927535557204b1a16c9026be2.pkl
 
 
+file_cache_pkl_fallback:
+  params:
+    transform:
+      - operation: np.array
+        args: [[1,2,3]]
+        kwargs: {dtype: uint64}  # provokes storage failure with corrupt file
+        tag: arr_uint64
+      - xr.DataArray: {data: !dag_tag arr_uint64}
+        file_cache:
+          read: true
+          write:
+            enabled: true
+            storage_options:
+              attempt_pickling: true
+        tag: arr_uint64_write
+      - xr.DataArray: {data: !dag_tag arr_uint64}
+        file_cache:
+          read: true
+        tag: arr_uint64_read
+
+  expected:
+    num_nodes: 3
+    num_objects: 4
+    tags: [dag, dm, arr_uint64, arr_uint64_write, arr_uint64_read]
+    cache_dir_available: true
+    cache_files:
+      # - <hash>.nc_da from failed storage function call does _not_ exist
+      - ebcd59f88bf3f5a4761d16ef53a6c8b9.pkl  # .pkl shows fallback was used
+
+
 file_cache_error_file_already_loaded:
-  # Use the shared cache to lead to a 
+  # Use the shared cache to lead to a
   cache_dir_name: *shared_cache_dir
   params:
     file_cache_defaults:
@@ -776,7 +806,7 @@ file_cache_error_pickling:
             storage_options:
               attempt_pickling: false
               raise_on_error: true
-      
+
       - operation: getitem
         args: [!dag_tag dm, objects/some_dict]
         tag: some_dict
@@ -826,7 +856,7 @@ file_cache_error_in_save_func:
 
   _raises: RuntimeError
   _raises_on_compute: true
-  _match: Failed saving transformation cache file .* Additional keyword arg.*
+  _match: Failed saving transformation cache file .* using storage function
 
 
 file_cache_error_with_module_as_result:

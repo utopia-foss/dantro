@@ -6,6 +6,7 @@ from pkg_resources import resource_filename
 import pytest
 
 import numpy as np
+import xarray as xr
 
 import dantro
 import dantro.dag as dag
@@ -555,3 +556,50 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
         print("------------------------------------\n")
 
     # All done.
+
+def test_TransformationDAG_specifics(dm, tmpdir):
+    """Tests the TransformationDAG class."""
+    TransformationDAG = dag.TransformationDAG
+
+    # Make sure the DataManager hash is as expected
+    assert dm.hashstr == "38518b2446b95e8834372949a8e9dfc2"
+
+    # Setup the temporary cache directory
+    cache_dir = str(tmpdir.join(".cache"))
+
+    # For some specific cases, need the config parameters
+    test_cfgs = load_yml(TRANSFORMATIONS_PATH)
+
+    # Start with an empty TransformationDAG
+    tdag = TransformationDAG(dm=dm, cache_dir=cache_dir)
+
+
+    # Check cache dir conflicts
+    os.makedirs(cache_dir, exist_ok=True)
+
+    HASH_LEN = dag.FULL_HASH_LENGTH
+    fp_foo = os.path.join(cache_dir, "a"*HASH_LEN + ".foo")
+    fp_bar = os.path.join(cache_dir, "a"*HASH_LEN + ".bar")
+
+    with open(fp_foo, mode='w') as f:
+        f.write("foo")
+    with open(fp_bar, mode='w') as f:
+        f.write("bar")
+
+    with pytest.raises(ValueError, match="duplicate cache file.* hash aaaaa"):
+        tdag.cache_files
+
+    os.remove(fp_foo)
+    assert tdag.cache_files["a"*HASH_LEN]
+    os.remove(fp_bar)
+
+    # Check cache retrieval from pickles, where a second computation should
+    # lead to cache file retrieval
+    tdag = TransformationDAG(dm=dm, cache_dir=cache_dir,
+                             **test_cfgs['file_cache_pkl_fallback']['params'])
+    tdag.compute()
+
+    tdag = TransformationDAG(dm=dm, cache_dir=cache_dir,
+                             **test_cfgs['file_cache_pkl_fallback']['params'])
+    results = tdag.compute()
+    assert isinstance(results['arr_uint64_read'], xr.DataArray)
