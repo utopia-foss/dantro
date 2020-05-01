@@ -2,8 +2,10 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+
 ## v0.13.0
 #### Features and Improvements
+- !158 allows the loading of external property data in the ``GraphGroup`` (#145).
 - Extension of the `data_ops` module:
     - !161 extends the operations database with commonly used operations and makes operations on `np.`, `xr.` and `scipy.` modules easier.
     - !160 adds the `expression` operation for evaluating [`sympy`](https://www.sympy.org/en/index.html) expressions
@@ -16,7 +18,7 @@
 
 
 #### Bug fixes
-- ...
+- !158 fixes a bug (#151) which led to edge property data not being associated correctly with the edges.
 
 
 ## v0.12.5
@@ -30,7 +32,7 @@
 ## v0.12.3
 - !153 adds the DAG-based generic `facet_grid` plot function that wraps [`xarray.plot`](http://xarray.pydata.org/en/stable/plotting.html) functionality and makes plots of high-dimensional data very convenient.
     - !157 extends the `facet_grid` plot function with animation support.
-      This makes it possible to represent one further data dimension via the `frames`` specifier.
+      This makes it possible to represent one further data dimension via the ``frames`` specifier.
     - More information can be found in [the documentation](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html).
 - !154 adds the possibility to dynamically enter or exit animation mode from any `ExternalPlotCreator`-managed plot function.
 - !155 addresses a bug (#141) that prohibited passing containers during initialization of `LabelledDataGroup` objects or objects of derived classes.
