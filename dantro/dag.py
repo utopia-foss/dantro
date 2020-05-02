@@ -990,7 +990,7 @@ class TransformationDAG:
 
         # Compute and collect the results
         for tag in compute_only:
-            log.remark("Computing tag '%s' ...", tag)
+            log.note("Computing tag '%s' ...", tag)
             # Resolve the transformation, then compute the result
             trf = self.objects[self.tags[tag]]
             res = trf.compute()
