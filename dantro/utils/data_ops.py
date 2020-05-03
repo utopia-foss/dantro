@@ -196,8 +196,9 @@ def expression(expr: str, *,
             f"Failed casting the result of expression '{expr}' from "
             f"{type(res)} to {dtype}! This can also be due to free symbols "
             f"remaining in the evaluated expression. Either specify the free "
-            f"symbols or deactivate casting by specifying None as ``dtype`` "
-            f"argument. The expression evaluated to:\n\n    {res}"
+            f"symbols (got: {', '.join(symbols) if symbols else 'none'}) or "
+            f"deactivate casting by specifying None as ``dtype`` argument. "
+            f"The expression evaluated to:\n\n    {res}\n"
         ) from exc
 
 
@@ -503,6 +504,9 @@ _OPERATIONS = KeyOrderedDict({
     'create_mask':          create_mask,
     'where':                where,
     'populate_ndarray':     populate_ndarray,
+
+    # evaluating symbolic expressions using sympy
+    'expression':           expression,
 
     # dantro-specific wrappers around other library's functionality
     'dantro.multi_concat':  multi_concat,
