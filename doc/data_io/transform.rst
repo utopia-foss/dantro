@@ -480,6 +480,36 @@ For example, the transformation with the ``increment`` operation would be transl
     kwargs: {}
     tag: ~
 
+.. _dag_op_hooks_integration:
+
+Operation Hooks
+^^^^^^^^^^^^^^^
+The DAG syntax parser allows attaching additional parsing functions to operations, which can help to supply a more concise syntax.
+These so-called *operation hooks* are described in more detail :ref:`here <dag_op_hooks>`.
+As an example, the ``expression`` operation can be specified much more conveniently with the use of its hook:
+
+.. literalinclude:: ../../tests/cfg/transformations.yml
+    :language: yaml
+    :start-after: ### Start -- dag_op_hooks_expression_basics
+    :end-before:  ### End ---- dag_op_hooks_expression_basics
+    :dedent: 4
+
+If you care to deactivate a hook, set the ``ignore_hooks`` flag for the operation:
+
+.. code-block:: yaml
+
+    operation: some_hooked_operation
+    args: [foo, bar]
+    ignore_hooks: true
+
+.. warning::
+
+    Failing operation hooks will emit a logger warning, informing about the error; they do not raise an exception.
+    While this might not lead to a failure during *parsing*, it might lead to an error during computation, e.g. when you are relying on the hook to have adjusted the operation arguments.
+
+    Depending on the operation arguments, there can be cases where the hook will not be *able* to perform its function because it lacks information that is only available after a computation.
+    In such cases, it's best to deactivate the hook as described above.
+
 
 .. _dag_transform_full_syntax_spec:
 

@@ -434,6 +434,8 @@ def op_hook_expression(operation, *args, **kwargs) -> Tuple[str, list, dict]:
     If the expression contains the ``prev`` or ``previous_result`` symbols,
     the corresponding :py:class:`~dantro._dag_utils.DAGNode` will be added to
     the symbols additionally.
+
+    For more information on operation hooks, see :ref:`dag_op_hooks`.
     """
     # Extract the expression string
     if len(args) == 1:

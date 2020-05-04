@@ -1172,3 +1172,38 @@ doc_examples_op_hooks_expression_prev:
       result:
         type: float64
         compare_to: .5
+
+doc_examples_op_hooks_expression_symbolic:
+  params:
+    ### Start -- dag_op_hooks_expression_symbolic
+    transform:
+      - np.array: [[1, 2, 3]]
+        tag: arr
+      - .mean: !dag_tag arr
+        tag: a
+      - .sum: !dag_tag arr
+        tag: b
+      - define: 10
+        tag: c
+
+      - operation: expression
+        args: [a**2]
+        kwargs:
+          astype: ~
+        tag: equation_one
+      - operation: expression
+        args: [b**2]
+        kwargs:
+          astype: ~
+        tag: equation_two
+
+      - expression: (equation_one + equation_two) * c**2
+        tag: result
+    ### End ---- dag_op_hooks_expression_symbolic
+
+  expected:
+    tags: [dag, dm, arr, a, b, c, equation_one, equation_two, result]
+    results:
+      result:
+        type: float64
+        compare_to: 4000.

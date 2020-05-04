@@ -131,6 +131,20 @@ def expression(expr: str, *,
         You cannot call arbitrary functions, but only those that are imported
         by ``from sympy import *``.
 
+    .. hint::
+
+        When using this expression as part of the :ref:`dag_framework`, it is
+        attached to a so-called :ref:`syntax hook <dag_op_hooks_integration>`
+        that makes it easier to specify the ``symbols`` parameter.
+        See :ref:`here <dag_op_hook_expression>` for more information.
+
+    .. warning::
+
+        While the expression is symbolic math, be aware that smypy by default
+        interprets the ``^`` operator as XOR.
+        For exponentiation, use the``**`` operator or adjust the
+        ``transformations`` argument as specified in the sympy documentation.
+
     .. warning::
 
         The return object of this operation will *only* contain symbolic sympy
