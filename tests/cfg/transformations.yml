@@ -915,7 +915,7 @@ op_hook_deactivated:
             some_zeros: !dag_tag some_zeros
             some_ones: !dag_tag some_ones
         tag: result
-        skip_operation_hook: true
+        ignore_hooks: true
 
   expected:
     num_nodes: 3
@@ -964,15 +964,18 @@ op_hook_expression_advanced:
           symbols:
             exponent: 2
         tag: result1
-      # with previous result
+      # implicitly with previous result
       - expression: prev * 0.01 + some_ones
-        with_previous_result: true
         tag: result2
+      # not failing with explicitly given previous result
+      - expression: previous_result * 0 + prev + result1
+        with_previous_result: true
+        tag: result3
 
   expected:
-    num_nodes: 5
-    num_objects: 6
-    tags: [dag, dm, some_zeros, some_ones, result1, result2]
+    num_nodes: 6
+    num_objects: 7
+    tags: [dag, dm, some_zeros, some_ones, result1, result2, result3]
     results:
       result1:
         type: ndarray
@@ -983,6 +986,11 @@ op_hook_expression_advanced:
         type: ndarray
         attributes:
           mean: 2.
+          shape: [2,3,4]
+      result3:
+        type: ndarray
+        attributes:
+          mean: 102.
           shape: [2,3,4]
 
 op_hook_expression_bad_hook:
@@ -1032,6 +1040,7 @@ op_hook_expression_bad_expression:
 
 
 # Examples in documentation ---------------------------------------------------
+# Partly literal-included
 
 doc_examples_with_previous_result:
   params:
@@ -1111,7 +1120,6 @@ doc_examples_minimal:
   expected:
     tags: [dag, dm, some_data, more_data, my_result]
 
-
 doc_examples_import_and_call:
   params:
     transform:
@@ -1125,3 +1133,42 @@ doc_examples_import_and_call:
 
   expected:
     tags: [dag, dm, random_integers]
+
+doc_examples_op_hooks_expression_basics:
+  params:
+    ### Start -- dag_op_hooks_expression_basics
+    transform:
+      - define: 2
+        tag: a
+      - define: 3
+        tag: b
+      - define: 1.5
+        tag: c
+      - expression: a**b / (c - 1.)
+        tag: result
+    ### End ---- dag_op_hooks_expression_basics
+
+  expected:
+    tags: [dag, dm, a, b, c, result]
+    results:
+      result:
+        type: float64
+        compare_to: 16.
+
+doc_examples_op_hooks_expression_prev:
+  params:
+    ### Start -- dag_op_hooks_expression_prev
+    transform:
+      - define: 3
+        tag: x
+      - define: 2.                       # ... or something more complicated
+      - expression: 1 - prev/(1 + x)     # Reusing ``prev`` here. :tada:
+        tag: result
+    ### End ---- dag_op_hooks_expression_prev
+
+  expected:
+    tags: [dag, dm, x, result]
+    results:
+      result:
+        type: float64
+        compare_to: .5

@@ -295,7 +295,7 @@ def parse_dag_syntax(*, operation: str=None, args: list=None,
                      kwargs: dict=None, tag: str=None,
                      with_previous_result: bool=False,
                      salt: int=None, file_cache: dict=None,
-                     skip_operation_hook: bool=False, **ops) -> dict:
+                     ignore_hooks: bool=False, **ops) -> dict:
     """Given the parameters of a transform operation, possibly in a shorthand
     notation, returns a dict with normalized content by expanding the
     shorthand notation.
@@ -317,8 +317,8 @@ def parse_dag_syntax(*, operation: str=None, args: list=None,
         salt (int, optional): A salt to the Transformation object, thereby
             changing its hash.
         file_cache (dict, optional): File cache parameters
-        skip_operation_hook (bool, optional): If True, there will be no lookup
-            in the operation hooks.
+        ignore_hooks (bool, optional): If True, there will be no lookup in the
+            operation hooks.
         **ops: The operation that is to be carried out. May contain one and
             only one operation.
 
@@ -385,7 +385,7 @@ def parse_dag_syntax(*, operation: str=None, args: list=None,
         args.insert(0, DAGNode(-1))
 
     # Invoke operation-specific hooks
-    if not skip_operation_hook and operation in DAG_PARSER_OPERATION_HOOKS:
+    if not ignore_hooks and operation in DAG_PARSER_OPERATION_HOOKS:
         hook = DAG_PARSER_OPERATION_HOOKS[operation]
         log.remark("Invoking parser hook for operation '%s' ...", operation)
         try:
@@ -393,8 +393,10 @@ def parse_dag_syntax(*, operation: str=None, args: list=None,
         except Exception as exc:
             log.warning("Failed applying operation-specific hook for '%s'! "
                         "Got %s: %s.\nEither correct the error or disable "
-                        "operation hooks using the ``skip_operation_hook`` "
-                        "flag.", operation, exc.__class__.__name__, exc)
+                        "the hook for this operation by setting the "
+                        "``ignore_hooks`` flag. Otherwise, this operation "
+                        "might fail during computation.",
+                        operation, exc.__class__.__name__, exc)
 
     # Done. Construct the dict.
     # Mandatory parameters
@@ -412,19 +414,32 @@ def parse_dag_syntax(*, operation: str=None, args: list=None,
 
 # -----------------------------------------------------------------------------
 # Operation Hooks
+# NOTE:
+#   - Names should follow ``op_hook_<operation-name>``
+#   - A documentation entry should be added in doc/data_io/dag_op_hooks.rst
 
-def _op_hook_expression(operation, *args, **kwargs) -> Tuple[str, list, dict]:
+def op_hook_expression(operation, *args, **kwargs) -> Tuple[str, list, dict]:
     """An operation hook for the ``expression`` operation, attempting to
     auto-detect which symbols are specified in the given expression.
     From those, ``DAGTag`` objects are created, making it more convenient to
     specify an expression that is based on other DAG tags.
+
+    The detected symbols are added to the ``kwargs.symbols``, if no symbol of
+    the same name is already explicitly defined there.
+
+    This hook accepts as positional arguments both the ``(expr,)`` form and
+    the ``(prev_node, expr)`` form, making it more robust when the
+    ``with_previous_result`` flag was set.
+
+    If the expression contains the ``prev`` or ``previous_result`` symbols,
+    the corresponding :py:class:`~dantro._dag_utils.DAGNode` will be added to
+    the symbols additionally.
     """
-    # Find the previous node argument (optional) and the expression string.
-    prev = None
+    # Extract the expression string
     if len(args) == 1:
         expr = args[0]
     elif len(args) == 2:
-        prev, expr = args
+        _, expr = args
     else:
         raise TypeError(
             f"Got unexpected positional arguments: {args}; expected either "
@@ -434,24 +449,25 @@ def _op_hook_expression(operation, *args, **kwargs) -> Tuple[str, list, dict]:
     # Try to extract all symbols from the expression
     all_symbols = _parse_expr(expr, evaluate=False).atoms(sym.Symbol)
 
-    # Some symbols might already be given; only add those that were not given
+    # Some symbols might already be given; only add those that were not given.
+    # Also, convert the ``prev`` and ``previous_result`` symbols the
+    # corresponding DAGNode object
     symbols = kwargs.get('symbols', {})
     for symbol in all_symbols:
         symbol = str(symbol)
         if symbol in symbols:
             log.remark("Symbol '%s' was already specified explicitly! It "
-                       "will not be replaced by a DAGTag.", symbol)
+                       "will not be replaced.", symbol)
             continue
-        symbols[symbol] = DAGTag(symbol)
 
-    # Additionally, add the previous node as a convenience symbol
-    if prev is not None:
-        symbols['prev'] = prev
-        symbols['previous_result'] = prev
+        if symbol in ('prev', 'previous_result'):
+            symbols[symbol] = DAGNode(-1)
+        else:
+            symbols[symbol] = DAGTag(symbol)
 
     # For the case of missing ``symbols`` key, need to write it back to kwargs
     kwargs['symbols'] = symbols
 
     # For args, return _only_ ``expr``, as expected by the operation
     return operation, (expr,), kwargs
-DAG_PARSER_OPERATION_HOOKS['expression'] = _op_hook_expression
+DAG_PARSER_OPERATION_HOOKS['expression'] = op_hook_expression

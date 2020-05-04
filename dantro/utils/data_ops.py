@@ -119,10 +119,11 @@ def expression(expr: str, *,
                astype: Union[type, str]=float):
     """Parses and evaluates a symbolic math expression using SymPy.
 
-    For parsing, :py:func:`sympy.parsing.sympy_parser.parse_expr` is used.
+    For parsing, uses sympy's ``parse_expr`` function (see documentation of the
+    `parsing module <https://docs.sympy.org/latest/modules/parsing.html>`_).
     The ``symbols`` are provided as ``local_dict``; the ``global_dict`` is not
     explicitly set and subsequently uses the sympy default value, containing
-    all basic symbols defined by sympy.
+    all basic sympy symbols and notations.
 
     .. note::
 
@@ -145,9 +146,9 @@ def expression(expr: str, *,
             that no sympy objects are contained in the result. For ensuring
             a fully numerical result, see the ``astype`` argument.
         transformations (Tuple[Callable], optional): The ``transformations``
-            argument for :py:func:`sympy.parsing.sympy_parser.parse_expr`. By
-            default, the sympy standard transformations are performed *plus*
-            XOR conversion (interpreting ``^`` as POW rather than XOR).
+            argument for sympy's ``parse_expr``. By default, the sympy
+            standard transformations are performed *plus* XOR conversion
+            (interpreting ``^`` as POW rather than XOR).
         astype (Union[type, str], optional): If given, performs a cast to this
             data type, fully evaluating all symbolic expressions.
             Default: Python ``float``.
