@@ -8,6 +8,7 @@ from importlib import import_module as _import_module
 from difflib import get_close_matches
 from typing import Callable, Any, Sequence, Union, Tuple, Set
 
+import scipy
 import numpy as np
 import xarray as xr
 
@@ -68,6 +69,30 @@ def print_data(data: Any) -> Any:
 
     return data
 
+def get_from_module(mod, *, name: str):
+    """Retrieves an attribute from a module, if necessary traversing along the
+    module string.
+
+    Args:
+        mod: Module to start looking at
+        name (str): The ``.``-separated module string leading to the desired
+            object.
+    """
+    obj = mod
+
+    for attr_name in name.split("."):
+        try:
+            obj = getattr(obj, attr_name)
+
+        except AttributeError as err:
+            raise AttributeError(
+                f"Failed to retrieve attribute or attribute sequence '{name}' "
+                f"from module '{mod.__name__}'! Intermediate "
+                f"{type(obj).__name__} {obj} has no attribute '{attr_name}'!"
+            ) from err
+
+    return obj
+
 def import_module_or_object(module: str=None, name: str=None):
     """Imports a module or an object using the specified module string and the
     object name.
@@ -92,25 +117,7 @@ def import_module_or_object(module: str=None, name: str=None):
 
     if not name:
         return mod
-
-    # Get the object by traversing along the attributes of the module. By
-    # allowing a name to be a sequence, object imports become more versatile.
-    # The first object to get the name from is the module itself:
-    obj = mod
-
-    for attr_name in name.split("."):
-        try:
-            obj = getattr(obj, attr_name)
-
-        except AttributeError as err:
-            raise AttributeError("Failed to retrieve attribute or attribute "
-                                 "sequence '{}' from module '{}'! "
-                                 "Intermediate {} {} has no attribute '{}'!"
-                                 "".format(name, mod.__name__,
-                                           type(obj).__name__, obj, attr_name)
-                                 ) from err
-
-    return obj
+    return get_from_module(mod, name=name)
 
 
 # .............................................................................
@@ -345,7 +352,7 @@ def create_mask(data: xr.DataArray,
     data = comp_func(data, rhs_value)
 
     # Create a new name
-    name = data.name + " (masked by '{} {}')".format(operator_name, rhs_value)
+    name = data.name + f" (masked by '{operator_name} {rhs_value}')"
 
     # Build a new xr.DataArray from that data, retaining all information
     return xr.DataArray(data=data,
@@ -518,11 +525,18 @@ _OPERATIONS = KeyOrderedDict({
     'define':       lambda d: d,
     'pass':         lambda d: d,
     'print':        print_data,
+    'format':       lambda s, *a, **k: s.format(*a, **k),
 
+    # Working on imported modules (useful if other operations don't match)
+    'from_module':  get_from_module,
     'import':       import_module_or_object,
     'call':         lambda c, *a, **k: c(*a, **k),
     'import_and_call':
         lambda m, n, *a, **k: import_module_or_object(m, n)(*a, **k),
+
+    'np.':          lambda ms, *a, **k: get_from_module(np, ms)(*a, **k),
+    'xr.':          lambda ms, *a, **k: get_from_module(xr, ms)(*a, **k),
+    'scipy.':       lambda ms, *a, **k: get_from_module(scipy, ms)(*a, **k),
 
     # Defining lambdas
     'lambda':       generate_lambda,
@@ -536,6 +550,7 @@ _OPERATIONS = KeyOrderedDict({
 
     'int':          int,
     'float':        float,
+    'complex':      complex,
     'str':          str,
 
     # Item manipulation
@@ -567,6 +582,7 @@ _OPERATIONS = KeyOrderedDict({
     '.base':        lambda d: d.base,
     '.imag':        lambda d: d.imag,
     '.real':        lambda d: d.real,
+    '.nonzero':     lambda d: d.nonzero,
 
     # xarray
     '.head':        lambda d: d.head(),
@@ -605,6 +621,7 @@ _OPERATIONS = KeyOrderedDict({
 
     # numpy
     'power':        lambda d, e: np.power(d, e),
+    'np.dot':       np.dot,
 
     # xarray
     '.coords':      lambda d, key: d.coords[key],
@@ -626,32 +643,60 @@ _OPERATIONS = KeyOrderedDict({
 
     # numpy
     '.sum':         lambda d, **k: d.sum(**k),
+    '.prod':        lambda d, **k: d.prod(**k),
+    '.cumsum':      lambda d, **k: d.cumsum(**k),
+    '.cumprod':     lambda d, **k: d.cumprod(**k),
+
     '.mean':        lambda d, **k: d.mean(**k),
     '.std':         lambda d, **k: d.std(**k),
     '.min':         lambda d, **k: d.min(**k),
     '.max':         lambda d, **k: d.max(**k),
     '.var':         lambda d, **k: d.var(**k),
-    '.prod':        lambda d, **k: d.prod(**k),
+    '.argmin':      lambda d, **k: d.argmin(**k),
+    '.argmax':      lambda d, **k: d.argmax(**k),
+    '.argsort':     lambda d, **k: d.argsort(**k),
+    '.argpartition':lambda d, *a, **k: d.argpartition(*a, **k),
+
     '.take':        lambda d, **k: d.take(**k),
+    '.sort':        lambda d, **k: d.sort(**k),
     '.squeeze':     lambda d, **k: d.squeeze(**k),
     '.reshape':     lambda d, **k: d.reshape(**k),
+    '.flatten':     lambda d, **k: d.flatten(**k),
+    '.fill':        lambda d, **k: d.fill(**k),
+    '.round':       lambda d, **k: d.round(**k),
     '.diagonal':    lambda d, **k: d.diagonal(**k),
     '.trace':       lambda d, **k: d.trace(**k),
     '.transpose':   lambda d, *a: d.transpose(*a),
     '.swapaxes':    lambda d, a1, a2: d.swapaxes(a1, a2),
-
-    'invert':       lambda d, **k: np.invert(d, **k),
-    'transpose':    lambda d, **k: np.transpose(d, **k),
-    'diff':         lambda d, **k: np.diff(d, **k),
-    'reshape':      lambda d, s, **k: np.reshape(d, s, **k),
+    '.astype':      lambda d, t, **k: d.astype(t, **k),
 
     'np.array':     np.array,
     'np.empty':     np.empty,
     'np.zeros':     np.zeros,
     'np.ones':      np.ones,
+    'np.eye':       np.eye,
     'np.arange':    np.arange,
     'np.linspace':  np.linspace,
     'np.logspace':  np.logspace,
+
+    'np.invert':    np.invert,
+    'np.transpose': np.transpose,
+    'np.diff':      np.diff,
+    'np.reshape':   np.reshape,
+    'np.take':      np.take,
+    'np.repeat':    np.repeat,
+    'np.stack':     np.stack,
+    'np.hstack':    np.hstack,
+    'np.vstack':    np.vstack,
+    'np.concatenate':   np.concatenate,
+
+    'np.ceil':      np.ceil,
+    'np.floor':     np.floor,
+    'np.round':     np.round,
+
+    'np.where':     np.where,
+    'np.digitize':  np.digitize,
+    'np.histogram': np.histogram,
 
     # xarray
     '.sel':         lambda d, **k: d.sel(**k),
@@ -662,17 +707,29 @@ _OPERATIONS = KeyOrderedDict({
     '.argmax':      lambda d, **k: d.argmax(**k),
     '.count':       lambda d, **k: d.count(**k),
     '.diff':        lambda d, **k: d.diff(**k),
+    '.where':       lambda d, c, *a, **k: d.where(c, *a, **k),
+
+    '.groupby':         lambda d, g, **k: d.groupby(g, **k),
+    '.groupby_bins':    lambda d, g, **k: d.groupby_bins(g, **k),
+    '.map':             lambda ds, func, **k: ds.map(func, **k),
+    '.reduce':          lambda ds, func, **k: ds.reduce(func, **k),
 
     '.expand_dims':     lambda d, **k: d.expand_dims(**k),
     '.assign_coords':   lambda d, **k: d.assign_coords(**k),
 
-    'xr.Dataset':   xr.Dataset,
-    'xr.DataArray': xr.DataArray,
-    'xr.merge':     xr.merge,
-    'xr.concat':    xr.concat,
+    'xr.Dataset':       xr.Dataset,
+    'xr.DataArray':     xr.DataArray,
+    'xr.zeros_like':    xr.zeros_like,
+    'xr.ones_like':     xr.ones_like,
+
+    'xr.merge':             xr.merge,
+    'xr.concat':            xr.concat,
+    'xr.align':             xr.align,
+    'xr.combine_nested':    xr.combine_nested,
+    'xr.combine_by_coords': xr.combine_by_coords,
 
     # scipy
-    'curve_fit':    scipy.optimize.curve_fit,
+    'curve_fit':        scipy.optimize.curve_fit,
     # NOTE: Use the 'lambda' operation to generate the callable
 }) # End of default operation definitions
 
@@ -690,8 +747,8 @@ def register_operation(*, name: str, func: Callable,
     Args:
         name (str): The name of the operation
         func (Callable): The callable
-        skip_existing (bool, optional): Description
-        overwrite_existing (bool, optional): Description
+        skip_existing (bool, optional): TODO
+        overwrite_existing (bool, optional): TODO
 
     Raises:
         TypeError: On invalid name or non-callable for the func argument
