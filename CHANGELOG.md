@@ -2,6 +2,9 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.12.5
+- !159 fixes a bug (#147) which led to duplicate DAG cache files after a storage function error.
+
 ## v0.12.4
 - !151 adds documentation of the `GraphGroup`.
 
