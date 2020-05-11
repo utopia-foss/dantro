@@ -303,10 +303,9 @@ def test_op_expression():
     assert expr("(foo - bar)*0 + 1") == 1
     assert expr("(foo - bar)*0 + 1", evaluate=False) == 1
 
-    # XOR operator ^ is converted to POW (**) for convenience
+    # XOR operator ^ is _not_ converted to exponentiation
     assert expr("2**3") == 8
-    assert expr("2^3") == 8
-    assert expr("2^3", transformations=None) == 1  # == 2 XOR 3
+    assert expr("true^false", astype=bool) == True
 
     # Expressions that retain free symbols cannot be fully evaluated
     with pytest.raises(TypeError, match="Failed casting.*free symbols.*"):
@@ -323,7 +322,7 @@ def test_op_expression():
     a3 = arrs['a3'] = np.array([[1, 2], [3, 4]])
 
     assert (expr("a1 + a2 / 2", symbols=arrs) == a1 + a2 / 2).all()
-    assert np.allclose(expr("a1^exp(3)", symbols=arrs), a1 ** np.exp(3))
+    assert np.allclose(expr("a1 ** exp(3)", symbols=arrs), a1 ** np.exp(3))
 
     # --- Advanced features ---
     # List definition ...

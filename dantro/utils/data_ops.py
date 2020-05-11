@@ -11,8 +11,7 @@ import xarray as xr
 
 import sympy as sym
 from sympy.parsing.sympy_parser import (parse_expr as _parse_expr,
-                                        standard_transformations as _std_trf,
-                                        convert_xor as _convert_xor)
+                                        standard_transformations as _std_trf)
 
 from .ordereddict import KeyOrderedDict
 from ..base import BaseDataContainer, BaseDataGroup
@@ -115,7 +114,7 @@ def import_module_or_object(module: str=None, name: str=None):
 def expression(expr: str, *,
                symbols: dict=None,
                evaluate: bool=True,
-               transformations: Tuple[Callable]=(_std_trf + (_convert_xor,)),
+               transformations: Tuple[Callable]=_std_trf,
                astype: Union[type, str]=float):
     """Parses and evaluates a symbolic math expression using SymPy.
 
@@ -147,6 +146,14 @@ def expression(expr: str, *,
 
     .. warning::
 
+        While the expression is symbolic math, it uses the ``**`` operator for
+        exponentiation, unless a custom ``transformations`` argument is given
+        via the ``parse_kwargs``.
+
+        The ``^`` operator will lead to an XOR operation being performed!
+
+    .. warning::
+
         The return object of this operation will *only* contain symbolic sympy
         objects if ``astype is None``. Otherwise, the type cast will evaluate
         all symbolic objects to the numerical equivalent specified by the given
@@ -161,8 +168,7 @@ def expression(expr: str, *,
             a fully numerical result, see the ``astype`` argument.
         transformations (Tuple[Callable], optional): The ``transformations``
             argument for sympy's ``parse_expr``. By default, the sympy
-            standard transformations are performed *plus* XOR conversion
-            (interpreting ``^`` as POW rather than XOR).
+            standard transformations are performed.
         astype (Union[type, str], optional): If given, performs a cast to this
             data type, fully evaluating all symbolic expressions.
             Default: Python ``float``.
@@ -190,7 +196,8 @@ def expression(expr: str, *,
             f"{exc.__class__.__name__}: {exc}. Check that the expression can "
             f"be evaluated with the available symbols "
             f"({', '.join(symbols) if symbols else 'none specified'}) "
-            f"and inspect the chained exceptions for more information."
+            f"and inspect the chained exceptions for more information. Parse "
+            f"arguments were: {parse_kwargs}"
         ) from exc
 
     # Finished here if no type cast is desired
@@ -522,6 +529,7 @@ _OPERATIONS = KeyOrderedDict({
 
     # evaluating symbolic expressions using sympy
     'expression':           expression,
+    # NOTE: The `^` operator acts as XOR; use `**` for exponentiation!
 
     # dantro-specific wrappers around other library's functionality
     'dantro.multi_concat':  multi_concat,
