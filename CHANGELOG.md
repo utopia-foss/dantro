@@ -2,6 +2,19 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.13.0
+#### Features
+- Extension of the `data_ops` module:
+    - !160 adds the `expression` operation for evaluating [`sympy`](https://www.sympy.org/en/index.html) expressions
+    - ...
+- !160 adds [DAG syntax parsers](https://dantro.readthedocs.io/en/latest/data_io/dag_op_hooks.html) that can simplify DAG specification.
+  Currently, this includes only a parser for the `expression` operation (#149).
+
+
+#### Bug fixes
+- ...
+
+
 ## v0.12.5
 - !159 fixes a bug (#147) which led to duplicate DAG cache files after a storage function error.
 

@@ -6,6 +6,7 @@ import pytest
 
 import numpy as np
 import xarray as xr
+import sympy as sym
 
 import dantro
 from dantro.groups import OrderedDataGroup
@@ -26,7 +27,7 @@ def darrs() -> np.ndarray:
                          data=np.random.randint(0,10, size=(1,2,3)),
                          dims=('a', 'x', 'y'),
                          coords=dict(a=[1], x=[0, 1], y=[0, 1, 2]))
-    
+
     a = np.empty((2,1,1), dtype=object)
     a[0,0,0] = da000
     a[1,0,0] = da100
@@ -81,7 +82,7 @@ def test_register_operation():
     # Remove the test entry again
     del OPERATIONS['op_foobar']
     assert 'op_foobar' not in OPERATIONS
-    
+
 
 def test_apply_operation():
     """Test operation application"""
@@ -94,7 +95,7 @@ def test_apply_operation():
     # ... and check that a list of available operations is posted
     with pytest.raises(ValueError, match="  - getitem"):
         apply_operation("addd")
-    
+
     # Test application failure error message
     with pytest.raises(RuntimeError,
                        match="Failed applying operation 'add'! Got a "
@@ -185,7 +186,7 @@ def test_op_where():
 
     da_all_nan = dops.where(da, "<", 0.)
     assert np.isnan(da_all_nan).all()
-    
+
     da_no_nan = dops.where(da, "<=", 1.0)
     assert not np.isnan(da_no_nan).any()
 
@@ -217,7 +218,7 @@ def test_op_populate_ndarray():
     # Argument mismatch should raise
     with pytest.raises(ValueError, match="Mismatch between array size"):
         dops.populate_ndarray(1,2,3,4,5, shape=(2,3))
-    
+
     with pytest.raises(ValueError, match="Mismatch between array size"):
         dops.populate_ndarray(1,2,3,4,5,6,7, shape=(2,3))
 
@@ -243,7 +244,7 @@ def test_op_multi_concat(darrs):
     # number of array dimensions, an error should be raised
     with pytest.raises(ValueError, match="did not match the number of dimens"):
         dops.multi_concat(darrs.squeeze(), dims=('b', 'c', 'd'))
-    
+
     with pytest.raises(ValueError, match="did not match the number of dimens"):
         dops.multi_concat(darrs, dims=('b',))
 
@@ -286,3 +287,67 @@ def test_op_expand_dims():
     print(da_e2)
     assert da_e2.dims == ('a', 'dim_0', 'dim_1')
     assert (da_e2.coords['a'] == [0]).all()
+
+def test_op_expression():
+    """Tests the ``expression`` data operation"""
+    expr = dops.expression
+
+    # Basics
+    assert expr("1 + 2*3 / (4 - 5)") == -5.
+    assert expr("1 + 2*3 / (4 - five)", symbols=dict(five=5)) == -5.
+    assert expr("1 + 2*3 / (4 - 5) + .1", astype=int) == -4
+    assert expr("1 + 2*3 / (4 - 5) + .1", astype='uint8') == 256 - 4
+
+    # ... also works with expr evaluating to a literal type
+    assert expr("foo - foo") == 0
+    assert expr("(foo - bar)*0 + 1") == 1
+    assert expr("(foo - bar)*0 + 1", evaluate=False) == 1
+
+    # XOR operator ^ is _not_ converted to exponentiation
+    assert expr("2**3") == 8
+    assert expr("true^false", astype=bool) == True
+
+    # Expressions that retain free symbols cannot be fully evaluated
+    with pytest.raises(TypeError, match="Failed casting.*free symbols.*"):
+        expr("foo + bar", symbols=dict(foo=1))
+
+    # ... unless they do _not_ specify a dtype
+    assert (   expr("foo + bar", symbols=dict(foo=1), astype=None).free_symbols
+            == {sym.Symbol("bar")})
+
+    # --- Array support ---
+    arrs = dict()
+    a1 = arrs['a1'] = np.array([1, 2, 3])
+    a2 = arrs['a2'] = np.array([.1, .2, .3])
+    a3 = arrs['a3'] = np.array([[1, 2], [3, 4]])
+
+    assert (expr("a1 + a2 / 2", symbols=arrs) == a1 + a2 / 2).all()
+    assert np.allclose(expr("a1 ** exp(3)", symbols=arrs), a1 ** np.exp(3))
+
+    # --- Advanced features ---
+    # List definition ...
+    assert (expr("[1,2,3]") == [1,2,3]).all()
+    assert (expr("[1,2,3] * 2") == [1,2,3,1,2,3]).all()
+    assert (expr("[1,2,3] * foo", symbols=dict(foo=2)) == [1,2,3,1,2,3]).all()
+    assert (expr("[1,2,3]", evaluate=False) == [1,2,3]).all()
+
+    # ... does not work with free or unevaluated symbols, though
+    with pytest.raises(ValueError, match="can't multiply sequence by non-int"):
+        expr("[1,2,3] * foo")
+    with pytest.raises(ValueError, match="SympifyError"):
+        expr("[1,2,3] * foo", symbols=dict(foo=2), evaluate=False)
+    with pytest.raises(ValueError, match="SympifyError"):
+        expr("[1,2,3] * foo", evaluate=False)
+
+    # Item access ...
+    assert expr("[foo, bar][i]", symbols=dict(i=1, bar=42)) == 42
+
+    # Attribute access ...
+    assert expr("a1.ndim + a2.size", symbols=arrs) == 4
+    assert expr("a1.ndim + a2.size", symbols=arrs, evaluate=False) == 4
+
+    # ... will fail without symbols being specified
+    with pytest.raises(ValueError, match="Failed parsing.*none specified.*"):
+        expr("a1.ndim + a2.size")
+    with pytest.raises(ValueError, match="Failed parsing.*a1.*"):
+        expr("a1.ndim + a2.size", symbols=dict(a1=a1))

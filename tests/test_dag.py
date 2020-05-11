@@ -361,6 +361,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
     # Go over all configured tests
     for name, cfg in transformation_test_cfgs.items():
         # Extract specification and expected values etc
+        print("-"*80)
         print("Testing transformation DAG case '{}' ...".format(name))
 
         # Extract arguments
@@ -553,7 +554,6 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
                 assert res == to_check['compare_to']
 
         print("All computation results as expected.\n")
-        print("------------------------------------\n")
 
     # All done.
 

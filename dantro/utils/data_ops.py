@@ -4,10 +4,14 @@ import logging
 import operator
 from importlib import import_module as _import_module
 from difflib import get_close_matches
-from typing import Callable, Any, Sequence, Union
+from typing import Callable, Any, Sequence, Union, Tuple, Set
 
 import numpy as np
 import xarray as xr
+
+import sympy as sym
+from sympy.parsing.sympy_parser import (parse_expr as _parse_expr,
+                                        standard_transformations as _std_trf)
 
 from .ordereddict import KeyOrderedDict
 from ..base import BaseDataContainer, BaseDataGroup
@@ -18,9 +22,11 @@ log = logging.getLogger(__name__)
 
 
 # -----------------------------------------------------------------------------
-# Some general helper operations
+# Operation Implementations
+# NOTE Operations should use only logger levels <= REMARK
 
-# Define boolean operators separately (might be useful elsewhere) & register
+
+# Define boolean operators separately; registered into _OPERATIONS below
 BOOLEAN_OPERATORS = {
     '==': operator.eq,  'eq': operator.eq,
     '<':  operator.lt,  'lt': operator.lt,
@@ -48,7 +54,7 @@ def print_data(data: Any) -> Any:
     # Distinguish between dantro types and others
     if isinstance(data, BaseDataContainer):
         print("{}, with data:\n{}\n".format(data, data.data))
-    
+
     elif isinstance(data, BaseDataGroup):
         print("{}\n".format(data.tree))
 
@@ -60,7 +66,7 @@ def print_data(data: Any) -> Any:
 def import_module_or_object(module: str=None, name: str=None):
     """Imports a module or an object using the specified module string and the
     object name.
-    
+
     Args:
         module (str, optional): A module string, e.g. numpy.random. If this is
             not given, it will import from the :py:mod`builtins` module. Also,
@@ -68,10 +74,10 @@ def import_module_or_object(module: str=None, name: str=None):
         name (str, optional): The name of the object to retrieve from the
             chosen module and return. This may also be a dot-separated sequence
             of attribute names which can be used to traverse along attributes.
-    
+
     Returns:
         The chosen module or object, i.e. the object found at <module>.<name>
-    
+
     Raises:
         AttributeError: In cases where part of the ``name`` argument could not
             be resolved due to a bad attribute name.
@@ -90,7 +96,7 @@ def import_module_or_object(module: str=None, name: str=None):
     for attr_name in name.split("."):
         try:
             obj = getattr(obj, attr_name)
-        
+
         except AttributeError as err:
             raise AttributeError("Failed to retrieve attribute or attribute "
                                  "sequence '{}' from module '{}'! "
@@ -103,6 +109,122 @@ def import_module_or_object(module: str=None, name: str=None):
 
 
 # .............................................................................
+# symbolic math and expression parsing
+
+def expression(expr: str, *,
+               symbols: dict=None,
+               evaluate: bool=True,
+               transformations: Tuple[Callable]=_std_trf,
+               astype: Union[type, str]=float):
+    """Parses and evaluates a symbolic math expression using SymPy.
+
+    For parsing, uses sympy's ``parse_expr`` function (see documentation of the
+    `parsing module <https://docs.sympy.org/latest/modules/parsing.html>`_).
+    The ``symbols`` are provided as ``local_dict``; the ``global_dict`` is not
+    explicitly set and subsequently uses the sympy default value, containing
+    all basic sympy symbols and notations.
+
+    .. note::
+
+        The expression given here is not Python code, but symbolic math.
+        You cannot call arbitrary functions, but only those that are imported
+        by ``from sympy import *``.
+
+    .. hint::
+
+        When using this expression as part of the :ref:`dag_framework`, it is
+        attached to a so-called :ref:`syntax hook <dag_op_hooks_integration>`
+        that makes it easier to specify the ``symbols`` parameter.
+        See :ref:`here <dag_op_hook_expression>` for more information.
+
+    .. warning::
+
+        While the expression is symbolic math, be aware that smypy by default
+        interprets the ``^`` operator as XOR.
+        For exponentiation, use the``**`` operator or adjust the
+        ``transformations`` argument as specified in the sympy documentation.
+
+    .. warning::
+
+        While the expression is symbolic math, it uses the ``**`` operator for
+        exponentiation, unless a custom ``transformations`` argument is given
+        via the ``parse_kwargs``.
+
+        The ``^`` operator will lead to an XOR operation being performed!
+
+    .. warning::
+
+        The return object of this operation will *only* contain symbolic sympy
+        objects if ``astype is None``. Otherwise, the type cast will evaluate
+        all symbolic objects to the numerical equivalent specified by the given
+        ``astype``.
+
+    Args:
+        expr (str): The expression to evaluate
+        symbols (dict, optional): The symbols to use
+        evaluate (bool, optional): Controls whether sympy evaluates ``expr``.
+            This *may* lead to a fully evaluated result, but does not guarantee
+            that no sympy objects are contained in the result. For ensuring
+            a fully numerical result, see the ``astype`` argument.
+        transformations (Tuple[Callable], optional): The ``transformations``
+            argument for sympy's ``parse_expr``. By default, the sympy
+            standard transformations are performed.
+        astype (Union[type, str], optional): If given, performs a cast to this
+            data type, fully evaluating all symbolic expressions.
+            Default: Python ``float``.
+
+    Raises:
+        TypeError: Upon failing ``astype`` cast, e.g. due to free symbols
+            remaining in the evaluated expression.
+        ValueError: When parsing of ``expr`` failed.
+
+    Returns:
+        The result of the evaluated expression.
+    """
+    log.remark("Evaluating symbolic expression:  %s", expr)
+
+    symbols = symbols if symbols else {}
+    parse_kwargs = dict(evaluate=evaluate, transformations=transformations)
+
+    # Now, parse the expression
+    try:
+        res = _parse_expr(expr, local_dict=symbols, **parse_kwargs)
+
+    except Exception as exc:
+        raise ValueError(
+            f"Failed parsing expression '{expr}'! Got a "
+            f"{exc.__class__.__name__}: {exc}. Check that the expression can "
+            f"be evaluated with the available symbols "
+            f"({', '.join(symbols) if symbols else 'none specified'}) "
+            f"and inspect the chained exceptions for more information. Parse "
+            f"arguments were: {parse_kwargs}"
+        ) from exc
+
+    # Finished here if no type cast is desired
+    if astype is None:
+        return res
+
+    # If full evaluation is desired, do so via a numpy type cast. This works on
+    # all sympy objects, but _importantly_ also works on numpy arrays
+    # containing sympy objects.
+    dtype = np.dtype(astype)
+    log.debug("Applying %s ...", dtype)
+
+    try:
+        return dtype.type(res)
+
+    except Exception as exc:
+        raise TypeError(
+            f"Failed casting the result of expression '{expr}' from "
+            f"{type(res)} to {dtype}! This can also be due to free symbols "
+            f"remaining in the evaluated expression. Either specify the free "
+            f"symbols (got: {', '.join(symbols) if symbols else 'none'}) or "
+            f"deactivate casting by specifying None as ``dtype`` argument. "
+            f"The expression evaluated to:\n\n    {res}\n"
+        ) from exc
+
+
+# .............................................................................
 # numpy and xarray operations
 
 def create_mask(data: xr.DataArray,
@@ -110,17 +232,17 @@ def create_mask(data: xr.DataArray,
                 rhs_value: float) -> xr.DataArray:
     """Given the data, returns a binary mask by applying the following
     comparison: ``data <operator> rhs value``.
-    
+
     Args:
         data (xr.DataArray): The data to apply the comparison to. This is the
             lhs of the comparison.
         operator_name (str): The name of the binary operator function as
             registered in the ``BOOLEAN_OPERATORS`` constant.
         rhs_value (float): The right-hand-side value
-    
+
     Raises:
         KeyError: On invalid operator name
-    
+
     Returns:
         xr.DataArray: Boolean mask
     """
@@ -179,16 +301,16 @@ def count_unique(data) -> xr.DataArray:
 def populate_ndarray(*objs, shape: tuple, dtype: str='float', order: str='C'
                      ) -> np.ndarray:
     """Populates an empty np.ndarray of the given dtype with the objects.
-    
+
     Args:
-        *objs: The objects to add to the 
+        *objs: The objects to add to the
         shape (tuple): The shape of the new array
         dtype (str, optional): Data type of the new array
         order (str, optional): Order of the new array
-    
+
     Returns:
         np.ndarray: The newly created and populated array
-    
+
     Raises:
         ValueError: If the number of given objects did not match the array size
     """
@@ -205,7 +327,6 @@ def populate_ndarray(*objs, shape: tuple, dtype: str='float', order: str='C'
 
     return arr
 
-
 def multi_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> xr.DataArray:
     """Concatenates ``xr.Dataset`` or ``xr.DataArray`` objects using
     ``xr.concat``. This function expects the xarray objects to be pre-aligned
@@ -220,7 +341,7 @@ def multi_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> xr.DataArray:
 
     For the sequential application of ``xr.concat`` along the outer dimensions,
     the custom :py:func:`dantro.tools.apply_along_axis` is used.
-    
+
     Args:
         arrs (np.ndarray): The array containing xarray objects which are to be
             concatenated. Each array dimension should correspond to one of the
@@ -234,7 +355,7 @@ def multi_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> xr.DataArray:
             operation, the name is passed along to ``xr.concat`` where it is
             used to select the dimension of the *content* of ``arrs`` along
             which concatenation should occur.
-    
+
     Raises:
         ValueError: If number of dimension names does not match the number of
             data dimensions.
@@ -277,7 +398,7 @@ def merge(arrs: Union[Sequence[Union[xr.DataArray, xr.Dataset]], np.ndarray],
 
     if not reduce_to_array:
         return dset
-    
+
     elif len(dset.data_vars) != 1:
         raise ValueError("Can only reduce the Dataset resulting from the "
                          "xr.merge operation to a DataArray if one and only "
@@ -291,7 +412,6 @@ def merge(arrs: Union[Sequence[Union[xr.DataArray, xr.Dataset]], np.ndarray],
     #      includes the name of the data variable as another coordinate. This
     #      is not desired, because it is not relevant.
     return darr
-
 
 def expand_dims(d: Any, *, dim: dict=None, **kwargs) -> xr.DataArray:
     """Expands the dimensions of the given object.
@@ -310,7 +430,7 @@ def expand_dims(d: Any, *, dim: dict=None, **kwargs) -> xr.DataArray:
 # NOTE If a single "object to act upon" can be reasonably defined for an
 #      operation, it should be accepted as the first positional argument.
 _OPERATIONS = KeyOrderedDict({
-    # General operations - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    # General operations - - - - - - - - - - - - - - - - - - - - - - - - - - -
     'define':       lambda d: d,
     'pass':         lambda d: d,
     'print':        print_data,
@@ -329,7 +449,7 @@ _OPERATIONS = KeyOrderedDict({
     'int':          int,
     'float':        float,
     'str':          str,
-    
+
     # Item manipulation
     'getitem':      lambda d, k:    d[k],
     'setitem':      lambda d, k, v: d.__setitem__(k, v),
@@ -338,14 +458,14 @@ _OPERATIONS = KeyOrderedDict({
     'getattr':      getattr,
     'setattr':      setattr,
     'callattr':     lambda d, attr, *a, **k: getattr(d, attr)(*a, **k),
-    
 
-    # Numerical operations - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+    # Numerical operations - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Unary ...................................................................
     'increment':    lambda d: d + 1,
     'decrement':    lambda d: d - 1,
     'count_unique': count_unique,
-    
+
     # numpy
     '.T':           lambda d: d.T,
     '.any':         lambda d: d.any(),
@@ -407,6 +527,10 @@ _OPERATIONS = KeyOrderedDict({
     'where':                where,
     'populate_ndarray':     populate_ndarray,
 
+    # evaluating symbolic expressions using sympy
+    'expression':           expression,
+    # NOTE: The `^` operator acts as XOR; use `**` for exponentiation!
+
     # dantro-specific wrappers around other library's functionality
     'dantro.multi_concat':  multi_concat,
     'dantro.merge':         merge,
@@ -440,7 +564,7 @@ _OPERATIONS = KeyOrderedDict({
     'np.arange':    np.arange,
     'np.linspace':  np.linspace,
     'np.logspace':  np.logspace,
-    
+
     # xarray
     '.sel':         lambda d, **k: d.sel(**k),
     '.isel':        lambda d, **k: d.isel(**k),
@@ -470,13 +594,13 @@ def register_operation(*, name: str, func: Callable,
                        skip_existing: bool=False,
                        overwrite_existing: bool=False) -> None:
     """Adds an entry to the shared OPERATIONS registry.
-    
+
     Args:
         name (str): The name of the operation
         func (Callable): The callable
         skip_existing (bool, optional): Description
         overwrite_existing (bool, optional): Description
-    
+
     Raises:
         TypeError: On invalid name or non-callable for the func argument
         ValueError: On already existing operation name and no skipping or
@@ -492,7 +616,7 @@ def register_operation(*, name: str, func: Callable,
     elif not callable(func):
         raise TypeError("The given {} for operation '{}' is not callable! "
                         "".format(func, name))
-    
+
     elif not isinstance(name, str):
         raise TypeError("Operation name need be a string, was {} with value "
                         "{}!".format(type(name), name))
@@ -502,7 +626,7 @@ def register_operation(*, name: str, func: Callable,
 def apply_operation(op_name: str, *op_args, _log_level: int=5,
                     **op_kwargs) -> Any:
     """Apply an operation with the given arguments and then return it.
-    
+
     Args:
         op_name (str): The name of the operation to carry out; need to be part
             of the OPERATIONS database.
@@ -510,10 +634,10 @@ def apply_operation(op_name: str, *op_args, _log_level: int=5,
         _log_level (int, optional): Log level of the log messages created by
             this function.
         **op_kwargs: The keyword arguments to the operation
-    
+
     Returns:
         Any: The result of the operation
-    
+
     Raises:
         KeyError: On invalid operation name. This also suggests possible other
             names that might match.
@@ -551,13 +675,13 @@ def apply_operation(op_name: str, *op_args, _log_level: int=5,
 
 def available_operations(*, match: str=None, n: int=5) -> Sequence[str]:
     """Returns all available operation names or a fuzzy-matched subset of them.
-    
+
     Args:
         match (str, optional): If given, fuzzy-matches the names and only
             returns close matches to this name.
         n (int, optional): Number of close matches to return. Passed on to
             difflib.get_close_matches
-    
+
     Returns:
         Sequence[str]: All available operation names or the matched subset.
             The sequence is sorted alphabetically.
