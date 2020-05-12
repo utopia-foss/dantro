@@ -7,6 +7,7 @@
 - Extension of the `data_ops` module:
     - !160 adds the `expression` operation for evaluating [`sympy`](https://www.sympy.org/en/index.html) expressions
     - ...
+- !164 extends the [DAG minimal syntax](https://dantro.readthedocs.io/en/latest/data_io/transform.html#minimal-syntax) to allow specifying both positional and keyword arguments.
 - !160 adds [DAG syntax parsers](https://dantro.readthedocs.io/en/latest/data_io/dag_op_hooks.html) that can simplify DAG specification.
   Currently, this includes only a parser for the `expression` operation (#149).
 

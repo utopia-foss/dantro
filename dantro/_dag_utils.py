@@ -326,8 +326,23 @@ def parse_dag_syntax(*, operation: str=None, args: list=None,
         dict: The normalized dict of transform parameters.
 
     Raises:
-        ValueError: For len(ops) != 1
+        ValueError: For invalid notation, e.g. unambiguous specification of
+            arguments or the operation.
     """
+    def _raise_error(mode: type, *, operation: str, op_params):
+        if mode is dict:
+            kind, arg_name = "keyword", "kwargs"
+        else:
+            kind, arg_name = "positional", "args"
+
+        raise ValueError(
+            f"Got superfluous `{arg_name}` argument!"
+            f"When specifying {kind} arguments via the shorthand notation "
+            f"('{operation}: {op_params}'), there can be no additional "
+            f"`{arg_name}` argument specified! Remove that argument or merge "
+            f"its content with the arguments specified via the shorthand."
+        )
+
     # Distinguish between explicit and shorthand mode
     if operation and not ops:
         # Explicit parametrization
@@ -337,33 +352,39 @@ def parse_dag_syntax(*, operation: str=None, args: list=None,
     elif ops and not operation:
         # Shorthand parametrization
         # Make sure there are no stray argument
-        if args is not None or kwargs is not None:
-            raise ValueError("When using shorthand notation, the args and "
-                             "kwargs need to be specified under the key that "
-                             "specifies the operation!")
-
-        elif len(ops) > 1:
+        if len(ops) > 1:
             raise ValueError("For shorthand notation, there can only be a "
-                             "single operation specified, but got: {}."
-                             "".format(ops))
+                             "single operation specified, but got multiple "
+                             f"operations: {ops}")
 
         # Extract operation name and parameters
         operation, op_params = list(ops.items())[0]
 
-        # Depending on type, regard parameters as args or kwargs. If
-        # the argument is not a container, assume it's a single
-        # positional argument.
+        # Depending on type, regard parameters as args or kwargs. If the
+        # argument is not a container, assume it's a single positional
+        # argument. The arguments that are not specified by op_params will be
+        # set from the existing
         if isinstance(op_params, dict):
-            args, kwargs = [], op_params
+            if kwargs:
+                _raise_error(dict, operation=operation, op_params=op_params)
+            args = args if args else []
+            kwargs = op_params
 
         elif isinstance(op_params, (list, tuple)):
-            args, kwargs = list(op_params), {}
+            if args:
+                _raise_error(list, operation=operation, op_params=op_params)
+            args = list(op_params)
+            kwargs = kwargs if kwargs else {}
 
         elif op_params is not None:
-            args, kwargs = [op_params], {}
+            if args:
+                _raise_error(list, operation=operation, op_params=op_params)
+            args = [op_params]
+            kwargs = kwargs if kwargs else {}
 
         else:
-            args, kwargs = [], {}
+            args = args if args else []
+            kwargs = kwargs if kwargs else {}
 
     elif not operation and not ops:
         raise ValueError("Missing operation specification. Either use the "
@@ -372,10 +393,9 @@ def parse_dag_syntax(*, operation: str=None, args: list=None,
                          "key and adding the arguments to it as values.")
 
     else:
-        raise ValueError("Got two specifications of operations, one via the "
-                         "`operation` argument ({}), another via the "
-                         "shorthand notation ({}). Remove one of them."
-                         "".format(operation, ops))
+        raise ValueError(f"Got two specifications of operations, one via the "
+                         f"`operation` argument ('{operation}'), another via "
+                         f"the shorthand notation ({ops}). Remove one!")
 
     # Have variables operation, args, and kwargs set now.
 
