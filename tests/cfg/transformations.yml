@@ -1107,6 +1107,7 @@ doc_examples_select_with_transform:
 
 doc_examples_minimal:
   params:
+    ### Start -- dag_minimal_syntax
     select:
       some_data: path/to/some_data
       more_data: path/to/more_data
@@ -1116,6 +1117,7 @@ doc_examples_minimal:
       - print
       - power: [!dag_prev , 4]
         tag: my_result
+    ### End ---- dag_minimal_syntax
 
   expected:
     tags: [dag, dm, some_data, more_data, my_result]
@@ -1133,6 +1135,44 @@ doc_examples_import_and_call:
 
   expected:
     tags: [dag, dm, random_integers]
+
+doc_examples_op_hooks_expression_minimal:
+  params:
+    ### Start -- dag_op_hooks_expression_minimal
+    select:
+      some_data: path/to/some_data
+      more_data: path/to/more_data
+    transform:
+      - expression: (some_data + more_data + 1) ** 4
+        tag: my_result
+    ### End ---- dag_op_hooks_expression_minimal
+
+  expected:
+    tags: [dag, dm, some_data, more_data, my_result]
+    results:
+      my_result:
+        type: ndarray
+
+doc_examples_op_hooks_expression_expanded_minimal:
+  params:
+    ### Start -- dag_op_hooks_expression_expanded_minimal
+    select:
+      some_data: path/to/some_data
+      more_data: path/to/more_data
+    transform:
+      - expression: (some_data + more_data + 1) ** 4
+        kwargs:
+          symbols:
+            some_data: !dag_tag some_data
+            more_data: !dag_tag more_data
+        tag: my_result
+    ### End ---- dag_op_hooks_expression_expanded_minimal
+
+  expected:
+    tags: [dag, dm, some_data, more_data, my_result]
+    results:
+      my_result:
+        type: ndarray
 
 doc_examples_op_hooks_expression_basics:
   params:

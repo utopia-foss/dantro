@@ -435,43 +435,47 @@ However, transformation nodes can also be added after initialization using the f
 
 Minimal Syntax
 ^^^^^^^^^^^^^^
-To make the definition a bit less verbose, there is a so-called *minimal syntax*, which is translated into the explicit and verbose one:
+To make the definition a bit less verbose, there is a so-called *minimal syntax*, which is internally translated into the explicit and verbose one documented above.
+This can make DAG specification much easier:
 
-.. code-block:: yaml
-
-    select:
-      some_data: path/to/some_data
-      more_data: path/to/more_data
-    transform:
-      - add: [!dag_tag some_data, !dag_tag more_data]
-      - increment
-      - print
-      - power: [!dag_prev , 4]
-        tag: my_result
+.. literalinclude:: ../../tests/cfg/transformations.yml
+    :language: yaml
+    :start-after: ### Start -- dag_minimal_syntax
+    :end-before:  ### End ---- dag_minimal_syntax
+    :dedent: 4
 
 This DAG will have three custom tags defined: ``some_data``, ``more_data`` and ``my_result``.
 Computation of the ``my_result`` tag is equivalent to:
 
 ::
 
-    my_result = [(some_data + more_data) + 1]^4
+    my_result = ((some_data + more_data) + 1) ** 4
 
 As can be seen above, the minimal syntax gets rid of the ``operation``, ``args`` and ``kwargs`` keys by allowing to specify it as ``<operation name>: <args or kwargs>`` or even as just a string ``<operation name>``, without further arguments.
 
 With arguments, ``<operation name>: <args or kwargs>``
 """"""""""""""""""""""""""""""""""""""""""""""""""""""
-By passing a sequence (e.g. ``[foo, bar]``) the arguments are interpreted as positional arguments; by passing a mapping (e.g. ``{foo: bar}``), they are treated as keyword arguments.
+When passing a sequence (e.g. ``[foo, bar]``) the arguments are interpreted as positional arguments; when passing a mapping (e.g. ``{foo: bar}``), they are treated as keyword arguments.
 
-.. warning::
+.. hint::
 
-    When using the minimal syntax, it is not allowed to *additionally* specify the ``args``, ``kwargs`` and/or ``operation`` keys.
+    In this shorthand notation it is still possible to specify the respective "other" types of arguments using the ``args`` or ``kwargs`` keys.
+    For example:
+
+    .. code-block:: yaml
+
+        transform:
+          - my_operation: [foo, bar]
+            kwargs: { some: more, keyword: arguments }
+          - my_other_operation: {foo: bar}
+            args: [some, positional, arguments]
 
 Without arguments, ``<operation name>``
 """""""""""""""""""""""""""""""""""""""
-When specifying only the name of the operation as a string (e.g. ``increment`` and ``print``), it is assumed that the operation accepts only a single positional argument.
+When specifying only the name of the operation as a string (e.g. ``increment`` and ``print``), it is assumed that the operation accepts *only* a single *positional* argument and no other arguments.
 That argument is automatically filled with a reference to the result of the *previous* transformation, i.e.: the result is carried over.
 
-For example, the transformation with the ``increment`` operation would be translated to:
+For example, the above transformation with the ``increment`` operation would be translated to:
 
 .. code-block:: yaml
 
@@ -480,21 +484,32 @@ For example, the transformation with the ``increment`` operation would be transl
     kwargs: {}
     tag: ~
 
+
 .. _dag_op_hooks_integration:
 
 Operation Hooks
 ^^^^^^^^^^^^^^^
 The DAG syntax parser allows attaching additional parsing functions to operations, which can help to supply a more concise syntax.
 These so-called *operation hooks* are described in more detail :ref:`here <dag_op_hooks>`.
-As an example, the ``expression`` operation can be specified much more conveniently with the use of its hook:
+As an example, the ``expression`` operation can be specified much more conveniently with the use of its hook.
+Taking the example from :ref:`above <dag_minimal_syntax>`, the same can be expressed as:
 
 .. literalinclude:: ../../tests/cfg/transformations.yml
     :language: yaml
-    :start-after: ### Start -- dag_op_hooks_expression_basics
-    :end-before:  ### End ---- dag_op_hooks_expression_basics
+    :start-after: ### Start -- dag_op_hooks_expression_minimal
+    :end-before:  ### End ---- dag_op_hooks_expression_minimal
     :dedent: 4
 
-If you care to deactivate a hook, set the ``ignore_hooks`` flag for the operation:
+In this case, the hook automatically extracts the free symbols (``some_data`` and ``more_data``) and translates them to the corresponding :py:class:`~dantro._dag_utils.DAGTag` objects.
+Effectively, it parses the above to:
+
+.. literalinclude:: ../../tests/cfg/transformations.yml
+    :language: yaml
+    :start-after: ### Start -- dag_op_hooks_expression_minimal
+    :end-before:  ### End ---- dag_op_hooks_expression_minimal
+    :dedent: 4
+
+If you care to **deactivate a hook**, set the ``ignore_hooks`` flag for the operation:
 
 .. code-block:: yaml
 
@@ -571,7 +586,13 @@ Except for ``operation``, ``args``, ``kwargs`` and ``tag``, all entries are set 
           ignore_groups: true       # Whether to attempt storing dantro groups
           # ... additional arguments passed on to the specific saving function
 
+.. note::
 
+    This does not reflect any arguments made available by the DAG parser!
+    Features like the :ref:`minimal syntax <dag_minimal_syntax>` or the :ref:`operation hooks <dag_op_hooks_integration>` are handled *prior* to the initialization of a :py:class:`~dantro.dag.Transformation` object.
+
+
+.. _dag_file_cache:
 
 The File Cache
 --------------
