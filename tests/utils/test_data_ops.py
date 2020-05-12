@@ -351,3 +351,79 @@ def test_op_expression():
         expr("a1.ndim + a2.size")
     with pytest.raises(ValueError, match="Failed parsing.*a1.*"):
         expr("a1.ndim + a2.size", symbols=dict(a1=a1))
+
+def test_op_generate_lambda():
+    """Tests the ``generate_lambda`` data operation"""
+    gen_and_call = lambda e, *a, **k: dops.generate_lambda(e)(*a, **k)
+
+    # Basic
+    assert gen_and_call("lambda *_: 3") == 3
+    assert gen_and_call("lambda a: a+2", 1) == 3
+    assert gen_and_call("lambda a, b: a + b", 1, 2) == 3
+    assert gen_and_call("lambda a, *, b: a + b", 1, b=2) == 3
+    assert gen_and_call("lambda *, a_b, c: a_b + c", a_b=1, c=2) == 3
+    assert gen_and_call("lambda **ks: ks", foo=1, bar=2) == dict(foo=1, bar=2)
+
+    # Some more tests; omits the leading lambda to save space
+    valid = {
+        "a, b: a+b":        ([1, 2], {},                3),
+        "a: ceil(a)":       ([.5], {},                  1.),
+        "a: sin(a)":        ([0.], {},                  0.),
+        "*_: cos(pi)":      ([], {},                    -1.),
+        "*_: abs(cos(pi))": ([], {},                    +1.),
+        "a: np.mean(a)":    ([[1,2,3]], {},             2),
+        "a: xr.DataArray(a).mean()": ([[1,2,3]], {},    2),
+        "**ks: {k for k in ks}": ([], dict(a=1, b=2),   {"a", "b"}),
+        "*a: range(*a)":    ([0, 10, 2], {},            range(0, 10, 2)),
+        "*a: slice(*a)":    ([0, 10, 2], {},            slice(0, 10, 2)),
+    }
+    for expr, (args, kwargs, expected) in valid.items():
+        expr = "lambda " + expr
+        print("\nexpr:   ", repr(expr))
+        print("args:   ", args)
+        print("kwargs: ", kwargs)
+        assert gen_and_call(expr, *args, **kwargs) == expected
+
+    # Invalid patterns
+    invalid = (
+        "",
+        "not a lambda a, b: foo",
+        "LAMBDA: foo",
+    )
+    for expr in invalid:
+        with pytest.raises(SyntaxError, match="not a valid lambda expression"):
+            print("\nexpr: ", repr(expr))
+            gen_and_call(expr)
+
+    # Restricted
+    restricted = (
+        "lambda a: (lambda b: b)(a)",
+        "lambda a: __import__('os').system()",
+    )
+    for expr in restricted:
+        with pytest.raises(SyntaxError, match="one or more disallowed"):
+            print("\nexpr: ", repr(expr))
+            gen_and_call(expr)
+
+    # Syntax error: passes the above but makes some other syntax error or uses
+    # an undefined symbol
+    bad_syntax = (
+        "lambda x: x+",
+        "lambda x: x+(x+1))",
+        "lambda x: x : x",
+    )
+    for expr in bad_syntax:
+        with pytest.raises(SyntaxError, match="Failed generating"):
+            print("\nexpr: ", repr(expr))
+            gen_and_call(expr)
+
+    # Missing names (e.g. from restricted parts of builtins)
+    bad_names = (
+        "lambda *_: eval('_'+'_builtins_'+'_')",
+        "lambda *_: dir(dict())",
+        "lambda *_: exec('exit')",
+    )
+    for expr in bad_names:
+        with pytest.raises(NameError):
+            print("\nexpr: ", repr(expr))
+            gen_and_call(expr)

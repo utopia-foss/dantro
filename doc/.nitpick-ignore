@@ -31,6 +31,7 @@ py:exc RuntimeError
 py:exc NotImplementedError
 py:exc UserWarning
 py:exc FileExistsError
+py:exc SyntaxError
 
 py:class Exception
 py:class ValueError
@@ -42,6 +43,7 @@ py:class RuntimeError
 py:class NotImplementedError
 py:class UserWarning
 py:class FileExistsError
+py:class SyntaxError
 
 # Type-hinting related types
 py:class optional
