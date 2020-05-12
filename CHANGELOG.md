@@ -6,6 +6,7 @@
 #### Features
 - Extension of the `data_ops` module:
     - !160 adds the `expression` operation for evaluating [`sympy`](https://www.sympy.org/en/index.html) expressions
+    - !165 adds the `lambda` operation, which can be used to define callables, and the [`curve_fit`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.curve_fit.html) operation that requires such a callable.
     - ...
 - !160 adds [DAG syntax parsers](https://dantro.readthedocs.io/en/latest/data_io/dag_op_hooks.html) that can simplify DAG specification.
   Currently, this includes only a parser for the `expression` operation (#149).
