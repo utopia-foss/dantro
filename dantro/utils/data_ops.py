@@ -5,7 +5,7 @@ import math
 import logging
 import operator
 from importlib import import_module as _import_module
-from difflib import get_close_matches
+from difflib import get_close_matches as _get_close_matches
 from typing import Callable, Any, Sequence, Union, Tuple, Set
 
 import scipy
@@ -31,7 +31,6 @@ log = logging.getLogger(__name__)
 # Operation Implementations
 # NOTE Operations should use only logger levels <= REMARK
 
-
 # Define boolean operators separately; registered into _OPERATIONS below
 BOOLEAN_OPERATORS = {
     '==': operator.eq,  'eq': operator.eq,
@@ -48,6 +47,7 @@ BOOLEAN_OPERATORS = {
     'in interval':      (lambda x, y: x >= y[0] & x <= y[1]),
     'not in interval':  (lambda x, y: x < y[0] | x > y[1]),
 } # End of boolean operator definitions
+
 
 # .............................................................................
 
@@ -342,11 +342,10 @@ def create_mask(data: xr.DataArray,
         comp_func = BOOLEAN_OPERATORS[operator_name]
 
     except KeyError as err:
-        raise KeyError("No boolean operator '{}' available! "
-                       "Available operators: {}"
-                       "".format(operator_name,
-                                 ", ".join(BOOLEAN_OPERATORS.keys()))
-                       ) from err
+        raise KeyError(
+            f"No boolean operator '{operator_name}' available! Available "
+            f"operators: {', '.join(BOOLEAN_OPERATORS.keys())}"
+        ) from err
 
     # Apply the comparison
     data = comp_func(data, rhs_value)
@@ -408,9 +407,10 @@ def populate_ndarray(*objs, shape: tuple, dtype: str='float', order: str='C'
     arr = np.empty(shape, dtype=dtype, order=order)
 
     if len(objs) != arr.size:
-        raise ValueError("Mismatch between array size ({}, shape: {}) and "
-                         "number of given objects ({})!"
-                         "".format(arr.size, arr.shape, len(objs)))
+        raise ValueError(
+            f"Mismatch between array size ({arr.size}, shape: {arr.shape}) "
+            f"and number of given objects ({len(objs)})!"
+        )
 
     it = np.nditer(arr, flags=('multi_index', 'refs_ok'))
     for obj, _ in zip(objs, it):
@@ -453,9 +453,10 @@ def multi_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> xr.DataArray:
     """
     # Check dimensionality
     if len(dims) != arrs.ndim:
-        raise ValueError("The given sequence of dimension names, {}, did not "
-                         "match the number of dimensions of data of shape {}!"
-                         "".format(dims, arrs.shape))
+        raise ValueError(
+            f"The given sequence of dimension names, {dims}, did not match "
+            f"the number of dimensions of data of shape {arrs.shape}!"
+        )
 
     # Reverse-iterate over dimensions and concatenate them
     for dim_idx, dim_name in reversed(list(enumerate(dims))):
@@ -491,11 +492,12 @@ def merge(arrs: Union[Sequence[Union[xr.DataArray, xr.Dataset]], np.ndarray],
         return dset
 
     elif len(dset.data_vars) != 1:
-        raise ValueError("Can only reduce the Dataset resulting from the "
-                         "xr.merge operation to a DataArray if one and only "
-                         "one data variable is present in the Dataset! "
-                         "Got: {}. Full data:\n{}"
-                         "".format(", ".join(dset.data_vars), dset))
+        raise ValueError(
+            "Can only reduce the Dataset resulting from the xr.merge "
+            "operation to a DataArray if one and only one data variable is "
+            "present in the Dataset! "
+            f"Got: {', '.join(dset.data_vars)}. Full data:\n{dset}"
+        )
 
     # Get the name of the single data variable and then get the DataArray
     darr = dset[list(dset.data_vars.keys())[0]]
@@ -736,19 +738,24 @@ _OPERATIONS = KeyOrderedDict({
 # Add the boolean operators
 _OPERATIONS.update(BOOLEAN_OPERATORS)
 
+
 # -----------------------------------------------------------------------------
 # Registering and applying operations
 
 def register_operation(*, name: str, func: Callable,
                        skip_existing: bool=False,
                        overwrite_existing: bool=False) -> None:
-    """Adds an entry to the shared OPERATIONS registry.
+    """Adds an entry to the shared operations registry.
 
     Args:
         name (str): The name of the operation
         func (Callable): The callable
-        skip_existing (bool, optional): TODO
-        overwrite_existing (bool, optional): TODO
+        skip_existing (bool, optional): Whether to skip registration if the
+            operation name is already registered. This suppresses the
+            ValueError raised on existing operation name.
+        overwrite_existing (bool, optional): Whether to overwrite a potentially
+            already existing operation of the same name. If given, this takes
+            precedence over ``skip_existing``.
 
     Raises:
         TypeError: On invalid name or non-callable for the func argument
@@ -757,20 +764,27 @@ def register_operation(*, name: str, func: Callable,
     """
     if name in _OPERATIONS and not overwrite_existing:
         if skip_existing:
+            log.debug("Operation '%s' is already registered and will not be "
+                      "registered again.", name)
             return
-        raise ValueError("Operation name '{}' already exists! Refusing to "
-                         "register a new one. Set the overwrite_existing flag "
-                         "to force overwriting.".format(name))
+        raise ValueError(
+            f"Operation name '{name}' already exists! Refusing to register a "
+            "new one. Set the overwrite_existing flag to force overwriting."
+        )
 
     elif not callable(func):
-        raise TypeError("The given {} for operation '{}' is not callable! "
-                        "".format(func, name))
+        raise TypeError(
+            f"The given {func} for operation '{name}' is not callable! "
+        )
 
     elif not isinstance(name, str):
-        raise TypeError("Operation name need be a string, was {} with value "
-                        "{}!".format(type(name), name))
+        raise TypeError(
+            f"Operation name need be a string, was {type(name)} with "
+            f"value {name}!"
+        )
 
     _OPERATIONS[name] = func
+    log.debug("Registered operation '%s'.", name)
 
 def apply_operation(op_name: str, *op_args, _log_level: int=5,
                     **op_kwargs) -> Any:
@@ -798,15 +812,16 @@ def apply_operation(op_name: str, *op_args, _log_level: int=5,
 
     except KeyError as err:
         # Find some close matches to make operation discovery easier
-        possible_matches = available_operations(match=op_name)
+        close_matches = available_operations(match=op_name)
+        join_str = "\n  - "
 
-        raise ValueError("No operation '{}' registered! Did you mean: {} ?\n"
-                         "Available operations:\n  - {}\n"
-                         "If you need to register a new operation, use "
-                         "dantro.utils.register_operation to do so."
-                         "".format(op_name, ", ".join(possible_matches),
-                                   "\n  - ".join(available_operations()))
-                         ) from err
+        raise ValueError(
+            f"No operation '{op_name}' registered! Did you mean: "
+            f"{', '.join(close_matches) if close_matches else '(no match)'} ?"
+            f"\nAvailable operations:{join_str}"
+            f"{join_str.join(available_operations())}\nIf you need to "
+            "register a new operation, use dantro.utils.register_operation."
+        ) from err
 
     # Compute and return the results
     log.log(_log_level, "Performing operation '%s' ...", op_name)
@@ -814,13 +829,12 @@ def apply_operation(op_name: str, *op_args, _log_level: int=5,
         return op(*op_args, **op_kwargs)
 
     except Exception as exc:
-        raise RuntimeError("Failed applying operation '{}'! Got a {}: {}\n"
-                           "  args:   {}\n"
-                           "  kwargs: {}\n"
-                           "".format(op_name, exc.__class__.__name__, str(exc),
-                                     op_args, op_kwargs)
-                           ) from exc
-
+        raise RuntimeError(
+            f"Failed applying operation '{op_name}'! "
+            f"Got a {exc.__class__.__name__}: {exc}\n"
+            f"  args:   {op_args}\n"
+            f"  kwargs: {op_kwargs}\n"
+        ) from exc
 
 def available_operations(*, match: str=None, n: int=5) -> Sequence[str]:
     """Returns all available operation names or a fuzzy-matched subset of them.
@@ -839,4 +853,4 @@ def available_operations(*, match: str=None, n: int=5) -> Sequence[str]:
         return _OPERATIONS.keys()
 
     # Use fuzzy matching to return close matches
-    return get_close_matches(match, _OPERATIONS.keys(), n=n)
+    return _get_close_matches(match, _OPERATIONS.keys(), n=n)
