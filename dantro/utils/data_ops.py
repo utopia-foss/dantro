@@ -10,7 +10,9 @@ from typing import Callable, Any, Sequence, Union, Tuple, Set
 
 import numpy as np
 import xarray as xr
+
 import scipy
+import scipy.optimize
 
 import sympy as sym
 from sympy.parsing.sympy_parser import (parse_expr as _parse_expr,
@@ -668,6 +670,10 @@ _OPERATIONS = KeyOrderedDict({
     'xr.DataArray': xr.DataArray,
     'xr.merge':     xr.merge,
     'xr.concat':    xr.concat,
+
+    # scipy
+    'curve_fit':    scipy.optimize.curve_fit,
+    # NOTE: Use the 'lambda' operation to generate the callable
 }) # End of default operation definitions
 
 # Add the boolean operators
