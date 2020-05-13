@@ -1247,3 +1247,34 @@ doc_examples_op_hooks_expression_symbolic:
       result:
         type: float64
         compare_to: 4000.
+
+doc_examples_dag_curve_fitting:
+  params:
+    ### Start -- dag_examples_curve_fitting
+    select:
+      data_to_fit: path/to/elephant_ts  # 1D data with `time` dimension
+
+    transform:
+      # Define the model function as a lambda
+      - lambda: "lambda x, a0, a1, a2, a3, a4, a5: a5*x**5 + a4*x**4 + a3*x**3 + a2*x**2 + a1*x**1 + a0"
+        tag: elephant_f
+
+      # Extract the independent variable (here: the `time` coordinates)
+      - .coords: [!dag_tag data_to_fit, time]
+        tag: times
+
+      # Do the fit; result will be that of `scipy.optimize.curve_fit`
+      - curve_fit:
+          - !dag_tag elephant_f
+          - !dag_tag times
+          - !dag_tag data_to_fit
+        tag: fit_results
+    ### End ---- dag_examples_curve_fitting
+
+  expected:
+    tags: [dag, dm, data_to_fit, elephant_f, times, fit_results]
+    results:
+      elephant_f:
+        type: function
+      fit_results:
+        type: tuple

@@ -7,6 +7,9 @@ The uniform structure of the dantro data tree is the ideal starting point to all
 This page describes dantro's data transformation framework, revolving around the :py:class:`~dantro.dag.TransformationDAG` class.
 It is sometimes also referred to as *DAG framework* or *data selection and transformation framework* and finds application :doc:`in the plotting framework <../plotting/plot_data_selection>`.
 
+This page is an introduction to the DAG framework and a description of its inner workings.
+To learn more about its practical usage, make sure to look at the :doc:`examples`.
+
 .. contents::
    :local:
    :depth: 2
@@ -590,6 +593,11 @@ Except for ``operation``, ``args``, ``kwargs`` and ``tag``, all entries are set 
 
     This does not reflect any arguments made available by the DAG parser!
     Features like the :ref:`minimal syntax <dag_minimal_syntax>` or the :ref:`operation hooks <dag_op_hooks_integration>` are handled *prior* to the initialization of a :py:class:`~dantro.dag.Transformation` object.
+
+.. hint::
+
+    Often the easiest way to learn is by example.
+    Make sure to check out the :doc:`examples` page, where you will find practical examples that go beyoned what is shown here.
 
 
 .. _dag_file_cache:
