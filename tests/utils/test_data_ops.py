@@ -204,23 +204,24 @@ def test_op_count_unique():
 
 def test_op_populate_ndarray():
     """Test np.ndarray population from a sequence of objects"""
-    a0 = dops.populate_ndarray(1,2,3,4,5,6, shape=(2,3), dtype=object)
+    a0 = dops.populate_ndarray([1,2,3,4,5,6], shape=(2,3), dtype=object)
 
     # Shape and dtype as requested
     assert (a0 == np.arange(1,7).reshape((2,3))).all()
     assert a0.dtype == object
 
     # Specifying a different order should have an effect
-    a0f = dops.populate_ndarray(1,2,3,4,5,6, shape=(2,3), dtype=float,
+    a0f = dops.populate_ndarray([1,2,3,4,5,6], shape=(2,3), dtype=float,
                                 order='F')
     assert (a0f == np.arange(1,7).reshape((2,3), order='F')).all()
 
     # Argument mismatch should raise
     with pytest.raises(ValueError, match="Mismatch between array size"):
-        dops.populate_ndarray(1,2,3,4,5, shape=(2,3))
+        dops.populate_ndarray([1,2,3,4,5], shape=(2,3))
 
     with pytest.raises(ValueError, match="Mismatch between array size"):
-        dops.populate_ndarray(1,2,3,4,5,6,7, shape=(2,3))
+        dops.populate_ndarray([1,2,3,4,5,6,7], shape=(2,3))
+
 
 def test_op_multi_concat(darrs):
     """Test dantro specialization of xr.concat"""
@@ -271,6 +272,7 @@ def test_op_merge(darrs):
     with pytest.raises(ValueError, match="one and only one data variable"):
         dops.merge(darrs, reduce_to_array=True)
 
+
 def test_op_expand_dims():
     """Tests dantro specialization of xarray's expand_dims method"""
     data = np.random.randint(0, 5, size=(20, 20))
@@ -287,6 +289,30 @@ def test_op_expand_dims():
     print(da_e2)
     assert da_e2.dims == ('a', 'dim_0', 'dim_1')
     assert (da_e2.coords['a'] == [0]).all()
+
+
+def test_op_expand_object_array():
+    """Tests dantro specialization of xarray's expand_dims method"""
+    expand = dops.expand_object_array
+
+    arr = dops.populate_ndarray([i * np.ones((4, 5), dtype=int)
+                                 for i in range(6)],
+                                shape=(2,3), dtype=object)
+    da = xr.DataArray(arr, dims=('a', 'b'),
+                      coords=dict(a=range(10, 12), b=range(20, 23)))
+    assert da.shape == (2,3)
+    assert da.dtype == np.dtype('O')
+
+    eda = expand(da, inner_shape=(4,5), inner_dims=('c', 'd'))
+    print(eda)
+    assert eda.shape == (2,3,4,5)
+    assert eda.dtype == int
+    assert eda.dims == ('a', 'b', 'c', 'd')
+    assert (eda.coords["a"] == [10, 11]).all()
+    assert (eda.coords["b"] == [20, 21, 22]).all()
+    assert (eda.coords["c"] == range(4)).all()
+    assert (eda.coords["d"] == range(5)).all()
+
 
 def test_op_expression():
     """Tests the ``expression`` data operation"""
@@ -351,6 +377,7 @@ def test_op_expression():
         expr("a1.ndim + a2.size")
     with pytest.raises(ValueError, match="Failed parsing.*a1.*"):
         expr("a1.ndim + a2.size", symbols=dict(a1=a1))
+
 
 def test_op_generate_lambda():
     """Tests the ``generate_lambda`` data operation"""

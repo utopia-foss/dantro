@@ -6,7 +6,7 @@ import logging
 import operator
 from importlib import import_module as _import_module
 from difflib import get_close_matches as _get_close_matches
-from typing import Callable, Any, Sequence, Union, Tuple, Set
+from typing import Callable, Any, Sequence, Union, Tuple, Set, Iterable
 
 import scipy
 import numpy as np
@@ -388,35 +388,59 @@ def count_unique(data) -> xr.DataArray:
 # .............................................................................
 # Working with multidimensional data, mostly xarray-based
 
-def populate_ndarray(*objs, shape: tuple, dtype: str='float', order: str='C'
+def populate_ndarray(objs: Iterable,
+                     shape: Tuple[int]=None,
+                     dtype: Union[str, type, np.dtype]=float,
+                     order: str='C',
+                     out: np.ndarray=None,
+                     ufunc: Callable=None
                      ) -> np.ndarray:
-    """Populates an empty np.ndarray of the given dtype with the objects.
+    """Populates an empty np.ndarray of the given dtype with the given objects
+    by zipping over a new array of the given ``shape`` and the sequence of
+    objects.
 
     Args:
-        *objs: The objects to add to the
-        shape (tuple): The shape of the new array
-        dtype (str, optional): Data type of the new array
-        order (str, optional): Order of the new array
+        objs (Iterable): The objects to add to the np.ndarray. These objects
+            are added in the order they are given here. Note that their final
+            position inside the resulting array is furthermore determined by
+            the ``order`` argument.
+        shape (Tuple[int], optional): The shape of the new array. **Required**
+            if no ``out`` array is given.
+        dtype (Union[str, type, np.dtype], optional): dtype of the new array.
+            Ignored if ``out`` is given.
+        order (str, optional): Order of the new array, determines iteration
+            order. Ignored if ``out`` is given.
+        out (np.ndarray, optional): If given, populates this array rather than
+            an empty array.
+        ufunc (Callable, optional): If given, applies this unary function to
+            each element before storing it in the to-be-returned ndarray.
 
     Returns:
-        np.ndarray: The newly created and populated array
+        np.ndarray: The populated ``out`` array or the newly created one (if
+            ``out`` was not given)
 
     Raises:
+        TypeError: On missing
         ValueError: If the number of given objects did not match the array size
     """
-    arr = np.empty(shape, dtype=dtype, order=order)
+    if out is None and shape is None:
+        raise TypeError("Without an output array given, the `shape` argument "
+                        "needs to be specified!")
 
-    if len(objs) != arr.size:
+    ufunc = ufunc if ufunc is not None else lambda e: e
+    out = out if out is not None else np.empty(shape, dtype=dtype, order=order)
+
+    if len(objs) != out.size:
         raise ValueError(
-            f"Mismatch between array size ({arr.size}, shape: {arr.shape}) "
+            f"Mismatch between array size ({out.size}, shape: {out.shape}) "
             f"and number of given objects ({len(objs)})!"
         )
 
-    it = np.nditer(arr, flags=('multi_index', 'refs_ok'))
+    it = np.nditer(out, flags=('multi_index', 'refs_ok'))
     for obj, _ in zip(objs, it):
-        arr[it.multi_index] = obj
+        out[it.multi_index] = ufunc(obj)
 
-    return arr
+    return out
 
 def multi_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> xr.DataArray:
     """Concatenates ``xr.Dataset`` or ``xr.DataArray`` objects using
@@ -506,16 +530,92 @@ def merge(arrs: Union[Sequence[Union[xr.DataArray, xr.Dataset]], np.ndarray],
     #      is not desired, because it is not relevant.
     return darr
 
-def expand_dims(d: Any, *, dim: dict=None, **kwargs) -> xr.DataArray:
+def expand_dims(d: Union[np.ndarray, xr.DataArray],
+                *, dim: dict=None, **kwargs) -> xr.DataArray:
     """Expands the dimensions of the given object.
 
-    If the object does not support the `expand_dims` method, it will be
+    If the object does not support the ``expand_dims`` method, it will be
     attempted to convert it to an xr.DataArray.
+
+    Args:
+        d (Union[np.ndarray, xr.DataArray]): The object to expand the
+            dimensions of
+        dim (dict, optional): Keys specify the dimensions to expand, values can
+            either be an integer specifying the length of the dimension, or a
+            sequence of coordinates.
+        **kwargs: Passed on to ``expand_dims`` method
+
+    Returns:
+        xr.DataArray: The input data with expanded dimensions.
     """
     if not hasattr(d, 'expand_dims'):
         d = xr.DataArray(d)
-
     return d.expand_dims(dim, **kwargs)
+
+def expand_object_array(d: xr.DataArray, *,
+                        inner_shape: Sequence[int],
+                        inner_dims: Sequence[str],
+                        inner_coords: dict=None,
+                        inner_dtype: Union[str, type, np.dtype]=None
+                        ) -> xr.DataArray:
+    """Expands an object-dtype array into a higher-dimensional array.
+
+    ``d`` is expected to be an array *of arrays*, i.e. each element of the
+    outer array is an object that itself is an ``np.ndarray``-like object.
+
+    Typically, e.g. when loading data from HDF5 files, the inner array will
+    not be labelled but will consist of simple np.ndarrays.
+    The arguments ``dims`` and ``coords`` are used to label the *inner* arrays.
+
+    This uses :py:func:`~dantro.utils.data_ops.multi_concat` for concatenating
+    the object arrays.
+
+    .. note::
+
+        This function will not work if the ... TODO
+
+    Args:
+        d (xr.DataArray): The labelled array containing further (potentially
+            unlabelled) arrays as elements.
+        inner_shape (Sequence[int]): Shape of the inner arrays
+        inner_dims (Sequence[str]): Dimension names of the inner
+            arrays
+        inner_coords (dict, optional): Coordinates of the inner arrays. If not
+            given, no coordinates will be assigned.
+        astype (Union[str, type, np.dtype], optional): All inner arrays need to
+            have the same dtype. If this argument is given, the arrays will be
+            coerced to this dtype. For numeric data, ``float`` is typically a
+            good fallback.
+
+    No Longer Returned:
+        xr.DataArray: A new, expanded array
+
+    Returns:
+        xr.DataArray: Description
+    """
+    d = xr.DataArray(d)
+
+    item_dims = d.dims + inner_dims
+    item_shape = tuple([1 for _ in d.shape]) + inner_shape
+
+    # Array that gathers all object arrays
+    arrs = np.zeros_like(d, dtype=object)
+
+    # In-place transform each element to an xr.DataArray and assign the new
+    # dimension names. Coordinates are assigned later (more efficient that way)
+    it = np.nditer(arrs.data, flags=('multi_index', 'refs_ok'))
+    for _ in it:
+        # Create a labelled array that includes the outer coordinates
+        item = d[it.multi_index].item().reshape(item_shape)
+        coords = {n: [c.item()] for n, c in d[it.multi_index].coords.items()}
+        e = xr.DataArray(item.astype(inner_dtype) if inner_dtype else item,
+                         dims=item_dims,
+                         coords=dict(**coords, c=range(4), d=range(5)))
+        arrs[it.multi_index] = e
+
+    # Now, multi-concatenate
+    return multi_concat(arrs, dims=d.dims)
+
 
 
 # -----------------------------------------------------------------------------
