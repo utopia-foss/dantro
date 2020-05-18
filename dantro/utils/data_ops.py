@@ -5,9 +5,10 @@ import math
 import logging
 import operator
 from importlib import import_module as _import_module
-from difflib import get_close_matches
+from difflib import get_close_matches as _get_close_matches
 from typing import Callable, Any, Sequence, Union, Tuple, Set
 
+import scipy
 import numpy as np
 import xarray as xr
 
@@ -30,7 +31,6 @@ log = logging.getLogger(__name__)
 # Operation Implementations
 # NOTE Operations should use only logger levels <= REMARK
 
-
 # Define boolean operators separately; registered into _OPERATIONS below
 BOOLEAN_OPERATORS = {
     '==': operator.eq,  'eq': operator.eq,
@@ -47,6 +47,7 @@ BOOLEAN_OPERATORS = {
     'in interval':      (lambda x, y: x >= y[0] & x <= y[1]),
     'not in interval':  (lambda x, y: x < y[0] | x > y[1]),
 } # End of boolean operator definitions
+
 
 # .............................................................................
 
@@ -67,6 +68,30 @@ def print_data(data: Any) -> Any:
         print(data)
 
     return data
+
+def get_from_module(mod, *, name: str):
+    """Retrieves an attribute from a module, if necessary traversing along the
+    module string.
+
+    Args:
+        mod: Module to start looking at
+        name (str): The ``.``-separated module string leading to the desired
+            object.
+    """
+    obj = mod
+
+    for attr_name in name.split("."):
+        try:
+            obj = getattr(obj, attr_name)
+
+        except AttributeError as err:
+            raise AttributeError(
+                f"Failed to retrieve attribute or attribute sequence '{name}' "
+                f"from module '{mod.__name__}'! Intermediate "
+                f"{type(obj).__name__} {obj} has no attribute '{attr_name}'!"
+            ) from err
+
+    return obj
 
 def import_module_or_object(module: str=None, name: str=None):
     """Imports a module or an object using the specified module string and the
@@ -92,25 +117,7 @@ def import_module_or_object(module: str=None, name: str=None):
 
     if not name:
         return mod
-
-    # Get the object by traversing along the attributes of the module. By
-    # allowing a name to be a sequence, object imports become more versatile.
-    # The first object to get the name from is the module itself:
-    obj = mod
-
-    for attr_name in name.split("."):
-        try:
-            obj = getattr(obj, attr_name)
-
-        except AttributeError as err:
-            raise AttributeError("Failed to retrieve attribute or attribute "
-                                 "sequence '{}' from module '{}'! "
-                                 "Intermediate {} {} has no attribute '{}'!"
-                                 "".format(name, mod.__name__,
-                                           type(obj).__name__, obj, attr_name)
-                                 ) from err
-
-    return obj
+    return get_from_module(mod, name=name)
 
 
 # .............................................................................
@@ -335,17 +342,16 @@ def create_mask(data: xr.DataArray,
         comp_func = BOOLEAN_OPERATORS[operator_name]
 
     except KeyError as err:
-        raise KeyError("No boolean operator '{}' available! "
-                       "Available operators: {}"
-                       "".format(operator_name,
-                                 ", ".join(BOOLEAN_OPERATORS.keys()))
-                       ) from err
+        raise KeyError(
+            f"No boolean operator '{operator_name}' available! Available "
+            f"operators: {', '.join(BOOLEAN_OPERATORS.keys())}"
+        ) from err
 
     # Apply the comparison
     data = comp_func(data, rhs_value)
 
     # Create a new name
-    name = data.name + " (masked by '{} {}')".format(operator_name, rhs_value)
+    name = data.name + f" (masked by '{operator_name} {rhs_value}')"
 
     # Build a new xr.DataArray from that data, retaining all information
     return xr.DataArray(data=data,
@@ -401,9 +407,10 @@ def populate_ndarray(*objs, shape: tuple, dtype: str='float', order: str='C'
     arr = np.empty(shape, dtype=dtype, order=order)
 
     if len(objs) != arr.size:
-        raise ValueError("Mismatch between array size ({}, shape: {}) and "
-                         "number of given objects ({})!"
-                         "".format(arr.size, arr.shape, len(objs)))
+        raise ValueError(
+            f"Mismatch between array size ({arr.size}, shape: {arr.shape}) "
+            f"and number of given objects ({len(objs)})!"
+        )
 
     it = np.nditer(arr, flags=('multi_index', 'refs_ok'))
     for obj, _ in zip(objs, it):
@@ -446,9 +453,10 @@ def multi_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> xr.DataArray:
     """
     # Check dimensionality
     if len(dims) != arrs.ndim:
-        raise ValueError("The given sequence of dimension names, {}, did not "
-                         "match the number of dimensions of data of shape {}!"
-                         "".format(dims, arrs.shape))
+        raise ValueError(
+            f"The given sequence of dimension names, {dims}, did not match "
+            f"the number of dimensions of data of shape {arrs.shape}!"
+        )
 
     # Reverse-iterate over dimensions and concatenate them
     for dim_idx, dim_name in reversed(list(enumerate(dims))):
@@ -484,11 +492,12 @@ def merge(arrs: Union[Sequence[Union[xr.DataArray, xr.Dataset]], np.ndarray],
         return dset
 
     elif len(dset.data_vars) != 1:
-        raise ValueError("Can only reduce the Dataset resulting from the "
-                         "xr.merge operation to a DataArray if one and only "
-                         "one data variable is present in the Dataset! "
-                         "Got: {}. Full data:\n{}"
-                         "".format(", ".join(dset.data_vars), dset))
+        raise ValueError(
+            "Can only reduce the Dataset resulting from the xr.merge "
+            "operation to a DataArray if one and only one data variable is "
+            "present in the Dataset! "
+            f"Got: {', '.join(dset.data_vars)}. Full data:\n{dset}"
+        )
 
     # Get the name of the single data variable and then get the DataArray
     darr = dset[list(dset.data_vars.keys())[0]]
@@ -518,11 +527,18 @@ _OPERATIONS = KeyOrderedDict({
     'define':       lambda d: d,
     'pass':         lambda d: d,
     'print':        print_data,
+    'format':       lambda s, *a, **k: s.format(*a, **k),
 
+    # Working on imported modules (useful if other operations don't match)
+    'from_module':  get_from_module,
     'import':       import_module_or_object,
     'call':         lambda c, *a, **k: c(*a, **k),
     'import_and_call':
         lambda m, n, *a, **k: import_module_or_object(m, n)(*a, **k),
+
+    'np.':          lambda ms, *a, **k: get_from_module(np, ms)(*a, **k),
+    'xr.':          lambda ms, *a, **k: get_from_module(xr, ms)(*a, **k),
+    'scipy.':       lambda ms, *a, **k: get_from_module(scipy, ms)(*a, **k),
 
     # Defining lambdas
     'lambda':       generate_lambda,
@@ -536,6 +552,7 @@ _OPERATIONS = KeyOrderedDict({
 
     'int':          int,
     'float':        float,
+    'complex':      complex,
     'str':          str,
 
     # Item manipulation
@@ -567,6 +584,7 @@ _OPERATIONS = KeyOrderedDict({
     '.base':        lambda d: d.base,
     '.imag':        lambda d: d.imag,
     '.real':        lambda d: d.real,
+    '.nonzero':     lambda d: d.nonzero,
 
     # xarray
     '.head':        lambda d: d.head(),
@@ -605,6 +623,7 @@ _OPERATIONS = KeyOrderedDict({
 
     # numpy
     'power':        lambda d, e: np.power(d, e),
+    'np.dot':       np.dot,
 
     # xarray
     '.coords':      lambda d, key: d.coords[key],
@@ -626,32 +645,60 @@ _OPERATIONS = KeyOrderedDict({
 
     # numpy
     '.sum':         lambda d, **k: d.sum(**k),
+    '.prod':        lambda d, **k: d.prod(**k),
+    '.cumsum':      lambda d, **k: d.cumsum(**k),
+    '.cumprod':     lambda d, **k: d.cumprod(**k),
+
     '.mean':        lambda d, **k: d.mean(**k),
     '.std':         lambda d, **k: d.std(**k),
     '.min':         lambda d, **k: d.min(**k),
     '.max':         lambda d, **k: d.max(**k),
     '.var':         lambda d, **k: d.var(**k),
-    '.prod':        lambda d, **k: d.prod(**k),
+    '.argmin':      lambda d, **k: d.argmin(**k),
+    '.argmax':      lambda d, **k: d.argmax(**k),
+    '.argsort':     lambda d, **k: d.argsort(**k),
+    '.argpartition':lambda d, *a, **k: d.argpartition(*a, **k),
+
     '.take':        lambda d, **k: d.take(**k),
+    '.sort':        lambda d, **k: d.sort(**k),
     '.squeeze':     lambda d, **k: d.squeeze(**k),
     '.reshape':     lambda d, **k: d.reshape(**k),
+    '.flatten':     lambda d, **k: d.flatten(**k),
+    '.fill':        lambda d, **k: d.fill(**k),
+    '.round':       lambda d, **k: d.round(**k),
     '.diagonal':    lambda d, **k: d.diagonal(**k),
     '.trace':       lambda d, **k: d.trace(**k),
     '.transpose':   lambda d, *a: d.transpose(*a),
     '.swapaxes':    lambda d, a1, a2: d.swapaxes(a1, a2),
-
-    'invert':       lambda d, **k: np.invert(d, **k),
-    'transpose':    lambda d, **k: np.transpose(d, **k),
-    'diff':         lambda d, **k: np.diff(d, **k),
-    'reshape':      lambda d, s, **k: np.reshape(d, s, **k),
+    '.astype':      lambda d, t, **k: d.astype(t, **k),
 
     'np.array':     np.array,
     'np.empty':     np.empty,
     'np.zeros':     np.zeros,
     'np.ones':      np.ones,
+    'np.eye':       np.eye,
     'np.arange':    np.arange,
     'np.linspace':  np.linspace,
     'np.logspace':  np.logspace,
+
+    'np.invert':    np.invert,
+    'np.transpose': np.transpose,
+    'np.diff':      np.diff,
+    'np.reshape':   np.reshape,
+    'np.take':      np.take,
+    'np.repeat':    np.repeat,
+    'np.stack':     np.stack,
+    'np.hstack':    np.hstack,
+    'np.vstack':    np.vstack,
+    'np.concatenate':   np.concatenate,
+
+    'np.ceil':      np.ceil,
+    'np.floor':     np.floor,
+    'np.round':     np.round,
+
+    'np.where':     np.where,
+    'np.digitize':  np.digitize,
+    'np.histogram': np.histogram,
 
     # xarray
     '.sel':         lambda d, **k: d.sel(**k),
@@ -662,22 +709,35 @@ _OPERATIONS = KeyOrderedDict({
     '.argmax':      lambda d, **k: d.argmax(**k),
     '.count':       lambda d, **k: d.count(**k),
     '.diff':        lambda d, **k: d.diff(**k),
+    '.where':       lambda d, c, *a, **k: d.where(c, *a, **k),
+
+    '.groupby':         lambda d, g, **k: d.groupby(g, **k),
+    '.groupby_bins':    lambda d, g, **k: d.groupby_bins(g, **k),
+    '.map':             lambda ds, func, **k: ds.map(func, **k),
+    '.reduce':          lambda ds, func, **k: ds.reduce(func, **k),
 
     '.expand_dims':     lambda d, **k: d.expand_dims(**k),
     '.assign_coords':   lambda d, **k: d.assign_coords(**k),
 
-    'xr.Dataset':   xr.Dataset,
-    'xr.DataArray': xr.DataArray,
-    'xr.merge':     xr.merge,
-    'xr.concat':    xr.concat,
+    'xr.Dataset':       xr.Dataset,
+    'xr.DataArray':     xr.DataArray,
+    'xr.zeros_like':    xr.zeros_like,
+    'xr.ones_like':     xr.ones_like,
+
+    'xr.merge':             xr.merge,
+    'xr.concat':            xr.concat,
+    'xr.align':             xr.align,
+    'xr.combine_nested':    xr.combine_nested,
+    'xr.combine_by_coords': xr.combine_by_coords,
 
     # scipy
-    'curve_fit':    scipy.optimize.curve_fit,
+    'curve_fit':        scipy.optimize.curve_fit,
     # NOTE: Use the 'lambda' operation to generate the callable
 }) # End of default operation definitions
 
 # Add the boolean operators
 _OPERATIONS.update(BOOLEAN_OPERATORS)
+
 
 # -----------------------------------------------------------------------------
 # Registering and applying operations
@@ -685,13 +745,17 @@ _OPERATIONS.update(BOOLEAN_OPERATORS)
 def register_operation(*, name: str, func: Callable,
                        skip_existing: bool=False,
                        overwrite_existing: bool=False) -> None:
-    """Adds an entry to the shared OPERATIONS registry.
+    """Adds an entry to the shared operations registry.
 
     Args:
         name (str): The name of the operation
         func (Callable): The callable
-        skip_existing (bool, optional): Description
-        overwrite_existing (bool, optional): Description
+        skip_existing (bool, optional): Whether to skip registration if the
+            operation name is already registered. This suppresses the
+            ValueError raised on existing operation name.
+        overwrite_existing (bool, optional): Whether to overwrite a potentially
+            already existing operation of the same name. If given, this takes
+            precedence over ``skip_existing``.
 
     Raises:
         TypeError: On invalid name or non-callable for the func argument
@@ -700,20 +764,27 @@ def register_operation(*, name: str, func: Callable,
     """
     if name in _OPERATIONS and not overwrite_existing:
         if skip_existing:
+            log.debug("Operation '%s' is already registered and will not be "
+                      "registered again.", name)
             return
-        raise ValueError("Operation name '{}' already exists! Refusing to "
-                         "register a new one. Set the overwrite_existing flag "
-                         "to force overwriting.".format(name))
+        raise ValueError(
+            f"Operation name '{name}' already exists! Refusing to register a "
+            "new one. Set the overwrite_existing flag to force overwriting."
+        )
 
     elif not callable(func):
-        raise TypeError("The given {} for operation '{}' is not callable! "
-                        "".format(func, name))
+        raise TypeError(
+            f"The given {func} for operation '{name}' is not callable! "
+        )
 
     elif not isinstance(name, str):
-        raise TypeError("Operation name need be a string, was {} with value "
-                        "{}!".format(type(name), name))
+        raise TypeError(
+            f"Operation name need be a string, was {type(name)} with "
+            f"value {name}!"
+        )
 
     _OPERATIONS[name] = func
+    log.debug("Registered operation '%s'.", name)
 
 def apply_operation(op_name: str, *op_args, _log_level: int=5,
                     **op_kwargs) -> Any:
@@ -741,15 +812,16 @@ def apply_operation(op_name: str, *op_args, _log_level: int=5,
 
     except KeyError as err:
         # Find some close matches to make operation discovery easier
-        possible_matches = available_operations(match=op_name)
+        close_matches = available_operations(match=op_name)
+        join_str = "\n  - "
 
-        raise ValueError("No operation '{}' registered! Did you mean: {} ?\n"
-                         "Available operations:\n  - {}\n"
-                         "If you need to register a new operation, use "
-                         "dantro.utils.register_operation to do so."
-                         "".format(op_name, ", ".join(possible_matches),
-                                   "\n  - ".join(available_operations()))
-                         ) from err
+        raise ValueError(
+            f"No operation '{op_name}' registered! Did you mean: "
+            f"{', '.join(close_matches) if close_matches else '(no match)'} ?"
+            f"\nAvailable operations:{join_str}"
+            f"{join_str.join(available_operations())}\nIf you need to "
+            "register a new operation, use dantro.utils.register_operation."
+        ) from err
 
     # Compute and return the results
     log.log(_log_level, "Performing operation '%s' ...", op_name)
@@ -757,13 +829,12 @@ def apply_operation(op_name: str, *op_args, _log_level: int=5,
         return op(*op_args, **op_kwargs)
 
     except Exception as exc:
-        raise RuntimeError("Failed applying operation '{}'! Got a {}: {}\n"
-                           "  args:   {}\n"
-                           "  kwargs: {}\n"
-                           "".format(op_name, exc.__class__.__name__, str(exc),
-                                     op_args, op_kwargs)
-                           ) from exc
-
+        raise RuntimeError(
+            f"Failed applying operation '{op_name}'! "
+            f"Got a {exc.__class__.__name__}: {exc}\n"
+            f"  args:   {op_args}\n"
+            f"  kwargs: {op_kwargs}\n"
+        ) from exc
 
 def available_operations(*, match: str=None, n: int=5) -> Sequence[str]:
     """Returns all available operation names or a fuzzy-matched subset of them.
@@ -782,4 +853,4 @@ def available_operations(*, match: str=None, n: int=5) -> Sequence[str]:
         return _OPERATIONS.keys()
 
     # Use fuzzy matching to return close matches
-    return get_close_matches(match, _OPERATIONS.keys(), n=n)
+    return _get_close_matches(match, _OPERATIONS.keys(), n=n)
