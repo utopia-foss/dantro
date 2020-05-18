@@ -19,6 +19,7 @@ import sympy as sym
 from sympy.parsing.sympy_parser import (parse_expr as _parse_expr,
                                         standard_transformations as _std_trf)
 
+from .coords import extract_dim_names, extract_coords_from_attrs
 from .ordereddict import KeyOrderedDict
 from ..base import BaseDataContainer, BaseDataGroup
 from ..tools import apply_along_axis
@@ -159,10 +160,9 @@ def expression(expr: str, *,
     .. warning::
 
         While the expression is symbolic math, it uses the ``**`` operator for
-        exponentiation, unless a custom ``transformations`` argument is given
-        via the ``parse_kwargs``.
+        exponentiation, unless a custom ``transformations`` argument is given.
 
-        The ``^`` operator will lead to an XOR operation being performed!
+        Thus, the ``^`` operator will lead to an XOR operation being performed!
 
     .. warning::
 
@@ -615,7 +615,6 @@ def expand_object_array(d: xr.DataArray, *,
 
     # Now, multi-concatenate
     return multi_concat(arrs, dims=d.dims)
-
 
 
 # -----------------------------------------------------------------------------
