@@ -553,68 +553,188 @@ def expand_dims(d: Union[np.ndarray, xr.DataArray],
     return d.expand_dims(dim, **kwargs)
 
 def expand_object_array(d: xr.DataArray, *,
-                        inner_shape: Sequence[int],
-                        inner_dims: Sequence[str],
-                        inner_coords: dict=None,
-                        inner_dtype: Union[str, type, np.dtype]=None
-                        ) -> xr.DataArray:
-    """Expands an object-dtype array into a higher-dimensional array.
+                        shape: Sequence[int]=None,
+                        astype: Union[str, type, np.dtype]=None,
+                        dims: Sequence[str]=None,
+                        coords: Union[dict, str]='trivial',
+                        combination_method: str='concat',
+                        allow_reshaping_failure: bool=False,
+                        **combination_kwargs) -> xr.DataArray:
+    """Expands a labelled object-array that contains array-like objects into a
+    higher-dimensional labelled array.
 
     ``d`` is expected to be an array *of arrays*, i.e. each element of the
     outer array is an object that itself is an ``np.ndarray``-like object.
+    The ``shape`` is the expected shape of each of these *inner* arrays.
+    Importantly, all these arrays need to have the exact same shape.
 
     Typically, e.g. when loading data from HDF5 files, the inner array will
     not be labelled but will consist of simple np.ndarrays.
     The arguments ``dims`` and ``coords`` are used to label the *inner* arrays.
 
     This uses :py:func:`~dantro.utils.data_ops.multi_concat` for concatenating
-    the object arrays.
+    or :py:func:`~dantro.utils.data_ops.merge` for merging the object arrays
+    into a higher-dimensional array, where the latter option allows for missing
+    values.
 
-    .. note::
+    .. TODO::
 
-        This function will not work if the ... TODO
+        Make reshaping and labelling optional if the inner array already is a
+        labelled array. In such cases, the coordinate assignment is already
+        done and all information for combination is already available.
 
     Args:
-        d (xr.DataArray): The labelled array containing further (potentially
-            unlabelled) arrays as elements.
-        inner_shape (Sequence[int]): Shape of the inner arrays
-        inner_dims (Sequence[str]): Dimension names of the inner
-            arrays
-        inner_coords (dict, optional): Coordinates of the inner arrays. If not
-            given, no coordinates will be assigned.
+        d (xr.DataArray): The labelled object-array containing further arrays
+            as elements (which are assumed to be unlabelled).
+        shape (Sequence[int], optional): Shape of the inner arrays. If not
+            given, the first element is used to determine the shape.
         astype (Union[str, type, np.dtype], optional): All inner arrays need to
             have the same dtype. If this argument is given, the arrays will be
             coerced to this dtype. For numeric data, ``float`` is typically a
-            good fallback.
-
-    No Longer Returned:
-        xr.DataArray: A new, expanded array
+            good fallback. Note that with ``combination_method == "merge"``,
+            the choice here might not be respected.
+        dims (Sequence[str], optional): Dimension names for labelling the
+            inner arrays. This is necessary for proper alignment. The number of
+            dimensions need to match the ``shape``. If not given, will use
+            ``inner_dim_0`` and so on.
+        coords (Union[dict, str], optional): Coordinates of the inner arrays.
+            These are necessary to align the inner arrays with each other. With
+            ``coords = "trivial"``, trivial coordinates will be assigned to all
+            dimensions. If specifying a dict and giving ``"trivial"`` as value,
+            that dimension will be assigned trivial coordinates.
+        combination_method (str, optional): The combination method to use to
+            combine the object array. For ``concat``, will use dantro's
+            :py:func:`~dantro.utils.data_ops.multi_concat`, which preserves
+            dtype but does not allow missing values. For ``merge``, will use
+            :py:func:`~dantro.utils.data_ops.merge`, which allows missing
+            values (masked using ``np.nan``) but leads to the dtype decaying
+            to float.
+        allow_reshaping_failure (bool, optional): If true, the expansion is not
+            stopped if reshaping to ``shape`` fails for an element. This will
+            lead to missing values at the respective coordinates and the
+            ``combination_method`` will automatically be changed to ``merge``.
+        **combination_kwargs: Passed on to the selected combination function,
+            :py:func:`~dantro.utils.data_ops.multi_concat` or
+            :py:func:`~dantro.utils.data_ops.merge`.
 
     Returns:
-        xr.DataArray: Description
+        xr.DataArray: A new, higher-dimensional labelled array.
+
+    Raises:
+        TypeError: If no ``shape`` can be extracted from the first element in
+            the input data ``d``
+        ValueError: On bad argument values for ``dims``, ``shape``, ``coords``
+            or ``combination_method``.
     """
+    def prepare_item(d: xr.DataArray, *,
+                     midx: Sequence[int], shape: Sequence[int],
+                     astype: Union[str, type, np.dtype, None],
+                     name: str, dims: Sequence[str],
+                     generate_coords: Callable
+                     ) -> Union[xr.DataArray, None]:
+        """Extracts the desired element and reshapes and labels it accordingly.
+        If any of this fails, returns ``None``.
+        """
+        elem = d[midx]
+
+        try:
+            item = elem.item().reshape(shape)
+
+        except Exception as exc:
+            if allow_reshaping_failure:
+                return None
+            raise ValueError(
+                f"Failed reshaping item at {midx} to {shape}! Make sure the "
+                f"element\n\n{elem}\n\nallows reshaping. To discard values "
+                "where reshaping fails, enable `allow_reshaping_failure`."
+            ) from exc
+
+        if astype is not None:
+            item = item.astype(astype)
+
+        return xr.DataArray(item, name=name, dims=dims,
+                            coords=generate_coords(elem))
+
+    # Make sure we are operating on labelled data
     d = xr.DataArray(d)
 
-    item_dims = d.dims + inner_dims
-    item_shape = tuple([1 for _ in d.shape]) + inner_shape
+    # Try to deduce missing arguments and make sure arguments are ok
+    if shape is None:
+        try:
+            shape = d.data.flat[0].shape
+        except Exception as exc:
+            raise TypeError(
+                "Failed extracting a shape from the first element of the "
+                f"given array:\n{d}\nCheck that the given array contains "
+                "further np.ndarray-like objects. Alternatively, explicitly "
+                "provide the `shape` argument."
+            ) from exc
 
-    # Array that gathers all object arrays
-    arrs = np.zeros_like(d, dtype=object)
+    if dims is None:
+        dims = tuple([f"inner_dim_{n:d}" for n, _ in enumerate(shape)])
 
-    # In-place transform each element to an xr.DataArray and assign the new
-    # dimension names. Coordinates are assigned later (more efficient that way)
+    if len(dims) != len(shape):
+        raise ValueError(
+            "Number of dimension names and number of dimensions of the inner "
+            f"arrays needs to match! Got dimension names {dims} for array "
+            f"elements of expected shape {shape}."
+        )
+
+    if coords == "trivial":
+        coords = {n: "trivial" for n in dims}
+
+    elif not isinstance(coords, dict):
+        raise TypeError(
+            f"Argument `coords` needs to be a dict or str, but was {coords}!"
+        )
+
+    if set(coords.keys()) != set(dims):
+        raise ValueError(
+            "Mismatch between dimension names and coordinate keys! Make sure "
+            "there are coordinates specified for each dimension of the inner "
+            f"arrays, {dims}! Got:\n{coords}"
+        )
+
+    # Handle trivial coordinates for each coordinate dimension separately
+    coords = {n: (range(l) if isinstance(c, str) and c == "trivial" else c)
+              for (n, c), l in zip(coords.items(), shape)}
+
+    # Assemble info needed to bring individual array items into proper form
+    item_name = d.name if d.name else "data"
+    item_shape = tuple([1 for _ in d.shape]) + tuple(shape)
+    item_dims = d.dims + tuple(dims)
+    item_coords = lambda e: dict(**{n: [c.item()] for n,c in e.coords.items()},
+                                 **coords)
+
+    # The array that gathers all to-be-combined object arrays
+    arrs = np.empty_like(d, dtype=object)
+    arrs.fill(dict())  # are ignored in xr.merge
+
+    # Transform each element to a labelled xr.DataArray that includes the outer
+    # dimensions and coordinates; the latter is crucial for alignment.
+    # Alongside, type coercion can be performed. For failed reshaping, the
+    # element may be skipped.
     it = np.nditer(arrs.data, flags=('multi_index', 'refs_ok'))
     for _ in it:
-        # Create a labelled array that includes the outer coordinates
-        item = d[it.multi_index].item().reshape(item_shape)
-        coords = {n: [c.item()] for n, c in d[it.multi_index].coords.items()}
-        e = xr.DataArray(item.astype(inner_dtype) if inner_dtype else item,
-                         dims=item_dims,
-                         coords=dict(**coords, c=range(4), d=range(5)))
-        arrs[it.multi_index] = e
+        item = prepare_item(d, midx=it.multi_index, shape=item_shape,
+                            astype=astype, name=item_name, dims=item_dims,
+                            generate_coords=item_coords)
 
-    # Now, multi-concatenate
-    return multi_concat(arrs, dims=d.dims)
+        if item is None:
+            # Missing value; need to fall back to combination via merge
+            combination_method = 'merge'
+            continue
+        arrs[it.multi_index] = item
+
+    # Now, combine
+    if combination_method == 'concat':
+        return multi_concat(arrs, dims=d.dims, **combination_kwargs)
+
+    elif combination_method == 'merge':
+        return merge(arrs, reduce_to_array=True, **combination_kwargs)
+
+    raise ValueError(f"Invalid combination method '{combination_method}'! "
+                     "Choose from: 'concat', 'merge'.")
 
 
 # -----------------------------------------------------------------------------

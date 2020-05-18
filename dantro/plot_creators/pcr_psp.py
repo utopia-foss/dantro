@@ -277,7 +277,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
                 # xr.concat method along the array axes can be used for
                 # combining the data.
                 dag.add_node(operation='populate_ndarray',
-                             args=refs,
+                             args=[refs],
                              kwargs=dict(shape=psp.shape, dtype='object'))
 
                 dag.add_node(operation='dantro.multi_concat',

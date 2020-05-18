@@ -222,6 +222,16 @@ def test_op_populate_ndarray():
     with pytest.raises(ValueError, match="Mismatch between array size"):
         dops.populate_ndarray([1,2,3,4,5,6,7], shape=(2,3))
 
+    with pytest.raises(TypeError, match="Without an output array given"):
+        dops.populate_ndarray([1,2,3,4,5,6])
+
+    # Can also work directly on an output array
+    out = np.zeros((2,3))
+    assert (out == 0).all()
+
+    dops.populate_ndarray([1,2,3,4,5,6], out=out)
+    assert (out.flat == [1,2,3,4,5,6]).all()
+
 
 def test_op_multi_concat(darrs):
     """Test dantro specialization of xr.concat"""
@@ -292,7 +302,7 @@ def test_op_expand_dims():
 
 
 def test_op_expand_object_array():
-    """Tests dantro specialization of xarray's expand_dims method"""
+    """Tests the expand_object_array operation"""
     expand = dops.expand_object_array
 
     arr = dops.populate_ndarray([i * np.ones((4, 5), dtype=int)
@@ -303,15 +313,58 @@ def test_op_expand_object_array():
     assert da.shape == (2,3)
     assert da.dtype == np.dtype('O')
 
-    eda = expand(da, inner_shape=(4,5), inner_dims=('c', 'd'))
+    # Test expansion with minimal arguments
+    eda = expand(da)
     print(eda)
-    assert eda.shape == (2,3,4,5)
-    assert eda.dtype == int
-    assert eda.dims == ('a', 'b', 'c', 'd')
+
+    assert eda.shape == (2,3,4,5)   # expanded in the back
+    assert eda.dims == ('a', 'b', 'inner_dim_0', 'inner_dim_1')
+    assert eda.dtype == int         # no coercion
+
     assert (eda.coords["a"] == [10, 11]).all()
     assert (eda.coords["b"] == [20, 21, 22]).all()
-    assert (eda.coords["c"] == range(4)).all()
-    assert (eda.coords["d"] == range(5)).all()
+    assert (eda.coords["inner_dim_0"] == range(4)).all()
+    assert (eda.coords["inner_dim_1"] == range(5)).all()
+
+    # Explicitly coerce to float
+    eda2 = expand(da, astype=float)
+    assert (eda2 == eda).all()
+    assert eda2.dtype == float
+
+    # Again, now via merge
+    mda = expand(da, combination_method="merge")
+    assert (mda == eda).all()
+    assert mda.dtype == float  # will always fall back to this
+
+    # ... which also supports missing values, if configured to do so
+    da2 = da.copy()
+    da2[1,1] = "foo"
+
+    with pytest.raises(ValueError, match="Failed reshaping"):
+        expand(da2)
+
+    mda2 = expand(da2, allow_reshaping_failure=True)
+    print(mda2)
+
+    assert np.isnan(mda2[1,1]).all()
+
+    # Check error messages
+    with pytest.raises(TypeError, match="Failed extracting a shape from the"):
+        da2 = da.copy()
+        da2[0,0] = "some scalar non-array"
+        expand(da2)
+
+    with pytest.raises(ValueError, match="Number of dimension names.*match"):
+        expand(da, dims=("foo",))
+
+    with pytest.raises(ValueError, match="Mismatch between dimension names"):
+        expand(da, coords=dict(bad_name="trivial"))
+
+    with pytest.raises(TypeError, match="needs to be a dict or str, but was"):
+        expand(da, coords=["foo"])
+
+    with pytest.raises(ValueError, match="Invalid combination method"):
+        expand(da, combination_method="bad method")
 
 
 def test_op_expression():
