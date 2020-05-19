@@ -525,48 +525,55 @@ def test_groups_graphgroup():
     # Create some node data
     nodes               = XrDataContainer(name="nodes", data=np.arange(0, 10))
     node_prop           = XrDataContainer(name="some_node_prop",
-                                          data=np.random.random(size=(10,2)),
-                                          # declare this as a node property
-                                          attrs={"node_prop": True})
-    other_node_prop     = XrDataContainer(name="other_node_prop",
-                                          data=np.random.random(size=(10,2)),
-                                          attrs={"node_prop": True})
+                                          data=np.random.random(size=(2,10)),
+                                          dims=('time','node_idx'))
 
     # Create some dynamic edge data at two different time steps
     edges_initial       = XrDataContainer(name="0",
-                                    data=np.random.randint(0, 10, size=(2,9)))
+                                    data=np.random.randint(0, 10, size=(9,2)),
+                                    dims=('edge_idx','type'),
+                                    coords=dict(edge_idx=range(9),
+                                                type=['source','target']))
     edges_final         = XrDataContainer(name="10",
-                                    data=np.random.randint(0, 10, size=(2,6)))
+                                    data=np.random.randint(0, 10, size=(6,2)),
+                                    dims=('edge_idx','type'),
+                                    coords=dict(edge_idx=range(6),
+                                                type=['source','target']))
     edge_prop_initial   = XrDataContainer(name="0",
-                                          data=np.random.random(size=(2,9)))
+                                          data=np.random.random(size=9),
+                                          dims=('edge_idx',),
+                                          coords=dict(edge_idx=range(9)))
     edge_prop_final     = XrDataContainer(name="10",
-                                          data=np.random.random(size=(2,6)))
+                                          data=np.random.random(size=6),
+                                          dims=('edge_idx',),
+                                          coords=dict(edge_idx=range(6)))
+    other_edge_prop     = XrDataContainer(name="other_edge_prop",
+                                          data=np.random.random(size=6),
+                                          dims=('edge_idx',))
 
-    # Create a GraphGroup and add the static node data
+    # Create a GraphGroup and add the static data
     graph_group = GraphGroup(name="graph_group",
-                             containers=[nodes, node_prop, other_node_prop],
+                             containers=[nodes, node_prop, other_edge_prop],
                              attrs={"directed": False, "parallel": False})
 
     # Add dynamic edge data as TimeSeriesGroup
     graph_group.new_group("edges", Cls=TimeSeriesGroup,
                           containers=[edges_initial, edges_final])
     graph_group.new_group("some_edge_prop", Cls=TimeSeriesGroup,
-                          containers=[edge_prop_initial, edge_prop_final],
-                          # declare this as an edge property
-                          attrs={"edge_prop": True})
+                          containers=[edge_prop_initial, edge_prop_final])
 
     # The resulting tree structure is the following:
     ### Start -- groups_graphgroup_datatree
     # graph_group                   <GraphGroup, 4 members, 2 attributes>
     # └┬ nodes                      <XrDataContainer, ..., shape (10,), 0 attributes>
-    #  ├ some_node_prop             <XrDataContainer, ..., shape (10,2), 1 attribute>
-    #  ├ other_node_prop            <XrDataContainer, ..., shape (10,2), 1 attribute>
-    #  ├ edges                      <TimeSeriesGroup, 2 members, 0 attribute>
+    #  ├ some_node_prop             <XrDataContainer, ..., shape (2,10), 0 attributes>
+    #  ├ edges                      <TimeSeriesGroup, 2 members, 0 attributes>
+    #    └┬ 0                       <XrDataContainer, ..., shape (9,2), 0 attributes>
+    #     └ 10                      <XrDataContainer, ..., shape (6,2), 0 attributes>
+    #  ├ some_edge_prop             <TimeSeriesGroup, 2 members, 0 attributes>
     #    └┬ 0                       <XrDataContainer, ..., shape (9,), 0 attributes>
     #     └ 10                      <XrDataContainer, ..., shape (6,), 0 attributes>
-    #  └ some_edge_prop             <TimeSeriesGroup, 2 members, 1 attribute>
-    #    └┬ 0                       <XrDataContainer, ..., shape (9,), 0 attributes>
-    #     └ 10                      <XrDataContainer, ..., shape (6,), 0 attributes>
+    #  └ other_edge_prop            <XrDataContainer, ..., shape (6,), 0 attributes>
     ### End ---- groups_graphgroup_datatree
 
     ### Start -- groups_graphgroup_create_graph
@@ -576,15 +583,29 @@ def test_groups_graphgroup():
     # Now, create the final graph with `some_node_prop` as node property and
     # `some_edge_prop` as edge property.
     g = graph_group.create_graph(at_time_idx=-1, # time specified via index
-                                 node_prop="some_node_prop", 
-                                 edge_prop="some_edge_prop")
+                                 node_props=["some_node_prop"], 
+                                 edge_props=["some_edge_prop"])
     ### End ---- groups_graphgroup_create_graph
 
     ### Start -- groups_graphgroup_set_properties
-    # Set the node property manually from the `other_node_prop` data container
+    # Set the edge property manually from the `other_edge_prop` data container
     # and select the data of the last time step
-    graph_group.set_node_property(g=g, name="other_node_prop", at_time_idx=-1)
+    graph_group.set_edge_property(g=g, name="other_edge_prop", at_time_idx=-1)
     ### End ---- groups_graphgroup_set_properties
+
+    ext_data = XrDataContainer(name="ext_np", data=np.random.random(size=(10,)),
+                               dims=('node_idx',))
+
+    ### Start -- groups_graphgroup_property_maps
+    # Make the external data available in the graph group under the given key
+    graph_group.register_property_map("my_ext_node_prop", data=ext_data)
+
+    # Use the newly created key to set the external data as node property
+    graph_group.set_node_property(g=g, name="my_ext_node_prop")
+
+    # Alternatively, load the external data directly via the `data` argument
+    graph_group.set_node_property(g=g, name="my_ext_node_prop", data=ext_data)
+    ### End ---- groups_graphgroup_property_maps
 
 
 # -----------------------------------------------------------------------------

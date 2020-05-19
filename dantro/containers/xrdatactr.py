@@ -136,16 +136,21 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
                                             for kv in sizes]))
         return "shape {}".format(self.shape)
 
-    def copy(self):
-        """Return a new object with a deep copy of the data.
-
+    def copy(self, *, deep: bool=True):
+        """Return a new object with a copy of the data. The copy is deep if not
+        specified otherwise.
+        
+        Args:
+            deep (bool, optional): Whether the copy is deep
+        
         Returns:
-            XrDataContainer: A deep copy of this object.
+            XrDataContainer: A (deep) copy of this object.
         """
         log.debug("Creating copy of %s ...", self.logstr)
 
         return self.__class__(name=self.name + "_copy",
-                              data=copy.deepcopy(self._data),
+                              data=(copy.deepcopy(self._data) if deep
+                                    else copy.copy(self._data)),
                               attrs=copy.deepcopy(self.attrs),
                               # Carry over cache attributes, needed for proxy
                               dims=self._dim_names,

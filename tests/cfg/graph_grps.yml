@@ -1,12 +1,18 @@
 # Configuration (including data) for GraphGroup tests
 ---
+# For _all_ working configurations, the graph data, if given, is the following:
+# 
+#   * Nodes: 0, 1, 2, 3, 4
+#   * Edges: (1,0), (2,0), (3,4), (3,4), (4,3)
+#   * Node properties (keyed by node): {0: 0, 1: 1, 2: 2, 3: 3, 4: 4}
+#   * Edge properties (keyed by edge): {(1,0): 10, (2,0): 20, (3,4): 34,
+#                                       (3,4): 34, (4,3): 43}
+# 
+# .............................................................................
+# The basic cases
 basic_dir_par: &base
-  nodes: [0,1,2,3,4]
-  edges: [[0,1],
-          [3,1],
-          [4,2],
-          [0,3],
-          [2,1]]
+  nodes: [[0, 1, 2, 3, 4]]
+  edges: [[[1,0], [2,0], [3,4], [3,4], [4,3]]]
   attrs:
     directed: True
     parallel: True
@@ -29,101 +35,77 @@ basic_ndir_npar:
     directed: False
     parallel: False
 
-wrong_edges:
-  nodes: [0,1,2,3,4]
-  edsches: [[0,1],   # sic!
-            [3,1],
-            [4,2],
-            [0,3],
-            [2,1]]
-  attrs:
-    directed: True
-    parallel: True
-
-wrong_nodes:
-  notessss: [0,1,2,3,4]  # sic!
-  edges: [[0,1],
-           [3,1],
-           [4,2],
-           [0,3],
-           [2,1]]
-  attrs:
-    directed: True
-    parallel: True
-
 transposed_edges: 
   <<: *base
-  edges: [[0, 3, 4, 0, 2], [1, 1, 2, 3, 1]]
+  edges: [[[1, 2, 3, 3, 4], [0, 0, 4, 4, 3]]]
 
+# failing due to missing edge container
+wrong_edges:
+  <<: *base
+
+# failing due to missing node container
+wrong_nodes:
+  <<: *base
+
+# failing because (invalid) 5-tuples are provided as edges
 bad_edges:
   <<: *base
-  edges: [[0,1,2,3,4],
-          [3,1,4,5,6],
-          [4,2,6,7,8],
-          [0,3,8,9,10],
-          [2,1,10,11,12]]
+  edges: [[[0, 1, 2, 3, 4],
+           [3, 1, 4, 5, 6],
+           [4, 2, 6, 7, 8],
+           [0, 3, 8, 9, 9],
+           [2, 1, 1, 1, 2]]]
 
-xr_prop: &xr
-  <<: *base
-  nodes: [0,1,2,4,3]
-  nodes_sorted: [0,1,2,3,4]
-  np1: [0,1,2,3,4]
-  np1_sorted: [0,1,2,4,3]
-  ep1: [0.2,0.4,0.1,0.7,0.0]
-  node_props: ['np1']
-  edge_props: ['ep1']
-  attrs_node_props:
-    node_prop: True
-  attrs_edge_props:
-    edge_prop: True
-
-xr_wrong_type_nodes:
-  <<: *xr
-  nodes: [[0,1,2,3,4], [1,2,3,4,0]]
-
-grp_prop: &grp
+# .............................................................................
+# The cases where graph and properties are stored in TimeSeriesGroups
+grp_prop: &prop_multiple_times
   attrs:
     directed: True
     parallel: True
-  nodes: [[0,1,2,3,4], [1,2,3,4,0]]
-  nodes_sorted: [[[0,1,2,3,4]], [[0,1,2,3,4]]]
-  edges: [[[0,1],[3,1],[4,2],[0,1],[2,1]],
-          [[0,1],[3,1],[4,2],[0,3],[2,1]]]
+  nodes: [[0, 0, 0, 0, 0], [1, 2, 3, 4, 0]]
+  edges: [[[0,0], [0,0], [0,0], [0,0], [0,0]],
+          [[1,0], [2,0], [3,4], [3,4], [4,3]]]
   times: [0,1]
-  at_time: 1
-  np1: [[0,1,2,3,4], [1,1,1,1,2]]
-  np1_sorted: [[0,1,2,3,4], [2,1,1,1,1]]
-  ep1: [[0.2,0.4,0.1,0.7,0.0], [1,1,1,1,1]]
-  node_props: ['np1']
-  edge_props: ['ep1']
-  attrs_node_props:
-    node_prop: True
-  attrs_edge_props:
-    edge_prop: True
+  at_time_idx: -1
+  np: [[0, 0, 0, 0, 0], [1, 2, 3, 4, 0]]
+  ep: [[0, 0, 0, 0, 0], [10, 20, 34, 34, 43]]
+  node_props: ['np']
+  edge_props: ['ep']
 
-grp_less_edge_times:
-  <<: *grp
-  edges: [[[0,1],[3,1],[4,2],[0,1],[2,1]]]
+# permuting the node and edge container
+grp_prop_permute_nodes:
+  <<: *prop_multiple_times
+  nodes: [[0, 0, 0, 0, 0], [4, 2, 3, 0, 1]]
+  np: [[0, 0, 0, 0, 0], [4, 2, 3, 0, 1]]
+
+grp_prop_permute_edges:
+  <<: *prop_multiple_times
+  edges: [[[0,0], [0,0], [0,0], [0,0], [0,0]],
+          [[3,4], [1,0], [4,3], [3,4], [2,0]]]
+  ep: [[0, 0, 0, 0, 0], [34, 10, 43, 34, 20]]
+
+grp_prop_three_tuples:
+  <<: *prop_multiple_times
+  edges: [[[0,0,0], [0,0,1], [0,0,2], [0,0,3], [0,0,4]],
+          [[1,0,0], [2,0,0], [3,4,0], [3,4,1], [4,3,0]]]
+
+# .............................................................................
+# The cases where graph and properties are stored in XrDataContainers
+xr_prop: &prop_single_time
+  <<: *base
+  nodes: [[0, 1, 2, 4, 3]]
+  np: [[0, 1, 2, 4, 3]]
+  ep: [[10, 20, 34, 34, 43]]
+  node_props: ['np']
+  edge_props: ['ep']
 
 xr_time_series:
-  <<: *grp
+  <<: *prop_multiple_times
 
 xr_time_series_static_nodes:
-  <<: *grp
-  nodes: [[0,1,2,3,4]]
+  <<: *prop_multiple_times
+  nodes: [[1, 2, 3, 4, 0]]
 
 xr_time_series_static_edges:
-  <<: *grp
-  edges: [[[0,1],[3,1],[4,2],[0,1],[2,1]]]
-
-xr_time_series_static_nodes_unlabelled:
-  <<: *grp
-  nodes: [0,1,2,3,4]
-
-xr_time_series_static_edges_unlabelled:
-  <<: *grp
-  edges: [[0,1],[3,1],[4,2],[0,1],[2,1]]
-
-
-
-
+  <<: *prop_multiple_times
+  edges: [[[1,0], [2,0], [3,4], [3,4], [4,3]]]
