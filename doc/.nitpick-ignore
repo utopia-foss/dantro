@@ -51,12 +51,14 @@ py:class Any
 py:class Union
 py:class Callable
 py:class Sequence
+py:class Iterable
 py:class Tuple
 py:class List
 py:class Dict
 
 # numpy, xarray, h5py
 py:class np.ndarray
+py:class np.dtype
 py:class xr.Dataset
 py:class xr.DataArray
 py:class h5.Dataset

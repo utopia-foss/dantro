@@ -6,7 +6,7 @@ import logging
 import operator
 from importlib import import_module as _import_module
 from difflib import get_close_matches as _get_close_matches
-from typing import Callable, Any, Sequence, Union, Tuple, Set
+from typing import Callable, Any, Sequence, Union, Tuple, Set, Iterable
 
 import scipy
 import numpy as np
@@ -19,6 +19,7 @@ import sympy as sym
 from sympy.parsing.sympy_parser import (parse_expr as _parse_expr,
                                         standard_transformations as _std_trf)
 
+from .coords import extract_dim_names, extract_coords_from_attrs
 from .ordereddict import KeyOrderedDict
 from ..base import BaseDataContainer, BaseDataGroup
 from ..tools import apply_along_axis
@@ -159,10 +160,9 @@ def expression(expr: str, *,
     .. warning::
 
         While the expression is symbolic math, it uses the ``**`` operator for
-        exponentiation, unless a custom ``transformations`` argument is given
-        via the ``parse_kwargs``.
+        exponentiation, unless a custom ``transformations`` argument is given.
 
-        The ``^`` operator will lead to an XOR operation being performed!
+        Thus, the ``^`` operator will lead to an XOR operation being performed!
 
     .. warning::
 
@@ -388,35 +388,59 @@ def count_unique(data) -> xr.DataArray:
 # .............................................................................
 # Working with multidimensional data, mostly xarray-based
 
-def populate_ndarray(*objs, shape: tuple, dtype: str='float', order: str='C'
+def populate_ndarray(objs: Iterable,
+                     shape: Tuple[int]=None,
+                     dtype: Union[str, type, np.dtype]=float,
+                     order: str='C',
+                     out: np.ndarray=None,
+                     ufunc: Callable=None
                      ) -> np.ndarray:
-    """Populates an empty np.ndarray of the given dtype with the objects.
+    """Populates an empty np.ndarray of the given dtype with the given objects
+    by zipping over a new array of the given ``shape`` and the sequence of
+    objects.
 
     Args:
-        *objs: The objects to add to the
-        shape (tuple): The shape of the new array
-        dtype (str, optional): Data type of the new array
-        order (str, optional): Order of the new array
+        objs (Iterable): The objects to add to the np.ndarray. These objects
+            are added in the order they are given here. Note that their final
+            position inside the resulting array is furthermore determined by
+            the ``order`` argument.
+        shape (Tuple[int], optional): The shape of the new array. **Required**
+            if no ``out`` array is given.
+        dtype (Union[str, type, np.dtype], optional): dtype of the new array.
+            Ignored if ``out`` is given.
+        order (str, optional): Order of the new array, determines iteration
+            order. Ignored if ``out`` is given.
+        out (np.ndarray, optional): If given, populates this array rather than
+            an empty array.
+        ufunc (Callable, optional): If given, applies this unary function to
+            each element before storing it in the to-be-returned ndarray.
 
     Returns:
-        np.ndarray: The newly created and populated array
+        np.ndarray: The populated ``out`` array or the newly created one (if
+            ``out`` was not given)
 
     Raises:
+        TypeError: On missing
         ValueError: If the number of given objects did not match the array size
     """
-    arr = np.empty(shape, dtype=dtype, order=order)
+    if out is None and shape is None:
+        raise TypeError("Without an output array given, the `shape` argument "
+                        "needs to be specified!")
 
-    if len(objs) != arr.size:
+    ufunc = ufunc if ufunc is not None else lambda e: e
+    out = out if out is not None else np.empty(shape, dtype=dtype, order=order)
+
+    if len(objs) != out.size:
         raise ValueError(
-            f"Mismatch between array size ({arr.size}, shape: {arr.shape}) "
+            f"Mismatch between array size ({out.size}, shape: {out.shape}) "
             f"and number of given objects ({len(objs)})!"
         )
 
-    it = np.nditer(arr, flags=('multi_index', 'refs_ok'))
+    it = np.nditer(out, flags=('multi_index', 'refs_ok'))
     for obj, _ in zip(objs, it):
-        arr[it.multi_index] = obj
+        out[it.multi_index] = ufunc(obj)
 
-    return arr
+    return out
 
 def multi_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> xr.DataArray:
     """Concatenates ``xr.Dataset`` or ``xr.DataArray`` objects using
@@ -506,16 +530,211 @@ def merge(arrs: Union[Sequence[Union[xr.DataArray, xr.Dataset]], np.ndarray],
     #      is not desired, because it is not relevant.
     return darr
 
-def expand_dims(d: Any, *, dim: dict=None, **kwargs) -> xr.DataArray:
+def expand_dims(d: Union[np.ndarray, xr.DataArray],
+                *, dim: dict=None, **kwargs) -> xr.DataArray:
     """Expands the dimensions of the given object.
 
-    If the object does not support the `expand_dims` method, it will be
+    If the object does not support the ``expand_dims`` method, it will be
     attempted to convert it to an xr.DataArray.
+
+    Args:
+        d (Union[np.ndarray, xr.DataArray]): The object to expand the
+            dimensions of
+        dim (dict, optional): Keys specify the dimensions to expand, values can
+            either be an integer specifying the length of the dimension, or a
+            sequence of coordinates.
+        **kwargs: Passed on to ``expand_dims`` method
+
+    Returns:
+        xr.DataArray: The input data with expanded dimensions.
     """
     if not hasattr(d, 'expand_dims'):
         d = xr.DataArray(d)
-
     return d.expand_dims(dim, **kwargs)
+
+def expand_object_array(d: xr.DataArray, *,
+                        shape: Sequence[int]=None,
+                        astype: Union[str, type, np.dtype]=None,
+                        dims: Sequence[str]=None,
+                        coords: Union[dict, str]='trivial',
+                        combination_method: str='concat',
+                        allow_reshaping_failure: bool=False,
+                        **combination_kwargs) -> xr.DataArray:
+    """Expands a labelled object-array that contains array-like objects into a
+    higher-dimensional labelled array.
+
+    ``d`` is expected to be an array *of arrays*, i.e. each element of the
+    outer array is an object that itself is an ``np.ndarray``-like object.
+    The ``shape`` is the expected shape of each of these *inner* arrays.
+    Importantly, all these arrays need to have the exact same shape.
+
+    Typically, e.g. when loading data from HDF5 files, the inner array will
+    not be labelled but will consist of simple np.ndarrays.
+    The arguments ``dims`` and ``coords`` are used to label the *inner* arrays.
+
+    This uses :py:func:`~dantro.utils.data_ops.multi_concat` for concatenating
+    or :py:func:`~dantro.utils.data_ops.merge` for merging the object arrays
+    into a higher-dimensional array, where the latter option allows for missing
+    values.
+
+    .. TODO::
+
+        Make reshaping and labelling optional if the inner array already is a
+        labelled array. In such cases, the coordinate assignment is already
+        done and all information for combination is already available.
+
+    Args:
+        d (xr.DataArray): The labelled object-array containing further arrays
+            as elements (which are assumed to be unlabelled).
+        shape (Sequence[int], optional): Shape of the inner arrays. If not
+            given, the first element is used to determine the shape.
+        astype (Union[str, type, np.dtype], optional): All inner arrays need to
+            have the same dtype. If this argument is given, the arrays will be
+            coerced to this dtype. For numeric data, ``float`` is typically a
+            good fallback. Note that with ``combination_method == "merge"``,
+            the choice here might not be respected.
+        dims (Sequence[str], optional): Dimension names for labelling the
+            inner arrays. This is necessary for proper alignment. The number of
+            dimensions need to match the ``shape``. If not given, will use
+            ``inner_dim_0`` and so on.
+        coords (Union[dict, str], optional): Coordinates of the inner arrays.
+            These are necessary to align the inner arrays with each other. With
+            ``coords = "trivial"``, trivial coordinates will be assigned to all
+            dimensions. If specifying a dict and giving ``"trivial"`` as value,
+            that dimension will be assigned trivial coordinates.
+        combination_method (str, optional): The combination method to use to
+            combine the object array. For ``concat``, will use dantro's
+            :py:func:`~dantro.utils.data_ops.multi_concat`, which preserves
+            dtype but does not allow missing values. For ``merge``, will use
+            :py:func:`~dantro.utils.data_ops.merge`, which allows missing
+            values (masked using ``np.nan``) but leads to the dtype decaying
+            to float.
+        allow_reshaping_failure (bool, optional): If true, the expansion is not
+            stopped if reshaping to ``shape`` fails for an element. This will
+            lead to missing values at the respective coordinates and the
+            ``combination_method`` will automatically be changed to ``merge``.
+        **combination_kwargs: Passed on to the selected combination function,
+            :py:func:`~dantro.utils.data_ops.multi_concat` or
+            :py:func:`~dantro.utils.data_ops.merge`.
+
+    Returns:
+        xr.DataArray: A new, higher-dimensional labelled array.
+
+    Raises:
+        TypeError: If no ``shape`` can be extracted from the first element in
+            the input data ``d``
+        ValueError: On bad argument values for ``dims``, ``shape``, ``coords``
+            or ``combination_method``.
+    """
+    def prepare_item(d: xr.DataArray, *,
+                     midx: Sequence[int], shape: Sequence[int],
+                     astype: Union[str, type, np.dtype, None],
+                     name: str, dims: Sequence[str],
+                     generate_coords: Callable
+                     ) -> Union[xr.DataArray, None]:
+        """Extracts the desired element and reshapes and labels it accordingly.
+        If any of this fails, returns ``None``.
+        """
+        elem = d[midx]
+
+        try:
+            item = elem.item().reshape(shape)
+
+        except Exception as exc:
+            if allow_reshaping_failure:
+                return None
+            raise ValueError(
+                f"Failed reshaping item at {midx} to {shape}! Make sure the "
+                f"element\n\n{elem}\n\nallows reshaping. To discard values "
+                "where reshaping fails, enable `allow_reshaping_failure`."
+            ) from exc
+
+        if astype is not None:
+            item = item.astype(astype)
+
+        return xr.DataArray(item, name=name, dims=dims,
+                            coords=generate_coords(elem))
+
+    # Make sure we are operating on labelled data
+    d = xr.DataArray(d)
+
+    # Try to deduce missing arguments and make sure arguments are ok
+    if shape is None:
+        try:
+            shape = d.data.flat[0].shape
+        except Exception as exc:
+            raise TypeError(
+                "Failed extracting a shape from the first element of the "
+                f"given array:\n{d}\nCheck that the given array contains "
+                "further np.ndarray-like objects. Alternatively, explicitly "
+                "provide the `shape` argument."
+            ) from exc
+
+    if dims is None:
+        dims = tuple([f"inner_dim_{n:d}" for n, _ in enumerate(shape)])
+
+    if len(dims) != len(shape):
+        raise ValueError(
+            "Number of dimension names and number of dimensions of the inner "
+            f"arrays needs to match! Got dimension names {dims} for array "
+            f"elements of expected shape {shape}."
+        )
+
+    if coords == "trivial":
+        coords = {n: "trivial" for n in dims}
+
+    elif not isinstance(coords, dict):
+        raise TypeError(
+            f"Argument `coords` needs to be a dict or str, but was {coords}!"
+        )
+
+    if set(coords.keys()) != set(dims):
+        raise ValueError(
+            "Mismatch between dimension names and coordinate keys! Make sure "
+            "there are coordinates specified for each dimension of the inner "
+            f"arrays, {dims}! Got:\n{coords}"
+        )
+
+    # Handle trivial coordinates for each coordinate dimension separately
+    coords = {n: (range(l) if isinstance(c, str) and c == "trivial" else c)
+              for (n, c), l in zip(coords.items(), shape)}
+
+    # Assemble info needed to bring individual array items into proper form
+    item_name = d.name if d.name else "data"
+    item_shape = tuple([1 for _ in d.shape]) + tuple(shape)
+    item_dims = d.dims + tuple(dims)
+    item_coords = lambda e: dict(**{n: [c.item()] for n,c in e.coords.items()},
+                                 **coords)
+
+    # The array that gathers all to-be-combined object arrays
+    arrs = np.empty_like(d, dtype=object)
+    arrs.fill(dict())  # are ignored in xr.merge
+
+    # Transform each element to a labelled xr.DataArray that includes the outer
+    # dimensions and coordinates; the latter is crucial for alignment.
+    # Alongside, type coercion can be performed. For failed reshaping, the
+    # element may be skipped.
+    it = np.nditer(arrs.data, flags=('multi_index', 'refs_ok'))
+    for _ in it:
+        item = prepare_item(d, midx=it.multi_index, shape=item_shape,
+                            astype=astype, name=item_name, dims=item_dims,
+                            generate_coords=item_coords)
+
+        if item is None:
+            # Missing value; need to fall back to combination via merge
+            combination_method = 'merge'
+            continue
+        arrs[it.multi_index] = item
+
+    # Now, combine
+    if combination_method == 'concat':
+        return multi_concat(arrs, dims=d.dims, **combination_kwargs)
+
+    elif combination_method == 'merge':
+        return merge(arrs, reduce_to_array=True, **combination_kwargs)
+
+    raise ValueError(f"Invalid combination method '{combination_method}'! "
+                     "Choose from: 'concat', 'merge'.")
 
 
 # -----------------------------------------------------------------------------
@@ -585,6 +804,7 @@ _OPERATIONS = KeyOrderedDict({
     '.imag':        lambda d: d.imag,
     '.real':        lambda d: d.real,
     '.nonzero':     lambda d: d.nonzero,
+    '.flat':        lambda d: d.flat,
 
     # xarray
     '.head':        lambda d: d.head(),
@@ -630,94 +850,103 @@ _OPERATIONS = KeyOrderedDict({
 
 
     # N-ary ...................................................................
-    'create_mask':          create_mask,
-    'where':                where,
-    'populate_ndarray':     populate_ndarray,
+    'create_mask':                  create_mask,
+    'where':                        where,
+    'populate_ndarray':             populate_ndarray,
+    'expand_object_array':          expand_object_array,
 
-    # evaluating symbolic expressions using sympy
-    'expression':           expression,
-    # NOTE: The `^` operator acts as XOR; use `**` for exponentiation!
+    # extract labelling info, e.g. for creating higher-dimensional arrays
+    'extract_dim_names':            extract_dim_names,
+    'extract_coords_from_attrs':    extract_coords_from_attrs,
 
     # dantro-specific wrappers around other library's functionality
-    'dantro.multi_concat':  multi_concat,
-    'dantro.merge':         merge,
-    'dantro.expand_dims':   expand_dims,
+    'dantro.multi_concat':          multi_concat,
+    'dantro.merge':                 merge,
+    'dantro.expand_dims':           expand_dims,
+
+    # evaluating symbolic expressions using sympy
+    'expression':                   expression,
+    # NOTE: The `^` operator acts as XOR; use `**` for exponentiation!
 
     # numpy
-    '.sum':         lambda d, **k: d.sum(**k),
-    '.prod':        lambda d, **k: d.prod(**k),
-    '.cumsum':      lambda d, **k: d.cumsum(**k),
-    '.cumprod':     lambda d, **k: d.cumprod(**k),
+    '.sum':             lambda d, *a, **k: d.sum(*a, **k),
+    '.prod':            lambda d, *a, **k: d.prod(*a, **k),
+    '.cumsum':          lambda d, *a, **k: d.cumsum(*a, **k),
+    '.cumprod':         lambda d, *a, **k: d.cumprod(*a, **k),
 
-    '.mean':        lambda d, **k: d.mean(**k),
-    '.std':         lambda d, **k: d.std(**k),
-    '.min':         lambda d, **k: d.min(**k),
-    '.max':         lambda d, **k: d.max(**k),
-    '.var':         lambda d, **k: d.var(**k),
-    '.argmin':      lambda d, **k: d.argmin(**k),
-    '.argmax':      lambda d, **k: d.argmax(**k),
-    '.argsort':     lambda d, **k: d.argsort(**k),
-    '.argpartition':lambda d, *a, **k: d.argpartition(*a, **k),
+    '.mean':            lambda d, *a, **k: d.mean(*a, **k),
+    '.std':             lambda d, *a, **k: d.std(*a, **k),
+    '.min':             lambda d, *a, **k: d.min(*a, **k),
+    '.max':             lambda d, *a, **k: d.max(*a, **k),
+    '.var':             lambda d, *a, **k: d.var(*a, **k),
+    '.argmin':          lambda d, *a, **k: d.argmin(*a, **k),
+    '.argmax':          lambda d, *a, **k: d.argmax(*a, **k),
+    '.argsort':         lambda d, *a, **k: d.argsort(*a, **k),
+    '.argpartition':    lambda d, *a, **k: d.argpartition(*a, **k),
 
-    '.take':        lambda d, **k: d.take(**k),
-    '.sort':        lambda d, **k: d.sort(**k),
-    '.squeeze':     lambda d, **k: d.squeeze(**k),
-    '.reshape':     lambda d, **k: d.reshape(**k),
-    '.flatten':     lambda d, **k: d.flatten(**k),
-    '.fill':        lambda d, **k: d.fill(**k),
-    '.round':       lambda d, **k: d.round(**k),
-    '.diagonal':    lambda d, **k: d.diagonal(**k),
-    '.trace':       lambda d, **k: d.trace(**k),
-    '.transpose':   lambda d, *a: d.transpose(*a),
-    '.swapaxes':    lambda d, a1, a2: d.swapaxes(a1, a2),
-    '.astype':      lambda d, t, **k: d.astype(t, **k),
+    '.transpose':       lambda d, *ax: d.transpose(*ax),
+    '.squeeze':         lambda d, **k: d.squeeze(**k),
+    '.flatten':         lambda d, **k: d.flatten(**k),
+    '.diagonal':        lambda d, **k: d.diagonal(**k),
+    '.trace':           lambda d, **k: d.trace(**k),
+    '.sort':            lambda d, **k: d.sort(**k),
+    '.fill':            lambda d, val: d.fill(val),
+    '.round':           lambda d, **k: d.round(**k),
+    '.take':            lambda d, i, **k: d.take(i, **k),
+    '.swapaxes':        lambda d, a1, a2: d.swapaxes(a1, a2),
+    '.reshape':         lambda d, s, **k: d.reshape(s, **k),
+    '.astype':          lambda d, t, **k: d.astype(t, **k),
 
-    'np.array':     np.array,
-    'np.empty':     np.empty,
-    'np.zeros':     np.zeros,
-    'np.ones':      np.ones,
-    'np.eye':       np.eye,
-    'np.arange':    np.arange,
-    'np.linspace':  np.linspace,
-    'np.logspace':  np.logspace,
+    'np.array':         np.array,
+    'np.empty':         np.empty,
+    'np.zeros':         np.zeros,
+    'np.ones':          np.ones,
+    'np.empty_like':    np.empty_like,
+    'np.zeros_like':    np.zeros_like,
+    'np.ones_like':     np.ones_like,
 
-    'np.invert':    np.invert,
-    'np.transpose': np.transpose,
-    'np.diff':      np.diff,
-    'np.reshape':   np.reshape,
-    'np.take':      np.take,
-    'np.repeat':    np.repeat,
-    'np.stack':     np.stack,
-    'np.hstack':    np.hstack,
-    'np.vstack':    np.vstack,
+    'np.eye':           np.eye,
+    'np.arange':        np.arange,
+    'np.linspace':      np.linspace,
+    'np.logspace':      np.logspace,
+
+    'np.invert':        np.invert,
+    'np.transpose':     np.transpose,
+    'np.diff':          np.diff,
+    'np.reshape':       np.reshape,
+    'np.take':          np.take,
+    'np.repeat':        np.repeat,
+    'np.stack':         np.stack,
+    'np.hstack':        np.hstack,
+    'np.vstack':        np.vstack,
     'np.concatenate':   np.concatenate,
 
-    'np.ceil':      np.ceil,
-    'np.floor':     np.floor,
-    'np.round':     np.round,
+    'np.ceil':          np.ceil,
+    'np.floor':         np.floor,
+    'np.round':         np.round,
 
-    'np.where':     np.where,
-    'np.digitize':  np.digitize,
-    'np.histogram': np.histogram,
+    'np.where':         np.where,
+    'np.digitize':      np.digitize,
+    'np.histogram':     np.histogram,
 
     # xarray
-    '.sel':         lambda d, **k: d.sel(**k),
-    '.isel':        lambda d, **k: d.isel(**k),
-    '.median':      lambda d, **k: d.median(**k),
-    '.quantile':    lambda d, **k: d.quantile(**k),
-    '.argmin':      lambda d, **k: d.argmin(**k),
-    '.argmax':      lambda d, **k: d.argmax(**k),
-    '.count':       lambda d, **k: d.count(**k),
-    '.diff':        lambda d, **k: d.diff(**k),
-    '.where':       lambda d, c, *a, **k: d.where(c, *a, **k),
+    '.sel':             lambda d, *a, **k: d.sel(*a, **k),
+    '.isel':            lambda d, *a, **k: d.isel(*a, **k),
+    '.median':          lambda d, *a, **k: d.median(*a, **k),
+    '.quantile':        lambda d, *a, **k: d.quantile(*a, **k),
+    '.argmin':          lambda d, *a, **k: d.argmin(*a, **k),
+    '.argmax':          lambda d, *a, **k: d.argmax(*a, **k),
+    '.count':           lambda d, *a, **k: d.count(*a, **k),
+    '.diff':            lambda d, *a, **k: d.diff(*a, **k),
+    '.where':           lambda d, c, *a, **k: d.where(c, *a, **k),
 
     '.groupby':         lambda d, g, **k: d.groupby(g, **k),
     '.groupby_bins':    lambda d, g, **k: d.groupby_bins(g, **k),
     '.map':             lambda ds, func, **k: ds.map(func, **k),
     '.reduce':          lambda ds, func, **k: ds.reduce(func, **k),
 
-    '.expand_dims':     lambda d, **k: d.expand_dims(**k),
-    '.assign_coords':   lambda d, **k: d.assign_coords(**k),
+    '.expand_dims':     lambda d, *a, **k: d.expand_dims(*a, **k),
+    '.assign_coords':   lambda d, *a, **k: d.assign_coords(*a, **k),
 
     'xr.Dataset':       xr.Dataset,
     'xr.DataArray':     xr.DataArray,
