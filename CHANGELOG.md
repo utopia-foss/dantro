@@ -8,6 +8,7 @@
     - !161 extends the operations database with commonly used operations and makes operations on `np.`, `xr.` and `scipy.` modules easier.
     - !160 adds the `expression` operation for evaluating [`sympy`](https://www.sympy.org/en/index.html) expressions
     - !165 adds the `lambda` operation, which can be used to define callables, and the [`curve_fit`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.curve_fit.html) operation that requires such a callable.
+    - !168 adds the `expand_object_array` operation, allowing to unpack an `object`-dtype array of arrays into a higher-dimensional array.
 - !164 extends the [DAG minimal syntax](https://dantro.readthedocs.io/en/latest/data_io/transform.html#minimal-syntax) to allow specifying both positional and keyword arguments.
 - !160 adds [DAG syntax parsers](https://dantro.readthedocs.io/en/latest/data_io/dag_op_hooks.html) that can simplify DAG specification.
   Currently, this includes only a parser for the `expression` operation (#149).
