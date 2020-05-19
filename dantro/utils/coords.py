@@ -205,7 +205,7 @@ COORD_EXTRACTORS = {
 
 # Actual (high-level) extraction functions ....................................
 
-def extract_coords_from_attrs(obj: Union['NumpyDataContainer', np.ndarray], *,
+def extract_coords_from_attrs(obj: Union[AbstractDataContainer, np.ndarray], *,
                               dims: Tuple[Union[str, None]], strict: bool,
                               coords_attr_prefix: str,
                               default_mode: str, mode_attr_prefix: str=None,
@@ -227,11 +227,14 @@ def extract_coords_from_attrs(obj: Union['NumpyDataContainer', np.ndarray], *,
     raised once this information is applied.
 
     Args:
-        obj (Union['NumpyDataContainer', np.ndarray]): The object to retrieve
+        obj (Union[AbstractDataContainer, np.ndarray]): The object to retrieve
             the attributes from (via the ``attrs`` attribute). If the ``attrs``
             *argument* is given, will use those instead.
             It is furthermore expected that this object specifies the shape of
-            the numerical data the coordinates are to be generated for.
+            the numerical data the coordinates are to be generated for by
+            providing a ``shape`` property. This is possible with
+            :py:class:`~dantro.containers.numeric.NumpyDataContainer` and
+            derived classes.
         dims (Tuple[Union[str, None]]): Sequence of dimension names; this
             may also contain None's, which are ignored for coordinates.
         strict (bool): Whether to use strict checking, where no additional
@@ -485,7 +488,7 @@ def extract_coords(obj: AbstractDataContainer, *, mode: str, dims: TDims,
         coords = extraction_func(obj, dims=dims, **kwargs)
 
     except Exception as exc:
-        raise type(exc)(f"Failed extracting coordinates of {obj.logstr} using "
+        raise type(exc)(f"Failed extracting coordinates of {obj} using "
                         f"mode '{mode}': {exc}") from exc
 
     # TODO Write to cache
