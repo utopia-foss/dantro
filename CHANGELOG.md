@@ -15,10 +15,17 @@
 - !160 adds [DAG syntax parsers](https://dantro.readthedocs.io/en/latest/data_io/dag_op_hooks.html) that can simplify DAG specification.
   Currently, this includes only a parser for the `expression` operation (#149).
 - !166 adds [DAG usage examples](https://dantro.readthedocs.io/en/latest/data_io/examples.html) to the documentation.
+- !169 adds various improvements to the plotting framework:
+    - Allow debugging individual plot configurations using the `debug` option in the plot configuration.
+    - Improve error messages in `PlotManager`
+    - Can now control the `PlotHelper`'s behaviour upon exceptions
+    - The `PlotManager.plot_from_cfg` method is now also ignoring plot configurations with names starting with `.` (additionally to those starting with `_`)
+    - Add a [plot configuration reference](https://dantro.readthedocs.io/en/latest/plotting/plot_cfg_ref.html) page to the documentation
 
 
 #### Bug fixes
 - !158 fixes a bug (#151) which led to edge property data not being associated correctly with the edges.
+- !169 addresses #161, which prohibited specifying `out_dir` when plotting using `PlotManager.plot_from_cfg`.
 
 
 ## v0.12.5
