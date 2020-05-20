@@ -79,3 +79,62 @@ data_io_load_cfg:
       proxy_kwargs:
         resolve_as_dask: true
     ### End ---- data_io_load_cfg_example05
+
+
+# -----------------------------------------------------------------------------
+# plotting/plot_cfg_ref.rst
+
+# Plot configurations showcased in the documentation
+plot_cfg_ref:
+  mngr_overview:
+    ### Start -- plot_cfg_ref_mngr_overview
+    my_plot:
+      # --- Basic configuration options
+      # Whether this plot should actually be performed or not
+      enabled: true
+
+      # Plot configuration inheritance (from existing base plot configurations)
+      based_on: []   # applied in the order given here, recursively updating
+
+      # The file extension for the plot output path
+      file_ext: png
+
+      # Path to a custom output directory
+      out_dir: ~/my_plot_output
+
+      # Whether to run this plot in debug mode. If given, overwrites the
+      # default value specified in the PlotManager
+      debug: true
+
+      # Whether to save the plot configuration alongside the plot
+      save_plot_cfg: true
+
+      # --- Choosing and configuring a plot creator
+      # Manually
+      creator: external
+
+      # If the above is not given, auto-detection *may* be able to deduce it
+      auto_detect_creator: true
+
+      # Initialization parameters for the selected plot creator. The ones given
+      # here recursively update those given to PlotManager.__init__
+      creator_init_kwargs:
+        # Options provided by the BasePlotCreator
+        default_ext: ~     # The default file extension
+        exist_ok: false    # If true, allows overwriting plot output
+
+        # All further options are handled by the specialization's __init__
+        # ...
+
+      # --- Plot creator arguments
+      # Any further parameters are handled by the plot creator
+      # ...
+    ### End ---- plot_cfg_ref_mngr_overview
+      # Use this dummy plot module and function, is multi-purpose. Focus is on
+      # the parameters above. Benefit here: any left-over arguments from above
+      # will be passed on to plt.plot, leading to an error.
+      module: .basic
+      plot_func: lineplot
+      x: vectors/times
+      y: vectors/values
+      fmt: go-

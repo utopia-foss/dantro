@@ -120,13 +120,13 @@ def test_init(dm, tmpdir):
     # Based on a configuration dict
     PlotManager(dm=dm, base_cfg={}, plots_cfg={})
     PlotManager(dm=dm, base_cfg={}, update_base_cfg={}, plots_cfg={})
-    
+
     # Based on a configuration file
     PlotManager(dm=dm, base_cfg=BASE_EXT_PATH, plots_cfg=BASED_ON_EXT_PATH)
 
     # Based on a updated configuration file
-    PlotManager(dm=dm, base_cfg=BASE_EXT_PATH, 
-                update_base_cfg=UPDATE_BASE_EXT_PATH, 
+    PlotManager(dm=dm, base_cfg=BASE_EXT_PATH,
+                update_base_cfg=UPDATE_BASE_EXT_PATH,
                 plots_cfg=BASED_ON_EXT_PATH)
 
     # With a separate output directory
@@ -187,10 +187,10 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
     # Otherwise, without out_dir or creator arguments, not:
     with pytest.raises(ValueError, match="No `out_dir` specified"):
         PlotManager(dm=dm, out_dir=None).plot("foo")
-    
+
     with pytest.raises(ValueError, match="No `creator` argument given"):
         PlotManager(dm=dm).plot("foo")
-    
+
     with pytest.raises(ValueError, match="nor auto-detection enabled."):
         PlotManager(dm=dm, auto_detect_creator=False).plot("foo")
         # Same as the above case
@@ -201,7 +201,7 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
     assert_num_plots(pm, 4 + 2)
     assert pm.plot_info[-1]['plot_cfg_path']
     assert os.path.exists(pm.plot_info[-1]['plot_cfg_path'])
-    
+
     pm.plot("baz", **pcr_ext_kwargs, save_plot_cfg=False)
     assert_num_plots(pm, 4 + 3)
     assert pm.plot_info[-1]['plot_cfg_path'] is None
@@ -297,10 +297,10 @@ def test_plotting_based_on(dm, pm_kwargs):
     def assert_num_plots(pm: PlotManager, num: int):
         """Helper function to check if the plot info is ok"""
         assert len(pm.plot_info) == num
-    
+
     pm = PlotManager(dm=dm, base_cfg=BASE_EXT, update_base_cfg=UPDATE_BASE_EXT,
                      **pm_kwargs)
-    
+
     # Plot all from the given default config file
     pm.plot_from_cfg(plots_cfg=BASED_ON_EXT_PATH)
     assert_num_plots(pm, 5)  # 4 configured, one is pspace with volume 2
@@ -362,16 +362,16 @@ def test_plots_enabled(dm, pm_kwargs, pcr_ext_kwargs):
     # No plots should be created like this
     pm.plot_from_cfg(plot_only=[])
     assert len(pm.plot_info) == 0
-    
+
     # Force plotting disabled foo plot
     pm.plot_from_cfg(plot_only=["foo"])
     assert len(pm.plot_info) == 1
-    
+
     # This will have no effect; bar would be plotted anyway
     pm.plot_from_cfg(plot_only=["bar"],
                      bar=dict(file_ext="png")) # to avoid file name conflicts
     assert len(pm.plot_info) == 2
-    
+
     # Without plot_only, should only plot bar
     pm.plot_from_cfg()
     assert len(pm.plot_info) == 3
@@ -387,7 +387,7 @@ def test_sweep(dm, pm_kwargs, pspace_plots):
     # This should have created 2 plots
     assert len(pm.plot_info) == 2
 
-    # By passing a config to `from_pspace` that is no ParamSpace (in this case 
+    # By passing a config to `from_pspace` that is no ParamSpace (in this case
     # the internally stored dict) a ParamSpace should be created from that dict
     pm.plot("foo", from_pspace=pspace_plots["sweep"]._dict)
 
@@ -430,24 +430,34 @@ def test_raise_exc(dm, pm_kwargs):
     """Tests that the `raise_exc` argument behaves as desired"""
     # Empty plot config should either log and return None ...
     assert PlotManager(dm=dm, raise_exc=False).plot_from_cfg() is None
-    
+
     # ... or raise an error
     with pytest.raises(PlotConfigError, match="Got empty `plots_cfg`"):
         PlotManager(dm=dm, raise_exc=True).plot_from_cfg()
 
-
     # Test calls to the plot creators with and without raise_exc
     pm_exc = PlotManager(dm=dm, **pm_kwargs)
     pm_log = PlotManager(dm=dm, **pm_kwargs)
-    pm_log.raise_exc = False  # NOTE deactivating this way more convenient
+    pm_log.raise_exc = False
 
     # This should only log
     pm_log.plot(name="logs",
                 module=".basic", plot_func="lineplot")
-    
+
     # While this one should raise
-    with pytest.raises(PlottingError, match=r"During plotting with .* 'rais"):
+    with pytest.raises(PlottingError,
+                       match=r"An error occurred during plotting .* 'raises'"):
         pm_exc.plot(name="raises",
+                    module=".basic", plot_func="lineplot")
+
+    # ... unless silenced explicitly
+    pm_exc.plot(name="raises", debug=False,
+                module=".basic", plot_func="lineplot")
+
+    # Inversely, pm_log can also be made to raise an exception
+    with pytest.raises(PlottingError,
+                       match=r"An error occurred during plotting .* 'logs'"):
+        pm_log.plot(name="logs", debug=True,
                     module=".basic", plot_func="lineplot")
 
 def test_save_plot_cfg(tmpdir, dm, pm_kwargs):
@@ -476,7 +486,7 @@ def test_save_plot_cfg(tmpdir, dm, pm_kwargs):
     pm._save_plot_cfg(dict(foo="barzz"), **save_kwargs,
                       exists_action='overwrite')
     assert os.path.getsize(path) == fsize + 2  # changed, because overwritten
-    
+
     # 'overwrite_nowarn'
     pm._save_plot_cfg(dict(foo="barzz"), **save_kwargs,
                       exists_action='overwrite_nowarn')

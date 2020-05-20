@@ -380,9 +380,10 @@ class ExternalPlotCreator(BasePlotCreator):
         # setup, invoking helper-functions and saving the figure
         helper_defaults = getattr(plot_func, 'helper_defaults', None)
         hlpr = self.PLOT_HELPER_CLS(out_path=out_path,
-                                    animation_enabled=animation_enabled,
                                     helper_defaults=helper_defaults,
-                                    update_helper_cfg=helpers)
+                                    update_helper_cfg=helpers,
+                                    raise_on_error=self.raise_exc,
+                                    animation_enabled=animation_enabled)
 
         # Prepare the arguments. The DataManager is added to args there
         # and data transformation via DAG occurs there as well.
