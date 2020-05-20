@@ -94,21 +94,27 @@ Both are using :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` (kn
 
 .. hint::
 
-    Plot configuration entries starting with an underscore are ignored:
+    Plot configuration entries starting with an underscore or dot are ignored:
 
     .. code-block:: yaml
 
         ---
         _foobar:        # This entry is ignored
-          # ...
+          some_defaults: &defaults
+            foo: bar
+
+        .barbaz:        # This entry is also ignored
+          more_defaults: &more_defaults
+            spam: fish
 
         my_plot:        # -> creates my_plot
+          <<: [*defaults, *more_defaults]
           # ...
 
         my_other_plot:  # -> creates my_other_plot
           # ...
 
-    This can be useful when desiring to define YAML anchors that are used in the actual plot configuration entries.
+    This can be useful when desiring to define YAML anchors that are used in the actual plot configuration entries, e.g. for specifying defaults.
 
 
 
@@ -213,7 +219,7 @@ This multiple inheritance approach has the following advantages:
 .. hint::
 
     When several base plot configurations are specified, we propose to use a naming scheme that describes the purpose of the base configuration entries and broadly categorizes the entry.
-    In the example above, the `.plot` and `.style` prefixes denote the effect of the configuration.
+    In the example above, the ``.plot`` and ``.style`` prefixes denote the effect of the configuration.
 
 
 

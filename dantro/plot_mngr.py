@@ -800,9 +800,9 @@ class PlotManager:
             plots_cfg = {k:v for k, v in plots_cfg.items()
                          if v.pop('enabled', True)}
 
-        # Throw out entries that start with an underscore
+        # Throw out entries that start with an underscore or dot
         plots_cfg = {k:v for k, v in plots_cfg.items()
-                     if not k.startswith("_")}
+                     if not (k.startswith("_") or k.startswith("."))}
 
         # Determine and create the plot directory to use
         if not out_dir:
