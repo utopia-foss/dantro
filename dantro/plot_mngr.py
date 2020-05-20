@@ -273,7 +273,7 @@ class PlotManager:
     # Helpers
 
     def _parse_out_dir(self, fstr: str, *, name: str) -> str:
-        """Evaluates the format string to create an output directory.
+        """Evaluates the format string to create an output directory path.
 
         Note that the directories are _not_ created; this is outsourced to the
         plot creator such that it happens as late as possible.
@@ -804,7 +804,7 @@ class PlotManager:
         plots_cfg = {k:v for k, v in plots_cfg.items()
                      if not (k.startswith("_") or k.startswith("."))}
 
-        # Determine and create the plot directory to use
+        # Determine the output directory path to use; not creating directories!
         if not out_dir:
             out_dir = self._out_dir
         out_dir = self._parse_out_dir(out_dir, name="{name:}")
@@ -812,6 +812,8 @@ class PlotManager:
         #      by side in one output directory. With the given `name` key, the
         #      evaluation of that part of the out_dir path is postponed
         #      to when the actual plot with that name is created.
+        #      Not doing this would lead to multiple output paths for different
+        #      time stamps.
 
         log.hilight("Performing plots from %d plot configuration entr%s ...",
                     len(plots_cfg), "ies" if len(plots_cfg) != 1 else "y")
@@ -822,11 +824,11 @@ class PlotManager:
             # on the type of the config
             if isinstance(cfg, ParamSpace):
                 # Is a parameter space. Use the corresponding call signature
-                self.plot(plot_name, out_dir=out_dir, from_pspace=cfg)
+                self.plot(plot_name, default_out_dir=out_dir, from_pspace=cfg)
 
             else:
                 # Just a dict. Use the regular call
-                self.plot(plot_name, out_dir=out_dir, **cfg)
+                self.plot(plot_name, default_out_dir=out_dir, **cfg)
 
         # All done
         log.success("Successfully performed plots for %d plot "
@@ -915,11 +917,17 @@ class PlotManager:
         return self._plot(name, creator=creator, from_pspace=from_pspace,
                           **plot_cfg) # **plot_cfg is anything remaining ...
 
-    def _plot(self, name: str, *, creator: str=None, out_dir: str=None,
+    def _plot(self, name: str, *,
+              creator: str=None,
+              out_dir: str=None,
+              default_out_dir: str=None,
               from_pspace: ParamSpace=None,
-              file_ext: str=None, save_plot_cfg: bool=None,
-              auto_detect_creator: bool=None, creator_init_kwargs: dict=None,
-              **plot_cfg) -> BasePlotCreator:
+              file_ext: str=None,
+              save_plot_cfg: bool=None,
+              auto_detect_creator: bool=None,
+              creator_init_kwargs: dict=None,
+              **plot_cfg
+              ) -> BasePlotCreator:
         """Create plot(s) from a single configuration entry.
 
         A call to this function creates a single PlotCreator, which is also
@@ -935,8 +943,11 @@ class PlotManager:
                 part of the CREATORS class variable. If not given, the argument
                 `default_creator` given at initialization will be used.
             out_dir (str, optional): If given, will use this directory as out
-                directory. If not, will use the default value given at
-                initialization.
+                directory. If not, will use the default value given by
+                ``default_out_dir`` or that given at initialization.
+            default_out_dir (str, optional): An output directory that was
+                determined in the calling context and which should be used as
+                default if no ``out_dir`` was given explicitly.
             file_ext (str, optional): The file extension to use, including the
                 leading dot!
             from_pspace (ParamSpace, optional): If given, execute a parameter
@@ -961,13 +972,17 @@ class PlotManager:
 
         log.debug("Preparing plot '%s' ...", name)
 
-        # Check that the output directory is given
+        # Decide on the output directory to use ...
         if not out_dir:
-            if not self._out_dir:
+            if default_out_dir:
+                out_dir = default_out_dir
+
+            elif self._out_dir:
+                out_dir = self._out_dir
+
+            else:
                 raise PlotConfigError("No `out_dir` specified here and at "
                                       "initialization; cannot perform plot.")
-
-            out_dir = self._out_dir
 
         # Whether to save the plot config
         if save_plot_cfg is None:

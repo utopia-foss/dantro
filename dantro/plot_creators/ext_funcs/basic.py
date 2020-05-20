@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 def lineplot(dm: DataManager, *, out_path: str, y: str, x: str=None,
              fmt: str=None, save_kwargs: dict=None, **plot_kwargs):
     """Performs a simple lineplot.
-    
+
     Args:
         dm (DataManager): The data manager from which to retrieve the data
         out_path (str): Where to store the plot to

@@ -583,7 +583,7 @@ def test_groups_graphgroup():
     # Now, create the final graph with `some_node_prop` as node property and
     # `some_edge_prop` as edge property.
     g = graph_group.create_graph(at_time_idx=-1, # time specified via index
-                                 node_props=["some_node_prop"], 
+                                 node_props=["some_node_prop"],
                                  edge_props=["some_edge_prop"])
     ### End ---- groups_graphgroup_create_graph
 
@@ -593,7 +593,8 @@ def test_groups_graphgroup():
     graph_group.set_edge_property(g=g, name="other_edge_prop", at_time_idx=-1)
     ### End ---- groups_graphgroup_set_properties
 
-    ext_data = XrDataContainer(name="ext_np", data=np.random.random(size=(10,)),
+    ext_data = XrDataContainer(name="ext_np",
+                               data=np.random.random(size=(10,)),
                                dims=('node_idx',))
 
     ### Start -- groups_graphgroup_property_maps
@@ -611,3 +612,19 @@ def test_groups_graphgroup():
 # -----------------------------------------------------------------------------
 # -- plotting -----------------------------------------------------------------
 # -----------------------------------------------------------------------------
+# plotting/plot_cfg_ref.rst
+from .test_plot_mngr import dm as pm_dm, pm_kwargs, pcr_ext_kwargs
+
+def test_plot_cfg_ref(cfg, tmpdir, pm_dm, pm_kwargs, pcr_ext_kwargs):
+    """Tests the examples for the plot configuration reference"""
+    from dantro import PlotManager
+
+    cfg = cfg['plot_cfg_ref']
+    dm = pm_dm
+
+    # Use a tmpdir for the custom plot output directory
+    cfg['mngr_overview']['my_plot']['out_dir'] = str(tmpdir.join("overview"))
+
+    # Run the examples
+    pm = PlotManager(dm=dm, raise_exc=True)
+    pm.plot_from_cfg(plots_cfg=cfg['mngr_overview'])
