@@ -26,10 +26,10 @@ log = logging.getLogger(__name__)
 
 class BasePlotCreator(AbstractPlotCreator):
     """The base class for PlotCreators
-    
+
     Note that the ``plot`` method remains abstract, thus this class needs to be
     subclassed and the method implemented!
-    
+
     Attributes:
         DAG_INVOKE_IN_BASE (bool): Whether the DAG should be created and
             computed here (in the base class). If False, the base class does
@@ -69,9 +69,13 @@ class BasePlotCreator(AbstractPlotCreator):
     def __init__(self, name: str, *, dm: DataManager,
                  default_ext: str=None,
                  exist_ok: bool=None,
+                 raise_exc: bool=None,
                  **plot_cfg):
         """Create a PlotCreator instance for a plot with the given ``name``.
-        
+
+        Typically, a creator has not be instantiated separately, but the
+        :py:class:`~dantro.plot_mngr.PlotManager` takes care of it.
+
         Args:
             name (str): The name of this plot
             dm (DataManager): The data manager that contains the data to plot
@@ -83,9 +87,14 @@ class BasePlotCreator(AbstractPlotCreator):
                 a plot already exists at the specified output path. If None,
                 the value specified in the ``OUT_PATH_EXIST_OK`` class variable
                 will be used to determine this behaviour.
+            raise_exc (bool, optional): Whether to raise exceptions during the
+                plot procedure. This does not pertain to *all* exceptions, but
+                only to those that would *unnecessarily* stop plotting.
+                Furthermore, whether this setting is used or not depends on the
+                used creator specialization.
             **plot_cfg: The default configuration for the plot(s) that this
                 creator is supposed to create.
-        
+
         Raises:
             ValueError: On bad `default_ext` argument
         """
@@ -94,6 +103,7 @@ class BasePlotCreator(AbstractPlotCreator):
         self._plot_cfg = plot_cfg
         self._exist_ok = (self.OUT_PATH_EXIST_OK if exist_ok is None
                           else exist_ok)
+        self.raise_exc = raise_exc
 
         # Initialize property-managed attributes
         self._logstr = None
@@ -103,7 +113,7 @@ class BasePlotCreator(AbstractPlotCreator):
         # Set the default extension, first from argument, then default.
         if default_ext is not None:
             self.default_ext = default_ext
-        
+
         elif self.DEFAULT_EXT is not None:
             self.default_ext = self.DEFAULT_EXT
 
@@ -127,7 +137,7 @@ class BasePlotCreator(AbstractPlotCreator):
     def classname(self) -> str:
         """Returns this creator's class name"""
         return self.__class__.__name__
-    
+
     @property
     def logstr(self) -> str:
         """Returns the classname and name of this object; a combination often
@@ -170,12 +180,12 @@ class BasePlotCreator(AbstractPlotCreator):
     def __call__(self, *, out_path: str, **update_plot_cfg):
         """Perform the plot, updating the configuration passed to __init__
         with the given values and then calling _plot.
-        
+
         Args:
             out_path (str): The full output path to store the plot at
             **update_plot_cfg: Keys with which to update the default plot
                 configuration
-        
+
         Returns:
             The return value of the
             :py:meth:`~dantro.plot_creators.pcr_base.BasePlotCreator.plot`
@@ -200,7 +210,7 @@ class BasePlotCreator(AbstractPlotCreator):
             self._prepare_path(out_path, exist_ok=exist_ok)
 
         # Perform data selection and transformation, if the plot creator class
-        # supports it. 
+        # supports it.
         # Even if the creator supports it, it might be disabled in the config;
         # in that case, the method below behaves like a passthrough of the cfg,
         # filtering out all transformation-related arguments.
@@ -225,7 +235,7 @@ class BasePlotCreator(AbstractPlotCreator):
 
         This function is called by the plot manager before the first plot
         is created.
-        
+
         The base implementation just passes the given arguments through.
         However, it can be re-implemented by derived classes to change the
         behaviour of the plot manager, e.g. by converting a plot configuration
@@ -236,12 +246,12 @@ class BasePlotCreator(AbstractPlotCreator):
     def can_plot(self, creator_name: str, **plot_cfg) -> bool:
         """Whether this plot creator is able to make a plot for the given plot
         configuration. By default, this always returns false.
-        
+
         Args:
             creator_name (str): The name for this creator used within the
                 PlotManager.
             **plot_cfg: The plot configuration with which to decide this.
-        
+
         Returns:
             bool: Whether this creator can be used for the given plot config
         """
@@ -253,14 +263,14 @@ class BasePlotCreator(AbstractPlotCreator):
     def _prepare_path(self, out_path: str, *, exist_ok: bool) -> None:
         """Prepares the output path, creating directories if needed, then
         returning the full absolute path.
-        
+
         This is called from __call__ and is meant to postpone directory
         creation as far as possible.
-        
+
         Args:
             out_path (str): The absolute output path to start with
             exist_ok (bool): If True, will emit a warning instead of an error
-        
+
         Raises:
             FileExistsError: Raised on already existing out path and exist_ok
                 being False.
@@ -277,7 +287,7 @@ class BasePlotCreator(AbstractPlotCreator):
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
         # Nothing more to do here, at least in the base class
-    
+
     # .........................................................................
     # Data selection interface, using TransformationDAG
 
@@ -285,19 +295,19 @@ class BasePlotCreator(AbstractPlotCreator):
                                 **shared_kwargs) -> Tuple[bool, dict]:
         """If this plot creator supports data selection and transformation, it
         is carried out in this method.
-        
+
         This method uses a number of other private methods to carry out the
         setup of the DAG, computing it and combining its results with the
         remaining plot configuration. Those methods have access to a subset of
         the whole configuration, thus allowing to parse the parameters that
         they need.
-        
+
         .. note::
-        
+
             For specializing the behaviour of the data selection and transform,
             it is best to specialize *NOT* this method, but the more granular
             DAG-related private methods.
-        
+
         Args:
             use_dag (bool, optional): The main toggle for whether the DAG
                 should be used or not. This is passed as default value to
@@ -306,7 +316,7 @@ class BasePlotCreator(AbstractPlotCreator):
             plot_kwargs (dict): The plot configuration
             **shared_kwargs: Shared keyword arguments that are passed through
                 to the helper methods ``_use_dag`` and ``_get_dag_params``
-        
+
         Returns:
             Tuple[bool, dict]: Whether data selection was used and the plot
                 configuration that can be passed on to the main ``plot``
@@ -340,14 +350,14 @@ class BasePlotCreator(AbstractPlotCreator):
                         dag_options: dict=None,
                         **plot_kwargs) -> Tuple[dict, dict]:
         """Filters out parameters needed for DAG initialization and compute
-        
+
         Args:
             select (dict, optional): DAG selection
             transform (Sequence[dict], optional): DAG transformation
             compute_only (Sequence[str], optional): DAG tags to be computed
             dag_options (dict, optional): Other DAG options for initialization
             **plot_kwargs: The full plot configuration
-        
+
         Returns:
             Tuple[dict, dict]: Tuple of DAG parameters and plot kwargs
         """
@@ -363,13 +373,13 @@ class BasePlotCreator(AbstractPlotCreator):
 
     def _use_dag(self, *, use_dag: bool, plot_kwargs: dict, **_kws) -> bool:
         """Whether the data transformation framework should be used.
-        
+
         Args:
             use_dag (bool): The value from the plot configuration
             plot_kwargs (dict): The plot configuration
             **_kws: Any further kwargs that can be used to assess whether the
                 DAG should be used or not. Ignored here.
-        
+
         Returns:
             bool: Whether the DAG should be used or not
         """

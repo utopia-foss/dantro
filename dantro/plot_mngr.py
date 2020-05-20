@@ -40,7 +40,7 @@ class PlotCreatorError(PlottingError):
 class PlotManager:
     """The PlotManager takes care of configuring plots and calling the
     configured PlotCreator classes that then carry out the plots.
-    
+
     Attributes:
         CREATORS (dict): The mapping of creator names to classes. When it is
             desired to subclass PlotManager and extend the creator mapping, use
@@ -153,7 +153,7 @@ class PlotManager:
             cfg_exists_action (str, optional): Behaviour when a config file
                 already exists. Can be: ``raise`` (default), ``skip``,
                 ``append``, ``overwrite``, or ``overwrite_nowarn``.
-        
+
         Raises:
             InvalidCreator: When an invalid default creator was chosen
             KeyError: Upon bad ``based_on`` in ``update_base_cfg``
@@ -205,7 +205,7 @@ class PlotManager:
 
                 elif isinstance(based_on, str):
                     based_on = (based_on,)
-                
+
                 # Now a sequence of strings; go over all these and build a dict
                 # that will be the base that is to be recursively updated with
                 # the given update config.
@@ -222,7 +222,7 @@ class PlotManager:
                     # entry in order to not get any mutability issues
                     _bcfg = copy.deepcopy(self._base_cfg[_based_on])
                     bcfg = recursive_update(bcfg, _bcfg)
-                
+
                 # Finally, apply the given update and store as attribute
                 self._base_cfg[pcfg_name] = recursive_update(bcfg, pcfg)
 
@@ -274,15 +274,15 @@ class PlotManager:
 
     def _parse_out_dir(self, fstr: str, *, name: str) -> str:
         """Evaluates the format string to create an output directory.
-        
+
         Note that the directories are _not_ created; this is outsourced to the
         plot creator such that it happens as late as possible.
-        
+
         Args:
             fstr (str): The format string to evaluate and create a directory at
             name (str): Name of the plot
             timestamp (float, optional): Description
-        
+
         Returns:
             str: The path of the created directory
         """
@@ -308,10 +308,10 @@ class PlotManager:
                         dims: dict=None) -> str:
         """Given a creator and (optionally) parameter sweep information, a full
         and absolute output path is generated, including the file extension.
-        
+
         Note that the directories are _not_ created; this is outsourced to the
         plot creator such that it happens as late as possible.
-        
+
         Args:
             creator (BasePlotCreator): The creator instance, used to
                 extract information on the file extension.
@@ -325,7 +325,7 @@ class PlotManager:
                 on how far each state dimension has progressed in the sweep
             dims (dict, optional): The dict of parameter dimensions of the
                 sweep that is carried out.
-        
+
         Returns:
             str: The fully parsed output path for this plot
         """
@@ -340,13 +340,12 @@ class PlotManager:
             val = str(dim.current_value)
             for search, replace in fstrs['state_val_replace_chars']:
                 val = val.replace(search, replace)
-            
-            return name, val
 
+            return name, val
 
         # Get the fstrs
         fstrs = self.out_fstrs
-        
+
         # Evaluate the keys available for both cases
         keys = dict(timestamp=time.strftime(fstrs['timestamp']), name=name)
 
@@ -359,7 +358,6 @@ class PlotManager:
             ext = ""
 
         keys['ext'] = ext
-
 
         # Change behaviour depending on whether state information was given
         if state_no is None:
@@ -394,22 +392,22 @@ class PlotManager:
         out_path = os.path.join(out_dir, out_path)
 
         return out_path
-    
+
     def _resolve_based_on(self, *, cfg: dict,
                           based_on: Union[str, Tuple[str]]=None,
                           work_on_deepcopy: bool=True) -> dict:
         """Resolves the ``based_on`` reference in a plot configuration
-        
+
         Args:
             cfg (dict): The plot configuration that will be used to recursively
                 update the specified base configurations.
             based_on (Union[str, Tuple[str]], optional): The name or names of
                 the base configuration entries to use for updating
             work_on_deepcopy (bool, optional): Whether to work on a deepcopy
-        
+
         Returns:
             dict: The plot configuration derived from the one at ``based_on``
-        
+
         Raises:
             KeyError: If ``based_on`` value is not a key in ``self._base_cfg``
         """
@@ -436,7 +434,7 @@ class PlotManager:
             # a deep copy of the base configuration ...
             base_cfg = recursive_update(base_cfg, self.base_cfg[_based_on])
 
-        # As final step, update the base configuration with everything 
+        # As final step, update the base configuration with everything
         return recursive_update(base_cfg, cfg)
 
     def _get_plot_creator(self, creator: Union[str, None],
@@ -446,11 +444,11 @@ class PlotManager:
         """Determines which plot creator to use by looking at the given
         arguments. If set, tries to auto-detect from the arguments, which
         creator is to be used.
-        
+
         Then, sets up the corresponding creator and returns it.
 
         This method is called from the plot() method.
-        
+
         Args:
             creator (Union[str, None]): The name of the creator to be found.
                 Can be None, if no argument was given to the plot method.
@@ -461,10 +459,10 @@ class PlotManager:
             plot_cfg (dict): The plot configuration
             auto_detect (bool, optional): Whether to auto-detect the creator.
                 If none, the value given at initialization is used.
-        
+
         Returns:
             BasePlotCreator: The selected creator object, fully initialized.
-        
+
         Raises:
             InvalidCreator: If the ``creator`` argument was invalid or auto-
                 detection failed.
@@ -491,7 +489,7 @@ class PlotManager:
 
                 # (name, plot creator) tuples for each candidate
                 pc_candidates = []
-                
+
                 # Go over all registered plot creators
                 for pc_name in self.CREATORS.keys():
                     try:
@@ -558,7 +556,10 @@ class PlotManager:
         if init_kwargs:
             log.debug("Recursively updating creator initialization kwargs ...")
             pc_kwargs = recursive_update(copy.deepcopy(pc_kwargs), init_kwargs)
-        
+
+        if 'raise_exc' not in pc_kwargs:
+            pc_kwargs['raise_exc'] = self.raise_exc
+
         # Instantiate the creator class
         pc = self.CREATORS[creator](name=name, dm=self._dm, **pc_kwargs)
 
@@ -571,15 +572,15 @@ class PlotManager:
         PlotManager method that is called prior to handing over to the selected
         plot creator. It takes care of invoking the plot creator's ``__call__``
         method and handling potential error messages and return values.
-        
+
         Args:
             plot_creator (Callable): The currently used creator
             out_path (str): The plot output path
             **plot_cfg: The plot configuration
-        
+
         Returns:
             Any: The return value of the plot creator's ``__call__`` method
-        
+
         Raises:
             PlotCreatorError: On error within the plot creator
         """
@@ -597,7 +598,7 @@ class PlotManager:
 
             if self.raise_exc:
                 raise PlotCreatorError(e_msg) from err
-            
+
             # else: just log it
             log.error(e_msg)
 
@@ -634,7 +635,7 @@ class PlotManager:
                        exists_action: str=None, is_sweep: bool=False) -> str:
         """Saves the given configuration under the top-level entry ``name`` to
         a yaml file.
-        
+
         Args:
             cfg (dict): The plot configuration to save
             name (str): The name of the plot
@@ -646,10 +647,10 @@ class PlotManager:
                 ``cfg_exists_action`` argument given during initialization.
             is_sweep (bool, optional): Set if the configuration refers to a
                 plot in sweep mode, for which a different format string is used
-        
+
         Returns:
             str: The path the config was saved at (mainly used for testing)
-        
+
         Raises:
             ValueError: For invalid ``exists_action`` argument
         """
@@ -673,14 +674,14 @@ class PlotManager:
         fname = fn_fstr.format(name=name,
                                basename=os.path.basename(name))
         save_path = os.path.join(target_dir, fname)
-        
+
         # Try to write
         try:
             write_yml(d, path=save_path, mode='x')
 
         except FileExistsError as err:
             log.debug("Config file already exists at %s!", save_path)
-            
+
             if exists_action == 'raise':
                 raise
 
@@ -720,10 +721,10 @@ class PlotManager:
                       **update_plots_cfg) -> None:
         """Create multiple plots from a configuration, either a given one or
         the one passed during initialization.
-        
+
         This is mostly a wrapper around the plot function, allowing additional
         ways of how to configure and create plots.
-        
+
         Args:
             plots_cfg (dict, optional): The plots configuration to use. If not
                 given, the one specified during initialization is used. If a
@@ -739,7 +740,7 @@ class PlotManager:
                 recursively. Note that on the top level the _names_ of the
                 plots are placed; this cannot be used to make all plots have a
                 common property.
-        
+
         Raises:
             PlotConfigError: Empty or invalid plot configuration
         """
@@ -820,7 +821,7 @@ class PlotManager:
             if isinstance(cfg, ParamSpace):
                 # Is a parameter space. Use the corresponding call signature
                 self.plot(plot_name, out_dir=out_dir, from_pspace=cfg)
-            
+
             else:
                 # Just a dict. Use the regular call
                 self.plot(plot_name, out_dir=out_dir, **cfg)
@@ -835,15 +836,15 @@ class PlotManager:
              from_pspace: Union[dict, ParamSpace]=None,
              **plot_cfg) -> BasePlotCreator:
         """Create plot(s) from a single configuration entry.
-        
+
         A call to this function resolves the `based_on` feature and passes the
         derived plot configuration to self._plot(), which actually carries out
         the plots.
-        
+
         Note that more than one plot can result from a single configuration
         entry, e.g. when plots were configured that have more dimensions than
-        representable in a single file.        
-        
+        representable in a single file.
+
         Args:
             name (str): The name of this plot
             based_on (Union[str, Tuple[str]], optional): A key or a sequence
@@ -858,14 +859,14 @@ class PlotManager:
             **plot_cfg: The plot configuration, including some parameters that
                 the plot manager will evaluate (and consequently: does not
                 pass on to the plot creator)
-        
+
         Returns:
             BasePlotCreator: The PlotCreator used for these plots
         """
         # Derive the plot_cfg using based_on. Do this first only for the case
         # of the non-ParamSpace plot configuration, because it's easier.
         plot_cfg = self._resolve_based_on(cfg=plot_cfg, based_on=based_on)
-        
+
         if from_pspace is None:
             # Can just invoke the helper and be done with it
             return self._plot(name, from_pspace=from_pspace, **plot_cfg)
@@ -915,17 +916,17 @@ class PlotManager:
     def _plot(self, name: str, *, creator: str=None, out_dir: str=None,
               from_pspace: ParamSpace=None,
               file_ext: str=None, save_plot_cfg: bool=None,
-              auto_detect_creator: bool=None, creator_init_kwargs: dict=None, 
+              auto_detect_creator: bool=None, creator_init_kwargs: dict=None,
               **plot_cfg) -> BasePlotCreator:
         """Create plot(s) from a single configuration entry.
-        
+
         A call to this function creates a single PlotCreator, which is also
         returned after all plots are finished.
-        
+
         Note that more than one plot can result from a single configuration
         entry, e.g. when plots were configured that have more dimensions than
         representable in a single file.
-        
+
         Args:
             name (str): The name of this plot
             creator (str, optional): The name of the creator to use. Has to be
@@ -947,10 +948,10 @@ class PlotManager:
                 during initialization. Note that the arguments given at
                 initialization of the PlotManager are updated by this.
             **plot_cfg: The plot configuration to pass on to the plot creator.
-        
+
         Returns:
             BasePlotCreator: The PlotCreator used for these plots
-        
+
         Raises:
             PlotConfigError: If no out directory was specified here or at
                 initialization.
@@ -973,7 +974,7 @@ class PlotManager:
         # Get the plot creator, either by name or using auto-detect feature
         plot_creator = self._get_plot_creator(creator, name=name,
                                               init_kwargs=creator_init_kwargs,
-                                              from_pspace=from_pspace, 
+                                              from_pspace=from_pspace,
                                               plot_cfg=plot_cfg,
                                               auto_detect=auto_detect_creator)
 
@@ -999,7 +1000,7 @@ class PlotManager:
                                   out_path=out_path, plot_cfg=plot_cfg,
                                   save=save_plot_cfg,
                                   target_dir=os.path.dirname(out_path))
-            
+
             log.progress("Finished '%s' plot.\n", name)
 
         else:
@@ -1042,7 +1043,7 @@ class PlotManager:
             # Create the iterator
             it = from_pspace.iterator(with_info=('state_no', 'state_vector',
                                                  'coords'))
-            
+
             # ...and loop over all points:
             for n, (cfg, state_no, state_vector, coords) in enumerate(it):
                 log.progress("Performing plot {n:{d:}d} / {v:} ..."
