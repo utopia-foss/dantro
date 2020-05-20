@@ -566,45 +566,47 @@ class PlotManager:
         log.debug("Initialized %s.", pc.logstr)
         return pc
 
-    def _invoke_creator(self, plot_creator: Callable, *, out_path: str,
-                        **plot_cfg) -> Any:
+    def _invoke_creator(self, pc: BasePlotCreator, *,
+                        out_path: str, debug: bool=None,
+                        **plot_cfg) -> Union[Any, None]:
         """This method wraps the plot creator's ``__call__`` and is the last
         PlotManager method that is called prior to handing over to the selected
         plot creator. It takes care of invoking the plot creator's ``__call__``
         method and handling potential error messages and return values.
 
         Args:
-            plot_creator (Callable): The currently used creator
+            pc (BasePlotCreator): The currently used creator
             out_path (str): The plot output path
+            debug (bool, optional): If given, this overwrites the ``raise_exc``
+                option specified during initialization.
             **plot_cfg: The plot configuration
 
         Returns:
-            Any: The return value of the plot creator's ``__call__`` method
+            Any: The return value of the plot creator's ``__call__`` method or
+                ``None`` if an error occurred but was not raised.
 
         Raises:
-            PlotCreatorError: On error within the plot creator
+            PlotCreatorError: On error within the plot creator. This is only
+                raised if either ``debug is True`` or
+                ``debug is None and self.raise_exc``. Otherwise, the error
+                message is merely logged.
         """
         try:
-            rv = plot_creator(out_path=out_path, **plot_cfg)
+            rv = pc(out_path=out_path, **plot_cfg)
 
         except Exception as err:
-            # No return value
-            rv = None
-
-            # Generate error message
-            e_msg = ("During plotting with {}, a {} occurred: {}"
-                     "".format(plot_creator.logstr,
-                               err.__class__.__name__, str(err)))
-
-            if self.raise_exc:
+            e_msg = (
+                f"An error occurred during plotting with {pc.logstr}! For a "
+                "more detailed error and traceback, specify `debug: True` in "
+                "the plot configuration or run the PlotManager in debug mode."
+                f"\n{err.__class__.__name__}: {err}"
+            )
+            if debug or (debug is None and self.raise_exc):
                 raise PlotCreatorError(e_msg) from err
-
-            # else: just log it
             log.error(e_msg)
+            return None
 
-        else:
-            log.debug("Plot creator call returned.")
-
+        log.debug("Plot creator call returned successfully with %s.", type(rv))
         return rv
 
     def _store_plot_info(self, name: str,

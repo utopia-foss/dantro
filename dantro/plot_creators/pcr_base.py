@@ -143,7 +143,7 @@ class BasePlotCreator(AbstractPlotCreator):
         """Returns the classname and name of this object; a combination often
         used in logging..."""
         if not self._logstr:
-            self._logstr = "{} for '{}'".format(self.classname, self.name)
+            self._logstr = f"{self.classname} for '{self.name}'"
         return self._logstr
 
     @property
