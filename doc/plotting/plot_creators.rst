@@ -18,6 +18,8 @@ For further reading on the individual plot creators, see:
 
    creators/*
 
+For specializing plot creators, see :ref:`here <spec_plot_creators>`.
+
 ----
 
 A Family of Plot Creators

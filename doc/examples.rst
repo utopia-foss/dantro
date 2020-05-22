@@ -1,3 +1,5 @@
+.. _examples:
+
 Usage Examples
 ==============
 
@@ -37,6 +39,8 @@ There is no further setup necessary at this point.
 
 To read more about specializing dantro, have a look at :doc:`specializing`.
 
+
+.. _examples_loading_data:
 
 Loading data
 ------------

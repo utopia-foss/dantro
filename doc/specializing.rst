@@ -108,5 +108,33 @@ For more information, see :doc:`data_io/data_mngr`.
 
 .. note::
 
-    As an example, you can have a look at `data manager used in utopya <https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia/blob/master/python/utopya/utopya/datamanager.py>`_.
+    When using :ref:`specialized container classes <spec_data_container>` such a custom :py:class:`~dantro.data_mngr.DataManager` is also the place to configure data loaders to use those classes.
+    For example, when using the :py:class:`~dantro.data_loaders.load_hdf5.Hdf5LoaderMixin`, the ``_HDF5``\ -prefixed class variables can be set to use the specialized container classes rather than the defaults.
 
+.. note::
+
+    For an integration example, you can have a look at `the data manager used in utopya <https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia/blob/master/python/utopya/utopya/datamanager.py>`_.
+
+
+.. _spec_plot_creators:
+
+Specializing :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator`
+-----------------------------------------------------------------------
+As described in :doc:`plotting/plot_creators`, dantro already supplies a range of plot creators.
+Furthermore, dantro provides the :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator`, which provides an interface and a lot of the commonly used functionality.
+
+Specialization thus can be of two kinds:
+
+1. Using an existing plot creator and configuring it to your needs.
+2. Implementing a whole *new* plot creator, e.g. because you desire to use a different plotting backend.
+
+For the former, we suggest to refer to the individual creator's documentation, e.g. :ref:`pcr_ext_specializing`.
+
+For the latter, we recommend to use the existing :py:mod:`dantro.plot_creators` as examples for how this can be achieved; we are happy to support the implementation of new plot creators, so feel free to post an issue to `the project page <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro>`_.
+
+.. note::
+
+    After specializing a plot creator, make sure to let the :py:class:`~dantro.plot_mngr.PlotManager` (or your specialization of it) know about your new creator class.
+    You can do so by extending its :py:attr:`~dantro.plot_mngr.PlotManager.CREATORS` mapping.
+
+    Also see :doc:`the integration guide <integrating>` for an overview.

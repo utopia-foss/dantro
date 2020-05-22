@@ -29,6 +29,7 @@ By default, the following mixins are available via the :py:class:`~dantro.data_l
     :no-private-members:
     :no-members:
 
+.. _data_mngr_loading_data:
 
 Loading Data
 ------------

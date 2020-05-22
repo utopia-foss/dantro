@@ -31,6 +31,8 @@ The task of resolving the callable from the database, passing arguments to it, a
 It also provides useful feedback in cases where the operation failed, e.g. by including the given arguments into the error message.
 
 
+.. _register_data_ops:
+
 Registering operations
 ^^^^^^^^^^^^^^^^^^^^^^
 To register additional operations, use the :py:func:`~dantro.utils.data_ops.register_operation` function.

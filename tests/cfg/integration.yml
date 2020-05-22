@@ -1,0 +1,106 @@
+# Configurations used in the integration test
+---
+### Start -- sim_params
+# A parameter space of simulation parameters
+parameter_space: !pspace
+  # The PRNG seed, here: a sweep variable
+  seed: !pdim
+    default: 42
+    range: [10]  # sweeps over values 0, 1, 2, ..., 9
+
+  # The random walk parameters
+  random_walk:
+    initial_state: 0.
+    num_steps: 1023
+    max_step_size: !pdim
+      default: 1.
+      values: [0.1, 0.3, 1.0]
+
+  abm:
+    num_steps: 100
+    num_agents: 42
+    init:
+      energy: 1.
+    iterate:
+      dE_live: -.05
+      dE_eat: +.1
+      p_death: .01
+      p_eat: .1
+### End ---- sim_params
+
+### Start -- dm_params
+data_manager:
+  # Where to store output that is associated with the data from this directory
+  out_dir: "eval/{timestamp:}"  # can be a format string
+
+  # Define the structure of the data tree beforehand; this allows to specify
+  # the types of groups before content is loaded into them.
+  create_groups:
+    - path: simulations
+      Cls: ParamSpaceGroup
+
+  # The load configuration: specifies which files to load how and from where
+  load_cfg:
+    # ... load configuration goes here; omitted for brevity
+### End ---- dm_params
+### Start -- dm_load_cfg
+    # Load the parameter space object into the ParamSpaceGroup attributes
+    pspace:
+      loader: yaml_to_object    # ... to load it as an ObjectContainer
+      glob_str: pspace.yml
+      required: true
+      load_as_attr: true
+      unpack_data: true         # ... and store as ParamSpace obj.
+      target_path: simulations
+
+    # Load the configuration files that are generated for _each_ simulation
+    sim_params:
+      loader: yaml
+      glob_str: sim_*/params.yml
+      required: true
+      path_regex: sim_(\d+)/params.yml
+      target_path: simulations/{match:}/params
+
+    # Load the binary output data from each simulation.
+    sim_data:
+      loader: hdf5
+      glob_str: sim_*/data.h5
+      required: true
+      path_regex: sim_(\d+)/data.h5
+      target_path: simulations/{match:}/data
+      enable_mapping: true
+      map_from_attr: content  # which attribute to use for key of type mapping
+      # See MyDataManager for the available key -> type mappings
+
+    # Load the logging output for each simulation
+    sim_log:
+      loader: text
+      glob_str: sim_*/sim.log
+      required: false
+      path_regex: sim_(\d+)/sim.log
+      target_path: simulations/{match:}/log
+### End ---- dm_load_cfg
+
+
+### Start -- pm_params
+plot_manager:
+  # Allow auto-detecting plot creators and set the default creator
+  default_creator: external
+  auto_detect_creator: true
+
+  # Raise exceptions when a plot fails
+  raise_exc: true
+
+  # Specify some default kwargs for the creators
+  creator_init_kwargs:
+    external:
+      default_ext: pdf  # plots should by default be saved as PDFs
+
+    universe:
+      default_ext: pdf
+      psgrp_path: simulations
+
+    multiverse:
+      default_ext: pdf
+      psgrp_path: simulations
+### End ---- pm_params

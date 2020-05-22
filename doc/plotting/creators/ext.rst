@@ -209,10 +209,10 @@ Putting the above configuration into words:
     The keys for the ``axis_specific`` configuration are arbitrary; the axes are defined solely by the internal ``axis`` entries.
     While this requires to specify a name for the axis, it also allows convenient recursive updating; thus, it is advisable to choose a somewhat meaningful name.
 
+.. _pcr_ext_plot_helper_spec:
 
 Specializing the helper
 ^^^^^^^^^^^^^^^^^^^^^^^
-
 The dantro :py:class:`~dantro.plot_creators._plot_helper.PlotHelper` already provides a default set of helpers that provide access to most of the matplotlib interface.
 If you need any additional customized helpers, you can easily add new methods to a specialization of the helper:
 
@@ -603,3 +603,49 @@ A plot function could then look like this:
 
         hlpr.register_animation_update(update)
 
+
+.. _pcr_ext_specializing:
+
+Specializing :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator`
+--------------------------------------------------------------------------
+As common throughout dantro, the plot creators are specialized using class variables.
+For :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator`, a specialization can look like this:
+
+.. code-block:: python
+
+    import dantro as dtr
+    import dantro.plot_creators
+
+    class MyExternalPlotCreator(dtr.plot_creators.ExternalPlotCreator):
+        """My custom external plot creator, using
+        # For relative module imports, regard the following as the base package
+        BASE_PKG = "my_plot_funcs_package"  # some imported Python module
+        # `module` arguments starting with a '.' are looked up here
+
+        # Which plot helper class to use
+        PLOT_HELPER_CLS = MyPlotHelper
+
+For specializing the :py:class:`~dantro.plot_creators._plot_helper.PlotHelper`, see :ref:`above <pcr_ext_plot_helper_spec>`.
+
+Furthermore, if the retrieval of the plot function needs to be adjusted, the private methods can be adjusted accordingly.
+For example, the :py:meth:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator._get_module_via_import` method is responsible for importing a module.
+By overwriting it, import behaviour can be customized:
+
+.. code-block:: python
+
+    def _get_module_via_import(self, module: str):
+        """Extends the parent method by making a custom module available in
+        case the regular import failed.
+        """
+        try:
+            return super()._get_module_via_import(module)
+
+        except ModuleNotFoundError as err:
+            pass
+
+        # Make some custom imports and return the resulting module
+        # ...
+
+.. note::
+
+    For an operational example in a more complex framework setting, see `the specialization used in the Utopia project <https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia/-/blob/master/python/utopya/utopya/plotting.py#L97>`_.

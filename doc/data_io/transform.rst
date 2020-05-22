@@ -681,10 +681,16 @@ Reading from the file cache
 Generally, the best computation is the one you don't need to make.
 If there is no result in memory and reading from cache is enabled, the cache directory is searched for a file that has as its basename the hash of the transformation that is to be computed.
 
-If that is the case, the DataManager is used to load the data into the data tree *and* set the memory cache. (Note that this is Python, i.e. it's not a *copy* but the memory cache is a reference to the object in the data tree.)
+If that is the case, the DataManager is used to load the data into the data tree *and* set the memory cache.
+(Note that this is Python, i.e. it's not a *copy* but the memory cache is a reference to the object in the data tree.)
 
 By default, it is *not* attempted to read from the cache directory.
 See above on how to enable it.
+
+.. note::
+
+    When desiring to use the caching feature of the transformation framework, the employed :py:class:`~dantro.data_mngr.DataManager` needs to be able to load numerical data.
+    If you are not already using the :py:class:`~dantro.data_loaders.AllAvailableLoadersMixin`, consider adding :py:class:`~dantro.data_loaders.load_numpy.NumpyLoaderMixin`, :py:class:`~dantro.data_loaders.load_xarray.XarrayLoaderMixin`, and :py:class:`~dantro.data_loaders.load_pkl.PickleLoaderMixin` to your :py:class:`~dantro.data_mngr.DataManager` specialization.
 
 
 Writing to the file cache
