@@ -595,13 +595,25 @@ class PlotManager:
             rv = pc(out_path=out_path, **plot_cfg)
 
         except Exception as err:
-            e_msg = (
-                f"An error occurred during plotting with {pc.logstr}! For a "
-                "more detailed error and traceback, specify `debug: True` in "
-                "the plot configuration or run the PlotManager in debug mode."
-                f"\n{err.__class__.__name__}: {err}"
+            # Conditionally assemble an error message
+            should_raise = debug or (debug is None and self.raise_exc)
+
+            e_dbg = (
+                "For a full error traceback, specify `debug: True` in the "
+                "plot configuration or run the PlotManager in debug mode."
             )
-            if debug or (debug is None and self.raise_exc):
+            e_no_dbg = (
+                "To ignore the error message and continue plotting with the "
+                "other plots, specify `debug: False` in the plot "
+                "configuration or disable debug mode for the PlotManager."
+            )
+            e_msg = (
+                f"An error occurred during plotting with {pc.logstr}! "
+                f"{e_dbg if not should_raise else e_no_dbg}\n"
+                f"{err.__class__.__name__}: {err}"
+            )
+
+            if should_raise:
                 raise PlotCreatorError(e_msg) from err
             log.error(e_msg)
             return None
