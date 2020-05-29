@@ -25,7 +25,7 @@ Let's assume you are in the following situation:
   The data itself can have very different properties. It ...
 
     * ... may be hierarchically organized, e.g. in HDF5 files
-    * ... may contain data of very different kinds (numerical array-like, meta-data, ...), i.e. semantically heterogeneous data
+    * ... may contain data of very different kinds (numerical array-like, meta-data, plain text data, configuration files...), i.e. semantically heterogeneous data
     * ... may contain data that requires processing before becoming meaningful
 
 * You want to be able to work with this data in a uniform way:
@@ -40,8 +40,9 @@ Let's assume you are in the following situation:
 The result of this integration guide will be a **data processing pipeline:** an automated set of procedures that can be carried out on the generated data in order to **handle, transform, and visualize** it.
 These procedures will be referred to as the *three stages of the processing pipeline*.
 
-Once implemented, this pipeline will be highly flexible, such that you can quickly configure it to your needs.
-(If you haven't already done so, the :doc:`philosophy` page gives some background on this topic.)
+Setting up a tightly integrated pipeline will require more than a few lines of code, as you will see in this guide.
+However, once implemented, the pipeline will be highly flexible, such that you can quickly configure it to your needs.
+Overall, we think that the up-front time investment of setting up the pipeline will be paid-off by the everyday gains of using this framework and the automizations it provides.
 
 .. hint::
 
@@ -55,15 +56,19 @@ Once implemented, this pipeline will be highly flexible, such that you can quick
     * The sequence of examples below is tested and ensured to work with the version of dantro this documentation corresponds to.
     * The ``my_project`` string is used to refer to the Python project in which the processing pipeline is being defined in.
     * In general, every name of the form ``MyFoobar`` denotes that you can (and should) choose your own name for these data structures or variables.
-    * For illustrational purposes, the code shown here is modularized but presented in a linear fashion.
-      When implementing your *actual* processing pipeline, splitting these code chunks into multiple modules is highly recommended; see :ref:`integrate_module_structure`.
 
+    **Important:** For illustrational purposes, the code shown here is *not* modularized into different files but presented in a linear fashion.
+    If you are looking for a minimal pipeline implementation, you can follow this approach.
+    However, if you are building a processing pipeline that should be expandable and grow alongside your project, splitting these code chunks into multiple modules is highly recommended; see :ref:`integrate_module_structure`.
+
+.. _integrate_data_gen:
 
 Data Generation
 ---------------
-For this guide, we define a simple data generator that will feed this example data processing pipeline.
+For this guide, we define a simple data generator that will feed the example data processing pipeline.
 
 This is of course only a **placeholder for your already-existing project**, e.g. a numerical simulation, an agent-based model, or some data collection routine.
+The routine shown here is meant to illustrate which kinds of data structures can be worked with and in which manner.
 
 Storyline
 ^^^^^^^^^
@@ -223,20 +228,43 @@ As initialization parameters, we pass the following arguments:
     :dedent: 0
 
 These already include the so-called ``load_cfg``, i.e. a set of parameters that specifies which data should be loaded from where and how it should be stored in the data tree.
+
 Furthermore, these parameters can be used to already generate a part of the data tree; this can make loading data easier in some scenarios.
+Here, the ``create_groups`` argument creates the ``simulations`` group, a :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`, where each member is assumed to be the output of a single simulation.
 
 The ``out_dir`` of the :py:class:`~dantro.data_mngr.DataManager` is a directory that is used to store output that is associated with the to-be-loaded data.
 For example, the visualization output will end up in that directory.
 
 Loading data
 ^^^^^^^^^^^^
-In this case, loading should carry out the following actions:
+Let's recap which data was written during :ref:`data generation <integrate_data_gen>`:
 
-    * Load ``pspace.yml`` and associate it with the ``simulations`` group.
-    * Load ``data.h5`` for *each* simulation into a new group inside the ``simulations`` group.
+* ``pspace.yml`` stored the simulation parameters of *all* simulations.
+* For each simulation, the following files were created:
+
+    * ``data.h5`` is an HDF5 file with hierarchically structured numerical data
+    * ``params.yml`` is the set of parameters for this *particular* simulation
+    * ``sim.log`` is the plain text simulation log output
+
+Basically, we want to represent the same structure in the data tree.
+Thus, loading should carry out the following operations:
+
+* Load the global ``pspace.yml`` and associate it with the already existing ``simulations`` group, such that it is aware of the parameter space.
+* For each simulation output directory:
+
+    * Load ``data.h5`` into a new group inside the ``simulations`` group.
     * Load simulation metadata (``sim.log`` and ``params.yml``) and store them alongside.
 
-As mentioned above, this can be specified in the ``load_cfg``.
+As mentioned above, all these load operations can be specified in the ``load_cfg``.
+For the ``data.h5`` files, an entry of the ``load_cfg`` would look something like this:
+
+.. literalinclude:: ../tests/cfg/integration.yml
+    :language: yaml
+    :start-after: # Load the binary output data from each simulation.
+    :end-before:  enable_mapping: true
+    :dedent: 4
+
+This selects the relevant ``data.h5`` files inside the output directory using the ``glob_str`` argument and then uses ``path_regex`` to determine the ``target_path`` inside the ``simulations`` group.
 The full load configuration is omitted here (you can inspect it :ref:`below <integrate_full_load_cfg>`).
 For general information on the load configuration, see :ref:`here <data_mngr_loading_data>`.
 
@@ -250,6 +278,7 @@ With the load configuration already specified during initialization, loading the
 
 The (condensed) tree view shows which data was loaded into which part of the tree and provides some further information on the structure of the data.
 As you see, the initial ``simulations`` group was populated with the output from the individual simulations, the HDF5 tree was unpacked, and the parameter and log output was stored alongside.
+So: We preserved the hierarchical representation of the data, both from within the HDF5 file and from the directory structure.
 
 Furthermore, the loader already applied a type mapping during loading: the ``data/abm/energy`` group is a :py:class:`~dantro.groups.time_series.TimeSeriesGroup`, which assumes that the underlying datasets represent a time series.
 
@@ -431,7 +460,7 @@ For example, with the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreat
     It allows to outsource common parts of the plot configurations into a so-called "base configuration", and compose these back together using the ``based_on`` argument.
 
     This feature requires to specify a set of "base plot configurations", e.g. as defined in a ``base_plots_cfg.yml`` file.
-    The path to this file or the content of it needs to be communicated to the :py:class:`~dantro.plot_mngr.PlotManager` at some point.
+    The path to this file or the content of it needs to be communicated to the :py:class:`~dantro.plot_mngr.PlotManager` at some point, e.g. via its :py:meth:`~dantro.plot_mngr.PlotManager.__init__` call.
 
 
 Summary
