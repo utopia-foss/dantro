@@ -96,9 +96,11 @@ class DataManager(OrderedDataGroup):
             name (str, optional): which name to give to the DataManager. If no
                 name is given, the data directories basename will be used
             load_cfg (Union[dict, str], optional): The base configuration used
-                for loading data. If a string is given, assumes a yaml file and
-                loads that. If none is given, it can still be supplied to the
-                :py:meth:`~dantro.data_mngr.DataManager.load` method.
+                for loading data. If a string is given, assumes it to be the
+                path to a YAML file and loads it using the
+                :py:func:`~dantro._yaml.load_yml` function. If None is given,
+                it can still be supplied to the
+                :py:meth:`~dantro.data_mngr.DataManager.load` method later on.
             out_dir (Union[str, bool], optional): where output is written to.
                 If this is given as a relative path, it is considered relative
                 to the ``data_dir``. A formatting operation with the keys

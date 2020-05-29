@@ -113,7 +113,7 @@ class PlotManager:
                 the base config or a path to a yaml-file to import which
                 recursively updates the ``base_cfg``.
             plots_cfg (Union[dict, str], optional): The default plots config or
-                a path to a yaml-file to import
+                a path to a YAML file to import
             out_dir (Union[str, None], optional): If given, will use this
                 output directory as basis for the output path for each plot.
                 The path can be a format-string; it is evaluated upon call to
