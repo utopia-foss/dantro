@@ -117,3 +117,8 @@ The result can either be downloaded from the job artifacts or the deployed GitLa
 
 Upon warnings or errors in the build, the job will exit with an orange warning sign.
 You can inspect the `build_errors.log` file via the exposed CI artifacts.
+
+## Troubleshooting
+### Install test and/or documentation dependencies when using `zsh`
+If you use a `zsh` terminal (default for macOS users since Catalina) and try to install extra requirements like the test and/or documentation dependencies, you will probably get an error similar to `zsh: no matches found: .[test_deps]`. 
+This can be fixed by escaping the square brackets, i.e. writing `.\[test_deps\]` or  `.\[doc_deps\]`.
