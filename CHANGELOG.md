@@ -21,6 +21,7 @@
     - Can now control the `PlotHelper`'s behaviour upon exceptions
     - The `PlotManager.plot_from_cfg` method is now also ignoring plot configurations with names starting with `.` (additionally to those starting with `_`)
     - Add a [plot configuration reference](https://dantro.readthedocs.io/en/latest/plotting/plot_cfg_ref.html) page to the documentation
+- !171 allows to use `load_yml` and `write_yml` with paths that include the `~` to specify the current user's home directory.
 
 
 #### Bug fixes
