@@ -60,6 +60,15 @@ def dm() -> FullDataManager:
     g_to.new_container('more_data', Cls=NumpyDataContainer,
                        data=np.ones((5, 5)))
 
+    elephant_t = np.linspace(0, 1000, 1001)
+    elephant_f = lambda t: 1.6 + 0.01*t - 0.001*t**2 + 2.3e-5*t**3
+    elephant_ts = xr.DataArray(data=(  elephant_f(elephant_t)
+                                     + np.random.random((1001,))),
+                               dims=('time',),
+                               coords=dict(time=elephant_t))
+    g_to.new_container('elephant_ts', Cls=XrDataContainer,
+                       data=elephant_ts)
+
     # Create some regular numpy data
     data = _dm.new_group('data')
     data.new_container('zeros', Cls=NumpyDataContainer,
@@ -361,6 +370,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
     # Go over all configured tests
     for name, cfg in transformation_test_cfgs.items():
         # Extract specification and expected values etc
+        print("-"*80)
         print("Testing transformation DAG case '{}' ...".format(name))
 
         # Extract arguments
@@ -553,7 +563,6 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
                 assert res == to_check['compare_to']
 
         print("All computation results as expected.\n")
-        print("------------------------------------\n")
 
     # All done.
 

@@ -2,8 +2,38 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+
+## v0.13.0
+#### Features and Improvements
+- !170 adds an [integration guide](https://dantro.readthedocs.io/en/latest/integrating.html) to the documentation, illustrating how a dantro-based data processing pipeline can be built and integrated into a project.
+- !158 allows the loading of external property data in the ``GraphGroup`` (#145).
+- Extension of the [`data_ops` module](https://dantro.readthedocs.io/en/latest/data_io/data_ops.html):
+    - !161 extends the operations database with commonly used operations and makes operations on `np.`, `xr.` and `scipy.` modules easier.
+    - !160 adds the `expression` operation for evaluating [`sympy`](https://www.sympy.org/en/index.html) expressions
+    - !165 adds the `lambda` operation, which can be used to define callables, and the [`curve_fit`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.curve_fit.html) operation that requires such a callable.
+    - !168 adds the `expand_object_array` operation, allowing to unpack an `object`-dtype array of arrays into a higher-dimensional array.
+- Various [transformation framework](https://dantro.readthedocs.io/en/latest/data_io/transform.html) improvements:
+    - !164 extends the [DAG minimal syntax](https://dantro.readthedocs.io/en/latest/data_io/transform.html#minimal-syntax) to allow specifying both positional and keyword arguments.
+    - !160 adds [DAG syntax parsers](https://dantro.readthedocs.io/en/latest/data_io/dag_op_hooks.html) that can simplify DAG specification.
+      Currently, this includes only a parser for the `expression` operation (#149).
+    - !166 adds [DAG usage examples](https://dantro.readthedocs.io/en/latest/data_io/examples.html) to the documentation.
+- !169 adds various improvements to the plotting framework:
+    - Allow debugging individual plot configurations using the `debug` option in the plot configuration.
+    - Improve error messages in `PlotManager`
+    - Can now control the `PlotHelper`'s behaviour upon exceptions
+    - The `PlotManager.plot_from_cfg` method is now also ignoring plot configurations with names starting with `.` (additionally to those starting with `_`)
+    - Add a [plot configuration reference](https://dantro.readthedocs.io/en/latest/plotting/plot_cfg_ref.html) page to the documentation
+- !171 allows to use `load_yml` and `write_yml` with paths that include the `~` to specify the current user's home directory.
+
+
+#### Bug fixes
+- !158 fixes a bug (#151) which led to edge property data not being associated correctly with the edges.
+- !169 addresses #161, which prohibited specifying `out_dir` when plotting using `PlotManager.plot_from_cfg`.
+
+
 ## v0.12.5
 - !159 fixes a bug (#147) which led to duplicate DAG cache files after a storage function error.
+
 
 ## v0.12.4
 - !151 adds documentation of the `GraphGroup`.
@@ -12,7 +42,7 @@
 ## v0.12.3
 - !153 adds the DAG-based generic `facet_grid` plot function that wraps [`xarray.plot`](http://xarray.pydata.org/en/stable/plotting.html) functionality and makes plots of high-dimensional data very convenient.
     - !157 extends the `facet_grid` plot function with animation support.
-      This makes it possible to represent one further data dimension via the `frames`` specifier.
+      This makes it possible to represent one further data dimension via the ``frames`` specifier.
     - More information can be found in [the documentation](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html).
 - !154 adds the possibility to dynamically enter or exit animation mode from any `ExternalPlotCreator`-managed plot function.
 - !155 addresses a bug (#141) that prohibited passing containers during initialization of `LabelledDataGroup` objects or objects of derived classes.

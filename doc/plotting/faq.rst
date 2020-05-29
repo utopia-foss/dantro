@@ -60,6 +60,10 @@ To specify it for a single plot, use the ``file_ext`` argument, directly in its 
 
       # ... the rest of the plot configuration
 
+Also have a look at :doc:`plot_cfg_ref`.
+
+
+.. _faq_plotting_overwrite:
 
 Can I allow plots to be overwritten instead of raising an error?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

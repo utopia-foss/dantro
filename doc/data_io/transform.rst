@@ -7,6 +7,9 @@ The uniform structure of the dantro data tree is the ideal starting point to all
 This page describes dantro's data transformation framework, revolving around the :py:class:`~dantro.dag.TransformationDAG` class.
 It is sometimes also referred to as *DAG framework* or *data selection and transformation framework* and finds application :doc:`in the plotting framework <../plotting/plot_data_selection>`.
 
+This page is an introduction to the DAG framework and a description of its inner workings.
+To learn more about its practical usage, make sure to look at the :doc:`examples`.
+
 .. contents::
    :local:
    :depth: 2
@@ -435,43 +438,47 @@ However, transformation nodes can also be added after initialization using the f
 
 Minimal Syntax
 ^^^^^^^^^^^^^^
-To make the definition a bit less verbose, there is a so-called *minimal syntax*, which is translated into the explicit and verbose one:
+To make the definition a bit less verbose, there is a so-called *minimal syntax*, which is internally translated into the explicit and verbose one documented above.
+This can make DAG specification much easier:
 
-.. code-block:: yaml
-
-    select:
-      some_data: path/to/some_data
-      more_data: path/to/more_data
-    transform:
-      - add: [!dag_tag some_data, !dag_tag more_data]
-      - increment
-      - print
-      - power: [!dag_prev , 4]
-        tag: my_result
+.. literalinclude:: ../../tests/cfg/transformations.yml
+    :language: yaml
+    :start-after: ### Start -- dag_minimal_syntax
+    :end-before:  ### End ---- dag_minimal_syntax
+    :dedent: 4
 
 This DAG will have three custom tags defined: ``some_data``, ``more_data`` and ``my_result``.
 Computation of the ``my_result`` tag is equivalent to:
 
 ::
 
-    my_result = [(some_data + more_data) + 1]^4
+    my_result = ((some_data + more_data) + 1) ** 4
 
 As can be seen above, the minimal syntax gets rid of the ``operation``, ``args`` and ``kwargs`` keys by allowing to specify it as ``<operation name>: <args or kwargs>`` or even as just a string ``<operation name>``, without further arguments.
 
 With arguments, ``<operation name>: <args or kwargs>``
 """"""""""""""""""""""""""""""""""""""""""""""""""""""
-By passing a sequence (e.g. ``[foo, bar]``) the arguments are interpreted as positional arguments; by passing a mapping (e.g. ``{foo: bar}``), they are treated as keyword arguments.
+When passing a sequence (e.g. ``[foo, bar]``) the arguments are interpreted as positional arguments; when passing a mapping (e.g. ``{foo: bar}``), they are treated as keyword arguments.
 
-.. warning::
+.. hint::
 
-    When using the minimal syntax, it is not allowed to *additionally* specify the ``args``, ``kwargs`` and/or ``operation`` keys.
+    In this shorthand notation it is still possible to specify the respective "other" types of arguments using the ``args`` or ``kwargs`` keys.
+    For example:
+
+    .. code-block:: yaml
+
+        transform:
+          - my_operation: [foo, bar]
+            kwargs: { some: more, keyword: arguments }
+          - my_other_operation: {foo: bar}
+            args: [some, positional, arguments]
 
 Without arguments, ``<operation name>``
 """""""""""""""""""""""""""""""""""""""
-When specifying only the name of the operation as a string (e.g. ``increment`` and ``print``), it is assumed that the operation accepts only a single positional argument.
+When specifying only the name of the operation as a string (e.g. ``increment`` and ``print``), it is assumed that the operation accepts *only* a single *positional* argument and no other arguments.
 That argument is automatically filled with a reference to the result of the *previous* transformation, i.e.: the result is carried over.
 
-For example, the transformation with the ``increment`` operation would be translated to:
+For example, the above transformation with the ``increment`` operation would be translated to:
 
 .. code-block:: yaml
 
@@ -479,6 +486,47 @@ For example, the transformation with the ``increment`` operation would be transl
     args: [!dag_prev ]
     kwargs: {}
     tag: ~
+
+
+.. _dag_op_hooks_integration:
+
+Operation Hooks
+^^^^^^^^^^^^^^^
+The DAG syntax parser allows attaching additional parsing functions to operations, which can help to supply a more concise syntax.
+These so-called *operation hooks* are described in more detail :ref:`here <dag_op_hooks>`.
+As an example, the ``expression`` operation can be specified much more conveniently with the use of its hook.
+Taking the example from :ref:`above <dag_minimal_syntax>`, the same can be expressed as:
+
+.. literalinclude:: ../../tests/cfg/transformations.yml
+    :language: yaml
+    :start-after: ### Start -- dag_op_hooks_expression_minimal
+    :end-before:  ### End ---- dag_op_hooks_expression_minimal
+    :dedent: 4
+
+In this case, the hook automatically extracts the free symbols (``some_data`` and ``more_data``) and translates them to the corresponding :py:class:`~dantro._dag_utils.DAGTag` objects.
+Effectively, it parses the above to:
+
+.. literalinclude:: ../../tests/cfg/transformations.yml
+    :language: yaml
+    :start-after: ### Start -- dag_op_hooks_expression_minimal
+    :end-before:  ### End ---- dag_op_hooks_expression_minimal
+    :dedent: 4
+
+If you care to **deactivate a hook**, set the ``ignore_hooks`` flag for the operation:
+
+.. code-block:: yaml
+
+    operation: some_hooked_operation
+    args: [foo, bar]
+    ignore_hooks: true
+
+.. warning::
+
+    Failing operation hooks will emit a logger warning, informing about the error; they do not raise an exception.
+    While this might not lead to a failure during *parsing*, it might lead to an error during computation, e.g. when you are relying on the hook to have adjusted the operation arguments.
+
+    Depending on the operation arguments, there can be cases where the hook will not be *able* to perform its function because it lacks information that is only available after a computation.
+    In such cases, it's best to deactivate the hook as described above.
 
 
 .. _dag_transform_full_syntax_spec:
@@ -541,7 +589,18 @@ Except for ``operation``, ``args``, ``kwargs`` and ``tag``, all entries are set 
           ignore_groups: true       # Whether to attempt storing dantro groups
           # ... additional arguments passed on to the specific saving function
 
+.. note::
 
+    This does not reflect any arguments made available by the DAG parser!
+    Features like the :ref:`minimal syntax <dag_minimal_syntax>` or the :ref:`operation hooks <dag_op_hooks_integration>` are handled *prior* to the initialization of a :py:class:`~dantro.dag.Transformation` object.
+
+.. hint::
+
+    Often the easiest way to learn is by example.
+    Make sure to check out the :doc:`examples` page, where you will find practical examples that go beyoned what is shown here.
+
+
+.. _dag_file_cache:
 
 The File Cache
 --------------
@@ -622,10 +681,16 @@ Reading from the file cache
 Generally, the best computation is the one you don't need to make.
 If there is no result in memory and reading from cache is enabled, the cache directory is searched for a file that has as its basename the hash of the transformation that is to be computed.
 
-If that is the case, the DataManager is used to load the data into the data tree *and* set the memory cache. (Note that this is Python, i.e. it's not a *copy* but the memory cache is a reference to the object in the data tree.)
+If that is the case, the DataManager is used to load the data into the data tree *and* set the memory cache.
+(Note that this is Python, i.e. it's not a *copy* but the memory cache is a reference to the object in the data tree.)
 
 By default, it is *not* attempted to read from the cache directory.
 See above on how to enable it.
+
+.. note::
+
+    When desiring to use the caching feature of the transformation framework, the employed :py:class:`~dantro.data_mngr.DataManager` needs to be able to load numerical data.
+    If you are not already using the :py:class:`~dantro.data_loaders.AllAvailableLoadersMixin`, consider adding :py:class:`~dantro.data_loaders.load_numpy.NumpyLoaderMixin`, :py:class:`~dantro.data_loaders.load_xarray.XarrayLoaderMixin`, and :py:class:`~dantro.data_loaders.load_pkl.PickleLoaderMixin` to your :py:class:`~dantro.data_mngr.DataManager` specialization.
 
 
 Writing to the file cache

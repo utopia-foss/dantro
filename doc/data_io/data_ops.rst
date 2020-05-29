@@ -1,9 +1,12 @@
+.. _data_processing:
+
 Data Processing
 ===============
 Through the :py:mod:`~dantro.utils.data_ops` module, dantro supplies some useful functionality to generically work with function calls.
 This is especially useful for numerical operations.
 
 The :py:mod:`~dantro.utils.data_ops` module can be used on its own, but it is certainly worth to have a look at :doc:`transform`, which wraps the application and combination of modules to further generalize the processing of dantro data.
+For practical examples, of combining data processing operations with the data transformation framework, have a look at :doc:`examples`.
 
 .. contents::
     :local:
@@ -27,6 +30,8 @@ Applying operations
 The task of resolving the callable from the database, passing arguments to it, and returning the result falls to the :py:func:`~dantro.utils.data_ops.apply_operation` function.
 It also provides useful feedback in cases where the operation failed, e.g. by including the given arguments into the error message.
 
+
+.. _register_data_ops:
 
 Registering operations
 ^^^^^^^^^^^^^^^^^^^^^^

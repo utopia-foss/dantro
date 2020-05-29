@@ -2,8 +2,40 @@
 
 NOTE This is imported by dantro.tools to register classes with YAML.
 """
+import logging
+from typing import Any, Union, Tuple
 
-from typing import Any, Union
+import sympy as sym
+from sympy.parsing.sympy_parser import (parse_expr as _parse_expr,
+                                        standard_transformations as _std_trf,
+                                        convert_xor as _convert_xor)
+
+# Local constants
+log = logging.getLogger(__name__)
+
+
+# -----------------------------------------------------------------------------
+
+# Contains hooks that are invoked when a certain operation is parsed.
+#
+# The values should be callables that receive ``operation, *args, **kwargs``
+# and return a 3-tuple of the manipulated ``operation, args, kwargs``.
+# The return values will be those that the Transformation object is created
+# from.
+#
+# Example of defining a hook and registering it:
+#
+# .. code-block:: python
+#
+#     def _op_hook_my_operation(operation, *args, **kwargs
+#                               ) -> Tuple[str, list, dict]:
+#         """An operation hook for my_operation"""
+#         # ... do stuff ...
+#         return operation, args, kwargs
+#
+#     DAG_PARSER_OPERATION_HOOKS['my_operation'] = _op_hook_my_operation
+#
+DAG_PARSER_OPERATION_HOOKS = dict()
 
 
 # -----------------------------------------------------------------------------
@@ -72,7 +104,7 @@ class DAGReference:
     def to_yaml(cls, representer, node):
         """Create a YAML representation of a DAGReference, carrying only the
         _data attribute over...
-        
+
         As YAML expects scalar data to be str-like, a type cast is done. The
         subclasses that rely on certain argument types should take care that
         they can parse arguments that are str-like.
@@ -116,12 +148,12 @@ class DAGNode(DAGReference):
 
     def __init__(self, idx: int):
         """Initialize a DAGNode object with a node index.
-        
+
         Args:
             idx (int): The idx value to set this reference to. Can also be a
                 negative value, in which case the node list is traversed from
                 the back.
-        
+
         Raises:
             TypeError: On invalid type (not int-convertible)
         """
@@ -172,26 +204,26 @@ class DAGObjects:
 
     def add_object(self, obj, *, custom_hash: str=None) -> str:
         """Add an object to the object database, storing it under its hash.
-        
+
         Note that the object cannot be just any object that is hashable but it
         needs to return a string-based hash via the ``hashstr`` property. This
         is a dantro DAG framework-internal interface.
-        
+
         Also note that the object will NOT be added if an object with the same
         hash is already present. The object itself is of no importance, only
         the returned hash is.
-        
+
         Args:
             obj: Some object that has the ``hashstr`` property, i.e. is
                 hashable as required by the DAG interface
             custom_hash (str, optional): A custom hash to use instead of the
                 hash extracted from ``obj``. Can only be given when ``obj``
                 does *not* have a ``hashstr`` property.
-        
+
         Returns:
             str: The hash string of the given object. If a custom hash string
                 was given, it is also the return value
-        
+
         Raises:
             TypeError: When attempting to pass ``custom_hash`` while ``obj``
                 *has* a ``hashstr`` property
@@ -211,7 +243,7 @@ class DAGObjects:
                                  "choose a different custom hash."
                                  "".format(custom_hash, type(obj)))
             key = custom_hash
-        
+
         else:
             # Use the DAG framework's internal hash method
             key = obj.hashstr
@@ -262,14 +294,15 @@ def parse_dag_minimal_syntax(params: Union[str, dict]) -> dict:
 def parse_dag_syntax(*, operation: str=None, args: list=None,
                      kwargs: dict=None, tag: str=None,
                      with_previous_result: bool=False,
-                     salt: int=None, file_cache: dict=None, **ops) -> dict:
+                     salt: int=None, file_cache: dict=None,
+                     ignore_hooks: bool=False, **ops) -> dict:
     """Given the parameters of a transform operation, possibly in a shorthand
     notation, returns a dict with normalized content by expanding the
     shorthand notation.
-    
+
     Keys that will be available in the resulting dict:
         ``operation``, ``args``, ``kwargs``, ``tag``.
-    
+
     Args:
         operation (str, optional): Which operation to carry out; can only be
             specified if there is no ``ops`` argument.
@@ -284,15 +317,32 @@ def parse_dag_syntax(*, operation: str=None, args: list=None,
         salt (int, optional): A salt to the Transformation object, thereby
             changing its hash.
         file_cache (dict, optional): File cache parameters
+        ignore_hooks (bool, optional): If True, there will be no lookup in the
+            operation hooks.
         **ops: The operation that is to be carried out. May contain one and
             only one operation.
-    
+
     Returns:
         dict: The normalized dict of transform parameters.
-    
+
     Raises:
-        ValueError: For len(ops) != 1
+        ValueError: For invalid notation, e.g. unambiguous specification of
+            arguments or the operation.
     """
+    def _raise_error(mode: type, *, operation: str, op_params):
+        if mode is dict:
+            kind, arg_name = "keyword", "kwargs"
+        else:
+            kind, arg_name = "positional", "args"
+
+        raise ValueError(
+            f"Got superfluous `{arg_name}` argument!"
+            f"When specifying {kind} arguments via the shorthand notation "
+            f"('{operation}: {op_params}'), there can be no additional "
+            f"`{arg_name}` argument specified! Remove that argument or merge "
+            f"its content with the arguments specified via the shorthand."
+        )
+
     # Distinguish between explicit and shorthand mode
     if operation and not ops:
         # Explicit parametrization
@@ -302,33 +352,39 @@ def parse_dag_syntax(*, operation: str=None, args: list=None,
     elif ops and not operation:
         # Shorthand parametrization
         # Make sure there are no stray argument
-        if args is not None or kwargs is not None:
-            raise ValueError("When using shorthand notation, the args and "
-                             "kwargs need to be specified under the key that "
-                             "specifies the operation!")
-
-        elif len(ops) > 1:
+        if len(ops) > 1:
             raise ValueError("For shorthand notation, there can only be a "
-                             "single operation specified, but got: {}."
-                             "".format(ops))
+                             "single operation specified, but got multiple "
+                             f"operations: {ops}")
 
         # Extract operation name and parameters
         operation, op_params = list(ops.items())[0]
 
-        # Depending on type, regard parameters as args or kwargs. If
-        # the argument is not a container, assume it's a single
-        # positional argument.
+        # Depending on type, regard parameters as args or kwargs. If the
+        # argument is not a container, assume it's a single positional
+        # argument. The arguments that are not specified by op_params will be
+        # set from the existing
         if isinstance(op_params, dict):
-            args, kwargs = [], op_params
-        
+            if kwargs:
+                _raise_error(dict, operation=operation, op_params=op_params)
+            args = args if args else []
+            kwargs = op_params
+
         elif isinstance(op_params, (list, tuple)):
-            args, kwargs = list(op_params), {}
-        
+            if args:
+                _raise_error(list, operation=operation, op_params=op_params)
+            args = list(op_params)
+            kwargs = kwargs if kwargs else {}
+
         elif op_params is not None:
-            args, kwargs = [op_params], {}
-        
+            if args:
+                _raise_error(list, operation=operation, op_params=op_params)
+            args = [op_params]
+            kwargs = kwargs if kwargs else {}
+
         else:
-            args, kwargs = [], {}
+            args = args if args else []
+            kwargs = kwargs if kwargs else {}
 
     elif not operation and not ops:
         raise ValueError("Missing operation specification. Either use the "
@@ -337,10 +393,9 @@ def parse_dag_syntax(*, operation: str=None, args: list=None,
                          "key and adding the arguments to it as values.")
 
     else:
-        raise ValueError("Got two specifications of operations, one via the "
-                         "`operation` argument ({}), another via the "
-                         "shorthand notation ({}). Remove one of them."
-                         "".format(operation, ops))
+        raise ValueError(f"Got two specifications of operations, one via the "
+                         f"`operation` argument ('{operation}'), another via "
+                         f"the shorthand notation ({ops}). Remove one!")
 
     # Have variables operation, args, and kwargs set now.
 
@@ -349,10 +404,24 @@ def parse_dag_syntax(*, operation: str=None, args: list=None,
     if with_previous_result:
         args.insert(0, DAGNode(-1))
 
+    # Invoke operation-specific hooks
+    if not ignore_hooks and operation in DAG_PARSER_OPERATION_HOOKS:
+        hook = DAG_PARSER_OPERATION_HOOKS[operation]
+        log.remark("Invoking parser hook for operation '%s' ...", operation)
+        try:
+            operation, args, kwargs = hook(operation, *args, **kwargs)
+        except Exception as exc:
+            log.warning("Failed applying operation-specific hook for '%s'! "
+                        "Got %s: %s.\nEither correct the error or disable "
+                        "the hook for this operation by setting the "
+                        "``ignore_hooks`` flag. Otherwise, this operation "
+                        "might fail during computation.",
+                        operation, exc.__class__.__name__, exc)
+
     # Done. Construct the dict.
     # Mandatory parameters
     d = dict(operation=operation, args=args, kwargs=kwargs, tag=tag)
-    
+
     # Add optional parameters only if they were specified
     if salt is not None:
         d['salt'] = salt
@@ -361,3 +430,66 @@ def parse_dag_syntax(*, operation: str=None, args: list=None,
         d['file_cache'] = file_cache
 
     return d
+
+
+# -----------------------------------------------------------------------------
+# Operation Hooks
+# NOTE:
+#   - Names should follow ``op_hook_<operation-name>``
+#   - A documentation entry should be added in doc/data_io/dag_op_hooks.rst
+
+def op_hook_expression(operation, *args, **kwargs) -> Tuple[str, list, dict]:
+    """An operation hook for the ``expression`` operation, attempting to
+    auto-detect which symbols are specified in the given expression.
+    From those, ``DAGTag`` objects are created, making it more convenient to
+    specify an expression that is based on other DAG tags.
+
+    The detected symbols are added to the ``kwargs.symbols``, if no symbol of
+    the same name is already explicitly defined there.
+
+    This hook accepts as positional arguments both the ``(expr,)`` form and
+    the ``(prev_node, expr)`` form, making it more robust when the
+    ``with_previous_result`` flag was set.
+
+    If the expression contains the ``prev`` or ``previous_result`` symbols,
+    the corresponding :py:class:`~dantro._dag_utils.DAGNode` will be added to
+    the symbols additionally.
+
+    For more information on operation hooks, see :ref:`dag_op_hooks`.
+    """
+    # Extract the expression string
+    if len(args) == 1:
+        expr = args[0]
+    elif len(args) == 2:
+        _, expr = args
+    else:
+        raise TypeError(
+            f"Got unexpected positional arguments: {args}; expected either "
+            f"(expr,) or (prev_node, expr)."
+        )
+
+    # Try to extract all symbols from the expression
+    all_symbols = _parse_expr(expr, evaluate=False).atoms(sym.Symbol)
+
+    # Some symbols might already be given; only add those that were not given.
+    # Also, convert the ``prev`` and ``previous_result`` symbols the
+    # corresponding DAGNode object
+    symbols = kwargs.get('symbols', {})
+    for symbol in all_symbols:
+        symbol = str(symbol)
+        if symbol in symbols:
+            log.remark("Symbol '%s' was already specified explicitly! It "
+                       "will not be replaced.", symbol)
+            continue
+
+        if symbol in ('prev', 'previous_result'):
+            symbols[symbol] = DAGNode(-1)
+        else:
+            symbols[symbol] = DAGTag(symbol)
+
+    # For the case of missing ``symbols`` key, need to write it back to kwargs
+    kwargs['symbols'] = symbols
+
+    # For args, return _only_ ``expr``, as expected by the operation
+    return operation, (expr,), kwargs
+DAG_PARSER_OPERATION_HOOKS['expression'] = op_hook_expression

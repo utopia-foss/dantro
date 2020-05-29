@@ -22,7 +22,7 @@ simple_transform:
           another_kwarg: abc
         tag: res1
 
-  expected:  
+  expected:
     - operation: op0
       args:
         - one_arg
@@ -48,7 +48,7 @@ minimal:
         with_previous_result: true
       - invert
 
-  expected:  
+  expected:
     - operation: some_op_without_any_args_or_kwargs
       args: []
       kwargs: {}
@@ -86,7 +86,7 @@ shorthand_transform:
 
       - some_unary_op: [!dag_prev ]
         tag: res0
-      
+
       - some_unary_op_with_kwargs:
           some_kwarg: some_value
         tag: res1
@@ -99,6 +99,22 @@ shorthand_transform:
           kwarg1: !dag_tag bar
 
       - some_op_without_any_args_or_kwargs: ~
+
+      - some_op_with_args_and_kwargs: foo
+        kwargs:
+          kwarg0: foo
+          kwarg1: bar
+        tag: res3
+
+      - some_op_with_args_and_kwargs: [foo, bar, baz]
+        kwargs:
+          kwarg0: foo
+          kwarg1: bar
+        tag: res4
+
+      - some_op_with_args_and_kwargs: {kwarg0: foo, kwarg1: bar}
+        args: [foo, bar, baz]
+        tag: res5
 
   expected:
     - operation: some_unary_op
@@ -138,15 +154,59 @@ shorthand_transform:
       kwargs: {}
       tag: ~
 
-shorthand_transform_error_missing_args:
+    - operation: some_op_with_args_and_kwargs
+      args: [foo]
+      kwargs:
+        kwarg0: foo
+        kwarg1: bar
+      tag: res3
+
+    - operation: some_op_with_args_and_kwargs
+      args: [foo, bar, baz]
+      kwargs:
+        kwarg0: foo
+        kwarg1: bar
+      tag: res4
+
+    - operation: some_op_with_args_and_kwargs
+      args: [foo, bar, baz]
+      kwargs:
+        kwarg0: foo
+        kwarg1: bar
+      tag: res5
+
+shorthand_transform_error_superfluous_args:
   params:
     select: ~
     transform:
-      - some_unary_op: asd
-        args: []
+      - some_op_with_args_and_kwargs: good
+        args: [bad]
+        kwargs: { foo: bar }
 
   _raises: ValueError
-  _match: When using shorthand notation, the args and kwargs need to be
+  _match: Got superfluous `args` argument!
+
+shorthand_transform_error_superfluous_args2:
+  params:
+    select: ~
+    transform:
+      - some_op_with_args_and_kwargs: [good, better, best]
+        args: [bad]
+        kwargs: { foo: bar }
+
+  _raises: ValueError
+  _match: Got superfluous `args` argument!
+
+shorthand_transform_error_superfluous_kwargs:
+  params:
+    select: ~
+    transform:
+      - some_op_with_args_and_kwargs: {good: good, better: better}
+        args: [1, 2, 3]
+        kwargs: { bad: badbad }
+
+  _raises: ValueError
+  _match: Got superfluous `kwargs` argument!
 
 shorthand_transform_error_too_many_ops:
   params:
@@ -235,7 +295,7 @@ simple_select:
         kwargs:
           some_kwarg: hey
         tag: spam
-  
+
   expected:
     - operation: getitem
       args:
@@ -280,7 +340,7 @@ select_with_transform:
               one_kwarg: 1
               another_kwarg: abc
     transform: ~
-  
+
   expected:
     - operation: getitem
       args:
@@ -395,7 +455,7 @@ select_error_bad_type:
     select:
       foo: []
     transform: []
-  
+
   _raises: TypeError
   _match: Invalid type for 'foo' entry within `select` argument
 
@@ -410,10 +470,10 @@ select_error_trying_to_set_last_tag:
             tag: some_tag
 
     transform: []
-  
+
   _raises: ValueError
   _match: The tag of the last transform operation within a select routine
-  
+
 
 # -----------------------------------------------------------------------------
 # Misc
@@ -471,7 +531,7 @@ file_cache_defaults:
       foo: some/path/foo
       bar:
         path: some/path/bar
-    transform:      
+    transform:
       - some_unary_op_with_kwargs:
           some_kwarg: some_value
         tag: res1

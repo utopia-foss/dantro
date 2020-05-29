@@ -31,6 +31,7 @@ py:exc RuntimeError
 py:exc NotImplementedError
 py:exc UserWarning
 py:exc FileExistsError
+py:exc SyntaxError
 
 py:class Exception
 py:class ValueError
@@ -42,6 +43,7 @@ py:class RuntimeError
 py:class NotImplementedError
 py:class UserWarning
 py:class FileExistsError
+py:class SyntaxError
 
 # Type-hinting related types
 py:class optional
@@ -49,12 +51,14 @@ py:class Any
 py:class Union
 py:class Callable
 py:class Sequence
+py:class Iterable
 py:class Tuple
 py:class List
 py:class Dict
 
 # numpy, xarray, h5py
 py:class np.ndarray
+py:class np.dtype
 py:class xr.Dataset
 py:class xr.DataArray
 py:class h5.Dataset

@@ -899,8 +899,148 @@ error_tag_already_exists:
   _match: Tag 'random_raw' already exists! Choose a different one.
 
 
-# Examples in documentation ---------------------------------------------------
+# Operation Hooks -------------------------------------------------------------
 
+op_hook_deactivated:
+  params:
+    select:
+      some_zeros: data/zeros
+    transform:
+      - increment: !dag_tag some_zeros
+        tag: some_ones
+      - operation: expression
+        args: [some_zeros + some_ones + 2.]
+        kwargs:
+          symbols:
+            some_zeros: !dag_tag some_zeros
+            some_ones: !dag_tag some_ones
+        tag: result
+        ignore_hooks: true
+
+  expected:
+    num_nodes: 3
+    num_objects: 5
+    tags: [dag, dm, some_zeros, some_ones, result]
+    results:
+      result:
+        type: ndarray
+        attributes:
+          mean: 3.
+          shape: [2,3,4]
+
+op_hook_expression_simple:
+  params:
+    select: &op_hook_expression_select
+      some_zeros: data/zeros
+      some_ones:
+        path: data/zeros
+        with_previous_result: true
+        transform:
+          - increment
+    transform:
+      - expression: some_zeros + some_ones + 2.
+        tag: result
+
+  expected:
+    num_nodes: 4
+    num_objects: 5
+    tags: [dag, dm, some_zeros, some_ones, result]
+    results:
+      result:
+        type: ndarray
+        attributes:
+          mean: 3.
+          shape: [2,3,4]
+
+op_hook_expression_advanced:
+  params:
+    select:
+      <<: *op_hook_expression_select
+    transform:
+      # partial symbol replacement
+      - operation: expression
+        args: [(some_zeros + 1) * (10**exponent)]
+        kwargs:
+          symbols:
+            exponent: 2
+        tag: result1
+      # implicitly with previous result
+      - expression: prev * 0.01 + some_ones
+        tag: result2
+      # not failing with explicitly given previous result
+      - expression: previous_result * 0 + prev + result1
+        with_previous_result: true
+        tag: result3
+
+  expected:
+    num_nodes: 6
+    num_objects: 7
+    tags: [dag, dm, some_zeros, some_ones, result1, result2, result3]
+    results:
+      result1:
+        type: ndarray
+        attributes:
+          mean: 100.
+          shape: [2,3,4]
+      result2:
+        type: ndarray
+        attributes:
+          mean: 2.
+          shape: [2,3,4]
+      result3:
+        type: ndarray
+        attributes:
+          mean: 102.
+          shape: [2,3,4]
+
+op_hook_expression_bad_hook:
+  params:
+    select:
+      <<: *op_hook_expression_select
+    transform:
+      # will fail to replace symbols in the hook, but will succeed overall
+      - operation: expression
+        args: [some_zeros.ndim]  # causes AttributeError: Symbol has no .ndim
+        kwargs:
+          symbols:
+            some_zeros: !dag_tag some_zeros
+        tag: result
+  expected:
+    num_nodes: 4
+    num_objects: 5
+    tags: [dag, dm, some_zeros, some_ones, result]
+    results:
+      result:
+        type: float64
+        attributes:
+          ndim: 0
+
+op_hook_expression_type_error:
+  params:
+    select:
+      <<: *op_hook_expression_select
+    transform:
+      # bad arguments; will fail not in the hook but when applying operation
+      - expression: [foo, bar, baz]
+        tag: result
+  _raises: RuntimeError
+  _raises_on_compute: true
+  _match: takes 1 positional argument but 3 were given
+op_hook_expression_bad_expression:
+  params:
+    select:
+      <<: *op_hook_expression_select
+    transform:
+      # bad expression
+      - expression: i will not parse [1, 2, 3].foo
+        tag: result
+  _raises: RuntimeError
+  _raises_on_compute: true
+  _match: Failed parsing expression.*invalid syntax
+
+
+# Examples in documentation ---------------------------------------------------
+# Partly literal-included
 
 doc_examples_with_previous_result:
   params:
@@ -967,6 +1107,7 @@ doc_examples_select_with_transform:
 
 doc_examples_minimal:
   params:
+    ### Start -- dag_minimal_syntax
     select:
       some_data: path/to/some_data
       more_data: path/to/more_data
@@ -976,10 +1117,10 @@ doc_examples_minimal:
       - print
       - power: [!dag_prev , 4]
         tag: my_result
+    ### End ---- dag_minimal_syntax
 
   expected:
     tags: [dag, dm, some_data, more_data, my_result]
-
 
 doc_examples_import_and_call:
   params:
@@ -994,3 +1135,146 @@ doc_examples_import_and_call:
 
   expected:
     tags: [dag, dm, random_integers]
+
+doc_examples_op_hooks_expression_minimal:
+  params:
+    ### Start -- dag_op_hooks_expression_minimal
+    select:
+      some_data: path/to/some_data
+      more_data: path/to/more_data
+    transform:
+      - expression: (some_data + more_data + 1) ** 4
+        tag: my_result
+    ### End ---- dag_op_hooks_expression_minimal
+
+  expected:
+    tags: [dag, dm, some_data, more_data, my_result]
+    results:
+      my_result:
+        type: ndarray
+
+doc_examples_op_hooks_expression_expanded_minimal:
+  params:
+    ### Start -- dag_op_hooks_expression_expanded_minimal
+    select:
+      some_data: path/to/some_data
+      more_data: path/to/more_data
+    transform:
+      - expression: (some_data + more_data + 1) ** 4
+        kwargs:
+          symbols:
+            some_data: !dag_tag some_data
+            more_data: !dag_tag more_data
+        tag: my_result
+    ### End ---- dag_op_hooks_expression_expanded_minimal
+
+  expected:
+    tags: [dag, dm, some_data, more_data, my_result]
+    results:
+      my_result:
+        type: ndarray
+
+doc_examples_op_hooks_expression_basics:
+  params:
+    ### Start -- dag_op_hooks_expression_basics
+    transform:
+      - define: 2
+        tag: a
+      - define: 3
+        tag: b
+      - define: 1.5
+        tag: c
+      - expression: a**b / (c - 1.)
+        tag: result
+    ### End ---- dag_op_hooks_expression_basics
+
+  expected:
+    tags: [dag, dm, a, b, c, result]
+    results:
+      result:
+        type: float64
+        compare_to: 16.
+
+doc_examples_op_hooks_expression_prev:
+  params:
+    ### Start -- dag_op_hooks_expression_prev
+    transform:
+      - define: 3
+        tag: x
+      - define: 2.                       # ... or something more complicated
+      - expression: 1 - prev/(1 + x)     # Reusing ``prev`` here. :tada:
+        tag: result
+    ### End ---- dag_op_hooks_expression_prev
+
+  expected:
+    tags: [dag, dm, x, result]
+    results:
+      result:
+        type: float64
+        compare_to: .5
+
+doc_examples_op_hooks_expression_symbolic:
+  params:
+    ### Start -- dag_op_hooks_expression_symbolic
+    transform:
+      - np.array: [[1, 2, 3]]
+        tag: arr
+      - .mean: !dag_tag arr
+        tag: a
+      - .sum: !dag_tag arr
+        tag: b
+      - define: 10
+        tag: c
+
+      - operation: expression
+        args: [a**2]
+        kwargs:
+          astype: ~
+        tag: equation_one
+      - operation: expression
+        args: [b**2]
+        kwargs:
+          astype: ~
+        tag: equation_two
+
+      - expression: (equation_one + equation_two) * c**2
+        tag: result
+    ### End ---- dag_op_hooks_expression_symbolic
+
+  expected:
+    tags: [dag, dm, arr, a, b, c, equation_one, equation_two, result]
+    results:
+      result:
+        type: float64
+        compare_to: 4000.
+
+doc_examples_dag_curve_fitting:
+  params:
+    ### Start -- dag_examples_curve_fitting
+    select:
+      data_to_fit: path/to/elephant_ts  # 1D data with `time` dimension
+
+    transform:
+      # Define the model function as a lambda
+      - lambda: "lambda x, a0, a1, a2, a3, a4, a5: a5*x**5 + a4*x**4 + a3*x**3 + a2*x**2 + a1*x**1 + a0"
+        tag: elephant_f
+
+      # Extract the independent variable (here: the `time` coordinates)
+      - .coords: [!dag_tag data_to_fit, time]
+        tag: times
+
+      # Do the fit; result will be that of `scipy.optimize.curve_fit`
+      - curve_fit:
+          - !dag_tag elephant_f
+          - !dag_tag times
+          - !dag_tag data_to_fit
+        tag: fit_results
+    ### End ---- dag_examples_curve_fitting
+
+  expected:
+    tags: [dag, dm, data_to_fit, elephant_f, times, fit_results]
+    results:
+      elephant_f:
+        type: function
+      fit_results:
+        type: tuple
