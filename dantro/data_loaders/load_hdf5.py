@@ -20,30 +20,41 @@ log = logging.getLogger(__name__)
 
 class Hdf5LoaderMixin:
     """Supplies functionality to load hdf5 files into the data manager.
-    
+
     It resolves the hdf5 groups into corresponding data groups and the datasets
     into NumpyDataContainers.
 
     If ``enable_mapping`` is set, the class variables ``_HDF5_DSET_MAP`` and
     ``_HDF5_GROUP_MAP`` are used to map from a string to a container type. The
     class variable ``_HDF5_MAP_FROM_ATTR`` determines the default value of the
-    attribute to read and use as input string for the mapping. 
+    attribute to read and use as input string for the mapping.
+
+    Attributes:
+        _HDF5_DSET_DEFAULT_CLS (type): the default class to use for datasets.
+            This should be a dantro :py:class:`~dantro.base.BaseDataContainer`
+            -derived class. Note that certain data groups can overwrite the
+            default class for underlying members.
+        _HDF5_GROUP_MAP (Dict[str, type]): if mapping is enabled, the
+            equivalent dantro types for HDF5 groups are determined from this
+            mapping.
+        _HDF5_DSET_MAP (Dict[str, type]): if mapping is enabled, the
+            equivalent dantro types for HDF5 datasets are determined from this
+            mapping.
+        _HDF5_MAP_FROM_ATTR (str): the name of the HDF5 dataset or group
+            attribute to read in order to determine the type mapping. For
+            example, this could be ``"content"``. This is the fallback value
+            if no ``map_from_attr`` argument is given to
+            :py:meth:`dantro.data_loaders.load_hdf5.Hdf5LoaderMixin._load_hdf5`
+        _HDF5_DECODE_ATTR_BYTESTRINGS (bool): if true (default), will attempt
+            to decode HDF5 attributes that are stored as byte arrays into
+            regular Python strings; this can make attribute handling much
+            easier.
     """
-
-    # Define the container classes to use when loading data with this mixin
-    # The default class to use for containers
+    #Default values for class variables; see above for docstrings
     _HDF5_DSET_DEFAULT_CLS = NumpyDataContainer
-
-    # The mapping of types to data groups
     _HDF5_GROUP_MAP = None
-
-    # The mapping of types to data containers
     _HDF5_DSET_MAP = None
-
-    # The name of the attribute to read for mapping
     _HDF5_MAP_FROM_ATTR = None
-
-    # Whether to decode strings stored as byte arrays to regular python strings
     _HDF5_DECODE_ATTR_BYTESTRINGS = True
 
 
@@ -53,7 +64,7 @@ class Hdf5LoaderMixin:
                    load_as_proxy: bool=False,
                    proxy_kwargs: dict=None,
                    lower_case_keys: bool=False,
-                   enable_mapping: bool=False, 
+                   enable_mapping: bool=False,
                    map_from_attr: str=None,
                    print_params: dict=None
                    ) -> OrderedDataGroup:
@@ -61,15 +72,15 @@ class Hdf5LoaderMixin:
         objects; this completely recreates the hierarchic structure of the hdf5
         file. The data can be loaded into memory completely, or be loaded as
         a proxy object.
-        
+
         The h5py File and Group objects will be converted to the specified
         DataGroup-derived objects; the Dataset objects to the specified
         DataContainer-derived object.
-        
+
         All HDF5 group or dataset attributes are carried over and are
         accessible under the ``attrs`` attribute of the respective dantro
         objects in the tree.
-        
+
         Args:
             filepath (str): The path to the HDF5 file that is to be loaded
             TargetCls (type): The group type this is loaded into
@@ -80,16 +91,17 @@ class Hdf5LoaderMixin:
                 directly or indirectly.
             proxy_kwargs (dict, optional): When loading as proxy, these
                 parameters are unpacked in the ``__init__`` call. For available
-                argument see :py:class:`dantro.proxy.hdf5.Hdf5DataProxy`.
+                argument see :py:class:`~dantro.proxy.hdf5.Hdf5DataProxy`.
             lower_case_keys (bool, optional): whether to use only lower-case
                 versions of the paths encountered in the HDF5 file.
             enable_mapping (bool, optional): If true, will use the class
-                variables _HDF5_GROUP_MAP and _HDF5_DSET_MAP to map groups or
-                datasets to a custom container class during loading. Which
-                attribute to read is determined by the `map_from_attr` argument
+                variables ``_HDF5_GROUP_MAP`` and ``_HDF5_DSET_MAP`` to map
+                groups or datasets to a custom container class during loading.
+                Which attribute to read is determined by the ``map_from_attr``
+                argument (see there).
             map_from_attr (str, optional): From which attribute to read the
                 key that is used in the mapping. If nothing is given, the
-                class variable _HDF5_MAP_FROM_ATTR is used.
+                class variable ``_HDF5_MAP_FROM_ATTR`` is used.
             print_params (dict, optional): parameters for the status report.
                 Available keys:
 
@@ -102,37 +114,39 @@ class Hdf5LoaderMixin:
                 fstr2:
                     format string level 2, receives keys ``name``, ``file`` and
                     ``obj``, which is an ``h5py.Dataset``.
-        
+
         Returns:
             OrderedDataGroup: The populated root-level group, corresponding to
                 the base group of the file
-        
+
         Raises:
-            ValueError: If `enable_mapping`, but no map attribute can be
+            ValueError: If ``enable_mapping``, but no map attribute can be
                 determined from the given argument or the class variable
-                _HDF5_MAP_FROM_ATTR
+                ``_HDF5_MAP_FROM_ATTR``
         """
-        
+
         def recursively_load_hdf5(src: h5.Group, target: BaseDataGroup, *,
                                   load_as_proxy: bool,
-                                  proxy_kwargs: dict, 
+                                  proxy_kwargs: dict,
                                   lower_case_keys: bool,
                                   DsetCls: BaseDataContainer,
                                   enable_mapping: bool, GroupMap: dict,
                                   DsetMap: dict,map_attr: str):
-            """Recursively loads the data from the source hdf5 file into the 
+            """Recursively loads the data from the source hdf5 file into the
             target DataGroup object.
             If given, each group or dataset is checked whether an attribute
             `container_type` or `dset_type` exists, which is then used to
             apply a mapping from that attribute to a certain type of DataGroup
             or DataContainer, respectively.
-            
+
             Args:
                 src (h5.Group): The source group to iterate over
                 target (BaseDataGroup): The target group where the content from
                     the source group is loaded into
-                load_as_proxy (bool): Whether to load as Hdf5DataProxy
-                proxy_kwargs (dict): Unpacked in Hdf5DataProxy.__init__
+                load_as_proxy (bool): Whether to load as
+                    :py:class:`~dantro.proxy.hdf5.Hdf5DataProxy`
+                proxy_kwargs (dict): Upon proxy initialization, unpacked into
+                    :py:meth:`dantro.proxy.hdf5.Hdf5DataProxy.__init__`
                 lower_case_keys (bool): Whether to make keys lower-case
                 DsetCls (BaseDataContainer): The type that is used to create
                     the dataset-equivalents in ``target``
@@ -141,7 +155,7 @@ class Hdf5LoaderMixin:
                 DsetMap (dict): Map of names to BaseDataContainer-derived types
                 map_attr (str): The HDF5 attribute to inspect in order to
                     determine the name of the mapping
-            
+
             Raises:
                 NotImplementedError: When encountering objects other than
                     groups or datasets in the HDF5 file
@@ -194,7 +208,7 @@ class Hdf5LoaderMixin:
                                         ", ".join([k
                                                    for k in GroupMap.keys()]))
                             _GroupCls = None
-                    
+
                     else:
                         # Use the default of the target group
                         _GroupCls = None
@@ -258,7 +272,7 @@ class Hdf5LoaderMixin:
                                         ", ".join([k for k in DsetMap.keys()]),
                                         DsetCls.__name__)
                             _DsetCls = DsetCls
-                    
+
                     else:
                         # If the target group supplies a default container
                         # type, use that one; otherwise fall back to default.

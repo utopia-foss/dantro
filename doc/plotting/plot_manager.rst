@@ -190,7 +190,7 @@ With the example above, we could also do the following:
 
 .. code-block:: yaml
 
-    # Base plot configuration, specifying
+    # Base plot configuration, specifying importable configuration chunks
     .plot.line:
       creator: external
       module: basic
@@ -225,5 +225,8 @@ This multiple inheritance approach has the following advantages:
 Further Reading
 ---------------
 
-* :doc:`auto_detection`
+* :doc:`plot_creators`
+* :doc:`faq`
+* :doc:`plot_cfg_ref`
+* :doc:`plot_data_selection`
 * :doc:`auto_detection`

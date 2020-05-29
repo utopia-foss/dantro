@@ -39,9 +39,11 @@ class AllAvailableLoadersMixin(TextLoaderMixin,
                                XarrayLoaderMixin,
                                NumpyLoaderMixin):
     """A mixin bundling all data loaders that are available in dantro.
-    
+
     This is useful for a more convenient import in a downstream
     :py:class:`~dantro.data_mngr.DataManager`.
+
+    See the individual mixins for a more detailed documentation.
     """
     pass
 
@@ -64,6 +66,6 @@ LOADER_BY_FILE_EXT = {
     'nc_da':    'xr_dataarray',
     'xrdc':     'xr_dataarray',
     'nc_ds':    'xr_dataset',
-    
+
     'npy':      'numpy_binary'
 }

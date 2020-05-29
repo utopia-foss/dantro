@@ -1,0 +1,125 @@
+# Plot configuration used in the integration test
+---
+my_high_dimensional_plot:
+  # Choose a creator
+  creator: external
+
+  # Select a plot function, in this case: dantro's generic facet grid function
+  module: .generic
+  plot_func: facet_grid
+
+  # Use the DAG framework to select and transform some data
+  transform:
+    - np.zeros: [[2,3,4]]
+    - xr.DataArray: [!dag_prev ]
+      tag: data
+
+  # Further arguments are passed to the plotting function
+  # ...
+
+### Start -- plots_01
+# For each simulation, called "universe" here, plot the random walk
+random_walk:
+  # Choose a creator
+  # Here: the UniversePlotCreator, a specialization of the ExternalPlotCreator
+  creator: universe
+  universes: all
+
+  # Use dantro's generic facet grid function, useful for representing
+  # high-dimensional data
+  module: .generic
+  plot_func: facet_grid
+
+  # Select the data to plot
+  select:
+    data:
+      # Access the data/random_walk container for each simulation ...
+      path: data/random_walk
+      # ... and transform it into an xr.DataArray
+      transform:
+        - xr.DataArray: !dag_prev
+          kwargs:
+            dims: [iteration]
+### End ---- plots_01
+
+### Start -- plots_02
+# --- Define so-called "multiverse" plots, using data from all simulations
+
+# Using data from all simulations, compute the mean over the seed dimension and
+# then show different lines for different step sizes
+mean_random_walk:
+  creator: multiverse
+  module: .generic
+  plot_func: facet_grid
+
+  # Select the data from the individual simulations and combine them into a
+  # higher-dimensional xarray.DataArray
+  select_and_combine:
+    fields:
+      random_walk: data/random_walk
+
+  transform:
+    # Perform the mean operation over the seed dimension
+    - .mean: [!dag_tag random_walk, seed]
+    # Rename the dim_0 dimension
+    - .rename: !dag_prev
+      kwargs:
+        dim_0: iterations
+      tag: data
+
+  # Configure the facet grid to show max_step_size as line hues
+  kind: line
+  x: iterations
+  hue: max_step_size
+
+  # And make the plot prettier using the PlotHelper
+  helpers:
+    set_title:
+      title: Averaged Random Walk Trajectories
+    set_labels:
+      y: Value
+
+
+# Using data of the sweep over the `seed` dimension, plot individual time
+# series of the mean agent energy
+abm_mean_energy:
+  creator: multiverse
+
+  module: .generic
+  plot_func: facet_grid
+
+  select_and_combine:
+    fields:
+      mean_energy:
+        path: data/abm/mean_energy
+        # Transform it into a DataArray and rename dimensions accordingly
+        transform:
+          - xr.DataArray
+          - .rename: !dag_prev
+            kwargs:
+              dim_0: iterations
+
+    # Only use a single max_step_size, because ABM results are unaffected
+    subspace:
+      max_step_size: [1.]
+
+  transform:
+    - .squeeze: !dag_tag mean_energy
+      kwargs:
+        drop: true
+    - print: !dag_prev
+      tag: data
+
+  # Configure the facet grid to show different seeds as line hue
+  kind: line
+  x: iterations
+  hue: seed
+
+  # Finally, invoke some helpers
+  helpers:
+    set_title:
+      title: Mean Agent Energy for Different Simulations
+    set_limits:
+      x: [0, ~]
+      y: [0, ~]
+### End ---- plots_02

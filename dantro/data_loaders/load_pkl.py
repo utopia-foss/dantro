@@ -1,3 +1,4 @@
+"""Defines a data loader for Python pickles."""
 
 import pickle as pkl
 
@@ -7,23 +8,29 @@ from ._tools import add_loader
 # -----------------------------------------------------------------------------
 
 class PickleLoaderMixin:
-    """Supplies functionality to load pickled python objects"""
+    """Supplies functionality to load pickled python objects
+
+    Attributes:
+        _PICKLE_LOAD_FUNC (Callable): Which pickle loading function to use.
+            By default this is ``pickle.load`` from the Python pickle module.
+    """
 
     # Define the load function such that it can be set in a flexible way
     _PICKLE_LOAD_FUNC = pkl.load
 
     @add_loader(TargetCls=ObjectContainer, omit_self=False)
-    def _load_pickle(self, filepath: str, *, TargetCls: type, **pkl_kwargs) -> ObjectContainer:
+    def _load_pickle(self, filepath: str, *, TargetCls: type,
+                     **pkl_kwargs) -> ObjectContainer:
         """Load a pickled object.
 
         This uses the load function defined under the _PICKLE_LOAD_FUNC class
         variable, which defaults to the pickle.load function.
-        
+
         Args:
             filepath (str): Where the pickle-dumped file is located
             TargetCls (type): The class constructor
             **pkl_kwargs: Passed on to the load function
-        
+
         Returns:
             ObjectContainer: The unpickled file, stored in a dantro container
         """

@@ -945,6 +945,7 @@ _OPERATIONS = KeyOrderedDict({
     '.map':             lambda ds, func, **k: ds.map(func, **k),
     '.reduce':          lambda ds, func, **k: ds.reduce(func, **k),
 
+    '.rename':          lambda d, *a, **k: d.rename(*a, **k),
     '.expand_dims':     lambda d, *a, **k: d.expand_dims(*a, **k),
     '.assign_coords':   lambda d, *a, **k: d.assign_coords(*a, **k),
 
