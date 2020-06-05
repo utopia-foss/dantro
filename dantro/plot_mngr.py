@@ -857,8 +857,16 @@ class PlotManager:
         #      Not doing this would lead to multiple output paths for different
         #      time stamps.
 
-        log.hilight("Performing plots from %d plot configuration entr%s ...",
+        # Provide information on how many plots will be created
+        log.hilight("Performing plots from %d plot configuration entr%s:",
                     len(plots_cfg), "ies" if len(plots_cfg) != 1 else "y")
+
+        for plot_name, cfg in plots_cfg.items():
+            if isinstance(cfg, ParamSpace):
+                log.note("  - %-40s  (%d plot%s)", plot_name,
+                         cfg.volume, "s" if cfg.volume != 1 else "")
+            else:
+                log.note("  - %-40s  (1 plot)", plot_name)
 
         # Loop over the configured plots
         for plot_name, cfg in plots_cfg.items():
