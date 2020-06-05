@@ -372,8 +372,16 @@ def where(data: xr.DataArray,
 def count_unique(data) -> xr.DataArray:
     """Applies np.unique to the given data and constructs a xr.DataArray for
     the results.
+
+    NaN values are filtered out.
     """
     unique, counts = np.unique(data, return_counts=True)
+    
+    # remove np.nan values
+    # NOTE np.nan != np.nan, hence np.nan will count 1 for every occurrence,
+    #      but duplicate values not allowed in coords.
+    counts = counts[~np.isnan(unique)]
+    unique = unique[~np.isnan(unique)]
 
     # Construct a new data array and return
     return xr.DataArray(data=counts,
