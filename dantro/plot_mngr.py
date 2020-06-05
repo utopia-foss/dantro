@@ -6,8 +6,9 @@ to the PlotCreator.
 import os
 import time
 import copy
+import fnmatch
 import logging
-from typing import Union, List, Dict, Tuple, Callable, Any
+from typing import Union, List, Dict, Tuple, Any
 
 from paramspace import ParamSpace, ParamDim
 
@@ -19,6 +20,8 @@ from .tools import load_yml, write_yml, recursive_update
 # Local constants
 log = logging.getLogger(__name__)
 
+# Substrings that may not appear in plot names
+BAD_NAME_CHARS = ('*', '?', '[', ']', '!', ':', '.')
 
 # -----------------------------------------------------------------------------
 # Custom exception classes
@@ -26,16 +29,21 @@ log = logging.getLogger(__name__)
 class PlottingError(Exception):
     """Custom exception class for all plotting errors"""
 
+
 class PlotConfigError(ValueError, PlottingError):
     """Raised when there were errors in the plot configuration"""
+
 
 class InvalidCreator(ValueError, PlottingError):
     """Raised when an invalid creator was specified"""
 
+
 class PlotCreatorError(PlottingError):
     """Raised when an error occured in a plot creator"""
 
+
 # -----------------------------------------------------------------------------
+
 
 class PlotManager:
     """The PlotManager takes care of configuring plots and calling the
@@ -53,7 +61,7 @@ class PlotManager:
     DEFAULT_OUT_FSTRS = dict(timestamp="%y%m%d-%H%M%S",
                              state_no="{no:0{digits:d}d}",
                              state="{name:}_{val:}",
-                             state_name_replace_chars=[], # (".", "-")
+                             state_name_replace_chars=[],  # (".", "-")
                              state_val_replace_chars=[("/", "-")],
                              state_join_char="__",
                              state_vector_join_char="-",
@@ -693,7 +701,7 @@ class PlotManager:
         try:
             write_yml(d, path=save_path, mode='x')
 
-        except FileExistsError as err:
+        except FileExistsError:
             log.debug("Config file already exists at %s!", save_path)
 
             if exists_action == 'raise':
@@ -724,7 +732,6 @@ class PlotManager:
 
         return save_path
 
-
     # .........................................................................
     # Plotting
 
@@ -746,7 +753,9 @@ class PlotManager:
             plot_only (List[str], optional): If given, create only those plots
                 from the resulting configuration that match these names. This
                 will lead to the `enabled` key being ignored, regardless of its
-                value.
+                value. The strings given here may also include Unix shell-like
+                wildcards like ``*`` and ``? ``, which are matched using the
+                Python ``fnmatch`` module.
             out_dir (str, optional): A different output directory; will use the
                 one passed at initialization if the given argument evaluates to
                 False.
@@ -798,22 +807,43 @@ class PlotManager:
 
         # Filter the plot selection
         if plot_only is not None:
-            # Only plot these entries
-            plots_cfg = {k:plots_cfg[k] for k in plot_only}
-            # NOTE that this deliberately raises an error for an invalid entry
-            #      in the `plot_only` argument
+            # Resolve glob-like patterns
+            to_plot = []
+            for name in plot_only:
+                if any([s in name for s in ('*', '?', '[', ']')]):
+                    # Add all matching plot names
+                    to_plot += fnmatch.filter(plots_cfg.keys(), name)
+                else:
+                    # No globbing; add the name directly
+                    to_plot.append(name)
 
-            # Remove all `enabled` keys from the remaining entries
+            # Reduce the plot configuration to those entries
+            try:
+                plots_cfg = {k: plots_cfg[k] for k in to_plot}
+
+            except KeyError as err:
+                _plot_only = ", ".join(plot_only)
+                _available = ", ".join(plots_cfg.keys())
+                raise ValueError(
+                    f"Could not find a configuration for a plot named {err} "
+                    "while resolving the plot_only argument! Check that it "
+                    "was specified correctly:\n"
+                    f"  plot_only:  {_plot_only}\n"
+                    f"  available:  {_available}"
+                ) from err
+
+            # Remove all `enabled` keys from the remaining entries, thus also
+            # enabling those plots that were set `enabled: False`
             for cfg in plots_cfg.values():
                 cfg.pop('enabled', None)
 
         else:
             # Resolve all `enabled` entries, creating a new plots_cfg dict
-            plots_cfg = {k:v for k, v in plots_cfg.items()
+            plots_cfg = {k: v for k, v in plots_cfg.items()
                          if v.pop('enabled', True)}
 
         # Throw out entries that start with an underscore or dot
-        plots_cfg = {k:v for k, v in plots_cfg.items()
+        plots_cfg = {k: v for k, v in plots_cfg.items()
                      if not (k.startswith("_") or k.startswith("."))}
 
         # Determine the output directory path to use; not creating directories!
@@ -853,16 +883,19 @@ class PlotManager:
              **plot_cfg) -> BasePlotCreator:
         """Create plot(s) from a single configuration entry.
 
-        A call to this function resolves the `based_on` feature and passes the
-        derived plot configuration to self._plot(), which actually carries out
-        the plots.
+        A call to this function resolves the ``based_on`` feature and passes
+        the derived plot configuration to self._plot(), which actually carries
+        out the plots.
 
         Note that more than one plot can result from a single configuration
         entry, e.g. when plots were configured that have more dimensions than
         representable in a single file.
 
         Args:
-            name (str): The name of this plot
+            name (str): The name of this plot. This will be used for generating
+                an output file path later on. Some characters are not allowed,
+                e.g. ``*`` and ``?``, but a ``/`` can be used to store the plot
+                output in a subdirectory.
             based_on (Union[str, Tuple[str]], optional): A key or a sequence
                 of keys of entries in the base config that should be used as
                 the basis of this plot.
@@ -879,6 +912,15 @@ class PlotManager:
         Returns:
             BasePlotCreator: The PlotCreator used for these plots
         """
+        # Make sure the name does not contain bad characters
+        if any([s in name for s in BAD_NAME_CHARS]):
+            _bad_name_chars = ", ".join(repr(s) for s in BAD_NAME_CHARS)
+            raise ValueError(
+                f"The plot name '{name}' contains unsupported characters! "
+                "Remove any of the following offending substrings from the "
+                f"plot function name: {_bad_name_chars}"
+            )
+
         # Derive the plot_cfg using based_on. Do this first only for the case
         # of the non-ParamSpace plot configuration, because it's easier.
         plot_cfg = self._resolve_based_on(cfg=plot_cfg, based_on=based_on)
