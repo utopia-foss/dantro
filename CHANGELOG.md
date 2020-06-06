@@ -3,6 +3,10 @@
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
 
+## v0.13.0 _(WIP)_
+- !175 adjusts the `PlotManager` to allow UNIX shell wildcards in `plot_only` and gives more informative errors when unsupported characters are used in the plot name.
+
+
 ## v0.13.0
 #### Features and Improvements
 - !170 adds an [integration guide](https://dantro.readthedocs.io/en/latest/integrating.html) to the documentation, illustrating how a dantro-based data processing pipeline can be built and integrated into a project.
