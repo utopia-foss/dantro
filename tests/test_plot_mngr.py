@@ -167,13 +167,13 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
 
     # Check invalid specifications and that they create no plots
     # An invalid key should be propagated
-    with pytest.raises(KeyError, match="invalid_key"):
+    with pytest.raises(ValueError, match="Could not find a configuration"):
         pm.plot_from_cfg(plot_only=["invalid_key"])
     assert_num_plots(pm, 4)
 
     # Invalid plot specification
     with pytest.raises(PlotConfigError, match="invalid plots specifications"):
-        pm.plot_from_cfg(invalid_entry=(1,2,3))
+        pm.plot_from_cfg(invalid_entry=(1, 2, 3))
     assert_num_plots(pm, 4)
 
 
@@ -205,6 +205,68 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
     pm.plot("baz", **pcr_ext_kwargs, save_plot_cfg=False)
     assert_num_plots(pm, 4 + 3)
     assert pm.plot_info[-1]['plot_cfg_path'] is None
+
+def test_plot_names(dm):
+    """Test that plot names cannot have bad names"""
+    plot_names = ("some*bad*name!", "another[bad]:name", "a/good/name")
+    noop = dict(plot_func=lambda *a, **k: print("Noop plot:", a, k))
+    plots_cfg = {k: noop for k in plot_names}
+
+    # Can initialize it with these names
+    pm = PlotManager(dm=dm, plots_cfg=plots_cfg, default_creator='external',
+                     save_plot_cfg=False)
+
+    # But cannot plot with them
+    with pytest.raises(ValueError, match="contains unsupported characters!"):
+        pm.plot_from_cfg()
+
+    # Unless only plotting a good name
+    pm.plot_from_cfg(plot_only=["a/good/name"])
+
+    # Also tested when invoking plot method directly
+    with pytest.raises(ValueError, match="contains unsupported characters!"):
+        pm.plot(name="not_a_good_name?")
+
+
+def test_plot_only(dm):
+    """Tests the plot_only feature"""
+    plot_names = ("foo", "baz", "bar", "spam/foo", "spam/bar")
+    noop = dict(plot_func=lambda *a, **k: print("Noop plot:", a, k))
+    plots_cfg = {k: noop for k in plot_names}
+
+    pm = PlotManager(dm=dm, plots_cfg=plots_cfg, default_creator='external',
+                     save_plot_cfg=False)
+
+    assert len(pm.plot_info) == 0
+    pm.plot_from_cfg(plot_only=[])
+    assert len(pm.plot_info) == 0
+
+    # Specific name
+    pm.plot_from_cfg(plot_only=["foo"])
+    assert len(pm.plot_info) == 1
+    assert pm.plot_info[-1]['name'] == "foo"
+
+    # Multiple names
+    pm.plot_from_cfg(plot_only=["foo", "bar"])
+    assert len(pm.plot_info) == 1 + 2
+    assert pm.plot_info[-2]['name'] == "foo"
+    assert pm.plot_info[-1]['name'] == "bar"
+
+    # Wildcard ... remaining in order of definition
+    pm.plot_from_cfg(plot_only=["ba*", "spam*"])
+    assert len(pm.plot_info) == 3 + 4
+    assert pm.plot_info[-4]['name'] == "baz"
+    assert pm.plot_info[-3]['name'] == "bar"
+    assert pm.plot_info[-2]['name'] == "spam/foo"
+    assert pm.plot_info[-1]['name'] == "spam/bar"
+
+    # No match, but with wildcard
+    pm.plot_from_cfg(plot_only=["fish*"])
+    assert len(pm.plot_info) == 7 + 0
+
+    # No match, but without wildcard: error
+    with pytest.raises(ValueError, match="Could not find.*fish"):
+        pm.plot_from_cfg(plot_only=["fish"])
 
 
 def test_plot_locations(dm, pm_kwargs, pcr_ext_kwargs):
@@ -349,7 +411,7 @@ def test_plotting_based_on(dm, pm_kwargs):
     with pytest.raises(KeyError, match="No base plot configuration named 'ba"):
         PlotManager(dm=dm, base_cfg=BASE_EXT,
                     update_base_cfg=dict(bad_based_on=dict(based_on="baaad")),
-                     **pm_kwargs)
+                    **pm_kwargs)
 
 
 def test_plots_enabled(dm, pm_kwargs, pcr_ext_kwargs):
@@ -369,7 +431,7 @@ def test_plots_enabled(dm, pm_kwargs, pcr_ext_kwargs):
 
     # This will have no effect; bar would be plotted anyway
     pm.plot_from_cfg(plot_only=["bar"],
-                     bar=dict(file_ext="png")) # to avoid file name conflicts
+                     bar=dict(file_ext="png"))  # to avoid file name conflicts
     assert len(pm.plot_info) == 2
 
     # Without plot_only, should only plot bar
