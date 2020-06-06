@@ -1,10 +1,10 @@
 """This module implements tools that are generally useful in dantro"""
 
-import os
 import sys
 import subprocess
 import collections
 import logging
+from typing import Tuple, Sequence
 
 import numpy as np
 
@@ -34,13 +34,13 @@ from ._yaml import yaml, load_yml, write_yml
 def recursive_update(d: dict, u: dict) -> dict:
     """Recursively updates the Mapping-like object `d` with the Mapping-like
     object `u` and returns it. Note that this does not create a copy of `d`!
-    
+
     Based on: http://stackoverflow.com/a/32357112/1827608
-    
+
     Args:
         d (dict): The mapping to update
         u (dict): The mapping whose values are used to update `d`
-    
+
     Returns:
         dict: The updated dict `d`
     """
@@ -67,9 +67,9 @@ def recursive_update(d: dict, u: dict) -> dict:
 def clear_line(only_in_tty=True, break_if_not_tty=True):
     """Clears the current terminal line and resets the cursor to the first
     position using a POSIX command.
-    
+
     Based on: https://stackoverflow.com/a/25105111/1827608
-    
+
     Args:
         only_in_tty (bool, optional): If True (default) will only clear the
             line if the script is executed in a TTY
@@ -88,11 +88,12 @@ def clear_line(only_in_tty=True, break_if_not_tty=True):
     # flush manually (there might not have been a linebreak)
     sys.stdout.flush()
 
+
 def fill_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str=" ",
               align: str="left") -> str:
     """Extends the given string such that it fills a whole line of `num_cols`
     columns.
-    
+
     Args:
         s (str): The string to extend to a whole line
         num_cols (int, optional): The number of colums of the line; defaults to
@@ -100,10 +101,10 @@ def fill_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str=" ",
         fill_char (str, optional): The fill character
         align (str, optional): The alignment. Can be: 'left', 'right', 'center'
             or the one-letter equivalents.
-    
+
     Returns:
         str: The string of length `num_cols`
-    
+
     Raises:
         ValueError: For invalid `align` or `fill_char` argument
     """
@@ -124,16 +125,17 @@ def fill_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str=" ",
 
     raise ValueError("align argument '{}' not supported".format(align))
 
+
 def center_in_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str="·",
                    spacing: int=1) -> str:
     """Shortcut for a common fill_line use case.
-    
+
     Args:
         s (str): The string to center in the line
         num_cols (int, optional): The number of columns in the line
         fill_char (str, optional): The fill character
         spacing (int, optional): The spacing around the string `s`
-    
+
     Returns:
         str: The string centered in the line
     """
@@ -185,16 +187,18 @@ def apply_along_axis(func, axis: int, arr: np.ndarray,
 
     return out
 
+
 # -----------------------------------------------------------------------------
 # Fun with byte strings
+
 
 def decode_bytestrings(obj) -> str:
     """Checks whether the given attribute value is or contains byte
     strings and if so, decodes it to a python string.
-    
+
     Args:
         obj: The object to try to decode into holding python strings
-    
+
     Returns:
         str: Either the unchanged object or the decoded one
     """
@@ -232,6 +236,7 @@ def is_iterable(obj) -> bool:
         return False
     return True
 
+
 def is_hashable(obj) -> bool:
     """Tries whether the given object is hashable."""
     try:
@@ -239,6 +244,7 @@ def is_hashable(obj) -> bool:
     except:
         return False
     return True
+
 
 class DoNothingContext:
     """A context manager that ... does nothing."""
@@ -254,3 +260,21 @@ class DoNothingContext:
         """Called upon exiting context, with ``*args`` being exceptions etc."""
         pass
 
+
+class adjusted_log_levels:
+    """A context manager that temporarily adjusts log levels"""
+    def __init__(self, *new_levels: Sequence[Tuple[str, int]]):
+        self.new_levels = {n: l for n, l in new_levels}
+        self.old_levels = dict()
+
+    def __enter__(self):
+        """When entering the context, sets these levels"""
+        for name, new_level in self.new_levels.items():
+            logger = logging.getLogger(name)
+            self.old_levels[name] = logger.level
+            logger.setLevel(new_level)
+
+    def __exit__(self, *_):
+        """When leaving the context, resets the levels to their old state"""
+        for name, old_level in self.old_levels.items():
+            logging.getLogger(name).setLevel(old_level)
