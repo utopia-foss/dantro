@@ -3,7 +3,7 @@
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
 
-## v0.13.0 _(WIP)_
+## v0.13.1 _(WIP)_
 - !175 adjusts the `PlotManager` to allow UNIX shell wildcards in `plot_only` and gives more informative errors when unsupported characters are used in the plot name.
 
 
