@@ -8,6 +8,7 @@ import time
 import logging
 import warnings
 import pickle as pkl
+from collections import defaultdict as _defaultdict
 from itertools import chain
 
 from typing import Dict, Tuple, Sequence, Any, Union, List, Set
@@ -268,6 +269,11 @@ class Transformation:
     # Properties
 
     @property
+    def operation(self) -> str:
+        """The operation this transformation performs"""
+        return self._operation
+
+    @property
     def dag(self) -> 'TransformationDAG':
         """The associated TransformationDAG; used for object lookup"""
         return self._dag
@@ -444,7 +450,6 @@ class Transformation:
                                           for k in ('compute', 'cache_lookup',
                                                     'cache_writing')
                                           if not np.isnan(self._profile[k])])
-
 
     # Cache handling . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -838,7 +843,9 @@ class TransformationDAG:
                           max=lambda d: np.nanmax(d),
                           q25=lambda d: np.nanquantile(d, .25),
                           q50=lambda d: np.nanquantile(d, .50),
-                          q75=lambda d: np.nanquantile(d, .75))
+                          q75=lambda d: np.nanquantile(d, .75),
+                          sum=lambda d: np.nansum(d),
+                          count=lambda d: np.count_nonzero(~np.isnan(d)))
         tprofs = {item: list() for item in to_aggregate}
 
         for obj_hash, obj in self.objects.items():
@@ -870,6 +877,25 @@ class TransformationDAG:
                    for n in nodes]
             prof['sorted'][sort_by] = sorted(nct, key=lambda tup: tup[1],
                                              reverse=True)
+
+        # Additionally, aggregate effective times by operation
+        eff_op_times = _defaultdict(list)
+        for node in nodes:
+            eff_op_times[node.operation].append(node.profile['effective'])
+        eff_op_times = dict(eff_op_times)
+
+        prof['operations'] = dict()
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', category=RuntimeWarning)
+
+            for op, times in eff_op_times.items():
+                prof['operations'][op] = {k: (f(times) if times else np.nan)
+                                          for k, f in stat_funcs.items()}
+
+        prof['slow_operations'] = sorted([(op, prof['operations'][op]['sum'])
+                                          for op in prof['operations']],
+                                         key=lambda tup: tup[1], reverse=True)
 
         return prof
 
@@ -1011,7 +1037,7 @@ class TransformationDAG:
             if self.verbosity < 1:
                 return
 
-            prof_extd = self.profile_extended
+            prof = self.profile_extended
             to_exclude = (('hashstr', 'effective') if self.verbosity == 1
                           else ('hashstr',))
 
@@ -1021,7 +1047,7 @@ class TransformationDAG:
             _stats = [_fstr.format(name=k,
                                    p={_k: "{:.2g}".format(_v)
                                       for _k, _v in v.items()})
-                      for k, v in prof_extd['aggregated'].items()
+                      for k, v in prof['aggregated'].items()
                       if k not in to_exclude]
             log.remark("Profiling results per node:  mean ± std (min|max) [s]"
                        "\n%s", "\n".join(_stats))
@@ -1029,9 +1055,19 @@ class TransformationDAG:
             if self.verbosity < 2:
                 return
 
-            # Show operations with longest effective time
-            # TODO
-
+            # Show operations with highest sum of effective time
+            num_ops = 5 if self.verbosity < 3 else len(prof['slow_operations'])
+            _ops = prof['operations']
+            _fstr2 = ("{name:>25s}   {p[sum]:<7s}    {cnt:>2d} call{s:}   "
+                      "({p[mean]:<7s} ± {p[std]:<7s})")
+            _stats2 = [_fstr2.format(name=op,
+                                     p={_k: "{:.2g}".format(_v)
+                                        for _k, _v in _ops[op].items()},
+                                     cnt=_ops[op]['count'],
+                                     s="s" if _ops[op]['count'] != 1 else " ")
+                       for op, _ in prof['slow_operations'][:num_ops]]
+            log.remark("Total effective operation computation times:"
+                       "\n%s", "\n".join(_stats2))
 
         # Determine which tags to compute
         compute_only = compute_only if compute_only is not None else 'all'
