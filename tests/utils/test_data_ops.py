@@ -193,7 +193,10 @@ def test_op_where():
 
 def test_op_count_unique():
     """Test the count_unique operation"""
-    da = xr.DataArray(name="foo", data=np.random.randint(0, 5, size=(20, 20)))
+    da = xr.DataArray(name="foo", data=np.random.randint(0, 6, size=(20, 20)))
+    
+    # introduce some NaN values.
+    da = dops.where(da, "<", 5)
 
     cu = dops.count_unique(da)
     assert isinstance(cu, xr.DataArray)
