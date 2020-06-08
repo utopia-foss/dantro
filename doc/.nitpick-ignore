@@ -55,6 +55,7 @@ py:class Iterable
 py:class Tuple
 py:class List
 py:class Dict
+py:class Mapping
 
 # numpy, xarray, h5py
 py:class np.ndarray
