@@ -376,7 +376,7 @@ def count_unique(data) -> xr.DataArray:
     NaN values are filtered out.
     """
     unique, counts = np.unique(data, return_counts=True)
-    
+
     # remove np.nan values
     # NOTE np.nan != np.nan, hence np.nan will count 1 for every occurrence,
     #      but duplicate values not allowed in coords.
@@ -751,7 +751,6 @@ _OPERATIONS = KeyOrderedDict({
     'define':       lambda d: d,
     'pass':         lambda d: d,
     'print':        print_data,
-    'format':       lambda s, *a, **k: s.format(*a, **k),
 
     # Working on imported modules (useful if other operations don't match)
     'from_module':  get_from_module,
@@ -777,6 +776,7 @@ _OPERATIONS = KeyOrderedDict({
     'int':          int,
     'float':        float,
     'complex':      complex,
+    'bool':         bool,
     'str':          str,
 
     # Item access and manipulation
@@ -788,6 +788,21 @@ _OPERATIONS = KeyOrderedDict({
     'getattr':      getattr,
     'setattr':      setattr,
     'callattr':     lambda d, attr, *a, **k: getattr(d, attr)(*a, **k),
+
+    # Other common Python builtins
+    'all':          all,
+    'any':          any,
+    'len':          len,
+    'min':          min,
+    'max':          max,
+    'sum':          sum,
+    'map':          map,
+    'repr':         repr,
+
+    # Common operations on strings
+    '.format':      lambda s, *a, **k: s.format(*a, **k),
+    '.join':        lambda s, *a, **k: s.join(*a, **k),
+    '.split':       lambda s, *a, **k: s.split(*a, **k),
 
 
     # Numerical operations - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -816,7 +831,7 @@ _OPERATIONS = KeyOrderedDict({
     '.head':        lambda d: d.head(),
     '.tail':        lambda d: d.tail(),
 
-    # logarithms and squares
+    # logarithms and powers
     'log':          lambda d: np.log(d),
     'log10':        lambda d: np.log10(d),
     'log2':         lambda d: np.log2(d),
@@ -826,7 +841,7 @@ _OPERATIONS = KeyOrderedDict({
     'cubed':        lambda d: np.power(d, 3),
     'sqrt3':        lambda d: np.power(d, 1./.3),
 
-    # Normalization and cumulation
+    # normalization and cumulation
     'normalize_to_sum':         lambda d: d / np.sum(d),
     'normalize_to_max':         lambda d: d / np.max(d),
     'cumulate':                 lambda d: np.cumsum(d),
@@ -856,6 +871,7 @@ _OPERATIONS = KeyOrderedDict({
 
 
     # N-ary ...................................................................
+    # Masking, array generation
     'create_mask':                  create_mask,
     'where':                        where,
     'populate_ndarray':             populate_ndarray,
@@ -928,6 +944,7 @@ _OPERATIONS = KeyOrderedDict({
     'np.vstack':        np.vstack,
     'np.concatenate':   np.concatenate,
 
+    'np.abs':           np.abs,
     'np.ceil':          np.ceil,
     'np.floor':         np.floor,
     'np.round':         np.round,
@@ -935,6 +952,7 @@ _OPERATIONS = KeyOrderedDict({
     'np.where':         np.where,
     'np.digitize':      np.digitize,
     'np.histogram':     np.histogram,
+    'np.count_nonzero': np.count_nonzero,
 
     # xarray
     '.sel':             lambda d, *a, **k: d.sel(*a, **k),
