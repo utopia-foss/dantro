@@ -4,7 +4,7 @@ import sys
 import subprocess
 import collections
 import logging
-from typing import Tuple, Sequence
+from typing import Tuple, Sequence, Union, Mapping
 
 import numpy as np
 
@@ -59,6 +59,43 @@ def recursive_update(d: dict, u: dict) -> dict:
             # Not a mapping -> create one
             d = {k: u[k]}
     return d
+
+
+def recursive_getitem(obj: Union[Mapping, Sequence], keys: Sequence):
+    """Go along the sequence of ``keys`` through ``obj`` and return the target
+    item.
+
+    Args:
+        obj (Union[Mapping, Sequence]): The object to get the item from
+        keys (Sequence): The sequence of keys to follow
+
+    Returns:
+        The target item from ``obj``, specified by ``keys``
+
+    Raises:
+        ValueError: If any index or key in the key sequence was not available
+    """
+    def handle_error(exc: Exception, *, key, keys, obj):
+        raise ValueError(
+            f"Invalid {'key' if isinstance(exc, KeyError) else 'index'} "
+            f"'{key}' during recursive getitem of key sequence "
+            f"{' -> '.join([repr(k) for k in keys])}! "
+            f"{exc.__class__.__name__}: {exc} raised on the following "
+            f"object:\n{obj}"
+        ) from exc
+
+    if len(keys) > 1:
+        # Continue recursion
+        try:
+            return recursive_getitem(obj[keys[0]], keys=keys[1:])
+        except (KeyError, IndexError) as err:
+            handle_error(err, key=keys[0], keys=keys, obj=obj)
+
+    # else: reached the end of the recursion
+    try:
+        return obj[keys[0]]
+    except (KeyError, IndexError) as err:
+        handle_error(err, key=keys[0], keys=keys, obj=obj)
 
 
 # -----------------------------------------------------------------------------

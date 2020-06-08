@@ -6,23 +6,20 @@ import logging
 import operator
 from importlib import import_module as _import_module
 from difflib import get_close_matches as _get_close_matches
-from typing import Callable, Any, Sequence, Union, Tuple, Set, Iterable
+from typing import Callable, Any, Sequence, Union, Tuple, Iterable
 
-import scipy
 import numpy as np
 import xarray as xr
-
 import scipy
 import scipy.optimize
 
-import sympy as sym
 from sympy.parsing.sympy_parser import (parse_expr as _parse_expr,
                                         standard_transformations as _std_trf)
 
 from .coords import extract_dim_names, extract_coords_from_attrs
 from .ordereddict import KeyOrderedDict
 from ..base import BaseDataContainer, BaseDataGroup
-from ..tools import apply_along_axis
+from ..tools import apply_along_axis, recursive_getitem
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -774,9 +771,10 @@ _OPERATIONS = KeyOrderedDict({
     'complex':      complex,
     'str':          str,
 
-    # Item manipulation
-    'getitem':      lambda d, k:    d[k],
-    'setitem':      lambda d, k, v: d.__setitem__(k, v),
+    # Item access and manipulation
+    'getitem':              lambda d, k:    d[k],
+    'setitem':              lambda d, k, v: d.__setitem__(k, v),
+    'recursive_getitem':    recursive_getitem,
 
     # Attribute-related
     'getattr':      getattr,
@@ -860,6 +858,7 @@ _OPERATIONS = KeyOrderedDict({
     'extract_coords_from_attrs':    extract_coords_from_attrs,
 
     # dantro-specific wrappers around other library's functionality
+    'dantro.apply_along_axis':      apply_along_axis,
     'dantro.multi_concat':          multi_concat,
     'dantro.merge':                 merge,
     'dantro.expand_dims':           expand_dims,
