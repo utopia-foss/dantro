@@ -6,10 +6,12 @@ import glob
 import copy
 import time
 import logging
+import warnings
 import pickle as pkl
+from collections import defaultdict as _defaultdict
 from itertools import chain
 
-from typing import TypeVar, Dict, Tuple, Sequence, Any, Union, List, Set
+from typing import Dict, Tuple, Sequence, Any, Union, List, Set
 
 import numpy as np
 import xarray as xr
@@ -19,7 +21,8 @@ from paramspace.tools import recursive_replace, recursive_collect
 from .abc import AbstractDataContainer, PATH_JOIN_CHAR
 from .base import BaseDataGroup
 from .utils import KeyOrderedDict, apply_operation, register_operation
-from .tools import recursive_update
+from .tools import (recursive_update,
+                    adjusted_log_levels as _adjusted_log_levels)
 from .data_loaders import LOADER_BY_FILE_EXT
 from .containers import ObjectContainer, NumpyDataContainer, XrDataContainer
 from ._dag_utils import (DAGObjects, DAGReference, DAGTag, DAGNode,
@@ -178,8 +181,12 @@ class Transformation:
         self._dag = dag
         self._salt = salt
         self._hashstr = None
-        self._profile = dict(compute=0., cumulative_compute=0.,
-                             hashstr=0., cache_lookup=0., cache_writing=0.)
+        self._profile = dict(compute=np.nan,
+                             cumulative_compute=np.nan,
+                             hashstr=np.nan,
+                             cache_lookup=np.nan,
+                             cache_writing=np.nan,
+                             effective=np.nan)
 
         # Parse file cache options, making sure it's a dict with default values
         self._fc_opts = file_cache if file_cache is not None else {}
@@ -260,6 +267,11 @@ class Transformation:
 
     # .........................................................................
     # Properties
+
+    @property
+    def operation(self) -> str:
+        """The operation this transformation performs"""
+        return self._operation
 
     @property
     def dag(self) -> 'TransformationDAG':
@@ -396,10 +408,6 @@ class Transformation:
 
     def _perform_operation(self, *, args, kwargs) -> Any:
         """Perform the operation, updating the profiling info on the side"""
-        # Initialize a dict for profiling info
-        prof = dict()
-
-        # Set up profiling
         t0 = time.time()
 
         # Actually perform the operation
@@ -437,6 +445,12 @@ class Transformation:
         # Store the remaining entries
         self._profile.update(times)
 
+        # Update effective time
+        self._profile['effective'] = sum([self._profile[k]
+                                          for k in ('compute', 'cache_lookup',
+                                                    'cache_writing')
+                                          if not np.isnan(self._profile[k])])
+
     # Cache handling . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
     def _lookup_result(self) -> Tuple[bool, Any]:
@@ -452,6 +466,7 @@ class Transformation:
         if self._cache['filled']:
             success = True
             res = self._cache['result']
+            log.trace("Re-using memory-cached result for %s.", self.hashstr)
 
         elif self.dag is not None and read_opts.get('enabled', False):
             # Setup profiling
@@ -570,9 +585,9 @@ class Transformation:
             self._update_profile(cache_writing=(time.time() - t0))
 
 
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
 
 class TransformationDAG:
     """This class collects transformation operations that are (already by
@@ -596,7 +611,8 @@ class TransformationDAG:
                  cache_dir: str='.cache', file_cache_defaults: dict=None,
                  base_transform: Sequence[Transformation]=None,
                  select_base: Union[DAGReference, str]=None,
-                 select_path_prefix: str=None):
+                 select_path_prefix: str=None,
+                 verbosity: int=1):
         """Initialize a DAG which is associated with a DataManager and load the
         specified transformations configuration into it.
 
@@ -636,6 +652,14 @@ class TransformationDAG:
                 is already in use.
                 If this path ends with a ``/``, it is directly prepended. If
                 not, the ``/`` is added before adjoining it to the other path.
+            verbosity (str, optional): Logging verbosity during computation.
+                This mostly pertains to the extent of statistics being emitted
+                through the logger.
+
+                    - ``0``: No statistics
+                    - ``1``: Per-node statistics (mean, std, min, max)
+                    - ``2``: Total effective time for the 5 slowest operations
+                    - ``3``: Same as ``2`` but for all operations
         """
         self._dm = dm
         self._objects = DAGObjects()
@@ -645,6 +669,7 @@ class TransformationDAG:
         self._select_base = None
         self._profile = dict(add_node=0., compute=0.)
         self._select_path_prefix = select_path_prefix
+        self.verbosity = verbosity
 
         # Determine cache directory path; relative path interpreted as relative
         # to the DataManager's data directory
@@ -795,6 +820,13 @@ class TransformationDAG:
         transformations and some aggregated information.
 
         This is calculated anew upon each invocation; the result is not cached.
+
+        The extended profile contains the following information:
+
+            - ``tags``: profiles for each tag, stored under the tag
+            - ``aggregated``: aggregated statistics of all nodes with profile
+              information on compute time, cache lookup, cache writing
+            - ``sorted``: individual profiling times, with NaN values set to 0
         """
         prof = copy.deepcopy(self.profile)
 
@@ -810,14 +842,16 @@ class TransformationDAG:
 
         # Aggregate the profiled times from all transformations (by item)
         to_aggregate = ('compute', 'hashstr',
-                        'cache_lookup', 'cache_writing')
-        stat_funcs = dict(mean=lambda d: np.mean(d),
-                          std=lambda d: np.std(d),
-                          min=lambda d: np.min(d),
-                          max=lambda d: np.max(d),
-                          q25=lambda d: np.quantile(d, .25),
-                          q50=lambda d: np.quantile(d, .50),
-                          q75=lambda d: np.quantile(d, .75))
+                        'cache_lookup', 'cache_writing', 'effective')
+        stat_funcs = dict(mean=lambda d: np.nanmean(d),
+                          std=lambda d: np.nanstd(d),
+                          min=lambda d: np.nanmin(d),
+                          max=lambda d: np.nanmax(d),
+                          q25=lambda d: np.nanquantile(d, .25),
+                          q50=lambda d: np.nanquantile(d, .50),
+                          q75=lambda d: np.nanquantile(d, .75),
+                          sum=lambda d: np.nansum(d),
+                          count=lambda d: np.count_nonzero(~np.isnan(d)))
         tprofs = {item: list() for item in to_aggregate}
 
         for obj_hash, obj in self.objects.items():
@@ -828,12 +862,47 @@ class TransformationDAG:
             for item in to_aggregate:
                 tprofs[item].append(tprof[item])
 
-        # Compute some statistics for the aggregated elements
+        # Compute some statistics for the aggregated elements; need to ignore
+        # warnings because values can be NaN, e.g. without cache lookup
         prof['aggregated'] = dict()
-        for item in to_aggregate:
-            prof['aggregated'][item] = {k: (f(tprofs[item])
-                                            if tprofs[item] else np.nan)
-                                        for k, f in stat_funcs.items()}
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', category=RuntimeWarning)
+            for item in to_aggregate:
+                prof['aggregated'][item] = {k: (f(tprofs[item])
+                                                if tprofs[item] else np.nan)
+                                            for k, f in stat_funcs.items()}
+
+        # Also sort the node profiling results, setting NaNs to zeros
+        to_sort_by = to_aggregate + ('cumulative_compute',)
+        prof['sorted'] = dict()
+        nodes = [self.objects[obj_hash] for obj_hash in self.nodes]
+        for sort_by in to_sort_by:
+            nct = [(n.hashstr, n.profile[sort_by])
+                   if not np.isnan(n.profile[sort_by]) else (n.hashstr, 0.)
+                   for n in nodes]
+            prof['sorted'][sort_by] = sorted(nct, key=lambda tup: tup[1],
+                                             reverse=True)
+
+        # Additionally, aggregate effective times by operation
+        eff_op_times = _defaultdict(list)
+        for node in nodes:
+            eff_op_times[node.operation].append(node.profile['effective'])
+        eff_op_times = dict(eff_op_times)
+
+        prof['operations'] = dict()
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', category=RuntimeWarning)
+
+            for op, times in eff_op_times.items():
+                prof['operations'][op] = {k: (f(times) if times else np.nan)
+                                          for k, f in stat_funcs.items()}
+
+        prof['slow_operations'] = sorted([(op, prof['operations'][op]['sum'])
+                                          for op in prof['operations']],
+                                         key=lambda tup: tup[1], reverse=True)
+
         return prof
 
     # .........................................................................
@@ -944,11 +1013,12 @@ class TransformationDAG:
     def compute(self, *, compute_only: Sequence[str]=None) -> Dict[str, Any]:
         """Computes all specified tags and returns a result dict.
 
+        Depending on the ``verbosity`` attribute, a varying level of profiling
+        statistics will be emitted via the logger.
+
         Args:
             compute_only (Sequence[str], optional): The tags to compute. If not
                 given, will compute all associated tags.
-            cache_options (dict, optional): Cache options. These will update
-                the default cache options given at initialization of the DAG.
 
         Returns:
             Dict[str, Any]: A mapping from tags to fully computed results.
@@ -969,8 +1039,42 @@ class TransformationDAG:
 
             return res
 
-        # Initiate start time for profiling
-        t0 = time.time()
+        def show_compute_profile_info():
+            """Shows info on computation profiles, depending on verbosity"""
+            if self.verbosity < 1:
+                return
+
+            prof = self.profile_extended
+            to_exclude = (('hashstr', 'effective') if self.verbosity == 1
+                          else ('hashstr',))
+
+            # Show aggregated statistics
+            _fstr = ("{name:>25s}   {p[mean]:<7s}  ±  {p[std]:<7s}   "
+                     "({p[min]:<7s} | {p[max]:<7s})")
+            _stats = [_fstr.format(name=k,
+                                   p={_k: "{:.2g}".format(_v)
+                                      for _k, _v in v.items()})
+                      for k, v in prof['aggregated'].items()
+                      if k not in to_exclude]
+            log.remark("Profiling results per node:  mean ± std (min|max) [s]"
+                       "\n%s", "\n".join(_stats))
+
+            if self.verbosity < 2:
+                return
+
+            # Show operations with highest sum of effective time
+            num_ops = 5 if self.verbosity < 3 else len(prof['slow_operations'])
+            _ops = prof['operations']
+            _fstr2 = ("{name:>25s}   {p[sum]:<7s}    {cnt:>2d} call{s:}   "
+                      "({p[mean]:<7s} ± {p[std]:<7s})")
+            _stats2 = [_fstr2.format(name=op,
+                                     p={_k: "{:.2g}".format(_v)
+                                        for _k, _v in _ops[op].items()},
+                                     cnt=_ops[op]['count'],
+                                     s="s" if _ops[op]['count'] != 1 else " ")
+                       for op, _ in prof['slow_operations'][:num_ops]]
+            log.remark("Total effective operation computation times:"
+                       "\n%s", "\n".join(_stats2))
 
         # Determine which tags to compute
         compute_only = compute_only if compute_only is not None else 'all'
@@ -987,37 +1091,37 @@ class TransformationDAG:
             log.remark("No tags were selected to be computed. "
                        "Available tags:\n  %s", ", ".join(self.tags))
             return results
+        log.note("Tag%s to be computed:  %s",
+                 "s" if len(compute_only) != 1 else "",
+                 ", ".join(compute_only))
+
+        # Initiate start time for profiling
+        t0 = time.time()
 
         # Compute and collect the results
-        for tag in compute_only:
-            log.note("Computing tag '%s' ...", tag)
-            # Resolve the transformation, then compute the result
+        for i, tag in enumerate(compute_only):
+            log.note("Computing tag '%s' (%d/%d) ...",
+                     tag, i+1, len(compute_only))
+            _tt = time.time()
+
+            # Resolve the transformation, then compute the result, postprocess
+            # it and store it under its tag in the results dict
             trf = self.objects[self.tags[tag]]
             res = trf.compute()
-
-            # Postprocess it and store the result under its tag
             results[tag] = postprocess_result(res, tag=tag)
+
+            log.note("Finished after %.2gs.", time.time() - _tt)
 
         # Update profiling information
         t1 = time.time()
         self._update_profile(compute=t1-t0)
 
         # Provide some information to the user
-        log.note("Computed %d tag%s in %.2gs: %s",
+        log.note("Computed %d tag%s in %.2gs:  %s",
                  len(compute_only), "s" if len(compute_only) != 1 else "",
                  t1-t0, ", ".join(results.keys()))
 
-        prof_extd = self.profile_extended
-        fstr = ("{name:>25s}   {p[mean]:<7s}  ±  {p[std]:<7s}   "
-                "({p[min]:<7s} | {p[max]:<7s})")
-        log.remark("Profiling results per node:  "
-                   "mean ± std (min|max) [s]\n%s",
-                   "\n".join([fstr.format(name=k, p={_k: "{:.2g}".format(_v)
-                                                     for _k, _v in v.items()})
-                              for k, v in prof_extd['aggregated'].items()
-                              if k not in ('hashstr',)]))
-        # TODO In the future, make this prettier; with proper time formatting!
-
+        show_compute_profile_info()
         return results
 
     # .........................................................................
@@ -1167,6 +1271,7 @@ class TransformationDAG:
 
         if trf_hash not in cache_files.keys():
             # Bad luck, no cache file
+            log.trace("No cache file found for %s.", trf_hash)
             return success, res
 
         # Parse load options
@@ -1175,13 +1280,16 @@ class TransformationDAG:
 
         # else: There was a file. Let the DataManager load it.
         file_ext = cache_files[trf_hash]['ext']
-        self.dm.load('dag_cache',
-                     loader=LOADER_BY_FILE_EXT[file_ext[1:]],
-                     base_path=self.cache_dir,
-                     glob_str=trf_hash + file_ext,
-                     target_path=DAG_CACHE_DM_PATH + "/{basename:}",
-                     required=True,
-                     **load_kwargs)
+        log.trace("Loading result %s from cache file ...", trf_hash)
+
+        with _adjusted_log_levels(('dantro.data_mngr', logging.WARNING)):
+            self.dm.load('dag_cache',
+                         loader=LOADER_BY_FILE_EXT[file_ext[1:]],
+                         base_path=self.cache_dir,
+                         glob_str=trf_hash + file_ext,
+                         target_path=DAG_CACHE_DM_PATH + "/{basename:}",
+                         required=True,
+                         **load_kwargs)
         # NOTE If a file was already loaded from the cache, it will not be
         #      loaded again. Thus, the DataManager acts as a persistent
         #      storage for loaded cache files. Consequently, these are shared
