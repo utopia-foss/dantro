@@ -516,15 +516,17 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
 
         extd_prof = tdag.profile_extended
         print("Extended profile: ", extd_prof)
-        assert len(extd_prof) == 4
-        assert all([item in extd_prof
-                    for item in ('add_node', 'compute', 'tags', 'aggregated')])
+        _expected = ('add_node', 'compute', 'tags', 'aggregated', 'sorted',
+                     'operations', 'slow_operations')
+        assert set(extd_prof.keys()) == set(_expected)
 
         # If there are no nodes available, there should be nans in the profile.
-        # Otherwise, no values should be NaN
-        for item in ('compute', 'hashstr', 'cache_lookup','cache_writing'):
-            assert all([np.isnan(v) if not len(tdag.nodes) else not np.isnan(v)
-                        for v in extd_prof['aggregated'][item].values()])
+        # Otherwise, values may be NaN or an actual number
+        for item in ('compute', 'hashstr', 'cache_lookup', 'cache_writing',
+                     'effective'):
+            assert all([np.isnan(v)
+                        for v in extd_prof['aggregated'][item].values()
+                        if not len(tdag.nodes)])
 
         # Now, check the results ..............................................
         print("\nChecking results ...")

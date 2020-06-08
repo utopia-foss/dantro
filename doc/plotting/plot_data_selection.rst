@@ -48,7 +48,7 @@ You then have the following arguments available to control its behaviour:
 
     - ``select`` and ``transform``: select data and perform transformations on it, see :py:meth:`~dantro.dag.TransformationDAG.add_nodes`.
     - ``compute_only``: controls which tags are to be computed, see :py:meth:`~dantro.dag.TransformationDAG.compute`
-    - ``dag_options``: passed to :py:class:`~dantro.dag.TransformationDAG` initialization, e.g. to control ``file_cache_defaults``.
+    - ``dag_options``: passed to :py:class:`~dantro.dag.TransformationDAG` initialization, e.g. to control ``file_cache_defaults`` or ``verbosity``
 
 .. note::
 
@@ -85,6 +85,7 @@ Some example plot configuration to select some containers from the data manager,
           tag: result
       compute_only: [result]
       dag_options:
+        verbosity: 3  # to show more profiling statistics (default: 1)
         file_cache_defaults:
           write: true
           read: true
