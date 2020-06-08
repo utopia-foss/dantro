@@ -43,9 +43,11 @@ If you are registering multiple custom operations, consider using a common prefi
 .. note::
 
     It is not necessary to register operations that are *importable*!
-    Just use a combination of the ``import`` and ``call`` operations to achieve this behavior.
+    For example, you can instead use a combination of the ``import`` and ``call`` operations to achieve this behavior.
+    With the ``from_module`` operation, you can easily retrieve a function from a module; see :py:func:`~dantro.utils.data_ops.get_from_module`.
+    There are shortcuts for imports from commonly-used modules, e.g. ``np.``, ``xr.`` and ``scipy.``.
 
-    Operations should only be registered if the above does not work comfortably.
+    Operations should only be registered if you have implemented a custom operation or if the above does not work comfortably.
 
 
 .. _data_ops_available:
@@ -71,6 +73,13 @@ Additionally, the following boolean operations are available.
    :start-after: BOOLEAN_OPERATORS = {
    :end-before: } # End of boolean operator definitions
    :dedent: 4
+
+.. hint::
+
+    If you can't find a desired operation, e.g. from ``numpy`` or ``xarray``, use the ``np.`` and ``xr.`` operations to easily import a callable from those modules.
+    With ``from_module``, you can achieve the same for every other module.
+
+    See :py:mod:`dantro.utils.data_ops` for function signatures.
 
 .. warning::
 
