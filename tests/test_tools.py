@@ -15,6 +15,26 @@ import dantro.tools as t
 
 # Tests -----------------------------------------------------------------------
 
+def test_recursive_getitem():
+    """Tests the recursive_getitem tool function"""
+    rgi = t.recursive_getitem
+    d = dict(s=0, foo=dict(bar=dict(baz="spam"), some_list=[0, dict(fish=42)]))
+
+    assert rgi(d, ('s',)) == 0
+    assert rgi(d, ('foo', 'bar', 'baz')) == "spam"
+    assert rgi(d, ('foo', 'some_list', 0)) == 0
+    assert rgi(d, ('foo', 'some_list', 1, 'fish')) == 42
+
+    # index and key errors are both raised as ValueErrors
+    with pytest.raises(ValueError, match="key 'FOO'.*KeyError"):
+        assert rgi(d, ('FOO',))
+    with pytest.raises(ValueError, match="key 'FOO'.*KeyError"):
+        assert rgi(d, ('foo', 'FOO',))
+    with pytest.raises(ValueError, match="index '2'.*IndexError"):
+        assert rgi(d, ('foo', 'some_list', 2))
+    with pytest.raises(ValueError, match="key '0'.*KeyError"):
+        assert rgi(d, (0, 'some', 'more', 'keys'))
+
 def test_fill_line():
     """Tests the fill_line and center_in_line methods"""
     # Shortcut for setting number of columns
@@ -64,7 +84,7 @@ def test_is_hashable():
 def test_decode_bytestrings():
     """Tests the decode bytestrings function"""
     decode = t.decode_bytestrings
-    
+
     foob = bytes("foo", "utf8")
     barb = bytes("bar", "utf8")
 
@@ -124,11 +144,10 @@ def test_yaml_dumps():
     # Without registering it, it should not work
     with pytest.raises(ValueError, match="Could not serialize"):
         dumps(CannotSerializeThis(foo="bar"))
-    
+
     with pytest.raises(ValueError, match="Could not serialize"):
         dumps(CanSerializeThis(foo="bar"))
 
     # Now, register it
     assert '!my_custom_tag' in dumps(CanSerializeThis(foo="bar"),
                                      register_classes=(CanSerializeThis,))
-
