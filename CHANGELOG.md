@@ -8,6 +8,7 @@
 - !175 adjusts the `PlotManager` to allow UNIX shell wildcards in `plot_only` and gives more informative errors when unsupported characters are used in the plot name.
 - !176 allows showing per-operation profiling statistics during DAG result computation, controlled by the `TransformationDAG.verbosity` attribute.
 - !177 adds the `recursive_getitem` data operation
+- !179 adds commonly-used builtin operations, e.g. `any` and `all`
 
 
 ## v0.13.0
