@@ -652,8 +652,14 @@ class TransformationDAG:
                 is already in use.
                 If this path ends with a ``/``, it is directly prepended. If
                 not, the ``/`` is added before adjoining it to the other path.
-            verbosity (str, optional): Computation verbosity. Higher values
-                show more output.
+            verbosity (str, optional): Logging verbosity during computation.
+                This mostly pertains to the extent of statistics being emitted
+                through the logger.
+
+                    - ``0``: No statistics
+                    - ``1``: Per-node statistics (mean, std, min, max)
+                    - ``2``: Total effective time for the 5 slowest operations
+                    - ``3``: Same as ``2`` but for all operations
         """
         self._dm = dm
         self._objects = DAGObjects()
@@ -1007,11 +1013,12 @@ class TransformationDAG:
     def compute(self, *, compute_only: Sequence[str]=None) -> Dict[str, Any]:
         """Computes all specified tags and returns a result dict.
 
+        Depending on the ``verbosity`` attribute, a varying level of profiling
+        statistics will be emitted via the logger.
+
         Args:
             compute_only (Sequence[str], optional): The tags to compute. If not
                 given, will compute all associated tags.
-            cache_options (dict, optional): Cache options. These will update
-                the default cache options given at initialization of the DAG.
 
         Returns:
             Dict[str, Any]: A mapping from tags to fully computed results.

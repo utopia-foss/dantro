@@ -289,6 +289,13 @@ Computing results works as follows:
 
     This also means: If there are parts of the DAG that are not tagged *at all*, they will not be reached by any recursive computation.
 
+.. hint::
+
+    To learn which parts of the computation require the most time, e.g. in order to evaluate whether to :ref:`cache the result <dag_file_cache>`, inspecting the DAG profile statistics can be useful.
+    The :py:class:`~dantro.dag.TransformationDAG`\ 's ``verbosity`` attribute controls how extensively statistics are written to the log output.
+    By default (verbosity ``1``), only per-node statistics are emitted.
+    For levels ``>= 2``, per-operation statistics are shown alongside.
+
 
 .. _dag_operations:
 
