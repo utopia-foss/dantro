@@ -4,6 +4,7 @@
 
 
 ## v0.13.1 _(WIP)_
+- !178 extends the `count_unique` data operation to be applied along dimensions
 - !174 fixes the handling of NaN values by the data operation `count_unique`
 - !175 adjusts the `PlotManager` to allow UNIX shell wildcards in `plot_only` and gives more informative errors when unsupported characters are used in the plot name.
 - !176 allows showing per-operation profiling statistics during DAG result computation, controlled by the `TransformationDAG.verbosity` attribute.
