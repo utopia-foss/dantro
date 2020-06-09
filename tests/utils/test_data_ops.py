@@ -198,11 +198,32 @@ def test_op_count_unique():
     # introduce some NaN values.
     da = dops.where(da, "<", 5)
 
-    cu = dops.count_unique(da)
-    assert isinstance(cu, xr.DataArray)
-    assert cu.dims == ('unique',)
-    assert (cu.coords['unique'] == [0, 1, 2, 3, 4]).all()
-    assert "(unique counts)" in cu.name
+    for data in [da, da.data]:
+        cu = dops.count_unique(data)
+        assert isinstance(cu, xr.DataArray)
+        assert cu.dims == ('unique',)
+        assert (cu.coords['unique'] == [0, 1, 2, 3, 4]).all()
+        assert "(unique counts)" in cu.name
+
+    with pytest.raises(TypeError,
+                       match="Data needs to be of type xr.DataArray"):
+        dops.count_unique(da.data, dims=["dim_1"])
+
+    cu_along_dim_1 = dops.count_unique(da, dims=["dim_1"])
+
+    assert isinstance(cu_along_dim_1, xr.DataArray)
+    assert cu_along_dim_1.dims == ('unique', 'dim_0')
+    assert (cu_along_dim_1.coords['unique'] == [0, 1, 2, 3, 4]).all()
+    assert (cu_along_dim_1.coords['dim_0'] == da.coords['dim_0']).all()
+    assert "(unique counts)" in cu_along_dim_1.name
+
+    cu_along_dims = dops.count_unique(da, dims=["dim_0", "dim_1"])
+    
+    assert isinstance(cu_along_dims, xr.DataArray)
+    assert cu_along_dims.dims == ('unique', )
+    assert (cu_along_dims.coords['unique'] == [0, 1, 2, 3, 4]).all()
+    assert "(unique counts)" in cu_along_dims.name
+
 
 
 def test_op_populate_ndarray():

@@ -6,7 +6,7 @@ import logging
 import operator
 from importlib import import_module as _import_module
 from difflib import get_close_matches as _get_close_matches
-from typing import Callable, Any, Sequence, Union, Tuple, Iterable
+from typing import Callable, Any, Sequence, Union, Tuple, Iterable, List
 
 import numpy as np
 import xarray as xr
@@ -369,25 +369,56 @@ def where(data: xr.DataArray,
                                   operator_name=operator_name,
                                   rhs_value=rhs_value))
 
-def count_unique(data) -> xr.DataArray:
+def count_unique(data, dims: List[str]=None) -> xr.DataArray:
     """Applies np.unique to the given data and constructs a xr.DataArray for
     the results.
 
     NaN values are filtered out.
+
+    Args:
+        data: The data
+        dims (List[str], optional): The dimensions along which to apply
+            np.unique. The other dimensions will be available after the
+            operation. If not provided it is applied along all dims.
+
     """
-    unique, counts = np.unique(data, return_counts=True)
+    def _count_unique(data) -> xr.DataArray:
+        unique, counts = np.unique(data, return_counts=True)
+        
+        # remove np.nan values
+        # NOTE np.nan != np.nan, hence np.nan will count 1 for every occurrence,
+        #      but duplicate values not allowed in coords.
+        counts = counts[~np.isnan(unique)]
+        unique = unique[~np.isnan(unique)]
 
-    # remove np.nan values
-    # NOTE np.nan != np.nan, hence np.nan will count 1 for every occurrence,
-    #      but duplicate values not allowed in coords.
-    counts = counts[~np.isnan(unique)]
-    unique = unique[~np.isnan(unique)]
+        if isinstance(data, xr.DataArray):
+            name = data.name + " (unique counts)"
+        else:
+            name = "data (unique counts)"
 
-    # Construct a new data array and return
-    return xr.DataArray(data=counts,
-                        name=data.name + " (unique counts)",
-                        dims=('unique',),
-                        coords=dict(unique=unique))
+        # Construct a new data array and return
+        return xr.DataArray(data=counts,
+                            name=name,
+                            dims=('unique',),
+                            coords=dict(unique=unique))
+    
+    if not dims:
+        return _count_unique(data)
+
+    if not isinstance(data, xr.DataArray):
+        raise TypeError("Data needs to be of type xr.DataArray, but was "
+                        f"{type(data)}!")
+    
+    # use split-apply-combine along those dimensions not in dims
+    split_dims = [dim for dim in data.dims if dim not in dims]
+    
+    if len(split_dims) == 0:
+        return _count_unique(data)
+
+    data = data.stack(_stack_cu=split_dims).groupby('_stack_cu')
+    return data.map(_count_unique).unstack('_stack_cu')
+
+
 
 
 # .............................................................................
@@ -973,6 +1004,8 @@ _OPERATIONS = KeyOrderedDict({
     '.rename':          lambda d, *a, **k: d.rename(*a, **k),
     '.expand_dims':     lambda d, *a, **k: d.expand_dims(*a, **k),
     '.assign_coords':   lambda d, *a, **k: d.assign_coords(*a, **k),
+
+    '.to_array':        lambda ds, *a, **k: ds.to_array(*a, **k),
 
     'xr.Dataset':       xr.Dataset,
     'xr.DataArray':     xr.DataArray,
