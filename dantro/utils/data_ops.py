@@ -6,7 +6,7 @@ import logging
 import operator
 from importlib import import_module as _import_module
 from difflib import get_close_matches as _get_close_matches
-from typing import Callable, Any, Sequence, Union, Tuple, Iterable
+from typing import Callable, Any, Sequence, Union, Tuple, Iterable, List
 
 import numpy as np
 import xarray as xr
@@ -369,17 +369,56 @@ def where(data: xr.DataArray,
                                   operator_name=operator_name,
                                   rhs_value=rhs_value))
 
-def count_unique(data) -> xr.DataArray:
+def count_unique(data, dims: List[str]=None) -> xr.DataArray:
     """Applies np.unique to the given data and constructs a xr.DataArray for
     the results.
-    """
-    unique, counts = np.unique(data, return_counts=True)
 
-    # Construct a new data array and return
-    return xr.DataArray(data=counts,
-                        name=data.name + " (unique counts)",
-                        dims=('unique',),
-                        coords=dict(unique=unique))
+    NaN values are filtered out.
+
+    Args:
+        data: The data
+        dims (List[str], optional): The dimensions along which to apply
+            np.unique. The other dimensions will be available after the
+            operation. If not provided it is applied along all dims.
+
+    """
+    def _count_unique(data) -> xr.DataArray:
+        unique, counts = np.unique(data, return_counts=True)
+        
+        # remove np.nan values
+        # NOTE np.nan != np.nan, hence np.nan will count 1 for every occurrence,
+        #      but duplicate values not allowed in coords.
+        counts = counts[~np.isnan(unique)]
+        unique = unique[~np.isnan(unique)]
+
+        if isinstance(data, xr.DataArray):
+            name = data.name + " (unique counts)"
+        else:
+            name = "data (unique counts)"
+
+        # Construct a new data array and return
+        return xr.DataArray(data=counts,
+                            name=name,
+                            dims=('unique',),
+                            coords=dict(unique=unique))
+    
+    if not dims:
+        return _count_unique(data)
+
+    if not isinstance(data, xr.DataArray):
+        raise TypeError("Data needs to be of type xr.DataArray, but was "
+                        f"{type(data)}!")
+    
+    # use split-apply-combine along those dimensions not in dims
+    split_dims = [dim for dim in data.dims if dim not in dims]
+    
+    if len(split_dims) == 0:
+        return _count_unique(data)
+
+    data = data.stack(_stack_cu=split_dims).groupby('_stack_cu')
+    return data.map(_count_unique).unstack('_stack_cu')
+
+
 
 
 # .............................................................................
@@ -743,7 +782,6 @@ _OPERATIONS = KeyOrderedDict({
     'define':       lambda d: d,
     'pass':         lambda d: d,
     'print':        print_data,
-    'format':       lambda s, *a, **k: s.format(*a, **k),
 
     # Working on imported modules (useful if other operations don't match)
     'from_module':  get_from_module,
@@ -769,6 +807,7 @@ _OPERATIONS = KeyOrderedDict({
     'int':          int,
     'float':        float,
     'complex':      complex,
+    'bool':         bool,
     'str':          str,
 
     # Item access and manipulation
@@ -780,6 +819,21 @@ _OPERATIONS = KeyOrderedDict({
     'getattr':      getattr,
     'setattr':      setattr,
     'callattr':     lambda d, attr, *a, **k: getattr(d, attr)(*a, **k),
+
+    # Other common Python builtins
+    'all':          all,
+    'any':          any,
+    'len':          len,
+    'min':          min,
+    'max':          max,
+    'sum':          sum,
+    'map':          map,
+    'repr':         repr,
+
+    # Common operations on strings
+    '.format':      lambda s, *a, **k: s.format(*a, **k),
+    '.join':        lambda s, *a, **k: s.join(*a, **k),
+    '.split':       lambda s, *a, **k: s.split(*a, **k),
 
 
     # Numerical operations - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -808,7 +862,7 @@ _OPERATIONS = KeyOrderedDict({
     '.head':        lambda d: d.head(),
     '.tail':        lambda d: d.tail(),
 
-    # logarithms and squares
+    # logarithms and powers
     'log':          lambda d: np.log(d),
     'log10':        lambda d: np.log10(d),
     'log2':         lambda d: np.log2(d),
@@ -818,7 +872,7 @@ _OPERATIONS = KeyOrderedDict({
     'cubed':        lambda d: np.power(d, 3),
     'sqrt3':        lambda d: np.power(d, 1./.3),
 
-    # Normalization and cumulation
+    # normalization and cumulation
     'normalize_to_sum':         lambda d: d / np.sum(d),
     'normalize_to_max':         lambda d: d / np.max(d),
     'cumulate':                 lambda d: np.cumsum(d),
@@ -848,6 +902,7 @@ _OPERATIONS = KeyOrderedDict({
 
 
     # N-ary ...................................................................
+    # Masking, array generation
     'create_mask':                  create_mask,
     'where':                        where,
     'populate_ndarray':             populate_ndarray,
@@ -920,6 +975,7 @@ _OPERATIONS = KeyOrderedDict({
     'np.vstack':        np.vstack,
     'np.concatenate':   np.concatenate,
 
+    'np.abs':           np.abs,
     'np.ceil':          np.ceil,
     'np.floor':         np.floor,
     'np.round':         np.round,
@@ -927,6 +983,7 @@ _OPERATIONS = KeyOrderedDict({
     'np.where':         np.where,
     'np.digitize':      np.digitize,
     'np.histogram':     np.histogram,
+    'np.count_nonzero': np.count_nonzero,
 
     # xarray
     '.sel':             lambda d, *a, **k: d.sel(*a, **k),
@@ -947,6 +1004,8 @@ _OPERATIONS = KeyOrderedDict({
     '.rename':          lambda d, *a, **k: d.rename(*a, **k),
     '.expand_dims':     lambda d, *a, **k: d.expand_dims(*a, **k),
     '.assign_coords':   lambda d, *a, **k: d.assign_coords(*a, **k),
+
+    '.to_array':        lambda ds, *a, **k: ds.to_array(*a, **k),
 
     'xr.Dataset':       xr.Dataset,
     'xr.DataArray':     xr.DataArray,
