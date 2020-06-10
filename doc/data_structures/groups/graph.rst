@@ -1,7 +1,7 @@
 .. _data_structures_graph_group:
 
-Graph Group
-===========
+The :py:class:`~dantro.groups.graph.GraphGroup`
+===============================================
 The :py:class:`~dantro.groups.graph.GraphGroup` is specialized on managing and handling graph-related data.
 The group defines a graph via data groups and data containers that store nodes, edges, and optionally their properties.
 

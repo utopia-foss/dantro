@@ -41,19 +41,34 @@ class ParamSpaceStateGroup(OrderedDataGroup):
             int(name)
 
         except ValueError as err:
-            raise ValueError("Only names that are representible as integers "
-                             "are possible for the name of {}, got '{}'!"
-                             "".format(self.classname, name)
-                             ) from err
+            raise ValueError(
+                "Only names that are representible as integers are possible "
+                f"for the name of {self.classname}, got '{name}'!"
+            ) from err
 
         # ... and not negative
         if int(name) < 0:
-            raise ValueError("Name for {} needs to be positive when converted "
-                             "to integer, was: {}"
-                             "".format(self.classname, name))
+            raise ValueError(
+                f"Name for {self.classname} needs to be positive when "
+                f"converted to integer, was: {name}"
+            )
 
         # Still ask the parent method for its opinion on this matter
         super()._check_name(name)
+
+    @property
+    def coords(self) -> dict:
+        """Retrieves the coordinates of this group within the parameter space
+        described by the :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`
+        this group is enclosed in.
+        
+        Returns:
+            dict: The coordinates of this group, keys being dimension names and
+                values being the coordinate values for this group.
+        """
+        state_map = self.parent.pspace.state_map
+        coords = state_map.where(state_map == int(self.name), drop=True).coords
+        return {d: c.item() for d, c in coords.items()}
 
 
 class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):

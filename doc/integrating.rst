@@ -231,6 +231,7 @@ These already include the so-called ``load_cfg``, i.e. a set of parameters that 
 
 Furthermore, these parameters can be used to already generate a part of the data tree; this can make loading data easier in some scenarios.
 Here, the ``create_groups`` argument creates the ``simulations`` group, a :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`, where each member is assumed to be the output of a single simulation.
+(See :ref:`here <data_structures_psp_group>` for more information.)
 
 The ``out_dir`` of the :py:class:`~dantro.data_mngr.DataManager` is a directory that is used to store output that is associated with the to-be-loaded data.
 For example, the visualization output will end up in that directory.
