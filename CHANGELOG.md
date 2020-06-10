@@ -3,13 +3,15 @@
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
 
-## v0.13.1 _(WIP)_
+## v0.13.1
 - !178 extends the `count_unique` data operation to be applied along dimensions
 - !174 fixes the handling of NaN values by the data operation `count_unique`
 - !175 adjusts the `PlotManager` to allow UNIX shell wildcards in `plot_only` and gives more informative errors when unsupported characters are used in the plot name.
 - !176 allows showing per-operation profiling statistics during DAG result computation, controlled by the `TransformationDAG.verbosity` attribute.
 - !177 adds the `recursive_getitem` data operation
 - !179 adds commonly-used builtin operations, e.g. `any` and `all`
+- !180 adds the `ParamSpaceStateGroup.coords` property, allowing to retrieve the coordinates within the associated parameter space.
+  Furthermore, a [documentation entry on the `ParamSpaceGroup`](https://dantro.readthedocs.io/en/latest/data_structures/groups/psp.html) is added.
 
 
 ## v0.13.0
