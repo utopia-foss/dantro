@@ -395,3 +395,22 @@ def test_ParamSpaceGroup_EXPERIMENTAL_transformator(psp_grp):
     # See that it can be invoked
     with pytest.raises(RuntimeError, match="hi foo bar"):
         pgrp.select(field=dict(path="testdata", transform=['foo', 'bar']))
+
+
+# -----------------------------------------------------------------------------
+
+def test_ParamSpaceStateGroup(psp_grp):
+    """Tests ParamSpaceStateGroup features when embedded in a ParamSpaceGroup
+
+    As ParamSpaceStateGroup cannot really exist on its own, there's no need to
+    test it separately.
+    """
+    # -- Check coordinates property
+    pss43 = psp_grp[43]
+    assert pss43.coords == dict(p0=1, p1=3, p2=1)
+
+    # ... for all entries
+    for pss in psp_grp.values():
+        c = pss.coords
+        assert isinstance(c, dict)
+        assert psp_grp.pspace.state_map.sel(**c) == int(pss.name)
