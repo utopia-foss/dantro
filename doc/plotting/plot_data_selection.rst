@@ -1,5 +1,7 @@
-Automated Plot Data Selection
-=============================
+.. _plot_creator_dag:
+
+Plot Data Selection
+===================
 
 This page describes how the plot creators can make data for plotting available in a programmatic fashion.
 

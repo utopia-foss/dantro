@@ -678,6 +678,7 @@ class PlotHelper:
 
     def invoke_enabled(self, *,
                        axes: Union[tuple, str]=None,
+                       mark_disabled_after_use: bool=True,
                        **update_helpers):
         """Invokes all enabled helpers with their current configuration on the
         matching axes.
@@ -686,6 +687,8 @@ class PlotHelper:
             axes (Union[tuple, str], optional): A coordinate match tuple of
                 the axes to invoke this helper on. If not given, will invoke
                 only on the current axes.
+            mark_disabled_after_use (bool, optional): If True, the helper is
+                marked as disabled after the invocation.
             **update_helpers: Update parameters for all plot helpers.
                 These have to be grouped under the name of the helper in order
                 to be correctly associated. Note that these do not persist,
@@ -701,7 +704,9 @@ class PlotHelper:
                     params = update_helpers.get(helper_name, {})
 
                     # Invoke the single helper on the current axis
-                    self._invoke_helper(helper_name, **params)
+                    self._invoke_helper(helper_name,
+                                        mark_disabled_after_use=mark_disabled_after_use,
+                                        **params)
 
     def provide_defaults(self, helper_name: str, *,
                          axes: Union[tuple, str]=None,

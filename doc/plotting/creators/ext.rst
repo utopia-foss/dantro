@@ -116,6 +116,19 @@ In the following example, the ``ggplot`` style is used and subsequently adjusted
 For the ``base_style`` entry, choose the name of a `matplotlib stylesheet <https://matplotlib.org/3.1.1/gallery/style_sheets/style_sheets_reference.html>`_.
 For valid RC parameters, see the `matplotlib customization documentation <https://matplotlib.org/3.1.1/tutorials/introductory/customizing.html>`_.
 
+.. hint::
+
+    Even the `axes property cycle <https://matplotlib.org/3.1.1/tutorials/intermediate/color_cycle.html>`_, i.e. the ``axes.prop_cycle`` RC parameter, can be adjusted in this way.
+    For example, to use a Tab20-based color cycle, specify:
+
+    .. code-block:: yaml
+
+        my_plot:
+          # ...
+          style:
+            axes.prop_cycle: "cycler('color', ['1f77b4', 'aec7e8', 'ff7f0e', 'ffbb78', '2ca02c', '98df8a', 'd62728', 'ff9896', '9467bd', 'c5b0d5', '8c564b', 'c49c94', 'e377c2', 'f7b6d2', '7f7f7f', 'c7c7c7', 'bcbd22', 'dbdb8d', '17becf', '9edae5'])"
+
+    The full syntax is supported here, including ``+`` and ``*`` operators between ``cycler(..)`` definitions.
 
 
 
