@@ -863,20 +863,25 @@ class ExternalPlotCreator(BasePlotCreator):
             # NOTE This plot is NOT saved as the first frame in order to allow
             #      the animation update generator be a more general method.
 
-            # Invoke all enabled helper functions on all axes
-            hlpr.invoke_enabled(axes='all')
+            # If helpers are _not_ called later, call them now and be done.
+            # While they would not need to be kept enabled, doing so causes no
+            # harm and is the more expected behaviour.
+            if not hlpr.invoke_before_grab:
+                hlpr.invoke_enabled(axes='all', mark_disabled_after_use=False)
 
             # Enter context manager of movie writer
             with writer.saving(hlpr.fig, hlpr.out_path, dpi,
                                **writer_cfg.get('saving', {})):
 
                 # Create the iterator for the animation
+                log.debug("Invoking animation update generator ...")
                 anim_it = hlpr.animation_update(**(animation_update_kwargs
                                                    if animation_update_kwargs
                                                    else {}))
 
                 # Create generator and perform the iteration. The return value
                 # of the generator currently is ignored.
+                log.debug("Iterating animation update generator ...")
                 for frame_no, _ in enumerate(anim_it):
                     # Update the figure used in the writer
                     # This is required for cases in which each frame is given
@@ -884,9 +889,15 @@ class ExternalPlotCreator(BasePlotCreator):
                     if writer.fig is not hlpr.fig:
                         writer.fig = hlpr.fig
 
+                    # If required, invoke all enabled helpers before grabbing
+                    if hlpr.invoke_before_grab:
+                        hlpr.invoke_enabled(axes='all',
+                                            mark_disabled_after_use=False)
+
                     # The anim_it invocation has already created the new frame.
                     # Grab it; the writer takes care of saving it
                     writer.grab_frame(**writer_cfg.get('grab_frame', {}))
+                    log.debug("Grabbed frame %d.", frame_no)
 
             # Exited 'saving' context
             # Make sure the figure is closed

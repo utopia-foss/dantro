@@ -518,6 +518,17 @@ There are a few things to look out for:
       To avoid this, one could use the ``set_data`` method of the `Line2d <https://matplotlib.org/3.1.3/api/_as_gen/matplotlib.lines.Line2D.html>`_ object, which is returned by `matplotlib.pyplot.plot <https://matplotlib.org/3.1.3/api/_as_gen/matplotlib.pyplot.plot.html>`_, to update the data.
       Depending on the objects used in your plot functions, there might exist a similar solution.
 
+.. warning::
+
+    If it is not possible or too complicated to let the animation update function set the data directly, one typically has to redraw the axis or the whole figure.
+
+    In such cases, two important steps need to be taken in order to ensure correct functioning of the :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper`:
+
+        * Specifying the ``invoke_helpers_before_grab`` flag when calling :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.register_animation_update`, such that the helpers are invoked before grabbing each frame.
+        * If using a new figure object and/or axes grid, that needs to be communicated to the :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper` via :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.attach_figure_and_axes`.
+
+    For example implementations of such cases, refer to the plot functions specified in the :py:mod:`dantro.plot_creators.ext_funcs.generic` module.
+
 An example for an animation configuration is the following:
 
 .. code-block:: yaml

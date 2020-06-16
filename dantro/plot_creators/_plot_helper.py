@@ -48,7 +48,7 @@ class temporarily_changed_axis:
             self._hlpr.select_axis(*self._tmp_ax_coords)
 
         else:
-            log.debug("No need to change current axis.")
+            log.trace("No need to change current axis.")
 
     def __exit__(self, *args):
         """Change back to the initial axis. Errors are not handled."""
@@ -61,6 +61,7 @@ def coords_match(coords: Tuple[int], *,
     """Whether a coordinate is matched by a coordinate match tuple.
 
     Allowed values in the coordinate match tuple are:
+
         * integers: regarded as coordinates. If negative or exceeding the full
             shape, these are wrapped around.
         * Ellipsis: matches all coordinates
@@ -70,17 +71,17 @@ def coords_match(coords: Tuple[int], *,
         coords (Tuple[int]): The coordinate to match
         match (Union[tuple, str]): The match tuple, where None is
             interpreted as an Ellipsis and negative values are wrapped around
-            by `full_shape`. Can also be 'all', which is equivalent to a
+            by ``full_shape``. Can also be 'all', which is equivalent to a
             (None, None) tuple. Can also be a list, which is then converted to
             a tuple.
         full_shape (Tuple[int]): The full shape of the axes; needed to wrap
-            around negative values in `match`.
+            around negative values in ``match``.
 
     Returns:
-        bool: Whether `coords` matches `match`
+        bool: Whether ``coords`` matches ``match``
 
     Raises:
-        TypeError: `match` not being a tuple or a list
+        TypeError: ``match`` not being a tuple or a list
         ValueError: Any of the arguments not being 2-tuples.
     """
     # Convert the 'all argument'
@@ -222,6 +223,9 @@ class PlotHelper:
         self._current_ax_coords = None
         self._additional_axes = None
         self._animation_update = None
+        self._invoke_before_grab = False
+
+        log.debug("PlotHelper initialized.")
 
     # .........................................................................
     # Properties
@@ -324,6 +328,12 @@ class PlotHelper:
                              "update.")
         return self._animation_update
 
+    @property
+    def invoke_before_grab(self) -> bool:
+        """Whether the helpers are to be invoked before grabbing each frame of
+        an animation.
+        """
+        return self._invoke_before_grab
 
     # .........................................................................
     # Figure setup and axis control
@@ -390,11 +400,11 @@ class PlotHelper:
 
         log.debug("Figure %d and axes attached.", fig.number)
 
-        # Select the (0, 0) axis, for consistency
-        self.select_axis(0, 0)
-
         # Can now evaluate the axis-specific configuration
         self._cfg = self._compile_axis_specific_cfg()
+
+        # Select the (0, 0) axis, for consistency
+        self.select_axis(0, 0)
 
     def setup_figure(self, **update_fig_kwargs):
         """Sets up a matplotlib figure instance and axes with the given
@@ -443,7 +453,7 @@ class PlotHelper:
             close (bool, optional): Whether to close the figure after saving.
         """
         self.fig.savefig(self.out_path, **self.base_cfg.get('save_figure', {}))
-        log.debug("Figure saved.")
+        log.debug("Figure saved at: %s", self.out_path)
 
         if close:
             self.close_figure()
@@ -487,7 +497,7 @@ class PlotHelper:
             ValueError: On failing to set the current axis
 
         """
-        log.debug("Selecting axis (%s, %s) ...", col, row)
+        log.debug("Selecting axis (%d, %d) ...", col, row)
 
         try:
             self.fig.sca(self.axes[col, row])
@@ -500,6 +510,10 @@ class PlotHelper:
         else:
             self._current_ax_coords = (col % self.axes.shape[0],
                                        row % self.axes.shape[1])
+
+            log.debug("Axis (%d, %d) selected. Enabled helpers: %s",
+                      self.ax_coords[0], self.ax_coords[1],
+                      ", ".join(self.enabled_helpers))
 
     def coords_iter(self, *, match: Union[tuple, str]=None,
                     ) -> Generator[Tuple[int], None, None]:
@@ -788,14 +802,20 @@ class PlotHelper:
     # .........................................................................
     # Animation interface
 
-    def register_animation_update(self, update_func: Callable):
+    def register_animation_update(self, update_func: Callable, *,
+                                  invoke_helpers_before_grab: bool=False):
         """Registers a generator used for animations.
 
         Args:
             update_func (Callable): Generator object over which is iterated
                 over to create an animation. This needs
+            invoke_helpers_before_grab (bool, optional): Whether to invoke all
+                enabled plot helpers before grabbing a frame. This should be
+                set to ``True`` if the animation update function overwrites the
+                effects of the previously applied helpers.
         """
         self._animation_update = update_func
+        self._invoke_before_grab = invoke_helpers_before_grab
         log.debug("Registered animation update function.")
 
     def enable_animation(self):
