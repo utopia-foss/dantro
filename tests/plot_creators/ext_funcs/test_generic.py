@@ -31,7 +31,7 @@ skip_if_not_full = pytest.mark.skipif(not FULL_TEST,
 # Whether to write test output to a temporary directory
 # NOTE When manually debugging, it's useful to set this to False, such that the
 #      output can be inspected in TEST_OUTPUT_PATH
-USE_TMPDIR = False  # FIXME
+USE_TMPDIR = True
 
 # If not using a temporary directory, the desired output directory
 TEST_OUTPUT_PATH = os.path.abspath(os.path.expanduser("~/dantro_test_output"))
