@@ -41,7 +41,7 @@ from .test_proxy import tmp_h5file
 def tmp_h5_dset(tmp_h5file) -> h5.Dataset:
     """Creates a temporary hdf5 dataset"""
     # Create a h5 dataset
-    dset = tmp_h5file.create_dataset("init", data=np.zeros(shape=(1, 2, 3), 
+    dset = tmp_h5file.create_dataset("init", data=np.zeros(shape=(1, 2, 3),
                                                            dtype=int))
     return dset
 
@@ -69,25 +69,25 @@ def test_CheckDataMixin():
 
     class TestContainerA(CheckDataMixin, DummyContainer):
         """All types allowed"""
-    
+
     class TestContainerB(CheckDataMixin, DummyContainer):
         """Only list or tuple allowed, raising if not correct"""
         DATA_EXPECTED_TYPES = (list, tuple)
         DATA_ALLOW_PROXY = True
         DATA_UNEXPECTED_ACTION = 'raise'
-    
+
     class TestContainerC(CheckDataMixin, DummyContainer):
         """Only list or tuple allowed, raising if not correct"""
         DATA_EXPECTED_TYPES = (list, tuple)
         DATA_ALLOW_PROXY = True
         DATA_UNEXPECTED_ACTION = 'warn'
-    
+
     class TestContainerD(CheckDataMixin, DummyContainer):
         """Only list or tuple allowed, raising if not correct"""
         DATA_EXPECTED_TYPES = (list, tuple)
         DATA_ALLOW_PROXY = True
         DATA_UNEXPECTED_ACTION = 'ignore'
-    
+
     class TestContainerE(CheckDataMixin, DummyContainer):
         """Only list or tuple allowed, raising if not correct"""
         DATA_EXPECTED_TYPES = (list, tuple)
@@ -109,10 +109,10 @@ def test_CheckDataMixin():
     with pytest.warns(UnexpectedTypeWarning,
                       match="Unexpected type <class 'str'> for.*"):
         TestContainerC(name="foo", data="bar")
-    
+
     # Run tests for D
     TestContainerD(name="foo", data="bar")
-    
+
     # Run tests for E
     with pytest.raises(ValueError, match="Illegal value 'invalid' for class"):
         TestContainerE(name="foo", data="bar")
@@ -133,7 +133,7 @@ def test_MutableSequenceContainer():
 
     with pytest.warns(UnexpectedTypeWarning):
         msc4 = MutableSequenceContainer(name="baz", data=None)
-    
+
     # Basic assertions ........................................................
     # Data access
     assert msc1.data == ["bar", "baz"] == msc1[:]
@@ -230,6 +230,10 @@ def test_NumpyDataContainer():
     assert ndc1.mean() == npa1.mean()
     assert ndc1.cumsum()[-1] == npa1.cumsum()[-1]
 
+    # Check __len__ magic method behaves same as numpy.ndarray.__len__
+    assert len(ndc1) == len(ndc1.data) == 3
+    assert len(ndc2) == len(ndc2.data) == 3
+
     # Test the NumbersMixin
     ndc1 = NumpyDataContainer(name="oof", data=np.array([1,2,3]))
     ndc2 = NumpyDataContainer(name="zab", data=np.array([2,4,6]))
@@ -242,14 +246,14 @@ def test_NumpyDataContainer():
     div_mod = divmod(ndc1, ndc2)
     power = ndc1 ** ndc2
 
-    # Test NumbersMixin function for operations on two numpy arrays 
+    # Test NumbersMixin function for operations on two numpy arrays
     l1 = [1,2,3]
     l2 = [2,4,6]
     ndc1 = NumpyDataContainer(name="oof", data=np.array(l1))
     ndc2 = NumpyDataContainer(name="zab", data=np.array(l2))
     npa1 = np.array(l1)
     npa2 = np.array(l2)
-    
+
     add_npa = npa1 + npa2
     sub_npa = npa1 - npa2
     mult_npa = npa1 * npa2
@@ -257,16 +261,16 @@ def test_NumpyDataContainer():
     floordiv_npa = npa1 // npa2
     mod_npa = npa1 % npa2
     power_npa = npa1 ** npa2
-        
-    assert add.data.all() == add_npa.all() 
-    assert sub.data.all() == sub_npa.all() 
-    assert mult.data.all() == mult_npa.all() 
-    assert div.data.all() == div_npa.all() 
-    assert floordiv.data.all() == floordiv_npa.all() 
-    assert mod.data.all() == mod_npa.all() 
-    assert div_mod.data[0].all() == floordiv_npa.all() 
+
+    assert add.data.all() == add_npa.all()
+    assert sub.data.all() == sub_npa.all()
+    assert mult.data.all() == mult_npa.all()
+    assert div.data.all() == div_npa.all()
+    assert floordiv.data.all() == floordiv_npa.all()
+    assert mod.data.all() == mod_npa.all()
+    assert div_mod.data[0].all() == floordiv_npa.all()
     assert div_mod.data[1].all() == mod_npa.all()
-    assert power.data.all() == power_npa.all() 
+    assert power.data.all() == power_npa.all()
 
     assert ndc1.data.all() == npa1.all()
 
@@ -289,13 +293,13 @@ def test_NumpyDataContainer():
     mod_npa_number = npa1 % 4.2
     power_npa_number = npa1 ** 4.2
 
-    assert add_number.data.all() == add_npa_number.all() 
-    assert sub_number.data.all() == sub_npa_number.all() 
-    assert mult_number.data.all() == mult_npa_number.all() 
-    assert div_number.data.all() == div_npa_number.all() 
-    assert floordiv_number.data.all() == floordiv_npa_number.all() 
-    assert mod_number.data.all() == mod_npa_number.all() 
-    assert divmod_number.data[0].all() == floordiv_npa_number.all() 
+    assert add_number.data.all() == add_npa_number.all()
+    assert sub_number.data.all() == sub_npa_number.all()
+    assert mult_number.data.all() == mult_npa_number.all()
+    assert div_number.data.all() == div_npa_number.all()
+    assert floordiv_number.data.all() == floordiv_npa_number.all()
+    assert mod_number.data.all() == mod_npa_number.all()
+    assert divmod_number.data[0].all() == floordiv_npa_number.all()
     assert divmod_number.data[1].all() == mod_npa_number.all()
     assert power_number.data.all() == power_number.all()
 
@@ -330,7 +334,7 @@ def test_NumpyDataContainer():
     ndc1_inplace %= ndc2_inplace
     npa1_inplace %= npa2_inplace
     assert (ndc1_inplace.all() == npa1_inplace.all())
-    
+
     ndc1_inplace **= ndc2_inplace
     npa1_inplace **= npa2_inplace
     assert (ndc1_inplace.all() == npa1_inplace.all())
@@ -395,7 +399,7 @@ def test_NumpyDataContainer():
 
 def test_XrDataContainer():
     """Tests the XrDataContainer"""
-    
+
     # Basic initialization of Numpy ndarray-like data
     xrdc = XrDataContainer(name="xrdc", data=np.array([1,2,3]))
 
@@ -455,7 +459,7 @@ def test_XrDataContainer():
     with pytest.raises(TypeError, match="sequence of strings, but not"):
         XrDataContainer(name="xrdc", data=[[1,2,3], [4,5,6]],
                         attrs=dict(dims="13"))
-    
+
     with pytest.raises(TypeError, match="needs to be an iterable"):
         XrDataContainer(name="xrdc", data=[[1,2,3], [4,5,6]],
                         attrs=dict(dims=123))
@@ -497,13 +501,13 @@ def test_XrDataContainer():
         xrdc = XrDataContainer(name="xrdc", data=xr.DataArray([1,2,3]),
                                attrs=dict(dims=['time'],
                                           coords__time=['Jan', 'Feb']))
-    
+
     with pytest.raises(ValueError, match="Got superfluous attribute 'coords_"):
         xrdc = XrDataContainer(name="xrdc_coord_mismatch",
                                data=[1,2,3,4],
                                attrs=dict(dims=['time'],
                                           coords__space=['IA', 'IL', 'IN']))
-    
+
     # Coordinates and data don't match in length
     with pytest.raises(ValueError, match="Could not associate coordinates"):
         XrDataContainer(name="xrdc", data=np.arange(10),
@@ -516,7 +520,7 @@ def test_XrDataContainer():
                                       coords__time=[10],
                                       coords_mode__time='arange'))
     assert np.all(np.arange(10) == xrdc.data.coords['time'])
-    
+
     xrdc = XrDataContainer(name="xrdc", data=np.arange(10),
                            attrs=dict(dims=['time'],
                                       coords__time=[3, 13],
@@ -535,14 +539,14 @@ def test_XrDataContainer():
                                       coords__time=[0, 2],
                                       coords_mode__time='start_and_step'))
     assert np.all(list(range(0, 20, 2)) == xrdc.data.coords['time'])
-    
+
     # trivial . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     xrdc = XrDataContainer(name="xrdc", data=np.arange(10),
                            attrs=dict(dims=['time'],
                                       coords__time=[0, 2],
                                       coords_mode__time='trivial'))
     assert np.all(list(range(10)) == xrdc.data.coords['time'])
-    
+
     # scalar . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     xrdc = XrDataContainer(name="xrdc", data=[0],
                            attrs=dict(dims=['time'],
@@ -564,7 +568,7 @@ def test_XrDataContainer():
                                       coords_mode__time=np.array(['trivial'])))
     assert (xrdc.coords['time'] == list(range(10))).all()
 
-    # Error messages . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
+    # Error messages . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     # Invalid coordinate mode
     with pytest.raises(ValueError, match="Invalid mode 'invalid' to interpre"):
         XrDataContainer(name="invalid_coord_type", data=[1,2,3],
@@ -589,7 +593,7 @@ def test_XrDataContainer():
                                               coords__time=[0, 1, 2],
                                               coords__foo="bar"  # throws not
                                               ))
-    
+
     # Carrying over attributes ................................................
     # Attributes are carried over as expected; prefixed attributes are not!
     xrdc = XrDataContainer(name="xrdc", data=[1,2,3],
@@ -604,6 +608,9 @@ def test_XrDataContainer():
     xrdc_copy = xrdc.copy()
     assert xrdc_copy.data is not xrdc.data
     assert np.all(xrdc_copy.data == xrdc.data)
+
+    # __len__ .................................................................
+    assert len(xrdc) == len(xrdc.data) == 3
 
     # String representation ...................................................
     assert xrdc._format_info().startswith(str(xrdc.dtype))
@@ -629,7 +636,7 @@ def test_XrDataContainer_proxy_support(tmp_h5_dset):
     # Some attributes to initialize containers
     attrs = dict(foo="bar", dims=['x', 'y', 'z'],
                  coords__x=['1 m'], coords__z=['1 cm', '2 cm', '3 cm'])
-    
+
     # Check that proxy support is enabled
     assert Hdf5ProxyXrDC.DATA_ALLOW_PROXY
 
@@ -638,11 +645,11 @@ def test_XrDataContainer_proxy_support(tmp_h5_dset):
 
     # Create a XrDataContainer with proxy support
     pxrdc = Hdf5ProxyXrDC(name="xrdc", data=proxy, attrs=attrs)
-    
+
     # Initialize another one directly without using the proxy
     pxrdc_direct = Hdf5ProxyXrDC(name="xrdc", data=tmp_h5_dset[()],
                                  attrs=attrs)
-    
+
     # Check that the _data member is now a proxy
     assert isinstance(pxrdc._data, Hdf5DataProxy)
 
@@ -754,25 +761,25 @@ def test_XrDataContainer_proxy_support(tmp_h5_dset):
     # String representation ...................................................
     # Without dimension info and with proxy still in place, the shape is given
     pxrdc = Hdf5ProxyXrDC(name="format_info_test", data=proxy, attrs=attrs)
-    
+
     assert pxrdc.data_is_proxy
     assert not pxrdc._metadata_was_applied
-    
+
     assert all([d in pxrdc._format_info() for d in pxrdc._dim_names])
-    
+
     assert pxrdc.data_is_proxy
     assert not pxrdc._metadata_was_applied
 
     # For case without extracted metadata, expect "shape"
     pxrdc = Hdf5ProxyXrDC(name="format_info_test", data=proxy,
                           extract_metadata=False)  # no attributes
-    
+
     assert pxrdc.data_is_proxy
     assert not pxrdc._metadata_was_applied
-    
+
     assert 'shape' in pxrdc._format_info()
     assert 'dim_0' not in pxrdc._format_info()
-    
+
     assert pxrdc.data_is_proxy
     assert not pxrdc._metadata_was_applied
 
@@ -810,7 +817,7 @@ def test_XrDataContainer_dask_integration(tmp_h5file):
     assert xrdc_nodask.proxy.chunks == (3,4,5,1)
 
     assert xrdc.shape == xrdc_nodask.shape
-    
+
     # Both still proxy
     assert xrdc.data_is_proxy
     assert xrdc_nodask.data_is_proxy
@@ -861,7 +868,7 @@ def test_XrDataContainer_linked_coordinates(tmp_h5_dset):
 
     class Hdf5ProxyXrDC(Hdf5ProxySupportMixin, XrDataContainer):
         pass
-    
+
     # Check that proxy support is enabled
     assert Hdf5ProxyXrDC.DATA_ALLOW_PROXY
 
@@ -877,7 +884,7 @@ def test_XrDataContainer_linked_coordinates(tmp_h5_dset):
                                     coords__y='../coords/y',
                                     coords_mode__z='linked',
                                     coords__z='../coords/more/z'))
-    
+
     # Should have succeeded and be a proxy now
     assert xrdc.data_is_proxy
 

@@ -1,0 +1,118 @@
+# Plot configurations for the errorbar generic plot function
+---
+_defaults:
+  animation: &animation
+    enabled: true
+    writer: frames
+    writer_kwargs:
+      frames:
+        saving:
+          dpi: 96
+
+success:
+  basic_1D_ebar:
+    plot_func: errorbar
+    select: &select_1D
+      y: ndim_da/1D
+      yerr: ndim_da/1D
+
+  basic_1D_eband:
+    plot_func: errorbands
+    select:
+      <<: *select_1D
+
+  labelled_1D:
+    plot_func: errorbands
+    select:
+      y: labelled/1D
+      yerr: labelled/1D
+
+  labelled_2D_hue: &labelled_2D_hue
+    plot_func: errorbands
+    select:
+      y: labelled/2D
+      yerr: labelled/2D
+    hue: dim_1
+
+  labelled_2D_hue_custom_fstr:
+    <<: *labelled_2D_hue
+    hue_fstr: "$dim_1 = {value:.1f}$"
+
+  labelled_2D_frames:
+    plot_func: errorbands
+    select:
+      y: labelled/2D
+      yerr: labelled/2D
+    frames: dim_1
+    animation: *animation
+
+  labelled_3D: &labelled_3D
+    plot_func: errorbands
+    select:
+      y: labelled/3D
+      yerr: labelled/3D
+    hue: dim_0
+    frames: dim_2
+    animation: *animation
+
+  with_suptitle:
+    <<: *labelled_3D
+    suptitle_kwargs:
+      title: my custom fstr title ({dim:} = {value:d})
+
+  # TODO test case for hue fstr
+
+  hlpr_2D_title:
+    <<: *labelled_2D_hue
+    helpers:
+      set_title:
+        title: custom title
+
+  hlpr_3D_title:
+    <<: *labelled_3D
+    helpers:
+      set_title:
+        title: custom title
+
+  hlpr_2D_labels:
+    <<: *labelled_2D_hue
+    helpers:
+      set_labels:
+        x: custom x label
+        y: custom y label
+
+  hlpr_3D_labels:
+    <<: *labelled_3D
+    helpers:
+      set_labels:
+        x: custom x label
+        y: custom y label
+
+  hlpr_2D_legend:
+    <<: *labelled_2D_hue
+    helpers:
+      set_legend:
+        title: custom legend title
+
+  hlpr_3D_legend:
+    <<: *labelled_3D
+    helpers:
+      set_legend:
+        title: custom legend title
+
+# .............................................................................
+
+failure:
+  missing_tags:
+    cfg:
+      plot_func: errorbar
+    match: required tags that were not specified in the DAG
+
+  missing_animation:
+    cfg:
+      plot_func: errorbands
+      select:
+        y: labelled/2D
+        yerr: labelled/2D
+      frames: dim_1
+    match: Cannot dynamically enter animation mode without any `animation`
