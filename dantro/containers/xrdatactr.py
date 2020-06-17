@@ -136,13 +136,17 @@ class XrDataContainer(ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin,
                                             for kv in sizes]))
         return "shape {}".format(self.shape)
 
+    def __len__(self) -> int:
+        """Length of the underlying data, i.e. first entry in shape"""
+        return self.shape[0]
+
     def copy(self, *, deep: bool=True):
         """Return a new object with a copy of the data. The copy is deep if not
         specified otherwise.
-        
+
         Args:
             deep (bool, optional): Whether the copy is deep
-        
+
         Returns:
             XrDataContainer: A (deep) copy of this object.
         """

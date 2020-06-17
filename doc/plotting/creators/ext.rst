@@ -116,6 +116,19 @@ In the following example, the ``ggplot`` style is used and subsequently adjusted
 For the ``base_style`` entry, choose the name of a `matplotlib stylesheet <https://matplotlib.org/3.1.1/gallery/style_sheets/style_sheets_reference.html>`_.
 For valid RC parameters, see the `matplotlib customization documentation <https://matplotlib.org/3.1.1/tutorials/introductory/customizing.html>`_.
 
+.. hint::
+
+    Even the `axes property cycle <https://matplotlib.org/3.1.1/tutorials/intermediate/color_cycle.html>`_, i.e. the ``axes.prop_cycle`` RC parameter, can be adjusted in this way.
+    For example, to use a Tab20-based color cycle, specify:
+
+    .. code-block:: yaml
+
+        my_plot:
+          # ...
+          style:
+            axes.prop_cycle: "cycler('color', ['1f77b4', 'aec7e8', 'ff7f0e', 'ffbb78', '2ca02c', '98df8a', 'd62728', 'ff9896', '9467bd', 'c5b0d5', '8c564b', 'c49c94', 'e377c2', 'f7b6d2', '7f7f7f', 'c7c7c7', 'bcbd22', 'dbdb8d', '17becf', '9edae5'])"
+
+    The full syntax is supported here, including ``+`` and ``*`` operators between ``cycler(..)`` definitions.
 
 
 
@@ -517,6 +530,17 @@ There are a few things to look out for:
     * In the example above, the ``set_labels`` helper has to be invoked for each frame as ``hlpr.ax.clear`` removes it.
       To avoid this, one could use the ``set_data`` method of the `Line2d <https://matplotlib.org/3.1.3/api/_as_gen/matplotlib.lines.Line2D.html>`_ object, which is returned by `matplotlib.pyplot.plot <https://matplotlib.org/3.1.3/api/_as_gen/matplotlib.pyplot.plot.html>`_, to update the data.
       Depending on the objects used in your plot functions, there might exist a similar solution.
+
+.. warning::
+
+    If it is not possible or too complicated to let the animation update function set the data directly, one typically has to redraw the axis or the whole figure.
+
+    In such cases, two important steps need to be taken in order to ensure correct functioning of the :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper`:
+
+        * Specifying the ``invoke_helpers_before_grab`` flag when calling :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.register_animation_update`, such that the helpers are invoked before grabbing each frame.
+        * If using a new figure object and/or axes grid, that needs to be communicated to the :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper` via :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.attach_figure_and_axes`.
+
+    For example implementations of such cases, refer to the plot functions specified in the :py:mod:`dantro.plot_creators.ext_funcs.generic` module.
 
 An example for an animation configuration is the following:
 

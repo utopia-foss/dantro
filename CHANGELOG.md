@@ -3,6 +3,10 @@
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
 
+## v0.13.2
+- !181 adds DAG-based generic plot functions [`errorbar` and `errorbands`](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html).
+
+
 ## v0.13.1
 - !178 extends the `count_unique` data operation to be applied along dimensions
 - !174 fixes the handling of NaN values by the data operation `count_unique`

@@ -57,6 +57,10 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin,
         return "{}, shape {}, {}".format(self.dtype, self.shape,
                                          super()._format_info())
 
+    def __len__(self) -> int:
+        """Length of the underlying data, i.e. first entry in shape"""
+        return self.shape[0]
+
     def copy(self):
         """Return a copy of this NumpyDataContainer.
 

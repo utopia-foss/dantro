@@ -1,8 +1,11 @@
 """Holds basic plot functions for use with ExternalPlotCreator"""
 
+import logging
+
+import matplotlib.pyplot as plt
+
 from ...data_mngr import DataManager
 from ..pcr_ext import is_plot_func
-from .mpl_setup import *
 
 
 # Local constants
