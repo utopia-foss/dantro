@@ -15,7 +15,7 @@ install_deps = [
     'networkx>=2.2',
     'ruamel.yaml>=0.16.10',
     'matplotlib>=3.1.3',
-    'paramspace>=2.2.3'
+    'paramspace>=2.5.0'
     ]
 
 # Minimal versions of all of the above

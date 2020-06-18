@@ -44,7 +44,7 @@ def create_test_data(psp_grp: ParamSpaceGroup, *, params: dict,
                                  attrs=dict(state_no=state_no)))
     farrs.add(NumpyDataContainer(name="randints", data=randints,
                                  attrs=dict(foo="bar")))
-    
+
     # Some labelled data
     labelled.add(XrDataContainer(name="randints", data=randints,
                                  attrs=dict(foo="bar", dims=('x', 'y', 'z'),
@@ -88,7 +88,7 @@ def psp_grp(pspace):
 
 @pytest.fixture()
 def psp_grp_missing_data(psp_grp):
-    """A ParamSpaceGroup with some states missing"""    
+    """A ParamSpaceGroup with some states missing"""
     for state_no in (12, 31, 38, 39, 52, 59, 66):
         if state_no in psp_grp:
             del psp_grp[state_no]
@@ -152,7 +152,7 @@ def test_ParamSpaceGroup(pspace):
     assert psp_grp[0] is grp00 is psp_grp["00"]
     assert psp_grp[1] is grp01 is psp_grp["01"]
     assert psp_grp[2] is grp02 is psp_grp["02"]
-    
+
     assert 0 in psp_grp
     assert 1 in psp_grp
     assert 2 in psp_grp
@@ -288,7 +288,7 @@ def test_ParamSpaceGroup_select(psp_grp, selectors):
     # Test the rest of the .select interface ..................................
     with pytest.raises(ValueError, match="Need to specify one of the arg"):
         pgrp.select()
-    
+
     with pytest.raises(ValueError, match="Can only specify either of the arg"):
         pgrp.select(field="foo", fields="foo")
 
@@ -305,14 +305,14 @@ def test_ParamSpaceGroup_select(psp_grp, selectors):
         ParamSpaceGroup(name="without_pspace", pspace=psp).select(field="cfg")
 
     # Bad subspace dimension names
-    with pytest.raises(KeyError, match="Make sure your subspace selector"):
+    with pytest.raises(ValueError, match="A parameter dimension with name"):
         pgrp.select(field="testdata/fixedsize/randints",
                     subspace=dict(invalid_dim_name=[1,2,3]))
 
     # Non-uniformly sized datasets will require trivial index labels
     with pytest.raises(ValueError, match="Combination of datasets failed;"):
         pgrp.select(field="testdata/randsize/randlen", method="concat")
-    
+
     with pytest.raises(ValueError, match="Combination of datasets failed;"):
         pgrp.select(field="testdata/randsize/randlen", method="merge")
 
@@ -323,7 +323,7 @@ def test_ParamSpaceGroup_select_missing_data(selectors, psp_grp_missing_data):
 
     # test all selectors and assert that concat is not working but merge is.
     dsets = dict()
-    
+
     for name, sel in selectors.items():
         print("Now selecting data with selector '{}' ...".format(name))
         sel.pop('method', None)
@@ -362,7 +362,7 @@ def test_ParamSpaceGroup_select_default(psp_grp_default, selectors):
 
     # Test that loading on all scenarios (without subspace) works.
     dsets = dict()
-    for name, sel in selectors.items():            
+    for name, sel in selectors.items():
         print("Now selecting data with selector '{}' ...".format(name))
 
         # Get the data. Distinguish depending on whether subspace selection
