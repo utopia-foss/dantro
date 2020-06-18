@@ -384,7 +384,7 @@ def count_unique(data, dims: List[str]=None) -> xr.DataArray:
     """
     def _count_unique(data) -> xr.DataArray:
         unique, counts = np.unique(data, return_counts=True)
-        
+
         # remove np.nan values
         # NOTE np.nan != np.nan, hence np.nan will count 1 for every occurrence,
         #      but duplicate values not allowed in coords.
@@ -401,17 +401,17 @@ def count_unique(data, dims: List[str]=None) -> xr.DataArray:
                             name=name,
                             dims=('unique',),
                             coords=dict(unique=unique))
-    
+
     if not dims:
         return _count_unique(data)
 
     if not isinstance(data, xr.DataArray):
         raise TypeError("Data needs to be of type xr.DataArray, but was "
                         f"{type(data)}!")
-    
+
     # use split-apply-combine along those dimensions not in dims
     split_dims = [dim for dim in data.dims if dim not in dims]
-    
+
     if len(split_dims) == 0:
         return _count_unique(data)
 
@@ -790,9 +790,9 @@ _OPERATIONS = KeyOrderedDict({
     'import_and_call':
         lambda m, n, *a, **k: import_module_or_object(m, n)(*a, **k),
 
-    'np.':          lambda ms, *a, **k: get_from_module(np, ms)(*a, **k),
-    'xr.':          lambda ms, *a, **k: get_from_module(xr, ms)(*a, **k),
-    'scipy.':       lambda ms, *a, **k: get_from_module(scipy, ms)(*a, **k),
+    'np.':          lambda ms, *a, **k: get_from_module(np, name=ms)(*a, **k),
+    'xr.':          lambda ms, *a, **k: get_from_module(xr, name=ms)(*a, **k),
+    'scipy.':       lambda ms, *a, **k: get_from_module(scipy, name=ms)(*a, **k),
 
     # Defining lambdas
     'lambda':       generate_lambda,
