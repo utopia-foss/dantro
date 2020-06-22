@@ -18,7 +18,8 @@ Furthermore, it allows a **configuration-based specification** of all operations
 The `dantro` package is **open source software** released under the LGPLv3+ license (see [copyright notice](#copyright) below).
 It was developed alongside the [Utopia project][utopia-project], but is an independent package.
 
-For more information on `dantro`, its features, philosophy, and integration, please visit its **documentation** at [`dantro.readthedocs.io`][dantro-docs].
+We describe the motivation and scope of `dantro` in more detail in [this publication in the Journal of Open Source Software][dantro-joss-doi].
+For more information on the package, its features, philosophy, and integration, please visit its **documentation** at [`dantro.readthedocs.io`][dantro-docs].
 If you encounter any issues with `dantro` or have suggestions or questions of any kind, please open an issue via the [**project page**][dantro-project].
 
 
@@ -223,6 +224,8 @@ Contact the developers via: [`dantro-dev@iup.uni-heidelberg.de`][devmail]
 [conda-forge-dantro]: https://anaconda.org/conda-forge/dantro
 
 [utopia-project]: https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia
+
+[dantro-joss-doi]: https://doi.org/10.21105/joss.02316
 
 [pip]: https://pip.pypa.io/en/stable/
 [pip-installation]: https://pip.pypa.io/en/stable/installing/

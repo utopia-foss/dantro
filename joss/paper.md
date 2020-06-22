@@ -26,7 +26,7 @@ affiliations:
     index: 1
   - name: Heidelberg Graduate School for Physics, Heidelberg University, Germany
     index: 2
-date: 11 May 2020
+date: 08 July 2020
 bibliography: paper.bib
 ---
 
@@ -39,7 +39,7 @@ Researchers, especially those relying on computer simulations, frequently genera
 With recent increases in computational capacity, the demand to efficiently and reliably process the generated data is growing accordingly.
 To address these needs, one powerful approach is to streamline the data handling, transformation, and visualization procedures into a *data processing pipeline*.
 Akin to the Continuous Integration pipelines widely used in modern software engineering, a data processing pipeline implements an automated sequence of predefined, yet dynamically configurable operations.
-Ultimately, using such a data processing pipeline can greatly improve the efficiency, reliability and reproducibility of the scientific workflow.
+Ultimately, using such a data processing pipeline can greatly improve the efficiency, reliability, and reproducibility of the scientific workflow.
 
 However, we observed two challenges that impede the implementation and use of data processing pipelines in modeling-based research.
 First, data is often hierarchically structured, typically because it represents some underlying modularization in the investigated model.
@@ -60,7 +60,7 @@ Thus, once the pipeline is set up, it can be controlled entirely via these confi
 Taken together, the unique feature of `dantro` is that it conveniently combines the capabilities of many packages and defines a data processing pipeline without having to take care of interfacing between the many involved packages.
 
 Importantly, `dantro` is meant to be *integrated* into projects.
-While this integration process creates a one-time overhead during setup of the pipeline, we believe that it offers more generality and supplies a wider feature set compared to any ready-to-use pipeline.
+While this integration process creates a one-time overhead during the setup of the pipeline, we believe that it offers more generality and supplies a wider feature set compared to any ready-to-use pipeline.
 To achieve a deep integration, the data structures provided by `dantro` define a shared interface and offer many possibilities to specialize and extend them to the requirements and data structures of the project it is integrated in.
 Effectively, the processing pipeline becomes a part of the project, growing and developing alongside it.
 
@@ -68,7 +68,7 @@ Effectively, the processing pipeline becomes a part of the project, growing and 
 Within this project, `dantro` is used for automated, configuration-based data processing and plotting.
 While `dantro` was devised with simulation-based applications in mind, it is general enough to be used in all domains that require the handling, transformation, and visualization of data, also offering use cases for statistical or exploratory data analysis.
 
-The `dantro` package is released under the [LGPLv3+](https://www.gnu.org/licenses/lgpl-3.0.html) and is available from the Python Package Index (PyPI) at [`pypi.org/project/dantro`](https://pypi.org/project/dantro/).
+The `dantro` package is released under the [LGPLv3+](https://www.gnu.org/licenses/lgpl-3.0.html) and is available from the Python Package Index (PyPI) at [`pypi.org/project/dantro`](https://pypi.org/project/dantro/) and [from `conda-forge`](https://anaconda.org/conda-forge/dantro).
 Its documentation, including integration instructions and examples, can be found at [`dantro.readthedocs.io`](https://dantro.readthedocs.io/).
 
 
@@ -83,7 +83,7 @@ Therein, `dantro` employs *data groups* and *data containers*, which constitute 
 Abstract base classes are used to define the shared interface for all data types used in the tree.
 
 Furthermore, `dantro` provides a set of mixin classes, which can be used to specialize a container or group for the data they are expected to hold.
-As an example, a group might hold containers which represent sequential simulation output; the group could then be specialized to represent a time series, offering the corresponding data selection capabilities.
+As an example, a group might hold containers that represent sequential simulation output; the group could then be specialized to represent a time series, offering the corresponding data selection capabilities.
 Another example is the `GraphGroup`, which generates a `networkx` [@networkx2008] graph object from the data available in the group.
 For numerical data, containers are available that specialize in holding `numpy` arrays or `xarray` data structures; these containers behave in the same way as the underlying arrays while additionally adhering to the `dantro` interface.
 As long as groups and containers concur to the interface of the data tree, they can be customized in any way that suits the data structures of the project `dantro` is used in.
@@ -110,7 +110,7 @@ The visualization of the potentially transformed data concludes the data process
 The `dantro` plotting framework consists of two main data structures: the `PlotManager` and the *plot creators*.
 
 The `PlotManager` implements a configuration-based interface for defining which plots are to be created and further consolidates all overarching features.
-For example, the data tree is made available, the DAG framework is invoked, or plot configuration inheritance and composition is managed.
+For example, the data tree is made available, the DAG framework is invoked, or plot configuration inheritance and composition are managed.
 Furthermore, using the `paramspace` package [@sevinchan2020paramspace], one can easily declare plot configurations with varying parameters, subsequently resulting in multiple output files.
 
 Given the configuration and the data, the individual plot creators then focus on the actual visualization using a plotting backend.
