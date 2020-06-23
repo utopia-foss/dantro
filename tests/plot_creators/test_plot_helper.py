@@ -9,6 +9,7 @@ from pkg_resources import resource_filename
 import pytest
 
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 from dantro.tools import load_yml
@@ -18,7 +19,8 @@ from dantro.plot_creators import PlotHelper, is_plot_func
 from dantro.plot_creators._plot_helper import (temporarily_changed_axis,
                                                coords_match,
                                                ExitAnimationMode,
-                                               EnterAnimationMode)
+                                               EnterAnimationMode,
+                                               PlotHelperErrors)
 
 # Local constants
 # Paths
@@ -395,9 +397,24 @@ def test_invocation(hlpr):
     # Invocation via private method takes into account enabled state
     hlpr._invoke_helper('set_title') # nothing happens
 
-    # Check that a helpful error message is generated
-    with pytest.raises(ValueError, match="was raised during invocation of"):
+    # Check that a helpful error message is generated and includes docstring
+    with pytest.raises(PlotHelperErrors, match="invalid_key"):
         hlpr.invoke_helper('set_title', invalid_key="something")
+
+    with pytest.raises(PlotHelperErrors, match=r"Encountered 2 error\(s\)"):
+        hlpr.invoke_helpers('set_title', 'set_suptitle',
+                            set_title=dict(invalid_key="something"),
+                            set_suptitle=dict(foobar="barbaz"))
+
+    with pytest.raises(PlotHelperErrors, match="Relevant Docstrings"):
+        hlpr.invoke_helper('set_title', invalid_key="something")
+
+    # Errors are gathered also when invoking only
+    hlpr.provide_defaults('set_title', invalid_key="something")
+    hlpr.provide_defaults('set_suptitle', invalid_key="something else")
+    hlpr.mark_enabled('set_title', 'set_suptitle')
+    with pytest.raises(PlotHelperErrors, match=r"Encountered 2 error\(s\)"):
+        hlpr.invoke_enabled()
 
     # But it can also be just logged
     hlpr._raise_on_error = False
@@ -531,10 +548,13 @@ def test_axis_specificity(hlpr):
     # The above are all disabled now. Only the remaining should still be set
     # when invoking all enabled
     hlpr.invoke_enabled(axes="all")
+
+    # ... check top row was not changed (because was disabled)
     for ax in hlpr.axes[:, 0]:
         assert ax.title.get_text() == "Top Row"
 
-    for ax in chain(hlpr.axes[:, 1], hlpr.axes[:, 1]):
+    # ... check the two bottom rows were changed (were not disabled)
+    for ax in chain(hlpr.axes[:, 1], hlpr.axes[:, 2]):
         assert ax.title.get_text() == "default"
 
 def test_animation(epc, tmpdir):
@@ -696,7 +716,13 @@ def test_helper_functions(hlpr):
 
         # Can do some plotting beforehand ...
         if test_cfg.get('_plot_values'):
-            hlpr.ax.plot(test_cfg['_plot_values'])
+            hlpr.ax.plot(test_cfg['_plot_values'],
+                         **test_cfg.get('_plot_kwargs', {}))
+
+        if test_cfg.get('_invoke_legend'):
+            hlpr.ax.legend(('foo','bar'))
+        if test_cfg.get('_invoke_figlegend'):
+            hlpr.fig.legend(('foo','bar'))
 
         # Find out if this config was set to raise
         if not test_cfg.get('_raises', None):
@@ -725,3 +751,87 @@ def test_helper_functions(hlpr):
 
     # Close the figure
     hlpr.close_figure()
+
+# .............................................................................
+
+def test_helper_set_legend(hlpr):
+    """Tests the 'set_legend' helper directly"""
+    get_legends = lambda obj: obj.findobj(mpl.legend.Legend)
+    get_texts = lambda lg: [t.get_text() for t in lg.texts]
+    get_len = lambda lg: len(lg.legendHandles)
+    is_empty = lambda lg: get_len(lg) == 0
+
+    # Set up a more involved figure
+    hlpr.setup_figure(ncols=3, nrows=2)
+    assert not get_legends(hlpr.fig)
+
+    # Draw something on a subset of axes
+    hlpr.select_axis(1, 1)
+    hlpr.ax.plot([1,2,3], label="one")
+    hlpr.ax.plot([2,3,4], label="two")
+    assert not get_legends(hlpr.fig)
+
+    hlpr.select_axis(2, 0)
+    hlpr.ax.plot([3,4,5], label="three")
+    hlpr.ax.plot([4,5,6], label="four")
+    hlpr.ax.plot([5,6,7], label="five")
+    assert not get_legends(hlpr.fig)
+
+    # Invoke 'set_legend' on this axis and check that that legend is drawn
+    hlpr.invoke_helper('set_legend')
+    assert len(get_legends(hlpr.fig)) == 1
+
+    legend = get_legends(hlpr.fig)[0]
+    assert all([t in get_texts(legend) for t in ("three", "four", "five")])
+
+    # Now invoke it on all axes; should yield two legend objects
+    hlpr.invoke_helper('set_legend', axes='all')
+    legends = get_legends(hlpr.fig)
+    assert len(legends) == 3*2
+
+    # Old legend no longer available
+    assert legend not in legends
+
+    assert is_empty(legends[0])      # (0, 0) new ...
+    assert is_empty(legends[1])      # (1, 0)
+    assert not is_empty(legends[2])  # (2, 0)
+    assert is_empty(legends[3])      # (0, 1)
+    assert not is_empty(legends[4])  # (1, 1)
+    assert is_empty(legends[5])      # (2, 1)
+
+    assert get_texts(legends[2]) == ["three", "four", "five"]
+    assert get_texts(legends[4]) == ["one", "two"]
+
+    # Test gathering handles from the whole figure
+    hlpr.select_axis(0, 0)
+    assert len(get_legends(hlpr.ax)) == 1
+
+    hlpr.invoke_helper('set_legend')
+    assert len(get_legends(hlpr.ax)) == 1  # old one removed
+    assert is_empty(get_legends(hlpr.ax)[0])
+
+    hlpr.invoke_helper('set_legend', gather_from_fig=True)
+    legend = get_legends(hlpr.ax)[0]
+    assert get_texts(legend) == ["three", "four", "five", "one", "two"]
+
+    # gather_from_fig always triggers handle search, but still retains a handle
+    # that was not made part of a legend object yet. Duplicates are identified
+    # by their label and are not included.
+    hlpr.select_axis(0, 1)
+    hlpr.ax.plot([6,7,8], label="six")
+    assert is_empty(get_legends(hlpr.ax)[0])
+
+    hlpr.invoke_helper('set_legend', gather_from_fig=True)
+    legend = get_legends(hlpr.ax)[0]
+    assert get_texts(legend) == ["six",
+                                 "three", "four", "five",
+                                 "one", "two"]
+
+    # Axes (0, 0) and (0, 1) should have large legends now
+    assert sum([get_len(lg) > 4 for lg in get_legends(hlpr.fig)]) == 2
+
+    # Can hide those now
+    hlpr.invoke_helper('set_legend', axes='all', hiding_threshold=4)
+    legends = get_legends(hlpr.fig)
+    assert len(legends) == 3*2
+    assert all([get_len(lg) <= 4 for lg in get_legends(hlpr.fig)])

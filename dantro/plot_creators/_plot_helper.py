@@ -5,7 +5,7 @@ import copy
 import logging
 import inspect
 from itertools import product
-from typing import Union, Callable, Tuple, List, Dict, Generator
+from typing import Union, Callable, Tuple, List, Dict, Generator, Sequence
 
 import numpy as np
 import matplotlib as mpl
@@ -149,6 +149,81 @@ class ExitAnimationMode(Exception):
     decide whether animation should happen or not. Its counterpart is
     :py:exc:`~dantro.plot_creators._plot_helper.ExitAnimationMode`.
     """
+
+class PlotHelperError(ValueError):
+    """Raised upon failure to invoke a specific plot helper function, this
+    custom exception type stores metadata on the helper invocation in order
+    to generate a useful error message.
+    """
+    def __init__(self, upstream_error: Exception, *,
+                 name: str,
+                 ax_coords: Tuple[int, int],
+                 params: dict):
+        """Initializes a PlotHelperError"""
+        self.err = upstream_error
+        self.name = name
+        self.ax_coords = ax_coords
+        self.params = params
+
+    def __str__(self):
+        """Generates an error message for this particular helper"""
+        _params = "\n".join([f"      {k}: {repr(v)}"
+                             for k, v in self.params.items()])
+        return (f"'{self.name}' failed on axis {self.ax_coords}!  "
+                f"{self.err.__class__.__name__}: {self.err}\n"
+                f"    Invocation parameters were:\n{_params}\n")
+
+    @property
+    def docstring(self) -> str:
+        """Returns the docstring of this helper function"""
+        func = getattr(PlotHelper, "_hlpr_" + self.name)
+        return (f"{self.name}\n"
+                f"{'-'*len(self.name)}\n"
+                f"{inspect.getdoc(func)}\n")
+
+class PlotHelperErrors(ValueError):
+    """This custom exception type gathers multiple individual instances of
+    :py:class:`~dantro.plot_creators._plot_helper.PlotHelperError`.
+    """
+    def __init__(self, *errors, show_docstrings: bool=True):
+        """Bundle multiple PlotHelperErrors together
+
+        Args:
+            *errors: The individual instances of
+                :py:class:`~dantro.plot_creators._plot_helper.PlotHelperError`
+            show_docstrings (bool, optional): Whether to show docstrings in the
+                error message.
+        """
+        self._errors = list()
+        self._axes = set()
+        self._num = len(errors)
+        self._docstrings = dict()
+        self.show_docstrings = show_docstrings
+
+        for error in errors:
+            self._errors.append(error)
+            self._axes.add(error.ax_coords)
+            self._docstrings[error.name] = error.docstring
+
+    @property
+    def errors(self):
+        return self._errors
+
+    def __str__(self) -> str:
+        """Generates a combined error message for *all* registered errors"""
+        s = (f"Encountered {self._num} error(s) "
+             f"for {len(self._docstrings)} different plot helper(s) "
+             f"on {len(self._axes)} different axes!\n\n")
+
+        s += "\n".join([f"-- {e}" for e in self._errors]) + "\n"
+
+        if self.show_docstrings:
+            s += "Relevant Docstrings\n"
+            s += "===================\n\n"
+            s += "\n\n".join(self._docstrings.values())
+
+        return s
+
 
 
 # -----------------------------------------------------------------------------
@@ -304,10 +379,10 @@ class PlotHelper:
 
     @property
     def enabled_helpers(self) -> list:
-        """Returns a list of enabled helpers for the current axis"""
-        return [hn for hn in self._axis_cfg
-                if self._axis_cfg[hn].get('enabled', True)
-                and hn not in self._SPECIAL_CFG_KEYS]
+        """Returns a list of enabled helpers *for the current axis*"""
+        return [helper_name for helper_name in self._axis_cfg
+                if self._axis_cfg[helper_name].get('enabled', True)
+                and helper_name not in self._SPECIAL_CFG_KEYS]
 
     @property
     def out_path(self) -> str:
@@ -544,6 +619,7 @@ class PlotHelper:
     def _invoke_helper(self, helper_name: str, *,
                        axes: Union[tuple, str]=None,
                        mark_disabled_after_use: bool=True,
+                       raise_on_error: bool=None,
                        **update_kwargs) -> None:
         """Invokes a single helper on the specified axes, if it is enabled, and
         marks it disabled afterwards. The given update parameters are used to
@@ -560,26 +636,26 @@ class PlotHelper:
                 only on the current axes.
             mark_disabled_after_use (bool, optional): If True, the helper is
                 marked as disabled after invoking it
+            raise_on_error (bool, optional): If given, overwrites the default
+                controlled via the ``raise_on_error`` attribute.
             **update_kwargs: Update parameters for this specific plot helper.
                 Note that these do not persist, but are only used for this
                 invocation.
 
         Raises:
+            PlotHelperErrors: On failing plot helper invocations
             ValueError: No matching helper function defined
-
-        Returns:
-            None
         """
-        # Get the helper function
         try:
             helper = getattr(self, "_hlpr_" + helper_name)
 
         except AttributeError as err:
-            raise ValueError("No helper with name '{}' available! "
-                             "Available helpers: {}"
-                             "".format(helper_name,
-                                       ", ".join(self.available_helpers))
-                             ) from err
+            _available = ", ".join(self.available_helpers)
+            raise ValueError(f"No helper with name '{helper_name}' available! "
+                             f"Available helpers: {_available}") from err
+
+        # Collect error messages
+        errors = []
 
         # Go over all matching axis coordinates
         for ax_coords in self.coords_iter(match=axes):
@@ -606,32 +682,22 @@ class PlotHelper:
                     helper(**helper_params)
 
                 except Exception as exc:
-                    # Build an informative error message
-                    hp_params = "\n".join(["   {}: {}".format(k, repr(v))
-                                           for k, v in helper_params.items()])
-                    hp_doc = inspect.getdoc(helper)
-
-                    msg = ("A {} was raised during invocation of the '{}' "
-                           "helper: {}.\n\nIt was invoked with the following "
-                           "arguments:\n{}\n\nMake sure these arguments were "
-                           "valid. You may want to consult the helper's "
-                           "docstring:\n\n{}"
-                           "".format(exc.__class__.__name__, helper_name, exc,
-                                     hp_params, hp_doc))
-
-                    # Either log or raise
-                    if self._raise_on_error:
-                        raise ValueError(msg) from exc
-                    log.error(msg)
+                    errors.append(PlotHelperError(exc, name=helper_name,
+                                                  ax_coords=ax_coords,
+                                                  params=helper_params))
 
                 if mark_disabled_after_use:
                     self.mark_disabled(helper_name)
 
             # Now back at previous axis, whatever happened above.
+        # Done.
+        # Handle errors
+        self._handle_errors(*errors, raise_on_error=raise_on_error)
 
     def invoke_helper(self, helper_name: str, *,
                       axes: Union[tuple, str]=None,
                       mark_disabled_after_use: bool=True,
+                      raise_on_error: bool=None,
                       **update_kwargs):
         """Invokes a single helper on the specified axes.
 
@@ -642,17 +708,24 @@ class PlotHelper:
                 only on the current axes.
             mark_disabled_after_use (bool, optional): If True, the helper is
                 marked as disabled after the invocation.
+            raise_on_error (bool, optional): If given, overwrites the default
+                controlled via the ``raise_on_error`` attribute.
             **update_kwargs: Update parameters for this specific plot helper.
                 Note that these do not persist, but are only used for this
                 invocation.
+
+        Raises:
+            PlotHelperErrors: On failing plot helper invocation
         """
         self._invoke_helper(helper_name, axes=axes, enabled=True,
                             mark_disabled_after_use=mark_disabled_after_use,
+                            raise_on_error=raise_on_error,
                             **update_kwargs)
 
     def invoke_helpers(self, *helper_names,
                        axes: Union[tuple, str]=None,
                        mark_disabled_after_use: bool=True,
+                       raise_on_error: bool=None,
                        **update_helpers):
         """Invoke all specified helpers on the specified axes.
 
@@ -663,25 +736,40 @@ class PlotHelper:
                 only on the current axes.
             mark_disabled_after_use (bool, optional): Whether to mark helpers
                 disabled after they were used.
+            raise_on_error (bool, optional): If given, overwrites the default
+                controlled via the ``raise_on_error`` attribute.
             **update_helpers: Update parameters for all plot helpers.
                 These have to be grouped under the name of the helper in order
                 to be correctly associated. Note that these do not persist,
                 but are only used for this invocation.
 
-        Deleted Parameters:
-            helper_names (list): Helpers to be invoked
+        Raises:
+            PlotHelperErrors: On failing plot helper invocations
         """
+        errors = []
         for helper_name in helper_names:
-            self.invoke_helper(helper_name, axes=axes,
-                               mark_disabled_after_use=mark_disabled_after_use,
-                               **update_helpers.get(helper_name, {}))
+            try:
+                self.invoke_helper(helper_name, axes=axes,
+                                   mark_disabled_after_use=mark_disabled_after_use,
+                                   raise_on_error=True,
+                                   **update_helpers.get(helper_name, {}))
+
+            except PlotHelperErrors as pherrs:
+                errors += pherrs.errors
+
+        self._handle_errors(*errors, raise_on_error=raise_on_error)
 
     def invoke_enabled(self, *,
                        axes: Union[tuple, str]=None,
                        mark_disabled_after_use: bool=True,
+                       raise_on_error: bool=None,
                        **update_helpers):
         """Invokes all enabled helpers with their current configuration on the
         matching axes.
+
+        Calls
+        :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.invoke_helpers`
+        with all enabled helpers for all axes matching the ``axes`` argument.
 
         Args:
             axes (Union[tuple, str], optional): A coordinate match tuple of
@@ -689,24 +777,30 @@ class PlotHelper:
                 only on the current axes.
             mark_disabled_after_use (bool, optional): If True, the helper is
                 marked as disabled after the invocation.
+            raise_on_error (bool, optional): If given, overwrites the default
+                controlled via the ``raise_on_error`` attribute.
             **update_helpers: Update parameters for all plot helpers.
                 These have to be grouped under the name of the helper in order
                 to be correctly associated. Note that these do not persist,
                 but are only used for this invocation.
-        """
-        # Go over all axes matching the given argument
-        for ax_coords in self.coords_iter(match=axes):
-            # Temporarily change to this axis
-            with temporarily_changed_axis(self, tmp_ax_coords=ax_coords):
-                # Iterate over all enabled helpers on this axis
-                for helper_name in self.enabled_helpers:
-                    # See if there are update parameters for this helper
-                    params = update_helpers.get(helper_name, {})
 
-                    # Invoke the single helper on the current axis
-                    self._invoke_helper(helper_name,
+        Raises:
+            PlotHelperErrors: On failing plot helper invocations
+        """
+        errors = []
+
+        for ax_coords in self.coords_iter(match=axes):
+            with temporarily_changed_axis(self, tmp_ax_coords=ax_coords):
+                try:
+                    self.invoke_helpers(*self.enabled_helpers,
                                         mark_disabled_after_use=mark_disabled_after_use,
-                                        **params)
+                                        raise_on_error=True,
+                                        **update_helpers)
+
+                except PlotHelperErrors as pherrs:
+                    errors += pherrs.errors
+
+        self._handle_errors(*errors, raise_on_error=raise_on_error)
 
     def provide_defaults(self, helper_name: str, *,
                          axes: Union[tuple, str]=None,
@@ -923,51 +1017,61 @@ class PlotHelper:
                                        ("are also" if special_cfg_keys_allowed
                                         else "are NOT")))
 
+    def _handle_errors(self, *errors, raise_on_error: bool=None):
+        """Helper method to handle errors"""
+        if not errors:
+            return
+
+        phe = PlotHelperErrors(*errors)
+        if self._raise_on_error or raise_on_error:
+            raise phe
+        log.warning(phe)
+
     # .........................................................................
     # Helper Methods -- acting on the figure
 
     def _hlpr_set_suptitle(self, *, title: str=None, **title_kwargs):
-        """Set the figure title, i.e. matplotlib.Figure.suptitle
+        """Set the figure title, i.e. matplotlib.Figure.suptitle.
 
         Args:
             title (str, optional): The title to be set
             **title_kwargs: Passed on to plt.set_title
         """
-        if title:
-            self.fig.suptitle(title, **title_kwargs)
+        self.fig.suptitle(title, **title_kwargs)
 
 
     # .........................................................................
     # Helper Methods -- acting on a single axis
 
     def _hlpr_set_title(self, *, title: str=None, **title_kwargs):
-        """Set the title of the current axis
+        """Sets the title of the current axis.
 
         Args:
             title (str, optional): The title to be set
-            **title_kwargs: Passed on to plt.set_title
+            **title_kwargs: Passed on to ``ax.set_title``
         """
-        if title:
-            self.ax.set_title(title, **title_kwargs)
+        self.ax.set_title(title, **title_kwargs)
 
     def _hlpr_set_labels(self, *,
                          x: Union[str, dict]=None,
                          y: Union[str, dict]=None,
                          only_label_outer: bool=False):
-        """Set the x and y label of the current axis
+        """Sets the x and y label of the current axis.
 
         Args:
             x (Union[str, dict], optional): Either the label as a string or
-                a dict with key `label`, where all further keys are passed on
+                a dict with key ``label``, where all further keys are passed on
                 to plt.set_xlabel
             y (Union[str, dict], optional): Either the label as a string or
-                a dict with key `label`, where all further keys are passed on
+                a dict with key ``label``, where all further keys are passed on
                 to plt.set_ylabel
-            only_label_outer (bool, optional): Whether to label only outer axes
+            only_label_outer (bool, optional): If true, call ``ax.label_outer``
+                such that only tick labels on "outer" axes are visible:
+                x-labels are only kept for subplots on the last row; y-labels
+                only for subplots on the first column. Note that this applies
+                to both axes and may lead to existing axes being hidden.
         """
-
         def set_label(func: Callable, *, label: str=None, **label_kwargs):
-            # NOTE Can be extended here in the future to do more clever things
             return func(label, label_kwargs)
 
         if x:
@@ -982,28 +1086,31 @@ class PlotHelper:
             self.ax.label_outer()
 
     def _hlpr_set_limits(self, *,
-                         x: Union[tuple, dict]=None,
-                         y: Union[tuple, dict]=None):
-        """Set the x and y limit for the current axis
+                         x: Union[Sequence[Union[float, str]], dict]=None,
+                         y: Union[Sequence[Union[float, str]], dict]=None):
+        """Sets the x and y limit for the current axis.
 
-        x and y can have the following shapes:
-            None           Limits are not set
-            tuple, list    Specify lower and upper values
-            dict           expecting keys `lower` and/or `upper`
+        The ``x`` and ``y`` arguments can have the following form:
 
-        Each entries of the tuple or dict values can be:
-            None           Set automatically / do not set
-            numeric        Set to this value explicitly
-            min            Set to the data minimum value on that axis
-            max            Set to the data maximum value on that axis
+            - None:         Limits are not set
+            - sequence:     Specify lower and upper values
+            - dict:         Expecting keys ``lower`` and/or ``upper``
+
+        The sequence or dict values can be:
+
+            - None          Set automatically / do not set
+            - numeric       Set to this value explicitly
+            - ``min``       Set to the data minimum value on that axis
+            - ``max``       Set to the data maximum value on that axis
 
         Args:
-            x (Union[tuple, dict], optional): Set the x-axis limits. For valid
-                argument values, see above.
-            y (Union[tuple, dict], optional): Set the y-axis limits. For valid
-                argument values, see above.
+            x (Union[Sequence[Union[float, str]], dict], optional): The limits
+                to set on the x-axis
+            y (Union[Sequence[Union[float, str]], dict], optional): The limits
+                to set on the y-axis
         """
-        def parse_args(args: Union[tuple, dict], *, ax):
+        def parse_args(args: Union[Sequence[Union[float, str]], dict], *, ax
+                       ) -> Tuple[float, float]:
             """Parses the limit arguments."""
 
             def parse_arg(arg: Union[float, str]) -> Union[float, None]:
@@ -1017,16 +1124,19 @@ class PlotHelper:
                 elif arg == 'max':
                     arg = ax.get_data_interval()[1]
                 else:
-                    raise ValueError("Got an invalid str-type argument '{}' "
-                                     "to set_limits helper. Allowed: min, max."
-                                     "".format(arg))
+                    raise ValueError(
+                        f"Got an invalid str-type argument '{arg}' to the "
+                        "set_limits helper. Allowed: 'min', 'max', None, or a "
+                        "numerical value specifying the lower or upper limit."
+                    )
 
                 # Check that it is finite
                 if not np.isfinite(arg):
-                    raise ValueError("Could not get a finite value from the "
-                                     "axis data to use for setting axis "
-                                     "limits to 'min' or 'max', presumably "
-                                     "because the axis is still empty.")
+                    raise ValueError(
+                        "Could not get a finite value from the axis data to "
+                        "use for setting axis limits to 'min' or 'max', "
+                        "presumably because the axis is still empty."
+                    )
 
                 return arg
 
@@ -1034,30 +1144,20 @@ class PlotHelper:
             if isinstance(args, dict):
                 # Make sure there are only allowed keys
                 if [k for k in args.keys() if k not in ('lower', 'upper')]:
-                    raise ValueError("There are invalid keys present in a "
-                                     "dict-type argument to set_limits! Only "
-                                     "accepting keys 'lower' and 'upper', but "
-                                     "got: {}".format(args))
+                    raise ValueError(
+                        "There are invalid keys present in a dict-type "
+                        "argument to set_limits! Only accepting keys 'lower' "
+                        f"and 'upper', but got: {args}"
+                    )
 
-                # Unpack into tuple
-                args = (args.get('lower', None), args.get('upper', None))
+                lower = args.get('lower', None)
+                upper = args.get('upper', None)
 
+            else:
+                lower, upper = args    # ... assuming sequence of length 2
 
-            # Make sure it is a list or tuple of size 2
-            if not isinstance(args, (tuple, list)):
-                raise TypeError("Argument for set_limits helper needs to be "
-                                "a dict, list, or a tuple, but was of type {} "
-                                "with value '{}'!"
-                                "".format(type(args), args))
-
-            if len(args) != 2:
-                raise ValueError("Argument for set_limits helper needs to be "
-                                 "a list or tuple of length 2 or a dict with "
-                                 "keys 'upper' and/or 'lower', but was {}!"
-                                 "".format(args))
-
-            # Parse and return
-            return (parse_arg(args[0]), parse_arg(args[1]))
+            # Parse individually, then return
+            return (parse_arg(lower), parse_arg(upper))
 
         # Now set the limits, using the helper functions defined above
         if x is not None:
@@ -1066,49 +1166,147 @@ class PlotHelper:
         if y is not None:
             self.ax.set_ylim(*parse_args(y, ax=self.ax.yaxis))
 
-    def _hlpr_set_legend(self, *, use_legend: bool=True, **legend_kwargs):
-        """Set a legend for the current axis"""
-        if use_legend:
-            handles, labels = self.ax.get_legend_handles_labels()
-            self.ax.legend(handles, labels, **legend_kwargs)
+    def _hlpr_set_legend(self, *, use_legend: bool=True,
+                         gather_from_fig: bool=False,
+                         custom_labels: Sequence[str]=(),
+                         hiding_threshold: int=None,
+                         use_figlegend: bool=False,
+                         **legend_kwargs):
+        """Sets a legend for the current axis or for the figure.
 
-    def _hlpr_set_texts(self, *, texts: list):
-        """Set a list of texts for the current axis
+        As a first step, this helper tries to extract all relevant legend
+        handles and labels. If a legend was set previously and *no* handles and
+        labels could be extracted in the typical way (i.e., using the
+        ``ax.get_legend_handles_labels`` method) it will be attempted to
+        retrieve them from existing matplotlib.legend.Legend objects on the
+        current axis.
+        If ``gather_from_fig`` is given, the *whole* figure will be inspected,
+        regardless of whether handles were found previously.
+
+        .. note::
+
+            - If no handles can be found, the legend is hidden, also meaning
+              that the ``legend_kwargs`` will not be passed on.
+            - During gathering of handles and labels from the current axis or
+              the figure, duplicates will be removed; duplicates are detected
+              via their label strings.
 
         Args:
-            texts: The list of text dicts, that are passed to
-            matplotlib.pyplot.text
+            use_legend (bool, optional): Whether to set a legend or not. If
+                False, the legend will be removed.
+            gather_from_fig (bool, optional): If set, will gather legend
+                handles and labels from the whole figure. This can be useful to
+                set if the relevant information is found on another axis or in
+                a figure legend.
+            custom_labels (Sequence[str], optional): If given, use these labels
+                and associate them with existing labels. Note that if fewer
+                labels are given than handles are available, those without a
+                label will not be drawn.
+            hiding_threshold (int, optional): If given, will hide legends
+                that have more than this number of handles registered.
+            use_figlegend (bool, optional): Whether to use a *figure* legend
+                instead of an *axis* legend. If True, the axis legend will be
+                removed regardless of other options chosen above, and a figure
+                legend will be created. Note that setting this to False does
+                *not* remove an existing figure legend; your best choice here
+                is to make it invisible beforehand.
+            **legend_kwargs: Passed on to ``ax.legend``
+        """
+        # Try to get (dangling) handles and labels from the axis
+        handles, labels = self.ax.get_legend_handles_labels()
+        # NOTE Will be empty if ax.legend() was called already
+
+        # If there were no handles available in this way, try to gather the
+        # information from the current axis or the whole figure
+        if not handles or gather_from_fig:
+            h, l = [], []
+            mpo = self.fig if gather_from_fig else self.ax
+
+            for lg in mpo.findobj(mpl.legend.Legend):
+                h += [_h for _h in lg.legendHandles]
+                l += [_t.get_text() for _t in lg.texts]
+
+            log.debug("Gathered %d handles and labels from the figure and "
+                      "all its axes.", len(h))
+
+            # Remove potential duplicate handles (identified by the labels),
+            # maintaining order and association by keeping track of seen items.
+            # More info: https://stackoverflow.com/a/480227/1827608
+            seen = set()
+            hls = [(_h, _l) for _h, _l in zip(h, l)
+                   if not (_l in seen or seen.add(_l))]
+            log.debug("Removed %d duplicate legend handles.",
+                      len(h) - len(hls))
+            h, l = [hl[0] for hl in hls], [hl[1] for hl in hls]
+
+            handles += h
+            labels += l
+
+        # Might want to use custom labels
+        if custom_labels:
+            log.remark("Using custom labels:  " + ", ".join(custom_labels))
+            labels = custom_labels
+
+        log.remark("Have %d handles and %d labels available for a legend.",
+                   len(handles), len(labels))
+
+        # Evaluate the hiding threshold
+        past_thresh = (hiding_threshold is not None
+                       and min(len(handles), len(labels)) > hiding_threshold)
+        if past_thresh:
+            log.remark("Passed hiding threshold of %d handles or labels.",
+                       hiding_threshold)
+
+        # Hide or draw the _axis_ legend
+        if not use_legend or past_thresh or use_figlegend or not handles:
+            log.remark("Hiding axis legend ...")
+            legend = self.ax.legend((), fancybox=False, frameon=False)
+            legend.set_visible(False)
+            # ... not returning; might still want to draw the _figure_ legend!
+
+        else:
+            self.ax.legend(handles, labels, **legend_kwargs)
+            return
+
+        if use_figlegend and not past_thresh:
+            log.remark("Drawing figure legend ...")
+            self.fig.legend(handles, labels, **legend_kwargs)
+
+    def _hlpr_set_texts(self, *, texts: Sequence[dict]):
+        """Sets multiple text elements for the current axis.
+
+        Args:
+            texts (Sequence[dict]): The sequence of text dicts, that are
+                passed to matplotlib.pyplot.text
         """
         for text_args in texts:
             self.ax.text(**text_args)
 
     def _hlpr_set_hv_lines(self, *, hlines: list=None, vlines: list=None):
-        """Set one or multiple horizontal or vertical lines.
+        """Sets one or multiple horizontal or vertical lines.
 
         Args:
             hlines (list, optional): list of numeric positions of the lines or
-                or list of dicts with key `pos` determining the position, key
-                `limits` determining the relative limits of the line, and all
+                or list of dicts with key ``pos`` determining the position, key
+                ``limits`` determining the relative limits of the line, and all
                 additional arguments being passed on to the matplotlib
                 function.
             vlines (list, optional): list of numeric positions of the lines or
-                or list of dicts with key `pos` determining the position, key
-                `limits` determining the relative limits of the line, and all
+                or list of dicts with key ``pos`` determining the position, key
+                ``limits`` determining the relative limits of the line, and all
                 additional arguments being passed on to the matplotlib
                 function.
         """
-
         def set_line(func: Callable, *, pos: float, limits: tuple=(0., 1.),
                      **line_kwargs):
-            """Helper function to invoke the matplotlib function that sets
-            a horizontal or vertical line."""
             try:
                 pos = float(pos)
 
             except Exception as err:
-                raise ValueError("Got non-numeric value '{}' for `pos` "
-                                 "argument in set_hv_lines helper!"
-                                 "".format(pos))
+                raise ValueError(
+                    f"Got non-numeric value '{pos}' for `pos` argument in "
+                    "set_hv_lines helper!"
+                )
 
             func(pos, *limits, **line_kwargs)
 
@@ -1129,8 +1327,24 @@ class PlotHelper:
     def _hlpr_set_scales(self, *,
                          x: Union[str, dict]=None,
                          y: Union[str, dict]=None):
-        """Set a scale for the current axis"""
+        """Sets the scales for the current axis
 
+        The arguments are used to call ``ax.set_xscale`` or ``ax.set_yscale``,
+        respectively.
+        For string-like arguments, the value is directly used to set the scale
+        for that axis, e.g. ``linear``, ``log``, ``symlog``.
+        Otherwise, dict-like arguments are expected where a ``scale`` key is
+        present and defines which type of scale to use. All further arguments
+        are passed on; these are relevant for the symmetrical logarithmic
+        scale, for example.
+
+        For more information, see
+        https://matplotlib.org/api/_as_gen/matplotlib.axes.Axes.set_xscale.html
+
+        Args:
+            x (Union[str, dict], optional): The scales to use on the x-axis
+            y (Union[str, dict], optional): The scales to use on the y-axis
+        """
         def set_scale(func: Callable, *, scale: str=None, **scale_kwargs):
             func(scale, **scale_kwargs)
 

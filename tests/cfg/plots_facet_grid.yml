@@ -43,6 +43,19 @@ kinds:
     plot_kwargs:
       col_wrap: 2
 
+  line_with_helpers:
+    <<: *line
+    kinds: [line]
+    specifiers: [x, col, row, hue]
+    min_dims: 3
+    max_dims: 4
+    plot_kwargs:
+      col_wrap: 2
+      helpers:
+        set_legend:
+          use_legend: true
+          hiding_threshold: 2
+
   step:
     <<: *line
     kinds: [step]
