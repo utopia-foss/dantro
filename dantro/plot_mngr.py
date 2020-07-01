@@ -617,7 +617,7 @@ class PlotManager:
             )
             e_msg = (
                 f"An error occurred during plotting with {pc.logstr}! "
-                f"{e_dbg if not should_raise else e_no_dbg}\n"
+                f"{e_dbg if not should_raise else e_no_dbg}\n\n"
                 f"{err.__class__.__name__}: {err}"
             )
 
