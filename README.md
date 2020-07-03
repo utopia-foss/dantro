@@ -15,7 +15,7 @@ This can be beneficial especially in a scientific context, for instance when han
 It is designed to be **easily customizable** to the requirements of the project it is integrated into, even if the involved data is hierarchically structured or semantically heterogeneous.
 Furthermore, it allows a **configuration-based specification** of all operations via YAML configuration files; the resulting pipeline can then be controlled entirely via these configuration files and without requiring code changes.
 
-The `dantro` package is **open source software** released under the [LGPLv3+](COPYING.md).
+The `dantro` package is **open source software** released under the LGPLv3+ license (see [copyright notice](#copyright) below).
 It was developed alongside the [Utopia project](https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia), but is an independent package.
 
 For more information on `dantro`, its features, philosophy, and integration, please visit its **documentation** at [`dantro.readthedocs.io`](https://dantro.readthedocs.io/).
@@ -120,5 +120,51 @@ You can inspect the `build_errors.log` file via the exposed CI artifacts.
 
 ## Troubleshooting
 ### Install test and/or documentation dependencies when using `zsh`
-If you use a `zsh` terminal (default for macOS users since Catalina) and try to install extra requirements like the test and/or documentation dependencies, you will probably get an error similar to `zsh: no matches found: .[test_deps]`. 
+If you use a `zsh` terminal (default for macOS users since Catalina) and try to install extra requirements like the test and/or documentation dependencies, you will probably get an error similar to `zsh: no matches found: .[test_deps]`.
 This can be fixed by escaping the square brackets, i.e. writing `.\[test_deps\]` or  `.\[doc_deps\]`.
+
+## Copyright
+
+dantro is licensed under the [GNU Lesser General Public License Version 3][LGPLv3] or any later version.
+
+
+### Copyright Notice
+
+    dantro -- a python package for handling and plotting hierarchical data
+    Copyright (C) 2018 – 2020  dantro developers
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+A copy of the [GNU General Public License Version 3][GPLv3], and the [GNU Lesser General Public License Version 3][LGPLv3] extending it, is distributed with the source code of this program; see [`COPYING`](COPYING) and [`COPYING.LESSER`](COPYING.LESSER), respectively.
+
+
+### Copyright Holders
+
+The copyright holders of dantro are collectively referred to as _dantro developers_ in the respective copyright notices and disclaimers.
+
+dantro has been developed by (in alphabetical order):
+
+* Unai Fischer Abaigar
+* Benjamin Herdeanu
+* Daniel Lake
+* Yunus Sevinchan
+* Jeremias Traub
+* Julian Weninger
+
+Contact the developers via: [`dantro-dev@iup.uni-heidelberg.de`][devmail]
+
+
+[GPLv3]: https://www.gnu.org/licenses/gpl-3.0.en.html
+[LGPLv3]: https://www.gnu.org/licenses/lgpl-3.0.en.html
+[devmail]: mailto:dantro-dev@iup.uni-heidelberg.de
