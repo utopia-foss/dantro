@@ -4,7 +4,8 @@
 
 ## v0.14.0 _(WIP)_
 #### Features and Improvements
-
+- Documentation:
+    - !187 adds links to the source files from which example code is included into the documentation.
 
 #### Bug fixes
 - !185 renames licensing-related files in order to concur with the official LGPLv3 criteria and let [licensee](https://github.com/licensee/licensee/) correctly detect it.
