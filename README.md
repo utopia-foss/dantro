@@ -92,25 +92,23 @@ For development purposes, the following additional packages are required.
 | [Sphinx][sphinx]              | 2.4 (< 3.0)      | Documentation generator  |
 | [sphinx_rtd_theme][sphinxrtd] | 0.5              | Documentation HTML theme |
 
+To install these development-related dependencies, enter the virtual environment, navigate to the cloned repository, and perform the installation using:
+
+```bash
+(dantro) $ cd dantro
+(dantro) $ pip install -e .[dev]
+```
 
 
 ### Testing framework
 To assert correct functionality, tests are written alongside all features.
-These tests are carried out with continuous integration.
-For development, dantro advertises a test-driven approach.
-
-`dantro` is tested for Python 3.6 through 3.8 using a Continuous Integration pipeline.
-Test coverage and pipeline status can be seen on [the project page](https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro).
-
-#### Installing test dependencies
 The [`pytest`][pytest] and [`tox`][tox] packages are used as testing frameworks.
 
-To install the dependencies required for performing tests, enter the virtual environment, navigate to the cloned repository, and perform the installation using:
+All tests are carried out for Python 3.6 through 3.8 using the GitLab CI/CD and the newest versions of all [dependencies](#dependencies).
+When merging to the master branch, `dantro` is additionally tested against the specified _minimum_ versions.
 
-```bash
-(dantro) $ cd dantro
-(dantro) $ pip install .[test_deps]
-```
+Test coverage and pipeline status can be seen on [the project page](https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro).
+
 
 #### Running tests
 To run all [defined tests](tests/), call:
@@ -133,7 +131,6 @@ Given that the interpreter is available, the test for a specific environment can
 To build `dantro`'s documentation locally via [Sphinx][sphinx], install the required dependencies and invoke the `make doc` command:
 
 ```bash
-(dantro) $ pip install .[doc_deps]
 (dantro) $ cd doc
 (dantro) $ make doc
 ```
@@ -144,7 +141,7 @@ _Note:_ Sphinx is configured such that warnings will be regarded as errors, maki
 You can inspect the error logs gathered in the `doc/build_errors.log` file.
 For Python-related Sphinx referencing errors, see the [`doc/.nitpick-ignore` file](doc/.nitpick-ignore) for exceptions
 
-#### Documentation Environment
+#### GitLab Documentation Environment
 When developing dantro and pushing to the feature branch, the `build:doc` job of the CI pipeline additionally creates a documentation preview.
 The result can either be downloaded from the job artifacts or the deployed GitLab environment.
 
