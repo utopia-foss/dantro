@@ -2,6 +2,13 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.14.0 _(WIP)_
+#### Features and Improvements
+
+
+#### Bug fixes
+- !185 renames licensing-related files in order to concur with the official LGPLv3 criteria and let [licensee](https://github.com/licensee/licensee/) correctly detect it.
+
 
 ## v0.13.3
 - !183 fixes a bug in the specification of the `np.`, `xr.` and `scipy.` data operations.
