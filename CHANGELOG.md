@@ -4,6 +4,7 @@
 
 ## v0.14.0 _(WIP)_
 #### Features and Improvements
+- !186 adds a dependency table to the README and adds the `dev` installation extra to include all development-related dependencies.
 
 
 #### Bug fixes
