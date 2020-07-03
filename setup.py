@@ -12,9 +12,9 @@ install_deps = [
     'scipy>=1.4.1',         # Used as a netcdf4 storage engine for xarray
     'sympy>=1.5.1',
     'h5py>=2.10.0',
+    'matplotlib>=3.1.3',
     'networkx>=2.2',
     'ruamel.yaml>=0.16.10',
-    'matplotlib>=3.1.3',
     'paramspace>=2.5.0'
     ]
 
@@ -25,7 +25,7 @@ minimal_install_deps = [dep.replace(">=", "==") for dep in install_deps]
 test_deps = ['pytest>=3.4.0', 'pytest-cov>=2.5.1', 'tox>=3.1.2']
 
 # Dependencies for the documentation
-doc_deps = ['sphinx>=2.4,<3.0', 'sphinx_rtd_theme']
+doc_deps = ['sphinx>=2.4,<3.0', 'sphinx_rtd_theme>=0.5']
 
 # .............................................................................
 

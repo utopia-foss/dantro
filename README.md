@@ -34,6 +34,25 @@ Note that — in order to make full use of `dantro`'s features — it is meant t
 Usage examples and an integration guide can be found in the [package documentation](https://dantro.readthedocs.io/).
 
 
+### Dependencies
+`dantro` is implemented for [Python >= 3.6][Python3] and depends on the following Python packages:
+
+| Package Name                  | Minimum Version  |
+| ----------------------------- | ---------------- |
+| [numpy][numpy]                | 1.17.4           |
+| [xarray][xarray]              | 0.15.1           |
+| [dask][dask]                  | 2.10.1           |
+| [toolz][toolz]                | 0.10             |
+| [distributed][distributed]    | 2.10             |
+| [scipy][scipy]                | 1.4.1            |
+| [sympy][sympy]                | 1.5.1            |
+| [h5py][h5py]                  | 2.10             |
+| [matplotlib][matplotlib]      | 3.1.3            |
+| [networkx][networkx]          | 2.2              |
+| [ruamel.yaml][ruamelyaml]     | 0.16.10          |
+| [paramspace][paramspace]      | 2.5              |
+
+
 
 ## Developing dantro
 ### Installation for developers
@@ -53,13 +72,27 @@ If you would like to contribute to `dantro` (yeah!), you should clone the reposi
 git clone ssh://git@ts-gitlab.iup.uni-heidelberg.de:10022/utopia/dantro.git
 ```
 
-For development purposes, it makes sense to work in a specific [virtual environment](https://docs.python.org/3/library/venv.html) for dantro and install dantro in editable mode:
+For development purposes, it makes sense to work in a specific [virtual environment][venv] for dantro and install dantro in editable mode:
 
 ```bash
 $ python3 -m venv ~/.virtualenvs/dantro
 $ source ~/.virtualenvs/dantro/bin/activate
 (dantro) $ pip install -e ./dantro
 ```
+
+
+### Additional dependencies
+For development purposes, the following additional packages are required.
+
+| Package Name                  | Minimum Version  | Purpose                  |
+| ----------------------------- | ---------------- | ------------------------ |
+| [pytest][pytest]              | 3.4              | Testing framework        |
+| [pytest-cov][pytest-cov]      | 2.5.1            | Coverage report          |
+| [tox][tox]                    | 3.1.2            | Test environments        |
+| [Sphinx][sphinx]              | 2.4 (< 3.0)      | Documentation generator  |
+| [sphinx_rtd_theme][sphinxrtd] | 0.5              | Documentation HTML theme |
+
+
 
 ### Testing framework
 To assert correct functionality, tests are written alongside all features.
@@ -70,7 +103,7 @@ For development, dantro advertises a test-driven approach.
 Test coverage and pipeline status can be seen on [the project page](https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro).
 
 #### Installing test dependencies
-The [`pytest`](https://pytest.org/en/latest/) and [`tox`](https://tox.readthedocs.io/en/latest/) packages are used as testing frameworks.
+The [`pytest`][pytest] and [`tox`][tox] packages are used as testing frameworks.
 
 To install the dependencies required for performing tests, enter the virtual environment, navigate to the cloned repository, and perform the installation using:
 
@@ -87,7 +120,7 @@ To run all [defined tests](tests/), call:
 ```
 This also provides a coverage report, showing the lines that are *not* covered by the tests.
 
-Alternatively, with [`tox`](https://tox.readthedocs.io/en/latest/), it is possible to select different python environments for testing.
+Alternatively, with [`tox`][tox], it is possible to select different python environments for testing.
 Given that the interpreter is available, the test for a specific environment can be carried out with the following command:
 
 ```bash
@@ -97,7 +130,7 @@ Given that the interpreter is available, the test for a specific environment can
 
 ### Documentation
 #### Locally building the documentation
-To build `dantro`'s documentation locally via [Sphinx](https://www.sphinx-doc.org/), install the required dependencies and invoke the `make doc` command:
+To build `dantro`'s documentation locally via [Sphinx][sphinx], install the required dependencies and invoke the `make doc` command:
 
 ```bash
 (dantro) $ pip install .[doc_deps]
@@ -118,15 +151,18 @@ The result can either be downloaded from the job artifacts or the deployed GitLa
 Upon warnings or errors in the build, the job will exit with an orange warning sign.
 You can inspect the `build_errors.log` file via the exposed CI artifacts.
 
+
+
 ## Troubleshooting
 ### Install test and/or documentation dependencies when using `zsh`
 If you use a `zsh` terminal (default for macOS users since Catalina) and try to install extra requirements like the test and/or documentation dependencies, you will probably get an error similar to `zsh: no matches found: .[test_deps]`.
 This can be fixed by escaping the square brackets, i.e. writing `.\[test_deps\]` or  `.\[doc_deps\]`.
 
+
+
+
 ## Copyright
-
 dantro is licensed under the [GNU Lesser General Public License Version 3][LGPLv3] or any later version.
-
 
 ### Copyright Notice
 
@@ -164,6 +200,29 @@ dantro has been developed by (in alphabetical order):
 
 Contact the developers via: [`dantro-dev@iup.uni-heidelberg.de`][devmail]
 
+
+
+[Python3]: https://www.python.org/downloads/
+[numpy]: https://numpy.org
+[scipy]: https://www.scipy.org
+[xarray]: http://xarray.pydata.org/en/stable/
+[dask]: https://dask.org
+[toolz]: https://toolz.readthedocs.io/en/latest/
+[distributed]: https://distributed.dask.org/en/latest/
+[h5py]: http://www.h5py.org
+[sympy]: https://www.sympy.org/
+[matplotlib]: https://matplotlib.org
+[networkx]: https://networkx.github.io
+[ruamelyaml]: https://yaml.readthedocs.io/en/latest/
+[paramspace]: https://pypi.org/project/paramspace/
+
+[pytest]: https://pytest.org/en/latest/
+[pytest-cov]: https://pytest-cov.readthedocs.io/en/latest/
+[tox]: https://tox.readthedocs.io/en/latest/
+[sphinx]: https://www.sphinx-doc.org/
+[sphinxrtd]: https://sphinx-rtd-theme.readthedocs.io/en/stable/
+
+[venv]: https://docs.python.org/3/library/venv.html
 
 [GPLv3]: https://www.gnu.org/licenses/gpl-3.0.en.html
 [LGPLv3]: https://www.gnu.org/licenses/lgpl-3.0.en.html
