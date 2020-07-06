@@ -12,20 +12,29 @@ install_deps = [
     'scipy>=1.4.1',         # Used as a netcdf4 storage engine for xarray
     'sympy>=1.5.1',
     'h5py>=2.10.0',
+    'matplotlib>=3.1.3',
     'networkx>=2.2',
     'ruamel.yaml>=0.16.10',
-    'matplotlib>=3.1.3',
-    'paramspace>=2.5.0'
-    ]
+    'paramspace>=2.5.0',
+]
+# NOTE When changing any of the dependencies, make sure to update the table of
+#      dependencies in README.md
 
 # Minimal versions of all of the above
 minimal_install_deps = [dep.replace(">=", "==") for dep in install_deps]
 
 # Dependencies for the tests
-test_deps = ['pytest>=3.4.0', 'pytest-cov>=2.5.1', 'tox>=3.1.2']
+test_deps = [
+    'pytest>=3.4.0',
+    'pytest-cov>=2.5.1',
+    'tox>=3.1.2',
+]
 
 # Dependencies for the documentation
-doc_deps = ['sphinx>=2.4,<3.0', 'sphinx_rtd_theme']
+doc_deps = [
+    'sphinx>=2.4,<3.0',
+    'sphinx_rtd_theme>=0.5',
+]
 
 # .............................................................................
 
@@ -126,9 +135,11 @@ setup(
     #
     # Distribution details, dependencies, ...
     packages=find_packages(exclude=["tests.*", "tests"]),
+    data_files=[("", ["COPYING", "COPYING.LESSER", "README.md"])],
     install_requires=install_deps,
     tests_require=test_deps,
     test_suite='py.test',
     extras_require=dict(minimal_deps=minimal_install_deps,
-                        test_deps=test_deps, doc_deps=doc_deps)
+                        test=test_deps, doc=doc_deps,
+                        dev=test_deps + doc_deps)
 )
