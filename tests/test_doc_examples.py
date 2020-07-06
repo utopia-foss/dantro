@@ -127,6 +127,7 @@ def test_examples_all(data_dir):
 
     # .........................................................................
     data_dir_path = data_dir
+
     ### Start -- examples_loading_setup
     # Initialize the manager, associating it with a directory to load data from
     dm = MyDataManager(data_dir_path, name="happy_testing")
@@ -166,6 +167,11 @@ def test_examples_all(data_dir):
         print("Got container:", container_name, container)
         # ... do something with the containers also_barbaz, barbaz, and foobar
     ### End ---- examples_loading_iteration
+
+    # NOTE The hdf5 files that are loaded below are created by the data_dir
+    #      fixture above for the purpose of this test. When using this code
+    #      outside of examples, you typically want to replace it with your own
+    #      data files.
 
     ### Start -- examples_loading_hdf5
     dm.load("measurements", loader="hdf5", glob_str="measurements/day*.hdf5")

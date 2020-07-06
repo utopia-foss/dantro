@@ -4,6 +4,13 @@ Specializing :py:mod:`dantro` Classes
 This page shows a few examples of how to specialize :py:mod:`dantro` classes to your liking.
 This step is an important aspect of adapting dantro to work with the data structures that you are frequently using, which is beneficial for good :doc:`integration <integrating>` into your workflow.
 
+.. note::
+
+    The code snippets shown on this page are implemented as test cases to assert that they function as intended.
+    To have a look at the full source code used in the examples below, you can :download:`download the relevant file <../tests/test_doc_examples.py>` or `view it online <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/-/blob/master/tests/test_doc_examples.py>`_.
+
+    Note that the integration into the test framework requires some additional code in those files, e.g. to generate dummy data.
+
 .. contents::
     :local:
     :depth: 2

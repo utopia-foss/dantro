@@ -12,8 +12,16 @@ For installation instructions, have a look at the README.
     These examples do **not** go into depth about all dantro features but aim to give an overview.
     To get a deeper look, follow the links provided on this page and in the :doc:`rest of the documentation <index>`.
 
-    Specifically, these examples do **not** show how dantro can be specialized for your use case and tightly integrated into your workflow.
+    Specifically, these examples do **not** show how dantro can be specialized for your use case and integrated into your workflow.
     For that, see :doc:`specializing` and :doc:`integrating`, respectively.
+
+.. note::
+
+    The code snippets shown on this page are implemented as test cases to assert that they function as intended.
+    To have a look at the full source code used in the examples below, you can :download:`download the relevant file <../tests/test_doc_examples.py>` or `view it online <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/-/blob/master/tests/test_doc_examples.py>`_.
+
+    Note that the integration into the test framework requires some additional code in those files, e.g. to generate dummy data.
+
 
 .. contents::
     :local:

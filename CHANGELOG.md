@@ -4,6 +4,8 @@
 
 ## v0.14.0 _(WIP)_
 #### Features and Improvements
+- Documentation:
+    - !187 adds links to the source files from which example code is included into the documentation.
 - !186 adds a dependency table to the README and adds the `dev` installation extra to include all development-related dependencies.
 
 
