@@ -135,6 +135,7 @@ setup(
     #
     # Distribution details, dependencies, ...
     packages=find_packages(exclude=["tests.*", "tests"]),
+    data_files=[("", ["COPYING", "COPYING.LESSER", "README.md"])],
     install_requires=install_deps,
     tests_require=test_deps,
     test_suite='py.test',
