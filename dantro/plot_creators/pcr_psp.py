@@ -600,7 +600,7 @@ class UniversePlotCreator(ExternalPlotCreator):
             # Given the coordinates, retrieve the data for a single universe
             # from the state map. As _coords is created by the _prepare_cfg
             # method, it will unambiguously selects a universe ID.
-            uni_id = int(self._psp_active_smap_cache.sel(**_coords))
+            uni_id = int(self._psp_active_smap_cache.sel(_coords))
 
         # Select the corresponding universe from the ParamSpaceGroup
         uni = self.psgrp[uni_id]
