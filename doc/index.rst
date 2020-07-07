@@ -26,7 +26,6 @@ It allows loading possibly heterogeneous data into a tree-like structure that ca
     data_io/data_ops
     data_io/transform
     data_io/large_data
-    data_io/multidim
     data_io/*
 
 .. toctree::
