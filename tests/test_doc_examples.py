@@ -113,33 +113,33 @@ def cfg() -> dict:
     return load_yml(DOC_EXAMPLES_CFG)
 
 # -----------------------------------------------------------------------------
-# examples.rst
+# usage.rst
 
-def test_examples_all(data_dir):
-    ### Start -- examples_setup_dantro
+def test_usage_all(data_dir):
+    ### Start -- usage_setup_dantro
     from dantro import DataManager
     from dantro.data_loaders import Hdf5LoaderMixin, YamlLoaderMixin
 
     class MyDataManager(Hdf5LoaderMixin, YamlLoaderMixin, DataManager):
         """MyDataManager is a manager that can load HDF5 and YAML files"""
         pass  # Done here. Nothing else to do.
-    ### End ---- examples_setup_dantro
+    ### End ---- usage_setup_dantro
 
     # .........................................................................
     data_dir_path = data_dir
 
-    ### Start -- examples_loading_setup
+    ### Start -- usage_loading_setup
     # Initialize the manager, associating it with a directory to load data from
     dm = MyDataManager(data_dir_path, name="happy_testing")
-    ### End ---- examples_loading_setup
+    ### End ---- usage_loading_setup
 
-    ### Start -- examples_loading_empty_tree
+    ### Start -- usage_loading_empty_tree
     print(dm.tree)
     # Will print:
     #   Tree of MyDataManager 'happy_testing', 0 members, 0 attributes
-    ### End ---- examples_loading_empty_tree
+    ### End ---- usage_loading_empty_tree
 
-    ### Start -- examples_loading_yaml
+    ### Start -- usage_loading_yaml
     # Load YAML data from the data directory
     dm.load("my_cfg_files",    # the name of this entry
             loader="yaml",     # which loader to use
@@ -153,27 +153,27 @@ def test_examples_all(data_dir):
     #       └┬ also_barbaz   <MutableMappingContainer, 1 attribute>
     #        ├ barbaz        <MutableMappingContainer, 1 attribute>
     #        └ foobar        <MutableMappingContainer, 1 attribute>
-    ### End ---- examples_loading_yaml
+    ### End ---- usage_loading_yaml
 
-    ### Start -- examples_loading_work_with_objects
+    ### Start -- usage_loading_work_with_objects
     # Get the loaded objects
     foobar = dm['my_cfg_files']['foobar']
     barbaz = dm['my_cfg_files/barbaz']
     # ... can now work with these as if they were dicts
-    ### End ---- examples_loading_work_with_objects
+    ### End ---- usage_loading_work_with_objects
 
-    ### Start -- examples_loading_iteration
+    ### Start -- usage_loading_iteration
     for container_name, container in dm['my_cfg_files'].items():
         print("Got container:", container_name, container)
         # ... do something with the containers also_barbaz, barbaz, and foobar
-    ### End ---- examples_loading_iteration
+    ### End ---- usage_loading_iteration
 
     # NOTE The hdf5 files that are loaded below are created by the data_dir
     #      fixture above for the purpose of this test. When using this code
     #      outside of examples, you typically want to replace it with your own
     #      data files.
 
-    ### Start -- examples_loading_hdf5
+    ### Start -- usage_loading_hdf5
     dm.load("measurements", loader="hdf5", glob_str="measurements/day*.hdf5")
 
     # Given the large amount of data, look only at a condensed tree
@@ -201,22 +201,22 @@ def test_examples_all(data_dir):
     #            ├ ...                ... (22 more) ...
     #         └ temperatures     <NumpyDataContainer, float64, shape (169,), …
     #      ├ ...                      ... (40 more) ...
-    ### End ---- examples_loading_hdf5
+    ### End ---- usage_loading_hdf5
 
     # .........................................................................
-    ### Start -- examples_plotting_setup
+    ### Start -- usage_plotting_setup
     from dantro import PlotManager
 
     # Create a PlotManager and associate it with the existing DataManager
     pm = PlotManager(dm=dm)
-    ### End ---- examples_plotting_setup
+    ### End ---- usage_plotting_setup
     pm.raise_exc = True
 
-    ### Start -- examples_plotting_basic_lineplot
+    ### Start -- usage_plotting_basic_lineplot
     pm.plot("my_example_lineplot",
             creator="external", module=".basic", plot_func="lineplot",
             y="measurements/day000/precipitation")
-    ### End ---- examples_plotting_basic_lineplot
+    ### End ---- usage_plotting_basic_lineplot
 
 
 
