@@ -615,69 +615,6 @@ def test_groups_graphgroup():
     ### End ---- groups_graphgroup_property_maps
 
 
-# data_structures/groups/psp.rst
-def test_groups_psp():
-    """Examples for the ParamSpaceGroup-related docs examples"""
-    ### Start -- groups_psp_define_pspace
-    # Define a 2D parameter space (typically done from a YAML file)
-    from paramspace import ParamSpace, ParamDim
-
-    all_params = {
-        "some_parameter": "foo",
-        "more_parameters": {
-            "spam": "fish",
-            "beta": ParamDim(default=1., values=[.01, .03, .1, .3, 1.]),
-        },
-        "seed": ParamDim(default=42, range=[20]),
-    }
-
-    pspace = ParamSpace(all_params)
-    ### End ---- groups_psp_define_pspace
-
-    ### Start -- groups_psp_fill_pspgrp
-    import numpy as np
-    import xarray as xr
-
-    from dantro.groups import ParamSpaceGroup
-    from dantro.containers import XrDataContainer
-
-    pspgrp = ParamSpaceGroup(name="my_parameter_sweep", pspace=pspace)
-
-    for params, state_no_str in pspace.iterator(with_info='state_no_str'):
-        # Create a ParamSpaceState group, using the state number as name
-        pss = pspgrp.new_group(state_no_str)
-
-        # Populate the state group with some data (with labelled dimensions)
-        some_data = xr.DataArray(data=np.random.random((2,3,4)),
-                                 dims=('foo', 'bar', 'baz'),
-                                 coords=dict(foo=[0, 1],
-                                             bar=[0, 10, 20],
-                                             baz=[.1, .2, .4, .8]))
-        pss.add(XrDataContainer(name="some_data", data=some_data))
-    ### End ---- groups_psp_fill_pspgrp
-
-    ### Start -- groups_psp_usage
-    # We now have fully populated group, associated with the 2D parameter space
-    assert pspgrp.pspace.num_dims == 2
-    assert pspgrp.pspace.volume == 5 * 20
-    assert len(pspgrp) == pspgrp.pspace.volume
-
-    # We can iterate over it, as usual
-    for pss in pspgrp.values():
-        # ^- the ParamSpaceStateGroup for a specific state
-        # ... and the states know their coordinates in the parameter space
-        print("Point in parameter space: ", pss.coords)
-
-    # Also, we can combine the data inside the group into a higher-dimensional
-    # object using the select method:
-    all_data = pspgrp.select(field="some_data")
-
-    # ... should now have 5 dimensions: 3 data dimensions + 2 pspace dimensions
-    assert all_data["some_data"].ndim == 5
-    assert set(all_data["some_data"].coords.keys()) == {"foo", "bar", "baz",
-                                                        "seed", "beta"}
-    ### End ---- groups_psp_usage
-
 
 # -----------------------------------------------------------------------------
 # -- plotting -----------------------------------------------------------------

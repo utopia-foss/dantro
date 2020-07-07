@@ -6,7 +6,7 @@ Plots from Multidimensional Data
 The dantro plotting framework tries to make the plotting of multidimensional data as easy as possible.
 This page describes how to define plot functions and plot configurations for these scenarios.
 
-If you have not already done so, **make sure to read up on the corresponding nomenclature** (*universes* and *multiverses*, introduced :ref:`here <data_io_multidim>`) before continuing on this page.
+If you have not already done so, **make sure to read up on the corresponding nomenclature** (*universes* and *multiverses*, introduced :ref:`here <universes_and_multiverses>`) before continuing on this page.
 
 .. contents::
     :local:
