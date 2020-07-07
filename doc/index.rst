@@ -12,10 +12,10 @@ It allows loading possibly heterogeneous data into a tree-like structure that ca
 .. toctree::
     :maxdepth: 2
 
-    examples
-    philosophy
-    specializing
+    usage
     integrating
+    specializing
+    philosophy
 
 .. toctree::
     :caption: Data Handling and Transformation

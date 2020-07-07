@@ -1,7 +1,7 @@
 .. _integrate_dantro:
 
-Integrating :py:mod:`dantro` into your Project
-==============================================
+Integration Example
+===================
 
 :py:mod:`dantro` works best if it's tightly integrated into your project.
 The aim of this guide is to give step-by-step instructions of how :py:mod:`dantro` can be used to build a data processing pipeline for your project.
@@ -9,7 +9,7 @@ The aim of this guide is to give step-by-step instructions of how :py:mod:`dantr
 .. note::
 
     The examples given here focus on coveying the necessary steps for the pipeline integration, not so much on the :ref:`ideal structure <integrate_module_structure>` of the implementation.
-    Thus, **we recommend going through this guide at least once before starting with the actual implementation** of the data processing pipeline for *your* project. 🤓
+    Thus, **we recommend going through this guide at least once before starting with the actual implementation** of the data processing pipeline for your project. 🤓
 
 .. contents::
     :local:
