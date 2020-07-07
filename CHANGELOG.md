@@ -3,6 +3,9 @@
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
 
+## v0.13.4
+- !191 fixes a bug that prohibited a coordinate to be named `tolerance` in `UniversePlotCreator`, see #192.
+
 ## v0.13.3
 - !183 fixes a bug in the specification of the `np.`, `xr.` and `scipy.` data operations.
 
