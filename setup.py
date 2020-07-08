@@ -12,10 +12,10 @@ install_deps = [
     'scipy>=1.4.1',         # Used as a netcdf4 storage engine for xarray
     'sympy>=1.5.1',
     'h5py>=2.10.0',
-    'matplotlib>=3.1.3',
+    'matplotlib>=3.2.1',
     'networkx>=2.2',
     'ruamel.yaml>=0.16.10',
-    'paramspace>=2.5.0',
+    'paramspace>=2.5.1',
 ]
 # NOTE When changing any of the dependencies, make sure to update the table of
 #      dependencies in README.md

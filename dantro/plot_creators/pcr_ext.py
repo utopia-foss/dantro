@@ -20,7 +20,9 @@ from .pcr_base import BasePlotCreator
 from ..dag import TransformationDAG
 
 from ._movie_writers import FileWriter
-from ._plot_helper import PlotHelper, EnterAnimationMode, ExitAnimationMode
+from ._plot_helper import (PlotHelper,
+                           EnterAnimationMode, ExitAnimationMode,
+                           PlotHelperError, PlotHelperErrors)
 
 
 # Local constants
@@ -409,10 +411,11 @@ class ExternalPlotCreator(BasePlotCreator):
             with style_context, leak_prev:
                 hlpr.setup_figure()
 
-                log.debug("Calling plotting function '%s' ...",
-                          plot_func.__name__)
+                log.note("Now calling plotting function '%s' ...",
+                         plot_func.__name__)
                 plot_func(*args, **kwargs)
 
+                log.note("Plot function finished. Finishing up ...")
                 hlpr.invoke_enabled(axes='all')
                 hlpr.save_figure()
 

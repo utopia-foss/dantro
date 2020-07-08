@@ -74,11 +74,15 @@
 - set_limits:
     x: [1,2,3]
   _raises: ValueError
-  _match: list or tuple of length 2
+  _match: too many values to unpack
 - set_limits:
     x: foo
-  _raises: TypeError
-  _match: needs to be a dict, list, or a tuple, but was of type
+  _raises: ValueError
+  _match: too many values to unpack
+- set_limits:
+    x: FB
+  _raises: ValueError
+  _match: Got an invalid str-type argument 'F' to the set_limits helper
 - set_limits:
     x:
       invalid_key: foo
@@ -91,13 +95,39 @@
 - set_limits:
     x: [foo, ~]
   _raises: ValueError
-  _match: Got an invalid str-type argument 'foo' to set_limits
-    
+  _match: Got an invalid str-type argument 'foo' to the set_limits helper
+
 # .............................................................................
-- set_legend: {}
-- set_legend:
+- &set_legend_defaults
+  set_legend: {}
+  _plot_values: [1, 2, 3]
+  _plot_kwargs: {label: foobar}
+- <<: *set_legend_defaults
+  set_legend:
     use_legend: false
-- set_legend:
+- <<: *set_legend_defaults
+  set_legend:
+    custom_labels: [foo, bar, baz]
+- <<: *set_legend_defaults
+  set_legend:
+    hiding_threshold: 0
+- <<: *set_legend_defaults
+  set_legend: {}
+  _plot_kwargs: {label: ~}
+- <<: *set_legend_defaults
+  set_legend: {}
+  _invoke_legend: true
+  _invoke_figlegend: true
+- <<: *set_legend_defaults
+  set_legend:
+    use_legend: true
+    use_figlegend: true
+- <<: *set_legend_defaults
+  set_legend:
+    use_legend: false
+    use_figlegend: true
+- <<: *set_legend_defaults
+  set_legend:
     invalid_param: 123
   _raises: TypeError
   _match: got an unexpected keyword argument 'invalid_param'
@@ -121,7 +151,7 @@
   _match: object has no property 'invalid_params'
 - set_texts:
     texts:
-      - missing_argument: 123  
+      - missing_argument: 123
   _raises: TypeError
   _match: "missing a required argument: 'x'"   # also missing 'y' and 's'
 

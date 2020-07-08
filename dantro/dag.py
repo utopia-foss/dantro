@@ -1110,7 +1110,7 @@ class TransformationDAG:
             res = trf.compute()
             results[tag] = postprocess_result(res, tag=tag)
 
-            log.note("Finished after %.2gs.", time.time() - _tt)
+            log.remark("Finished after %.2gs.", time.time() - _tt)
 
         # Update profiling information
         t1 = time.time()
