@@ -13,7 +13,9 @@
     - !189 improves the names of the introductory guides, as proposed in #190.
     - !190 makes using the IPython directive possible, simplifying the embedding of code examples, addressing #188.
     - !190 adds a section describing the "Universe and Multiverse" terminology.
-- !186 adds a dependency table to the README and adds the `dev` installation extra to include all development-related dependencies.
+- Improvements of the README
+    - !186 adds a dependency table and adds the `dev` installation extra to include all development-related dependencies.
+    - !193 adds installation instructions for `conda` as an alternative to `pip` (see #184)
 
 #### Bug fixes
 - !185 renames licensing-related files in order to concur with the official LGPLv3 criteria and let [licensee](https://github.com/licensee/licensee/) correctly detect it.

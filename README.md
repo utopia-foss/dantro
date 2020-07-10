@@ -16,60 +16,80 @@ It is designed to be **easily customizable** to the requirements of the project 
 Furthermore, it allows a **configuration-based specification** of all operations via YAML configuration files; the resulting pipeline can then be controlled entirely via these configuration files and without requiring code changes.
 
 The `dantro` package is **open source software** released under the LGPLv3+ license (see [copyright notice](#copyright) below).
-It was developed alongside the [Utopia project](https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia), but is an independent package.
+It was developed alongside the [Utopia project][utopia-project], but is an independent package.
 
-For more information on `dantro`, its features, philosophy, and integration, please visit its **documentation** at [`dantro.readthedocs.io`](https://dantro.readthedocs.io/).
+For more information on `dantro`, its features, philosophy, and integration, please visit its **documentation** at [`dantro.readthedocs.io`][dantro-docs].
+If you encounter any issues with `dantro` or have suggestions or questions of any kind, please open an issue via the [**project page**][dantro-project].
 
 
 
 ## Installing dantro
-The `dantro` package is available [on the Python Package Index](https://pypi.org/project/dantro/).
-The recommended way of installing it is via [`pip`](https://pip.pypa.io/en/stable/):
+The `dantro` package is available [on the Python Package Index][pypi-dantro] and [via `conda-forge`][conda-forge-dantro].
 
-```bash
-pip install dantro
-```
+If you are unsure which installation method works best for you, we recommend to use `conda`.
 
 Note that — in order to make full use of `dantro`'s features — it is meant to be *integrated* into your project and customized to its needs.
-Usage examples and an integration guide can be found in the [package documentation](https://dantro.readthedocs.io/).
+Basic usage examples and an integration guide can be found in the [package documentation][dantro-docs].
+
+
+### Installation via [`conda`][conda]
+As a first step, install [Anaconda][Anaconda] or [Miniconda][Miniconda], if you have not already done so.
+You can then use the following command to install dantro and its dependencies:
+
+```bash
+$ conda install -c conda-forge dantro
+```
+
+
+### Installation via [`pip`][pip]
+If you already have a Python installation on your system, you probably already have `pip` installed as well.
+To install dantro and its dependencies, invoke the following command:
+
+```bash
+$ pip install dantro
+```
+
+In case the `pip` command is not available, follow [these instructions][pip-installation] to install it or switch to the `conda`-based installation.
+_Note_ that if you have both Python 2 and Python 3 installed, you might have to use the `pip3` command instead.
+
 
 
 ### Dependencies
 `dantro` is implemented for [Python >= 3.6][Python3] and depends on the following Python packages:
 
-| Package Name                  | Minimum Version  |
-| ----------------------------- | ---------------- |
-| [numpy][numpy]                | 1.17.4           |
-| [xarray][xarray]              | 0.15.1           |
-| [dask][dask]                  | 2.10.1           |
-| [toolz][toolz]                | 0.10             |
-| [distributed][distributed]    | 2.10             |
-| [scipy][scipy]                | 1.4.1            |
-| [sympy][sympy]                | 1.5.1            |
-| [h5py][h5py]                  | 2.10             |
-| [matplotlib][matplotlib]      | 3.1.3            |
-| [networkx][networkx]          | 2.2              |
-| [ruamel.yaml][ruamelyaml]     | 0.16.10          |
-| [paramspace][paramspace]      | 2.5              |
+| Package Name                  | Minimum Version  | Purpose                  |
+| ----------------------------- | ---------------- | ------------------------ |
+| [numpy][numpy]                | 1.17.4           | 
+| [xarray][xarray]              | 0.15.1           | For labelled N-dimensional arrays |
+| [dask][dask]                  | 2.10.1           | To work with large data |
+| [toolz][toolz]                | 0.10             | For [dask.delayed][dask-delayed]
+| [distributed][distributed]    | 2.10             | For distributed computing |
+| [scipy][scipy]                | 1.4.1            | As engine for NetCDF files |
+| [sympy][sympy]                | 1.5.1            | For symbolic math operations |
+| [h5py][h5py]                  | 2.10             | For reading HDF5 datasets |
+| [matplotlib][matplotlib]      | 3.2.1            | For data visualization |
+| [networkx][networkx]          | 2.2              | For network visualization |
+| [ruamel.yaml][ruamelyaml]     | 0.16.10          | For parsing YAML configuration files |
+| [paramspace][paramspace]      | 2.5              | For dictionary- or YAML-based parameter spaces |
 
 
 
 ## Developing dantro
 ### Installation for developers
-For installation of versions that are not on the PyPI, `pip` allows specifying a git repository:
+For installation of versions that are not on the PyPI, `pip` allows specifying an URL to a git repository:
 
 ```bash
-pip install git+<clone-link>@<some-branch-name>
+$ pip install git+<clone-link>@<some-branch-name>
 ```
 
-Here, replace `clone-link` with the clone URL of this project and `some-branch-name` with the name of the branch that you want to install the package from (see the [`pip` documentation](https://pip.pypa.io/en/stable/reference/pip_install/#git) for details).
+Here, replace `clone-link` with the clone URL of this project and `some-branch-name` with the name of the branch that you want to install the package from (see the [`pip` documentation][pip-install-docs] for details).
 Alternatively, omit the `@` and everything after it.
 If you do not have SSH keys available, use the HTTPS link.
 
 If you would like to contribute to `dantro` (yeah!), you should clone the repository to a local directory:
 
 ```bash
-git clone ssh://git@ts-gitlab.iup.uni-heidelberg.de:10022/utopia/dantro.git
+$ git clone <clone-link>
 ```
 
 For development purposes, it makes sense to work in a specific [virtual environment][venv] for dantro and install dantro in editable mode:
@@ -107,7 +127,7 @@ The [`pytest`][pytest] and [`tox`][tox] packages are used as testing frameworks.
 All tests are carried out for Python 3.6 through 3.8 using the GitLab CI/CD and the newest versions of all [dependencies](#dependencies).
 When merging to the master branch, `dantro` is additionally tested against the specified _minimum_ versions.
 
-Test coverage and pipeline status can be seen on [the project page](https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro).
+Test coverage and pipeline status can be seen on [the project page][dantro-project].
 
 
 #### Running tests
@@ -197,7 +217,18 @@ dantro has been developed by (in alphabetical order):
 
 Contact the developers via: [`dantro-dev@iup.uni-heidelberg.de`][devmail]
 
+[dantro-project]: https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro
+[dantro-docs]: https://dantro.readthedocs.io/
+[pypi-dantro]: https://pypi.org/project/dantro/
+[conda-forge-dantro]: https://anaconda.org/conda-forge/dantro
 
+[utopia-project]: https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia
+
+[pip]: https://pip.pypa.io/en/stable/
+[pip-installation]: https://pip.pypa.io/en/stable/installing/
+[conda]: https://conda.io/en/latest/
+[Anaconda]: https://www.anaconda.com/download
+[Miniconda]: https://docs.conda.io/en/latest/miniconda.html
 
 [Python3]: https://www.python.org/downloads/
 [numpy]: https://numpy.org
@@ -205,6 +236,7 @@ Contact the developers via: [`dantro-dev@iup.uni-heidelberg.de`][devmail]
 [xarray]: http://xarray.pydata.org/en/stable/
 [dask]: https://dask.org
 [toolz]: https://toolz.readthedocs.io/en/latest/
+[dask-delayed]: https://docs.dask.org/en/latest/delayed.html
 [distributed]: https://distributed.dask.org/en/latest/
 [h5py]: http://www.h5py.org
 [sympy]: https://www.sympy.org/
@@ -219,6 +251,7 @@ Contact the developers via: [`dantro-dev@iup.uni-heidelberg.de`][devmail]
 [sphinx]: https://www.sphinx-doc.org/
 [sphinxrtd]: https://sphinx-rtd-theme.readthedocs.io/en/stable/
 
+[pip-install-docs]: https://pip.pypa.io/en/stable/reference/pip_install/#git
 [venv]: https://docs.python.org/3/library/venv.html
 
 [GPLv3]: https://www.gnu.org/licenses/gpl-3.0.en.html
