@@ -705,12 +705,41 @@ file_cache_with_callable_result:
       - 041086b927535557204b1a16c9026be2.pkl
 
 
-file_cache_pkl_fallback:
+file_cache_netcdf3_coercion:
   params:
     transform:
       - operation: np.array
         args: [[1,2,3]]
-        kwargs: {dtype: uint64}  # provokes storage failure with corrupt file
+        kwargs: {dtype: uint64}  # coerced by xarray
+        tag: arr_uint64
+      - xr.DataArray: {data: !dag_tag arr_uint64}
+        file_cache:
+          read: true
+          write:
+            enabled: true
+            storage_options:
+              attempt_pickling: true
+        tag: arr_uint64_write
+      - xr.DataArray: {data: !dag_tag arr_uint64}
+        file_cache:
+          read: true
+        tag: arr_uint64_read
+
+  expected:
+    num_nodes: 3
+    num_objects: 4
+    tags: [dag, dm, arr_uint64, arr_uint64_write, arr_uint64_read]
+    cache_dir_available: true
+    cache_files:
+      - ebcd59f88bf3f5a4761d16ef53a6c8b9.nc_da
+
+
+file_cache_pkl_fallback:
+  params:
+    transform:
+      - operation: np.array
+        args: [[1,2,3, 18446744073709551615]]  # coercion fails -> can't save
+        kwargs: {dtype: uint64}
         tag: arr_uint64
       - xr.DataArray: {data: !dag_tag arr_uint64}
         file_cache:
@@ -732,7 +761,7 @@ file_cache_pkl_fallback:
     cache_dir_available: true
     cache_files:
       # - <hash>.nc_da from failed storage function call does _not_ exist
-      - ebcd59f88bf3f5a4761d16ef53a6c8b9.pkl  # .pkl shows fallback was used
+      - e6eb9083f519ef9a3a2655396514dd3f.pkl  # .pkl shows fallback was used
 
 
 file_cache_error_file_already_loaded:

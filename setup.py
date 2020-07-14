@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 # Dependencies for dantro itself
 install_deps = [
     'numpy>=1.17.4',
-    'xarray>=0.15.1',
+    'xarray>=0.16.0',
     'dask>=2.10.1',
     'toolz>=0.10.0',        # Needed for dask.delayed
     'distributed>=2.10.0',  # Needed for dask's distributed scheduler
