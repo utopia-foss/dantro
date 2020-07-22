@@ -11,7 +11,8 @@ from paramspace import ParamDim, ParamSpace
 
 from dantro.data_mngr import DataManager
 from dantro.groups import ParamSpaceGroup
-from dantro.plot_creators import UniversePlotCreator, MultiversePlotCreator
+from dantro.plot_creators import (UniversePlotCreator, MultiversePlotCreator,
+                                  SkipPlot)
 
 
 # Fixtures --------------------------------------------------------------------
@@ -96,6 +97,44 @@ def test_MultiversePlotCreator_select(init_kwargs, psp_grp_default, tmpdir):
     selector = dict(field="testdata/fixedsize/state")
     args, kwargs = mpcd._prepare_plot_func_args(mock_pfunc, select=selector)
     assert 'mv_data' in kwargs
+
+def test_MultiversePlotCreator_plot_skipping(tmpdir, init_kwargs):
+    """Tests that plot skipping works"""
+    def mock_pfunc(*_, expected_multiverse_ndim=None, **__):
+        if expected_multiverse_ndim is not None:
+            raise TypeError("Argument should not have been passed through!")
+
+    mpc = MultiversePlotCreator("test", **init_kwargs)
+
+    # These should all be skipped
+    with pytest.raises(SkipPlot, match=r"dimensionality 4 ∉ \{123\}"):
+        mpc(out_path=tmpdir.join("skips"), plot_func=mock_pfunc,
+            expected_multiverse_ndim=123)
+
+    with pytest.raises(SkipPlot, match=r"dimensionality 4 ∉ \{2, 3, 5\}"):
+        mpc(out_path=tmpdir.join("skips"), plot_func=mock_pfunc,
+            expected_multiverse_ndim=(3,5,2))
+
+    # The following two should not be skipped
+    selector = dict(field="testdata/fixedsize/state",
+                    subspace=dict(p0=slice(2), p1=slice(1.5, 2.5)))
+
+    mpc(out_path=tmpdir.join("plots0"), plot_func=mock_pfunc, select=selector,
+        expected_multiverse_ndim=4)
+    mpc(out_path=tmpdir.join("plots1"), plot_func=mock_pfunc, select=selector,
+        expected_multiverse_ndim=(1,2,4,5))
+    mpc(out_path=tmpdir.join("plots2"), plot_func=mock_pfunc, select=selector,
+        expected_multiverse_ndim=None)  # no check
+    mpc(out_path=tmpdir.join("plots3"), plot_func=mock_pfunc, select=selector)
+
+    # Check errors
+    with pytest.raises(TypeError, match=r"Expected sequence or set of"):
+        mpc(out_path=tmpdir.join("fails"), plot_func=mock_pfunc,
+            expected_multiverse_ndim=(3, "four", 2))
+
+    with pytest.raises(TypeError, match=r"but got: 'four'"):
+        mpc(out_path=tmpdir.join("fails"), plot_func=mock_pfunc,
+            expected_multiverse_ndim="four")
 
 
 def test_MultiversePlotCreator_DAG_usage(init_kwargs):

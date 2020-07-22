@@ -31,6 +31,8 @@ class SkipPlot(Exception):
     and can thus be raised anywhere below it: in the plot creators, in the
     user-defined plotting functions, ...
     """
+    def __init__(self, what: str=""):
+        super().__init__(what)
 
 
 # -----------------------------------------------------------------------------
@@ -130,11 +132,11 @@ class BasePlotCreator(AbstractPlotCreator):
 
         # Check that it was set correctly
         if self.DEFAULT_EXT_REQUIRED and not self.default_ext:
-            raise ValueError("{} requires a default extension, but neither "
-                             "the argument ('{}') nor the DEFAULT_EXT class "
-                             "variable ('{}') evaluated to True."
-                             "".format(self.logstr, default_ext,
-                                       self.DEFAULT_EXT))
+            raise ValueError(
+                f"{self.logstr} requires a default extension, but neither "
+                f"the argument ('{default_ext}') nor the DEFAULT_EXT class "
+                f"variable ('{self.DEFAULT_EXT}') evaluated to True."
+            )
 
     # .........................................................................
     # Properties
@@ -220,6 +222,9 @@ class BasePlotCreator(AbstractPlotCreator):
             _, cfg = self._perform_data_selection(use_dag=use_dag,
                                                   plot_kwargs=cfg)
 
+        # Allow derived creators to check whether this plot should be skipped
+        self._check_skipping(plot_kwargs=cfg)
+
         # Find out if it's ok if out_path already exists, then prepare the path
         exist_ok = self._exist_ok
         if 'exist_ok' in cfg:
@@ -287,7 +292,7 @@ class BasePlotCreator(AbstractPlotCreator):
         # Check that the file path does not already exist:
         if os.path.exists(out_path):
             msg = ("There already exists a file at the specified output path "
-                   "for {}:\n  {}".format(self.logstr, out_path))
+                   f"for {self.logstr}:\n  {out_path}")
             if not exist_ok:
                 raise FileExistsError(msg)
             log.warning(msg)
@@ -296,6 +301,31 @@ class BasePlotCreator(AbstractPlotCreator):
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
         # Nothing more to do here, at least in the base class
+
+    def _check_skipping(self, *, plot_kwargs: dict):
+        """A method that can be specialized by derived plot creators to check
+        whether a plot should be skipped.
+        Is invoked from the
+        :py:meth:`~dantro.plot_creators.pcr_base.BasePlotCreator.__call__`
+        method, *after*
+        :py:meth:`~dantro.plot_creators.pcr_base.BasePlotCreator._perform_data_selection`
+        (for plots with activated data selection via DAG), and *prior to*
+        :py:meth:`~dantro.plot_creators.pcr_base.BasePlotCreator._prepare_path`
+        (such that path creation can be avoided).
+
+        In cases where this plot is to be skipped, the custom exception
+        :py:class:`~dantro.plot_creators.pcr_base.SkipPlot` should be raised,
+        the error message allowing to specify a reason for skipping the plot.
+
+        .. note::
+
+            While the base class method may be a no-op, it should still be
+            called via ``super()._check_skipping`` from the derived classes.
+
+        Args:
+            plot_kwargs (dict): The full plot configuration
+        """
+        pass
 
     # .........................................................................
     # Data selection interface, using TransformationDAG
