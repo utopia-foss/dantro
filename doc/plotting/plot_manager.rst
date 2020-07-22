@@ -116,7 +116,7 @@ Both are using :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` (kn
 
     This can be useful when desiring to define YAML anchors that are used in the actual plot configuration entries, e.g. for specifying defaults.
 
-
+.. _psweep_plot_cfg:
 
 Parameter sweeps in plot configurations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -220,6 +220,41 @@ This multiple inheritance approach has the following advantages:
 
     When several base plot configurations are specified, we propose to use a naming scheme that describes the purpose of the base configuration entries and broadly categorizes the entry.
     In the example above, the ``.plot`` and ``.style`` prefixes denote the effect of the configuration.
+
+
+Features
+--------
+
+.. _plot_mngr_skipping_plots:
+
+Skipping Plots
+^^^^^^^^^^^^^^
+To skip a plot, raise a :py:class:`dantro.plot_creators.pcr_base.SkipPlot` exception anywhere in your plot function or the plot creator.
+
+Additionally, plot creators can supply built-in plot configuration arguments that allow to skip a plot under certain conditions.
+Currently, this is only done by the :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`, see :ref:`mv_plot_skipping`.
+
+.. hint::
+
+    The :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator` provides the :py:meth:`~dantro.plot_creators.pcr_base.BasePlotCreator._check_skipping` method, which can be overwritten by plot creators to implement this behaviour.
+
+
+What happens when a plot is skipped?
+""""""""""""""""""""""""""""""""""""
+Plotting stops immediately and returns control to the plot manager, which then informs the user about this via a log message.
+For :ref:`parameter sweep plot configurations <psweep_plot_cfg>`, skipping is evaluated individually for each point in the plot configuration parameter space.
+
+A few remarks regarding side effects (e.g., directories being created for plots that are later on decided to be skipped):
+
+* Skipping will have fewer side effects if it is triggered as early as possible.
+* If skipping is triggered by a built-in plot creator method, it is taken care that this happens *before* directory creation.
+* If :py:class:`dantro.plot_creators.pcr_base.SkipPlot` is raised at a later point, this *might* lead to intermediate directories having been created.
+
+.. note::
+
+    The plot configuration will **not** be saved for skipped plots.
+
+    There is one exception though: if a :ref:`parameter sweep plot configuration <psweep_plot_cfg>` is being used and at least one of the plots of that sweep is *not* skipped, the corresponding plot configuration metadata will be stored alongside the plot output.
 
 
 Further Reading
