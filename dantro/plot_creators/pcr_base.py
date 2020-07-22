@@ -24,6 +24,17 @@ log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
+class SkipPlot(Exception):
+    """A custom exception class that denotes that a plot is to be skipped.
+
+    This is typically handled by the :py:class:`~dantro.plot_mngr.PlotManager`
+    and can thus be raised anywhere below it: in the plot creators, in the
+    user-defined plotting functions, ...
+    """
+
+
+# -----------------------------------------------------------------------------
+
 class BasePlotCreator(AbstractPlotCreator):
     """The base class for PlotCreators
 
@@ -194,20 +205,10 @@ class BasePlotCreator(AbstractPlotCreator):
         """
         # TODO add logging messages
 
-        # Get (a deep copy of) the initial plot config
+        # Get (a deep copy of) the initial plot config, update it with new args
         cfg = self.plot_cfg
-
-        # Check if a recursive update needs to take place
         if update_plot_cfg:
             cfg = recursive_update(cfg, copy.deepcopy(update_plot_cfg))
-
-        # Find out if it's ok if out_path already exists, then prepare the path
-        exist_ok = self._exist_ok
-        if 'exist_ok' in cfg:
-            exist_ok = cfg.pop('exist_ok')
-
-        if not self.POSTPONE_PATH_PREPARATION:
-            self._prepare_path(out_path, exist_ok=exist_ok)
 
         # Perform data selection and transformation, if the plot creator class
         # supports it.
@@ -218,6 +219,14 @@ class BasePlotCreator(AbstractPlotCreator):
             use_dag = cfg.pop('use_dag', None)
             _, cfg = self._perform_data_selection(use_dag=use_dag,
                                                   plot_kwargs=cfg)
+
+        # Find out if it's ok if out_path already exists, then prepare the path
+        exist_ok = self._exist_ok
+        if 'exist_ok' in cfg:
+            exist_ok = cfg.pop('exist_ok')
+
+        if not self.POSTPONE_PATH_PREPARATION:
+            self._prepare_path(out_path, exist_ok=exist_ok)
 
         # Now call the plottig function with these arguments
         return self.plot(out_path=out_path, **cfg)
