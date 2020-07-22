@@ -123,7 +123,12 @@ def test_style_context(init_kwargs, tmp_rc_file):
 
         # Compare the used rcParams with the expected value
         for key, expected_val in expected_rc_params.items():
-            print("Testing rc parameter '{}' ...".format(key))
+            # Need to skip over some keys which are not very robust to check
+            if key in ('backend_fallback',):
+                print(f"Not testing rc parameter '{key}' ...")
+                continue
+
+            print(f"Testing rc parameter '{key}' ...")
             assert plt.rcParams[key] == expected_val
 
         print("All RC parameters matched.", end="\n\n")

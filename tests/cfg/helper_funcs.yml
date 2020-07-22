@@ -153,7 +153,7 @@
     texts:
       - missing_argument: 123
   _raises: TypeError
-  _match: "missing a required argument: 'x'"   # also missing 'y' and 's'
+  _match: missing
 
 # .............................................................................
 - set_hv_lines: {}
