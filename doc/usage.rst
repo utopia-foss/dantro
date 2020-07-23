@@ -1,9 +1,10 @@
-.. _examples:
+.. _basic_usage:
 
-Usage Examples
-==============
+Basic Usage
+===========
 
-This page will guide you through the basic usage of dantro.
+This page illustrates the basic usage of dantro.
+
 The only prerequisite for running these examples is that dantro is installed.
 For installation instructions, have a look at the README.
 
@@ -12,8 +13,16 @@ For installation instructions, have a look at the README.
     These examples do **not** go into depth about all dantro features but aim to give an overview.
     To get a deeper look, follow the links provided on this page and in the :doc:`rest of the documentation <index>`.
 
-    Specifically, these examples do **not** show how dantro can be specialized for your use case and tightly integrated into your workflow.
+    Specifically, these examples do **not** show how dantro can be specialized for your use case and integrated into your workflow.
     For that, see :doc:`specializing` and :doc:`integrating`, respectively.
+
+.. note::
+
+    The code snippets shown on this page are implemented as test cases to assert that they function as intended.
+    To have a look at the full source code used in the examples below, you can :download:`download the relevant file <../tests/test_doc_examples.py>` or `view it online <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/-/blob/master/tests/test_doc_examples.py>`_.
+
+    Note that the integration into the test framework requires some additional code in those files, e.g. to generate dummy data.
+
 
 .. contents::
     :local:
@@ -26,12 +35,12 @@ Setting up dantro
 To get started with dantro, the first thing to do is specializing it for your use case.
 For the purpose of this example, let's say we are working on a project where we need to handle data stored in the HDF5 format and some YAML data.
 
-The first step is to the :py:class:`~dantro.data_mngr.DataManager` to be able to load HDF5 data:
+The first step is to let the :py:class:`~dantro.data_mngr.DataManager` be able to load HDF5 data:
 
 .. literalinclude:: ../tests/test_doc_examples.py
     :language: python
-    :start-after: ### Start -- examples_setup_dantro
-    :end-before:  ### End ---- examples_setup_dantro
+    :start-after: ### Start -- usage_setup_dantro
+    :end-before:  ### End ---- usage_setup_dantro
     :dedent: 4
 
 We now have the ``MyDataManager`` defined, which has all the data-loading capabilities we need.
@@ -49,8 +58,8 @@ To do so, we initialize such an object, specifying the directory we want to load
 
 .. literalinclude:: ../tests/test_doc_examples.py
     :language: python
-    :start-after: ### Start -- examples_loading_setup
-    :end-before:  ### End ---- examples_loading_setup
+    :start-after: ### Start -- usage_loading_setup
+    :end-before:  ### End ---- usage_loading_setup
     :dedent: 4
 
 The name can (optionally) be given to distinguish this manager from others.
@@ -59,8 +68,8 @@ Let's check:
 
 .. literalinclude:: ../tests/test_doc_examples.py
     :language: python
-    :start-after: ### Start -- examples_loading_empty_tree
-    :end-before:  ### End ---- examples_loading_empty_tree
+    :start-after: ### Start -- usage_loading_empty_tree
+    :end-before:  ### End ---- usage_loading_empty_tree
     :dedent: 4
 
 Now, let's load some YAML data!
@@ -70,8 +79,8 @@ Also, we need to specify the name of the data entry
 
 .. literalinclude:: ../tests/test_doc_examples.py
     :language: python
-    :start-after: ### Start -- examples_loading_yaml
-    :end-before:  ### End ---- examples_loading_yaml
+    :start-after: ### Start -- usage_loading_yaml
+    :end-before:  ### End ---- usage_loading_yaml
     :dedent: 4
 
 .. note::
@@ -85,8 +94,8 @@ Item access *within* the tree also allows specifying paths, i.e. using ``/`` to 
 
 .. literalinclude:: ../tests/test_doc_examples.py
     :language: python
-    :start-after: ### Start -- examples_loading_work_with_objects
-    :end-before:  ### End ---- examples_loading_work_with_objects
+    :start-after: ### Start -- usage_loading_work_with_objects
+    :end-before:  ### End ---- usage_loading_work_with_objects
     :dedent: 4
 
 As you see, groups within the data tree behave like dictionaries.
@@ -94,8 +103,8 @@ Accordingly, we can also iterate over them as we would with dictionaries:
 
 .. literalinclude:: ../tests/test_doc_examples.py
     :language: python
-    :start-after: ### Start -- examples_loading_iteration
-    :end-before:  ### End ---- examples_loading_iteration
+    :start-after: ### Start -- usage_loading_iteration
+    :end-before:  ### End ---- usage_loading_iteration
     :dedent: 4
 
 Now, how about adding some numerical data to the tree, e.g. as stored in a hierarchically organized HDF5 file.
@@ -103,8 +112,8 @@ To do so, the ``hdf5`` loader can be used:
 
 .. literalinclude:: ../tests/test_doc_examples.py
     :language: python
-    :start-after: ### Start -- examples_loading_hdf5
-    :end-before:  ### End ---- examples_loading_hdf5
+    :start-after: ### Start -- usage_loading_hdf5
+    :end-before:  ### End ---- usage_loading_hdf5
     :dedent: 4
 
 As can be seen in the tree, for each HDF5 file, a corresponding dantro group was created, e.g.: for ``measurements/day000.h5``, a ``measurements/day000`` group is available, which contains the hierarchically organized data from the HDF5 file.
@@ -129,16 +138,16 @@ Let's create one and associate it with the existing :py:class:`~dantro.data_mngr
 
 .. literalinclude:: ../tests/test_doc_examples.py
     :language: python
-    :start-after: ### Start -- examples_plotting_setup
-    :end-before:  ### End ---- examples_plotting_setup
+    :start-after: ### Start -- usage_plotting_setup
+    :end-before:  ### End ---- usage_plotting_setup
     :dedent: 4
 
 To plot, we invoke the :py:meth:`~dantro.plot_mngr.PlotManager.plot` method:
 
 .. literalinclude:: ../tests/test_doc_examples.py
     :language: python
-    :start-after: ### Start -- examples_plotting_basic_lineplot
-    :end-before:  ### End ---- examples_plotting_basic_lineplot
+    :start-after: ### Start -- usage_plotting_basic_lineplot
+    :end-before:  ### End ---- usage_plotting_basic_lineplot
     :dedent: 4
 
 At this point, the arguments given to :py:meth:`~dantro.plot_mngr.PlotManager.plot` have not been explained.

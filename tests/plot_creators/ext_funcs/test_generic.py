@@ -102,9 +102,7 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int=1):
     # Shortcuts
     animation = dict(enabled=False, writer='frames',
                      writer_kwargs=dict(frames=dict(saving=(dict(dpi=36)))))
-    shared_kwargs = dict(plot_func=facet_grid,
-                         animation=animation,
-                         helpers=dict(save_figure=dict(dpi=36)))
+    shared_kwargs = dict(plot_func=facet_grid, animation=animation)
     out_path = lambda name: dict(out_path=os.path.join(out_dir, name + ".pdf"))
 
     # Now, the generic testing, combinations of: kinds, specifier, data

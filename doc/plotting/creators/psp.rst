@@ -6,7 +6,7 @@ Plots from Multidimensional Data
 The dantro plotting framework tries to make the plotting of multidimensional data as easy as possible.
 This page describes how to define plot functions and plot configurations for these scenarios.
 
-If you have not already done so, **make sure to read up on the corresponding nomenclature** (*universes* and *multiverses*, introduced :ref:`here <data_io_multidim>`) before continuing on this page.
+If you have not already done so, **make sure to read up on the corresponding nomenclature** (*universes* and *multiverses*, introduced :ref:`here <universes_and_multiverses>`) before continuing on this page.
 
 .. contents::
     :local:
@@ -188,3 +188,26 @@ Again, for more details, have a look at :ref:`plot_data_selection_mv` and :ref:`
 .. hint::
 
     The subspace selection happens via `the paramspace package <https://pypi.org/project/paramspace/>`_.
+
+
+
+.. _mv_plot_skipping:
+
+Skipping multiverse plots
+^^^^^^^^^^^^^^^^^^^^^^^^^
+For skipping :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator` plots, the ``expected_multiverse_ndim`` argument can optionally be specified in the plot configuration.
+The argument specifies a set of dimensionalities with which plotting is possible; if the dimensionality of the associated :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` is not part of this set, the plot will be skipped.
+
+.. code-block:: yaml
+
+    ---
+    my_plot:
+      creator: multiverse
+
+      # Declare that this plot requires a 2-, 3-, or 4-dimensional associated
+      # ParamSpaceGroup and should be skipped if this condition is not met
+      expected_multiverse_ndim: [2,3,4]
+
+      # ...
+
+See :ref:`plot_mngr_skipping_plots` for general information about skipping of plots.

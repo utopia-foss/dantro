@@ -8,6 +8,7 @@ TRACE = 5
 REMARK = 12
 NOTE = 18
 PROGRESS = 22
+CAUTION = 23
 HILIGHT = 25
 SUCCESS = 35
 
@@ -21,17 +22,18 @@ class DantroLogger(logging.getLoggerClass()):
         logging.addLevelName(REMARK, "REMARK")
         logging.addLevelName(NOTE, "NOTE")
         logging.addLevelName(PROGRESS, "PROGRESS")
+        logging.addLevelName(CAUTION, "CAUTION")
         logging.addLevelName(HILIGHT, "HILIGHT")
         logging.addLevelName(SUCCESS, "SUCCESS")
 
     def trace(self, msg, *args, **kwargs):
         if self.isEnabledFor(TRACE):
             self._log(TRACE, msg, args, **kwargs)
-    
+
     def remark(self, msg, *args, **kwargs):
         if self.isEnabledFor(REMARK):
             self._log(REMARK, msg, args, **kwargs)
-    
+
     def note(self, msg, *args, **kwargs):
         if self.isEnabledFor(NOTE):
             self._log(NOTE, msg, args, **kwargs)
@@ -39,6 +41,10 @@ class DantroLogger(logging.getLoggerClass()):
     def progress(self, msg, *args, **kwargs):
         if self.isEnabledFor(PROGRESS):
             self._log(PROGRESS, msg, args, **kwargs)
+
+    def caution(self, msg, *args, **kwargs):
+        if self.isEnabledFor(CAUTION):
+            self._log(CAUTION, msg, args, **kwargs)
 
     def hilight(self, msg, *args, **kwargs):
         if self.isEnabledFor(HILIGHT):

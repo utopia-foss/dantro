@@ -68,11 +68,12 @@ def setup(app):
 # -- Project information -----------------------------------------------------
 
 project = 'dantro'
-copyright = '2020, Utopia Developers'
-author = 'Utopia Developers'
+copyright = '2020, dantro developers'
+author = 'dantro developers'
 
 # The short X.Y version
 version = find_version('..', 'dantro', '__init__.py')
+
 # The full version, including alpha/beta/rc tags
 release = find_version('..', 'dantro', '__init__.py')
 
@@ -92,8 +93,14 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
-    ### Additional extensions
-    'sphinx.ext.napoleon',      # pre-process Google-style Python docstrings
+
+    ### Additional extensions...
+    #   ... to pre-process Google-style Python docstrings
+    'sphinx.ext.napoleon',
+
+    #   ... to have the IPython directive available for code examples
+    'IPython.sphinxext.ipython_console_highlighting',
+    'IPython.sphinxext.ipython_directive',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -197,7 +204,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'dantro.tex', 'dantro Documentation',
-     'Utopia Developers', 'manual'),
+     'dantro developers', 'manual'),
 ]
 
 
@@ -218,8 +225,10 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     (master_doc, 'dantro', 'dantro Documentation',
-     author, 'dantro', 'One line description of project.',
-     'Miscellaneous'),
+     author, 'dantro',
+     'A python package for handling, transforming, and visualizing '
+     'hierarchically organized data',
+     'Research Software'),
 ]
 
 
@@ -270,6 +279,11 @@ napoleon_include_special_with_doc = True
 # True to include special members (like __membername__) with docstrings in the
 # documentation. False to fall back to Sphinx’s default behavior. Default: True
 
+
+# -- IPython Configuration ----------------------------------------------------
+# See https://ipython.readthedocs.io/en/stable/sphinxext.html
+
+# NOTE Using default values.
 
 
 # -- Nitpicky Configuration ---------------------------------------------------

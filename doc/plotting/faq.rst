@@ -88,6 +88,12 @@ Follow these steps to achieve overwriting of existing plot output:
 
 
 
+Can plots be skipped?
+^^^^^^^^^^^^^^^^^^^^^
+Yes. See :ref:`plot_mngr_skipping_plots` for more information.
+
+
+
 :py:class:`~dantro.plot_creators._plot_helper.PlotHelper` FAQs
 --------------------------------------------------------------
 

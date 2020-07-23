@@ -14,7 +14,7 @@ from paramspace import ParamSpace, ParamDim
 
 from .data_mngr import DataManager
 from .plot_creators import ALL as ALL_PCRS
-from .plot_creators import BasePlotCreator
+from .plot_creators import BasePlotCreator, SkipPlot
 from .tools import load_yml, write_yml, recursive_update
 
 # Local constants
@@ -58,20 +58,23 @@ class PlotManager:
     """
 
     CREATORS = ALL_PCRS
-    DEFAULT_OUT_FSTRS = dict(timestamp="%y%m%d-%H%M%S",
-                             state_no="{no:0{digits:d}d}",
-                             state="{name:}_{val:}",
-                             state_name_replace_chars=[],  # (".", "-")
-                             state_val_replace_chars=[("/", "-")],
-                             state_join_char="__",
-                             state_vector_join_char="-",
-                             # final fstr for single plot and config path
-                             path="{name:}{ext:}",
-                             plot_cfg="{basename:}_cfg.yml",
-                             # and for sweep
-                             sweep="{name:}/{state_no:}__{state:}{ext:}",
-                             plot_cfg_sweep="{name:}/sweep_cfg.yml",
-                             )
+    DEFAULT_OUT_FSTRS = dict(
+        timestamp="%y%m%d-%H%M%S",
+        state_no="{no:0{digits:d}d}",
+        state="{name:}_{val:}",
+        state_name_replace_chars=[],  # (".", "-")
+        state_val_replace_chars=[("/", "-")],
+        state_join_char="__",
+        state_vector_join_char="-",
+        # final fstr for single plot and config path
+        path="{name:}{ext:}",
+        plot_cfg="{basename:}_cfg.yml",
+        # and for sweep
+        sweep="{name:}/{state_no:}__{state:}{ext:}",
+        plot_cfg_sweep="{name:}/sweep_cfg.yml",
+    )
+
+    # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
     def __init__(self, *, dm: DataManager, base_cfg: Union[dict, str]=None,
                  update_base_cfg: Union[dict, str]=None,
@@ -166,8 +169,6 @@ class PlotManager:
             InvalidCreator: When an invalid default creator was chosen
             KeyError: Upon bad ``based_on`` in ``update_base_cfg``
         """
-        # TODO consider making it possible to pass classes for plot creators
-
         # Initialize attributes and store arguments
         self._plot_info = []
 
@@ -295,7 +296,6 @@ class PlotManager:
             str: The path of the created directory
         """
         # Get date format string and current time and create a string
-        # TODO allow passing a timestamp?
         timefstr = self._out_fstrs.get('timestamp', "%y%m%d-%H%M%S")
         timestr = time.strftime(timefstr)
 
@@ -524,27 +524,26 @@ class PlotManager:
 
                 # If there is more than one candidate, cannot decide
                 if len(pc_candidates) > 1:
-                    pcc_names = [n for n, _ in pc_candidates]
-                    raise InvalidCreator("Tried to auto-detect a plot creator "
-                                         "for plot '{}' but could not "
-                                         "unambiguously do so! There were {} "
-                                         "plot creators declaring themselves "
-                                         "as candidates: {}. Consider "
-                                         "specifying the creator explicitly."
-                                         "".format(name, len(pc_candidates),
-                                                   ", ".join(pcc_names)))
+                    _pcc = ", ".join([n for n, _ in pc_candidates])
+                    raise InvalidCreator(
+                        "Tried to auto-detect a plot creator for plot "
+                        f"'{name}' but could not unambiguously do so! There "
+                        f"were {len(pc_candidates)} plot creators declaring "
+                        f"themselves as candidates: {_pcc}. Consider "
+                        "specifying the creator explicitly."
+                    )
+
                 elif len(pc_candidates) < 1:
-                    pc_names = ", ".join([k for k in self.CREATORS.keys()])
-                    raise InvalidCreator("Tried to auto-detect a plot creator "
-                                         "for plot '{}' but none of the "
-                                         "available creators ({}) declared "
-                                         "itself a candidate! This might also "
-                                         "be due to a plot configuration that"
-                                         "the candidate plot creators could "
-                                         "not interpret. Consider specifying "
-                                         "the creator explicitly to find out "
-                                         "why auto-detection failed."
-                                         "".format(name, pc_names))
+                    _pc = ", ".join([k for k in self.CREATORS.keys()])
+                    raise InvalidCreator(
+                        "Tried to auto-detect a plot creator for plot "
+                        f"'{name}' but none of the available creators ({_pc}) "
+                        "declared itself a candidate! This might also be due "
+                        "to a plot configuration that the candidate plot "
+                        "creators could not interpret. Consider specifying "
+                        "the creator explicitly to find out why "
+                        "auto-detection failed."
+                    )
 
                 # else: there was only one, use that
                 pc_name, pc = pc_candidates[0]
@@ -554,10 +553,11 @@ class PlotManager:
                 return pc
 
             else:
-                raise InvalidCreator("No `creator` argument given and neither "
-                                     "`default_creator` specified during "
-                                     "initialization nor auto-detection "
-                                     "enabled. Cannot plot!")
+                raise InvalidCreator(
+                    "No `creator` argument given and neither "
+                    "`default_creator` specified during initialization nor "
+                    "auto-detection enabled. Cannot plot!"
+                )
 
         # Parse initialization kwargs, based on the defaults set in __init__
         pc_kwargs = self._cckwargs.get(creator, {})
@@ -574,24 +574,25 @@ class PlotManager:
         log.debug("Initialized %s.", pc.logstr)
         return pc
 
-    def _invoke_creator(self, pc: BasePlotCreator, *,
+    def _invoke_creator(self, plot_creator: BasePlotCreator, *,
                         out_path: str, debug: bool=None,
-                        **plot_cfg) -> Union[Any, None]:
+                        **plot_cfg) -> Union[bool, str]:
         """This method wraps the plot creator's ``__call__`` and is the last
         PlotManager method that is called prior to handing over to the selected
         plot creator. It takes care of invoking the plot creator's ``__call__``
         method and handling potential error messages and return values.
 
         Args:
-            pc (BasePlotCreator): The currently used creator
+            plot_creator (BasePlotCreator): The currently used creator object
             out_path (str): The plot output path
             debug (bool, optional): If given, this overwrites the ``raise_exc``
                 option specified during initialization.
             **plot_cfg: The plot configuration
 
         Returns:
-            Any: The return value of the plot creator's ``__call__`` method or
-                ``None`` if an error occurred but was not raised.
+            Union[bool, str]: Whether the plot was carried out successfully.
+                Returns the string ``'skipped'`` if the plot was skipped via a
+                :py:class:`~dantro.plot_creators.pcr_base.SkipPlot` exception.
 
         Raises:
             PlotCreatorError: On error within the plot creator. This is only
@@ -600,7 +601,11 @@ class PlotManager:
                 message is merely logged.
         """
         try:
-            rv = pc(out_path=out_path, **plot_cfg)
+            plot_creator(out_path=out_path, **plot_cfg)
+
+        except SkipPlot as skip_reason:
+            log.caution("Skipped. %s\n", skip_reason)
+            return 'skipped'
 
         except Exception as err:
             # Conditionally assemble an error message
@@ -616,18 +621,19 @@ class PlotManager:
                 "configuration or disable debug mode for the PlotManager."
             )
             e_msg = (
-                f"An error occurred during plotting with {pc.logstr}! "
-                f"{e_dbg if not should_raise else e_no_dbg}\n"
+                f"An error occurred during plotting with "
+                f"{plot_creator.logstr}! "
+                f"{e_dbg if not should_raise else e_no_dbg}\n\n"
                 f"{err.__class__.__name__}: {err}"
             )
 
             if should_raise:
                 raise PlotCreatorError(e_msg) from err
             log.error(e_msg)
-            return None
+            return False
 
-        log.debug("Plot creator call returned successfully with %s.", type(rv))
-        return rv
+        log.debug("Plot creator call returned successfully.")
+        return True
 
     def _store_plot_info(self, name: str,
                          *, plot_cfg: dict, creator_name: str, save: bool,
@@ -1072,15 +1078,18 @@ class PlotManager:
 
             # Call the plot creator to perform the plot, using the private
             # method to perform exception handling
-            self._invoke_creator(plot_creator, out_path=out_path, **plot_cfg)
+            rv = self._invoke_creator(plot_creator, out_path=out_path,
+                                      **plot_cfg)
 
-            # Store plot information
+            # Store plot information (_save_ only if not skipped)
             self._store_plot_info(name=name, creator_name=creator,
                                   out_path=out_path, plot_cfg=plot_cfg,
-                                  save=save_plot_cfg,
-                                  target_dir=os.path.dirname(out_path))
+                                  save=save_plot_cfg and rv != 'skipped',
+                                  target_dir=os.path.dirname(out_path),
+                                  creator_rv=rv)
 
-            log.progress("Finished '%s' plot.\n", name)
+            if rv is True:
+                log.progress("Performed '%s' plot.\n", name)
 
         else:
             # Is a parameter sweep over the plot configuration.
@@ -1123,6 +1132,9 @@ class PlotManager:
             it = from_pspace.iterator(with_info=('state_no', 'state_vector',
                                                  'coords'))
 
+            # Keep track of how many plots are skipped
+            num_skipped = 0
+
             # ...and loop over all points:
             for n, (cfg, state_no, state_vector, coords) in enumerate(it):
                 log.progress("Performing plot {n:{d:}d} / {v:} ..."
@@ -1148,32 +1160,42 @@ class PlotManager:
 
                 # Call the plot creator to perform the plot, using the private
                 # method to perform exception handling
-                self._invoke_creator(plot_creator, out_path=out_path,
-                                     **cfg, **plot_cfg)
-                # NOTE The **plot_cfg is passed here in order to not loose any
-                # arguments that might have been passed to it. While `cfg`
-                # _should_ hold all the arguments from the parameter space
-                # iteration, there might be more arguments in `plot_cfg`;
-                # rather than disallowing this, we pass them on and forward
-                # responsibility downstream ...
+                rv = self._invoke_creator(plot_creator, out_path=out_path,
+                                          **cfg, **plot_cfg)
+                # NOTE The **plot_cfg is passed here in order to not lose any
+                #      arguments that might have been passed to it. While `cfg`
+                #      _should_ hold all the arguments from the parameter space
+                #      iteration, there might be more arguments in `plot_cfg`;
+                #      rather than disallowing this, we pass them on and
+                #      forward responsibility downstream ...
 
-                # Store plot information
+                # Count skipped plots
+                if rv == 'skipped':
+                    num_skipped += 1
+
+                # Always store plot information, regardless of skipping
+                # (Saving is disabled here anyway as it will be done below)
                 self._store_plot_info(name=name, creator_name=creator,
                                       out_path=out_path, plot_cfg=plot_cfg,
                                       state_no=state_no,
                                       state_vector=state_vector,
-                                      save=False, # TODO check if reasonable
-                                      target_dir=os.path.dirname(out_path))
+                                      save=False,
+                                      target_dir=os.path.dirname(out_path),
+                                      creator_rv=rv)
 
-                # Done with these coordinates
-
-            # Save the plot configuration alongside, if configured to do so
-            if save_plot_cfg:
+            # Finished parameter space iteration.
+            # Save the plot configuration alongside, if configured to do so and
+            # if at least one of the plots was *not* skipped.
+            if save_plot_cfg and num_skipped < (n+1):
                 self._save_plot_cfg(from_pspace, name=name,
                                     creator_name=creator,
                                     target_dir=out_dir, is_sweep=True)
 
-            log.progress("Finished all '%s' plots.\n", name)
+            if not num_skipped:
+                log.progress("Performed all '%s' plots.\n", name)
+            else:
+                log.progress("Performed %d / %d '%s' plots, skipped %d.\n",
+                             (n+1)-num_skipped, n+1, name, num_skipped)
 
         # Done now. Return the plot creator object
         return plot_creator

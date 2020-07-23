@@ -2,6 +2,31 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.14.0 _(WIP)_
+#### Features and Improvements
+- `PlotHelper` extensions and improvements (#94)
+    - !181 improves error message handling, now composing a single error message for _all_ encountered errors and providing axis-specific information on the errors. 
+    - !181 extends `set_legend` to allow gathering handles and labels from already existing `matplotlib.legend.Legend` objects.
+    - !181 improves docstrings of helper methods to convey more clearly which kinds of arguments are expected.
+- The plotting framework now *experimentally* supports skipping of plots.
+  Skipping is triggered via a custom `SkipPlot` exception, that users may raise in their plot functions.
+  Additionally, the `MultiversePlotCreator` allows skipping a plot if the dimensionality of the associated multiverse is not in a set of expected dimensionalities.
+- Documentation:
+    - !187 adds links to the source files from which example code is included into the documentation.
+    - !189 improves the names of the introductory guides, as proposed in #190.
+    - !190 makes using the IPython directive possible, simplifying the embedding of code examples, addressing #188.
+    - !190 adds a section describing the "Universe and Multiverse" terminology.
+- Improvements of the README
+    - !186 adds a dependency table and adds the `dev` installation extra to include all development-related dependencies.
+    - !193 adds installation instructions for `conda` as an alternative to `pip` (see #184)
+
+#### Bug fixes
+- !185 renames licensing-related files in order to concur with the official LGPLv3 criteria and let [licensee](https://github.com/licensee/licensee/) correctly detect it.
+- !184 addresses a bug in the `PlotHelper` that prevented helper invocations after the first error, see #181.
+
+
+## v0.13.4
+- !191 fixes a bug that prohibited a coordinate to be named `tolerance` in `UniversePlotCreator`, see #192.
 
 ## v0.13.4
 - !191 fixes a bug that prohibited a coordinate to be named `tolerance` in `UniversePlotCreator`, see #192.

@@ -1,7 +1,7 @@
 .. _integrate_dantro:
 
-Integrating :py:mod:`dantro` into your Project
-==============================================
+Integration Example
+===================
 
 :py:mod:`dantro` works best if it's tightly integrated into your project.
 The aim of this guide is to give step-by-step instructions of how :py:mod:`dantro` can be used to build a data processing pipeline for your project.
@@ -9,7 +9,7 @@ The aim of this guide is to give step-by-step instructions of how :py:mod:`dantr
 .. note::
 
     The examples given here focus on coveying the necessary steps for the pipeline integration, not so much on the :ref:`ideal structure <integrate_module_structure>` of the implementation.
-    Thus, **we recommend going through this guide at least once before starting with the actual implementation** of the data processing pipeline for *your* project. 🤓
+    Thus, **we recommend going through this guide at least once before starting with the actual implementation** of the data processing pipeline for your project. 🤓
 
 .. contents::
     :local:
@@ -60,6 +60,14 @@ Overall, we think that the up-front time investment of setting up the pipeline w
     **Important:** For illustrational purposes, the code shown here is *not* modularized into different files but presented in a linear fashion.
     If you are looking for a minimal pipeline implementation, you can follow this approach.
     However, if you are building a processing pipeline that should be expandable and grow alongside your project, splitting these code chunks into multiple modules is highly recommended; see :ref:`integrate_module_structure`.
+
+    While all *relevant* parts of the code examples are already included on this page, you can inspect the **full source code** used for these examples:
+
+        * Python Code: :download:`download <../tests/test_integration.py>` or `view online <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/-/blob/master/tests/test_integration.py>`__
+        * YAML Configuration: :download:`download <../tests/cfg/integration.yml>` or `view online <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/-/blob/master/tests/cfg/integration.yml>`__
+
+    Note that these files are part of the automated tests and thus include a small number of additional definitions, e.g. to write output to a temporary directory instead of a local path.
+
 
 .. _integrate_data_gen:
 
