@@ -13,8 +13,9 @@ import xarray as xr
 from paramspace import ParamSpace
 
 from .pcr_ext import ExternalPlotCreator
+from .pcr_base import SkipPlot
 from ..groups import ParamSpaceGroup, ParamSpaceStateGroup
-from ..tools import recursive_update
+from ..tools import recursive_update, is_iterable
 from ..abc import PATH_JOIN_CHAR
 from ..dag import TransformationDAG, DAGReference, DAGTag, DAGNode
 
@@ -34,7 +35,15 @@ class MultiversePlotCreator(ExternalPlotCreator):
     # .........................................................................
 
     def __init__(self, *args, psgrp_path: str=None, **kwargs):
-        """Initialize a MultiversePlotCreator"""
+        """Initialize a MultiversePlotCreator
+
+        Args:
+            *args: Passed on to parent
+            psgrp_path (str, optional): The path to the associated
+                :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` that is to
+                be used for these multiverse plots.
+            **kwargs: Passed on to parent
+        """
         super().__init__(*args, **kwargs)
 
         if psgrp_path:
@@ -52,6 +61,41 @@ class MultiversePlotCreator(ExternalPlotCreator):
 
         # Retrieve the parameter space group
         return self.dm[self.PSGRP_PATH]
+
+    def _check_skipping(self, *, plot_kwargs: dict):
+        """Adds a skip condition for plots with this creator:
+
+        Controlled by the ``expected_multiverse_ndim`` argument, this
+        plot will be skipped if the dimensionality of the associated
+        :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` is *not* specified in
+        the set of permissible dimensionalities.
+        If that argument is not given or None, this check will not be carried
+        out.
+        """
+        super()._check_skipping(plot_kwargs=plot_kwargs)
+
+        # Extract the parameter value; popping intended and required here.
+        ndim = plot_kwargs.pop('expected_multiverse_ndim', None)
+
+        # Only need to continue if there are any requirements
+        if ndim is None:
+            return
+
+        # Get the parameter space group's dimensionality
+        mv_ndim = self.psgrp.pspace.num_dims
+
+        # Make sure its a set of integers
+        ndims = set(ndim) if is_iterable(ndim) else set((ndim,))
+        if not all([isinstance(nd, int) for nd in ndims]):
+            raise TypeError(
+                "Expected sequence or set of integers for specifying required "
+                f"multiverse dimensionality, but got: {repr(ndim)}"
+            )
+
+        if mv_ndim not in ndims:
+            raise SkipPlot(
+                f"{self.psgrp.logstr} dimensionality {mv_ndim} ∉ {ndims}."
+            )
 
     def _prepare_plot_func_args(self, *args,
                                 select: dict=None,

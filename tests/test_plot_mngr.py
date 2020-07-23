@@ -13,7 +13,7 @@ from dantro.tools import load_yml
 from dantro.data_mngr import DataManager
 from dantro.containers import NumpyDataContainer as NumpyDC
 from dantro.plot_mngr import (PlotManager, PlottingError, PlotConfigError,
-                              InvalidCreator, PlotCreatorError)
+                              InvalidCreator, PlotCreatorError, SkipPlot)
 
 # Local constants .............................................................
 # Paths
@@ -575,3 +575,34 @@ def test_auto_detect_creator(dm):
     # No matching candidate
     with pytest.raises(InvalidCreator, match="declared itself a candidate!"):
         pm.plot(name="fail", **PLOTS_AUTO_DETECT["fail"])
+
+def test_plot_skipping(dm, pm_kwargs):
+    """Tests the SkipPlot exception leading to skipped plots"""
+    def plot_func_that_skips(*_, n: int=0, skip_mod: int=1, **kwargs):
+        """A do-nothing function that raises SkipPlot if n % skip_mod == 0"""
+        if n % skip_mod == 0:
+            raise SkipPlot(f"{n} % {skip_mod} == 0")
+        return
+
+    pm_kwargs['raise_exc'] = True
+    pm_kwargs['save_plot_cfg'] = False
+    pm = PlotManager(dm=dm, **pm_kwargs)
+    assert not pm.plot_info
+
+    pm.plot('skipped', plot_func=plot_func_that_skips)
+    assert len(pm.plot_info) == 1
+    assert pm.plot_info[-1]['creator_rv'] == 'skipped'
+
+    pm.plot('not_skipped', plot_func=plot_func_that_skips, n=1, skip_mod=10)
+    assert len(pm.plot_info) == 2
+    assert pm.plot_info[-1]['creator_rv'] is True
+
+    # Again, now for a parameter space configuration where every second
+    # combination of parameters will lead to skipping
+    pm.plot('skipping', plot_func=plot_func_that_skips, skip_mod=2,
+            from_pspace=psp.ParamSpace(
+                dict(n=psp.ParamDim(default=0, range=[10])))
+    )
+    assert len(pm.plot_info) == 2 + 10
+    assert all(pi['creator_rv'] == 'skipped' for pi in pm.plot_info[-10::2])
+    assert all(pi['creator_rv'] is True for pi in pm.plot_info[-9::2])
