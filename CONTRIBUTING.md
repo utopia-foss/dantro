@@ -11,6 +11,10 @@ The dantro package is open source software.
 We thus strive to make every stage of development public, sharing our advances, and incorporating community contributions.
 To achieve this transparency, we coordinate the whole process openly via this GitLab project.
 
+The dantro package is licensed under the [GNU Lesser General Public License Version 3](https://www.gnu.org/licenses/lgpl-3.0.en.html).
+As a contributor to the project and source code you agree that your contributions are published and may be distributed according to this license.
+At your discretion you can be acknowledged in the [list of copyright holders](README.md#copyright-holders); please use your first contribution to dantro to inform us about your choice.
+
 In brief, to contribute to dantro, the following steps are involved:
 
 1. [Get access](#gitlab-account) to the dantro GitLab project
