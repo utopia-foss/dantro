@@ -235,7 +235,7 @@ deploy:pypi:
     - twine check dist/*
 
     # Upload to the TEST PyPI index (using separate credentials)
-    - twine upload --repository-url https://test.pypi.org/legacy/ -u ${PYPI_TEST_USER} -p ${PYPI_TEST_PASSWORD} dist/*
+    - twine upload --repository testpypi -u ${PYPI_TEST_USER} -p ${PYPI_TEST_PASSWORD} dist/*
 
     # If this worked, continue and upload to actual package index
     - twine upload -u ${PYPI_USER} -p ${PYPI_PASSWORD} dist/*
