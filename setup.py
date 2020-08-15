@@ -124,7 +124,7 @@ setup(
     long_description=LONG_DESCRIPTION,
     author="dantro developers",
     author_email="dantro-dev@iup.uni.heidelberg.de",
-    licence='LGPL-3.0-or-later',
+    license='LGPL-3.0-or-later',
     url='https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro',
     classifiers=[
         'Intended Audience :: Science/Research',

@@ -2,7 +2,7 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
-## v0.14.0 _(WIP)_
+## v0.14.0
 #### Features and Improvements
 - `PlotHelper` extensions and improvements (#94)
     - !181 improves error message handling, now composing a single error message for _all_ encountered errors and providing axis-specific information on the errors. 
