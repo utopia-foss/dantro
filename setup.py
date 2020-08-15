@@ -75,7 +75,7 @@ controlled entirely via these configuration files and without requiring
 code changes.
 
 The ``dantro`` package is **open source software** released under the
-`LGPLv3+ <(https://www.gnu.org/licenses/lgpl-3.0.html>`_.
+`LGPLv3+ <(https://www.gnu.org/licenses/lgpl-3.0.html>`_ license.
 It was developed alongside the `Utopia project <https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia>`_,
 but is an independent package.
 
@@ -84,7 +84,8 @@ Learn more
 
 * `Documentation <https://dantro.readthedocs.io/>`_
 * `Project page <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro>`_
-* `Installation instructions <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro#installing-dantro>`_
+* `README and installation instructions <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro#installing-dantro>`_
+* `Publication in the Journal of Open Source Software <https://doi.org/10.21105/joss.02316>`_
 
 """
 

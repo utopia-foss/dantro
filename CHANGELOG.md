@@ -12,6 +12,7 @@
   Skipping is triggered via a custom `SkipPlot` exception, that users may raise in their plot functions.
   Additionally, the `MultiversePlotCreator` allows skipping a plot if the dimensionality of the associated multiverse is not in a set of expected dimensionalities.
 - Documentation:
+    - !163 adds the paper published in the [Journal of Open Source Software](https://joss.theoj.org) and corresponding information on how to cite it.
     - !187 adds links to the source files from which example code is included into the documentation.
     - !189 improves the names of the introductory guides, as proposed in #190.
     - !190 makes using the IPython directive possible, simplifying the embedding of code examples, addressing #188.

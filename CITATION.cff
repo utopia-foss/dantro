@@ -1,0 +1,43 @@
+# YAML 1.2
+---
+cff-version: "1.1.0"
+message: If you use this software, please cite it using these metadata.
+
+# JOSS publication information (also see: joss/paper.md )
+title: "dantro: a Python package for handling, transforming, and visualizing hierarchically structured data"
+doi: 10.21105/joss.02316
+# TODO Add date-released, once available
+
+authors:
+  - given-names: Yunus
+    family-names: Sevinchan
+    orcid: https://orcid.org/0000-0003-3858-0904
+    affiliation: Institute of Environmental Physics, Heidelberg University, Germany
+
+  - given-names: Benjamin
+    family-names: Herdeanu
+    orcid: https://orcid.org/0000-0001-6343-3004
+    affiliation: Institute of Environmental Physics, Heidelberg University, Germany
+
+  - given-names: Jeremias
+    family-names: Traub
+    orcid: https://orcid.org/0000-0001-8911-6365
+    affiliation: Institute of Environmental Physics, Heidelberg University, Germany
+
+# Other package-related metadata
+version: v0.14
+license: LGPL-3.0+
+repository-code: https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro
+keywords:
+  - Python
+  - YAML
+  - computer simulations
+  - research software
+  - data analysis
+  - plotting
+  - data processing pipeline
+  - configuration-based interfaces
+  - hierarchical data structures
+  - HDF5
+
+...

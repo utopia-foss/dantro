@@ -8,6 +8,10 @@ It allows loading possibly heterogeneous data into a tree-like structure that ca
 
     If you find any errors in this documentation or would like to contribute to the project, we are happy about your visit to the `project page <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro>`_.
 
+.. hint::
+
+    An **introductory text about the motivation and scope of dantro** can be found in `this publication in the Journal of Open Source Software <https://doi.org/10.21105/joss.02316>`_.
+
 
 .. toctree::
     :maxdepth: 2
@@ -16,6 +20,7 @@ It allows loading possibly heterogeneous data into a tree-like structure that ca
     integrating
     specializing
     philosophy
+    how-to-cite
 
 .. toctree::
     :caption: Data Handling and Transformation
