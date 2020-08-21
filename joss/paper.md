@@ -30,9 +30,6 @@ date: 08 July 2020
 bibliography: paper.bib
 ---
 
-
-# dantro: a Python package for handling, transforming, and visualizing hierarchically structured data
-
 ## Summary
 
 Researchers, especially those relying on computer simulations, frequently generate and analyze large amounts of data.
