@@ -14,11 +14,13 @@ variables:
   DOC_REMOTE_PATH: $DOC_REMOTE_BASE_DIR/$CI_COMMIT_REF_SLUG
   DOC_REMOTE_URL: https://hermes.iup.uni-heidelberg.de/dantro_doc
 
+# -- Hidden Jobs --------------------------------------------------------------
+# ... to be integrated in other jobs via "extends"
 
 # For the deployment of the documentation, the jobs authenticate themselves
 # via a keypair with the doc server. This is the read-only deployment key
 # for the Utopia project, stored as SSH_PRIVATE_KEY CI/CD variable.
-.ssh_access: &ssh_access
+.ssh_access:
   before_script:
     # Instructions:
     #   https://docs.gitlab.com/ce/ci/ssh_keys/
@@ -40,29 +42,30 @@ variables:
     - chmod 644 ~/.ssh/known_hosts
 
 # Specify default tag, which is picked up both by single- and multicore runners
-.tags: &tags
-  - default
+.default_tags:
+  tags:
+    - default
 
 # -- Test Stage ---------------------------------------------------------------
 # ... for testing with different python environments
 
-test:py36: &test_defaults
+test:py36:
   stage: test
   image: python:3.6
-  tags: *tags
+  extends: .default_tags
   before_script:
     - pip3 install tox
   script:
     - tox -e py36
 
 test:py37:
-  <<: *test_defaults
+  extends: test:py36
   image: python:3.7
   script:
     - tox -e py37
 
 test:py38:
-  <<: *test_defaults
+  extends: test:py36
   image: python:3.8
   script:
     - tox -e py38
@@ -70,8 +73,8 @@ test:py38:
 
 # ... and again, this time with minimal versions of all dependencies
 
-test_minimal_deps:py36: &test_minimal
-  <<: *test_defaults
+test_minimal_deps:py36:
+  extends: test:py36
   stage: test_minimal_deps
   only:
     - master
@@ -85,7 +88,7 @@ test_minimal_deps:py36: &test_minimal
     - tox -e py36-minimal_deps
 
 test_minimal_deps:py37:
-  <<: *test_minimal
+  extends: test_minimal_deps:py36
   image: python:3.7
   needs:
     - test:py37
@@ -93,7 +96,7 @@ test_minimal_deps:py37:
     - tox -e py37-minimal_deps
 
 test_minimal_deps:py38:
-  <<: *test_minimal
+  extends: test_minimal_deps:py36
   image: python:3.8
   needs:
     - test:py38
@@ -107,7 +110,7 @@ test_minimal_deps:py38:
 build:docs:
   stage: build
   image: python:3.7
-  tags: *tags
+  extends: .default_tags
   allow_failure: true
   needs: []
   before_script:
@@ -138,8 +141,9 @@ build:docs:
 deploy:docs:
   stage: deploy
   image: &deploy_image ccees/utopia-base:v2.1  # overkill, but sshd installed
-  <<: *ssh_access
-  tags: *tags
+  extends:
+    - .default_tags
+    - .ssh_access
   only:
     - branches@utopia/dantro
   dependencies:
@@ -169,8 +173,9 @@ deploy:docs:
 deploy:stop_docs:
   stage: deploy
   image: *deploy_image
-  tags: *tags
-  <<: *ssh_access
+  extends:
+    - .default_tags
+    - .ssh_access
   when: manual          # ... but it is also triggered on branch deletion
   dependencies: []      # ... otherwise, the same dependencies as deploy:docs
                         #     are assumed, which leads to failing jobs if the
@@ -190,8 +195,9 @@ deploy:stop_docs:
 deploy:pypi:
   stage: deploy
   image: python:3.7
-  tags: *tags
-  <<: *ssh_access
+  extends:
+    - .default_tags
+    - .ssh_access
   only: &to_deploy
     - tags    # Triggered when a new tag is added
     - web     # Use this for pre-release deployment
@@ -231,7 +237,7 @@ deploy:pypi:
 post_deploy:install_from_pypi:
   stage: post_deploy
   image: python:3.7
-  tags: *tags
+  extends: .default_tags
   only: *to_deploy
   needs:
     - "deploy:pypi"
