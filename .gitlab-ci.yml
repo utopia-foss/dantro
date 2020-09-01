@@ -6,6 +6,15 @@ stages:
   - deploy
   - post_deploy
 
+# Define global pipeline rules
+workflow:
+  rules:
+    # Run pipelines on tags
+    - if: $CI_COMMIT_TAG
+    # Run pipelines on branches if they are not empty (= if they have changes)
+    - if: $CI_COMMIT_BRANCH
+          && $CI_COMMIT_BEFORE_SHA != '0000000000000000000000000000000000000000'
+
 variables:
   # Documentation server configuration
   DOC_HOST: root@hermes.iup.uni-heidelberg.de
@@ -144,8 +153,9 @@ deploy:docs:
   extends:
     - .default_tags
     - .ssh_access
-  only:
-    - branches@utopia/dantro
+  rules:
+    # Run after pushes to any branch in original repo
+    - if: $CI_COMMIT_BRANCH && $CI_PROJECT_PATH == "utopia/dantro"
   dependencies:
     - build:docs
   needs:
@@ -176,10 +186,15 @@ deploy:stop_docs:
   extends:
     - .default_tags
     - .ssh_access
-  when: manual          # ... but it is also triggered on branch deletion
-  dependencies: []      # ... otherwise, the same dependencies as deploy:docs
-                        #     are assumed, which leads to failing jobs if the
-                        #     corresponding artifacts have expired
+  # NOTE: Rules configuration must be the same as for "deploy:docs"
+  rules:
+    # Run after pushes to any branch in original repo
+    - if: $CI_COMMIT_BRANCH && $CI_PROJECT_PATH == "utopia/dantro"
+      # Trigger manually (also applies when environment stops)
+      when: manual
+  # Make this job independent of any artifacts, as they might have expired
+  # when the environment stops
+  dependencies: []
   variables:
     GIT_STRATEGY: none  # Don't check out the branch (might already be deleted)
   script:
@@ -198,9 +213,9 @@ deploy:pypi:
   extends:
     - .default_tags
     - .ssh_access
-  only: &to_deploy
-    - tags    # Triggered when a new tag is added
-    - web     # Use this for pre-release deployment
+  rules: &pypi_deploy_rules
+    # Run after pushes to tags in original repo, not forks
+    - if: $CI_COMMIT_TAG && $CI_PROJECT_PATH == "utopia/dantro"
   script:
     # Define a regex for matching the tag name, see https://regex101.com/r/AsCCJo/2
     # Expects fully-qualified version specifiers, like v1.2.3 or v1.2.3a4
@@ -238,7 +253,7 @@ post_deploy:install_from_pypi:
   stage: post_deploy
   image: python:3.7
   extends: .default_tags
-  only: *to_deploy
+  rules: *pypi_deploy_rules
   needs:
     - "deploy:pypi"
   script:
