@@ -1,6 +1,5 @@
 ---
 stages:
-  - prep
   - test
   - test_minimal_deps
   - build
@@ -43,22 +42,6 @@ variables:
 # Specify default tag, which is picked up both by single- and multicore runners
 .tags: &tags
   - default
-
-# -----------------------------------------------------------------------------
-# -- Prep Stage ---------------------------------------------------------------
-# ... doing some setup work
-
-prep:noop:  # This is a no-op job, used as `needs` for build:docs
-  stage: prep
-  image: alpine:latest
-  tags: *tags
-  cache: {}
-  variables:
-    GIT_STRATEGY: none
-  script:
-    - echo "Let's get testing!"
-    - echo "(This is a workaround for 'https://gitlab.com/gitlab-org/gitlab/issues/30631')"
-
 
 # -- Test Stage ---------------------------------------------------------------
 # ... for testing with different python environments
@@ -126,7 +109,7 @@ build:docs:
   image: python:3.7
   tags: *tags
   allow_failure: true
-  needs: ["prep:noop"]
+  needs: []
   before_script:
     - pip3 install .[doc]
   script:
