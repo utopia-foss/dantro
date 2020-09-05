@@ -1,11 +1,18 @@
 ---
 stages:
-  - prep
   - test
   - test_minimal_deps
   - build
   - deploy
   - post_deploy
+
+# Define global pipeline rules
+workflow:
+  rules:
+    # Run pipelines on tags
+    - if: $CI_COMMIT_TAG
+    # Run pipelines on branches
+    - if: $CI_COMMIT_BRANCH
 
 variables:
   # Documentation server configuration
@@ -15,11 +22,13 @@ variables:
   DOC_REMOTE_PATH: $DOC_REMOTE_BASE_DIR/$CI_COMMIT_REF_SLUG
   DOC_REMOTE_URL: https://hermes.iup.uni-heidelberg.de/dantro_doc
 
+# -- Hidden Jobs --------------------------------------------------------------
+# ... to be integrated in other jobs via "extends"
 
 # For the deployment of the documentation, the jobs authenticate themselves
 # via a keypair with the doc server. This is the read-only deployment key
 # for the Utopia project, stored as SSH_PRIVATE_KEY CI/CD variable.
-.ssh_access: &ssh_access
+.ssh_access:
   before_script:
     # Instructions:
     #   https://docs.gitlab.com/ce/ci/ssh_keys/
@@ -41,45 +50,30 @@ variables:
     - chmod 644 ~/.ssh/known_hosts
 
 # Specify default tag, which is picked up both by single- and multicore runners
-.tags: &tags
-  - default
-
-# -----------------------------------------------------------------------------
-# -- Prep Stage ---------------------------------------------------------------
-# ... doing some setup work
-
-prep:noop:  # This is a no-op job, used as `needs` for build:docs
-  stage: prep
-  image: alpine:latest
-  tags: *tags
-  cache: {}
-  variables:
-    GIT_STRATEGY: none
-  script:
-    - echo "Let's get testing!"
-    - echo "(This is a workaround for 'https://gitlab.com/gitlab-org/gitlab/issues/30631')"
-
+.default_tags:
+  tags:
+    - default
 
 # -- Test Stage ---------------------------------------------------------------
 # ... for testing with different python environments
 
-test:py36: &test_defaults
+test:py36:
   stage: test
   image: python:3.6
-  tags: *tags
+  extends: .default_tags
   before_script:
     - pip3 install tox
   script:
     - tox -e py36
 
 test:py37:
-  <<: *test_defaults
+  extends: test:py36
   image: python:3.7
   script:
     - tox -e py37
 
 test:py38:
-  <<: *test_defaults
+  extends: test:py36
   image: python:3.8
   script:
     - tox -e py38
@@ -87,8 +81,8 @@ test:py38:
 
 # ... and again, this time with minimal versions of all dependencies
 
-test_minimal_deps:py36: &test_minimal
-  <<: *test_defaults
+test_minimal_deps:py36:
+  extends: test:py36
   stage: test_minimal_deps
   only:
     - master
@@ -102,7 +96,7 @@ test_minimal_deps:py36: &test_minimal
     - tox -e py36-minimal_deps
 
 test_minimal_deps:py37:
-  <<: *test_minimal
+  extends: test_minimal_deps:py36
   image: python:3.7
   needs:
     - test:py37
@@ -110,7 +104,7 @@ test_minimal_deps:py37:
     - tox -e py37-minimal_deps
 
 test_minimal_deps:py38:
-  <<: *test_minimal
+  extends: test_minimal_deps:py36
   image: python:3.8
   needs:
     - test:py38
@@ -124,9 +118,9 @@ test_minimal_deps:py38:
 build:docs:
   stage: build
   image: python:3.7
-  tags: *tags
+  extends: .default_tags
   allow_failure: true
-  needs: ["prep:noop"]
+  needs: []
   before_script:
     - pip3 install .[doc]
   script:
@@ -155,10 +149,12 @@ build:docs:
 deploy:docs:
   stage: deploy
   image: &deploy_image ccees/utopia-base:v2.1  # overkill, but sshd installed
-  <<: *ssh_access
-  tags: *tags
-  only:
-    - branches@utopia/dantro
+  extends:
+    - .default_tags
+    - .ssh_access
+  rules:
+    # Run after pushes to any branch in original repo
+    - if: $CI_COMMIT_BRANCH && $CI_PROJECT_PATH == "utopia/dantro"
   dependencies:
     - build:docs
   needs:
@@ -186,12 +182,18 @@ deploy:docs:
 deploy:stop_docs:
   stage: deploy
   image: *deploy_image
-  tags: *tags
-  <<: *ssh_access
-  when: manual          # ... but it is also triggered on branch deletion
-  dependencies: []      # ... otherwise, the same dependencies as deploy:docs
-                        #     are assumed, which leads to failing jobs if the
-                        #     corresponding artifacts have expired
+  extends:
+    - .default_tags
+    - .ssh_access
+  # NOTE: Rules configuration must be the same as for "deploy:docs"
+  rules:
+    # Run after pushes to any branch in original repo
+    - if: $CI_COMMIT_BRANCH && $CI_PROJECT_PATH == "utopia/dantro"
+      # Trigger manually (also applies when environment stops)
+      when: manual
+  # Make this job independent of any artifacts, as they might have expired
+  # when the environment stops
+  dependencies: []
   variables:
     GIT_STRATEGY: none  # Don't check out the branch (might already be deleted)
   script:
@@ -207,11 +209,12 @@ deploy:stop_docs:
 deploy:pypi:
   stage: deploy
   image: python:3.7
-  tags: *tags
-  <<: *ssh_access
-  only: &to_deploy
-    - tags    # Triggered when a new tag is added
-    - web     # Use this for pre-release deployment
+  extends:
+    - .default_tags
+    - .ssh_access
+  rules: &pypi_deploy_rules
+    # Run after pushes to tags in original repo, not forks
+    - if: $CI_COMMIT_TAG && $CI_PROJECT_PATH == "utopia/dantro"
   script:
     # Define a regex for matching the tag name, see https://regex101.com/r/AsCCJo/2
     # Expects fully-qualified version specifiers, like v1.2.3 or v1.2.3a4
@@ -248,8 +251,8 @@ deploy:pypi:
 post_deploy:install_from_pypi:
   stage: post_deploy
   image: python:3.7
-  tags: *tags
-  only: *to_deploy
+  extends: .default_tags
+  rules: *pypi_deploy_rules
   needs:
     - "deploy:pypi"
   script:

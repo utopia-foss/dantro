@@ -2,6 +2,11 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+
+## v0.14.1
+- !199 updates the GitLab CI/CD configuration using latest GitLab features.
+
+
 ## v0.14.0
 #### Features and Improvements
 - `PlotHelper` extensions and improvements (#94)
@@ -28,6 +33,7 @@
 
 ## v0.13.4
 - !191 fixes a bug that prohibited a coordinate to be named `tolerance` in `UniversePlotCreator`, see #192.
+
 
 ## v0.13.3
 - !183 fixes a bug in the specification of the `np.`, `xr.` and `scipy.` data operations.
