@@ -4,7 +4,7 @@
 
 
 ## v0.14.1
-- !199 updates the GitLab CI/CD configuration using latest GitLab features.
+- !199 and !201 update the GitLab CI/CD configuration using latest GitLab features, e.g. to show code coverage inside Merge Request diffs.
 
 
 ## v0.14.0
