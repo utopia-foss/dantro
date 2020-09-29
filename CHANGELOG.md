@@ -5,6 +5,7 @@
 
 ## v0.14.1
 - !199 and !201 update the GitLab CI/CD configuration using latest GitLab features, e.g. to show code coverage inside Merge Request diffs.
+- !200 fixes an error in data operation `create_mask` when `data.name` was `None`
 
 
 ## v0.14.0
