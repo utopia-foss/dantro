@@ -22,6 +22,7 @@ variables:
   DOC_REMOTE_PATH: $DOC_REMOTE_BASE_DIR/$CI_COMMIT_REF_SLUG
   DOC_REMOTE_URL: https://hermes.iup.uni-heidelberg.de/dantro_doc
 
+
 # -- Hidden Jobs --------------------------------------------------------------
 # ... to be integrated in other jobs via "extends"
 
@@ -54,13 +55,29 @@ variables:
   tags:
     - default
 
+# Add cobertura coverage report visualization for MRs
+# Includes patch against https://gitlab.com/gitlab-org/gitlab/-/issues/217664,
+# see also: https://forum.gitlab.com/t/enabling-cobertura/36918
+.cobertura:
+  variables:
+    SRC_DIR: dantro
+  after_script:
+    - sed -i "s=<source>.*${SRC_DIR}</source>=<source>./${SRC_DIR}</source>=g" coverage.xml
+    - sed -i "s;filename=\";filename=\"${SRC_DIR}/;g" coverage.xml
+  artifacts:
+    reports:
+      cobertura: coverage.xml
+
+
 # -- Test Stage ---------------------------------------------------------------
 # ... for testing with different python environments
 
 test:py36:
   stage: test
   image: python:3.6
-  extends: .default_tags
+  extends:
+    - .default_tags
+    - .cobertura
   before_script:
     - pip3 install tox
   script:
@@ -152,9 +169,6 @@ deploy:docs:
   extends:
     - .default_tags
     - .ssh_access
-  rules:
-    # Run after pushes to any branch in original repo
-    - if: $CI_COMMIT_BRANCH && $CI_PROJECT_PATH == "utopia/dantro"
   dependencies:
     - build:docs
   needs:
@@ -185,15 +199,16 @@ deploy:stop_docs:
   extends:
     - .default_tags
     - .ssh_access
-  # NOTE: Rules configuration must be the same as for "deploy:docs"
-  rules:
-    # Run after pushes to any branch in original repo
-    - if: $CI_COMMIT_BRANCH && $CI_PROJECT_PATH == "utopia/dantro"
-      # Trigger manually (also applies when environment stops)
-      when: manual
+
+  # For this to work as an environment stop action, need to set it to manual
+  when: manual
+
   # Make this job independent of any artifacts, as they might have expired
-  # when the environment stops
+  # when the environment stops. However, `needs` has to be the same as for the
+  # environment deployment (this might be a bug?)
   dependencies: []
+  needs:
+    - build:docs
   variables:
     GIT_STRATEGY: none  # Don't check out the branch (might already be deleted)
   script:
