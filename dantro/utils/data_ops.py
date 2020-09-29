@@ -348,7 +348,10 @@ def create_mask(data: xr.DataArray,
     data = comp_func(data, rhs_value)
 
     # Create a new name
-    name = data.name + f" (masked by '{operator_name} {rhs_value}')"
+    if data.name is not None:
+        name = data.name + f" (masked by '{operator_name} {rhs_value}')"
+    else:
+        name = None
 
     # Build a new xr.DataArray from that data, retaining all information
     return xr.DataArray(data=data,
@@ -391,7 +394,7 @@ def count_unique(data, dims: List[str]=None) -> xr.DataArray:
         counts = counts[~np.isnan(unique)]
         unique = unique[~np.isnan(unique)]
 
-        if isinstance(data, xr.DataArray):
+        if isinstance(data, xr.DataArray) and data.name is not None:
             name = data.name + " (unique counts)"
         else:
             name = "data (unique counts)"
