@@ -347,8 +347,11 @@ def create_mask(data: xr.DataArray,
     # Apply the comparison
     data = comp_func(data, rhs_value)
 
-    # Create a new name
-    name = data.name + f" (masked by '{operator_name} {rhs_value}')"
+    # If a name already exists, add some information about the masking to it
+    if data.name:
+        name = data.name + f" (masked by '{operator_name} {rhs_value}')"
+    else:
+        name = None
 
     # Build a new xr.DataArray from that data, retaining all information
     return xr.DataArray(data=data,
@@ -386,15 +389,15 @@ def count_unique(data, dims: List[str]=None) -> xr.DataArray:
         unique, counts = np.unique(data, return_counts=True)
 
         # remove np.nan values
-        # NOTE np.nan != np.nan, hence np.nan will count 1 for every occurrence,
-        #      but duplicate values not allowed in coords.
+        # NOTE np.nan != np.nan, hence np.nan will count 1 for every
+        #      occurrence, but duplicate values are not allowed in coords...
         counts = counts[~np.isnan(unique)]
         unique = unique[~np.isnan(unique)]
 
-        if isinstance(data, xr.DataArray):
+        if isinstance(data, xr.DataArray) and data.name:
             name = data.name + " (unique counts)"
         else:
-            name = "data (unique counts)"
+            name = "unique counts"
 
         # Construct a new data array and return
         return xr.DataArray(data=counts,

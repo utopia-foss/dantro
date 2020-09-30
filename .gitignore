@@ -4,6 +4,7 @@
 .pytest_cache
 .tox
 __pycache__
+coverage.xml
 
 # Ignore packaging-related files and directories
 dantro.egg-info
@@ -15,7 +16,6 @@ doc/**/*.log
 
 # To be on the safe side, ignore potential plotting output
 **.pdf
-**.png 
+**.png
 **.jpg
 **.mp4
-

@@ -2,6 +2,12 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+
+## v0.14.1
+- !199 and !201 update the GitLab CI/CD configuration using latest GitLab features, e.g. to show code coverage inside Merge Request diffs.
+- !200 fixes an error in data operation `create_mask` when `data.name` was `None`
+
+
 ## v0.14.0
 #### Features and Improvements
 - `PlotHelper` extensions and improvements (#94)
@@ -29,8 +35,6 @@
 ## v0.13.4
 - !191 fixes a bug that prohibited a coordinate to be named `tolerance` in `UniversePlotCreator`, see #192.
 
-## v0.13.4
-- !191 fixes a bug that prohibited a coordinate to be named `tolerance` in `UniversePlotCreator`, see #192.
 
 ## v0.13.3
 - !183 fixes a bug in the specification of the `np.`, `xr.` and `scipy.` data operations.

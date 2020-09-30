@@ -173,6 +173,16 @@ def test_op_create_mask():
     assert not da_mask_larger1.any()
     assert "(masked by '> 1.0')" in da_mask_larger1.name
 
+    # Should also work with unnamed arrays
+    da_noname = da.copy()
+    da_noname.name = None
+    da_noname_masked = dops.create_mask(da_noname, "<", 0.5)
+    assert isinstance(da_noname_masked, xr.DataArray)
+    assert all(da_noname_masked.coords['x'] == da_noname.coords['x'])
+    assert all(da_noname_masked.coords['y'] == da_noname.coords['y'])
+    assert all(da_noname_masked.coords['z'] == da_noname.coords['z'])
+    assert da_noname_masked.dims == da_noname.dims
+
     # Error messages
     with pytest.raises(KeyError, match="No boolean operator '123' available!"):
         dops.create_mask(da, "123", 0.5)
@@ -194,16 +204,19 @@ def test_op_where():
 def test_op_count_unique():
     """Test the count_unique operation"""
     da = xr.DataArray(name="foo", data=np.random.randint(0, 6, size=(20, 20)))
-    
-    # introduce some NaN values.
-    da = dops.where(da, "<", 5)
+    da_noname = xr.DataArray(data=np.random.randint(0, 6, size=(20, 20)))
 
-    for data in [da, da.data]:
+    # introduce some NaN values which are not to be counted
+    da = dops.where(da, "<", 5)
+    da_noname = dops.where(da_noname, "<", 5)
+
+    for data in [da, da.data, da_noname, da_noname.data]:
         cu = dops.count_unique(data)
         assert isinstance(cu, xr.DataArray)
         assert cu.dims == ('unique',)
+        print(cu)
         assert (cu.coords['unique'] == [0, 1, 2, 3, 4]).all()
-        assert "(unique counts)" in cu.name
+        assert "unique counts" in cu.name
 
     with pytest.raises(TypeError,
                        match="Data needs to be of type xr.DataArray"):
@@ -218,7 +231,7 @@ def test_op_count_unique():
     assert "(unique counts)" in cu_along_dim_1.name
 
     cu_along_dims = dops.count_unique(da, dims=["dim_0", "dim_1"])
-    
+
     assert isinstance(cu_along_dims, xr.DataArray)
     assert cu_along_dims.dims == ('unique', )
     assert (cu_along_dims.coords['unique'] == [0, 1, 2, 3, 4]).all()
