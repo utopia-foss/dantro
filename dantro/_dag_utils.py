@@ -40,24 +40,23 @@ DAG_PARSER_OPERATION_HOOKS = dict()
 
 # -----------------------------------------------------------------------------
 
-class DAGReference:
-    """The DAGReference class is the base class of all DAG reference objects.
+class Placeholder:
+    """A generic placeholder class for use in the DAG framework.
 
-    While it does not implement __hash__ by itself, it is yaml-representable
-    and thus hashable after a parent object created a YAML representation.
+    Objects of this class or derived classes are yaml-representable and thus
+    hashable after a parent object created a YAML representation. In addition,
+    the __hash__ method can be used to generate a hash from the string
+    representation.
     """
-    def __init__(self, ref: str):
-        """Initialize a DAGReference object from a hash."""
-        if not isinstance(ref, str):
-            raise TypeError("DAGReference requires a string-like argument, "
-                            f"got {type(ref)}!")
 
-        self._data = ref
+    def __init__(self, data):
+        """Initialize a Placeholder by storing its payload"""
+        self._data = data
 
     def __eq__(self, other) -> bool:
         """Only objects with exactly the same type and data are regarded as
         equal; specifically, this makes instances of subclasses always unequal
-        to instances of the DAGReference base class.
+        to instances of this base class.
         """
         if type(other) == type(self):
             return self._data == other._data
@@ -68,6 +67,91 @@ class DAGReference:
 
     def __hash__(self) -> int:
         return hash(repr(self))
+
+    # YAML representation . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    yaml_tag = u'!dag_placeholder'
+
+    @classmethod
+    def from_yaml(cls, constructor, node):
+        """Construct a Placeholder from a scalar YAML node"""
+        return cls(constructor.construct_scalar(node))
+
+    @classmethod
+    def to_yaml(cls, representer, node):
+        """Create a YAML representation of a Placeholder, carrying only the
+        _data attribute over...
+
+        As YAML expects scalar data to be str-like, a type cast is done. The
+        subclasses that rely on certain argument types should take care that
+        their __init__ method can parse arguments that are str-like.
+        """
+        return representer.represent_scalar(cls.yaml_tag, str(node._data))
+
+# -----------------------------------------------------------------------------
+
+class PositionalArgument(Placeholder):
+    """A PositionalArgument is a placeholder that holds as payload a positional
+    argument's position. This is used, e.g., for meta-operation specification.
+    """
+    yaml_tag = u'!arg'
+
+    def __init__(self, pos: int):
+        """Initialize from an integer, also accepting int-convertibles"""
+        if not isinstance(pos, int):
+            # Need an integer conversion to accept YAML string dumps
+            try:
+                pos = int(pos)
+            except:
+                raise TypeError("PositionalArgument requires an "
+                                f"int-convertible argument, got {type(pos)} "
+                                f"with value {repr(pos)}!")
+
+        if pos < 0:
+            raise ValueError("PositionalArgument requires a non-negative "
+                             f"position, got {pos}!")
+
+        self._data = pos
+
+    @property
+    def position(self) -> int:
+        return self._data
+
+
+class KeywordArgument(Placeholder):
+    """A KeywordArgument is a placeholder that holds as payload the name of a
+    keyword argument. This is used, e.g., for meta-operation specification.
+    """
+    yaml_tag = u'!kwarg'
+
+    def __init__(self, name: str):
+        """Initialize by storing the keyword argument name"""
+        if not isinstance(name, str):
+            raise TypeError("KeywordArgument requires a string "
+                            f"as argument name, got {type(name)}!")
+
+        self._data = name
+
+    @property
+    def name(self) -> int:
+        return self._data
+
+
+# -----------------------------------------------------------------------------
+
+class DAGReference(Placeholder):
+    """The DAGReference class is the base class of all DAG reference objects.
+    It extends the generic Placeholder class with the ability to resolve
+    references within a :py:class:`~dantro.dag.TransformationDAG`.
+    """
+    yaml_tag = u'!dag_ref'
+
+    def __init__(self, ref: str):
+        """Initialize a DAGReference object from a hash."""
+        if not isinstance(ref, str):
+            raise TypeError("DAGReference requires a string-like argument, "
+                            f"got {type(ref)}!")
+
+        self._data = ref
 
     @property
     def ref(self) -> str:
@@ -92,39 +176,22 @@ class DAGReference:
         """
         return dag.objects[self._resolve_ref(dag=dag)]
 
-    # YAML representation . . . . . . . . . . . . . . . . . . . . . . . . . . .
-    yaml_tag = u'!dag_ref'
-
-    @classmethod
-    def from_yaml(cls, constructor, node):
-        """Construct a DAGReference from a scalar YAML node"""
-        return cls(constructor.construct_scalar(node))
-
-    @classmethod
-    def to_yaml(cls, representer, node):
-        """Create a YAML representation of a DAGReference, carrying only the
-        _data attribute over...
-
-        As YAML expects scalar data to be str-like, a type cast is done. The
-        subclasses that rely on certain argument types should take care that
-        they can parse arguments that are str-like.
-        """
-        return representer.represent_scalar(cls.yaml_tag, str(node._data))
-
-
 # .............................................................................
 
 class DAGTag(DAGReference):
     """A DAGTag object stores a name of a tag, which serves as a named
     reference to some object in the DAG.
-
-    While it does not implement __hash__ by itself, it is yaml-representable
-    and thus hashable after a parent object created a YAML representation.
     """
     yaml_tag = u'!dag_tag'
 
     def __init__(self, name: str):
         """Initialize a DAGTag object, storing the specified field name"""
+        # Prohibit certain names that would collide with DAGMetaOperationTag
+        if DAGMetaOperationTag.SPLIT_STR in name:
+            raise ValueError("DAGTag names cannot include the "
+                             f"'{DAGMetaOperationTag.SPLIT_STR}' substring! "
+                             f"Adjust the name of tag '{name}' accordingly.")
+
         self._data = name
 
     @property
@@ -136,14 +203,51 @@ class DAGTag(DAGReference):
         """Return the hash reference by looking up the tag in the DAG"""
         return dag.tags[self.name]
 
+
+class DAGMetaOperationTag(DAGTag):
+    """A DAGMetaOperationTag stores a name of a tag, just as DAGTag, but can
+    only be used inside a meta-operation. When resolving this tag's reference,
+    the target is looked up from the stack of the TransformationDAG.
+    """
+    yaml_tag = u'!mop_tag'
+    SPLIT_STR = "::"
+
+    def __init__(self, name: str):
+        """Initialize the DAGMetaOperationTag object.
+
+        The ``name`` needs to be of the ``<meta-operation name>::<tag name>``
+        pattern and thereby include information on the name of the
+        meta-operation this tag is used in.
+        """
+        # Check if valid
+        try:
+            mop, tag = name.split(self.SPLIT_STR)
+        except Exception as exc:
+            raise ValueError(f"Invalid name '{name}' for DAGMetaOperationTag! "
+                             f"The '{self.SPLIT_STR}' substring "
+                             "is missing or is used more than once!") from exc
+
+        self._data = name
+
+    def _resolve_ref(self, *, dag: 'TransformationDAG') -> str:
+        """Return the hash reference by looking it up in the reference stacks
+        of the specified TransformationDAG.
+        """
+        return dag.ref_stacks[self.name].pop()
+
+    @classmethod
+    def make_name(cls, meta_operation: str, *, tag: str) -> str:
+        return f"{meta_operation}{cls.SPLIT_STR}{tag}"
+
+    @classmethod
+    def from_names(cls, meta_operation: str, *,
+                   tag: str) -> 'DAGMetaOperationTag':
+        return cls(cls.make_name(meta_operation, tag=tag))
+
 # .............................................................................
 
 class DAGNode(DAGReference):
-    """A DAGNode is a reference by the index within the DAG's node list.
-
-    While it does not implement __hash__ by itself, it is yaml-representable
-    and thus hashable after a parent object created a YAML representation.
-    """
+    """A DAGNode is a reference by the index within the DAG's node list."""
     yaml_tag = u'!dag_node'
 
     def __init__(self, idx: int):
@@ -158,12 +262,13 @@ class DAGNode(DAGReference):
             TypeError: On invalid type (not int-convertible)
         """
         if not isinstance(idx, int):
-            # Try an integer conversion, to be a bit more robust
+            # Need an integer conversion to accept YAML string dumps
             try:
                 idx = int(idx)
             except:
                 raise TypeError("DAGNode requires an int-convertible "
-                                f"argument, got {type(idx)}!")
+                                f"argument, got {type(idx)} with "
+                                f"value {repr(idx)}!")
 
         self._data = idx
 

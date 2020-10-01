@@ -21,8 +21,12 @@ from paramspace import yaml
 yaml.default_flow_style = False
 
 # Register further classes
-from ._dag_utils import DAGReference, DAGTag, DAGNode
+from ._dag_utils import (Placeholder, PositionalArgument, KeywordArgument,
+                         DAGReference, DAGTag, DAGNode)
 
+yaml.register_class(Placeholder)
+yaml.register_class(PositionalArgument)
+yaml.register_class(KeywordArgument)
 yaml.register_class(DAGReference)
 yaml.register_class(DAGTag)
 yaml.register_class(DAGNode)

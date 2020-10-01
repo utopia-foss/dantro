@@ -607,6 +607,19 @@ Except for ``operation``, ``args``, ``kwargs`` and ``tag``, all entries are set 
     Make sure to check out the :doc:`examples` page, where you will find practical examples that go beyoned what is shown here.
 
 
+
+.. _dag_meta_ops:
+
+Meta-Operations
+---------------
+
+*WIP*
+
+
+
+
+
+
 .. _dag_file_cache:
 
 The File Cache
