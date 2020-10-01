@@ -50,7 +50,7 @@ class DAGReference:
         """Initialize a DAGReference object from a hash."""
         if not isinstance(ref, str):
             raise TypeError("DAGReference requires a string-like argument, "
-                            "got {}!".format(type(ref)))
+                            f"got {type(ref)}!")
 
         self._data = ref
 
@@ -163,7 +163,7 @@ class DAGNode(DAGReference):
                 idx = int(idx)
             except:
                 raise TypeError("DAGNode requires an int-convertible "
-                                "argument, got {}!".format(type(idx)))
+                                f"argument, got {type(idx)}!")
 
         self._data = idx
 
@@ -231,17 +231,20 @@ class DAGObjects:
         """
         if custom_hash is not None:
             if hasattr(obj, 'hashstr'):
-                raise TypeError("Cannot use a custom hash for objects that "
-                                "provide their own `hashstr` property! Got "
-                                "object of type {} and custom hash '{}'."
-                                "".format(type(obj), custom_hash))
+                raise TypeError(
+                    "Cannot use a custom hash for objects that provide their "
+                    f"own `hashstr` property! Got object of type {type(obj)} "
+                    f"and custom hash '{custom_hash}'."
+                )
 
             elif custom_hash in self:
-                raise ValueError("The provided custom hash '{}' for object of "
-                                 "type {} already exists! Refusing to add it. "
-                                 "Was the object already added? If not, "
-                                 "choose a different custom hash."
-                                 "".format(custom_hash, type(obj)))
+                raise ValueError(
+                    f"The provided custom hash '{custom_hash}' for object of "
+                    f"type {type(obj)} already exists! Refusing to add it. "
+                    "Was the object already added? If not, choose a different "
+                    "custom hash."
+                )
+
             key = custom_hash
 
         else:
@@ -288,7 +291,7 @@ def parse_dag_minimal_syntax(params: Union[str, dict]) -> dict:
 
     # else:
     raise TypeError("Expected either dict or string for minimal syntax, got "
-                    "{} with value: {}".format(type(params), params))
+                    f"{type(params)} with value: {params}")
 
 
 def parse_dag_syntax(*, operation: str=None, args: list=None,

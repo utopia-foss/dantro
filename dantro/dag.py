@@ -763,10 +763,11 @@ class TransformationDAG:
             # else: filename is assumed to be the hash.
 
             if fname in info:
-                raise ValueError("Encountered a duplicate cache file for the "
-                                 "transformation with hash {}! Delete all but "
-                                 "one of those files from the cache directory "
-                                 "{}.".format(fname, self.cache_dir))
+                raise ValueError(
+                    "Encountered a duplicate cache file for the "
+                    f"transformation with hash {fname}! Delete all but one of "
+                    f"those files from the cache directory {self.cache_dir}."
+                )
 
             # All good, store info.
             info[fname] = dict(full_path=path, ext=ext)
@@ -794,12 +795,14 @@ class TransformationDAG:
             new_base = new_base.convert_to_ref(dag=self)
 
         elif new_base not in self.tags:
-            raise KeyError("The tag '{}' cannot be the basis of future select "
-                           "operations because it is not available! Make sure "
-                           "that a node with that tag is added prior to the "
-                           "attempt of setting it. Available tags: {}. "
-                           "Alternatively, pass a DAGReference object."
-                           "".format(new_base, ", ".join(self.tags)))
+            _available = ", ".join(self.tags)
+            raise KeyError(
+                f"The tag '{new_base}' cannot be the basis of future select "
+                "operations because it is not available! Make sure that a "
+                "node with that tag is added prior to the attempt of setting "
+                f"it. Available tags: {_available}. Alternatively, pass a "
+                "DAGReference object."
+            )
 
         else:
             # Tag is available. Create a DAGReference via DAGTag conversion
@@ -979,9 +982,11 @@ class TransformationDAG:
         # If a tag was specified, create a tag
         if tag:
             if tag in self.tags.keys():
-                raise ValueError("Tag '{}' already exists! Choose a different "
-                                 "one. Already in use: {}"
-                                 "".format(tag, ", ".join(self.tags.keys())))
+                _used_tags = ", ".join(self.tags.keys())
+                raise ValueError(
+                    f"Tag '{tag}' already exists! Choose a different one. "
+                    f"Already in use: {_used_tags}"
+                )
             self.tags[tag] = trf_hash
 
         # Update the profile
@@ -1173,16 +1178,18 @@ class TransformationDAG:
                 omit_tag = params.get('omit_tag', False)
 
                 if 'file_cache' in params:
-                    raise ValueError("For selection from the selection base, "
-                                     "the file cache is always disabled! "
-                                     "The `file_cache` argument is thus not "
-                                     "allowed; remove it from the selection "
-                                     "for tag '{}'.".format(tag))
+                    raise ValueError(
+                        "For selection from the selection base, the file "
+                        "cache is always disabled! The `file_cache` argument "
+                        "is thus not allowed; remove it from the selection "
+                        f"for tag '{tag}'."
+                    )
 
             else:
-                raise TypeError("Invalid type for '{}' entry within `select` "
-                                "argument! Got {} but expected string or dict."
-                                "".format(tag, type(params)))
+                raise TypeError(
+                    f"Invalid type for '{tag}' entry within `select` argument!"
+                    f" Got {type(params)} but expected string or dict."
+                )
 
             # If given, process the path by prepending the prefix
             if self._select_path_prefix:
@@ -1226,11 +1233,11 @@ class TransformationDAG:
                 # the selected tag needs to set the tag.
                 if i+1 == len(more_trfs) and not omit_tag:
                     if trf_params.get('tag'):
-                        raise ValueError("The tag of the last transform "
-                                         "operation within a select routine "
-                                         "cannot be set manually. Check the "
-                                         "parameters for selection of tag "
-                                         "'{}'.".format(tag))
+                        raise ValueError(
+                            "The tag of the last transform operation within a "
+                            "select routine cannot be set manually. Check the "
+                            f"parameters for selection of tag '{tag}'."
+                        )
                         # TODO Could actually allow multiple tags here ...
 
                     # Add the tag to the parameters
@@ -1345,7 +1352,8 @@ class TransformationDAG:
                 raise NotImplementedError("Cannot currently write dantro "
                     "groups to a cache file. Sorry. Adjust the ignore_groups "
                     "argument in the file cache write options for the "
-                    "transformation resulting in {}.".format(result))
+                    f"transformation resulting in {result}."
+                )
             return False
 
         # Make sure the directory exists
@@ -1377,10 +1385,12 @@ class TransformationDAG:
                               bad_fpath)
 
                 # Generate an error or warning message
-                msg = ("Failed saving transformation cache file for result of "
-                       "type {} using storage function for type(s) {}. Value "
-                       "of result:\n{}.\n\nAdditional keyword arguments: {}"
-                       "".format(type(result), types, result, save_kwargs))
+                msg = (
+                    "Failed saving transformation cache file for result of "
+                    f"type {type(result)} using storage function for type(s) "
+                    f"{types}. Value of result:\n{result}.\n\n"
+                    f"Additional keyword arguments: {save_kwargs}"
+                )
                 if raise_on_error:
                     raise RuntimeError(msg) from exc
                 log.warning("%s.\n%s: %s", msg, exc.__class__.__name__, exc)
@@ -1404,11 +1414,12 @@ class TransformationDAG:
                          **(pkl_kwargs if pkl_kwargs else {}))
 
         except Exception as exc:
-            msg = ("Failed saving transformation cache file. Cannot pickle "
-                   "result object of type {} and with value {}. Consider "
-                   "deactivating file caching or pickling for this "
-                   "transformation."
-                   "".format(type(result), result))
+            msg = (
+                "Failed saving transformation cache file. Cannot pickle "
+                f"result object of type {type(result)} and with value "
+                f"{result}. Consider deactivating file caching or pickling "
+                "for this transformation."
+            )
             if raise_on_error:
                 raise RuntimeError(msg) from exc
             log.warning("%s. %s: %s", msg, exc.__class__.__name__, exc)
