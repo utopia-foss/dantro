@@ -144,6 +144,7 @@ To add a tag to a transformation, use the ``tag`` key.
 
     No two transformations can have the same tag.
 
+.. _dag_referencing:
 
 Advanced Referencing
 ^^^^^^^^^^^^^^^^^^^^
@@ -327,6 +328,7 @@ For a full list of available data operations, see :ref:`here <data_ops_available
     This should only be done for operations that are not easily usable via the ``import`` and ``call`` operations.
 
 
+.. _dag_select:
 
 Selecting from the :py:class:`~dantro.data_mngr.DataManager`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -429,6 +431,15 @@ To widen the possibilities, the :py:class:`~dantro.dag.TransformationDAG` allows
 
     The ``select_path_prefix`` argument offers similar functionality, but merely prepends a path to the argument.
     If possible, the ``select_base`` functionality should be preferred over ``select_path_prefix`` as it reduces lookups and cooperates more nicely with the file caching features.
+
+.. admonition:: Background Information
+
+    Internally, when the ``select`` specification is evaluated, it is set to select against a special tag ``select_base``; by default, this is the same as the ``dm`` special tag.
+
+    Effectively, the ``select`` feature always selects starting from the object the :py:attr:`~dantro.dag.TransformationDAG.select_base` property points to *at the time the nodes are added to the DAG*.
+    In other words, if the ``select_base`` is changed *after* the nodes were added, this will not have any effect.
+
+    For :ref:`meta-operations <dag_meta_ops>` this means that the base of selection is not relevant *at definition* of the meta-operations; the base gets evaluated when the meta-operation is *used*.
 
 
 Individually adding nodes
@@ -604,7 +615,7 @@ Except for ``operation``, ``args``, ``kwargs`` and ``tag``, all entries are set 
 .. hint::
 
     Often the easiest way to learn is by example.
-    Make sure to check out the :doc:`examples` page, where you will find practical examples that go beyoned what is shown here.
+    Make sure to check out the :doc:`examples` page, where you will find practical examples that go beyond what is shown here.
 
 
 
@@ -612,10 +623,182 @@ Except for ``operation``, ``args``, ``kwargs`` and ``tag``, all entries are set 
 
 Meta-Operations
 ---------------
+In essence, the transformation framework as described above can be used to define a sequence of data operations, just like a sequential program code could do.
+Now, what if parts of these operations are used multiple times?
+In a typical computer program, one would define a *function* to modularize part of the program.
+The *equivalent* construct in the data transformation framework is a so-called **meta-operation**, which can be characterized in the following way:
 
-*WIP*
+* It can have input *arguments* that define which objects it should work on
+* It consists of a number of operations that transform the arguments in the desired way
+* It has one (and only one) output, the *return value*
+
+**How are meta-operations defined?**
+Meta-operations can be defined in just the same way as regular transformations are defined, with some additional syntax for defining positional arguments (``args``) and keyword arguments (``kwargs``).
+Let's look at an example:
+
+.. literalinclude:: ../../tests/cfg/transformations.yml
+    :language: yaml
+    :start-after: ### Start -- dag_meta_ops_simple_def
+    :end-before:  ### End ---- dag_meta_ops_simple_def
+    :dedent: 4
+
+This defines two meta-operations: ``square_plus_one`` (with one positional argument) and ``select_and_compute_mean`` (with the ``to_select`` keyword argument).
+During initialization of :py:class:`~dantro.dag.TransformationDAG`, these can be passed using the ``meta_operations`` argument.
+
+**How are meta-operations used?**
+In exactly the same way as all regular data operations: simply define their name as the ``operation`` argument of a transformation.
+
+.. literalinclude:: ../../tests/cfg/transformations.yml
+    :language: yaml
+    :start-after: ### Start -- dag_meta_ops_simple_use
+    :end-before:  ### End ---- dag_meta_ops_simple_use
+    :dedent: 4
+
+Here, one of the meta-operations is used to compute two mean values from a selection; these are then added together via the regular ``add`` operation; finally, the other meta-operation is applied to that sum, yielding the result.
+While the individual meta-operations are not complex in themselves, this illustrates how repeatedly invoked transformations can be modularized.
+
+.. note::
+
+    The examples in these sections use the ``meta_operations`` top-level entry to illustrate the *definition* of meta-operations.
+    The ``transform`` and/or ``select`` top-level entries are used to denote how meta-operations can be invoked (in the same way as regular operations).
+
+As a brief summary:
+
+* Meta-operations are defined via the ``meta_operations`` argument of :py:class:`~dantro.dag.TransformationDAG`, using the same syntax as for other transformations.
+* They can specify positional and keyword arguments and have a return value.
+* They can be used for the ``operation`` argument of *any* transformation, same as other :ref:`available data operations <data_ops_available>`.
+* Meta-operations allow modularization and thereby simplify definition of data transformations.
 
 
+.. hint::
+
+    To use meta-operations for :ref:`plot data selection <plot_creator_dag>`, define them under the ``dag_options.meta_operations`` key of a plot configuration.
+
+
+Defining meta-operations
+^^^^^^^^^^^^^^^^^^^^^^^^
+The example above already gave a glimpse into how to define meta-operations.
+In many ways, this works exactly the same as defining transformations, e.g. under the ``transform`` argument.
+
+Specifying arguments
+""""""""""""""""""""
+Like Python functions, meta-operations can have two kinds of arguments:
+
+* Positional arguments, defined using the ``!arg <position>`` YAML tag
+* Keyword arguments, defined using the ``!kwarg <name>`` YAML tag
+
+These can be used anywhere inside the meta-operation specification and serve as placeholders for expected arguments.
+Let's look at an example:
+
+.. literalinclude:: ../../tests/cfg/transformations.yml
+    :language: yaml
+    :start-after: ### Start -- dag_meta_ops_arg_def
+    :end-before:  ### End ---- dag_meta_ops_arg_def
+    :dedent: 4
+
+When the meta-operation gets translated into nodes, the corresponding positional and keyword arguments are replaced with the values from the ``args`` and ``kwargs`` of the :ref:`transformation specification <dag_transform_full_syntax_spec>`.
+
+Some remarks:
+
+* Positional and keyword arguments can be mixed
+* Arguments can be referred to multiple times within a meta-operation definition
+* The set of positional arguments, if specified, needs to include all integers between zero and the highest defined ``!arg <position>``.
+* *Optional* arguments and *variable* positional or keyword arguments are not supported (yet).
+
+
+Return values
+"""""""""""""
+Meta-operations *always* have *one and only one* return value: the last defined transformation.
+
+.. hint::
+
+    To have *multiple* return values, aggregate results into a ``dict`` that you then unpack outside of the meta-operation.
+
+
+Using ``select`` within meta-operations
+"""""""""""""""""""""""""""""""""""""""
+The definitions inside ``meta_operations`` can have two possible formats:
+
+.. literalinclude:: ../../tests/cfg/transformations.yml
+    :language: yaml
+    :start-after: ### Start -- dag_meta_ops_definition_formats
+    :end-before:  ### End ---- dag_meta_ops_definition_formats
+    :dedent: 4
+
+As can be seen above, the dict-based definition supports using the :ref:`select interface <dag_select>`.
+Importantly, this supports parametrisation: simply use ``!arg`` or ``!kwarg``  inside the ``select`` specification, e.g. to make the path of the to-be-selected object an argument to the meta-operation.
+
+
+Internal tags
+"""""""""""""
+When defining simple meta-operations, passing the output of the previous operation through to the next one using ``!dag_prev`` usually suffices to connect operations.
+Such meta-operations are essentially linear DAGs.
+
+However, to define non-linear meta-operations (or: general DAGs), it needs to be possible to use the result of *any* previously specified transformation.
+For that purpose, the ``tag`` entry and the ``!dag_tag`` YAML tag can be used, same as in the :ref:`usual specification of references between transformations <dag_referencing>`:
+
+.. literalinclude:: ../../tests/cfg/transformations.yml
+    :language: yaml
+    :start-after: ### Start -- dag_meta_ops_tagging
+    :end-before:  ### End ---- dag_meta_ops_tagging
+    :dedent: 4
+
+*Internal* tags are all ``tag`` definitions inside the ``meta_operation`` definition.
+These tags are solely accessible *within* the meta-operation and will not be available as results later on (only the return value will).
+In the above example, the ``left``, ``right``, and ``top`` tags are internal tags and they are referenced using the already-known ``!dag_tag`` YAML tag.
+
+This is in contrast to the regular ``tag`` definitions (the ``result`` tag in the example), which is a regular tag.
+Effectively, the regular tag is attached to the last transformation of the meta-operation, here being the ``div`` operation.
+
+.. note::
+
+    In order to avoid silent errors and reduce unexpected behaviour, *all* internally defined tags *need* to be used within the meta-operation.
+
+
+Examples
+^^^^^^^^
+
+.. literalinclude:: ../../tests/cfg/transformations.yml
+    :language: yaml
+    :start-after: ### Start -- dag_meta_ops_gauss
+    :end-before:  ### End ---- dag_meta_ops_gauss
+    :dedent: 4
+
+.. literalinclude:: ../../tests/cfg/transformations.yml
+    :language: yaml
+    :start-after: ### Start -- dag_meta_ops_prime_multiples
+    :end-before:  ### End ---- dag_meta_ops_prime_multiples
+    :dedent: 4
+
+
+.. _dag_meta_ops_remarks:
+
+Remarks & Caveats
+^^^^^^^^^^^^^^^^^
+Note the following remarks regarding the definition and use of meta-operations:
+
+* Inside meta-operations, no outside tags except the "special" tags (``dag``, ``dm``, ``select_base``) can be used.
+  Further inputs should be handled by adding *arguments* to the meta-operation as described above.
+* When using the ``select`` syntax in the definition of a meta-operation and aiming to define an argument, note that the *long* syntax needs to be used:
+
+    .. code-block:: yaml
+
+        select:
+          # Correct
+          some_data:
+            path: !kwarg some_data_path
+
+          # WRONG! Will not work.
+          other_data: !kwarg other_data_path
+
+* When defining a meta-operation and using an operation that makes use of an :ref:`operation hook <dag_op_hooks_integration>`, the tags created by the hook need to be *explicitly* exposed as arguments, otherwise there will be an ``Unused tags ...`` error.
+  To expose them, there are two ways:
+
+  * Use them internally by adding a ``define``, ``dict``, or ``list`` operation prior to the operation that uses the hook; then explicitly specify them as arguments there.
+  * In the case of the ``expression`` operation hook, use the ``kwargs.symbols`` entry to directly define them as arguments, as done in the ``my_gauss`` example above.
+
+* When using a meta-operation, the ``tag`` and the ``file_cache`` arguments (see :ref:`below <dag_file_cache>`) are added only to the last transformation of a meta-operation.
+  All other nodes have no tag attached and use the :ref:`default values for file caching <dag_file_cache_defaults>`.
 
 
 

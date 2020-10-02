@@ -58,6 +58,11 @@ This alleviates specifying the ``kwargs.symbols`` argument manually, thus saving
 
     Typically, nodes ``a``, ``b``, ``c`` would be the result of some prior, more complicated expression, e.g using any of the :ref:`other available operations <data_ops_available>`.
 
+.. warning::
+
+    If using the ``expression`` operation as part of a :ref:`meta-operation <dag_meta_ops>`, make sure to refer to these tags *inside* the meta-operation in some way.
+    See the :ref:`dag_meta_ops_remarks` there for more information.
+
 Furthermore, if any of the symbols are called ``prev`` or ``previous_result``, they are turned into :py:class:`~dantro._dag_utils.DAGNode` references to the previous node, similar to the ``!dag_prev`` YAML tag:
 
 .. literalinclude:: ../../tests/cfg/transformations.yml

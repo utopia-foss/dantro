@@ -56,6 +56,10 @@ You then have the following arguments available to control its behaviour:
 
     If DAG usage is enabled, these arguments will be used *exclusively* for the DAG, i.e.: they are not available downstream in the plot creator.
 
+.. hint::
+
+    To use :ref:`meta-operations <dag_meta_ops>` for plot data selection, define them under the ``dag_options.meta_operations`` key of a plot configuration.
+
 The creation of the DAG and its computation is controlled by the chosen plot creator and can be specialized to suit that plot creator's needs.
 
 .. _plot_creator_dag_usage:

@@ -1803,13 +1803,13 @@ doc_examples_dag_curve_fitting:
 
 doc_examples_meta_ops_simple:
   params:
-    ### Start -- dag_meta_ops_simple
+    ### Start -- dag_meta_ops_simple_def
     # Define meta-operations
     meta_operations:
       # Compute (x**2 + 1) for a positional input argument x
       square_plus_one:
         - pow: [!arg 0, 2]
-        - add: [!dag_prev , 1]
+        - add: [!dag_prev , 1]   # <-- this operation's result is the "return value"
 
       # Select some data and directly compute its mean
       select_and_compute_mean:
@@ -1819,6 +1819,8 @@ doc_examples_meta_ops_simple:
         transform:
           - .mean: !dag_tag data
 
+    ### End ---- dag_meta_ops_simple_def
+    ### Start -- dag_meta_ops_simple_use
     # Use the meta-operations within the regular data transformation, alongside
     # the already-existing data operations
     transform:
@@ -1831,13 +1833,41 @@ doc_examples_meta_ops_simple:
       - add: [!dag_tag some_data_mean, !dag_tag more_data_mean]
       - square_plus_one: !dag_prev
         tag: result
-    ### End ---- dag_meta_ops_simple
+    ### End ---- dag_meta_ops_simple_use
 
   expected:
     tags: [dag, dm, select_base, some_data_mean, more_data_mean, result]
     results:
       result:
         type: float64
+
+
+doc_examples_meta_ops_arg_def:
+  params:
+    ### Start -- dag_meta_ops_arg_def
+    meta_operations:
+      my_equation:  # [(a + b) * c - d] / e
+        - add: [!kwarg a, !kwarg b]
+        - mul: [!dag_prev , !kwarg c]
+        - sub: [!dag_prev , !kwarg d]
+        - div: [!dag_prev , !kwarg e]
+
+    transform:
+      - my_equation:
+          a: 1
+          b: 10
+          c: 8
+          d: 4
+          e: 2
+        tag: the_answer
+    ### End ---- dag_meta_ops_arg_def
+
+  expected:
+    tags: [dag, dm, select_base, the_answer]
+    results:
+      the_answer:
+        type: float
+        compare_to: 42
 
 
 doc_examples_meta_ops_definition_formats:
@@ -1874,6 +1904,37 @@ doc_examples_meta_ops_definition_formats:
       result2:
         type: ndarray
 
+
+doc_examples_meta_ops_tagging:
+  params:
+    ### Start -- dag_meta_ops_tagging
+    meta_operations:
+      my_meta_operation:  # [(x+1) * (x-1)] / (2*y)
+        - add: [!arg 0, +1]
+          tag: left
+        - add: [!arg 0, -1]
+          tag: right
+        - mul: [!dag_tag left, !dag_tag right]
+          tag: top
+        - mul: [!arg 1, 2]
+        - div: [!dag_tag top , !dag_prev ]
+
+    transform:
+      - my_meta_operation: [9, 2]  # [(9+1) * (9-1)] / (2*2) == 20
+        tag: result
+    ### End ---- dag_meta_ops_tagging
+      - my_meta_operation: [0, .5]
+        tag: result2
+
+  expected:
+    tags: [dag, dm, select_base, result, result2]
+    results:
+      result:
+        type: float
+        compare_to: 20
+      result2:
+        type: float
+        compare_to: -1
 
 
 doc_examples_meta_ops_gauss:
@@ -1932,3 +1993,33 @@ doc_examples_meta_ops_gauss:
         compare_to: 0.
 
 
+doc_examples_meta_ops_prime_multiples:
+  params:
+    ### Start -- dag_meta_ops_prime_multiples
+    meta_operations:
+      prime_multiples:
+        - pow: [2, !kwarg base2]
+          tag: b2
+        - pow: [3, !kwarg base3]
+          tag: b3
+        - pow: [5, !kwarg base5]
+          tag: b5
+        - pow: [7, !kwarg base7]
+          tag: b7
+        - np.: [prod, [!dag_tag b2, !dag_tag b3, !dag_tag b5, !dag_tag b7]]
+
+    transform:
+      - prime_multiples:
+          base2: 2
+          base3: 1
+          base5: 0
+          base7: 3
+        tag: result
+    ### End ---- dag_meta_ops_prime_multiples
+
+  expected:
+    tags: [dag, dm, select_base, result]
+    results:
+      result:
+        type: int64
+        compare_to: 4116
