@@ -175,6 +175,7 @@ shorthand_transform:
         kwarg1: bar
       tag: res5
 
+
 shorthand_transform_error_superfluous_args:
   params:
     select: ~
@@ -185,6 +186,7 @@ shorthand_transform_error_superfluous_args:
 
   _raises: ValueError
   _match: Got superfluous `args` argument!
+
 
 shorthand_transform_error_superfluous_args2:
   params:
@@ -197,6 +199,7 @@ shorthand_transform_error_superfluous_args2:
   _raises: ValueError
   _match: Got superfluous `args` argument!
 
+
 shorthand_transform_error_superfluous_kwargs:
   params:
     select: ~
@@ -208,6 +211,7 @@ shorthand_transform_error_superfluous_kwargs:
   _raises: ValueError
   _match: Got superfluous `kwargs` argument!
 
+
 shorthand_transform_error_too_many_ops:
   params:
     select: ~
@@ -218,6 +222,7 @@ shorthand_transform_error_too_many_ops:
   _raises: ValueError
   _match: For shorthand notation, there can only be a single operation
 
+
 shorthand_transform_error_missing_op:
   params:
     select: ~
@@ -226,6 +231,7 @@ shorthand_transform_error_missing_op:
 
   _raises: ValueError
   _match: Missing operation specification.
+
 
 shorthand_transform_error_both_ops_and_op:
   params:
@@ -279,6 +285,7 @@ nested_refs:
             key2: [!dag_node -1 ]
       tag: ~
 
+
 # -----------------------------------------------------------------------------
 # With select
 
@@ -299,7 +306,7 @@ simple_select:
   expected:
     - operation: getitem
       args:
-        - &ref_dm !dag_ref 38518b2446b95e8834372949a8e9dfc2
+        - &ref_dm !dag_tag select_base
         - some/path/bar
       kwargs: {}
       tag: bar
@@ -450,6 +457,7 @@ simple_select_omit_tag:
         write: false
         read: false
 
+
 select_error_bad_type:
   params:
     select:
@@ -458,6 +466,7 @@ select_error_bad_type:
 
   _raises: TypeError
   _match: Invalid type for 'foo' entry within `select` argument
+
 
 select_error_trying_to_set_last_tag:
   params:
@@ -518,6 +527,7 @@ salted:
       kwargs: {}
       salt: 43
       tag: ~
+
 
 # -----------------------------------------------------------------------------
 

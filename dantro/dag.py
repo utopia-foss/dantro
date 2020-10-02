@@ -416,7 +416,8 @@ class Transformation:
 
         # Actually perform the operation
         res = apply_operation(self._operation, *args, **kwargs)
-        # TODO Add error handling with node information
+        # TODO Add error handling with node information and names of available
+        #      meta-operations
 
         # Prase profiling info and return the result
         self._update_profile(cumulative_compute=(time.time() - t0))
@@ -610,7 +611,7 @@ class TransformationDAG:
     care of selecting a basic set of data from the associated DataManager.
     """
     # The tags that have special meaning
-    SPECIAL_TAGS = ('dag', 'dm')
+    SPECIAL_TAGS = ('dag', 'dm', 'select_base')
 
     def __init__(self, *, dm: 'DataManager',
                  select: dict=None, transform: Sequence[dict]=None,
@@ -647,10 +648,6 @@ class TransformationDAG:
                 be used as the basis of ``select`` operations.
                 These transformations should be kept as simple as possible
                 and ideally be only used to traverse through the data tree.
-                Further note that the transformations defined here can **not**
-                make use of meta-operations, as the ``meta_operations``
-                argument is evaluated only *after* the nodes for the base
-                transformations were added.
             select_base (Union[DAGReference, str], optional): Which tag to
                 base the ``select`` operations on. If None, will use the
                 (always-registered) tag for the data manager, ``dm``. This
@@ -667,11 +664,8 @@ class TransformationDAG:
                 not, the ``/`` is added before adjoining it to the other path.
             meta_operations: Meta-operations are basically *function
                 definitions* using the language of the transformation
-                framework; for information on how to define them, see
+                framework; for information on how to define and use them, see
                 :ref:`dag_meta_ops`.
-                Note that these meta-operations are registered only after the
-                ``base_transform`` argument was evaluated, such that the
-                meta-operations are not available there.
             verbosity (str, optional): Logging verbosity during computation.
                 This mostly pertains to the extent of statistics being emitted
                 through the logger.
@@ -700,19 +694,15 @@ class TransformationDAG:
         else:
             self._cache_dir = os.path.join(self.dm.dirs['data'], cache_dir)
 
-        # Add the DAG itself and the DataManager as objects with default tags
+        # Add the special tags: the DAG itself, the DataManager, and the
+        # (changing) selection base
         self.tags['dag'] = self.objects.add_object(self)
         self.tags['dm'] = self.objects.add_object(self.dm)
+        self.tags['select_base'] = self.tags['dm']  # here: default value only
         # NOTE The data manager is NOT a node of the DAG, but more like an
         #      external data source, thus being accessible only as a tag
 
-        # Add base transformations that do not rely on select operations
-        self.add_nodes(transform=base_transform)
-
-        # Set the selection base tag; the property setter checks availability
-        self.select_base = select_base
-
-        # Populate the meta operations registry
+        # Populate the registry of meta-operations
         if meta_operations:
             for name, spec in meta_operations.items():
                 if isinstance(spec, list):
@@ -720,8 +710,14 @@ class TransformationDAG:
                 else:
                     self.register_meta_operation(name, **spec)
             log.debug("Registered %d meta-operations.", len(self._meta_ops))
-        # NOTE As meta-operations may also carry out `select` operations, it is
-        #      crucial to register them after `select_base` was set.
+        # NOTE While meta-operations may also carry out `select` operations,
+        #      they don't need to know the selection base *at this point*.
+
+        # Add base transformations that do not rely on select operations
+        self.add_nodes(transform=base_transform)
+
+        # Set the selection base tag; the property setter checks availability
+        self.select_base = select_base
 
         # Now add nodes via the main arguments; these can now make use of the
         # select interface, because a select base tag is set and base transform
@@ -849,8 +845,9 @@ class TransformationDAG:
             log.debug("Setting select_base to tag '%s' ...", new_base)
             new_base = DAGTag(new_base).convert_to_ref(dag=self)
 
-        # Have a DAGReference now. Store it.
+        # Have a DAGReference now. Store it and update the special tag.
         self._select_base = new_base
+        self.tags['select_base'] = new_base.ref
 
     @property
     def profile(self) -> Dict[str, float]:
@@ -1195,6 +1192,11 @@ class TransformationDAG:
         """Adds multiple nodes by parsing the specification given via the
         ``select`` and ``transform`` arguments.
 
+        .. note::
+
+            The current :py:attr:`~dantro.dag.TransformationDAG.select_base`
+            property value is used as basis for all ``getitem`` operations.
+
         Args:
             select (dict, optional): Selection specifications, which are
                 translated into regular transformations based on ``getitem``
@@ -1203,7 +1205,6 @@ class TransformationDAG:
                 By default, selection happens from the associated DataManager.
             transform (Sequence[dict], optional): Transform specifications.
         """
-        # Parse the arguments and add multiple nodes from those specs
         specs = self._parse_trfs(select=select, transform=transform)
         if not specs:
             return
@@ -1281,7 +1282,7 @@ class TransformationDAG:
         compute_only = compute_only if compute_only is not None else 'all'
         if compute_only == 'all':
             compute_only = [t for t in self.tags.keys()
-                            if t not in ['dm', 'dag']]
+                            if t not in self.SPECIAL_TAGS]
 
         log.info("Computation invoked on DAG with %d nodes.", len(self.nodes))
 
@@ -1340,9 +1341,8 @@ class TransformationDAG:
                 carried out afterwards.
 
         Returns:
-            Sequence[dict]:
-                A sequence of transformation parameters that was brought into
-                a uniform structure.
+            Sequence[dict]: A sequence of transformation parameters that was
+                brought into a uniform structure.
 
         Raises:
             TypeError: On invalid type within entry of ``select``
@@ -1399,7 +1399,7 @@ class TransformationDAG:
             # otherwise, the last additional transformation should set the tag.
             sel_trf = dict(operation='getitem',
                            tag=None if (more_trfs or omit_tag) else tag,
-                           args=[self.select_base, path],
+                           args=[DAGTag('select_base'), path],
                            kwargs=dict(),
                            file_cache=dict(read=False, write=False))
 
