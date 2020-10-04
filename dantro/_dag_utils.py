@@ -231,17 +231,24 @@ class DAGMetaOperationTag(DAGTag):
 
     def _resolve_ref(self, *, dag: 'TransformationDAG') -> str:
         """Return the hash reference by looking it up in the reference stacks
-        of the specified TransformationDAG.
+        of the specified TransformationDAG. The last entry always refers to the
+        currently active meta-operation.
         """
-        return dag.ref_stacks[self.name].pop()
+        return dag.ref_stacks[self.name][-1]
 
     @classmethod
     def make_name(cls, meta_operation: str, *, tag: str) -> str:
+        """Given a meta-operation name and a tag name, generates the name of
+        this meta-operation tag.
+        """
         return f"{meta_operation}{cls.SPLIT_STR}{tag}"
 
     @classmethod
     def from_names(cls, meta_operation: str, *,
                    tag: str) -> 'DAGMetaOperationTag':
+        """Generates a DAGMetaOperationTag using the names of a meta-operation
+        and the name of a tag.
+        """
         return cls(cls.make_name(meta_operation, tag=tag))
 
 # .............................................................................

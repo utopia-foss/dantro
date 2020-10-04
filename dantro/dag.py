@@ -415,9 +415,25 @@ class Transformation:
         t0 = time.time()
 
         # Actually perform the operation
-        res = apply_operation(self._operation, *args, **kwargs)
-        # TODO Add error handling with node information and names of available
-        #      meta-operations
+        try:
+            res = apply_operation(self._operation, *args, **kwargs)
+
+        except ValueError as err:
+            _meta_ops = self.dag.meta_operations
+            if _meta_ops:
+                _join = "\n  - "
+                _meta_ops = _join + _join.join(self.dag.meta_operations)
+            else:
+                _meta_ops = " (none)"
+
+            raise ValueError(
+                "Could not find an operation or meta-operation named "
+                f"'{self._operation}'!\n\n"
+                f"{err}\n\n"
+                f"Available meta-operations:{_meta_ops}\n"
+                "To register a new meta-operation, specify it during "
+                "initialization of the TransformationDAG."
+            )
 
         # Prase profiling info and return the result
         self._update_profile(cumulative_compute=(time.time() - t0))
@@ -772,6 +788,15 @@ class TransformationDAG:
         return self._ref_stacks
 
     @property
+    def meta_operations(self) -> List[str]:
+        """The names of all registered meta-operations.
+
+        To register new meta-operations, use the dedicated registration method,
+        :py:meth:`~dantro.dag.TransformationDAG.register_meta_operation`.
+        """
+        return list(self._meta_ops)
+
+    @property
     def cache_dir(self) -> str:
         """The path to the cache directory that is associated with the
         DataManager that is coupled to this DAG. Note that the directory might
@@ -833,10 +858,10 @@ class TransformationDAG:
         elif new_base not in self.tags:
             _available = ", ".join(self.tags)
             raise KeyError(
-                f"The tag '{new_base}' cannot be the basis of future select "
-                "operations because it is not available! Make sure that a "
-                "node with that tag is added prior to the attempt of setting "
-                f"it. Available tags: {_available}. Alternatively, pass a "
+                f"The tag '{new_base}' cannot be used to set `select_base` "
+                "because it is not available! Make sure that a node with that "
+                "tag is added _prior_ to the attempt of setting it. "
+                f"Available tags: {_available}. Alternatively, pass a "
                 "DAGReference object."
             )
 
@@ -993,7 +1018,7 @@ class TransformationDAG:
                 "The positional arguments specified for the meta-operation "
                 f"'{name}' were not contiguous! With the highest argument "
                 f"index {num_args - 1}, there need to be positional arguments "
-                f"for all integers from 0 to {num_args - 1}. Got: {_arg_pos}"
+                f"for all integers from 0 to {num_args - 1}. Got: {_arg_pos}."
             )
 
         # Locate all newly defined tags within the meta-operation; these are
@@ -1072,10 +1097,6 @@ class TransformationDAG:
                 "specified transformations. Note that exporting additional "
                 "tags from a meta-operation is currently not supported."
             )
-            # TODO Consider allowing to "export" these unused tags.
-            #      This would, however, require to provide a mapping from these
-            #      to-be-exported tags to the tags that will then be part of
-            #      the actual DAG, where they need to be unique.
 
         # Finally, store all extracted info in the meta operations registry.
         # The reference stack entry keeps track of the nodes that define an
@@ -1434,7 +1455,6 @@ class TransformationDAG:
                             "select routine cannot be set manually. Check the "
                             f"parameters for selection of tag '{tag}'."
                         )
-                        # TODO Could actually allow multiple tags here ...
 
                     # Add the tag to the parameters
                     trf_params['tag'] = tag
@@ -1465,7 +1485,7 @@ class TransformationDAG:
         .. note::
 
             The last node added by this method is considered the "result" of
-            the selected meta-operation. Subsequently, he ``tag`` and
+            the selected meta-operation. Subsequently, the ``tag`` and
             ``file_cache`` arguments are *only* applied to this last node.
 
             The ``trf_kwargs`` (which include the ``salt``) on the other hand
@@ -1517,6 +1537,10 @@ class TransformationDAG:
         is_mop_tag = lambda obj: isinstance(obj, _MOpTag)
         replace_mop_tag = lambda tag: tag.convert_to_ref(dag=self)
 
+        # Keep track of the tags that are being added, such that the reference
+        # stacks can be cleaned-up after all nodes were added.
+        added_tags = list()
+
         def fill_placeholders_and_add_node(spec: dict,
                                            **node_kwargs) -> DAGReference:
             """Fills all placeholder objects (positional and keyword arguments
@@ -1545,6 +1569,7 @@ class TransformationDAG:
             # the replacement above is unique.
             if tag:
                 _mop_tag_name = _MOpTag.make_name(operation, tag=tag)
+                added_tags.append(_mop_tag_name)
                 self.ref_stacks[_mop_tag_name].append(ref.ref)  # ... as str!
 
             return ref
@@ -1554,8 +1579,17 @@ class TransformationDAG:
         for spec in specs[:-1]:
             fill_placeholders_and_add_node(spec, **trf_kwargs)
 
-        return fill_placeholders_and_add_node(specs[-1], **trf_kwargs,
-                                              tag=tag, file_cache=file_cache)
+        ref = fill_placeholders_and_add_node(specs[-1], **trf_kwargs,
+                                             tag=tag, file_cache=file_cache)
+
+        # With all nodes added now, can pop off all the references for the tags
+        # that were defined by this specific use of the meta-operation. This is
+        # to ensure that tags used in meta-operations that are nested further
+        # outside point to the correct reference.
+        for _mop_tag in added_tags:
+            self.ref_stacks[_mop_tag].pop()
+
+        return ref
 
     def _update_profile(self, **times):
         """Updates profiling information by adding the given time to the

@@ -482,7 +482,8 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
         tdag.select_base = dag.DAGReference(tdag.tags['dm'])
         assert tdag.select_base == dag.DAGReference(tdag.tags['dm'])
 
-        with pytest.raises(KeyError, match="cannot be the basis of"):
+        with pytest.raises(KeyError,
+                           match="cannot be used to set `select_base`"):
             tdag.select_base = "some_invalid_tag"
 
 

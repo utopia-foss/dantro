@@ -28,7 +28,7 @@ class MockPlotCreator3(MockPlotCreator):
     """Test class to test the base class implementation"""
 
     DEFAULT_EXT = "zero"
-    
+
 # Fixtures --------------------------------------------------------------------
 
 @pytest.fixture
@@ -159,7 +159,7 @@ def test_data_selection_interface(init_kwargs, tmpdir):
     # It's possible to pass parameters through to TransformationDAG. If they
     # are bad, it will fail
     with pytest.raises(KeyError,
-                       match="cannot be the basis of future select operation"):
+                       match="cannot be used to set `select_base`"):
         mpc._perform_data_selection(use_dag=True, plot_kwargs=params5)
 
     # Perform data selection via __call__ to test it is carried through

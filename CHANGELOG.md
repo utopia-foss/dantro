@@ -2,7 +2,7 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
-## v0.14.0 _(WIP)_
+## v0.15.0 _(WIP)_
 #### Features and Improvements
 - !202 adds meta-operations to the data transformation framework (#174), thereby allowing to define function-like constructs which help with modularization.
 

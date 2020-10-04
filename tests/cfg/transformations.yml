@@ -154,7 +154,7 @@ custom_selection_base_error_base_tag_not_found:
     select_base: some_path
 
   _raises: KeyError
-  _match: "The tag 'some_path' cannot be the basis of future select operations because it is not available! .* Available tags: dag, dm"
+  _match: "The tag 'some_path' cannot be used to set `select_base` because it is not available! .* Available tags: dag, dm, select_base"
 
 
 select_path_prefix:
@@ -947,6 +947,29 @@ error_tag_already_exists:
   _match: Tag 'random_raw' already exists! Choose a different one.
 
 
+error_bad_operation_name:
+  params:
+    transform:
+      - operation: i_do_not_exist
+        tag: result
+  _raises: ValueError
+  _raises_on_compute: true
+  _match: Could not find an operation or meta-operation named 'i_do_not_exist'!
+
+
+error_bad_operation_name_with_meta_operations:
+  params:
+    meta_operations:
+      my_meta_op:
+        - add: [!arg 0, !arg 1]
+    transform:
+      - operation: i_do_not_exist
+        tag: result
+  _raises: ValueError
+  _raises_on_compute: true
+  _match: my_meta_op  # includes name of available meta-operations
+
+
 # Operation Hooks -------------------------------------------------------------
 
 op_hook_deactivated:
@@ -1396,14 +1419,19 @@ meta_ops_nested:
 meta_ops_deeply_nested:
   params:
     meta_operations:
-      # ... deliberately complicated and nested!
+      # ... deliberately complicated and nested in order to test that the
+      # nesting of meta-operations and duplicate use of tags works correctly.
+      # This asserts the functionality of the reference stack.
       base2:
         - add: [1, 1]
           tag: two
         - pow: [!dag_tag two, !arg 0 ]
       base3:
         - base2: [2]
-        - sub: [!dag_prev , 1]
+          tag: two
+        - div: [!dag_tag two, !dag_tag two]
+          tag: one
+        - sub: [!dag_tag two , !dag_tag one]
           tag: three
         - pow: [!dag_tag three, !arg 0 ]
       base5:
@@ -1415,11 +1443,18 @@ meta_ops_deeply_nested:
           tag: five
         - pow: [!dag_tag five, !arg 0 ]
       base7:
+        - base2: [1]
+          tag: two
         - base2: [2]
           tag: four
-        - base3: [1]
+        - base3: [0]
+        - add: [!dag_tag two, !dag_prev ]
           tag: three
-        - add: [!dag_tag four, !dag_tag three]
+        - add: [!dag_tag four, !dag_tag four]
+          tag: eight
+        - sub: [!dag_tag four, !dag_tag three]
+          tag: one
+        - sub: [!dag_tag eight, !dag_tag one]
           tag: seven
         - pow: [!dag_tag seven, !arg 0 ]
       multiply_some_primes:
@@ -1937,67 +1972,12 @@ doc_examples_meta_ops_tagging:
         compare_to: -1
 
 
-doc_examples_meta_ops_gauss:
-  params:
-    ### Start -- dag_meta_ops_gauss
-    meta_operations:
-      # A meta-operation that defines a gaussian
-      my_gauss:
-        - expression: a * exp(- (x - mu)**2 / (2 * sigma**2))
-          kwargs:
-            symbols:
-              a: !kwarg a
-              mu: !kwarg mu
-              sigma: !kwarg sigma
-              x: !kwarg x
-
-    transform:
-      - my_gauss: &default_args
-          a: 1.
-          mu: 0.
-          sigma: 1.
-          x: 0.
-        tag: gauss_at_zero
-      - my_gauss:
-          <<: *default_args
-          a: -2.
-          mu: 23.
-        tag: gauss_moved_and_scaled
-    ### End ---- dag_meta_ops_gauss
-      # Some more for testing
-      - my_gauss:
-          <<: *default_args
-          a: 42
-        tag: large_gauss
-      - my_gauss:
-          <<: *default_args
-          mu: 42.
-          x: 42.
-        tag: moved_gauss
-      - my_gauss:
-          <<: *default_args
-          a: 123.
-          x: 100000.
-        tag: zero_gauss
-
-  expected:
-    tags: [dag, dm, select_base, gauss_at_zero, gauss_moved_and_scaled, large_gauss, moved_gauss, zero_gauss]
-    results:
-      gauss_at_zero:
-        compare_to: 1.
-      large_gauss:
-        compare_to: 42.
-      moved_gauss:
-        compare_to: 1.
-      zero_gauss:
-        compare_to: 0.
-
-
 doc_examples_meta_ops_prime_multiples:
   params:
     ### Start -- dag_meta_ops_prime_multiples
     meta_operations:
       prime_multiples:
+        # Define powers of primes 2, 3, 5, and 7
         - pow: [2, !kwarg base2]
           tag: b2
         - pow: [3, !kwarg base3]
@@ -2006,6 +1986,7 @@ doc_examples_meta_ops_prime_multiples:
           tag: b5
         - pow: [7, !kwarg base7]
           tag: b7
+        # Compute their product
         - np.: [prod, [!dag_tag b2, !dag_tag b3, !dag_tag b5, !dag_tag b7]]
 
     transform:
@@ -2023,3 +2004,180 @@ doc_examples_meta_ops_prime_multiples:
       result:
         type: int64
         compare_to: 4116
+
+
+doc_examples_meta_ops_multiple_return_values:
+  params:
+    ### Start -- dag_meta_ops_multiple_return_values
+    meta_operations:
+      # Given some input data (as positional argument), compute a bunch of
+      # statistical quantities. To return them, aggregate them into a dict.
+      compute_stats:
+        # Make sure it's an xarray object
+        - xr.DataArray: !arg 0
+          tag: data
+
+        # Compute the statistics
+        - .mean: !dag_tag data
+          tag: mean
+        - .std: !dag_tag data
+          tag: std
+        - .median: !dag_tag data
+          tag: median
+        - .min: !dag_tag data
+          tag: min
+        - .max: !dag_tag data
+          tag: max
+        - .quantile: [!dag_tag data, 0.25]
+          tag: q25
+        - .quantile: [!dag_tag data, 0.75]
+          tag: q75
+
+        # Aggregate into a dict as return value
+        - dict:
+            mean: !dag_tag mean
+            std: !dag_tag std
+            median: !dag_tag median
+            min: !dag_tag min
+            max: !dag_tag max
+            q25: !dag_tag q25
+            q75: !dag_tag q75
+
+    # Usage example: select some data and get some of the desired statistics
+    select:
+      some_data: path/to/some_data
+    transform:
+      - compute_stats: !dag_tag some_data
+        tag: some_stats
+
+      - getitem: [!dag_tag some_stats, mean]
+        tag: some_mean
+      - getitem: [!dag_tag some_stats, std]
+        tag: some_std
+      - getitem: [!dag_tag some_stats, median]
+        tag: some_median
+    ### End ---- dag_meta_ops_multiple_return_values
+      - list: !dag_tag some_stats
+        tag: available_keys
+
+  expected:
+    tags: [dag, dm, select_base, available_keys,
+           some_data, some_mean, some_std, some_median, some_stats]
+    results:
+      some_mean:
+        type: DataArray
+      some_std:
+        type: DataArray
+      some_median:
+        type: DataArray
+      available_keys:
+        type: list
+        compare_to: [max, mean, median, min, q25, q75, std]
+
+
+doc_examples_meta_ops_gauss:
+  params:
+    ### Start -- dag_meta_ops_gauss
+    meta_operations:
+      # A meta-operation that defines a gaussian
+      my_gauss:
+        - expression: a * exp(- (x - mu)**2 / (2 * sigma**2))
+          kwargs:
+            symbols:
+              a: !kwarg a
+              mu: !kwarg mu
+              sigma: !kwarg sigma
+              x: !kwarg x
+
+    transform:
+      # Compute the Gaussian for two values
+      - my_gauss:
+          a: 1.
+          mu: 0.
+          sigma: 1.
+          x: 0.
+        tag: default_gaussian
+      - my_gauss:
+          a: 1.
+          mu: 23.
+          sigma: 10.
+          x: 23.
+        tag: wide_gaussian_moved
+    ### End ---- dag_meta_ops_gauss
+      # Some more for testing
+      - my_gauss: &default_args
+          a: 1.
+          mu: 0.
+          sigma: 1.
+          x: 0.
+        tag: gauss_at_zero
+      - my_gauss:
+          <<: *default_args
+          a: 42
+        tag: large_gauss
+      - my_gauss:
+          <<: *default_args
+          mu: 42.
+          x: 42.
+        tag: moved_gauss
+      - my_gauss:
+          <<: *default_args
+          a: 123.
+          x: 100000.
+        tag: zero_gauss
+
+  expected:
+    tags: [dag, dm, select_base, default_gaussian, wide_gaussian_moved,
+           gauss_at_zero, large_gauss, moved_gauss, zero_gauss]
+    results:
+      default_gaussian:
+        compare_to: 1.
+      wide_gaussian_moved:
+        compare_to: 1.
+      gauss_at_zero:
+        compare_to: 1.
+      large_gauss:
+        compare_to: 42.
+      moved_gauss:
+        compare_to: 1.
+      zero_gauss:
+        compare_to: 0.
+
+
+doc_examples_meta_ops_anchor_usage:
+  params:
+    meta_operations:
+      # A meta-operation that defines a gaussian
+      my_gauss:
+        - expression: a * exp(- (x - mu)**2 / (2 * sigma**2))
+          kwargs:
+            symbols:
+              a: !kwarg a
+              mu: !kwarg mu
+              sigma: !kwarg sigma
+              x: !kwarg x
+
+    ### Start -- dag_meta_ops_anchor_usage
+    transform:
+      - my_gauss: &my_gauss_defaults    # <-- defines the defaults
+          a: 1.
+          mu: 0.
+          sigma: 1.
+          x: 0.
+        tag: default_gaussian
+      - my_gauss:
+          <<: *my_gauss_defaults        # <-- re-use defaults ...
+          a: 10.                        #     ... and update with new values
+        tag: scaled_gaussian
+      - my_gauss:
+          <<: *my_gauss_defaults
+          mu: -42.
+        tag: moved_gaussian
+    ### End ---- dag_meta_ops_anchor_usage
+
+  expected:
+    tags: [dag, dm, select_base,
+           default_gaussian, scaled_gaussian, moved_gaussian]
+    results:
+      default_gaussian:
+        compare_to: 1.

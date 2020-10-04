@@ -623,7 +623,7 @@ Except for ``operation``, ``args``, ``kwargs`` and ``tag``, all entries are set 
 
 Meta-Operations
 ---------------
-In essence, the transformation framework as described above can be used to define a sequence of data operations, just like a sequential program code could do.
+In essence, the transformation framework, as described above, can be used to define a sequence of data operations, just like a sequential program code could do.
 Now, what if parts of these operations are used multiple times?
 In a typical computer program, one would define a *function* to modularize part of the program.
 The *equivalent* construct in the data transformation framework is a so-called **meta-operation**, which can be characterized in the following way:
@@ -667,7 +667,7 @@ As a brief summary:
 * Meta-operations are defined via the ``meta_operations`` argument of :py:class:`~dantro.dag.TransformationDAG`, using the same syntax as for other transformations.
 * They can specify positional and keyword arguments and have a return value.
 * They can be used for the ``operation`` argument of *any* transformation, same as other :ref:`available data operations <data_ops_available>`.
-* Meta-operations allow modularization and thereby simplify definition of data transformations.
+* Meta-operations allow modularization and thereby simplify the definition of data transformations.
 
 
 .. hint::
@@ -712,7 +712,8 @@ Meta-operations *always* have *one and only one* return value: the last defined 
 
 .. hint::
 
-    To have *multiple* return values, aggregate results into a ``dict`` that you then unpack outside of the meta-operation.
+    To have "multiple" return values, e.g. to return an intermediate result, aggregate objects into a ``dict`` that can then be unpacked outside of the meta-operation.
+    For an example, see :ref:`dag_meta_ops_aggregate_return_values`.
 
 
 Using ``select`` within meta-operations
@@ -726,7 +727,7 @@ The definitions inside ``meta_operations`` can have two possible formats:
     :dedent: 4
 
 As can be seen above, the dict-based definition supports using the :ref:`select interface <dag_select>`.
-Importantly, this supports parametrisation: simply use ``!arg`` or ``!kwarg``  inside the ``select`` specification, e.g. to make the path of the to-be-selected object an argument to the meta-operation.
+Importantly, this supports parametrization: simply use ``!arg`` or ``!kwarg``  inside the ``select`` specification, e.g. to make the path of the to-be-selected object an argument to the meta-operation.
 
 
 Internal tags
@@ -757,6 +758,35 @@ Effectively, the regular tag is attached to the last transformation of the meta-
 
 Examples
 ^^^^^^^^
+``prime_multiples``
+"""""""""""""""""""
+The following example performs operations on the arguments and then uses internal tags (``!dag_tag``) to connect their output to a result.
+
+.. literalinclude:: ../../tests/cfg/transformations.yml
+    :language: yaml
+    :start-after: ### Start -- dag_meta_ops_prime_multiples
+    :end-before:  ### End ---- dag_meta_ops_prime_multiples
+    :dedent: 4
+
+.. _dag_meta_ops_aggregate_return_values:
+
+Aggregate return values
+"""""""""""""""""""""""
+In this example, a ``dict`` operation is used to return multiple results from a meta-operation.
+
+.. literalinclude:: ../../tests/cfg/transformations.yml
+    :language: yaml
+    :start-after: ### Start -- dag_meta_ops_multiple_return_values
+    :end-before:  ### End ---- dag_meta_ops_multiple_return_values
+    :dedent: 4
+
+Note that by aggregating results into an object, the DAG will not be able to discern whether a branch of the ``compute_stats`` meta-operation is *actually* needed, thus *potentially* computing more results than required.
+In order to avoid computing more nodes than necessary, aggregated return values should be used sparingly; ideally, use them only to return an *intermediate* result.
+
+
+``my_gauss``
+""""""""""""
+This example shows how to define a mathematical expression (also see: :ref:`operation hooks <dag_op_hooks_integration>`) and exposing its symbols as arguments of the meta-operation:
 
 .. literalinclude:: ../../tests/cfg/transformations.yml
     :language: yaml
@@ -764,11 +794,14 @@ Examples
     :end-before:  ### End ---- dag_meta_ops_gauss
     :dedent: 4
 
+In case you have a lot of arguments exposed, which you would like to avoid repeating, YAML anchors and inheritance comes in handy:
+
 .. literalinclude:: ../../tests/cfg/transformations.yml
     :language: yaml
-    :start-after: ### Start -- dag_meta_ops_prime_multiples
-    :end-before:  ### End ---- dag_meta_ops_prime_multiples
+    :start-after: ### Start -- dag_meta_ops_anchor_usage
+    :end-before:  ### End ---- dag_meta_ops_anchor_usage
     :dedent: 4
+
 
 
 .. _dag_meta_ops_remarks:
