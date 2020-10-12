@@ -20,12 +20,16 @@ from paramspace.tools import recursive_replace, recursive_collect
 
 from .abc import AbstractDataContainer, PATH_JOIN_CHAR
 from .base import BaseDataGroup
-from .utils import KeyOrderedDict, apply_operation, register_operation
+from .utils import (KeyOrderedDict,
+                    apply_operation, register_operation, available_operations)
 from .tools import (recursive_update,
                     adjusted_log_levels as _adjusted_log_levels)
 from .data_loaders import LOADER_BY_FILE_EXT
 from .containers import ObjectContainer, NumpyDataContainer, XrDataContainer
 from ._dag_utils import (DAGObjects, DAGReference, DAGTag, DAGNode,
+                         PositionalArgument as _Arg,
+                         KeywordArgument as _Kwarg,
+                         DAGMetaOperationTag as _MOpTag,
                          parse_dag_syntax as _parse_dag_syntax,
                          parse_dag_minimal_syntax as _parse_dag_minimal_syntax)
 from ._hash import _hash, SHORT_HASH_LENGTH, FULL_HASH_LENGTH
@@ -411,8 +415,25 @@ class Transformation:
         t0 = time.time()
 
         # Actually perform the operation
-        res = apply_operation(self._operation, *args, **kwargs)
-        # TODO Add error handling with node information
+        try:
+            res = apply_operation(self._operation, *args, **kwargs)
+
+        except ValueError as err:
+            _meta_ops = self.dag.meta_operations
+            if _meta_ops:
+                _join = "\n  - "
+                _meta_ops = _join + _join.join(self.dag.meta_operations)
+            else:
+                _meta_ops = " (none)"
+
+            raise ValueError(
+                "Could not find an operation or meta-operation named "
+                f"'{self._operation}'!\n\n"
+                f"{err}\n\n"
+                f"Available meta-operations:{_meta_ops}\n"
+                "To register a new meta-operation, specify it during "
+                "initialization of the TransformationDAG."
+            )
 
         # Prase profiling info and return the result
         self._update_profile(cumulative_compute=(time.time() - t0))
@@ -605,6 +626,8 @@ class TransformationDAG:
     a simple definition syntax, for example the ``select`` syntax, which takes
     care of selecting a basic set of data from the associated DataManager.
     """
+    # The tags that have special meaning
+    SPECIAL_TAGS = ('dag', 'dm', 'select_base')
 
     def __init__(self, *, dm: 'DataManager',
                  select: dict=None, transform: Sequence[dict]=None,
@@ -612,6 +635,7 @@ class TransformationDAG:
                  base_transform: Sequence[Transformation]=None,
                  select_base: Union[DAGReference, str]=None,
                  select_path_prefix: str=None,
+                 meta_operations: Dict[str, Union[list, dict]]=None,
                  verbosity: int=1):
         """Initialize a DAG which is associated with a DataManager and load the
         specified transformations configuration into it.
@@ -638,6 +662,8 @@ class TransformationDAG:
                 those added via ``select`` and ``transform``. These can be used
                 to create some other object from the data manager which should
                 be used as the basis of ``select`` operations.
+                These transformations should be kept as simple as possible
+                and ideally be only used to traverse through the data tree.
             select_base (Union[DAGReference, str], optional): Which tag to
                 base the ``select`` operations on. If None, will use the
                 (always-registered) tag for the data manager, ``dm``. This
@@ -652,6 +678,10 @@ class TransformationDAG:
                 is already in use.
                 If this path ends with a ``/``, it is directly prepended. If
                 not, the ``/`` is added before adjoining it to the other path.
+            meta_operations: Meta-operations are basically *function
+                definitions* using the language of the transformation
+                framework; for information on how to define and use them, see
+                :ref:`dag_meta_ops`.
             verbosity (str, optional): Logging verbosity during computation.
                 This mostly pertains to the extent of statistics being emitted
                 through the logger.
@@ -665,6 +695,8 @@ class TransformationDAG:
         self._objects = DAGObjects()
         self._tags = dict()
         self._nodes = list()
+        self._meta_ops = dict()
+        self._ref_stacks=_defaultdict(list)
         self._fc_opts = file_cache_defaults if file_cache_defaults else {}
         self._select_base = None
         self._profile = dict(add_node=0., compute=0.)
@@ -678,11 +710,24 @@ class TransformationDAG:
         else:
             self._cache_dir = os.path.join(self.dm.dirs['data'], cache_dir)
 
-        # Add the DAG itself and the DataManager as objects with default tags
+        # Add the special tags: the DAG itself, the DataManager, and the
+        # (changing) selection base
         self.tags['dag'] = self.objects.add_object(self)
         self.tags['dm'] = self.objects.add_object(self.dm)
+        self.tags['select_base'] = self.tags['dm']  # here: default value only
         # NOTE The data manager is NOT a node of the DAG, but more like an
         #      external data source, thus being accessible only as a tag
+
+        # Populate the registry of meta-operations
+        if meta_operations:
+            for name, spec in meta_operations.items():
+                if isinstance(spec, list):
+                    self.register_meta_operation(name, transform=spec)
+                else:
+                    self.register_meta_operation(name, **spec)
+            log.debug("Registered %d meta-operations.", len(self._meta_ops))
+        # NOTE While meta-operations may also carry out `select` operations,
+        #      they don't need to know the selection base *at this point*.
 
         # Add base transformations that do not rely on select operations
         self.add_nodes(transform=base_transform)
@@ -736,6 +781,22 @@ class TransformationDAG:
         return self._nodes
 
     @property
+    def ref_stacks(self) -> Dict[str, List[str]]:
+        """Named reference stacks, e.g. for resolving tags that were defined ´
+        inside meta-operations.
+        """
+        return self._ref_stacks
+
+    @property
+    def meta_operations(self) -> List[str]:
+        """The names of all registered meta-operations.
+
+        To register new meta-operations, use the dedicated registration method,
+        :py:meth:`~dantro.dag.TransformationDAG.register_meta_operation`.
+        """
+        return list(self._meta_ops)
+
+    @property
     def cache_dir(self) -> str:
         """The path to the cache directory that is associated with the
         DataManager that is coupled to this DAG. Note that the directory might
@@ -763,10 +824,11 @@ class TransformationDAG:
             # else: filename is assumed to be the hash.
 
             if fname in info:
-                raise ValueError("Encountered a duplicate cache file for the "
-                                 "transformation with hash {}! Delete all but "
-                                 "one of those files from the cache directory "
-                                 "{}.".format(fname, self.cache_dir))
+                raise ValueError(
+                    "Encountered a duplicate cache file for the "
+                    f"transformation with hash {fname}! Delete all but one of "
+                    f"those files from the cache directory {self.cache_dir}."
+                )
 
             # All good, store info.
             info[fname] = dict(full_path=path, ext=ext)
@@ -794,20 +856,23 @@ class TransformationDAG:
             new_base = new_base.convert_to_ref(dag=self)
 
         elif new_base not in self.tags:
-            raise KeyError("The tag '{}' cannot be the basis of future select "
-                           "operations because it is not available! Make sure "
-                           "that a node with that tag is added prior to the "
-                           "attempt of setting it. Available tags: {}. "
-                           "Alternatively, pass a DAGReference object."
-                           "".format(new_base, ", ".join(self.tags)))
+            _available = ", ".join(self.tags)
+            raise KeyError(
+                f"The tag '{new_base}' cannot be used to set `select_base` "
+                "because it is not available! Make sure that a node with that "
+                "tag is added _prior_ to the attempt of setting it. "
+                f"Available tags: {_available}. Alternatively, pass a "
+                "DAGReference object."
+            )
 
         else:
             # Tag is available. Create a DAGReference via DAGTag conversion
             log.debug("Setting select_base to tag '%s' ...", new_base)
             new_base = DAGTag(new_base).convert_to_ref(dag=self)
 
-        # Have a DAGReference now. Store it.
+        # Have a DAGReference now. Store it and update the special tag.
         self._select_base = new_base
+        self.tags['select_base'] = new_base.ref
 
     @property
     def profile(self) -> Dict[str, float]:
@@ -907,29 +972,179 @@ class TransformationDAG:
 
     # .........................................................................
 
-    def add_node(self, *, operation: str, args: list=None, kwargs: dict=None,
+    def register_meta_operation(self, name: str, *,
+                                select: dict=None,
+                                transform: Sequence[dict]=None) -> None:
+        """Registers a new meta-operation, i.e. a transformation sequence with
+        placeholders for the required positional and keyword arguments.
+        """
+        if name in self._meta_ops or name in available_operations():
+            raise ValueError("An operation or meta-operation with the name "
+                             f"'{name}' already exists!")
+
+        # First, evaluate the select and transform arguments, returning a list
+        # of transformation specifications.
+        specs = self._parse_trfs(select=select, transform=transform)
+
+        if not specs:
+            raise ValueError("Meta-operations need to contain at least one "
+                             "transformation, but there was none specified "
+                             f"for meta-operation '{name}'!")
+
+        # Define some helper lambdas to identify placeholders and tags
+        is_normal_tag  = lambda obj: (    isinstance(obj, DAGTag)
+                                      and obj.name not in self.SPECIAL_TAGS)
+        is_special_tag = lambda obj: (    isinstance(obj, DAGTag)
+                                      and obj.name in self.SPECIAL_TAGS)
+        is_arg = lambda obj: isinstance(obj, _Arg)
+        is_kwarg = lambda obj: isinstance(obj, _Kwarg)
+
+        # Traverse the parsed transformation specifications and extract
+        # information on the positional and keyword arguments.
+        args = list()
+        kwargs = list()
+
+        for i, spec in enumerate(specs):
+            args +=   recursive_collect(spec, select_func=is_arg)
+            kwargs += recursive_collect(spec, select_func=is_kwarg)
+
+        _arg_pos = [arg.position for arg in args]
+        num_args = 0 if not _arg_pos else (max(_arg_pos) + 1)
+        kwarg_names = set([kwarg.name for kwarg in kwargs])
+
+        # For positional arguments, make sure they are contiguous
+        if list(set(_arg_pos)) != list(range(num_args)):
+            raise ValueError(
+                "The positional arguments specified for the meta-operation "
+                f"'{name}' were not contiguous! With the highest argument "
+                f"index {num_args - 1}, there need to be positional arguments "
+                f"for all integers from 0 to {num_args - 1}. Got: {_arg_pos}."
+            )
+
+        # Locate all newly defined tags within the meta-operation; these are
+        # used to refer to other transformations _within_ a meta-operation.
+        # Need to check two things: they should be unique and they should all
+        # be used (further down).
+        defined_tags = {i:spec['tag'] for i, spec in enumerate(specs)
+                        if spec.get('tag')}
+        unused_tags = set(defined_tags.values())
+
+        if len(set(defined_tags.values())) != len(defined_tags):
+            _tags = ", ".join(defined_tags.values())
+            raise ValueError(
+                "Encountered duplicate internal tag definitions in the "
+                f"meta-operation '{name}'! Check the defined tags ({_tags}) "
+                "and make sure every internal tag's name is unique within the "
+                "meta-operation."
+            )
+
+        def to_meta_operation_tag(tag: DAGTag) -> _MOpTag:
+            """Replacement function for meta-operation-internal references.
+            Additionally, this function checks if the tag name is internal and
+            updates the set of unused tags.
+
+            .. note::
+
+                This local function relies on the local variables
+                ``defined_tags``, ``name``, ``mop_tags``, and ``unused_tags``
+                and the mutability of the latter two.
+            """
+            if tag.name not in defined_tags.values():
+                _internal = ", ".join(defined_tags.values())
+                _special = ", ".join(self.SPECIAL_TAGS)
+                raise ValueError(
+                    "Encountered a tag that was not defined as part of the "
+                    f"meta-operation '{name}': '{tag.name}'! Within a meta-"
+                    f"operation, only internally-defined tags ({_internal}) "
+                    f"or special tags ({_special}) can be used. To include "
+                    "further input into the meta-operation, use a positional "
+                    "or keyword argument instead of referring to a tag."
+                )
+
+            # Remove from unused tags; then create a new meta-operation tag
+            # and return it (such that it replaces the normal tag)
+            unused_tags.discard(tag.name)
+            return _MOpTag.from_names(name, tag=tag.name)
+
+        # However, these tags cannot stay as regular DAGTags and need to be
+        # converted. Otherwise we would have to deal with duplicate tag names
+        # when applying a meta-operation multiple times.
+        # Furthermore, relative references (e.g. DAGNode) cannot be used as the
+        # relative reference breaks if meta-operation are nested.
+        #
+        # Thus, we have to use a more elaborated approach: Replace the regular
+        # DAGTag objects with DAGMetaOperationTag objects, which contain
+        # information on the meta-operation they were used in. With this
+        # knowledge, we can later resolve the targets of these tags via the
+        # reference stacks, thus allowing arbitrary nesting.
+        #
+        # NOTE The DAGReference objects that are inserted when parsing the
+        #      `select` specification above are not touched by this procedure
+        #      and need not be adapted either: they are absolute references and
+        #      are not used to denote a reference _within_ a meta-operation.
+        for i, spec in enumerate(specs):
+            # Replace any (non-special) DAGTags within the specification, as
+            # these need to be associated via the reference stack.
+            spec = recursive_replace(spec, select_func=is_normal_tag,
+                                     replace_func=to_meta_operation_tag)
+
+        if unused_tags:
+            _unused = ", ".join(unused_tags)
+            raise ValueError(
+                f"Meta-operation '{name}' defines internal tags that are not "
+                f"used within the meta-operation: {_unused}! Either remove "
+                "these tags or make sure that they are all used by the "
+                "specified transformations. Note that exporting additional "
+                "tags from a meta-operation is currently not supported."
+            )
+
+        # Finally, store all extracted info in the meta operations registry.
+        # The reference stack entry keeps track of the nodes that define an
+        # internal tag, such that it can be resolved when adding the node.
+        self._meta_ops[name] = dict(specs=specs,
+                                    defined_tags=defined_tags,
+                                    num_args=num_args,
+                                    kwarg_names=kwarg_names)
+
+    def add_node(self, *, operation: str,
+                 args: list=None, kwargs: dict=None,
                  tag: str=None, file_cache: dict=None,
                  **trf_kwargs) -> DAGReference:
         """Add a new node by creating a new Transformation object and adding it
         to the node list.
 
+        In case of ``operation`` being a meta-operation, this method will add
+        multiple Transformation objects to the node list. The ``tag`` and the
+        ``file_cache`` argument then refer to the *result* node of the meta-
+        operation, while the ``**trf_kwargs`` are passed to *all* these nodes.
+        For more information, see :ref:`dag_meta_ops`.
+
         Args:
-            operation (str): The name of the operation
+            operation (str): The name of the operation or meta-operation.
             args (list, optional): Positional arguments to the operation
             kwargs (dict, optional): Keyword arguments to the operation
             tag (str, optional): The tag the transformation should be made
                 available as.
-            file_cache (dict, optional): File cache options for
-                this node. If defaults were given during initialization, those
-                defaults will be updated with the given dict.
+            file_cache (dict, optional): File cache options for this node. If
+                defaults were given during initialization, those defaults will
+                be updated with the given dict.
             **trf_kwargs: Passed on to Transformation.__init__
 
         Raises:
             ValueError: If the tag already exists
 
         Returns:
-            DAGReference: The reference to the created node
+            DAGReference: The reference to the created node. In case of the
+                operation being a meta operation, the return value is a
+                reference to the result node of the meta-operation.
         """
+        if operation in self._meta_ops:
+            return self._add_meta_operation_nodes(operation, args=args,
+                                                  kwargs=kwargs, tag=tag,
+                                                  file_cache=file_cache,
+                                                  **trf_kwargs)
+
+        # Keep track of the time
         t0 = time.time()
 
         # Some helper methods for the recursive replacement
@@ -952,6 +1167,9 @@ class TransformationDAG:
         # Recursively replace any derived references to proper DAGReferences,
         # which work hash-based. This is to not have multiple options of how
         # another TransformationDAG object is referenced.
+        # The recursiveness is needed because args and kwargs can be deeply
+        # nested structures and we want to replace all references regardless
+        # of their position within args and kwargs.
         args =   recursive_replace(args, select_func=not_proper_ref,
                                    replace_func=convert_to_ref)
         kwargs = recursive_replace(kwargs, select_func=not_proper_ref,
@@ -979,20 +1197,26 @@ class TransformationDAG:
         # If a tag was specified, create a tag
         if tag:
             if tag in self.tags.keys():
-                raise ValueError("Tag '{}' already exists! Choose a different "
-                                 "one. Already in use: {}"
-                                 "".format(tag, ", ".join(self.tags.keys())))
+                _used_tags = ", ".join(self.tags.keys())
+                raise ValueError(
+                    f"Tag '{tag}' already exists! Choose a different one. "
+                    f"Already in use: {_used_tags}"
+                )
             self.tags[tag] = trf_hash
 
-        # Update the profile
+        # Finish up ...
         self._update_profile(add_node=time.time() - t0)
 
-        # Return a reference to the newly created node
         return DAGReference(trf_hash)
 
     def add_nodes(self, *, select: dict=None, transform: Sequence[dict]=None):
         """Adds multiple nodes by parsing the specification given via the
         ``select`` and ``transform`` arguments.
+
+        .. note::
+
+            The current :py:attr:`~dantro.dag.TransformationDAG.select_base`
+            property value is used as basis for all ``getitem`` operations.
 
         Args:
             select (dict, optional): Selection specifications, which are
@@ -1002,7 +1226,6 @@ class TransformationDAG:
                 By default, selection happens from the associated DataManager.
             transform (Sequence[dict], optional): Transform specifications.
         """
-        # Parse the arguments and add multiple nodes from those specs
         specs = self._parse_trfs(select=select, transform=transform)
         if not specs:
             return
@@ -1080,7 +1303,7 @@ class TransformationDAG:
         compute_only = compute_only if compute_only is not None else 'all'
         if compute_only == 'all':
             compute_only = [t for t in self.tags.keys()
-                            if t not in ['dm', 'dag']]
+                            if t not in self.SPECIAL_TAGS]
 
         log.info("Computation invoked on DAG with %d nodes.", len(self.nodes))
 
@@ -1125,7 +1348,7 @@ class TransformationDAG:
         return results
 
     # .........................................................................
-    # Helpers: Parsing transformation specifications
+    # Helpers
 
     def _parse_trfs(self, *, select: dict,
                     transform: Sequence[dict]) -> Sequence[dict]:
@@ -1139,9 +1362,8 @@ class TransformationDAG:
                 carried out afterwards.
 
         Returns:
-            Sequence[dict]:
-                A sequence of transformation parameters that was brought into
-                a uniform structure.
+            Sequence[dict]: A sequence of transformation parameters that was
+                brought into a uniform structure.
 
         Raises:
             TypeError: On invalid type within entry of ``select``
@@ -1173,16 +1395,18 @@ class TransformationDAG:
                 omit_tag = params.get('omit_tag', False)
 
                 if 'file_cache' in params:
-                    raise ValueError("For selection from the selection base, "
-                                     "the file cache is always disabled! "
-                                     "The `file_cache` argument is thus not "
-                                     "allowed; remove it from the selection "
-                                     "for tag '{}'.".format(tag))
+                    raise ValueError(
+                        "For selection from the selection base, the file "
+                        "cache is always disabled! The `file_cache` argument "
+                        "is thus not allowed; remove it from the selection "
+                        f"for tag '{tag}'."
+                    )
 
             else:
-                raise TypeError("Invalid type for '{}' entry within `select` "
-                                "argument! Got {} but expected string or dict."
-                                "".format(tag, type(params)))
+                raise TypeError(
+                    f"Invalid type for '{tag}' entry within `select` argument!"
+                    f" Got {type(params)} but expected string or dict."
+                )
 
             # If given, process the path by prepending the prefix
             if self._select_path_prefix:
@@ -1196,7 +1420,7 @@ class TransformationDAG:
             # otherwise, the last additional transformation should set the tag.
             sel_trf = dict(operation='getitem',
                            tag=None if (more_trfs or omit_tag) else tag,
-                           args=[self.select_base, path],
+                           args=[DAGTag('select_base'), path],
                            kwargs=dict(),
                            file_cache=dict(read=False, write=False))
 
@@ -1226,12 +1450,11 @@ class TransformationDAG:
                 # the selected tag needs to set the tag.
                 if i+1 == len(more_trfs) and not omit_tag:
                     if trf_params.get('tag'):
-                        raise ValueError("The tag of the last transform "
-                                         "operation within a select routine "
-                                         "cannot be set manually. Check the "
-                                         "parameters for selection of tag "
-                                         "'{}'.".format(tag))
-                        # TODO Could actually allow multiple tags here ...
+                        raise ValueError(
+                            "The tag of the last transform operation within a "
+                            "select routine cannot be set manually. Check the "
+                            f"parameters for selection of tag '{tag}'."
+                        )
 
                     # Add the tag to the parameters
                     trf_params['tag'] = tag
@@ -1248,8 +1471,125 @@ class TransformationDAG:
         # Done parsing, yay.
         return trfs
 
-    # .........................................................................
-    # Helpers: Profiling
+    def _add_meta_operation_nodes(self, operation: str, *,
+                                  args: list=None, kwargs: dict=None,
+                                  tag: str=None, file_cache: dict=None,
+                                  **trf_kwargs) -> DAGReference:
+        """Adds Transformation nodes for meta-operations
+
+        This method resolves the placeholder references in the specified meta-
+        operation such that they point to the ``args`` and ``kwargs``.
+        It then calls :py:meth:`~dantro.dag.TransformationDAG.add_node`
+        repeatedly to add the actual nodes.
+
+        .. note::
+
+            The last node added by this method is considered the "result" of
+            the selected meta-operation. Subsequently, the ``tag`` and
+            ``file_cache`` arguments are *only* applied to this last node.
+
+            The ``trf_kwargs`` (which include the ``salt``) on the other hand
+            are passed to *all* transformations of the meta-operation.
+
+        Args:
+            operation (str): The meta-operation to add nodes for
+            args (list, optional): Positional arguments to the meta-operation
+            kwargs (dict, optional): Keyword arguments to the meta-operation
+            tag (str, optional): The tag that is to be attached to the result
+                of this meta-operation.
+            file_cache (dict, optional): File caching options for the result.
+            **trf_kwargs: Transformation keyword arguments, passed on to *all*
+                transformations that are to be added.
+        """
+        # Retrieve the meta-operation information (important: as a copy)
+        meta_op = copy.deepcopy(self._meta_ops[operation])
+        specs = meta_op['specs']
+        kwarg_names = meta_op['kwarg_names']
+
+        # Check that all the expected args and kwargs are present
+        args = args if args else []
+        kwargs = kwargs if kwargs else {}
+
+        if len(args) != meta_op['num_args']:
+            raise ValueError(
+                f"Meta-operation '{operation}' expects {meta_op['num_args']} "
+                f"positional argument(s) but got {len(args)}!"
+            )
+
+        if set(kwargs.keys()) != kwarg_names:
+            _exp = ", ".join(sorted(kwarg_names))
+            _got = ", ".join(sorted(kwargs))
+            raise ValueError(
+                f"Meta-operation '{operation}' requires {len(kwarg_names)} "
+                f"keyword arguments ({_exp}) but got {len(kwargs)} ({_got})! "
+                "Make sure that the sets of argument names match exactly."
+            )
+
+        # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        # Define the helper methods and a placeholder resolution function for
+        # the positional and keyword arguments ...
+        is_arg = lambda obj: isinstance(obj, _Arg)
+        is_kwarg = lambda obj: isinstance(obj, _Kwarg)
+        replace_arg = lambda ph: copy.deepcopy(args[ph.position])
+        replace_kwarg = lambda ph: copy.deepcopy(kwargs[ph.name])
+
+        # ... and for the internally-defined meta-operation tags:
+        is_mop_tag = lambda obj: isinstance(obj, _MOpTag)
+        replace_mop_tag = lambda tag: tag.convert_to_ref(dag=self)
+
+        # Keep track of the tags that are being added, such that the reference
+        # stacks can be cleaned-up after all nodes were added.
+        added_tags = list()
+
+        def fill_placeholders_and_add_node(spec: dict,
+                                           **node_kwargs) -> DAGReference:
+            """Fills all placeholder objects (positional and keyword arguments
+            as well as internally-defined meta-operation tags) and then adds a
+            node to the DAG via the regular method.
+
+            This also adjusts the reference stacks for this meta-operation.
+            """
+            spec = recursive_replace(spec, select_func=is_arg,
+                                     replace_func=replace_arg)
+            spec = recursive_replace(spec, select_func=is_kwarg,
+                                     replace_func=replace_kwarg)
+            spec = recursive_replace(spec, select_func=is_mop_tag,
+                                     replace_func=replace_mop_tag)
+
+            # If a tag were to be defined, remove it here; have to handle it
+            # via the reference stacks, as there would otherwise be duplicate
+            # tags registered via add_node.
+            tag = spec.pop('tag', None)
+
+            # Can now add the node
+            ref = self.add_node(**spec, **node_kwargs)
+
+            # If this node tried to define a tag, need to put the reference of
+            # this particular instantiation of this tag on the stack, such that
+            # the replacement above is unique.
+            if tag:
+                _mop_tag_name = _MOpTag.make_name(operation, tag=tag)
+                added_tags.append(_mop_tag_name)
+                self.ref_stacks[_mop_tag_name].append(ref.ref)  # ... as str!
+
+            return ref
+
+        # Now, add nodes for all transform specification, taking care to add
+        # additional tag and file cache options for the last entry.
+        for spec in specs[:-1]:
+            fill_placeholders_and_add_node(spec, **trf_kwargs)
+
+        ref = fill_placeholders_and_add_node(specs[-1], **trf_kwargs,
+                                             tag=tag, file_cache=file_cache)
+
+        # With all nodes added now, can pop off all the references for the tags
+        # that were defined by this specific use of the meta-operation. This is
+        # to ensure that tags used in meta-operations that are nested further
+        # outside point to the correct reference.
+        for _mop_tag in added_tags:
+            self.ref_stacks[_mop_tag].pop()
+
+        return ref
 
     def _update_profile(self, **times):
         """Updates profiling information by adding the given time to the
@@ -1345,7 +1685,8 @@ class TransformationDAG:
                 raise NotImplementedError("Cannot currently write dantro "
                     "groups to a cache file. Sorry. Adjust the ignore_groups "
                     "argument in the file cache write options for the "
-                    "transformation resulting in {}.".format(result))
+                    f"transformation resulting in {result}."
+                )
             return False
 
         # Make sure the directory exists
@@ -1377,10 +1718,12 @@ class TransformationDAG:
                               bad_fpath)
 
                 # Generate an error or warning message
-                msg = ("Failed saving transformation cache file for result of "
-                       "type {} using storage function for type(s) {}. Value "
-                       "of result:\n{}.\n\nAdditional keyword arguments: {}"
-                       "".format(type(result), types, result, save_kwargs))
+                msg = (
+                    "Failed saving transformation cache file for result of "
+                    f"type {type(result)} using storage function for type(s) "
+                    f"{types}. Value of result:\n{result}.\n\n"
+                    f"Additional keyword arguments: {save_kwargs}"
+                )
                 if raise_on_error:
                     raise RuntimeError(msg) from exc
                 log.warning("%s.\n%s: %s", msg, exc.__class__.__name__, exc)
@@ -1404,11 +1747,12 @@ class TransformationDAG:
                          **(pkl_kwargs if pkl_kwargs else {}))
 
         except Exception as exc:
-            msg = ("Failed saving transformation cache file. Cannot pickle "
-                   "result object of type {} and with value {}. Consider "
-                   "deactivating file caching or pickling for this "
-                   "transformation."
-                   "".format(type(result), result))
+            msg = (
+                "Failed saving transformation cache file. Cannot pickle "
+                f"result object of type {type(result)} and with value "
+                f"{result}. Consider deactivating file caching or pickling "
+                "for this transformation."
+            )
             if raise_on_error:
                 raise RuntimeError(msg) from exc
             log.warning("%s. %s: %s", msg, exc.__class__.__name__, exc)

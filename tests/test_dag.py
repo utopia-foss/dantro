@@ -10,6 +10,7 @@ import xarray as xr
 
 import dantro
 import dantro.dag as dag
+import dantro._dag_utils as dag_utils
 
 from dantro import DataManager
 from dantro.base import BaseDataGroup
@@ -105,9 +106,43 @@ def test_hash():
     """Test that the hash function did not change"""
     assert _hash("I will not change.") == "cac42c9aeca87793905d257c1b1b89b8"
 
+def test_Placeholder():
+    """Test the Placeholder class"""
+    ph = dag_utils.Placeholder("foo bar")
+
+    assert ph == dag_utils.Placeholder("foo bar")
+    assert ph != dag_utils.Placeholder("bar foo")
+
+    assert "Placeholder" in repr(ph)
+    assert "foo bar" in repr(ph)
+
+def test_argument_placeholders():
+    """Tests the PositionalArgument and KeywordArgument specializations of the
+    base Placeholder class
+    """
+    Arg = dag_utils.PositionalArgument
+    Kwarg = dag_utils.KeywordArgument
+
+    assert Arg(0).position == 0
+    assert Arg(10).position == 10
+    assert Arg('3').position == 3
+
+    assert Kwarg("foo").name == "foo"
+
+    # Errors
+    with pytest.raises(TypeError, match="int-convertible"):
+        Arg("abc")
+    with pytest.raises(ValueError, match="non-negative"):
+        Arg("-1")
+
+    with pytest.raises(TypeError, match="requires a string"):
+        Kwarg(123)
 
 def test_DAGReference():
-    """Test the DAGReference class"""
+    """Test the DAGReference class
+
+    NOTE Reference resolution cannot be tested without DAG
+    """
     # Initialization
     some_hash = _hash("some")
     ref = dag.DAGReference(some_hash)
@@ -131,7 +166,10 @@ def test_DAGReference():
     assert "!dag_ref" in yaml_dumps(ref, register_classes=(dag.DAGReference,))
 
 def test_DAGTag():
-    """Test the DAGTag class"""
+    """Test the DAGTag class
+
+    NOTE Reference resolution cannot be tested without DAG
+    """
     some_tag = "tag42"
     tag = dag.DAGTag(some_tag)
     assert tag.name == some_tag
@@ -144,10 +182,37 @@ def test_DAGTag():
 
     assert "!dag_tag" in yaml_dumps(tag, register_classes=(dag.DAGTag,))
 
-    # Reference resolution cannot be tested without DAG
+    # Cannot use the DAGMetaOperationTag string separator in names
+    with pytest.raises(ValueError, match="cannot include the '::' substring"):
+        dag.DAGTag("foo::bar")
+
+def test_DAGMetaOperationTag():
+    """Test the DAGMetaOperationTag class
+
+    NOTE Reference resolution cannot be tested without DAG
+    """
+    MOpTag = dag_utils.DAGMetaOperationTag
+
+    some_tag = "foo::bar"
+    tag = MOpTag(some_tag)
+    assert tag.name == some_tag
+
+    assert some_tag in repr(tag)
+
+    assert "!mop_tag" in yaml_dumps(tag, register_classes=(MOpTag,))
+
+    # There are restrictions on the name
+    with pytest.raises(ValueError, match="Invalid name"):
+        MOpTag("foo::bar::baz")
+
+    with pytest.raises(ValueError, match="Invalid name"):
+        MOpTag("foo:without-valid_substring")
 
 def test_DAGNode():
-    """Test the DAGNode class"""
+    """Test the DAGNode class
+
+    NOTE Reference resolution cannot be tested without DAG
+    """
     some_node = 42
     node = dag.DAGNode(some_node)
     assert node.idx == some_node
@@ -164,8 +229,6 @@ def test_DAGNode():
         dag.DAGNode("not int-convertible")
 
     assert "!dag_node" in yaml_dumps(node, register_classes=(dag.DAGNode,))
-
-    # Reference resolution cannot be tested without DAG
 
 def test_DAGObjects(dm):
     """Tests the DAGObjects class."""
@@ -392,8 +455,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
 
         # Initialize TransformationDAG object, which will build the DAGs
         if not _raises or _raises_on_compute:
-            tdag = TransformationDAG(dm=dm, **params,
-                                     cache_dir=cache_dir)
+            tdag = TransformationDAG(dm=dm, **params, cache_dir=cache_dir)
 
         else:
             with pytest.raises(_exp_exc, match=_match):
@@ -420,7 +482,8 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
         tdag.select_base = dag.DAGReference(tdag.tags['dm'])
         assert tdag.select_base == dag.DAGReference(tdag.tags['dm'])
 
-        with pytest.raises(KeyError, match="cannot be the basis of"):
+        with pytest.raises(KeyError,
+                           match="cannot be used to set `select_base`"):
             tdag.select_base = "some_invalid_tag"
 
 
@@ -438,6 +501,10 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
 
         # Test node hashes
         if expected.get('node_hashes'):
+            # Debug information
+            print("\nObjects:")
+            print("\n".join([f"- {k}: {v}" for k,v in tdag.objects.items()]))
+
             assert tdag.nodes == expected['node_hashes']
             print("Node hashes consistent.")
 
@@ -452,6 +519,32 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
                 else:
                     # Only compare hash references (easier to specify in yaml)
                     assert set([r.ref for r in node.dependencies]) == set(deps)
+
+        # Test meta operations and the extracted arguments
+        if expected.get('meta_operations'):
+            expected_mops = expected['meta_operations']
+
+            assert expected_mops.keys() == tdag._meta_ops.keys()
+            print("\nMeta-operation names as expected.")
+
+            print("Checking meta-operation properties for ...")
+            for mop_name, mop_spec in tdag._meta_ops.items():
+                print(f"  {mop_name} ...", end="")
+
+                exp_spec = expected_mops[mop_name]
+                assert exp_spec['num_nodes'] == len(mop_spec['specs'])
+                assert exp_spec['num_args'] == mop_spec['num_args']
+                assert set(exp_spec['kwarg_names']) == mop_spec['kwarg_names']
+
+                if 'defined_tags' in exp_spec:
+                    assert (   set(exp_spec['defined_tags'])
+                            == mop_spec['defined_tags'])
+
+                print("ok")
+            print("Meta-operation properties as expected.")
+
+        # The reference stack should always be empty
+        assert sum([len(stack) for stack in tdag.ref_stacks.values()]) == 0
 
         # Compare with expected result...
         compute_only = cfg.get('compute_only')
@@ -515,9 +608,9 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
         assert all([item in prof for item in ('add_node', 'compute')])
 
         extd_prof = tdag.profile_extended
-        print("Extended profile: ", extd_prof)
         _expected = ('add_node', 'compute', 'tags', 'aggregated', 'sorted',
                      'operations', 'slow_operations')
+        # print("Extended profile: ", extd_prof)
         assert set(extd_prof.keys()) == set(_expected)
 
         # If there are no nodes available, there should be nans in the profile.

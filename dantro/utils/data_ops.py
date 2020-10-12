@@ -841,6 +841,10 @@ _OPERATIONS = KeyOrderedDict({
 
     # Numerical operations - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Unary ...................................................................
+    'neg':          lambda d: operator.neg(d),
+    'pos':          lambda d: operator.pos(d),
+    'truth':        lambda d: operator.truth(d),
+
     'increment':    lambda d: d + 1,
     'decrement':    lambda d: d - 1,
     'count_unique': count_unique,
@@ -893,6 +897,7 @@ _OPERATIONS = KeyOrderedDict({
     'mod':          lambda d, v: operator.mod(d, v),
     'mul':          lambda d, v: operator.mul(d, v),
     'matmul':       lambda d, v: operator.matmul(d, v),
+    'pow':          lambda d, v: operator.pow(d, v),
     'rshift':       lambda d, v: operator.rshift(d, v),
     'sub':          lambda d, v: operator.sub(d, v),
 
