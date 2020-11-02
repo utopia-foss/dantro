@@ -17,14 +17,14 @@ log = logging.getLogger(__name__)
 
 class UnaryOperationsMixin:
     """This Mixin class implements the methods needed for unary operations.
-    
+
     It leaves out those that expect that return values are of a certain type,
     e.g. __complex__, __int__, ...
     """
 
     def __neg__(self):
         """Make negative
-        
+
         Returns:
             A new object with negative elements
         """
@@ -32,7 +32,7 @@ class UnaryOperationsMixin:
 
     def __pos__(self):
         """Make positive
-        
+
         Returns:
             A new object with negative elements
         """
@@ -93,7 +93,7 @@ class NumbersMixin(UnaryOperationsMixin):
 
     def __add__(self, other):
         """Add two objects
-        
+
         Returns:
             A new object containing the summed data
         """
@@ -101,7 +101,7 @@ class NumbersMixin(UnaryOperationsMixin):
 
     def __sub__(self, other):
         """Subtract two objects
-        
+
         Returns:
             A new object containing the subtracted data
         """
@@ -109,7 +109,7 @@ class NumbersMixin(UnaryOperationsMixin):
 
     def __mul__(self, other):
         """Multiply two objects
-        
+
         Returns:
             A object containing the multiplied data
         """
@@ -117,7 +117,7 @@ class NumbersMixin(UnaryOperationsMixin):
 
     def __truediv__(self, other):
         """Divide two objects
-        
+
         Returns:
             A new object containing the divided data
         """
@@ -125,7 +125,7 @@ class NumbersMixin(UnaryOperationsMixin):
 
     def __floordiv__(self, other):
         """Floor divide two objects
-        
+
         Returns:
             A new object containing the floor divided data
         """
@@ -133,7 +133,7 @@ class NumbersMixin(UnaryOperationsMixin):
 
     def __mod__(self, other):
         """Calculate the modulo of two objects
-        
+
         Returns:
             A new object containing the summed data
         """
@@ -141,7 +141,7 @@ class NumbersMixin(UnaryOperationsMixin):
 
     def __divmod__(self, other):
         """Calculate the floor division and modulo of two objects
-        
+
         Returns:
             A new object containing the floor divided data and its modulo
         """
@@ -149,7 +149,7 @@ class NumbersMixin(UnaryOperationsMixin):
 
     def __pow__(self, other):
         """Calculate the self data to the power of other data
-        
+
         Returns:
             A new object containing the result
         """
@@ -158,7 +158,7 @@ class NumbersMixin(UnaryOperationsMixin):
     # inplace operations
     def __iadd__(self, other):
         """Add two objects
-        
+
         Returns:
             Self with modified data
         """
@@ -166,7 +166,7 @@ class NumbersMixin(UnaryOperationsMixin):
 
     def __isub__(self, other):
         """Subtract two objects
-        
+
         Returns:
             Self with modified data
         """
@@ -174,7 +174,7 @@ class NumbersMixin(UnaryOperationsMixin):
 
     def __imul__(self, other):
         """Multiply two objects
-        
+
         Returns:
             Self with modified data
         """
@@ -182,7 +182,7 @@ class NumbersMixin(UnaryOperationsMixin):
 
     def __itruediv__(self, other):
         """Divide two objects
-        
+
         Returns:
             Self with modified data
         """
@@ -190,7 +190,7 @@ class NumbersMixin(UnaryOperationsMixin):
 
     def __ifloordiv__(self, other):
         """Floor divide two objects
-        
+
         Returns:
             Self with modified data
         """
@@ -198,7 +198,7 @@ class NumbersMixin(UnaryOperationsMixin):
 
     def __imod__(self, other):
         """Calculate the modulo of two objects
-        
+
         Returns:
             Self with modified data
         """
@@ -206,7 +206,7 @@ class NumbersMixin(UnaryOperationsMixin):
 
     def __ipow__(self, other):
         """Calculate the self data to the power of other data
-        
+
         Returns:
             Self with modified data
         """
@@ -223,7 +223,7 @@ class ComparisonMixin:
     def __ne__(self, other):
         """Inequality"""
         return self.data != get_data(other)
-    
+
     def __lt__(self, other):
         """Less than"""
         return self.data < get_data(other)
@@ -251,10 +251,10 @@ class ComparisonMixin:
 
 def get_data(obj):
     """Get the data of `obj` depending on whether it is part of dantro or not.
-    
+
     Args:
         obj: The object to check
-    
+
     Returns:
         Either the `.data` attribute of a dantro-based object or otherwise the
             object itself.
@@ -267,7 +267,7 @@ def get_data(obj):
 
 def apply_func_to_copy(obj, func, other=None):
     """Apply a given function to a copy for all datatypes
-    
+
     Returns:
         An object with the data on which the function was applied
     """
@@ -288,7 +288,7 @@ def apply_func_to_copy(obj, func, other=None):
 
 def apply_func_inplace(obj, func, other=None):
     """Apply a given function inplace for all datatypes
-    
+
     Returns:
         An object with the data on which the function was applied
     """
@@ -300,5 +300,5 @@ def apply_func_inplace(obj, func, other=None):
             func(obj._data, other.data)
         else:
             func(obj._data, other)
-            
+
     return obj

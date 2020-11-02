@@ -99,7 +99,7 @@ class LockDataMixin:
         """Locks the data of this object"""
         self.__locked = True
         self._lock_hook()
-    
+
     def unlock(self):
         """Unlocks the data of this object"""
         self.__locked = False
@@ -117,15 +117,37 @@ class LockDataMixin:
     def _lock_hook(self):
         """Invoked upon locking."""
         pass
-    
+
     def _unlock_hook(self):
         """Invoked upon unlocking."""
         pass
-    
+
+
+class BasicComparisonMixin:
+    """Provides a (very basic) ``__eq__`` method to compare equality."""
+
+    def __eq__(self, other) -> bool:
+        """Evaluates equality by making the following comparisons: identity,
+        strict type equality, and finally: equality of the ``_data`` and
+        ``_attrs`` attributes, i.e. the *private* attribute. This ensures that
+        comparison does not trigger any downstream effects like resolution of
+        proxies.
+
+        If types do not match exactly, ``NotImplemented`` is returned, thus
+        referring the comparison to the other side of the ``==``.
+        """
+        if other is self:
+            return True
+
+        if type(other) is not type(self):
+            return NotImplemented
+
+        return self._data == other._data and self._attrs == other._attrs
+
 
 class CollectionMixin:
     """This Mixin class implements the methods needed for being a Collection.
-    
+
     It relays all calls forward to the data attribute.
     """
 
@@ -195,15 +217,15 @@ class MappingAccessMixin(ItemAccessMixin, CollectionMixin):
 class CheckDataMixin:
     """This mixin class extends a BaseDataContainer-derived class to check the
     provided data before storing it in the container.
-    
-    It implements a general _check_data method, overwriting the placeholder 
+
+    It implements a general _check_data method, overwriting the placeholder
     method in the BaseDataContainer, and can be controlled via class variables.
 
     .. note::
 
         This is not suitable for checking containers that are added to an
         object of a BaseDataGroup-derived class!
-    
+
     Attributes:
         DATA_ALLOW_PROXY (bool): Whether to allow _all_ proxy types, i.e.
             classes derived from AbstractDataProxy
@@ -220,14 +242,14 @@ class CheckDataMixin:
 
     def _check_data(self, data) -> None:
         """A general method to check the received data for its type
-        
+
         Args:
             data: The data to check
-        
+
         Raises:
             TypeError: If the type was unexpected and the action was 'raise'
             ValueError: Illegal value for DATA_UNEXPECTED_ACTION class variable
-        
+
         Returns:
             None
         """
@@ -259,7 +281,7 @@ class CheckDataMixin:
             warnings.warn(msg + "\nInitialization will work, but be informed "
                           "that there might be errors at runtime.",
                           UnexpectedTypeWarning)
-        
+
         elif self.DATA_UNEXPECTED_ACTION == 'ignore':
             log.debug(msg + " Ignoring ...")
 

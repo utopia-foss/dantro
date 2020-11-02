@@ -19,7 +19,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
     interface. It holds the bare basics of methods and attributes that _all_
     dantro data tree classes should have in common: a name, some data, and some
     association with others via an optional parent object.
-    
+
     Via the parent and the name, path capabilities are provided. Thereby, each
     object in a data tree has some information about its location relative to
     a root object.
@@ -31,7 +31,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
     def __init__(self, *, name: str, data: Any):
         """Initialize the AbstractDataContainer, which holds the bare
         essentials of what a data container should have.
-        
+
         Args:
             name (str): The name of this container
             data (Any): The data that is to be stored
@@ -119,7 +119,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
                              "use the functions supplied to manipulate "
                              "members of this {cls:}."
                              "".format(self.name, cls=self.classname))
-        
+
         log.trace("Setting %s as parent of %s ...",
                   cont.logstr if cont else None, self.logstr)
         self._parent = cont
@@ -159,7 +159,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
         This method can be subclassed to implement more specific behaviour. To
         propagate the parent classes' behaviour the subclassed method should
         always call its parent method using super().
-        
+
         Args:
             new_name (str): The new name, which is to be checked.
         """
@@ -167,7 +167,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
 
     def _check_data(self, data: Any) -> None:
         """This method can be used to check the data provided to this container
-        
+
         It is called before the data is stored in the __init__ method and
         should raise an exception or create a warning if the data is not as
         desired.
@@ -175,10 +175,10 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
         This method can be subclassed to implement more specific behaviour. To
         propagate the parent classes' behaviour the subclassed method should
         always call its parent method using super().
-        
+
         NOTE The CheckDataMixin provides a generalised implementation of this
              method to perform some type checks and react to unexpected types.
-        
+
         Args:
             data (Any): The data to check
         """
@@ -226,7 +226,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
     def _format_name(self) -> str:
         """A __format__ helper function: returns the name"""
         return self.name
-    
+
     def _format_cls_name(self) -> str:
         """A __format__ helper function: returns the class name"""
         return self.classname
@@ -311,18 +311,18 @@ class AbstractDataAttrs(collections.abc.Mapping, AbstractDataContainer):
     """The BaseDataAttrs class defines the interface for the `.attrs`
     attribute of a data container.
 
-    This class derives from the abstract class as otherwise there would be 
-    circular inheritance. It stores the attributes as mapping and need not be 
+    This class derives from the abstract class as otherwise there would be
+    circular inheritance. It stores the attributes as mapping and need not be
     subclassed.
     """
-    
+
     # .........................................................................
     # Specify the attrs interface, dict-like
 
     @abc.abstractmethod
     def __contains__(self, key) -> bool:
         """Whether the given key is contained in the attributes."""
-    
+
     @abc.abstractmethod
     def __len__(self) -> int:
         """The number of attributes."""
@@ -371,7 +371,7 @@ class AbstractDataProxy(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def tags(self) -> Tuple[str]:
         """The tags describing this proxy object"""
-    
+
 
 
 # -----------------------------------------------------------------------------
@@ -408,25 +408,25 @@ class AbstractPlotCreator(metaclass=abc.ABCMeta):
 
         This function is called by the plot manager before the first plot
         is created.
-        
+
         The base implementation just passes the given arguments through.
         However, it can be re-implemented by derived classes to change the
         behaviour of the plot manager, e.g. by converting a plot configuration
         to a parameter space.
         """
-        
+
     @abc.abstractmethod
     def can_plot(self, creator_name: str, **plot_cfg) -> bool:
         """Whether this plot creator is able to make a plot for the given plot
         configuration.
 
         This function is used by the PlotManager's auto-detect feature.
-        
+
         Args:
             creator_name (str): The name for this creator used within the
                 PlotManager.
             **plot_cfg: The plot configuration with which to decide this.
-        
+
         Returns:
             bool: Whether this creator can be used for the given plot config
         """

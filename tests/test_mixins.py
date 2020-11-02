@@ -20,6 +20,34 @@ from .test_data_mngr import NumpyTestDC
 
 # Tests -----------------------------------------------------------------------
 
+def test_BasicComparisonMixin():
+    """Tests the `__eq__` method provided by the BasicComparisonMixin"""
+    from dantro.containers import ObjectContainer
+    from dantro.groups import OrderedDataGroup
+
+    c1 = ObjectContainer(name="foo", data="bar", attrs=dict(a="b"))
+    assert c1 == c1
+
+    c2 = ObjectContainer(name="foo", data="bar", attrs=dict(a="b"))
+    assert c1 is not c2
+    assert c1 == c2
+
+    # dantro DataAttributes matter
+    assert c1 != ObjectContainer(name="foo", data="bar")
+
+    # Other Python class attributes do not matter
+    c1._logstr = "something else than it was before"
+    c1._foo = "something that was not there before"
+    assert c1 == c2
+
+    # Comparison with other types are always false
+    assert c1 != 1
+    assert c1 != "asdf"
+    assert c1 != type
+    assert c1 != dict(_name="foo", _data="bar", attrs=dict(a="b"))
+    assert c1 != OrderedDataGroup(name="foo")
+
+
 def test_LockDataMixin():
     """Test the LockDataMixin using an OrderedDataGroup"""
     class ODG(dantro.groups.OrderedDataGroup):
@@ -49,7 +77,7 @@ def test_LockDataMixin():
         with pytest.raises(RuntimeError, match="Cannot modify"):
             odg.new_group("can't add this")
         assert "can't add this" not in odg
-        
+
         with pytest.raises(RuntimeError, match="Cannot modify"):
             odg.add(dantro.containers.ObjectContainer(name="foo", data="bar"))
         assert odg["foo"] is foo
@@ -84,18 +112,18 @@ def test_ForwardAttrsMixin():
     assert moc.data.foo == 123
     with pytest.raises(AttributeError, match="foo"):
         moc.foo
-    
+
     with pytest.raises(AttributeError, match="invalid_attr_name"):
         moc.invalid_attr_name
-    
+
     moc.FORWARD_ATTR_TO = 'data'
     assert moc.foo is moc.data.foo
     assert moc.bar is moc.data.bar
     assert moc.baz is moc.data.baz
-    
+
     with pytest.raises(AttributeError, match="invalid_attr_name"):
         assert moc.invalid_attr_name
-    
+
     with pytest.raises(AttributeError, match="invalid_attr_name"):
         assert moc.invalid_attr_name
 
@@ -104,7 +132,7 @@ def test_ForwardAttrsMixin():
     assert moc.baz is moc.data.baz
     with pytest.raises(AttributeError, match="bar"):
         moc.bar
-    
+
     moc.FORWARD_ATTR_ONLY = ('foo',)
     assert moc.foo is moc.data.foo
     with pytest.raises(AttributeError, match="bar"):
@@ -120,7 +148,7 @@ def test_ForwardAttrsMixin():
             """Invoked before attribute forwarding occurs"""
             assert attr_name is not None
             self.__last_attr_name = attr_name
-        
+
         def _forward_attr_post_hook(self, attr):
             """Invoked before attribute forwarding occurs"""
             assert hasattr(getattr(self, self.FORWARD_ATTR_TO),
@@ -170,7 +198,7 @@ def test_ItemAccessMixin():
 
     # Too long lists
     with pytest.raises(KeyError, match="No key or key sequence"):
-        root[['obj', 'foo', 'spam']]    
+        root[['obj', 'foo', 'spam']]
 
 
 def test_MappingAccessMixin():
@@ -194,7 +222,7 @@ def test_numeric_mixins():
     # UnaryOperationsMixin
     class Num(dtr.mixins.NumbersMixin, dtr.mixins.ComparisonMixin,
               dtr.mixins.ItemAccessMixin, dtr.base.BaseDataContainer):
-        
+
         def copy(self):
             return type(self)(name=self.name + "_copy",
                               data=copy.deepcopy(self.data))
@@ -269,7 +297,7 @@ def test_PaddedIntegerItemAccessMixin():
     # Check bad access values
     with pytest.raises(IndexError, match=r'out of range \[0, 99\]'):
         grp[-1]
-    
+
     with pytest.raises(IndexError, match=r'out of range \[0, 99\]'):
         grp[100]
 
@@ -284,6 +312,6 @@ def test_PaddedIntegerItemAccessMixin():
     # Non-positive value
     with pytest.raises(ValueError, match="needs to be positive"):
         PaddedIntItemAccessGroup(name="baaad").padded_int_key_width = 0
-    
+
     with pytest.raises(ValueError, match="needs to be positive"):
         PaddedIntItemAccessGroup(name="baaad").padded_int_key_width = -42

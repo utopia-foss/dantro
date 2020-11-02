@@ -24,11 +24,11 @@ class ForwardAttrsMixin:
     def __getattr__(self, attr_name: str):
         """Forward attributes that were not available in this class to some
         other attribute of the group or container.
-        
+
         Args:
             attr_name (str): The name of the attribute that was tried to be
                 accessed but was not available in ``self``.
-        
+
         Returns:
             The attribute ``attr_name`` of getattr(self, self.FORWARD_ATTR_TO)
         """
@@ -54,11 +54,11 @@ class ForwardAttrsMixin:
     def _forward_attr_pre_hook(self, attr_name: str=None):
         """Invoked before attribute forwarding occurs"""
         pass
-    
+
     def _forward_attr_get_forwarding_target(self):
         """Get the object that the attribute call is to be forwarded to"""
         return getattr(self, self.FORWARD_ATTR_TO)
-    
+
     def _forward_attr_post_hook(self, attr):
         """Invoked before attribute forwarding occurs"""
         return attr
