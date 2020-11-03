@@ -179,7 +179,7 @@ class BaseDataGroup(LockDataMixin, AttrsMixin,
             self.add(*containers)
 
     # .........................................................................
-    # Item access
+    # Item access and manipulation
 
     def __getitem__(self, key: Union[str, List[str]]):
         """Returns the container in this group with the given name.
@@ -251,7 +251,6 @@ class BaseDataGroup(LockDataMixin, AttrsMixin,
 
     def __delitem__(self, key: str) -> None:
         """Deletes an item from the group"""
-
         if not isinstance(key, list):
             # Assuming this is a string ...
             key = key.split(PATH_JOIN_CHAR)
@@ -496,6 +495,17 @@ class BaseDataGroup(LockDataMixin, AttrsMixin,
                 self.add(obj)
 
         log.debug("Finished recursive update of %s.", self.logstr)
+
+    def clear(self):
+        """Clears all containers from this group.
+
+        This is done by unlinking all children and then overwriting ``_data``
+        with an empty ``_STORAGE_CLS`` object.
+        """
+        for child in self.values():
+            self._unlink_child(child)
+        self._data = self._STORAGE_CLS()
+        log.debug("%s cleared.", self.logstr)
 
     # .........................................................................
     # Linking

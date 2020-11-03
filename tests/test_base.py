@@ -104,6 +104,17 @@ def test_BaseDataGroup():
     assert foo['baz'] is baz2
 
 
+    # Test clearing, then reset to previous state
+    assert len(root) == 1
+    root.clear()
+    assert len(root) == 0
+    assert foo.parent is None
+
+    root.add(foo)
+    assert len(root) == 1
+    assert foo.parent is root
+
+
     # And adding new containers that are not of the correct type
     with pytest.raises(TypeError, match="needs to be a subclass of BaseData"):
         root.new_container("testpath", Cls=dict, foo="bar")
