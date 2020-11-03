@@ -83,6 +83,9 @@ class DataManager(OrderedDataGroup):
     # For simple lookups, store class names in a dict; not set by default
     _DATA_GROUP_CLASSES = None
 
+    # The default tree file cache path, parsed by _parse_file_path
+    _DEFAULT_TREE_CACHE_PATH = ".tree_cache.d3"
+
     # .........................................................................
     # Initialization
 
@@ -91,7 +94,8 @@ class DataManager(OrderedDataGroup):
                  out_dir: Union[str, bool]="_output/{timestamp:}",
                  out_dir_kwargs: dict=None,
                  create_groups: List[Union[str, dict]]=None,
-                 condensed_tree_params: dict=None):
+                 condensed_tree_params: dict=None,
+                 default_tree_cache_path: str=None):
         """Initializes a DataManager for the specified data directory.
 
         Args:
@@ -127,6 +131,13 @@ class DataManager(OrderedDataGroup):
                 the latter may be a callable.
                 See :py:meth:`dantro.base.BaseDataGroup._tree_repr` for more
                 information.
+            default_tree_cache_path (str, optional): The path to the default
+                tree cache file. If not given, uses the value from the class
+                variable ``_DEFAULT_TREE_CACHE_PATH``. Whichever value was
+                chosen is then prepared using the
+                :py:meth:`~dantro.data_mngr.DataManager._parse_file_path`
+                method, which regards relative paths as being relative to the
+                associated data directory.
         """
         # Find a name if none was given
         if not name:
@@ -146,6 +157,11 @@ class DataManager(OrderedDataGroup):
         self.dirs = self._init_dirs(data_dir=data_dir, out_dir=out_dir,
                                     **(out_dir_kwargs if out_dir_kwargs
                                        else {}))
+
+        # Parse the default tree cache path
+        _tcp = (default_tree_cache_path if default_tree_cache_path
+                else self._DEFAULT_TREE_CACHE_PATH)
+        self._tree_cache_path = self._parse_file_path(_tcp)
 
         # Start out with the default load configuration or, if not given, with
         # an empty one
@@ -286,6 +302,16 @@ class DataManager(OrderedDataGroup):
     def __hash__(self) -> int:
         """The hash of this DataManager, computed from the hashstr property"""
         return hash(self.hashstr)
+
+    @property
+    def tree_cache_path(self) -> str:
+        """Absolute path to the default tree cache file"""
+        return self._tree_cache_path
+
+    @property
+    def tree_cache_exists(self) -> bool:
+        """Whether the tree cache file exists"""
+        return os.path.isfile(self._tree_cache_path)
 
     # .........................................................................
     # Loading data
@@ -1132,44 +1158,52 @@ class DataManager(OrderedDataGroup):
 
         return path
 
-    def dump(self, *, path: str, **dump_kwargs) -> str:
+    def dump(self, *, path: str=None, **dump_kwargs) -> str:
         """Dumps the data tree to a new file at the given path, creating any
         necessary intermediate data directories.
 
         For restoring, use :py:meth:`~dantro.data_mngr.DataManager.restore`.
 
         Args:
-            path (str): The path to store this file at. If it is a relative
-                path, it is assumed relative to the data directory.
+            path (str, optional): The path to store this file at. If this is
+                not given, use the default tree cache path that was set up
+                during initialization.
+                If it is given and a relative path, it is assumed relative to
+                the data directory.
                 If the path does not end with an extension, the ``.d3`` (read:
                 "data tree") extension is automatically added.
             **dump_kwargs: Passed on to ``pkl.dump``
 
         Returns:
-            str: The path that was used for dumping the file
+            str: The path that was used for dumping the tree file
         """
-        path = self._parse_file_path(path, default_ext=DATA_TREE_DUMP_EXT)
+        if path:
+            path = self._parse_file_path(path, default_ext=DATA_TREE_DUMP_EXT)
+        else:
+            path = self.tree_cache_path
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
         log.progress("Dumping data tree of %s ...", self.logstr)
         with open(path, mode="x+b") as file:
             pkl.dump(self, file, **dump_kwargs)
 
-        log.progress("Dumping successful.")
+        log.progress("Successfully stored data tree in cache file.")
         log.note("  Path:       %s", path)
         log.note("  File size:  %s", format_bytesize(os.path.getsize(path)))
         return path
 
-    def restore(self, *, from_path: str, merge: bool=False, **load_kwargs):
+    def restore(self, *, from_path: str=None, merge: bool=False,
+                **load_kwargs):
         """Restores the data tree from a dump.
 
         For dumping, use :py:meth:`~dantro.data_mngr.DataManager.dump`.
 
         Args:
-            from_path (str): The path to restore this DataManager from. If it
-                is a relative path, it is assumed relative to the data
-                directory. If the path does not end with an extension, the
-                ``.d3`` (read: "data tree") extension is automatically added.
+            from_path (str, optional): The path to restore this DataManager
+                from. If it is not given, uses the default tree cache path
+                that was set up at initialization.
+                If it is a relative path, it is assumed relative to the data
+                directory. Take care to add the corresponding file extension.
             merge (bool, optional): If True, uses a recursive update to merge
                 the current tree with the restored tree.
                 If False, uses :py:meth:`~dantro.data_mngr.DataManager.clear`
@@ -1180,14 +1214,18 @@ class DataManager(OrderedDataGroup):
         Raises:
             FileNotFoundError: If no file is found at the (expanded) path.
         """
-        path = self._parse_file_path(from_path, default_ext=DATA_TREE_DUMP_EXT)
+        if from_path:
+            path = self._parse_file_path(from_path)
+        else:
+            path = self.tree_cache_path
+
         if not os.path.isfile(path):
             raise FileNotFoundError(
-                f"Could not restore {self.logstr} from path '{from_path}' "
-                f"because no such file was found at '{path}'!"
+                f"Could not restore {self.logstr} as there was no tree "
+                f"cache file at '{path}'!"
             )
 
-        log.progress("Restoring %s from data tree dump ...", self.logstr)
+        log.progress("Restoring %s from data tree file ...", self.logstr)
         log.note("  Path:       %s", path)
         log.note("  File size:  %s", format_bytesize(os.path.getsize(path)))
 
@@ -1195,15 +1233,13 @@ class DataManager(OrderedDataGroup):
             dm = pkl.load(file, **load_kwargs)
 
         if not merge:
-            log.progress("Replacing the current data tree with the "
-                         "restored tree ...")
+            log.note("  Mode:       clear and load")
             self.clear()
         else:
-            log.progress("Merging the restored data tree into the "
-                         "existing ...")
+            log.note("  Mode:       load and merge")
 
         self.recursive_update(dm)
-        log.progress("Success.")  # TODO
+        log.progress("Successfully restored the data tree.")
 
 
     # .........................................................................
