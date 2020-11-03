@@ -315,3 +315,49 @@ class adjusted_log_levels:
         """When leaving the context, resets the levels to their old state"""
         for name, old_level in self.old_levels.items():
             logging.getLogger(name).setLevel(old_level)
+
+
+def format_bytesize(num: int, *, precision: int=1) -> str:
+    """Formats a size in bytes to a human readable (binary) format.
+
+    Stripped down from https://stackoverflow.com/a/63839503/1827608 .
+
+    Args:
+        num (int): Number of bytes
+        precision (int, optional): The decimal precision to use, can be 0..3
+
+    Returns:
+        str: The formatted, human-readable byte size
+    """
+    UNIT_LABELS = ("B", "kiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB")
+    PRECISION_OFFSETS = (0.5, 0.05, 0.005, 0.0005)
+    FSTRS = (
+        "{}{:.0f} {}",
+        "{}{:.1f} {}",
+        "{}{:.2f} {}",
+        "{}{:.3f} {}",
+    )
+
+    last_label = UNIT_LABELS[-1]
+    unit_step = 1024
+    unit_step_thresh = unit_step - PRECISION_OFFSETS[precision]
+    is_negative = num < 0
+
+    if is_negative:
+        num = abs(num)
+
+    # Special case for Bytes, where there should be no decimal point
+    if num < 1024:
+        return FSTRS[0].format("-" if is_negative else "", num, "B")
+
+    for unit in UNIT_LABELS:
+        if num < unit_step_thresh:
+            # Below threshold now, can go to formatting
+            break
+
+        # Unless we reached the highest prefix, shrink the number such that
+        # it represents the value in the next higher unit
+        if unit != last_label:
+            num /= unit_step
+
+    return FSTRS[precision].format("-" if is_negative else "", num, unit)

@@ -105,6 +105,26 @@ def test_decode_bytestrings():
     assert decode(np.array([foob, barb], dtype="O"))[1] == "bar"
     assert decode(np.array([foob, "bar"], dtype="O"))[1] == "bar"
 
+def test_format_bytesize():
+    """Tests byte size formatting"""
+    fmt = t.format_bytesize
+
+    assert fmt(1) == "1 B"
+    assert fmt(-1) == "-1 B"
+    assert fmt(-1, precision=3) == "-1 B"
+    assert fmt(1023) == "1023 B"
+    assert fmt(1023, precision=0) == "1023 B"
+    assert fmt(1023, precision=3) == "1023 B"
+
+    assert fmt(1024) == "1.0 kiB"
+    assert fmt(1024, precision=3) == "1.000 kiB"
+
+    assert fmt(1024**2 - 1) == "1.0 MiB"
+    assert fmt(1024**2 - 1, precision=3) == "1023.999 kiB"
+
+    assert fmt(1024**8) == "1.0 YiB"
+    assert fmt(1024**9) == "1024.0 YiB"
+
 
 # Tests of package-private modules --------------------------------------------
 
