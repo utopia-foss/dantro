@@ -5,20 +5,21 @@
 ## v0.15.0 _(WIP)_
 #### Features and Improvements
 - !202 adds meta-operations to the data transformation framework (#174), thereby allowing to define function-like constructs which help with modularization.
-- !204 makes pickling of the data tree possible.
+- !204 makes pickling of the data tree possible. If building the data tree takes a long time, storing its structure to a tree cache file and restoring it can bring a significant speed-up.
     - Data tree objects can be pickled and unpickled manually. To be more versatile, dantro now uses [dill](https://pypi.org/project/dill/) for pickling.
     - The `DataManager.dump` method can be used to store the full tree.
     - The `DataManager.restore` method allows to populate an existing `DataManager` with the content of a stored data tree, either clearing existing data or merging them.
+    - !205 adds default file path handling, controlled via the `default_tree_cache_path` argument to the `DataManager` or a class variable.
 - **Minor API additions:**
     - !204 implements `BaseDataGroup.clear` to remove all entries from a group.
     - !204 adds the `overwrite` argument to `BaseDataGroup.recursive_update`.
-    - !204 adds the `BasicComparisonMixin`, which supplies a simple `__eq__` magic method.
+    - !204 adds the `BasicComparisonMixin`, which supplies a simple `__eq__` magic method. 
 
 #### Breaking changes
 - As of !204, the `PickleLoaderMixin` no longer allows choosing which load  function to use via a class variable but _always_ uses `dill.load`.
 
 #### Bug fixes
-...
+- !205 addresses scipy netcdf warnings by requiring a more recent version.
 
 
 ## v0.14.1
