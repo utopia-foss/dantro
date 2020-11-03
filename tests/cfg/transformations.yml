@@ -778,6 +778,71 @@ file_cache_pkl_fallback:
       - e6eb9083f519ef9a3a2655396514dd3f.pkl  # .pkl shows fallback was used
 
 
+file_cache_pkl_function:
+  params:
+    transform:
+      - operation: getitem
+        args: [!dag_tag dm, objects/some_list]
+        tag: some_list
+        file_cache:
+          write:
+            enabled: true
+            storage_options:
+              attempt_pickling: false  # --> no cache file
+              raise_on_error: true
+
+      - operation: getitem
+        args: [!dag_tag dm, objects/some_dict]
+        tag: some_dict
+        file_cache:
+          write:
+            enabled: true
+            storage_options:
+              # no argument -> will attempt pickling -> cache file
+              raise_on_error: false
+
+      - operation: getitem
+        args: [!dag_tag dm, objects/some_func]  # supported by dill
+        tag: some_func
+        file_cache:
+          write:
+            enabled: true
+            storage_options:
+              raise_on_error: true
+
+  expected:
+    tags: [dag, dm, select_base, some_list, some_dict, some_func]
+    cache_dir_available: true
+    cache_files:
+      # - c106031ee0089b2d4d7efd4a7cb09cc6.pkl  # the list
+      - d64ae71435836020d3d33223baf7bb25.pkl    # the dict
+      - 6c3f280c8f1a4aa64221d609a5aa54f3.pkl    # the function
+
+
+file_cache_error_with_module_as_result:  # module pickling is supported by dill
+  params:
+    transform:
+      - import: numpy
+        file_cache:
+          write: false  # ... this works
+        tag: nocache
+        salt: 123
+      - import: numpy.random
+        file_cache:
+          write:
+            enabled: true
+            storage_options:
+              attempt_pickling: true
+              raise_on_error: true
+        tag: numpy.random
+
+  expected:
+    tags: [dag, dm, select_base, nocache, numpy.random]
+    cache_dir_available: true
+    cache_files:
+      - b9fe3ce697bbbd431ce5e7f70297d80f.pkl
+
+
 file_cache_error_file_already_loaded:
   # Use the shared cache to lead to a
   cache_dir_name: *shared_cache_dir
@@ -842,42 +907,6 @@ file_cache_error_writing_groups:
   _match: Cannot currently write dantro groups .* transformation resulting .*
 
 
-file_cache_error_pickling:
-  params:
-    transform:
-      - operation: getitem
-        args: [!dag_tag dm, objects/some_list]
-        tag: some_list
-        file_cache:
-          write:
-            enabled: true
-            storage_options:
-              attempt_pickling: false
-              raise_on_error: true
-
-      - operation: getitem
-        args: [!dag_tag dm, objects/some_dict]
-        tag: some_dict
-        file_cache:
-          write:
-            enabled: true
-            storage_options:
-              raise_on_error: false
-
-      - operation: getitem
-        args: [!dag_tag dm, objects/some_func]
-        tag: some_func
-        file_cache:
-          write:
-            enabled: true
-            storage_options:
-              raise_on_error: true
-
-  _raises: RuntimeError
-  _raises_on_compute: true
-  _match: Failed saving transformation cache file. .* 'some_func'.*
-
-
 file_cache_error_in_save_func:
   params:
     transform:
@@ -905,28 +934,6 @@ file_cache_error_in_save_func:
   _raises: RuntimeError
   _raises_on_compute: true
   _match: Failed saving transformation cache file .* using storage function
-
-
-file_cache_error_with_module_as_result:
-  params:
-    transform:
-      - import: numpy
-        file_cache:
-          write: false  # ... this works
-        tag: nocache
-        salt: 123
-      - import: numpy.random
-        file_cache:
-          write:
-            enabled: true
-            storage_options:
-              attempt_pickling: true
-              raise_on_error: true
-        tag: numpy.random
-
-  _raises: RuntimeError
-  _raises_on_compute: true
-  _match: Cannot pickle result object of type <class 'module'>
 
 
 

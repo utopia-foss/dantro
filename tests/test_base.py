@@ -5,8 +5,9 @@ NOTE This test module merely complements the other, already existing tests of
 """
 
 import sys
-import pickle as pkl
+import logging
 
+import dill as pkl
 import pytest
 
 import dantro as dtr
@@ -14,12 +15,16 @@ import dantro.base
 import dantro.groups
 import dantro.containers
 
+
+log = logging.getLogger()
+
+
 # Class definitions -----------------------------------------------------------
 
 
 # Fixtures and tools ----------------------------------------------------------
 
-def pickle_roundtrip(original_obj, protocols: tuple=(-1, 5, None)):
+def pickle_roundtrip(original_obj, *, protocols: tuple=(-1, 5, None)):
     """Makes pickling roundtrips with the given object. It does so multiple
     times with different protocols and returns the _last_ protocol's result.
     Ideally, the last protocol in the given `protocols` list should thus be
@@ -27,7 +32,11 @@ def pickle_roundtrip(original_obj, protocols: tuple=(-1, 5, None)):
     """
     for protocol in protocols:
         s = pkl.dumps(original_obj, protocol=protocol)
+        log.debug("Pickled '%s'. (Protocol: %s)", type(original_obj), protocol)
+
         loaded_obj = pkl.loads(s)
+        log.debug("Unpickled '%s'. (Protocol: %s",
+                  type(original_obj), protocol)
 
     assert loaded_obj is not original_obj
 
@@ -56,11 +65,6 @@ def test_BaseDataAttrs_pickling():
     bda['bar'] = dict(foofoo="barbar")
 
     assert pickle_roundtrip(bda) == bda
-
-    # Doesn't work with non-pickleable objects
-    bda['bar'] = lambda x: "I'm not pickleable"
-    with pytest.raises(AttributeError, match="Can't pickle local object"):
-        pickle_roundtrip(bda)
 
 # .............................................................................
 

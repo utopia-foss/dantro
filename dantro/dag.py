@@ -7,7 +7,6 @@ import copy
 import time
 import logging
 import warnings
-import pickle as pkl
 from collections import defaultdict as _defaultdict
 from itertools import chain
 
@@ -15,6 +14,7 @@ from typing import Dict, Tuple, Sequence, Any, Union, List, Set
 
 import numpy as np
 import xarray as xr
+import dill as pkl
 
 from paramspace.tools import recursive_replace, recursive_collect
 

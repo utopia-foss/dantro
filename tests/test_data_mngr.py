@@ -2,11 +2,12 @@
 
 import os
 import pkg_resources
-import pickle as pkl
 
 import numpy as np
 import xarray as xr
 import h5py as h5
+import dill as pkl
+
 import pytest
 
 import dantro.base

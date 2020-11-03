@@ -71,6 +71,7 @@ _Note_ that if you have both Python 2 and Python 3 installed, you might have to 
 | [matplotlib][matplotlib]      | 3.2.1            | For data visualization |
 | [networkx][networkx]          | 2.2              | For network visualization |
 | [ruamel.yaml][ruamelyaml]     | 0.16.10          | For parsing YAML configuration files |
+| [dill][dill]                  | 0.3.3            | For advanced pickling |
 | [paramspace][paramspace]      | 2.5              | For dictionary- or YAML-based parameter spaces |
 
 
@@ -246,6 +247,7 @@ Contact the developers via: [`dantro-dev@iup.uni-heidelberg.de`][devmail]
 [matplotlib]: https://matplotlib.org
 [networkx]: https://networkx.github.io
 [ruamelyaml]: https://yaml.readthedocs.io/en/latest/
+[dill]: https://pypi.org/project/dill/
 [paramspace]: https://pypi.org/project/paramspace/
 
 [pytest]: https://pytest.org/en/latest/
