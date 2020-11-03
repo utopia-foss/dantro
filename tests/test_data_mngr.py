@@ -296,6 +296,10 @@ def test_init(data_dir):
     # It should create a hashstr
     assert len(dm.hashstr) == 32
 
+    # There should be a default tree file path
+    assert ".d3" in dm.tree_cache_path
+    assert not dm.tree_cache_exists
+
     # It should be possible to set condensed tree parameters
     assert dm._COND_TREE_MAX_LEVEL == 10
     dm = DataManager(data_dir, out_dir=None, load_cfg=LOAD_CFG_PATH,
@@ -990,12 +994,12 @@ def test_dump_and_restore(hdf5_dm):
 
     # -- 1 -- Dump and restore (absolute path, empty tree)
     print("------ 1 ------")
-    # Dump it
-    p1 = dm.dump(path=os.path.join(dm.dirs["data"], "..", "dump1"))
+    # Dump it to the default location
+    p1 = dm.dump()
 
     # Check file extension and approximate file size
     assert os.path.isabs(p1)
-    assert p1.endswith("dump1.d3")
+    assert p1.endswith(".tree_cache.d3")
     d1_size = os.path.getsize(p1)
     assert 9*1024 < d1_size < 13*1024  # ... platform-dependent
 
@@ -1003,8 +1007,8 @@ def test_dump_and_restore(hdf5_dm):
     dm1 = new_dm()
     assert len(dm1) == 0
 
-    # Restore it now. The tree should match.
-    dm1.restore(from_path=p1)
+    # Restore it from the default location. The tree should match.
+    dm1.restore()
     print("dm1", dm1.tree)
     assert dm1.tree == dm.tree
 
@@ -1059,7 +1063,7 @@ def test_dump_and_restore(hdf5_dm):
     print("dm", dm.tree)
 
     # Dump it
-    p3 = dm.dump(path="dump3")
+    p3 = dm.dump(path=os.path.join(dm.dirs["data"], "..", "dump1"))
     assert p3.endswith(".d3")
     d3_size = os.path.getsize(p3)
     assert d3_size > d1_size  # ... due to the proxy stuff
@@ -1070,7 +1074,7 @@ def test_dump_and_restore(hdf5_dm):
 
     # Restore it
     dm3 = new_dm()
-    dm3.restore(from_path="dump3")
+    dm3.restore(from_path=p3)
     print("dm3", dm3.tree)
 
     # As the proxy status is different, the trees should NOT match
@@ -1107,10 +1111,18 @@ def test_dump_and_restore(hdf5_dm):
 
     # Restore it
     dm4 = new_dm()
-    dm4.restore(from_path="dump4")
+    dm4.restore(from_path=p4)
     print("dm4", dm4.tree)
 
     # Dumping should NOT have reinstated the proxy in the reference DataManager
     # and the restored object should not have been loaded as proxy
     assert not dm[proxy2_path].data_is_proxy
     assert not dm4[proxy2_path].data_is_proxy
+
+
+    # -- Errors --
+    # Bad file path
+    dm5 = new_dm()
+
+    with pytest.raises(FileNotFoundError, match="no tree cache file at"):
+        dm5.restore(from_path="i_dont_exist")
