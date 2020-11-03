@@ -24,11 +24,11 @@ log = logging.getLogger()
 
 # Fixtures and tools ----------------------------------------------------------
 
-def pickle_roundtrip(original_obj, *, protocols: tuple=(-1, 5, None)):
+def pickle_roundtrip(original_obj, *,
+                     protocols: tuple=(pkl.HIGHEST_PROTOCOL,
+                                       pkl.DEFAULT_PROTOCOL)):
     """Makes pickling roundtrips with the given object. It does so multiple
     times with different protocols and returns the _last_ protocol's result.
-    Ideally, the last protocol in the given `protocols` list should thus be
-    the default value of the `protocol` argument, i.e. `None`.
     """
     for protocol in protocols:
         s = pkl.dumps(original_obj, protocol=protocol)

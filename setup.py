@@ -11,7 +11,7 @@ install_deps = [
     'distributed>=2.10.0',  # For dask's distributed scheduler
     'scipy>=1.4.1',         # Used as a netcdf4 storage engine for xarray
     'sympy>=1.6.1',
-    'h5py>=2.10.0',
+    'h5py>=2.10.0,<3.0',    # TODO Upgrade to >= 3.0
     'matplotlib>=3.2.1',
     'networkx>=2.2',
     'ruamel.yaml>=0.16.10',

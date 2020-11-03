@@ -997,7 +997,7 @@ def test_dump_and_restore(hdf5_dm):
     assert os.path.isabs(p1)
     assert p1.endswith("dump1.d3")
     d1_size = os.path.getsize(p1)
-    assert 9*1024 < d1_size < 10*1024  # actual size: about ~9.6 kiB
+    assert 9*1024 < d1_size < 13*1024  # ... platform-dependent
 
     # Need a new DataManager in order to retain the one above for comparsion
     dm1 = new_dm()
