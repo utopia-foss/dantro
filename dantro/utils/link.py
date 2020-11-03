@@ -41,6 +41,25 @@ class Link(ForwardAttrsMixin):
         log.debug("Created link with anchor %s and relative path '%s'.",
                   anchor.logstr, rel_path)
 
+    def __eq__(self, other) -> bool:
+        """Evaluates equality by making the following comparisons: identity,
+        strict type equality, and finally: equality of the ``anchor_weakref``
+        and ``target_rel_path`` properties.
+
+        If types do not match exactly, ``NotImplemented`` is returned, thus
+        referring the comparison to the other side of the ``==``.
+        """
+        if other is self:
+            return True
+
+        if type(other) is not type(self):
+            return NotImplemented
+
+        return (
+            self.anchor_weakref == other.anchor_weakref and
+            self.target_rel_path == other.target_rel_path
+        )
+
     @property
     def target_weakref(self) -> weakref:
         """Resolve the target and return the weak reference to it"""
@@ -87,13 +106,13 @@ class Link(ForwardAttrsMixin):
             # Assume it's a container-like anchor, although it might also be a
             # whole other type. We don't care as long as a parent is defined.
             if obj.parent is None:
-                raise ValueError("The anchor object {} is not embedded into a "
-                                 "data tree; cannot resolve the target '{}'! "
-                                 "Either choose a group-like dantro object as "
-                                 "an anchor or embed the container-like "
-                                 "object into a group."
-                                 "".format(obj.logstr,
-                                           self.__rel_path))
+                raise ValueError(
+                    f"The anchor object {obj.logstr} is not embedded into a "
+                    "data tree; cannot resolve the target "
+                    f"'{self.__rel_path}'! Either choose a group-like dantro "
+                    "object as an anchor or embed the container-like object "
+                    "into a group."
+                )
 
             obj = obj.parent
 
@@ -109,13 +128,12 @@ class Link(ForwardAttrsMixin):
                 obj = obj.parent if segment == ".." else obj[segment]
 
         except Exception as err:
-            raise ValueError("Failed resolving target of link '{}' relative "
-                             "to anchor {} @ {}. Are anchor and target part "
-                             "of the same data tree?"
-                             "".format(self.__rel_path,
-                                       self.__anchor().logstr,
-                                       self.__anchor().path)
-                             ) from err
+            raise ValueError(
+                f"Failed resolving target of link '{self.__rel_path}' "
+                f"relative to anchor {self.__anchor().logstr} "
+                f"@ {self.__anchor().path}. Are anchor and target part of the "
+                "same data tree?"
+            ) from err
 
         log.debug("Resolved link '%s' relative to anchor %s @ %s",
                   self.__rel_path, self.__anchor().logstr,

@@ -1,5 +1,6 @@
 """This module implements mixins that provide proxy support"""
 
+import copy
 import logging
 import warnings
 from typing import Union
@@ -38,14 +39,38 @@ class ProxySupportMixin:
     # Behaviour upon failure of reinstating a proxy
     PROXY_REINSTATE_FAIL_ACTION = 'raise'  # or:  warn, log_warning, log_debug
 
+    # If true, populates the pickling state with the proxy instead of the data
+    PROXY_REINSTATE_FOR_PICKLING = True
+
     # Make sure the attribute where a retained proxy is stored is available
     _retained_proxy = None
+
+    def __getstate__(self) -> dict:
+        """If the data is no longer a proxy, but a proxy was retained, this
+        overload adjusts the pickling state such that the proxy object is
+        returned instead of the data that was resolved from it. This hels to
+        reduce the file size of the pickle.
+        """
+        if (   self.data_is_proxy
+            or not self.PROXY_REINSTATE_FOR_PICKLING
+            or (not self.data_is_proxy and self._retained_proxy is None)
+        ):
+            return super().__getstate__()
+
+        # else: retrieve the state and adjust it to contain the retained proxy.
+        # Need a shallow copy here because state might be __dict__ and its
+        # mutability would change the state of self!
+        state = copy.copy(super().__getstate__())
+        log.debug("Using retained proxy for pickling of %s ...", self.logstr)
+        state['_data'] = self._retained_proxy
+        state['_retained_proxy'] = None
+        return state
 
     @property
     def data(self):
         """The container data. If the data is a proxy, this call will lead
         to the resolution of the proxy.
-        
+
         Returns:
             The data stored in this container
         """
@@ -74,7 +99,7 @@ class ProxySupportMixin:
     @property
     def data_is_proxy(self) -> bool:
         """Returns true, if this is proxy data
-        
+
         Returns:
             bool: Whether the *currently* stored data is a proxy object
         """
@@ -82,10 +107,10 @@ class ProxySupportMixin:
 
     @property
     def proxy(self) -> Union[AbstractDataProxy, None]:
-        """If the data is proxy, returns the proxy data object without using 
-        the .data attribute (which would trigger resolving the proxy); else 
+        """If the data is proxy, returns the proxy data object without using
+        the .data attribute (which would trigger resolving the proxy); else
         returns None.
-        
+
         Returns:
             Union[AbstractDataProxy, None]: If the data is proxy, return the
                 proxy object; else None.
@@ -107,7 +132,7 @@ class ProxySupportMixin:
                    "PROXY_REINSTATE_FAIL_ACTION class variable."
                    "".format(self.logstr))
             action = self.PROXY_REINSTATE_FAIL_ACTION
-            
+
             if action == 'raise':
                 raise ValueError(msg)
 
@@ -156,7 +181,7 @@ class Hdf5ProxySupportMixin(ProxySupportMixin):
         if self.data_is_proxy:
             return self.proxy.dtype
         return self.data.dtype
-    
+
     @property
     def shape(self) -> tuple:
         """Returns shape, proxy-aware"""

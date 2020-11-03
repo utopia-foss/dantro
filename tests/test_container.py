@@ -36,6 +36,7 @@ class DummyContainer(ItemAccessMixin, BaseDataContainer):
 
 # Fixtures --------------------------------------------------------------------
 from .test_proxy import tmp_h5file
+from .test_base import pickle_roundtrip
 
 @pytest.fixture
 def tmp_h5_dset(tmp_h5file) -> h5.Dataset:
@@ -134,6 +135,8 @@ def test_MutableSequenceContainer():
     with pytest.warns(UnexpectedTypeWarning):
         msc4 = MutableSequenceContainer(name="baz", data=None)
 
+    mscs = (msc1, msc2, msc3)
+
     # Basic assertions ........................................................
     # Data access
     assert msc1.data == ["bar", "baz"] == msc1[:]
@@ -158,7 +161,7 @@ def test_MutableSequenceContainer():
 
     # Properties ..............................................................
     # strings
-    for msc in [msc1, msc2, msc3]:
+    for msc in mscs:
         str(msc)
         "{:info,cls_name,name}".format(msc)
         "{}".format(msc)
@@ -166,11 +169,13 @@ def test_MutableSequenceContainer():
         with pytest.raises(ValueError):
             "{:illegal_formatspec}".format(msc)
 
+    # Pickling ................................................................
+    for msc in mscs:
+        assert pickle_roundtrip(msc) == msc
+
+
 def test_LinkContainer():
     """Test the behaviour of a LinkContainer inside a hierarchy"""
-    class StringContainer(ForwardAttrsToDataMixin, ObjectContainer):
-        pass
-
     root = OrderedDataGroup(name="root")
     group = root.new_group("group")
     links = root.new_group("links")
@@ -187,8 +192,18 @@ def test_LinkContainer():
     assert links['data'].data.path == "/root/data"
     assert links['data'].upper() == "SOME_STRING"
 
+    print(root.tree)
+
     # Test extended formatting information
     assert "root -> data" in str(links["data"])
+
+    # Pickling, testing via full tree
+    # NOTE Comparison has to happen via the tree, as comparison via data may
+    #      lead to infinite recursion in this case
+    assert pickle_roundtrip(data) == data
+    assert pickle_roundtrip(links).tree == links.tree
+    assert pickle_roundtrip(root).tree == root.tree
+
 
 def test_StringContainer():
     """Test the behaviour of a StringContainer"""
@@ -202,6 +217,9 @@ def test_StringContainer():
     # Test PaththroughContainer functionality here
     assert len(sc.data) == len(test_data)
     assert sc.data.upper() == test_data.upper()
+
+    # Pickling
+    assert pickle_roundtrip(sc) == sc
 
 
 # -----------------------------------------------------------------------------

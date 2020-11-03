@@ -1722,7 +1722,8 @@ class TransformationDAG:
                     "Failed saving transformation cache file for result of "
                     f"type {type(result)} using storage function for type(s) "
                     f"{types}. Value of result:\n{result}.\n\n"
-                    f"Additional keyword arguments: {save_kwargs}"
+                    f"Additional keyword arguments: {save_kwargs}\n"
+                    f"Upstream error was a {exc.__class__.__name__}: {exc}"
                 )
                 if raise_on_error:
                     raise RuntimeError(msg) from exc
@@ -1751,7 +1752,8 @@ class TransformationDAG:
                 "Failed saving transformation cache file. Cannot pickle "
                 f"result object of type {type(result)} and with value "
                 f"{result}. Consider deactivating file caching or pickling "
-                "for this transformation."
+                "for this transformation.\n"
+                f"Upstream error was a {exc.__class__.__name__}: {exc}"
             )
             if raise_on_error:
                 raise RuntimeError(msg) from exc

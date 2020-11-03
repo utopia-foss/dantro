@@ -20,6 +20,31 @@ from .test_data_mngr import NumpyTestDC
 
 # Tests -----------------------------------------------------------------------
 
+def test_AttrsMixin():
+    """Tests the AttrsMixin (without embedding)"""
+    from dantro.base import BaseDataAttrs
+    from dantro.mixins import AttrsMixin
+
+    class T(AttrsMixin):
+        _ATTRS_CLS = BaseDataAttrs
+
+    class TFail(AttrsMixin):
+        pass
+
+    t = T()
+    assert t.attrs is None
+
+    t.attrs = dict(foo="bar")
+    assert isinstance(t.attrs, BaseDataAttrs)
+
+    tfail = TFail()
+    assert tfail._attrs is None
+    assert tfail.attrs is None
+
+    with pytest.raises(ValueError, match="Need to declare the class variable"):
+        tfail.attrs = "foo"
+
+
 def test_BasicComparisonMixin():
     """Tests the `__eq__` method provided by the BasicComparisonMixin"""
     from dantro.containers import ObjectContainer

@@ -10,6 +10,9 @@ log = logging.getLogger(__name__)
 class ForwardAttrsMixin:
     """This Mixin class forwards all calls to unavailable attributes to a
     certain other attribute, specified by ``FORWARD_ATTR_TO`` class variable.
+
+    By including naive ``__getstate__`` and ``__setstate__`` methods, classes
+    that include this mixin remain pickleable.
     """
     # The name of the existing attribute to forward to. For None, this behaves
     # as if no forwarding would occur, i.e. as if __getattr__ was not called.
@@ -20,6 +23,15 @@ class ForwardAttrsMixin:
 
     # Attributes to _not_ forward. Evaluated after ``FORWARD_ATTR_ONLY``
     FORWARD_ATTR_EXCLUDE = ()
+
+
+    def __getstate__(self) -> dict:
+        """Returns the object's ``__dict__``"""
+        return self.__dict__
+
+    def __setstate__(self, d: dict):
+        """Sets the object's ``__dict__`` to the given one"""
+        self.__dict__ = d
 
     def __getattr__(self, attr_name: str):
         """Forward attributes that were not available in this class to some
@@ -62,6 +74,7 @@ class ForwardAttrsMixin:
     def _forward_attr_post_hook(self, attr):
         """Invoked before attribute forwarding occurs"""
         return attr
+
 
 class ForwardAttrsToDataMixin(ForwardAttrsMixin):
     """This Mixin class forwards all calls to unavailable attributes to the

@@ -451,7 +451,7 @@ class BaseDataGroup(LockDataMixin, AttrsMixin,
         # Use container method to create the entry. Recursion happens there.
         return self.new_container(path, Cls=Cls, **kwargs)
 
-    def recursive_update(self, other):
+    def recursive_update(self, other, *, overwrite: bool=True):
         """Recursively updates the contents of this data group with the entries
         of the given data group
 
@@ -460,9 +460,12 @@ class BaseDataGroup(LockDataMixin, AttrsMixin,
 
         Args:
             other (BaseDataGroup): The group to update with
+            overwrite (bool, optional): Whether to overwrite already existing
+                object. If False, a conflict will lead to an error being
+                raised and the update being stopped.
 
         Raises:
-            TypeError: If `other` was of invalid type
+            TypeError: If ``other`` was of invalid type
         """
 
         if not isinstance(other, BaseDataGroup):
@@ -480,19 +483,19 @@ class BaseDataGroup(LockDataMixin, AttrsMixin,
                 # and add it to this group
                 if name in self:
                     # Continue recursion
-                    self[name].recursive_update(obj)
+                    self[name].recursive_update(obj, overwrite=overwrite)
                 else:
                     # Can add the object, but need to detach the parent first
                     # and thus need to work on a copy
                     obj = copy.copy(obj)
                     obj.parent = None
-                    self.add(obj)
+                    self.add(obj, overwrite=overwrite)
 
             else:
                 # Not a group; add a shallow copy
                 obj = copy.copy(obj)
                 obj.parent = None
-                self.add(obj)
+                self.add(obj, overwrite=overwrite)
 
         log.debug("Finished recursive update of %s.", self.logstr)
 

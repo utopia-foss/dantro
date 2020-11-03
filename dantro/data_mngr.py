@@ -9,13 +9,18 @@ import logging
 import warnings
 from typing import Union, Callable, List, Tuple, Dict
 
+import dill as pkl
+
 from .base import PATH_JOIN_CHAR, BaseDataContainer, BaseDataGroup
 from .groups import OrderedDataGroup
-from .tools import fill_line, clear_line, recursive_update, load_yml
+from .tools import (fill_line, clear_line, recursive_update,
+                    load_yml, format_bytesize)
 from ._hash import _hash
 
 # Local constants
 log = logging.getLogger(__name__)
+
+DATA_TREE_DUMP_EXT = ".d3"
 
 
 # Exception classes ...........................................................
@@ -1103,6 +1108,103 @@ class DataManager(OrderedDataGroup):
 
         # else: assume it is already a type and just return the given argument
         return Cls
+
+    # .........................................................................
+    # Dumping and restoring the DataManager
+
+    def _parse_file_path(self, path: str, *, default_ext=None) -> str:
+        """Parses a file path: if it is a relative path, makes it relative to
+        the associated data directory. If a default extension is specified and
+        the path does not contain one, that extension is added.
+
+        This helper method is used as part of dumping and storing the data
+        tree, i.e. in the :py:meth:`~dantro.data_mngr.DataManager.dump` and
+        :py:meth:`~dantro.data_mngr.DataManager.restore` methods.
+        """
+        path = os.path.expanduser(path)
+        if not os.path.isabs(path):
+            path = os.path.join(self.dirs['data'], path)
+
+        # Handle file extension, adding a default extension if none was given
+        if default_ext:
+            path, ext = os.path.splitext(path)
+            path += (ext if ext else default_ext)
+
+        return path
+
+    def dump(self, *, path: str, **dump_kwargs) -> str:
+        """Dumps the data tree to a new file at the given path, creating any
+        necessary intermediate data directories.
+
+        For restoring, use :py:meth:`~dantro.data_mngr.DataManager.restore`.
+
+        Args:
+            path (str): The path to store this file at. If it is a relative
+                path, it is assumed relative to the data directory.
+                If the path does not end with an extension, the ``.d3`` (read:
+                "data tree") extension is automatically added.
+            **dump_kwargs: Passed on to ``pkl.dump``
+
+        Returns:
+            str: The path that was used for dumping the file
+        """
+        path = self._parse_file_path(path, default_ext=DATA_TREE_DUMP_EXT)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+
+        log.progress("Dumping data tree of %s ...", self.logstr)
+        with open(path, mode="x+b") as file:
+            pkl.dump(self, file, **dump_kwargs)
+
+        log.progress("Dumping successful.")
+        log.note("  Path:       %s", path)
+        log.note("  File size:  %s", format_bytesize(os.path.getsize(path)))
+        return path
+
+    def restore(self, *, from_path: str, merge: bool=False, **load_kwargs):
+        """Restores the data tree from a dump.
+
+        For dumping, use :py:meth:`~dantro.data_mngr.DataManager.dump`.
+
+        Args:
+            from_path (str): The path to restore this DataManager from. If it
+                is a relative path, it is assumed relative to the data
+                directory. If the path does not end with an extension, the
+                ``.d3`` (read: "data tree") extension is automatically added.
+            merge (bool, optional): If True, uses a recursive update to merge
+                the current tree with the restored tree.
+                If False, uses :py:meth:`~dantro.data_mngr.DataManager.clear`
+                to clear the current tree and then re-populates it with the
+                restored tree.
+            **load_kwargs: Passed on to ``pkl.load``
+
+        Raises:
+            FileNotFoundError: If no file is found at the (expanded) path.
+        """
+        path = self._parse_file_path(from_path, default_ext=DATA_TREE_DUMP_EXT)
+        if not os.path.isfile(path):
+            raise FileNotFoundError(
+                f"Could not restore {self.logstr} from path '{from_path}' "
+                f"because no such file was found at '{path}'!"
+            )
+
+        log.progress("Restoring %s from data tree dump ...", self.logstr)
+        log.note("  Path:       %s", path)
+        log.note("  File size:  %s", format_bytesize(os.path.getsize(path)))
+
+        with open(path, mode='rb') as file:
+            dm = pkl.load(file, **load_kwargs)
+
+        if not merge:
+            log.progress("Replacing the current data tree with the "
+                         "restored tree ...")
+            self.clear()
+        else:
+            log.progress("Merging the restored data tree into the "
+                         "existing ...")
+
+        self.recursive_update(dm)
+        log.progress("Success.")  # TODO
+
 
     # .........................................................................
     # Working with the data in the tree

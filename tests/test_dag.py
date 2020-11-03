@@ -15,8 +15,8 @@ import dantro._dag_utils as dag_utils
 from dantro import DataManager
 from dantro.base import BaseDataGroup
 from dantro.groups import OrderedDataGroup
-from dantro.containers import (ObjectContainer, NumpyDataContainer,
-                               XrDataContainer)
+from dantro.containers import (StringContainer, ObjectContainer,
+                               NumpyDataContainer, XrDataContainer)
 from dantro.data_loaders import (YamlLoaderMixin, PickleLoaderMixin,
                                  NumpyLoaderMixin, XarrayLoaderMixin)
 from dantro.tools import load_yml, write_yml
@@ -35,6 +35,12 @@ class FullDataManager(PickleLoaderMixin, NumpyLoaderMixin,
                       XarrayLoaderMixin, Hdf5DataManager):
     """A DataManager with all the loaders implemented"""
 
+def some_func() -> str:
+    return "I can be pickled (with dill)"
+
+class UnpickleableString(StringContainer):
+        def __getstate__(self):
+            raise RuntimeError("I refuse to be pickled!")
 
 # Fixtures --------------------------------------------------------------------
 
@@ -89,15 +95,22 @@ def dm() -> FullDataManager:
                         data=np.zeros((2,3,4)),
                         attrs=dict(dims=['x', 'y', 'z']))
 
-    # Create some other objects
+    # Create some other objects, mainly for testing caching
     odata = _dm.new_group('objects')
     odata.new_container('some_dict', Cls=ObjectContainer,
                         data=dict(foo="bar"))
     odata.new_container('some_list', Cls=ObjectContainer,
                         data=[1,2,3])
     odata.new_container('some_func', Cls=ObjectContainer,
-                        data=lambda _: "i cannot be pickled")
+                        data=some_func)
 
+    bodata = _dm.new_group('bad_objects')
+    bodata.new_container('some_local_func', Cls=ObjectContainer,
+                         data=lambda: "i cannot be pickled (even with dill)")
+    bodata.new_container('some_string', Cls=UnpickleableString,
+                         data="i cannot be pickled (even with dill)")
+
+    print(_dm.tree)
     return _dm
 
 # -----------------------------------------------------------------------------

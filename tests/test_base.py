@@ -139,6 +139,9 @@ def test_BaseDataGroup():
     with pytest.raises(TypeError, match="Can only update (.+) with objects"):
         root.recursive_update(dict(foo="bar"))
 
+    with pytest.raises(ValueError, match="already has a member with name"):
+        root.recursive_update(root2, overwrite=False)
+
 
     # Linking and unlinking
     # When the object is not a member
