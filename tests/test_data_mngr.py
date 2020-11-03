@@ -1,12 +1,14 @@
 """Test the DataManager class and the loader functions"""
 
 import os
+import copy
 import pkg_resources
-import pickle as pkl
 
 import numpy as np
 import xarray as xr
 import h5py as h5
+import dill as pkl
+
 import pytest
 
 import dantro.base
@@ -23,6 +25,8 @@ from dantro.data_loaders import (YamlLoaderMixin, PickleLoaderMixin,
                                  AllAvailableLoadersMixin)
 from dantro.tools import write_yml
 
+from .test_base import pickle_roundtrip
+
 # Local constants
 LOAD_CFG_PATH = pkg_resources.resource_filename('tests', 'cfg/load_cfg.yml')
 
@@ -32,7 +36,7 @@ class DataManager(YamlLoaderMixin, dantro.data_mngr.DataManager):
     """A DataManager-derived class for testing the implementation"""
     # Set the class variable to test group class lookup via name
     _DATA_GROUP_CLASSES = dict(ordered=OrderedDataGroup)
-    
+
     # A (bad) load function for testing
     def _load_bad_loadfunc(self):
         pass
@@ -126,7 +130,7 @@ def text_dm(data_dir) -> TextDataManager:
         f.write(to_dump)
 
     return TextDataManager(data_dir, out_dir=None)
-    
+
 
 @pytest.fixture
 def pkl_dm(data_dir) -> PklDataManager:
@@ -181,7 +185,7 @@ def xr_dm(data_dir) -> XarrayDataManager:
                                 name="zeros",
                                 attrs=dict(foo="bar"))
     # TODO add some more here
-    
+
     dsets["zeros"] = xr.Dataset()
     dsets["zeros"]["int"] = (('x', 'y', 'z'), np.zeros((2,3,4), dtype=int))
     dsets["zeros"]["float"] = (('x', 'y', 'z'), np.zeros((2,3,4)))
@@ -239,26 +243,26 @@ def hdf5_dm(data_dir) -> Hdf5DataManager:
 
     # --- Create a file to test mapping ---
     mapping = h5.File(h5dir.join("mapping.h5"), 'w')
-    
+
     mapping.create_group('dummy_group')
     mapping['dummy_group'].attrs['container_type'] = 'dummy'
     mapping.create_dataset('dummy_dset', data=np.zeros((1,2)))
     mapping['dummy_dset'].attrs['container_type'] = 'dummy'
-    
+
     mapping.create_dataset('another_dummy', data=np.zeros((2,3,4)))
     mapping['another_dummy'].attrs['container_type'] = bytes("dummy", 'utf8')
-    
+
     mapping.create_dataset('one_more_dummy', data=np.zeros((2,3,4)))
     mapping['one_more_dummy'].attrs['container_type'] = np.array("dummy",
                                                                  dtype='S5')
-    
+
     mapping.create_group('badmap_group')
     mapping['badmap_group'].attrs['container_type'] = 'badmap'
     mapping.create_dataset('badmap_dset', data=np.zeros((1,2)))
     mapping['badmap_dset'].attrs['container_type'] = 'badmap'
 
     mapping.close()
-    
+
     # Instantiate a data manager for this directory
     return Hdf5DataManager(data_dir, out_dir=None)
 
@@ -307,7 +311,7 @@ def test_init_with_create_groups(tmpdir):
     # Check group creation from a list of names
     test_groups = ["abc", "def", "123"]
     dm = DataManager(tmpdir, out_dir=None, create_groups=test_groups)
-    
+
     for grp_name in test_groups:
         assert grp_name in dm
         assert isinstance(dm[grp_name], dm._DATA_GROUP_DEFAULT_CLS)
@@ -420,7 +424,7 @@ def test_loading(dm):
     # If given a list of glob strings, possibly matching files more than once, they should only be loaded once
     dm.load('multiglob', loader='yaml', glob_str=['*.yml', '*yml'])
     assert len(dm['multiglob']) == 4  # 8 files match, only 4 should be loaded
-    
+
     print(dm.tree)
 
     # It is also possible to load by giving a custom base_path, which is in
@@ -465,7 +469,7 @@ def test_loading_errors(dm):
     # Check for invalid loaders ...............................................
     with pytest.raises(dantro.data_mngr.LoaderError):
         dm.load('nopenopenope', loader='nope', glob_str="*.")
-    
+
     with pytest.raises(dantro.data_mngr.LoaderError):
         dm.load('nopenopenope', loader='bad_loadfunc', glob_str="*")
 
@@ -591,7 +595,7 @@ def test_create_groups(dm):
     with pytest.raises(dantro.data_mngr.ExistingDataError):
         dm._create_groups("foo/bar/baz/foobar")
 
-    
+
 def test_loading_regex(dm):
     """Check whether regex name extraction works"""
     # This should raise a warning for the `abcdef` entry
@@ -642,11 +646,11 @@ def test_load_as_attr(dm):
     grp.new_group("data0")
     grp.new_group("data1")
     grp.new_group("data2")
-    
+
     dm.load('data', loader='yaml', glob_str="merged/data*.yml",
             path_regex=r'merged/data(\d+).yml',
             target_path='a_group/data{match:}', load_as_attr=True)
-    
+
     assert "data" in grp['data0'].attrs
     assert "data" in grp['data1'].attrs
     assert "data" in grp['data2'].attrs
@@ -682,7 +686,7 @@ def test_target_path(dm):
     dm.load('merged_cfg', loader='yaml', glob_str="merged/cfg*.yml",
             path_regex=r'merged/cfg(\d+).yml',
             target_path='merged/foo{match:}/cfg')
-    
+
     dm.load('merged_data', loader='yaml', glob_str="merged/data*.yml",
             path_regex=r'merged/data(\d+).yml',
             target_path='merged/foo{match:}/data')
@@ -722,6 +726,22 @@ def test_target_path(dm):
     assert 'barfoo_group/lamo' in dm
     assert 'barfoo_group/also_lamo' in dm
 
+def test_parse_file_path(dm):
+    """Tests file path parsing"""
+    parse = dm._parse_file_path
+    ddir = dm.dirs['data']
+
+    assert parse("foo/bar") == os.path.join(ddir, "foo/bar")
+    assert parse("foo/b.ar") == os.path.join(ddir, "foo/b.ar")
+    assert parse("foo/b", default_ext=".ar") == os.path.join(ddir, "foo/b.ar")
+
+    assert parse("/foo/bar") == "/foo/bar"
+    assert parse("/foo/b.ar") == "/foo/b.ar"
+    assert parse("/foo/b", default_ext=".ar") == "/foo/b.ar"
+
+    assert parse("~/foo") == os.path.expanduser("~/foo")
+    assert parse("~/f.oo") == os.path.expanduser("~/f.oo")
+    assert parse("~/f", default_ext=".oo") == os.path.expanduser("~/f.oo")
 
 # TextLoaderMixin tests -------------------------------------------------------
 
@@ -734,7 +754,7 @@ def test_text_loader(text_dm):
 
     for name, cont in text_data.items():
         assert isinstance(cont, StringContainer)
-    
+
         assert cont.data == "This is a test string \n with two lines\n"
 
 # PickleLoaderMixin tests -----------------------------------------------------
@@ -860,7 +880,7 @@ def test_hdf5_proxy_loader(hdf5_dm):
     assert isinstance(h5data['basic/float_dset'].data, np.ndarray)
     assert h5data['basic/float_dset'].data_is_proxy is False
     assert h5data['basic/float_dset'].proxy is None
-    
+
     # However, when set to retain, the proxy object is retained
     h5data['nested/group1/group11/group111/dset'].PROXY_RETAIN = True
     op = h5data['nested/group1/group11/group111/dset'].proxy
@@ -918,3 +938,179 @@ def test_hdf5_bytestring_conversion(hdf5_dm):
     grp = hdf5_dm['decode_disabled/basic/group']
     assert isinstance(grp.attrs['encoded_str'], bytes)
     assert grp.attrs['encoded_arr'].dtype.kind == 'S'
+
+
+# Pickling, dumping, restoring ------------------------------------------------
+
+def test_pickling(hdf5_dm):
+    """Tests pickling"""
+    dm = hdf5_dm
+    dm.load('h5data', loader='hdf5', glob_str="**/*.h5", enable_mapping=True)
+
+    # NOTE Can't easily compare dictionaries that contain numpy objects, thus
+    #      use the string-based tree representation instead.
+    assert pickle_roundtrip(dm).tree == dm.tree
+
+    # Load more data (into different part of tree) but as proxy now
+    dm.load('h5proxy', loader='hdf5_proxy', glob_str="**/*.h5")
+    assert pickle_roundtrip(dm).tree == dm.tree
+
+    # -- Spot tests on the round-tripped DataManager
+    dmrt = pickle_roundtrip(dm)
+
+    # Mapping should have been maintained
+    assert isinstance(dmrt['h5data/mapping/dummy_dset'], DummyDC)
+    assert isinstance(dmrt['h5data/mapping/dummy_group'], DummyGroup)
+    assert isinstance(dmrt['h5data/mapping/another_dummy'], DummyDC)
+    assert isinstance(dmrt['h5data/mapping/one_more_dummy'], DummyDC)
+    assert isinstance(dmrt['h5data/mapping/badmap_dset'], NumpyTestDC)
+    assert isinstance(dmrt['h5data/mapping/badmap_group'], OrderedDataGroup)
+
+    # Proxies should not have been resolved ...
+    assert dmrt['h5proxy/basic/int_dset'].data_is_proxy
+    assert dmrt['h5proxy/basic/float_dset'].data_is_proxy
+    assert dmrt['h5proxy/nested/group1/group11/group111/dset'].data_is_proxy
+
+    # ... but are properly resolvable and compare as expected
+    assert isinstance(dmrt['h5proxy/basic/int_dset'].data, np.ndarray)
+    assert (dmrt['h5proxy/basic/int_dset'] ==
+            dmrt['h5data/basic/int_dset']).all()
+    assert not dmrt['h5proxy/basic/int_dset'].data_is_proxy
+
+def test_dump_and_restore(hdf5_dm):
+    """Tests the DataManager dump and restore methods"""
+    new_dm = lambda: Hdf5DataManager(hdf5_dm.dirs['data'], out_dir=None)
+
+    # -- 0 -- Create and populate the reference object
+    dm = hdf5_dm
+    dm.load('h5data', loader='hdf5', glob_str="**/*.h5", enable_mapping=True)
+    dm.load('h5proxy', loader='hdf5_proxy', glob_str="**/*.h5")
+
+    print(dm.tree)
+
+    # -- 1 -- Dump and restore (absolute path, empty tree)
+    print("------ 1 ------")
+    # Dump it
+    p1 = dm.dump(path=os.path.join(dm.dirs["data"], "..", "dump1"))
+
+    # Check file extension and approximate file size
+    assert os.path.isabs(p1)
+    assert p1.endswith("dump1.d3")
+    d1_size = os.path.getsize(p1)
+    assert 9*1024 < d1_size < 13*1024  # ... platform-dependent
+
+    # Need a new DataManager in order to retain the one above for comparsion
+    dm1 = new_dm()
+    assert len(dm1) == 0
+
+    # Restore it now. The tree should match.
+    dm1.restore(from_path=p1)
+    print("dm1", dm1.tree)
+    assert dm1.tree == dm.tree
+
+
+    # -- 2 -- Dump and restore (relative path, pre-populated tree)
+    # Dump it
+    print("------ 2 ------")
+    p2 = dm.dump(path="some/local/dump2.foo")
+
+    assert p2.endswith(".foo")
+    d2_size = os.path.getsize(p2)
+    assert d1_size == d2_size
+
+    # Create a new DataManager and populate it with some data (outside the
+    # to-be-merged hierarchy _and_ inside it ...)
+    dm2 = new_dm()
+
+    dm2.new_group("foo")
+    dm2.new_group("foo/bar")
+    dm2.new_container("foo/bar/baz", data="baz", Cls=StringContainer)
+    dm2.new_container("foo/bar/spam", data="spam", Cls=StringContainer)
+    dm2.new_container("foo/bar/fish", data="i will persist",
+                      Cls=StringContainer)
+
+    dm2.new_group("h5data")
+    dm2.new_group("h5data/basic")
+    dm2.new_container("h5data/basic/int_dset", data="i will be replaced",
+                      Cls=StringContainer)
+
+    print("dm2 (pre-populated)", dm2.tree)
+
+    # Restore it now, merging with the existing data
+    dm2.restore(from_path="some/local/dump2.foo", merge=True)
+    print("dm2 (after restore)", dm2.tree)
+
+    # The full trees cannot match, but the subtrees should
+    assert dm.tree != dm2.tree
+    assert dm['h5proxy'].tree == dm2['h5proxy'].tree
+
+
+    # -- 3 -- Test proxy behaviour
+    print("------ 3 ------")
+    # Configure a container with proxy support to retain the proxy object
+    proxy_path = 'h5proxy/basic/int_dset'
+    assert not dm[proxy_path].PROXY_RETAIN
+    dm[proxy_path].PROXY_RETAIN = True
+
+    # Resolve the proxy in the reference DataManager
+    assert dm[proxy_path].data_is_proxy
+    dm[proxy_path].data
+    assert not dm[proxy_path].data_is_proxy
+    print("dm", dm.tree)
+
+    # Dump it
+    p3 = dm.dump(path="dump3")
+    assert p3.endswith(".d3")
+    d3_size = os.path.getsize(p3)
+    assert d3_size > d1_size  # ... due to the proxy stuff
+
+    # Dumping should NOT have reinstated the proxy in the reference DataManager
+    print("dm", dm.tree)
+    assert not dm[proxy_path].data_is_proxy
+
+    # Restore it
+    dm3 = new_dm()
+    dm3.restore(from_path="dump3")
+    print("dm3", dm3.tree)
+
+    # As the proxy status is different, the trees should NOT match
+    assert dm3[proxy_path].data_is_proxy
+    assert dm3.tree != dm.tree
+
+    # Resolve the proxy by accessing it ...
+    dm3[proxy_path].data
+    assert not dm3[proxy_path].data_is_proxy
+
+    # ... now they should be equal
+    assert dm3.tree == dm.tree
+
+
+    # -- 4 -- Resolved proxies w/o PROXY_REINSTATE_FOR_PICKLING store the data
+    print("------ 4 ------")
+    # Configure a container with proxy support to retain the proxy object
+    proxy2_path = 'h5proxy/basic/float_dset'
+    assert not dm[proxy2_path].PROXY_RETAIN
+
+    # Resolve the proxy in the reference DataManager
+    assert dm[proxy2_path].data_is_proxy
+    dm[proxy2_path].data
+    assert not dm[proxy2_path].data_is_proxy
+    print("dm", dm.tree)
+
+    # Dump it
+    p4 = dm.dump(path="dump4")
+    assert p4.endswith(".d3")
+    d4_size = os.path.getsize(p4)
+    assert d4_size != d1_size
+    assert d4_size != d3_size  # actually smaller than d3 here because there is
+                               # very little data inside proxy2_path ...
+
+    # Restore it
+    dm4 = new_dm()
+    dm4.restore(from_path="dump4")
+    print("dm4", dm4.tree)
+
+    # Dumping should NOT have reinstated the proxy in the reference DataManager
+    # and the restored object should not have been loaded as proxy
+    assert not dm[proxy2_path].data_is_proxy
+    assert not dm4[proxy2_path].data_is_proxy

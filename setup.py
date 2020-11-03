@@ -7,14 +7,15 @@ install_deps = [
     'numpy>=1.17.4',
     'xarray>=0.16.0',
     'dask>=2.10.1',
-    'toolz>=0.10.0',        # Needed for dask.delayed
-    'distributed>=2.10.0',  # Needed for dask's distributed scheduler
+    'toolz>=0.10.0',        # For dask.delayed
+    'distributed>=2.10.0',  # For dask's distributed scheduler
     'scipy>=1.4.1',         # Used as a netcdf4 storage engine for xarray
     'sympy>=1.6.1',
-    'h5py>=2.10.0',
+    'h5py>=2.10.0,<3.0',    # TODO Upgrade to >= 3.0
     'matplotlib>=3.2.1',
     'networkx>=2.2',
     'ruamel.yaml>=0.16.10',
+    'dill>=0.3.3',          # For faster and more powerful pickling
     'paramspace>=2.5.1',
 ]
 # NOTE When changing any of the dependencies, make sure to update the table of

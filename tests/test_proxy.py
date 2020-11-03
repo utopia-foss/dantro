@@ -21,7 +21,7 @@ def tmp_h5file(tmpdir) -> h5.File:
     h5f = h5.File(tmpdir.join('testfile.h5'), 'w')
 
     h5f.create_dataset("foo", data=np.array([1,2,3], dtype=int))
-    h5f.create_dataset("foochunk", data=np.array([1,2,3], dtype=int), 
+    h5f.create_dataset("foochunk", data=np.array([1,2,3], dtype=int),
                        chunks=(1,))
 
     # Some more chunked datasets
@@ -72,7 +72,7 @@ def test_Hdf5DataProxy(tmp_h5file):
     # Deleting the proxy should close the file, invalidating the dataset
     del foo
     assert str(dset) == "<Closed HDF5 dataset>"
-    with pytest.raises(ValueError, match="Not a dataset"):
+    with pytest.raises(ValueError):
         dset[()]
 
     # NOTE Can't really test the try-except there, which only becomes relevant
@@ -93,7 +93,7 @@ def test_Hdf5DataProxy_resolve_as_dask(tmp_h5file):
     assert foochunk.ndim == 1
     assert foochunk.size == 3
     assert foochunk.chunks == (1,)
-    
+
     # Check tags
     assert 'hdf5' in foochunk.tags
     assert 'dask' in foochunk.tags
@@ -105,4 +105,4 @@ def test_Hdf5DataProxy_resolve_as_dask(tmp_h5file):
     np_foochunk = Hdf5DataProxy(tmp_h5file["foochunk"], resolve_as_dask=False)
 
     # ... to check that elements are equal to the dask.array elements
-    assert (foochunk.resolve() == np_foochunk.resolve()).all()    
+    assert (foochunk.resolve() == np_foochunk.resolve()).all()

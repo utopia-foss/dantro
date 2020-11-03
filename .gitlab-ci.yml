@@ -81,19 +81,19 @@ test:py36:
   before_script:
     - pip3 install tox
   script:
-    - tox -e py36
+    - tox -v -e py36
 
 test:py37:
   extends: test:py36
   image: python:3.7
   script:
-    - tox -e py37
+    - tox -v -e py37
 
 test:py38:
   extends: test:py36
   image: python:3.8
   script:
-    - tox -e py38
+    - tox -v -e py38
 
 
 # ... and again, this time with minimal versions of all dependencies
@@ -110,7 +110,7 @@ test_minimal_deps:py36:
   needs:
     - test:py36
   script:
-    - tox -e py36-minimal_deps
+    - tox -v -e py36-minimal_deps
 
 test_minimal_deps:py37:
   extends: test_minimal_deps:py36
@@ -118,7 +118,7 @@ test_minimal_deps:py37:
   needs:
     - test:py37
   script:
-    - tox -e py37-minimal_deps
+    - tox -v -e py37-minimal_deps
 
 test_minimal_deps:py38:
   extends: test_minimal_deps:py36
@@ -126,7 +126,7 @@ test_minimal_deps:py38:
   needs:
     - test:py38
   script:
-    - tox -e py38-minimal_deps
+    - tox -v -e py38-minimal_deps
 
 
 # -- Build Stage --------------------------------------------------------------

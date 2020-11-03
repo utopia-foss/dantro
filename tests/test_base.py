@@ -5,7 +5,9 @@ NOTE This test module merely complements the other, already existing tests of
 """
 
 import sys
+import logging
 
+import dill as pkl
 import pytest
 
 import dantro as dtr
@@ -13,11 +15,32 @@ import dantro.base
 import dantro.groups
 import dantro.containers
 
+
+log = logging.getLogger()
+
+
 # Class definitions -----------------------------------------------------------
 
 
-# Fixtures --------------------------------------------------------------------
+# Fixtures and tools ----------------------------------------------------------
 
+def pickle_roundtrip(original_obj, *,
+                     protocols: tuple=(pkl.HIGHEST_PROTOCOL,
+                                       pkl.DEFAULT_PROTOCOL)):
+    """Makes pickling roundtrips with the given object. It does so multiple
+    times with different protocols and returns the _last_ protocol's result.
+    """
+    for protocol in protocols:
+        s = pkl.dumps(original_obj, protocol=protocol)
+        log.debug("Pickled '%s'. (Protocol: %s)", type(original_obj), protocol)
+
+        loaded_obj = pkl.loads(s)
+        log.debug("Unpickled '%s'. (Protocol: %s",
+                  type(original_obj), protocol)
+
+    assert loaded_obj is not original_obj
+
+    return loaded_obj
 
 # Tests -----------------------------------------------------------------------
 
@@ -34,6 +57,16 @@ def test_BaseDataAttrs():
     assert bda.as_dict() == dict(foo="bar")
 
     assert bda._format_info() == "1 attribute(s)"
+
+def test_BaseDataAttrs_pickling():
+    """Makes sure that these types are pickleable"""
+    bda = dtr.base.BaseDataAttrs(name="test")
+    bda['foo'] = "bar"
+    bda['bar'] = dict(foofoo="barbar")
+
+    assert pickle_roundtrip(bda) == bda
+
+# .............................................................................
 
 def test_BaseDataGroup():
     """Tests the BaseDataGroup using OrderedDataGroup"""
@@ -69,10 +102,21 @@ def test_BaseDataGroup():
     # Test the `add` method
     baz1 = foo.new_group('baz')
     assert foo['baz'] is baz1
-    
+
     baz2 = dtr.groups.OrderedDataGroup(name="baz")
     foo.add(baz2, overwrite=True)
     assert foo['baz'] is baz2
+
+
+    # Test clearing, then reset to previous state
+    assert len(root) == 1
+    root.clear()
+    assert len(root) == 0
+    assert foo.parent is None
+
+    root.add(foo)
+    assert len(root) == 1
+    assert foo.parent is root
 
 
     # And adding new containers that are not of the correct type
@@ -95,19 +139,22 @@ def test_BaseDataGroup():
     with pytest.raises(TypeError, match="Can only update (.+) with objects"):
         root.recursive_update(dict(foo="bar"))
 
+    with pytest.raises(ValueError, match="already has a member with name"):
+        root.recursive_update(root2, overwrite=False)
+
 
     # Linking and unlinking
     # When the object is not a member
     with pytest.raises(ValueError, match="needs to be a child of"):
         root._link_child(new_child=root2)
-    
+
     with pytest.raises(ValueError, match="was not linked to"):
         root._unlink_child(root2)
 
     # When it is already a member
     root._unlink_child(foo)
     assert foo.parent is None
-    
+
     root._link_child(new_child=foo)
     assert foo.parent is root
 
@@ -142,11 +189,11 @@ def test_BaseDataGroup():
     # Groups with the same number of members take up the same number of bytes
     assert len(root) == len(root2)
     assert sys.getsizeof(root) == sys.getsizeof(root2)
-    
+
     # Groups with larger number of members take up more bytes
     assert sys.getsizeof(foo) > sys.getsizeof(root)
 
-def test_tree_repr():
+def test_BaseDataGroup_tree_repr():
     """Tests the tree representation algorithm.
 
     NOTE This is only a coverage test, it does not ascertain the correct string
@@ -188,7 +235,7 @@ def test_tree_repr():
                               condense_thresh=root._COND_TREE_CONDENSE_THRESH))
 
 
-def test_path_behaviour():
+def test_BaseDataGroup_path_behaviour():
     """Test path capabilities using the OrderedDataGroup"""
     root = dtr.groups.OrderedDataGroup(name="root")
     foo = root.new_group("foo")
@@ -214,7 +261,7 @@ def test_path_behaviour():
         bar.parent = root
 
 
-def test_renaming():
+def test_BaseDataGroup_renaming():
     """Test that renaming works only if no parent is associated"""
     root = dtr.groups.OrderedDataGroup(name="root")
     foo = root.new_group("foo")
@@ -232,3 +279,26 @@ def test_renaming():
 
     assert root.path == "/new_root"
     assert foo.path == "/new_root/foo"
+
+
+def test_BaseDataGroup_pickling():
+    """Tests pickling of the BaseDataGroup (using OrderedDataGroup as a simple
+    implementation of that base class
+    """
+    root = dtr.groups.OrderedDataGroup(name="root")
+    foo = root.new_group("foo")
+    bar = foo.new_group("bar")
+
+    assert pickle_roundtrip(root) == root
+
+    sth = foo.new_container("sth", Cls=dtr.containers.ObjectContainer,
+                            data=dict(foo="bar"))
+
+    assert pickle_roundtrip(sth) == sth
+    root_pkld = pickle_roundtrip(root)
+    assert root_pkld == root
+
+    # Attributes matter
+    sth.attrs["foo"] = "some new attributes"
+    assert pickle_roundtrip(root) == root
+    assert pickle_roundtrip(root) != root_pkld

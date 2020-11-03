@@ -4,8 +4,8 @@ import logging
 from collections.abc import MutableSequence, MutableMapping
 
 from ..base import BaseDataContainer
-from ..mixins import ItemAccessMixin, CollectionMixin, MappingAccessMixin
-from ..mixins import CheckDataMixin, ForwardAttrsToDataMixin
+from ..mixins import (ItemAccessMixin, CollectionMixin, MappingAccessMixin,
+                      CheckDataMixin, ForwardAttrsToDataMixin)
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ class MutableSequenceContainer(CheckDataMixin, ItemAccessMixin,
         of the element before which to insert, so a.insert(0, x) inserts at
         the front of the list, and a.insert(len(a), x) is equivalent to
         a.append(x).
-        
+
         Args:
             idx (int): The index before which to insert
             val: The value to insert
@@ -64,7 +64,7 @@ class MutableMappingContainer(CheckDataMixin, MappingAccessMixin,
 
     def __init__(self, *, name: str, data=None, **dc_kwargs):
         """Initialize a MutableMappingContainer, storing mapping data.
-        
+
         Args:
             name (str): The name of this container
             data: The mapping-like data to store. If not given, an empty dict

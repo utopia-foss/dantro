@@ -19,8 +19,9 @@ from typing import Union, List, Tuple, Callable
 
 import dantro.abc
 from .abc import PATH_JOIN_CHAR
-from .mixins import AttrsMixin, SizeOfMixin, CheckDataMixin, LockDataMixin
-from .mixins import CollectionMixin, ItemAccessMixin, MappingAccessMixin
+from .mixins import (AttrsMixin, SizeOfMixin, BasicComparisonMixin,
+                     CheckDataMixin, LockDataMixin,
+                     CollectionMixin, ItemAccessMixin, MappingAccessMixin)
 from .tools import TTY_COLS
 
 # Local constants
@@ -63,7 +64,7 @@ class BaseDataAttrs(MappingAccessMixin, dantro.abc.AbstractDataAttrs):
 
     def __init__(self, attrs: dict=None, **dc_kwargs):
         """Initialize a DataAttributes object.
-        
+
         Args:
             attrs (dict, optional): The attributes to store
             **dc_kwargs: Further kwargs to the parent DataContainer
@@ -73,9 +74,9 @@ class BaseDataAttrs(MappingAccessMixin, dantro.abc.AbstractDataAttrs):
 
         # Store them via the parent method.
         super().__init__(data=attrs, **dc_kwargs)
-    
+
     # .........................................................................
-    
+
     def as_dict(self) -> dict:
         """Returns a shallow copy of the attributes as a dict"""
         return {k:v for k, v in self.items()}
@@ -90,7 +91,7 @@ class BaseDataAttrs(MappingAccessMixin, dantro.abc.AbstractDataAttrs):
 
 # -----------------------------------------------------------------------------
 
-class BaseDataContainer(AttrsMixin, SizeOfMixin,
+class BaseDataContainer(AttrsMixin, SizeOfMixin, BasicComparisonMixin,
                         dantro.abc.AbstractDataContainer):
     """The BaseDataContainer extends the abstract base class by the ability to
     hold attributes and be path-aware.
@@ -100,7 +101,7 @@ class BaseDataContainer(AttrsMixin, SizeOfMixin,
 
     def __init__(self, *, name: str, data, attrs=None):
         """Initialize a BaseDataContainer, which can store data and attributes.
-        
+
         Args:
             name (str): The name of this data container
             data: The data to store in this container
@@ -117,11 +118,12 @@ class BaseDataContainer(AttrsMixin, SizeOfMixin,
         return ("{} attribute{}"
                 "".format(len(self.attrs),
                           "s" if len(self.attrs) != 1 else ""))
-        
+
 
 # -----------------------------------------------------------------------------
 
-class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
+class BaseDataGroup(LockDataMixin, AttrsMixin,
+                    SizeOfMixin, BasicComparisonMixin,
                     dantro.abc.AbstractDataGroup):
     """The BaseDataGroup serves as base group for all data groups.
 
@@ -130,14 +132,14 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
     """
     # Define which class to use for storing attributes
     _ATTRS_CLS = BaseDataAttrs
-    
+
     # The mapping type that is used to store the members of this group.
     _STORAGE_CLS = dict
 
     # Define which class to use in the new_group method. If None, the type of
     # this instance is used
     _NEW_GROUP_CLS = None
-    
+
     # Define which class to use in the new_container method. If None, the type
     # needs to be specified explicitly in the call to new_container
     _NEW_CONTAINER_CLS = None
@@ -157,7 +159,7 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
     def __init__(self, *, name: str, containers: list=None, attrs=None):
         """Initialize a BaseDataGroup, which can store other containers and
         attributes.
-        
+
         Args:
             name (str): The name of this data container
             containers (list, optional): The containers that are to be stored
@@ -177,18 +179,18 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
             self.add(*containers)
 
     # .........................................................................
-    # Item access
+    # Item access and manipulation
 
     def __getitem__(self, key: Union[str, List[str]]):
         """Returns the container in this group with the given name.
-        
+
         Args:
             key (Union[str, List[str]]): The object to retrieve.
                 If this is a path, will recurse down until at the end.
-        
+
         Returns:
             The object at `key`
-        
+
         Raises:
             KeyError: If no such key can be found
         """
@@ -215,20 +217,20 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
                     val: BaseDataContainer) -> None:
         """This method is used to allow access to the content of containers of
         this group. For adding an element to this group, use the `add` method!
-        
+
         Args:
             key (Union[str, List[str]]): The key to which to set the value.
                 If this is a path, will recurse down to the lowest level.
                 Note that all intermediate keys need to be present.
             val (BaseDataContainer): The value to set
-        
+
         Returns:
             None
-        
+
         Raises:
             ValueError: If trying to add an element to this group, which should
                 be done via the `add` method.
-        
+
         """
         if not isinstance(key, list):
             key = key.split(PATH_JOIN_CHAR)
@@ -237,7 +239,7 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
         if len(key) > 1:
             self._data[key[0]][key[1:]] = val
             return
-        
+
         # else: end of recursion, i.e. the path led to an item of this group
         # This operation is not allowed, as the add method should be used
         # That method takes care that the name this element is registered with
@@ -249,7 +251,6 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
 
     def __delitem__(self, key: str) -> None:
         """Deletes an item from the group"""
-
         if not isinstance(key, list):
             # Assuming this is a string ...
             key = key.split(PATH_JOIN_CHAR)
@@ -264,7 +265,7 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
         # else: end of recursion: delete and unlink this container
         # ... if it is not locked
         self.raise_if_locked()
-        
+
         cont = self._data[key[0]]
         del self._data[key[0]]
 
@@ -314,7 +315,7 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
         # Write to data, assuring that the name matches that of the container
         self._add_container_to_data(cont)
         self._add_container_callback(cont)
-        
+
         # Re-link the containers
         self._link_child(new_child=cont, old_child=old_cont)
 
@@ -322,10 +323,10 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
         """Can be used by a subclass to check a container before adding it to
         this group. Is called by _add_container before checking whether the
         object exists or not.
-        
+
         This is not expected to return, but can raise errors, if something
         did not work out as expected.
-        
+
         Args:
             cont: The container to check
         """
@@ -341,7 +342,7 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
              container that is to be added.
 
         NOTE After adding, the container need be reachable under its .name!
-        
+
         Args:
             cont: The container to add
         """
@@ -356,7 +357,7 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
                       Cls: type=None, **kwargs):
         """Creates a new container of class `Cls` and adds it at the given path
         relative to this group.
-        
+
         Args:
             path (Union[str, list]): Where to add the container. Note that the
                 intermediates of this path need to already exist.
@@ -364,10 +365,10 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
                 the _NEW_CONTAINER_CLS class variable's value is used; if not
                 given, this will raise a ValueError.
             **kwargs: kwargs to pass on to Cls.__init__
-        
+
         Returns:
             Cls: the created container
-        
+
         Raises:
             KeyError: When intermediate groups to `path` are missing
             TypeError: When the given Cls is invalid
@@ -422,7 +423,7 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
 
     def new_group(self, path: Union[str, list], *, Cls: type=None, **kwargs):
         """Creates a new group at the given path.
-        
+
         Args:
             path (Union[str, list]): The path to create the group at. Note
                 that the whole intermediate path needs to already exist.
@@ -431,10 +432,10 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
                 _NEW_GROUP_CLS class variable or, as last resort, the type of
                 this instance.
             **kwargs: Passed on to Cls.__init__
-        
+
         Returns:
             Cls: the created group
-        
+
         Raises:
             TypeError: For the given class not being derived from BaseDataGroup
         """
@@ -450,18 +451,21 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
         # Use container method to create the entry. Recursion happens there.
         return self.new_container(path, Cls=Cls, **kwargs)
 
-    def recursive_update(self, other):
+    def recursive_update(self, other, *, overwrite: bool=True):
         """Recursively updates the contents of this data group with the entries
         of the given data group
-        
+
         NOTE This will create shallow copies of those elements in `other` that
         are added to this object.
-        
+
         Args:
             other (BaseDataGroup): The group to update with
-        
+            overwrite (bool, optional): Whether to overwrite already existing
+                object. If False, a conflict will lead to an error being
+                raised and the update being stopped.
+
         Raises:
-            TypeError: If `other` was of invalid type
+            TypeError: If ``other`` was of invalid type
         """
 
         if not isinstance(other, BaseDataGroup):
@@ -479,21 +483,32 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
                 # and add it to this group
                 if name in self:
                     # Continue recursion
-                    self[name].recursive_update(obj)
+                    self[name].recursive_update(obj, overwrite=overwrite)
                 else:
                     # Can add the object, but need to detach the parent first
                     # and thus need to work on a copy
                     obj = copy.copy(obj)
                     obj.parent = None
-                    self.add(obj)
+                    self.add(obj, overwrite=overwrite)
 
             else:
                 # Not a group; add a shallow copy
                 obj = copy.copy(obj)
                 obj.parent = None
-                self.add(obj)
+                self.add(obj, overwrite=overwrite)
 
         log.debug("Finished recursive update of %s.", self.logstr)
+
+    def clear(self):
+        """Clears all containers from this group.
+
+        This is done by unlinking all children and then overwriting ``_data``
+        with an empty ``_STORAGE_CLS`` object.
+        """
+        for child in self.values():
+            self._unlink_child(child)
+        self._data = self._STORAGE_CLS()
+        log.debug("%s cleared.", self.logstr)
 
     # .........................................................................
     # Linking
@@ -521,7 +536,7 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
         """Unlink a child from this class.
 
         This method should be called from any method that removes an item from
-        this group, be it through deletion or through 
+        this group, be it through deletion or through
         """
         if child.parent is not self:
             raise ValueError("{} was not linked to {}. Refuse to unlink."
@@ -537,11 +552,11 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
 
     def __contains__(self, cont: Union[str, BaseDataContainer]) -> bool:
         """Whether the given container is in this group or not.
-        
+
         Args:
-            cont (Union[str, BaseDataContainer]): The name of the container or 
-                an object reference. 
-        
+            cont (Union[str, BaseDataContainer]): The name of the container or
+                an object reference.
+
         Returns:
             bool: Whether the given container is in this group.
         """
@@ -549,7 +564,7 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
             # Implement a contains-check via is-relationships
             for obj in self.values():
                 if obj is cont:
-                    return True 
+                    return True
             return False
 
         # Check via the string, if such a key is available
@@ -577,7 +592,7 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
 
             # else: does not exist or is not a group
             return False
-        
+
         elif len(key_seq) == 1:
             return bool(key_seq[0] in self.keys())
 
@@ -626,7 +641,7 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
     def tree(self) -> str:
         """Returns the default (full) tree representation of this group"""
         return self._tree_repr()
-    
+
     @property
     def tree_condensed(self) -> str:
         """Returns the condensed tree representation of this group. Uses the
@@ -666,7 +681,7 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
                    ) -> Union[str, List[str]]:
         """Recursively creates a multi-line string tree representation of this
         group. This is used by, e.g., the _format_tree method.
-        
+
         Args:
             level (int, optional): The depth within the tree
             max_level (int, optional): The maximum depth within the tree;
@@ -694,7 +709,7 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
             total_item_count (int, optional): The total number of items
                 already created in this recursive tree representation call.
                 Passed on between recursive calls.
-        
+
         Returns:
             Union[str, List[str]]: The (multi-line) tree representation of
                 this group. If this method was invoked with ``level == 0``, a
@@ -717,19 +732,19 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
         base_mark =  r'  ├'
         last_mark =  r'  └'
         only_mark =  r' └─'
-        
+
         # Evaluate the condensation threshold, i.e. the maximum number of lines
         # to allow originating from this object (excluding recursion)
         num_items = len(self)
         total_item_count += num_items
         num_skipped = 0
-        
+
         if callable(condense_thresh):
             max_lines = condense_thresh(level=level, num_items=num_items,
                                         total_item_count=total_item_count)
         else:
             max_lines = condense_thresh
-        
+
         if max_lines is not None:
             # Additional check for lower bound; makes visualization much easier
             max_lines = max(3, int(max_lines))
@@ -759,7 +774,7 @@ class BaseDataGroup(LockDataMixin, SizeOfMixin, AttrsMixin,
 
         # The format string that's used to compose the whole output line
         fstr = "{offset:}{mark:>3s} {name:<{name_width}s}  {info:}"
-        
+
         # Create the list to gather the lines in; add a description on level 0
         lines = []
         if level == 0:
