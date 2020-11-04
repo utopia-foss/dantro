@@ -20,6 +20,7 @@
 
 #### Bug fixes
 - !205 addresses scipy netcdf warnings by requiring a more recent version.
+- !206 fixes a regression in the [generic `errorbar` and `errorbands` plot functions](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html) where size-1 dimensions were not always squeezed out.
 
 
 ## v0.14.1
