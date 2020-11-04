@@ -74,7 +74,7 @@ def errorbar(*, data: dict, hlpr: PlotHelper,
         None
 
     Raises:
-        ValueError: Description
+        ValueError: Upon badly shaped data
     """
     def plot_frame(*, y: xr.DataArray, yerr: xr.DataArray,
                    x: str, hue: str=None, **kwargs):
@@ -91,9 +91,14 @@ def errorbar(*, data: dict, hlpr: PlotHelper,
         # Keep track of legend handles and labels
         handles, labels = [], []
 
-        # Group by the hue dimension and perform plots
+        # Group by the hue dimension and perform plots. Depending on the xarray
+        # version, this might or might not drop size-1 dimensions. To make sure
+        # that this does not mess up everything, squeeze explicitly.
         hue_iter = zip(y.groupby(hue), yerr.groupby(hue))
         for (_y_coord, _y), (_yerr_coord, _yerr) in hue_iter:
+            _y = _y.squeeze(drop=True)
+            _yerr = _yerr.squeeze(drop=True)
+
             label = hue_fstr.format(dim=hue, value=_y_coord)
             handle = _plot_errorbar(ax=hlpr.ax, x=_x, y=_y, yerr=_yerr,
                                     label=label, fill_between=use_bands,
