@@ -187,23 +187,31 @@ class GraphGroup(BaseDataGroup):
                   sel, isel)
         log.debug("Now applying these to the following data ...\n  %s", data)
 
+        # Get the dimensions available for selection
+        dims = {d for d in data.dims}
+        # If `data` is a group, extract the member level dimensions. It is
+        # sufficient to look at a single group member, since dimensions along
+        # which is selected have to be shared among all group members.
+        if isinstance(data, BaseDataGroup):
+            dims |= {d for d in data[next(iter(data))].dims}
+
         # Remove any entries for which no matching dimension exists and apply
         # sel _and_ isel (if given).
         if sel is not None:
-            sel = {k:v for k,v in sel.items() if k in data.sel().dims}
+            sel = {k:v for k,v in sel.items() if k in dims}
             data = data.sel(**sel)
 
         if isel is not None:
-            isel = {k:v for k,v in isel.items() if k in data.sel().dims}
+            isel = {k:v for k,v in isel.items() if k in dims}
             data = data.isel(**isel)
 
         log.debug("Applied the following selectors:\n  sel: %s\nisel: %s",
                   sel, isel)
 
-        # Select everything. This has no effect on `xr.DataArray`s, but for
-        # `LabelledDataGroup`s with deep selection enabled, it selects
-        # coordinates on the member level.
-        data = data.sel()
+        # If `data` is still a group, select everything to get a `xr.DataArray`
+        # with the coordinates also from the member level.
+        if isinstance(data, BaseDataGroup):
+            data = data.sel()
 
         # `data` is now a `xr.DataArray`. Squeeze out any dimension of size 1.
         data = data.squeeze()
