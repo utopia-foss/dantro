@@ -399,50 +399,55 @@ def test_plotting_overwrite(
 
 def test_plotting_based_on(dm, pm_kwargs):
     """Test plotting from plots_cfg using a base_cfg and a plots_cfg"""
+
     def assert_num_plots(pm: PlotManager, num: int):
         """Helper function to check if the plot info is ok"""
         assert len(pm.plot_info) == num
 
-    pm = PlotManager(dm=dm, base_cfg=BASE_EXT, update_base_cfg=UPDATE_BASE_EXT,
-                     **pm_kwargs)
+    pm = PlotManager(
+        dm=dm, base_cfg=BASE_EXT, update_base_cfg=UPDATE_BASE_EXT, **pm_kwargs
+    )
 
     # Plot all from the given default config file
     pm.plot_from_cfg(plots_cfg=BASED_ON_EXT_PATH)
     assert_num_plots(pm, 5)  # 4 configured, one is pspace with volume 2
 
-
     # Assert that plot files were created
     for pi in pm.plot_info:
         print("Checking plot info: ", pi)
-        assert pi['out_path']
-        assert os.path.exists(pi['out_path'])
+        assert pi["out_path"]
+        assert os.path.exists(pi["out_path"])
 
     # Check sequence of strings
-    d = pm._resolve_based_on(cfg=dict(foo="test", something="something"),
-                             based_on=('foo', 'bar'))
-    assert d['foo'] == "test"
-    assert d['bar'] == "bar"
-    assert d['spam'] == "bar"
-    assert d['something'] == "something"
+    d = pm._resolve_based_on(
+        cfg=dict(foo="test", something="something"), based_on=("foo", "bar")
+    )
+    assert d["foo"] == "test"
+    assert d["bar"] == "bar"
+    assert d["spam"] == "bar"
+    assert d["something"] == "something"
 
     # Also during initialization
-    pm2 = PlotManager(dm=dm, base_cfg=BASE_EXT,
-                      update_base_cfg=dict(baz=dict(based_on=('foo', 'bar'),
-                                                    foo="test",
-                                                    something="something")),
-                      **pm_kwargs)
-    baz = pm2._base_cfg['baz']
-    assert baz['foo'] == "test"
-    assert baz['bar'] == "bar"
-    assert baz['spam'] == "bar"
-    assert baz['something'] == "something"
-
+    pm2 = PlotManager(
+        dm=dm,
+        base_cfg=BASE_EXT,
+        update_base_cfg=dict(
+            baz=dict(
+                based_on=("foo", "bar"), foo="test", something="something"
+            )
+        ),
+        **pm_kwargs,
+    )
+    baz = pm2._base_cfg["baz"]
+    assert baz["foo"] == "test"
+    assert baz["bar"] == "bar"
+    assert baz["spam"] == "bar"
+    assert baz["something"] == "something"
 
     # Check invalid specifications and that they create no plots
     with pytest.raises(KeyError, match="No base plot config(.*) 'invalid"):
-        update_plots_cfg = {'invalid_based_on': {'based_on': 'invalid_key'}}
-        pm.plot_from_cfg(plot_only=["invalid_based_on"],
-                         **update_plots_cfg)
+        update_plots_cfg = {"invalid_based_on": {"based_on": "invalid_key"}}
+        pm.plot_from_cfg(plot_only=["invalid_based_on"], **update_plots_cfg)
     assert_num_plots(pm, 5)  # No new plots
 
     # Bad based_on during resolution
@@ -452,9 +457,12 @@ def test_plotting_based_on(dm, pm_kwargs):
 
     # Should also be an error during initialization
     with pytest.raises(KeyError, match="No base plot configuration named 'ba"):
-        PlotManager(dm=dm, base_cfg=BASE_EXT,
-                    update_base_cfg=dict(bad_based_on=dict(based_on="baaad")),
-                    **pm_kwargs)
+        PlotManager(
+            dm=dm,
+            base_cfg=BASE_EXT,
+            update_base_cfg=dict(bad_based_on=dict(based_on="baaad")),
+            **pm_kwargs,
+        )
 
 
 def test_plots_enabled(dm, pm_kwargs, pcr_ext_kwargs):

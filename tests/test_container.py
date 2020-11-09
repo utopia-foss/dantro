@@ -433,212 +433,308 @@ def test_NumpyDataContainer():
     ndc = NumpyDataContainer(name="some_zeros", data=np.zeros((100, 100, 100)))
     assert sys.getsizeof(ndc) > sys.getsizeof(ndc.data)
 
+
 def test_XrDataContainer():
     """Tests the XrDataContainer"""
 
     # Basic initialization of Numpy ndarray-like data
-    xrdc = XrDataContainer(name="xrdc", data=np.array([1,2,3]))
+    xrdc = XrDataContainer(name="xrdc", data=np.array([1, 2, 3]))
 
     # Initialisation with lists and xr.DataArrays should also work
-    XrDataContainer(name="rab", data=[2,4,6])
-    XrDataContainer(name="zab", data=xr.DataArray([2,4,6]))
+    XrDataContainer(name="rab", data=[2, 4, 6])
+    XrDataContainer(name="zab", data=xr.DataArray([2, 4, 6]))
 
     # Initialisation with dimension names .....................................
-    xrdc = XrDataContainer(name="xrdc_dims_1", data=[3,6,9],
-                           attrs=dict(dims=['first_dim']))
-    assert 'first_dim' in xrdc.data.dims
+    xrdc = XrDataContainer(
+        name="xrdc_dims_1", data=[3, 6, 9], attrs=dict(dims=["first_dim"])
+    )
+    assert "first_dim" in xrdc.data.dims
 
-    xrdc = XrDataContainer(name="xrdc_dims_2", data=[[1,2,3], [4,5,6]],
-                           attrs=dict(dims=['first_dim', 'second_dim']))
-    assert 'first_dim' in xrdc.data.dims
-    assert 'second_dim' in xrdc.data.dims
+    xrdc = XrDataContainer(
+        name="xrdc_dims_2",
+        data=[[1, 2, 3], [4, 5, 6]],
+        attrs=dict(dims=["first_dim", "second_dim"]),
+    )
+    assert "first_dim" in xrdc.data.dims
+    assert "second_dim" in xrdc.data.dims
 
-    xrdc = XrDataContainer(name="xrdc_dims_prefix_1", data=[1,2,4],
-                           attrs=dict(dim_name__0='first_dim'))
-    assert 'first_dim' in xrdc.data.dims
+    xrdc = XrDataContainer(
+        name="xrdc_dims_prefix_1",
+        data=[1, 2, 4],
+        attrs=dict(dim_name__0="first_dim"),
+    )
+    assert "first_dim" in xrdc.data.dims
 
-    xrdc = XrDataContainer(name="xrdc_dims_prefix_2", data=[[1,2,4], [2,4,8]],
-                           attrs=dict(dim_name__0='first_dim'))
-    assert 'first_dim' in xrdc.data.dims
-    assert 'dim_1' in xrdc.data.dims
+    xrdc = XrDataContainer(
+        name="xrdc_dims_prefix_2",
+        data=[[1, 2, 4], [2, 4, 8]],
+        attrs=dict(dim_name__0="first_dim"),
+    )
+    assert "first_dim" in xrdc.data.dims
+    assert "dim_1" in xrdc.data.dims
 
-    with pytest.raises(ValueError,
-                       match="Number of given dimension names does not match"):
-        xrdc = XrDataContainer(name="xrdc_dims_mismatch", data=[3,6,9],
-                               attrs=dict(dims=['first_dim', 'second_dim']))
+    with pytest.raises(
+        ValueError, match="Number of given dimension names does not match"
+    ):
+        xrdc = XrDataContainer(
+            name="xrdc_dims_mismatch",
+            data=[3, 6, 9],
+            attrs=dict(dims=["first_dim", "second_dim"]),
+        )
 
-    with pytest.raises(ValueError,
-                       match="Could not extract the dimension number from"):
-        xrdc = XrDataContainer(name="xrdc_dims_mismatch", data=[1,2,4],
-                               attrs=dict(dim_name__mismatch='first_dim'))
+    with pytest.raises(
+        ValueError, match="Could not extract the dimension number from"
+    ):
+        xrdc = XrDataContainer(
+            name="xrdc_dims_mismatch",
+            data=[1, 2, 4],
+            attrs=dict(dim_name__mismatch="first_dim"),
+        )
 
     # With a dimension name list given, the other attributes overwrite the
     # ones given in the list
-    xrdc = XrDataContainer(name="xrdc_dims_3", data=[[1,2,3], [4,5,6]],
-                           attrs=dict(dims=['first_dim', 'second_dim'],
-                                      dim_name__0="foo"))
-    assert xrdc.data.dims == ('foo', 'second_dim')
+    xrdc = XrDataContainer(
+        name="xrdc_dims_3",
+        data=[[1, 2, 3], [4, 5, 6]],
+        attrs=dict(dims=["first_dim", "second_dim"], dim_name__0="foo"),
+    )
+    assert xrdc.data.dims == ("foo", "second_dim")
 
     # Pathological cases: attribute is an iterable of scalar numpy arrays
-    xrdc = XrDataContainer(name="xrdc_dims_3", data=[[1,2,3], [4,5,6]],
-                           attrs=dict(dims=[np.array('first_dim', dtype='U'),
-                                            np.array(['second_dim'])]))
-    assert xrdc.data.dims == ('first_dim', 'second_dim')
+    xrdc = XrDataContainer(
+        name="xrdc_dims_3",
+        data=[[1, 2, 3], [4, 5, 6]],
+        attrs=dict(
+            dims=[np.array("first_dim", dtype="U"), np.array(["second_dim"])]
+        ),
+    )
+    assert xrdc.data.dims == ("first_dim", "second_dim")
 
-    xrdc = XrDataContainer(name="xrdc_dims_3", data=[[1,2,3], [4,5,6]],
-                           attrs=dict(dim_name__0=np.array('first_dim',
-                                                           dtype='U'),
-                                      dim_name__1=np.array(['second_dim'])))
-    assert xrdc.data.dims == ('first_dim', 'second_dim')
+    xrdc = XrDataContainer(
+        name="xrdc_dims_3",
+        data=[[1, 2, 3], [4, 5, 6]],
+        attrs=dict(
+            dim_name__0=np.array("first_dim", dtype="U"),
+            dim_name__1=np.array(["second_dim"]),
+        ),
+    )
+    assert xrdc.data.dims == ("first_dim", "second_dim")
 
     # Bad dimension name attribute type
     with pytest.raises(TypeError, match="sequence of strings, but not"):
-        XrDataContainer(name="xrdc", data=[[1,2,3], [4,5,6]],
-                        attrs=dict(dims="13"))
+        XrDataContainer(
+            name="xrdc", data=[[1, 2, 3], [4, 5, 6]], attrs=dict(dims="13")
+        )
 
     with pytest.raises(TypeError, match="needs to be an iterable"):
-        XrDataContainer(name="xrdc", data=[[1,2,3], [4,5,6]],
-                        attrs=dict(dims=123))
+        XrDataContainer(
+            name="xrdc", data=[[1, 2, 3], [4, 5, 6]], attrs=dict(dims=123)
+        )
 
     with pytest.raises(TypeError, match="need to be strings, got"):
-        XrDataContainer(name="xrdc", data=[[1,2,3], [4,5,6]],
-                        attrs=dict(dims=["foo", 123]))
+        XrDataContainer(
+            name="xrdc",
+            data=[[1, 2, 3], [4, 5, 6]],
+            attrs=dict(dims=["foo", 123]),
+        )
 
     with pytest.raises(TypeError, match="need be strings, but the attribute"):
-        XrDataContainer(name="xrdc", data=[[1,2,3], [4,5,6]],
-                        attrs=dict(dim_name__0=123))
+        XrDataContainer(
+            name="xrdc",
+            data=[[1, 2, 3], [4, 5, 6]],
+            attrs=dict(dim_name__0=123),
+        )
 
     # Bad dimension number
     with pytest.raises(ValueError, match="exceeds the given rank 2!"):
-        XrDataContainer(name="xrdc_dims_3", data=[[1,2,3], [4,5,6]],
-                        attrs=dict(dim_name__10="foo"))
-
+        XrDataContainer(
+            name="xrdc_dims_3",
+            data=[[1, 2, 3], [4, 5, 6]],
+            attrs=dict(dim_name__10="foo"),
+        )
 
     # Initialisation with coords ..............................................
     # Explicitly given coordinates . . . . . . . . . . . . . . . . . . . . . .
-    coords__time = ['Jan', 'Feb', 'Mar']
-    xrdc = XrDataContainer(name="xrdc", data=xr.DataArray([1,2,3]),
-                           attrs=dict(dims=['time'],
-                                      coords__time=coords__time))
-    assert 'time' in xrdc.data.dims
-    assert np.all(coords__time == xrdc.data.coords['time'])
+    coords__time = ["Jan", "Feb", "Mar"]
+    xrdc = XrDataContainer(
+        name="xrdc",
+        data=xr.DataArray([1, 2, 3]),
+        attrs=dict(dims=["time"], coords__time=coords__time),
+    )
+    assert "time" in xrdc.data.dims
+    assert np.all(coords__time == xrdc.data.coords["time"])
 
-    coords__time = ['Jan', 'Feb', 'Mar', 'Apr']
-    coords__space = ['IA', 'IL', 'IN']
+    coords__time = ["Jan", "Feb", "Mar", "Apr"]
+    coords__space = ["IA", "IL", "IN"]
 
-    xrdc = XrDataContainer(name="xrdc", data=np.random.rand(4, 3),
-                           attrs=dict(dims=['time', 'space'],
-                                      coords__time=coords__time,
-                                      coords__space=coords__space))
-    assert 'time' in xrdc.data.dims
-    assert np.all(coords__time == xrdc.data.coords['time'])
+    xrdc = XrDataContainer(
+        name="xrdc",
+        data=np.random.rand(4, 3),
+        attrs=dict(
+            dims=["time", "space"],
+            coords__time=coords__time,
+            coords__space=coords__space,
+        ),
+    )
+    assert "time" in xrdc.data.dims
+    assert np.all(coords__time == xrdc.data.coords["time"])
 
     with pytest.raises(ValueError, match="Could not associate coordinates"):
-        xrdc = XrDataContainer(name="xrdc", data=xr.DataArray([1,2,3]),
-                               attrs=dict(dims=['time'],
-                                          coords__time=['Jan', 'Feb']))
+        xrdc = XrDataContainer(
+            name="xrdc",
+            data=xr.DataArray([1, 2, 3]),
+            attrs=dict(dims=["time"], coords__time=["Jan", "Feb"]),
+        )
 
     with pytest.raises(ValueError, match="Got superfluous attribute 'coords_"):
-        xrdc = XrDataContainer(name="xrdc_coord_mismatch",
-                               data=[1,2,3,4],
-                               attrs=dict(dims=['time'],
-                                          coords__space=['IA', 'IL', 'IN']))
+        xrdc = XrDataContainer(
+            name="xrdc_coord_mismatch",
+            data=[1, 2, 3, 4],
+            attrs=dict(dims=["time"], coords__space=["IA", "IL", "IN"]),
+        )
 
     # Coordinates and data don't match in length
     with pytest.raises(ValueError, match="Could not associate coordinates"):
-        XrDataContainer(name="xrdc", data=np.arange(10),
-                        attrs=dict(dims=['time'],
-                                   coords__time= [1, 2, 3]))
+        XrDataContainer(
+            name="xrdc",
+            data=np.arange(10),
+            attrs=dict(dims=["time"], coords__time=[1, 2, 3]),
+        )
 
     # Coordinates as range expression . . . . . . . . . . . . . . . . . . . . .
-    xrdc = XrDataContainer(name="xrdc", data=np.arange(10),
-                           attrs=dict(dims=['time'],
-                                      coords__time=[10],
-                                      coords_mode__time='arange'))
-    assert np.all(np.arange(10) == xrdc.data.coords['time'])
+    xrdc = XrDataContainer(
+        name="xrdc",
+        data=np.arange(10),
+        attrs=dict(
+            dims=["time"], coords__time=[10], coords_mode__time="arange"
+        ),
+    )
+    assert np.all(np.arange(10) == xrdc.data.coords["time"])
 
-    xrdc = XrDataContainer(name="xrdc", data=np.arange(10),
-                           attrs=dict(dims=['time'],
-                                      coords__time=[3, 13],
-                                      coords_mode__time='arange'))
-    assert np.all(np.arange(3, 13) == xrdc.data.coords['time'])
+    xrdc = XrDataContainer(
+        name="xrdc",
+        data=np.arange(10),
+        attrs=dict(
+            dims=["time"], coords__time=[3, 13], coords_mode__time="arange"
+        ),
+    )
+    assert np.all(np.arange(3, 13) == xrdc.data.coords["time"])
 
-    xrdc = XrDataContainer(name="xrdc", data=np.arange(10),
-                           attrs=dict(dims=['time'],
-                                      coords__time=[0, 100, 10],
-                                      coords_mode__time='arange'))
-    assert np.all(np.arange(0, 100, 10) == xrdc.data.coords['time'])
+    xrdc = XrDataContainer(
+        name="xrdc",
+        data=np.arange(10),
+        attrs=dict(
+            dims=["time"],
+            coords__time=[0, 100, 10],
+            coords_mode__time="arange",
+        ),
+    )
+    assert np.all(np.arange(0, 100, 10) == xrdc.data.coords["time"])
 
     # start and step values . . . . . . . . . . . . . . . . . . . . . . . . . .
-    xrdc = XrDataContainer(name="xrdc", data=np.arange(10),
-                           attrs=dict(dims=['time'],
-                                      coords__time=[0, 2],
-                                      coords_mode__time='start_and_step'))
-    assert np.all(list(range(0, 20, 2)) == xrdc.data.coords['time'])
+    xrdc = XrDataContainer(
+        name="xrdc",
+        data=np.arange(10),
+        attrs=dict(
+            dims=["time"],
+            coords__time=[0, 2],
+            coords_mode__time="start_and_step",
+        ),
+    )
+    assert np.all(list(range(0, 20, 2)) == xrdc.data.coords["time"])
 
     # trivial . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-    xrdc = XrDataContainer(name="xrdc", data=np.arange(10),
-                           attrs=dict(dims=['time'],
-                                      coords__time=[0, 2],
-                                      coords_mode__time='trivial'))
-    assert np.all(list(range(10)) == xrdc.data.coords['time'])
+    xrdc = XrDataContainer(
+        name="xrdc",
+        data=np.arange(10),
+        attrs=dict(
+            dims=["time"], coords__time=[0, 2], coords_mode__time="trivial"
+        ),
+    )
+    assert np.all(list(range(10)) == xrdc.data.coords["time"])
 
     # scalar . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-    xrdc = XrDataContainer(name="xrdc", data=[0],
-                           attrs=dict(dims=['time'],
-                                      coords__time=[42],
-                                      coords_mode__time='scalar'))
-    assert xrdc.data.coords['time'] == [42]
-
+    xrdc = XrDataContainer(
+        name="xrdc",
+        data=[0],
+        attrs=dict(
+            dims=["time"], coords__time=[42], coords_mode__time="scalar"
+        ),
+    )
+    assert xrdc.data.coords["time"] == [42]
 
     # linked mapping . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-    xrdc = XrDataContainer(name="xrdc", data=np.arange(10),
-                           attrs=dict(dims=['time'],
-                                      coords__time="",  # refer to itself
-                                      coords_mode__time='linked'))
+    xrdc = XrDataContainer(
+        name="xrdc",
+        data=np.arange(10),
+        attrs=dict(
+            dims=["time"],
+            coords__time="",  # refer to itself
+            coords_mode__time="linked",
+        ),
+    )
     # NOTE This works properly only when using proxies; tested seperately
 
     # array-like mode value (as frequently produced by hdf5 data) . . . . . . .
-    xrdc = XrDataContainer(name="xrdc", data=np.arange(10),
-                           attrs=dict(dims=['time'],
-                                      coords_mode__time=np.array(['trivial'])))
-    assert (xrdc.coords['time'] == list(range(10))).all()
+    xrdc = XrDataContainer(
+        name="xrdc",
+        data=np.arange(10),
+        attrs=dict(dims=["time"], coords_mode__time=np.array(["trivial"])),
+    )
+    assert (xrdc.coords["time"] == list(range(10))).all()
 
     # Error messages . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     # Invalid coordinate mode
     with pytest.raises(ValueError, match="Invalid mode 'invalid' to interpre"):
-        XrDataContainer(name="invalid_coord_type", data=[1,2,3],
-                        attrs=dict(dims=['time'],
-                                   coords__time=[0, 1, 2],
-                                   coords_mode__time='invalid'))
+        XrDataContainer(
+            name="invalid_coord_type",
+            data=[1, 2, 3],
+            attrs=dict(
+                dims=["time"],
+                coords__time=[0, 1, 2],
+                coords_mode__time="invalid",
+            ),
+        )
 
-    with pytest.raises(ValueError,
-                       match="Failed extracting coordinates .* 'scalar'.*"):
-        XrDataContainer(name="bad_coord_val", data=[1,2,3],
-                        attrs=dict(dims=['time'],
-                                   coords__time=[0, 1, 2],
-                                   coords_mode__time='scalar'))
-
+    with pytest.raises(
+        ValueError, match="Failed extracting coordinates .* 'scalar'.*"
+    ):
+        XrDataContainer(
+            name="bad_coord_val",
+            data=[1, 2, 3],
+            attrs=dict(
+                dims=["time"],
+                coords__time=[0, 1, 2],
+                coords_mode__time="scalar",
+            ),
+        )
 
     # without strict attribute checking . . . . . . . . . . . . . . . . . . . .
     class TolerantXrDataContainer(XrDataContainer):
         _XRC_STRICT_ATTR_CHECKING = False
 
-    xrdc = TolerantXrDataContainer(name="tolerant_xrdc", data=[1,2,3],
-                                   attrs=dict(dims=['time'],
-                                              coords__time=[0, 1, 2],
-                                              coords__foo="bar"  # throws not
-                                              ))
+    xrdc = TolerantXrDataContainer(
+        name="tolerant_xrdc",
+        data=[1, 2, 3],
+        attrs=dict(
+            dims=["time"],
+            coords__time=[0, 1, 2],
+            coords__foo="bar",  # throws not
+        ),
+    )
 
     # Carrying over attributes ................................................
     # Attributes are carried over as expected; prefixed attributes are not!
-    xrdc = XrDataContainer(name="xrdc", data=[1,2,3],
-                           attrs=dict(foo="bar",
-                                      dims=['time'],
-                                      coords__time=['Jan', 'Feb', 'Mar']))
-    assert ('foo', 'bar') in xrdc.data.attrs.items()
-    assert 'dims' not in xrdc.data.attrs
-    assert 'coords__time' not in xrdc.data.attrs
+    xrdc = XrDataContainer(
+        name="xrdc",
+        data=[1, 2, 3],
+        attrs=dict(
+            foo="bar", dims=["time"], coords__time=["Jan", "Feb", "Mar"]
+        ),
+    )
+    assert ("foo", "bar") in xrdc.data.attrs.items()
+    assert "dims" not in xrdc.data.attrs
+    assert "coords__time" not in xrdc.data.attrs
 
     # Copying .................................................................
     xrdc_copy = xrdc.copy()
@@ -654,13 +750,15 @@ def test_XrDataContainer():
     # Format info contains dimension names
     assert all([d in xrdc._format_info() for d in xrdc.dims])
 
-
-    xrdc = XrDataContainer(name="format_info", data=np.zeros((2,3,4)),
-                           attrs=dict(dim_name__0='first',
-                                      dim_name__2='third'))
-    assert 'first' in xrdc.dims
-    assert 'third' in xrdc.dims
+    xrdc = XrDataContainer(
+        name="format_info",
+        data=np.zeros((2, 3, 4)),
+        attrs=dict(dim_name__0="first", dim_name__2="third"),
+    )
+    assert "first" in xrdc.dims
+    assert "third" in xrdc.dims
     assert all([d in xrdc._format_info() for d in xrdc.dims])
+
 
 def test_XrDataContainer_proxy_support(tmp_h5_dset):
     """Test proxy support for XrDataContainer"""

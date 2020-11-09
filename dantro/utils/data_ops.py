@@ -438,7 +438,7 @@ def where(
     )
 
 
-def count_unique(data, dims: List[str]=None) -> xr.DataArray:
+def count_unique(data, dims: List[str] = None) -> xr.DataArray:
     """Applies np.unique to the given data and constructs a xr.DataArray for
     the results.
 
@@ -451,6 +451,7 @@ def count_unique(data, dims: List[str]=None) -> xr.DataArray:
             operation. If not provided it is applied along all dims.
 
     """
+
     def _count_unique(data) -> xr.DataArray:
         unique, counts = np.unique(data, return_counts=True)
 
@@ -466,17 +467,20 @@ def count_unique(data, dims: List[str]=None) -> xr.DataArray:
             name = "unique counts"
 
         # Construct a new data array and return
-        return xr.DataArray(data=counts,
-                            name=name,
-                            dims=('unique',),
-                            coords=dict(unique=unique))
+        return xr.DataArray(
+            data=counts,
+            name=name,
+            dims=("unique",),
+            coords=dict(unique=unique),
+        )
 
     if not dims:
         return _count_unique(data)
 
     if not isinstance(data, xr.DataArray):
-        raise TypeError("Data needs to be of type xr.DataArray, but was "
-                        f"{type(data)}!")
+        raise TypeError(
+            f"Data needs to be of type xr.DataArray, but was {type(data)}!"
+        )
 
     # use split-apply-combine along those dimensions not in dims
     split_dims = [dim for dim in data.dims if dim not in dims]
@@ -484,9 +488,8 @@ def count_unique(data, dims: List[str]=None) -> xr.DataArray:
     if len(split_dims) == 0:
         return _count_unique(data)
 
-    data = data.stack(_stack_cu=split_dims).groupby('_stack_cu')
-    return data.map(_count_unique).unstack('_stack_cu')
-
+    data = data.stack(_stack_cu=split_dims).groupby("_stack_cu")
+    return data.map(_count_unique).unstack("_stack_cu")
 
 
 # .............................................................................

@@ -201,8 +201,9 @@ class PlotManager:
         # Handle the update of base config
         if isinstance(update_base_cfg, str):
             # Interpret as path to yaml file
-            log.debug("Loading update_base_cfg from file %s ...",
-                      update_base_cfg)
+            log.debug(
+                "Loading update_base_cfg from file %s ...", update_base_cfg
+            )
             update_base_cfg = load_yml(update_base_cfg)
 
         # Perform update of base config: recursive + resolution of `based_on`
@@ -213,7 +214,7 @@ class PlotManager:
             # these configurations are part of the _base_cfg
             # Resolve these `based_on` keys ...
             for pcfg_name, pcfg in self._base_cfg.items():
-                based_on = pcfg.pop('based_on', None)
+                based_on = pcfg.pop("based_on", None)
 
                 if not based_on:
                     continue
@@ -227,11 +228,12 @@ class PlotManager:
                 bcfg = dict()
                 for _based_on in based_on:
                     if _based_on not in self._base_cfg:
-                        raise KeyError("No base plot configuration named '{}' "
-                                       "available to use during resolution of "
-                                       "`update_base_cfg`! Available: {}"
-                                       "".format(_based_on,
-                                                 ", ".join(self._base_cfg)))
+                        _available = ", ".join(self._base_cfg)
+                        raise KeyError(
+                            f"No base plot configuration named '{_based_on}' "
+                            "available to use during resolution of "
+                            f"`update_base_cfg`! Available: {_available}"
+                        )
 
                     # Need to work on a deep copy of the original base config
                     # entry in order to not get any mutability issues
