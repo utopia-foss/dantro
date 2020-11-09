@@ -20,10 +20,11 @@ log = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 # Tools
 
+
 class temporarily_changed_axis:
     """Context manager to temporarily change an axis in the PlotHelper"""
 
-    def __init__(self, hlpr, *, tmp_ax_coords: Tuple[int]=None):
+    def __init__(self, hlpr, *, tmp_ax_coords: Tuple[int] = None):
         """Initialize the context manager.
 
         Args:
@@ -41,10 +42,15 @@ class temporarily_changed_axis:
         self._old_ax_coords = self._hlpr.ax_coords
 
         # If it needs to be changed, do it.
-        if (    self._tmp_ax_coords is not None
-            and self._tmp_ax_coords != self._old_ax_coords):
-            log.debug("Temporarily changing from axis %s to %s ...",
-                      self._old_ax_coords, self._tmp_ax_coords)
+        if (
+            self._tmp_ax_coords is not None
+            and self._tmp_ax_coords != self._old_ax_coords
+        ):
+            log.debug(
+                "Temporarily changing from axis %s to %s ...",
+                self._old_ax_coords,
+                self._tmp_ax_coords,
+            )
             self._hlpr.select_axis(*self._tmp_ax_coords)
 
         else:
@@ -56,8 +62,10 @@ class temporarily_changed_axis:
             log.debug("Changing back to axis %s ...", self._old_ax_coords)
             self._hlpr.select_axis(*self._old_ax_coords)
 
-def coords_match(coords: Tuple[int], *,
-                 match: Union[tuple, str], full_shape: Tuple[int]) -> bool:
+
+def coords_match(
+    coords: Tuple[int], *, match: Union[tuple, str], full_shape: Tuple[int]
+) -> bool:
     """Whether a coordinate is matched by a coordinate match tuple.
 
     Allowed values in the coordinate match tuple are:
@@ -85,31 +93,38 @@ def coords_match(coords: Tuple[int], *,
         ValueError: Any of the arguments not being 2-tuples.
     """
     # Convert the 'all argument'
-    match = match if match != 'all' else (Ellipsis, Ellipsis)
+    match = match if match != "all" else (Ellipsis, Ellipsis)
 
     # Make sure it is a tuple, allowing conversion from lists
     if isinstance(match, list):
         match = tuple(match)
 
     elif not isinstance(match, tuple):
-        raise TypeError("Argument `match` needs to be a 2-tuple, list, or a "
-                        "string, but was {} with value '{}'!"
-                        "".format(type(match), match))
+        raise TypeError(
+            "Argument `match` needs to be a 2-tuple, list, or a "
+            "string, but was {} with value '{}'!"
+            "".format(type(match), match)
+        )
 
     # Convert any Nones to Ellipsis
     match = tuple([m if m is not None else Ellipsis for m in match])
 
     # Check length and values, not allowing values exceeding the shape
     if any([len(t) != 2 for t in (coords, match, full_shape)]):
-        raise ValueError("Need 2-tuples for arguments, got {}, {}, and {}!"
-                         "".format(coords, match, full_shape))
+        raise ValueError(
+            "Need 2-tuples for arguments, got {}, {}, and {}!".format(
+                coords, match, full_shape
+            )
+        )
 
     elif not all([m is Ellipsis or m < s for m, s in zip(match, full_shape)]):
-        raise ValueError("Got match values {} exceeding the shape {}! Take "
-                         "care that all values are strictly smaller than the "
-                         "maximum value. Negative values are allowed and will "
-                         "be evaluated via a modulo operation."
-                         "".format(match, full_shape))
+        raise ValueError(
+            "Got match values {} exceeding the shape {}! Take "
+            "care that all values are strictly smaller than the "
+            "maximum value. Negative values are allowed and will "
+            "be evaluated via a modulo operation."
+            "".format(match, full_shape)
+        )
 
     for c, m, s in zip(coords, match, full_shape):
         if m is Ellipsis:
@@ -121,6 +136,7 @@ def coords_match(coords: Tuple[int], *,
 
     # Went through -> have a match
     return True
+
 
 class EnterAnimationMode(Exception):
     """An exception that is used to convey to any
@@ -136,6 +152,7 @@ class EnterAnimationMode(Exception):
     :py:exc:`~dantro.plot_creators._plot_helper.ExitAnimationMode`.
     """
 
+
 class ExitAnimationMode(Exception):
     """An exception that is used to convey to any
     :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` or derived
@@ -150,15 +167,21 @@ class ExitAnimationMode(Exception):
     :py:exc:`~dantro.plot_creators._plot_helper.ExitAnimationMode`.
     """
 
+
 class PlotHelperError(ValueError):
     """Raised upon failure to invoke a specific plot helper function, this
     custom exception type stores metadata on the helper invocation in order
     to generate a useful error message.
     """
-    def __init__(self, upstream_error: Exception, *,
-                 name: str,
-                 ax_coords: Tuple[int, int],
-                 params: dict):
+
+    def __init__(
+        self,
+        upstream_error: Exception,
+        *,
+        name: str,
+        ax_coords: Tuple[int, int],
+        params: dict,
+    ):
         """Initializes a PlotHelperError"""
         self.err = upstream_error
         self.name = name
@@ -167,25 +190,28 @@ class PlotHelperError(ValueError):
 
     def __str__(self):
         """Generates an error message for this particular helper"""
-        _params = "\n".join([f"      {k}: {repr(v)}"
-                             for k, v in self.params.items()])
-        return (f"'{self.name}' failed on axis {self.ax_coords}!  "
-                f"{self.err.__class__.__name__}: {self.err}\n"
-                f"    Invocation parameters were:\n{_params}\n")
+        _params = "\n".join(
+            [f"      {k}: {repr(v)}" for k, v in self.params.items()]
+        )
+        return (
+            f"'{self.name}' failed on axis {self.ax_coords}!  "
+            f"{self.err.__class__.__name__}: {self.err}\n"
+            f"    Invocation parameters were:\n{_params}\n"
+        )
 
     @property
     def docstring(self) -> str:
         """Returns the docstring of this helper function"""
         func = getattr(PlotHelper, "_hlpr_" + self.name)
-        return (f"{self.name}\n"
-                f"{'-'*len(self.name)}\n"
-                f"{inspect.getdoc(func)}\n")
+        return f"{self.name}\n{'-'*len(self.name)}\n{inspect.getdoc(func)}\n"
+
 
 class PlotHelperErrors(ValueError):
     """This custom exception type gathers multiple individual instances of
     :py:class:`~dantro.plot_creators._plot_helper.PlotHelperError`.
     """
-    def __init__(self, *errors, show_docstrings: bool=True):
+
+    def __init__(self, *errors, show_docstrings: bool = True):
         """Bundle multiple PlotHelperErrors together
 
         Args:
@@ -211,9 +237,11 @@ class PlotHelperErrors(ValueError):
 
     def __str__(self) -> str:
         """Generates a combined error message for *all* registered errors"""
-        s = (f"Encountered {self._num} error(s) "
-             f"for {len(self._docstrings)} different plot helper(s) "
-             f"on {len(self._axes)} different axes!\n\n")
+        s = (
+            f"Encountered {self._num} error(s) "
+            f"for {len(self._docstrings)} different plot helper(s) "
+            f"on {len(self._axes)} different axes!\n\n"
+        )
 
         s += "\n".join([f"-- {e}" for e in self._errors]) + "\n"
 
@@ -225,8 +253,8 @@ class PlotHelperErrors(ValueError):
         return s
 
 
-
 # -----------------------------------------------------------------------------
+
 
 class PlotHelper:
     """The PlotHelper takes care of the figure setup and saving and allows
@@ -234,13 +262,17 @@ class PlotHelper:
     """
 
     # Configuration keys with special meaning
-    _SPECIAL_CFG_KEYS = ('setup_figure', 'save_figure')
+    _SPECIAL_CFG_KEYS = ("setup_figure", "save_figure")
 
-    def __init__(self, *, out_path: str,
-                 helper_defaults: dict=None,
-                 update_helper_cfg: dict=None,
-                 raise_on_error: bool=True,
-                 animation_enabled: bool=False):
+    def __init__(
+        self,
+        *,
+        out_path: str,
+        helper_defaults: dict = None,
+        update_helper_cfg: dict = None,
+        raise_on_error: bool = True,
+        animation_enabled: bool = False,
+    ):
         """Initialize a Plot Helper with a certain configuration.
 
         This configuration is the so-called "base" configuration and is not
@@ -262,26 +294,32 @@ class PlotHelper:
                 enabled.
         """
         # Determine available helper methods, store it as tuple
-        self._AVAILABLE_HELPERS = [attr_name[6:] for attr_name in dir(self)
-                                   if attr_name.startswith('_hlpr_')
-                                   and callable(getattr(self, attr_name))]
+        self._AVAILABLE_HELPERS = [
+            attr_name[6:]
+            for attr_name in dir(self)
+            if attr_name.startswith("_hlpr_")
+            and callable(getattr(self, attr_name))
+        ]
         self._AVAILABLE_HELPERS = tuple(self._AVAILABLE_HELPERS)
 
         # Store (a copy of) the base configuration
-        self._base_cfg = (copy.deepcopy(helper_defaults) if helper_defaults
-                          else {})
+        self._base_cfg = (
+            copy.deepcopy(helper_defaults) if helper_defaults else {}
+        )
 
         # Update the defaults
         if update_helper_cfg:
-            self._base_cfg = recursive_update(self._base_cfg,
-                                              copy.deepcopy(update_helper_cfg))
+            self._base_cfg = recursive_update(
+                self._base_cfg, copy.deepcopy(update_helper_cfg)
+            )
 
         # Extract the axis-specific update list
-        self._axis_specific_updates = self._base_cfg.pop('axis_specific', {})
+        self._axis_specific_updates = self._base_cfg.pop("axis_specific", {})
 
         # Check that all remaining entries are valid keys
-        self._raise_on_invalid_helper_name(*self._base_cfg.keys(),
-                                           special_cfg_keys_allowed=True)
+        self._raise_on_invalid_helper_name(
+            *self._base_cfg.keys(), special_cfg_keys_allowed=True
+        )
 
         # Initialize the actual axis-specific configuration empty; it can only
         # be compiled once the figure is created.
@@ -312,9 +350,11 @@ class PlotHelper:
             return self._cfg[self.ax_coords]
 
         except RuntimeError as err:
-            raise RuntimeError("The axis-specific configuration is only "
-                               "available while a figure is associated with "
-                               "the PlotHelper!") from err
+            raise RuntimeError(
+                "The axis-specific configuration is only "
+                "available while a figure is associated with "
+                "the PlotHelper!"
+            ) from err
 
     @property
     def axis_cfg(self) -> dict:
@@ -332,9 +372,11 @@ class PlotHelper:
     def fig(self):
         """Returns the current figure"""
         if self._fig is None:
-            raise ValueError("No figure initialized or already closed! Use "
-                             "the `setup_figure` method to create a figure "
-                             "instance.")
+            raise ValueError(
+                "No figure initialized or already closed! Use "
+                "the `setup_figure` method to create a figure "
+                "instance."
+            )
         return self._fig
 
     @property
@@ -352,9 +394,11 @@ class PlotHelper:
         third row.
         """
         if self._current_ax_coords is None:
-            raise RuntimeError("The current axis coordinate is only defined "
-                               "while a figure is associated with the "
-                               "PlotHelper!")
+            raise RuntimeError(
+                "The current axis coordinate is only defined "
+                "while a figure is associated with the "
+                "PlotHelper!"
+            )
 
         return self._current_ax_coords
         # NOTE There _would_ be the possiblity to use the matplotlib axis
@@ -380,9 +424,12 @@ class PlotHelper:
     @property
     def enabled_helpers(self) -> list:
         """Returns a list of enabled helpers *for the current axis*"""
-        return [helper_name for helper_name in self._axis_cfg
-                if self._axis_cfg[helper_name].get('enabled', True)
-                and helper_name not in self._SPECIAL_CFG_KEYS]
+        return [
+            helper_name
+            for helper_name in self._axis_cfg
+            if self._axis_cfg[helper_name].get("enabled", True)
+            and helper_name not in self._SPECIAL_CFG_KEYS
+        ]
 
     @property
     def out_path(self) -> str:
@@ -398,9 +445,11 @@ class PlotHelper:
     def animation_update(self) -> Callable:
         """Returns the animation update generator callable"""
         if self._animation_update is None:
-            raise ValueError("No animation update generator was registered "
-                             "with the PlotHelper! Cannot perform animation "
-                             "update.")
+            raise ValueError(
+                "No animation update generator was registered "
+                "with the PlotHelper! Cannot perform animation "
+                "update."
+            )
         return self._animation_update
 
     @property
@@ -443,8 +492,9 @@ class PlotHelper:
             ValueError: On multiple axes not being passed in 2d format.
 
         """
-        log.debug("Closing existing figure and re-associating with a new "
-                  "figure ...")
+        log.debug(
+            "Closing existing figure and re-associating with a new figure ..."
+        )
         self.close_figure()
 
         # Assign the new figure
@@ -466,9 +516,11 @@ class PlotHelper:
 
         # Ensure correct shape
         if axes.ndim != 2:
-            raise ValueError("When attaching a figure with multiple axes, the "
-                             "axes must be passed as a 2d array-like object! "
-                             "Got object of shape {}.".format(axes.shape))
+            raise ValueError(
+                "When attaching a figure with multiple axes, the "
+                "axes must be passed as a 2d array-like object! "
+                f"Got object of shape {axes.shape}."
+            )
 
         # Everything ok, attach axes
         self._axes = axes
@@ -494,14 +546,15 @@ class PlotHelper:
                 figure setup parameters stored in `setup_figure`.
         """
         # Prepare arguments
-        fig_kwargs = self.base_cfg.get('setup_figure', {})
+        fig_kwargs = self.base_cfg.get("setup_figure", {})
 
         if update_fig_kwargs:
             fig_kwargs = recursive_update(fig_kwargs, update_fig_kwargs)
 
         # Need to handle scaling argument separately
-        scale_figsize = fig_kwargs.pop('scale_figsize_with_subplots_shape',
-                                       False)
+        scale_figsize = fig_kwargs.pop(
+            "scale_figsize_with_subplots_shape", False
+        )
 
         # Now, create the figure and axes and attach them
         fig, axes = plt.subplots(squeeze=False, **fig_kwargs)
@@ -511,23 +564,30 @@ class PlotHelper:
 
         # Scale figure, if needed
         if scale_figsize and self.axes.size > 1:
-            log.debug("Scaling current figure size with subplots shape %s ...",
-                      self.axes.shape)
+            log.debug(
+                "Scaling current figure size with subplots shape %s ...",
+                self.axes.shape,
+            )
 
             old_figsize = self.fig.get_size_inches()
-            self.fig.set_size_inches(old_figsize[0] * self.axes.shape[0],
-                                     old_figsize[1] * self.axes.shape[1])
+            self.fig.set_size_inches(
+                old_figsize[0] * self.axes.shape[0],
+                old_figsize[1] * self.axes.shape[1],
+            )
 
-            log.debug("Scaled figure size from %s to %s.",
-                      old_figsize, self.fig.get_size_inches())
+            log.debug(
+                "Scaled figure size from %s to %s.",
+                old_figsize,
+                self.fig.get_size_inches(),
+            )
 
-    def save_figure(self, *, close: bool=True):
+    def save_figure(self, *, close: bool = True):
         """Saves and (optionally, but default) closes the current figure
 
         Args:
             close (bool, optional): Whether to close the figure after saving.
         """
-        self.fig.savefig(self.out_path, **self.base_cfg.get('save_figure', {}))
+        self.fig.savefig(self.out_path, **self.base_cfg.get("save_figure", {}))
         log.debug("Figure saved at: %s", self.out_path)
 
         if close:
@@ -578,20 +638,30 @@ class PlotHelper:
             self.fig.sca(self.axes[col, row])
 
         except IndexError as exc:
-            raise ValueError("Could not select axis ({}, {}) from figure with "
-                             "subplots of shape {}!"
-                             "".format(col, row, self.axes.shape)) from exc
+            raise ValueError(
+                "Could not select axis ({}, {}) from figure with "
+                "subplots of shape {}!"
+                "".format(col, row, self.axes.shape)
+            ) from exc
 
         else:
-            self._current_ax_coords = (col % self.axes.shape[0],
-                                       row % self.axes.shape[1])
+            self._current_ax_coords = (
+                col % self.axes.shape[0],
+                row % self.axes.shape[1],
+            )
 
-            log.debug("Axis (%d, %d) selected. Enabled helpers: %s",
-                      self.ax_coords[0], self.ax_coords[1],
-                      ", ".join(self.enabled_helpers))
+            log.debug(
+                "Axis (%d, %d) selected. Enabled helpers: %s",
+                self.ax_coords[0],
+                self.ax_coords[1],
+                ", ".join(self.enabled_helpers),
+            )
 
-    def coords_iter(self, *, match: Union[tuple, str]=None,
-                    ) -> Generator[Tuple[int], None, None]:
+    def coords_iter(
+        self,
+        *,
+        match: Union[tuple, str] = None,
+    ) -> Generator[Tuple[int], None, None]:
         """Returns a generator to iterate over all coordinates that match
         `match`.
 
@@ -608,19 +678,24 @@ class PlotHelper:
         match = match if match is not None else self.ax_coords
 
         # Go over the cartesian product ranges specified by the subplots shape
-        for coords in product(range(self.axes.shape[0]),
-                              range(self.axes.shape[1])):
+        for coords in product(
+            range(self.axes.shape[0]), range(self.axes.shape[1])
+        ):
             if coords_match(coords, match=match, full_shape=self.axes.shape):
                 yield coords
 
     # .........................................................................
     # Helper invocation and configuration
 
-    def _invoke_helper(self, helper_name: str, *,
-                       axes: Union[tuple, str]=None,
-                       mark_disabled_after_use: bool=True,
-                       raise_on_error: bool=None,
-                       **update_kwargs) -> None:
+    def _invoke_helper(
+        self,
+        helper_name: str,
+        *,
+        axes: Union[tuple, str] = None,
+        mark_disabled_after_use: bool = True,
+        raise_on_error: bool = None,
+        **update_kwargs,
+    ) -> None:
         """Invokes a single helper on the specified axes, if it is enabled, and
         marks it disabled afterwards. The given update parameters are used to
         update the existing configuration.
@@ -651,8 +726,10 @@ class PlotHelper:
 
         except AttributeError as err:
             _available = ", ".join(self.available_helpers)
-            raise ValueError(f"No helper with name '{helper_name}' available! "
-                             f"Available helpers: {_available}") from err
+            raise ValueError(
+                f"No helper with name '{helper_name}' available! "
+                f"Available helpers: {_available}"
+            ) from err
 
         # Collect error messages
         errors = []
@@ -665,26 +742,38 @@ class PlotHelper:
                 helper_params = self.axis_cfg.get(helper_name, {})
 
                 if update_kwargs:
-                    recursive_update(helper_params,
-                                     copy.deepcopy(update_kwargs))
+                    recursive_update(
+                        helper_params, copy.deepcopy(update_kwargs)
+                    )
 
                 # If it is disabled, go to the next iteration
-                if not helper_params.pop('enabled', True):
-                    log.debug("Helper '%s' is not enabled for axis %s.",
-                              helper_name, self.ax_coords)
+                if not helper_params.pop("enabled", True):
+                    log.debug(
+                        "Helper '%s' is not enabled for axis %s.",
+                        helper_name,
+                        self.ax_coords,
+                    )
                     continue
 
                 # Invoke helper
-                log.debug("Invoking helper function '%s' on axis %s ...",
-                          helper_name, self.ax_coords)
+                log.debug(
+                    "Invoking helper function '%s' on axis %s ...",
+                    helper_name,
+                    self.ax_coords,
+                )
 
                 try:
                     helper(**helper_params)
 
                 except Exception as exc:
-                    errors.append(PlotHelperError(exc, name=helper_name,
-                                                  ax_coords=ax_coords,
-                                                  params=helper_params))
+                    errors.append(
+                        PlotHelperError(
+                            exc,
+                            name=helper_name,
+                            ax_coords=ax_coords,
+                            params=helper_params,
+                        )
+                    )
 
                 if mark_disabled_after_use:
                     self.mark_disabled(helper_name)
@@ -694,11 +783,15 @@ class PlotHelper:
         # Handle errors
         self._handle_errors(*errors, raise_on_error=raise_on_error)
 
-    def invoke_helper(self, helper_name: str, *,
-                      axes: Union[tuple, str]=None,
-                      mark_disabled_after_use: bool=True,
-                      raise_on_error: bool=None,
-                      **update_kwargs):
+    def invoke_helper(
+        self,
+        helper_name: str,
+        *,
+        axes: Union[tuple, str] = None,
+        mark_disabled_after_use: bool = True,
+        raise_on_error: bool = None,
+        **update_kwargs,
+    ):
         """Invokes a single helper on the specified axes.
 
         Args:
@@ -717,16 +810,23 @@ class PlotHelper:
         Raises:
             PlotHelperErrors: On failing plot helper invocation
         """
-        self._invoke_helper(helper_name, axes=axes, enabled=True,
-                            mark_disabled_after_use=mark_disabled_after_use,
-                            raise_on_error=raise_on_error,
-                            **update_kwargs)
+        self._invoke_helper(
+            helper_name,
+            axes=axes,
+            enabled=True,
+            mark_disabled_after_use=mark_disabled_after_use,
+            raise_on_error=raise_on_error,
+            **update_kwargs,
+        )
 
-    def invoke_helpers(self, *helper_names,
-                       axes: Union[tuple, str]=None,
-                       mark_disabled_after_use: bool=True,
-                       raise_on_error: bool=None,
-                       **update_helpers):
+    def invoke_helpers(
+        self,
+        *helper_names,
+        axes: Union[tuple, str] = None,
+        mark_disabled_after_use: bool = True,
+        raise_on_error: bool = None,
+        **update_helpers,
+    ):
         """Invoke all specified helpers on the specified axes.
 
         Args:
@@ -749,21 +849,27 @@ class PlotHelper:
         errors = []
         for helper_name in helper_names:
             try:
-                self.invoke_helper(helper_name, axes=axes,
-                                   mark_disabled_after_use=mark_disabled_after_use,
-                                   raise_on_error=True,
-                                   **update_helpers.get(helper_name, {}))
+                self.invoke_helper(
+                    helper_name,
+                    axes=axes,
+                    mark_disabled_after_use=mark_disabled_after_use,
+                    raise_on_error=True,
+                    **update_helpers.get(helper_name, {}),
+                )
 
             except PlotHelperErrors as pherrs:
                 errors += pherrs.errors
 
         self._handle_errors(*errors, raise_on_error=raise_on_error)
 
-    def invoke_enabled(self, *,
-                       axes: Union[tuple, str]=None,
-                       mark_disabled_after_use: bool=True,
-                       raise_on_error: bool=None,
-                       **update_helpers):
+    def invoke_enabled(
+        self,
+        *,
+        axes: Union[tuple, str] = None,
+        mark_disabled_after_use: bool = True,
+        raise_on_error: bool = None,
+        **update_helpers,
+    ):
         """Invokes all enabled helpers with their current configuration on the
         matching axes.
 
@@ -792,19 +898,26 @@ class PlotHelper:
         for ax_coords in self.coords_iter(match=axes):
             with temporarily_changed_axis(self, tmp_ax_coords=ax_coords):
                 try:
-                    self.invoke_helpers(*self.enabled_helpers,
-                                        mark_disabled_after_use=mark_disabled_after_use,
-                                        raise_on_error=True,
-                                        **update_helpers)
+                    self.invoke_helpers(
+                        *self.enabled_helpers,
+                        mark_disabled_after_use=mark_disabled_after_use,
+                        raise_on_error=True,
+                        **update_helpers,
+                    )
 
                 except PlotHelperErrors as pherrs:
                     errors += pherrs.errors
 
         self._handle_errors(*errors, raise_on_error=raise_on_error)
 
-    def provide_defaults(self, helper_name: str, *,
-                         axes: Union[tuple, str]=None,
-                         mark_enabled: bool=True, **update_kwargs):
+    def provide_defaults(
+        self,
+        helper_name: str,
+        *,
+        axes: Union[tuple, str] = None,
+        mark_enabled: bool = True,
+        **update_kwargs,
+    ):
         """Update or add a single entry to a helper's configuration.
 
         Args:
@@ -817,8 +930,9 @@ class PlotHelper:
             **update_kwargs: dict containing the helper parameters with
                 which the config is updated recursively
         """
-        self._raise_on_invalid_helper_name(helper_name,
-                                           special_cfg_keys_allowed=True)
+        self._raise_on_invalid_helper_name(
+            helper_name, special_cfg_keys_allowed=True
+        )
 
         # Special configuration keys are updating the base configuration
         if helper_name in self._SPECIAL_CFG_KEYS:
@@ -826,10 +940,13 @@ class PlotHelper:
                 self._base_cfg[helper_name] = dict()
 
             # Do an in-place recursive update; can return afterwards
-            recursive_update(self._base_cfg[helper_name],
-                             copy.deepcopy(update_kwargs))
-            log.debug("Updated defaults for special configuration entry '%s'.",
-                      helper_name)
+            recursive_update(
+                self._base_cfg[helper_name], copy.deepcopy(update_kwargs)
+            )
+            log.debug(
+                "Updated defaults for special configuration entry '%s'.",
+                helper_name,
+            )
             return
 
         # Go over all selected axes
@@ -842,15 +959,19 @@ class PlotHelper:
                 self._cfg[ax_coords][helper_name] = dict()
 
             # Can do an in-place recursive update now
-            recursive_update(self._cfg[ax_coords][helper_name],
-                             copy.deepcopy(update_kwargs))
-            log.debug("Updated axis-specific defaults for helper '%s' and "
-                      "axis %s.", helper_name, ax_coords)
+            recursive_update(
+                self._cfg[ax_coords][helper_name], copy.deepcopy(update_kwargs)
+            )
+            log.debug(
+                "Updated axis-specific defaults for helper '%s' and axis %s.",
+                helper_name,
+                ax_coords,
+            )
 
             if mark_enabled and helper_name not in self._SPECIAL_CFG_KEYS:
                 self.mark_enabled(helper_name, axes=ax_coords)
 
-    def mark_enabled(self, *helper_names, axes: Union[tuple, str]=None):
+    def mark_enabled(self, *helper_names, axes: Union[tuple, str] = None):
         """Marks the specified helpers as enabled for the specified axes.
 
         Args:
@@ -870,11 +991,14 @@ class PlotHelper:
                 if helper_name not in self._cfg[ax_coords]:
                     self._cfg[ax_coords][helper_name] = dict()
 
-                self._cfg[ax_coords][helper_name]['enabled'] = True
-                log.debug("Marked helper '%s' enabled for axis %s.",
-                          helper_name, ax_coords)
+                self._cfg[ax_coords][helper_name]["enabled"] = True
+                log.debug(
+                    "Marked helper '%s' enabled for axis %s.",
+                    helper_name,
+                    ax_coords,
+                )
 
-    def mark_disabled(self, *helper_names, axes: Union[tuple, str]=None):
+    def mark_disabled(self, *helper_names, axes: Union[tuple, str] = None):
         """Marks the specified helpers as disabled for the specified axes.
 
         Args:
@@ -894,15 +1018,22 @@ class PlotHelper:
                 if helper_name not in self._cfg[ax_coords]:
                     self._cfg[ax_coords][helper_name] = dict()
 
-                self._cfg[ax_coords][helper_name]['enabled'] = False
-                log.debug("Marked helper '%s' disabled for axis %s.",
-                          helper_name, ax_coords)
+                self._cfg[ax_coords][helper_name]["enabled"] = False
+                log.debug(
+                    "Marked helper '%s' disabled for axis %s.",
+                    helper_name,
+                    ax_coords,
+                )
 
     # .........................................................................
     # Animation interface
 
-    def register_animation_update(self, update_func: Callable, *,
-                                  invoke_helpers_before_grab: bool=False):
+    def register_animation_update(
+        self,
+        update_func: Callable,
+        *,
+        invoke_helpers_before_grab: bool = False,
+    ):
         """Registers a generator used for animations.
 
         Args:
@@ -954,12 +1085,15 @@ class PlotHelper:
         cfg = dict()
 
         # Compile a base configuration dict that does not contain special keys
-        base_cfg = {k: v for k, v in self._base_cfg.items()
-                    if k not in self._SPECIAL_CFG_KEYS}
+        base_cfg = {
+            k: v
+            for k, v in self._base_cfg.items()
+            if k not in self._SPECIAL_CFG_KEYS
+        }
         # NOTE setup_figure and save_figure are handled separately
 
         # Go over all possible coordinates
-        for ax_coords in self.coords_iter(match='all'):
+        for ax_coords in self.coords_iter(match="all"):
             # Store a copy of the base configuration for these coordinates
             cfg[ax_coords] = copy.deepcopy(self._base_cfg)
 
@@ -969,11 +1103,12 @@ class PlotHelper:
                 update_params = copy.deepcopy(update_params)
 
                 # Extract the axis to update
-                axis = update_params.pop('axis')
+                axis = update_params.pop("axis")
 
                 # Check if there is a match
-                if not coords_match(ax_coords, match=axis,
-                                    full_shape=self.axes.shape):
+                if not coords_match(
+                    ax_coords, match=axis, full_shape=self.axes.shape
+                ):
                     # Nothing to update for this coordinate
                     continue
 
@@ -984,8 +1119,9 @@ class PlotHelper:
         # Now created configurations for all axes and applied all updates
         return cfg
 
-    def _raise_on_invalid_helper_name(self, *helper_names: str,
-                                      special_cfg_keys_allowed: bool=False):
+    def _raise_on_invalid_helper_name(
+        self, *helper_names: str, special_cfg_keys_allowed: bool = False
+    ):
         """Makes sure the given helper names are valid.
 
         Args:
@@ -1007,17 +1143,20 @@ class PlotHelper:
                 continue
 
             # Not valid!
-            raise ValueError("No helper with name '{}' available! "
-                             "Available helpers: {}. "
-                             "Special configuration keys ({}) {} allowed for "
-                             "this operation."
-                             "".format(helper_name,
-                                       ", ".join(self.available_helpers),
-                                       ", ".join(self._SPECIAL_CFG_KEYS),
-                                       ("are also" if special_cfg_keys_allowed
-                                        else "are NOT")))
+            raise ValueError(
+                "No helper with name '{}' available! "
+                "Available helpers: {}. "
+                "Special configuration keys ({}) {} allowed for "
+                "this operation."
+                "".format(
+                    helper_name,
+                    ", ".join(self.available_helpers),
+                    ", ".join(self._SPECIAL_CFG_KEYS),
+                    ("are also" if special_cfg_keys_allowed else "are NOT"),
+                )
+            )
 
-    def _handle_errors(self, *errors, raise_on_error: bool=None):
+    def _handle_errors(self, *errors, raise_on_error: bool = None):
         """Helper method to handle errors"""
         if not errors:
             return
@@ -1030,7 +1169,7 @@ class PlotHelper:
     # .........................................................................
     # Helper Methods -- acting on the figure
 
-    def _hlpr_set_suptitle(self, *, title: str=None, **title_kwargs):
+    def _hlpr_set_suptitle(self, *, title: str = None, **title_kwargs):
         """Set the figure title, i.e. matplotlib.Figure.suptitle.
 
         Args:
@@ -1039,11 +1178,10 @@ class PlotHelper:
         """
         self.fig.suptitle(title, **title_kwargs)
 
-
     # .........................................................................
     # Helper Methods -- acting on a single axis
 
-    def _hlpr_set_title(self, *, title: str=None, **title_kwargs):
+    def _hlpr_set_title(self, *, title: str = None, **title_kwargs):
         """Sets the title of the current axis.
 
         Args:
@@ -1052,10 +1190,13 @@ class PlotHelper:
         """
         self.ax.set_title(title, **title_kwargs)
 
-    def _hlpr_set_labels(self, *,
-                         x: Union[str, dict]=None,
-                         y: Union[str, dict]=None,
-                         only_label_outer: bool=False):
+    def _hlpr_set_labels(
+        self,
+        *,
+        x: Union[str, dict] = None,
+        y: Union[str, dict] = None,
+        only_label_outer: bool = False,
+    ):
         """Sets the x and y label of the current axis.
 
         Args:
@@ -1071,7 +1212,8 @@ class PlotHelper:
                 only for subplots on the first column. Note that this applies
                 to both axes and may lead to existing axes being hidden.
         """
-        def set_label(func: Callable, *, label: str=None, **label_kwargs):
+
+        def set_label(func: Callable, *, label: str = None, **label_kwargs):
             return func(label, label_kwargs)
 
         if x:
@@ -1085,9 +1227,12 @@ class PlotHelper:
         if only_label_outer:
             self.ax.label_outer()
 
-    def _hlpr_set_limits(self, *,
-                         x: Union[Sequence[Union[float, str]], dict]=None,
-                         y: Union[Sequence[Union[float, str]], dict]=None):
+    def _hlpr_set_limits(
+        self,
+        *,
+        x: Union[Sequence[Union[float, str]], dict] = None,
+        y: Union[Sequence[Union[float, str]], dict] = None,
+    ):
         """Sets the x and y limit for the current axis.
 
         The ``x`` and ``y`` arguments can have the following form:
@@ -1109,8 +1254,10 @@ class PlotHelper:
             y (Union[Sequence[Union[float, str]], dict], optional): The limits
                 to set on the y-axis
         """
-        def parse_args(args: Union[Sequence[Union[float, str]], dict], *, ax
-                       ) -> Tuple[float, float]:
+
+        def parse_args(
+            args: Union[Sequence[Union[float, str]], dict], *, ax
+        ) -> Tuple[float, float]:
             """Parses the limit arguments."""
 
             def parse_arg(arg: Union[float, str]) -> Union[float, None]:
@@ -1119,9 +1266,9 @@ class PlotHelper:
                     # Nothing to parse
                     return arg
 
-                if arg == 'min':
+                if arg == "min":
                     arg = ax.get_data_interval()[0]
-                elif arg == 'max':
+                elif arg == "max":
                     arg = ax.get_data_interval()[1]
                 else:
                     raise ValueError(
@@ -1143,18 +1290,18 @@ class PlotHelper:
             # Special case: dict
             if isinstance(args, dict):
                 # Make sure there are only allowed keys
-                if [k for k in args.keys() if k not in ('lower', 'upper')]:
+                if [k for k in args.keys() if k not in ("lower", "upper")]:
                     raise ValueError(
                         "There are invalid keys present in a dict-type "
                         "argument to set_limits! Only accepting keys 'lower' "
                         f"and 'upper', but got: {args}"
                     )
 
-                lower = args.get('lower', None)
-                upper = args.get('upper', None)
+                lower = args.get("lower", None)
+                upper = args.get("upper", None)
 
             else:
-                lower, upper = args    # ... assuming sequence of length 2
+                lower, upper = args  # ... assuming sequence of length 2
 
             # Parse individually, then return
             return (parse_arg(lower), parse_arg(upper))
@@ -1166,12 +1313,16 @@ class PlotHelper:
         if y is not None:
             self.ax.set_ylim(*parse_args(y, ax=self.ax.yaxis))
 
-    def _hlpr_set_legend(self, *, use_legend: bool=True,
-                         gather_from_fig: bool=False,
-                         custom_labels: Sequence[str]=(),
-                         hiding_threshold: int=None,
-                         use_figlegend: bool=False,
-                         **legend_kwargs):
+    def _hlpr_set_legend(
+        self,
+        *,
+        use_legend: bool = True,
+        gather_from_fig: bool = False,
+        custom_labels: Sequence[str] = (),
+        hiding_threshold: int = None,
+        use_figlegend: bool = False,
+        **legend_kwargs,
+    ):
         """Sets a legend for the current axis or for the figure.
 
         As a first step, this helper tries to extract all relevant legend
@@ -1226,17 +1377,24 @@ class PlotHelper:
                 h += [_h for _h in lg.legendHandles]
                 l += [_t.get_text() for _t in lg.texts]
 
-            log.debug("Gathered %d handles and labels from the figure and "
-                      "all its axes.", len(h))
+            log.debug(
+                "Gathered %d handles and labels from the figure and "
+                "all its axes.",
+                len(h),
+            )
 
             # Remove potential duplicate handles (identified by the labels),
             # maintaining order and association by keeping track of seen items.
             # More info: https://stackoverflow.com/a/480227/1827608
             seen = set()
-            hls = [(_h, _l) for _h, _l in zip(h, l)
-                   if not (_l in seen or seen.add(_l))]
-            log.debug("Removed %d duplicate legend handles.",
-                      len(h) - len(hls))
+            hls = [
+                (_h, _l)
+                for _h, _l in zip(h, l)
+                if not (_l in seen or seen.add(_l))
+            ]
+            log.debug(
+                "Removed %d duplicate legend handles.", len(h) - len(hls)
+            )
             h, l = [hl[0] for hl in hls], [hl[1] for hl in hls]
 
             handles += h
@@ -1247,15 +1405,22 @@ class PlotHelper:
             log.remark("Using custom labels:  " + ", ".join(custom_labels))
             labels = custom_labels
 
-        log.remark("Have %d handles and %d labels available for a legend.",
-                   len(handles), len(labels))
+        log.remark(
+            "Have %d handles and %d labels available for a legend.",
+            len(handles),
+            len(labels),
+        )
 
         # Evaluate the hiding threshold
-        past_thresh = (hiding_threshold is not None
-                       and min(len(handles), len(labels)) > hiding_threshold)
+        past_thresh = (
+            hiding_threshold is not None
+            and min(len(handles), len(labels)) > hiding_threshold
+        )
         if past_thresh:
-            log.remark("Passed hiding threshold of %d handles or labels.",
-                       hiding_threshold)
+            log.remark(
+                "Passed hiding threshold of %d handles or labels.",
+                hiding_threshold,
+            )
 
         # Hide or draw the _axis_ legend
         if not use_legend or past_thresh or use_figlegend or not handles:
@@ -1282,7 +1447,7 @@ class PlotHelper:
         for text_args in texts:
             self.ax.text(**text_args)
 
-    def _hlpr_set_hv_lines(self, *, hlines: list=None, vlines: list=None):
+    def _hlpr_set_hv_lines(self, *, hlines: list = None, vlines: list = None):
         """Sets one or multiple horizontal or vertical lines.
 
         Args:
@@ -1297,8 +1462,14 @@ class PlotHelper:
                 additional arguments being passed on to the matplotlib
                 function.
         """
-        def set_line(func: Callable, *, pos: float, limits: tuple=(0., 1.),
-                     **line_kwargs):
+
+        def set_line(
+            func: Callable,
+            *,
+            pos: float,
+            limits: tuple = (0.0, 1.0),
+            **line_kwargs,
+        ):
             try:
                 pos = float(pos)
 
@@ -1324,9 +1495,9 @@ class PlotHelper:
                 else:
                     set_line(self.ax.axvline, pos=line_spec)
 
-    def _hlpr_set_scales(self, *,
-                         x: Union[str, dict]=None,
-                         y: Union[str, dict]=None):
+    def _hlpr_set_scales(
+        self, *, x: Union[str, dict] = None, y: Union[str, dict] = None
+    ):
         """Sets the scales for the current axis
 
         The arguments are used to call ``ax.set_xscale`` or ``ax.set_yscale``,
@@ -1345,7 +1516,8 @@ class PlotHelper:
             x (Union[str, dict], optional): The scales to use on the x-axis
             y (Union[str, dict], optional): The scales to use on the y-axis
         """
-        def set_scale(func: Callable, *, scale: str=None, **scale_kwargs):
+
+        def set_scale(func: Callable, *, scale: str = None, **scale_kwargs):
             func(scale, **scale_kwargs)
 
         if x:

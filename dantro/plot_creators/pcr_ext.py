@@ -893,12 +893,18 @@ class ExternalPlotCreator(BasePlotCreator):
 
         return rc_dict
 
-    def _perform_animation(self, *, hlpr: PlotHelper, style_context,
-                           plot_func: Callable,
-                           plot_args: tuple, plot_kwargs: dict,
-                           writer: str,
-                           writer_kwargs: dict=None,
-                           animation_update_kwargs: dict=None):
+    def _perform_animation(
+        self,
+        *,
+        hlpr: PlotHelper,
+        style_context,
+        plot_func: Callable,
+        plot_args: tuple,
+        plot_kwargs: dict,
+        writer: str,
+        writer_kwargs: dict = None,
+        animation_update_kwargs: dict = None,
+    ):
         """Prepares the Writer and checks for valid animation config.
 
         Args:
@@ -929,30 +935,34 @@ class ExternalPlotCreator(BasePlotCreator):
         """
         # Check that the plot function actually supports animation
         if not getattr(plot_func, "supports_animation", False):
-            raise ValueError("Plotting function '{}' was not marked as "
-                             "supporting an animation! To do so, add the "
-                             "`supports_animation` flag to the plot function "
-                             "decorator.".format(plot_func.__name__))
+            raise ValueError(
+                f"Plotting function '{plot_func.__name__}' was not marked as "
+                "supporting an animation! To do so, add the "
+                "`supports_animation` flag to the plot function "
+                "decorator."
+            )
 
         # Get the kwargs for __init__, saving, and grab_frame of the writer
         writer_name = writer
-        writer_cfg = (writer_kwargs.get(writer_name, {})
-                      if writer_kwargs else {})
+        writer_cfg = (
+            writer_kwargs.get(writer_name, {}) if writer_kwargs else {}
+        )
 
         # Need to extract `dpi`, because matplotlib interface wants it as
         # positional argument. Damn you, matplotlib.
-        dpi = writer_cfg.get('saving', {}).pop('dpi', 96)
+        dpi = writer_cfg.get("saving", {}).pop("dpi", 96)
 
         # Retrieve the writer: Either from matplotlib or dantro's FileWriter
         if mpl.animation.writers.is_available(writer_name):
             wCls = mpl.animation.writers[writer_name]
-            writer = wCls(**writer_cfg.get('init', {}))
+            writer = wCls(**writer_cfg.get("init", {}))
 
         else:
-            writers_avail = mpl.animation.writers.list()
-            raise ValueError("The writer '{}' is not available on your "
-                             "system! Available writers: {}"
-                             "".format(writer_name, ", ".join(writers_avail)))
+            _available = ", ".join(mpl.animation.writers.list())
+            raise ValueError(
+                f"The writer '{writer_name}' is not available on your "
+                f"system! Available writers: {_available}"
+            )
 
         # Now got the writer.
 
@@ -962,8 +972,11 @@ class ExternalPlotCreator(BasePlotCreator):
         # leaking from the plot function or the animation generator.
         leak_prev = figure_leak_prevention(close_current_fig_on_raise=True)
 
-        log.debug("Performing animation of plot function '%s' using "
-                  "writer %s ...", plot_func.__name__, writer_name)
+        log.debug(
+            "Performing animation of plot function '%s' using writer %s ...",
+            plot_func.__name__,
+            writer_name,
+        )
 
         with style_context, leak_prev:
             hlpr.setup_figure()
@@ -977,17 +990,22 @@ class ExternalPlotCreator(BasePlotCreator):
             # While they would not need to be kept enabled, doing so causes no
             # harm and is the more expected behaviour.
             if not hlpr.invoke_before_grab:
-                hlpr.invoke_enabled(axes='all', mark_disabled_after_use=False)
+                hlpr.invoke_enabled(axes="all", mark_disabled_after_use=False)
 
             # Enter context manager of movie writer
-            with writer.saving(hlpr.fig, hlpr.out_path, dpi,
-                               **writer_cfg.get('saving', {})):
+            with writer.saving(
+                hlpr.fig, hlpr.out_path, dpi, **writer_cfg.get("saving", {})
+            ):
 
                 # Create the iterator for the animation
                 log.debug("Invoking animation update generator ...")
-                anim_it = hlpr.animation_update(**(animation_update_kwargs
-                                                   if animation_update_kwargs
-                                                   else {}))
+                anim_it = hlpr.animation_update(
+                    **(
+                        animation_update_kwargs
+                        if animation_update_kwargs
+                        else {}
+                    )
+                )
 
                 # Create generator and perform the iteration. The return value
                 # of the generator currently is ignored.
@@ -1001,12 +1019,13 @@ class ExternalPlotCreator(BasePlotCreator):
 
                     # If required, invoke all enabled helpers before grabbing
                     if hlpr.invoke_before_grab:
-                        hlpr.invoke_enabled(axes='all',
-                                            mark_disabled_after_use=False)
+                        hlpr.invoke_enabled(
+                            axes="all", mark_disabled_after_use=False
+                        )
 
                     # The anim_it invocation has already created the new frame.
                     # Grab it; the writer takes care of saving it
-                    writer.grab_frame(**writer_cfg.get('grab_frame', {}))
+                    writer.grab_frame(**writer_cfg.get("grab_frame", {}))
                     log.debug("Grabbed frame %d.", frame_no)
 
             # Exited 'saving' context

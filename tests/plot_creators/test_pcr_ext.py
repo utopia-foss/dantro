@@ -77,7 +77,6 @@ def test_init(init_kwargs, tmpdir):
         )
 
 
-
 def test_style_context(init_kwargs, tmp_rc_file):
     """Tests if the style context has been set"""
     # .. Test _prepare_style_context directly .................................
@@ -610,12 +609,14 @@ def test_decorator(tmpdir):
     is_plot_func()
 
     # Can take some specific ones, though, without checks
-    is_plot_func(creator_type=ExternalPlotCreator,
-                 creator_name="foo",
-                 use_helper=True,
-                 helper_defaults=dict(),
-                 supports_animation=True,
-                 add_attributes=dict())
+    is_plot_func(
+        creator_type=ExternalPlotCreator,
+        creator_name="foo",
+        use_helper=True,
+        helper_defaults=dict(),
+        supports_animation=True,
+        add_attributes=dict(),
+    )
 
     # Helper_defaults can be an absolute path
     is_plot_func(helper_defaults=tmpdir.join("foo.yml"))

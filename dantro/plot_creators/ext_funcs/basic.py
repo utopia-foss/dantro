@@ -14,9 +14,18 @@ log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
-@is_plot_func(creator_name='external', use_helper=False)
-def lineplot(dm: DataManager, *, out_path: str, y: str, x: str=None,
-             fmt: str=None, save_kwargs: dict=None, **plot_kwargs):
+
+@is_plot_func(creator_name="external", use_helper=False)
+def lineplot(
+    dm: DataManager,
+    *,
+    out_path: str,
+    y: str,
+    x: str = None,
+    fmt: str = None,
+    save_kwargs: dict = None,
+    **plot_kwargs,
+):
     """Performs a simple lineplot.
 
     Args:

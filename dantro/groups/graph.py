@@ -24,6 +24,7 @@ log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
+
 class GraphGroup(BaseDataGroup):
     """The GraphGroup class manages groups of graph data containers and
     provides the possibility to create networkx graph objects using the data
@@ -46,7 +47,6 @@ class GraphGroup(BaseDataGroup):
     # Define whether warning is raised upon bad alignment of property data
     _GG_WARN_UPON_BAD_ALIGN = True
 
-
     # .........................................................................
 
     def __init__(self, *args, **kwargs):
@@ -59,12 +59,10 @@ class GraphGroup(BaseDataGroup):
         super().__init__(*args, **kwargs)
         self._property_maps = dict()
 
-
     @property
     def property_maps(self) -> dict:
         """The property maps associated with this group, keyed by name."""
         return self._property_maps
-
 
     @property
     def node_container(self):
@@ -79,7 +77,6 @@ class GraphGroup(BaseDataGroup):
                 "_GG_node_container is set to the correct value."
             ) from err
 
-
     @property
     def edge_container(self):
         """Returns the associated edge container of this graph group"""
@@ -92,7 +89,6 @@ class GraphGroup(BaseDataGroup):
                 f"available in {self.logstr}! Check if the class variable "
                 "_GG_edge_container is set to the correct value."
             ) from err
-
 
     # .........................................................................
 
@@ -120,8 +116,9 @@ class GraphGroup(BaseDataGroup):
             return super().__getitem__(key=key)
 
         except KeyError as err:
-            _available_keys = (  [str(k) for k in self.keys()]
-                               + [str(k) for k in self._property_maps.keys()])
+            _available_keys = [str(k) for k in self.keys()] + [
+                str(k) for k in self._property_maps.keys()
+            ]
             _available_keys = ", ".join(_available_keys)
 
             raise KeyError(
@@ -129,11 +126,15 @@ class GraphGroup(BaseDataGroup):
                 f"Available keys at top level: {_available_keys}"
             ) from err
 
-
-    def _get_data_at(self, *, data: Union[XrDataContainer, LabelledDataGroup],
-                     sel: dict=None, isel: dict=None,
-                     at_time: int=None, at_time_idx: int=None
-                     ) -> Union[xr.DataArray, XrDataContainer]:
+    def _get_data_at(
+        self,
+        *,
+        data: Union[XrDataContainer, LabelledDataGroup],
+        sel: dict = None,
+        isel: dict = None,
+        at_time: int = None,
+        at_time_idx: int = None,
+    ) -> Union[xr.DataArray, XrDataContainer]:
         """Returns a ``xarray.DataArray`` containing the data specified via the
         selectors ``sel`` and ``isel``. Any dimension of size 1 is removed
         from the selected data.
@@ -170,8 +171,9 @@ class GraphGroup(BaseDataGroup):
             sel = recursive_update(sel if sel else {}, dict(time=at_time))
 
         if at_time_idx is not None:
-            isel = recursive_update(isel if isel else {},
-                                    dict(time=at_time_idx))
+            isel = recursive_update(
+                isel if isel else {}, dict(time=at_time_idx)
+            )
 
         # Check that no key is in both sel and isel
         if sel and isel:
@@ -183,8 +185,11 @@ class GraphGroup(BaseDataGroup):
                     f"the selection of {data}: {_duplicate_keys}"
                 )
 
-        log.debug("Received the following selectors:\n  sel: %s\n  isel: %s",
-                  sel, isel)
+        log.debug(
+            "Received the following selectors:\n  sel: %s\n  isel: %s",
+            sel,
+            isel,
+        )
         log.debug("Now applying these to the following data ...\n  %s", data)
 
         # Get the dimensions available for selection
@@ -198,15 +203,16 @@ class GraphGroup(BaseDataGroup):
         # Remove any entries for which no matching dimension exists and apply
         # sel _and_ isel (if given).
         if sel is not None:
-            sel = {k:v for k,v in sel.items() if k in dims}
+            sel = {k: v for k, v in sel.items() if k in dims}
             data = data.sel(**sel)
 
         if isel is not None:
-            isel = {k:v for k,v in isel.items() if k in dims}
+            isel = {k: v for k, v in isel.items() if k in dims}
             data = data.isel(**isel)
 
-        log.debug("Applied the following selectors:\n  sel: %s\nisel: %s",
-                  sel, isel)
+        log.debug(
+            "Applied the following selectors:\n  sel: %s\nisel: %s", sel, isel
+        )
 
         # If `data` is still a group, select everything to get a `xr.DataArray`
         # with the coordinates also from the member level.
@@ -218,10 +224,9 @@ class GraphGroup(BaseDataGroup):
 
         if not data.dims:
             # Oops, no dimension left. Add one default dimension.
-            data = data.expand_dims('dim_0')
+            data = data.expand_dims("dim_0")
 
         return data
-
 
     def _prepare_edge_data(self, *, edges, max_tuple_size: int):
         """Prepares the edge data. Depending on the
@@ -253,13 +258,13 @@ class GraphGroup(BaseDataGroup):
         elif len(edges.dims) == 2:
             # Transpose if needed and if the correct shape is unambiguous,
             # i.e., if the size of one dim lies not in [2, max_tuple_size].
-            if (not 2 <= edges.values.shape[-1] <= max_tuple_size
+            if (
+                not 2 <= edges.values.shape[-1] <= max_tuple_size
                 and 2 <= edges.values.shape[0] <= max_tuple_size
             ):
                 return edges.T
 
         return edges
-
 
     def _prepare_property_data(self, name: str, data):
         """Prepares external property data.
@@ -279,8 +284,9 @@ class GraphGroup(BaseDataGroup):
             try:
                 data = XrDataContainer(name=name, data=data)
             except:
-                _allowed_types = ", ".join([str(t) for t in
-                                            self._ALLOWED_CONT_TYPES])
+                _allowed_types = ", ".join(
+                    [str(t) for t in self._ALLOWED_CONT_TYPES]
+                )
                 raise TypeError(
                     f"Received invalid type for 'data' argument: {type(data)}."
                     f" Expected one of: {_allowed_types} ... or a type that "
@@ -288,7 +294,6 @@ class GraphGroup(BaseDataGroup):
                 )
 
         return data
-
 
     def _check_alignment(self, *, ent, prop):
         """Checks the alignment of property data and entity (node or edge) data.
@@ -304,10 +309,11 @@ class GraphGroup(BaseDataGroup):
         # Check if any matching dimension (of size >1) exists
         if not any([d in prop.squeeze().dims for d in ent.squeeze().dims]):
             warnings.warn(
-                f"No matching dimensions found in property data "
+                "No matching dimensions found in property data "
                 f"('{prop.name}') and entity data ('{ent.name}') for "
                 "dimensions of size >1. No re-ordering was done during "
-                "alinment.", UserWarning
+                "alinment.",
+                UserWarning,
             )
 
         # Check for missing values in the property data after alignment
@@ -316,9 +322,8 @@ class GraphGroup(BaseDataGroup):
                 f"Found missing values in property data ('{prop.name}') after "
                 f"alignment with entity data ('{ent.name}'). Make sure that "
                 "the coordinate values are available in the property data.",
-                UserWarning
+                UserWarning,
             )
-
 
     # .........................................................................
 
@@ -350,12 +355,19 @@ class GraphGroup(BaseDataGroup):
         # Everything ok, register the new map
         self._property_maps[key] = data
 
-
-    def create_graph(self, *, directed: bool=None, parallel_edges: bool=None,
-                     node_props: list=None, edge_props: list=None,
-                     sel: dict=None, isel: dict=None,
-                     at_time: int=None, at_time_idx: int=None,
-                     **graph_kwargs) -> nx.Graph:
+    def create_graph(
+        self,
+        *,
+        directed: bool = None,
+        parallel_edges: bool = None,
+        node_props: list = None,
+        edge_props: list = None,
+        sel: dict = None,
+        isel: dict = None,
+        at_time: int = None,
+        at_time_idx: int = None,
+        **graph_kwargs,
+    ) -> nx.Graph:
         """Create a networkx graph object from the node and edge data
         associated with the graph group. Optionally, node and edge properties
         can be added from data stored or registered in the graph group.
@@ -405,12 +417,20 @@ class GraphGroup(BaseDataGroup):
         # Get the node and edge data stored in the graph group
         log.debug("Checking whether node and edge data is available...")
 
-        node_cont = self._get_data_at(data=self.node_container,
-                                      sel=sel, isel=isel,
-                                      at_time=at_time, at_time_idx=at_time_idx)
-        edge_cont = self._get_data_at(data=self.edge_container,
-                                      sel=sel, isel=isel,
-                                      at_time=at_time, at_time_idx=at_time_idx)
+        node_cont = self._get_data_at(
+            data=self.node_container,
+            sel=sel,
+            isel=isel,
+            at_time=at_time,
+            at_time_idx=at_time_idx,
+        )
+        edge_cont = self._get_data_at(
+            data=self.edge_container,
+            sel=sel,
+            isel=isel,
+            at_time=at_time,
+            at_time_idx=at_time_idx,
+        )
 
         # Get info on directed and parallel edges from attributes, if not
         # explicitly given
@@ -440,8 +460,9 @@ class GraphGroup(BaseDataGroup):
             max_edge_tuple_size = 4
 
         # Prepare the edge data. If needed, the data is transposed
-        edge_cont = self._prepare_edge_data(edges=edge_cont,
-                                            max_tuple_size=max_edge_tuple_size)
+        edge_cont = self._prepare_edge_data(
+            edges=edge_cont, max_tuple_size=max_edge_tuple_size
+        )
 
         # Add nodes and edges to the graph
         log.debug("Adding nodes to the graph...")
@@ -453,28 +474,40 @@ class GraphGroup(BaseDataGroup):
         # Add properties to nodes and edges
         if node_props:
             for prop_name in node_props:
-                self.set_node_property(g=g, name=prop_name,
-                                       sel=sel, isel=isel,
-                                       at_time=at_time,
-                                       at_time_idx=at_time_idx)
+                self.set_node_property(
+                    g=g,
+                    name=prop_name,
+                    sel=sel,
+                    isel=isel,
+                    at_time=at_time,
+                    at_time_idx=at_time_idx,
+                )
         if edge_props:
             for prop_name in edge_props:
-                self.set_edge_property(g=g, name=prop_name,
-                                       sel=sel, isel=isel,
-                                       at_time=at_time,
-                                       at_time_idx=at_time_idx)
+                self.set_edge_property(
+                    g=g,
+                    name=prop_name,
+                    sel=sel,
+                    isel=isel,
+                    at_time=at_time,
+                    at_time_idx=at_time_idx,
+                )
 
         # Return the graph
-        log.info("Successfully created graph (%d node%s, %d edge%s) from %s.",
-                 g.number_of_nodes(), "s" if g.number_of_nodes() != 1 else "",
-                 g.number_of_edges(), "s" if g.number_of_edges() != 1 else "",
-                 self.logstr)
+        log.info(
+            "Successfully created graph (%d node%s, %d edge%s) from %s.",
+            g.number_of_nodes(),
+            "s" if g.number_of_nodes() != 1 else "",
+            g.number_of_edges(),
+            "s" if g.number_of_edges() != 1 else "",
+            self.logstr,
+        )
 
         return g
 
-
-    def set_node_property(self, *, g, name: str, data=None, align: bool=False,
-                          **selector):
+    def set_node_property(
+        self, *, g, name: str, data=None, align: bool = False, **selector
+    ):
         """Sets a property to every node in Graph ``g`` which is also in the
         ``node_container`` of the graph group.
 
@@ -520,7 +553,7 @@ class GraphGroup(BaseDataGroup):
 
         # Optionally, align the property data with the node data.
         if align:
-            node_cont, prop_data = xr.align(node_cont, prop_data, join='left')
+            node_cont, prop_data = xr.align(node_cont, prop_data, join="left")
             self._check_alignment(ent=node_cont, prop=prop_data)
 
         # Check if the data can be added as node property
@@ -529,7 +562,8 @@ class GraphGroup(BaseDataGroup):
             _msg_match_with_node_number = ""
 
             if len(g.nodes) == len(prop_data.values):
-                _msg_match_with_node_number = ("\n"
+                _msg_match_with_node_number = (
+                    "\n"
                     f"The size of '{name}' matches the current number of "
                     "nodes, which changed since the graph creation. However, "
                     "properties can only be added to those nodes that are in "
@@ -549,7 +583,7 @@ class GraphGroup(BaseDataGroup):
                 "The number of nodes changed since graph creation. Some "
                 "property values will not be added to the graph! Also check "
                 f"for duplicate entries in {self.node_container.logstr}.",
-                UserWarning
+                UserWarning,
             )
 
         # Create dict of properties keyed by node
@@ -558,12 +592,15 @@ class GraphGroup(BaseDataGroup):
         # Add property to graph
         nx.set_node_attributes(g, values=props, name=name)
 
-        log.remark("Successfully added node property data from '%s' in %s.",
-                   name, self.logstr)
+        log.remark(
+            "Successfully added node property data from '%s' in %s.",
+            name,
+            self.logstr,
+        )
 
-
-    def set_edge_property(self, *, g, name: str, data=None, align: bool=False,
-                          **selector):
+    def set_edge_property(
+        self, *, g, name: str, data=None, align: bool = False, **selector
+    ):
         """Sets a property to every edge in Graph ``g`` which is also in the
         ``edge_container`` of the graph group.
 
@@ -597,6 +634,7 @@ class GraphGroup(BaseDataGroup):
             TypeError: On non-uniform edge data
             ValueError: Lenght mismatch of the selected property and edge data
         """
+
         def new_edge_key(e, edges, directed: bool):
             """Returns an unused edge key.
 
@@ -629,12 +667,13 @@ class GraphGroup(BaseDataGroup):
 
         # Get and prepare the edge data
         edge_cont = self._get_data_at(data=self.edge_container, **selector)
-        edge_cont = self._prepare_edge_data(edges=edge_cont,
-                                            max_tuple_size=max_edge_tuple_size)
+        edge_cont = self._prepare_edge_data(
+            edges=edge_cont, max_tuple_size=max_edge_tuple_size
+        )
 
         # Optionally, align the property data with the node data.
         if align:
-            edge_cont, prop_data = xr.align(edge_cont, prop_data, join='left')
+            edge_cont, prop_data = xr.align(edge_cont, prop_data, join="left")
             self._check_alignment(ent=edge_cont, prop=prop_data)
 
         # Check if the data can be added as edge property
@@ -644,14 +683,16 @@ class GraphGroup(BaseDataGroup):
             _msg_match_with_edge_number = ""
 
             if type(g) is nx.DiGraph or type(g) is nx.Graph:
-                _msg_duplicate_edges = ("\n"
+                _msg_duplicate_edges = (
+                    "\n"
                     f"Multiple entries in {self.edge_container.logstr} might "
                     "be interpreted as a single one, due to the chosen graph "
                     f"type: '{type(g)}'"
                 )
 
             if len(g.edges) == len(prop_data.values):
-                _msg_match_with_edge_number = ("\n"
+                _msg_match_with_edge_number = (
+                    "\n"
                     f"The size of '{name}' matches the current number of "
                     "edges, which changed since the graph creation. However, "
                     "properties can only be added to those edges that are in "
@@ -672,7 +713,7 @@ class GraphGroup(BaseDataGroup):
                 "The number of edges changed since graph creation. Some "
                 "property values will not be added to the graph! Also check "
                 f"for duplicate entries in {self.edge_container.logstr}.",
-                UserWarning
+                UserWarning,
             )
 
         # Now, prepare creation of dict of properties keyed by edge. If the
@@ -698,8 +739,13 @@ class GraphGroup(BaseDataGroup):
             if edge_length == 2:
                 edges = []
                 for e in edge_cont:
-                    edges.append((int(e[0]), int(e[1]),
-                                  new_edge_key(e, edges, g.is_directed())))
+                    edges.append(
+                        (
+                            int(e[0]),
+                            int(e[1]),
+                            new_edge_key(e, edges, g.is_directed()),
+                        )
+                    )
 
             else:
                 edges = [tuple(e) for e in edge_cont.values]
@@ -713,5 +759,8 @@ class GraphGroup(BaseDataGroup):
         # Add property to graph
         nx.set_edge_attributes(g, values=props, name=name)
 
-        log.remark("Successfully added edge property data from '%s' in %s.",
-                   name, self.logstr)
+        log.remark(
+            "Successfully added edge property data from '%s' in %s.",
+            name,
+            self.logstr,
+        )
