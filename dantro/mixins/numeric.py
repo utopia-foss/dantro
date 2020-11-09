@@ -15,6 +15,7 @@ log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
+
 class UnaryOperationsMixin:
     """This Mixin class implements the methods needed for unary operations.
 
@@ -88,8 +89,7 @@ class UnaryOperationsMixin:
 
 
 class NumbersMixin(UnaryOperationsMixin):
-    """This mixin implements the methods needed for calculating with numbers.
-    """
+    """This mixin implements the methods needed for calculating with numbers."""
 
     def __add__(self, other):
         """Add two objects
@@ -248,6 +248,7 @@ class ComparisonMixin:
 # -----------------------------------------------------------------------------
 # Helpers ---------------------------------------------------------------------
 # -----------------------------------------------------------------------------
+
 
 def get_data(obj):
     """Get the data of `obj` depending on whether it is part of dantro or not.

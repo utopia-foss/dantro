@@ -25,28 +25,35 @@ from dantro.utils import Link
 
 # Local constants
 
+
 class DummyContainer(ItemAccessMixin, BaseDataContainer):
     """A dummy container that fulfills all the requirements of the abstract
     BaseDataContainer class.
 
     NOTE: the methods have not the correct functionality!
     """
+
     def _format_info(self):
         return "dummy"
+
 
 # Fixtures --------------------------------------------------------------------
 from .test_proxy import tmp_h5file
 from .test_base import pickle_roundtrip
 
+
 @pytest.fixture
 def tmp_h5_dset(tmp_h5file) -> h5.Dataset:
     """Creates a temporary hdf5 dataset"""
     # Create a h5 dataset
-    dset = tmp_h5file.create_dataset("init", data=np.zeros(shape=(1, 2, 3),
-                                                           dtype=int))
+    dset = tmp_h5file.create_dataset(
+        "init", data=np.zeros(shape=(1, 2, 3), dtype=int)
+    )
     return dset
 
+
 # Tests -----------------------------------------------------------------------
+
 
 def test_basics():
     """Tests initialisation of the DummyContainer class"""
@@ -73,27 +80,31 @@ def test_CheckDataMixin():
 
     class TestContainerB(CheckDataMixin, DummyContainer):
         """Only list or tuple allowed, raising if not correct"""
+
         DATA_EXPECTED_TYPES = (list, tuple)
         DATA_ALLOW_PROXY = True
-        DATA_UNEXPECTED_ACTION = 'raise'
+        DATA_UNEXPECTED_ACTION = "raise"
 
     class TestContainerC(CheckDataMixin, DummyContainer):
         """Only list or tuple allowed, raising if not correct"""
+
         DATA_EXPECTED_TYPES = (list, tuple)
         DATA_ALLOW_PROXY = True
-        DATA_UNEXPECTED_ACTION = 'warn'
+        DATA_UNEXPECTED_ACTION = "warn"
 
     class TestContainerD(CheckDataMixin, DummyContainer):
         """Only list or tuple allowed, raising if not correct"""
+
         DATA_EXPECTED_TYPES = (list, tuple)
         DATA_ALLOW_PROXY = True
-        DATA_UNEXPECTED_ACTION = 'ignore'
+        DATA_UNEXPECTED_ACTION = "ignore"
 
     class TestContainerE(CheckDataMixin, DummyContainer):
         """Only list or tuple allowed, raising if not correct"""
+
         DATA_EXPECTED_TYPES = (list, tuple)
         DATA_ALLOW_PROXY = True
-        DATA_UNEXPECTED_ACTION = 'invalid'
+        DATA_UNEXPECTED_ACTION = "invalid"
 
     # Tests ...................................................................
     # Run tests for A
@@ -107,8 +118,9 @@ def test_CheckDataMixin():
         TestContainerB(name="foo", data="bar")
 
     # Run tests for C
-    with pytest.warns(UnexpectedTypeWarning,
-                      match="Unexpected type <class 'str'> for.*"):
+    with pytest.warns(
+        UnexpectedTypeWarning, match="Unexpected type <class 'str'> for.*"
+    ):
         TestContainerC(name="foo", data="bar")
 
     # Run tests for D
@@ -118,15 +130,18 @@ def test_CheckDataMixin():
     with pytest.raises(ValueError, match="Illegal value 'invalid' for class"):
         TestContainerE(name="foo", data="bar")
 
+
 # -----------------------------------------------------------------------------
 # General containers
+
 
 def test_MutableSequenceContainer():
     """Tests whether the __init__ method behaves as desired"""
     # Basic initialisation of sequence-like data
     msc1 = MutableSequenceContainer(name="foo", data=["bar", "baz"])
-    msc2 = MutableSequenceContainer(name="foo", data=["bar", "baz"],
-                                    attrs=dict(one=1, two="two"))
+    msc2 = MutableSequenceContainer(
+        name="foo", data=["bar", "baz"], attrs=dict(one=1, two="two")
+    )
 
     # There will be warnings for other data types:
     with pytest.warns(UnexpectedTypeWarning):
@@ -144,7 +159,7 @@ def test_MutableSequenceContainer():
 
     # Attribute access
     assert msc2.attrs == dict(one=1, two="two")
-    assert msc2.attrs['one'] == 1
+    assert msc2.attrs["one"] == 1
 
     # this will still work, as it is a sequence
     assert msc3.data == ("hello", "world") == msc3[:]
@@ -181,16 +196,18 @@ def test_LinkContainer():
     links = root.new_group("links")
     data = root.new_container("data", Cls=StringContainer, data="some_string")
 
-    links.new_container("group", Cls=LinkContainer,
-                        data=Link(anchor=root, rel_path="group"))
-    assert links['group'].path == "/root/links/group"
-    assert links['group'].data.path == "/root/group"
+    links.new_container(
+        "group", Cls=LinkContainer, data=Link(anchor=root, rel_path="group")
+    )
+    assert links["group"].path == "/root/links/group"
+    assert links["group"].data.path == "/root/group"
 
-    links.new_container("data", Cls=LinkContainer,
-                        data=Link(anchor=root, rel_path="data"))
-    assert links['data'].path == "/root/links/data"
-    assert links['data'].data.path == "/root/data"
-    assert links['data'].upper() == "SOME_STRING"
+    links.new_container(
+        "data", Cls=LinkContainer, data=Link(anchor=root, rel_path="data")
+    )
+    assert links["data"].path == "/root/links/data"
+    assert links["data"].data.path == "/root/data"
+    assert links["data"].upper() == "SOME_STRING"
 
     print(root.tree)
 
@@ -225,21 +242,22 @@ def test_StringContainer():
 # -----------------------------------------------------------------------------
 # Numeric containers
 
+
 def test_NumpyDataContainer():
     """Tests whether the __init__method behaves as desired"""
     # Basic initialization of Numpy ndarray-like data
-    ndc1 = NumpyDataContainer(name="oof", data=np.array([1,2,3]))
-    ndc2 = NumpyDataContainer(name="zab", data=np.array([2,4,6]))
+    ndc1 = NumpyDataContainer(name="oof", data=np.array([1, 2, 3]))
+    ndc2 = NumpyDataContainer(name="zab", data=np.array([2, 4, 6]))
 
     # Initialisation with lists should also work
-    NumpyDataContainer(name="rab", data=[3,6,9])
+    NumpyDataContainer(name="rab", data=[3, 6, 9])
 
     # Ensure that the CheckDataMixin does its job
     with pytest.raises(TypeError, match="Unexpected type"):
         NumpyDataContainer(name="zab", data=("not", "a", "valid", "type"))
 
     # Test the ForwardAttrsToDataMixin on a selection of numpy functions
-    l1 = [1,2,3]
+    l1 = [1, 2, 3]
     ndc1 = NumpyDataContainer(name="oof", data=np.array(l1))
     npa1 = np.array(l1)
     assert ndc1.size == npa1.size
@@ -253,8 +271,8 @@ def test_NumpyDataContainer():
     assert len(ndc2) == len(ndc2.data) == 3
 
     # Test the NumbersMixin
-    ndc1 = NumpyDataContainer(name="oof", data=np.array([1,2,3]))
-    ndc2 = NumpyDataContainer(name="zab", data=np.array([2,4,6]))
+    ndc1 = NumpyDataContainer(name="oof", data=np.array([1, 2, 3]))
+    ndc2 = NumpyDataContainer(name="zab", data=np.array([2, 4, 6]))
     add = ndc1 + ndc2
     sub = ndc1 - ndc2
     mult = ndc1 * ndc2
@@ -265,8 +283,8 @@ def test_NumpyDataContainer():
     power = ndc1 ** ndc2
 
     # Test NumbersMixin function for operations on two numpy arrays
-    l1 = [1,2,3]
-    l2 = [2,4,6]
+    l1 = [1, 2, 3]
+    l2 = [2, 4, 6]
     ndc1 = NumpyDataContainer(name="oof", data=np.array(l1))
     ndc2 = NumpyDataContainer(name="zab", data=np.array(l2))
     npa1 = np.array(l1)
@@ -322,8 +340,8 @@ def test_NumpyDataContainer():
     assert power_number.data.all() == power_number.all()
 
     # Test inplace operations
-    l1 = [1.,2.,3.]
-    l2 = [2.,4.,6.]
+    l1 = [1.0, 2.0, 3.0]
+    l2 = [2.0, 4.0, 6.0]
     ndc1_inplace = NumpyDataContainer(name="oof", data=np.array(l1))
     ndc2_inplace = NumpyDataContainer(name="zab", data=np.array(l2))
     npa1_inplace = np.array(l1)
@@ -331,35 +349,35 @@ def test_NumpyDataContainer():
 
     ndc1_inplace += ndc2_inplace
     npa1_inplace += npa2_inplace
-    assert (ndc1_inplace.all() == npa1_inplace.all())
+    assert ndc1_inplace.all() == npa1_inplace.all()
 
     ndc1_inplace -= ndc2_inplace
     npa1_inplace -= npa2_inplace
-    assert (ndc1_inplace.all() == npa1_inplace.all())
+    assert ndc1_inplace.all() == npa1_inplace.all()
 
     ndc1_inplace *= ndc2_inplace
     npa1_inplace *= npa2_inplace
-    assert (ndc1_inplace.all() == npa1_inplace.all())
+    assert ndc1_inplace.all() == npa1_inplace.all()
 
     ndc1_inplace /= ndc2_inplace
     npa1_inplace /= npa2_inplace
-    assert (ndc1_inplace.all() == npa1_inplace.all())
+    assert ndc1_inplace.all() == npa1_inplace.all()
 
     ndc1_inplace //= ndc2_inplace
     npa1_inplace //= npa2_inplace
-    assert (ndc1_inplace.all() == npa1_inplace.all())
+    assert ndc1_inplace.all() == npa1_inplace.all()
 
     ndc1_inplace %= ndc2_inplace
     npa1_inplace %= npa2_inplace
-    assert (ndc1_inplace.all() == npa1_inplace.all())
+    assert ndc1_inplace.all() == npa1_inplace.all()
 
     ndc1_inplace **= ndc2_inplace
     npa1_inplace **= npa2_inplace
-    assert (ndc1_inplace.all() == npa1_inplace.all())
+    assert ndc1_inplace.all() == npa1_inplace.all()
 
     # Test unary operations
-    l1 = [1.,-2.,3.]
-    l2 = [-2.,4.,6.]
+    l1 = [1.0, -2.0, 3.0]
+    l2 = [-2.0, 4.0, 6.0]
     ndc1 = NumpyDataContainer(name="oof", data=np.array(l1))
     ndc2 = NumpyDataContainer(name="zab", data=np.array(l2))
     npa1 = np.array(l1)
@@ -371,26 +389,26 @@ def test_NumpyDataContainer():
     assert ~ndc1.all() == ~npa1.all()
 
     # Test ComparisonMixin
-    l1 = [1,2,3]
-    l2 = [0,2,4]
+    l1 = [1, 2, 3]
+    l2 = [0, 2, 4]
     ndc1 = NumpyDataContainer(name="oof", data=np.array(l1))
     ndc2 = NumpyDataContainer(name="tada", data=np.array(l2))
     npa1 = np.array(l1)
     npa2 = np.array(l2)
 
-    eq = (ndc1 == ndc2)
-    ne = (ndc1 != ndc2)
-    lt = (ndc1 < ndc2)
-    le = (ndc1 <= ndc2)
-    gt = (ndc1 > ndc2)
-    ge = (ndc1 >= ndc2)
+    eq = ndc1 == ndc2
+    ne = ndc1 != ndc2
+    lt = ndc1 < ndc2
+    le = ndc1 <= ndc2
+    gt = ndc1 > ndc2
+    ge = ndc1 >= ndc2
 
-    eq_npa = (npa1 == npa2)
-    ne_npa = (npa1 != npa2)
-    lt_npa = (npa1 < npa2)
-    le_npa = (npa1 <= npa2)
-    gt_npa = (npa1 > npa2)
-    ge_npa = (npa1 >= npa2)
+    eq_npa = npa1 == npa2
+    ne_npa = npa1 != npa2
+    lt_npa = npa1 < npa2
+    le_npa = npa1 <= npa2
+    gt_npa = npa1 > npa2
+    ge_npa = npa1 >= npa2
 
     assert eq.all() == eq_npa.all()
     assert ne.all() == ne_npa.all()

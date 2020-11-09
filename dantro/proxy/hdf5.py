@@ -29,7 +29,7 @@ class Hdf5DataProxy(BaseDataProxy):
     closed upon garbage-collection of this object.
     """
 
-    def __init__(self, obj: h5.Dataset, *, resolve_as_dask: bool=False):
+    def __init__(self, obj: h5.Dataset, *, resolve_as_dask: bool = False):
         """Initializes a proxy object for Hdf5 datasets.
 
         Args:
@@ -60,12 +60,12 @@ class Hdf5DataProxy(BaseDataProxy):
         self._resolve_as_dask = resolve_as_dask
 
         # Set the tags
-        self._tags += ('hdf5',)
+        self._tags += ("hdf5",)
 
         if self._resolve_as_dask:
-            self._tags += ('dask',)
+            self._tags += ("dask",)
 
-    def resolve(self, *, astype: type=None):
+    def resolve(self, *, astype: type = None):
         """Resolve the data of this proxy by opening the hdf5 file and loading
         the dataset into a numpy array or a type specified by ``astype``.
 
@@ -82,9 +82,13 @@ class Hdf5DataProxy(BaseDataProxy):
             type specified by ``astype``: the resolved data.
         """
         if astype is h5.Dataset and not self._resolve_as_dask:
-            log.debug("Resolving %s as h5py.Dataset from dataset %s in file "
-                      "at %s ...",
-                      self.classname, self._name, self._fname)
+            log.debug(
+                "Resolving %s as h5py.Dataset from dataset %s in file "
+                "at %s ...",
+                self.classname,
+                self._name,
+                self._fname,
+            )
 
             # Open the file and keep it in scope
             h5file = self._open_h5file()
@@ -94,9 +98,13 @@ class Hdf5DataProxy(BaseDataProxy):
             return h5file[self._name]
 
         elif astype is None and self._resolve_as_dask:
-            log.debug("Resolving %s as h5py.Dataset from dataset %s in file "
-                      "at %s into a delayed dask array object...",
-                      self.classname, self._name, self._fname)
+            log.debug(
+                "Resolving %s as h5py.Dataset from dataset %s in file "
+                "at %s into a delayed dask array object...",
+                self.classname,
+                self._name,
+                self._fname,
+            )
 
             # Open the file and keep it in scope
             h5file = self._open_h5file()
@@ -108,14 +116,17 @@ class Hdf5DataProxy(BaseDataProxy):
             # By default, return as numpy array
             astype = astype if astype is not None else np.array
 
-            log.debug("Resolving %s as %s.%s from dataset %s in "
-                      "file at %s ...", self.classname,
-                      astype.__module__, astype.__name__,
-                      self._name, self._fname)
+            log.debug(
+                "Resolving %s as %s.%s from dataset %s in file at %s ...",
+                self.classname,
+                astype.__module__,
+                astype.__name__,
+                self._name,
+                self._fname,
+            )
 
-            with h5.File(self._fname, 'r') as h5file:
+            with h5.File(self._fname, "r") as h5file:
                 return astype(h5file[self._name])
-
 
     # Handling of HDF5 files ..................................................
 
@@ -127,7 +138,7 @@ class Hdf5DataProxy(BaseDataProxy):
         Returns:
             h5.File: The newly opened HDF5 file
         """
-        h5file = h5.File(self._fname, 'r')
+        h5file = h5.File(self._fname, "r")
         self._h5files.append(h5file)
         return h5file
 

@@ -98,4 +98,4 @@ class StringContainer(CollectionMixin, PassthroughContainer):
     # Specify expected data types for this container class
     DATA_EXPECTED_TYPES = (str,)
     DATA_ALLOW_PROXY = False
-    DATA_UNEXPECTED_ACTION = 'raise'  # can be: raise, warn, ignore
+    DATA_UNEXPECTED_ACTION = "raise"  # can be: raise, warn, ignore
