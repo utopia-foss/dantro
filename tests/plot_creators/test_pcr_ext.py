@@ -108,11 +108,14 @@ def test_style_context(init_kwargs, tmp_rc_file):
 
     # .. Integration tests ....................................................
     # Style dict for use in the test
-    style = {"base_style" : ["classic", "dark_background"],
-             "rc_file" : tmp_rc_file, "font.size" : 2.0}
+    style = {
+        "base_style": ["classic", "dark_background"],
+        "rc_file": tmp_rc_file,
+        "font.size": 2.0,
+    }
 
     # Test plot function to check wether the given style context is entered
-    def test_plot_func(*args, expected_rc_params: dict=None, **_):
+    def test_plot_func(*args, expected_rc_params: dict = None, **_):
         """Compares the entries of a dictionary with rc_params and the
         currently used rcParams oft matplotlib"""
         if expected_rc_params is None:
@@ -122,7 +125,7 @@ def test_style_context(init_kwargs, tmp_rc_file):
         # Compare the used rcParams with the expected value
         for key, expected_val in expected_rc_params.items():
             # Need to skip over some keys which are not very robust to check
-            if key in ('backend_fallback',):
+            if key in ("backend_fallback",):
                 print(f"Not testing rc parameter '{key}' ...")
                 continue
 
@@ -143,19 +146,31 @@ def test_style_context(init_kwargs, tmp_rc_file):
     epc.plot(out_path="test_path", plot_func=test_plot_func)
 
     # Style given
-    epc.plot(out_path="test_path", plot_func=test_plot_func, style=style,
-             expected_rc_params=epc._prepare_style_context(**style))
+    epc.plot(
+        out_path="test_path",
+        plot_func=test_plot_func,
+        style=style,
+        expected_rc_params=epc._prepare_style_context(**style),
+    )
 
     # Custom style
-    test_style = recursive_update(epc._prepare_style_context(**style),
-                                  {"font.size" : 20.0})
-    epc.plot(out_path="test_path", plot_func=test_plot_func, style=test_style,
-             expected_rc_params=epc._prepare_style_context(**test_style))
+    test_style = recursive_update(
+        epc._prepare_style_context(**style), {"font.size": 20.0}
+    )
+    epc.plot(
+        out_path="test_path",
+        plot_func=test_plot_func,
+        style=test_style,
+        expected_rc_params=epc._prepare_style_context(**test_style),
+    )
 
     # Ignoring defaults should also work (but have no effect)
-    epc.plot(out_path="test_path", plot_func=test_plot_func,
-             style=dict(**test_style, ignore_defaults=True),
-             expected_rc_params=epc._prepare_style_context(**test_style))
+    epc.plot(
+        out_path="test_path",
+        plot_func=test_plot_func,
+        style=dict(**test_style, ignore_defaults=True),
+        expected_rc_params=epc._prepare_style_context(**test_style),
+    )
 
     # .. With style given to init .............................................
     # Initialize plot creators with and without a default style
@@ -169,19 +184,29 @@ def test_style_context(init_kwargs, tmp_rc_file):
     assert epc._default_rc_params["font.size"] == 2.0
 
     # No style given, should use the `style` passed to init
-    epc.plot(out_path="test_path", plot_func=test_plot_func,
-             expected_rc_params=epc._prepare_style_context(**style))
+    epc.plot(
+        out_path="test_path",
+        plot_func=test_plot_func,
+        expected_rc_params=epc._prepare_style_context(**style),
+    )
 
     # Style given, should update the style given at init
-    update_style = recursive_update(epc._prepare_style_context(**style),
-                                    {"font.size" : 20.0})
-    epc.plot(out_path="test_path", plot_func=test_plot_func,
-             style=update_style,
-             expected_rc_params=epc._prepare_style_context(**update_style))
+    update_style = recursive_update(
+        epc._prepare_style_context(**style), {"font.size": 20.0}
+    )
+    epc.plot(
+        out_path="test_path",
+        plot_func=test_plot_func,
+        style=update_style,
+        expected_rc_params=epc._prepare_style_context(**update_style),
+    )
 
     # Ignore the defaults and nothing passed; should use matplotlib defaults
-    epc.plot(out_path="test_path", plot_func=test_plot_func,
-             style=dict(ignore_defaults=True))
+    epc.plot(
+        out_path="test_path",
+        plot_func=test_plot_func,
+        style=dict(ignore_defaults=True),
+    )
 
 
 def test_resolve_plot_func(init_kwargs, tmpdir, tmp_module):

@@ -810,9 +810,14 @@ class ExternalPlotCreator(BasePlotCreator):
     # .........................................................................
     # Helpers: Style and Animation
 
-    def _prepare_style_context(self, *, base_style: Union[str, List[str]]=None,
-                               rc_file: str=None, ignore_defaults: bool=False,
-                               **update_rc_params) -> dict:
+    def _prepare_style_context(
+        self,
+        *,
+        base_style: Union[str, List[str]] = None,
+        rc_file: str = None,
+        ignore_defaults: bool = False,
+        **update_rc_params,
+    ) -> dict:
         """Builds a dictionary with rcparams for use in a matplotlib rc context
 
         Args:
@@ -849,9 +854,11 @@ class ExternalPlotCreator(BasePlotCreator):
             base_style = [base_style]
 
         elif not isinstance(base_style, (list, tuple)):
-            raise TypeError("Argument `base_style` need be None, a string, "
-                            "or a list of strings, was of type {} with "
-                            "value '{}'!".format(type(base_style), base_style))
+            raise TypeError(
+                "Argument `base_style` need be None, a string, "
+                f"or a list of strings, was of type {type(base_style)} with "
+                f"value '{base_style}'!"
+            )
 
         # Now, base_style definitely is an iterable.
         # Use it to initially populate the RC dict
@@ -863,25 +870,31 @@ class ExternalPlotCreator(BasePlotCreator):
                 # If the base_style key is given, load a dictionary with the
                 # corresponding rc_params
                 if style_name not in plt.style.available:
-                    raise ValueError("Style '{}' is not a valid matplotlib "
-                                     "style. Available styles: {}"
-                                     "".format(style_name,
-                                               ", ".join(plt.style.available)))
+                    _available = ", ".join(plt.style.available)
+                    raise ValueError(
+                        f"Style '{style_name}' is not a valid matplotlib "
+                        f"style. Available styles: {_available}"
+                    )
 
-                rc_dict = recursive_update(rc_dict,
-                                           plt.style.library[style_name])
+                rc_dict = recursive_update(
+                    rc_dict, plt.style.library[style_name]
+                )
 
         # If a `rc_file` is specifed update the `rc_dict`
         if rc_file:
             path_to_rc = os.path.expanduser(rc_file)
 
             if not os.path.isabs(path_to_rc):
-                raise ValueError("Argument `rc_file` needs to be an absolute "
-                                 "path, was not! Got: {}".format(path_to_rc))
+                raise ValueError(
+                    "Argument `rc_file` needs to be an absolute "
+                    f"path, was not! Got: {path_to_rc}"
+                )
 
             elif not os.path.exists(path_to_rc):
-                raise ValueError("No file was found at path {} specified by "
-                                 "argument `rc_file`!".format(path_to_rc))
+                raise ValueError(
+                    f"No file was found at path {path_to_rc} specified by "
+                    "argument `rc_file`!"
+                )
 
             log.debug("Loading RC parameters from file %s ...", path_to_rc)
             rc_dict = recursive_update(rc_dict, load_yml(path_to_rc))
