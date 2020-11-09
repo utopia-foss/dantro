@@ -13,7 +13,8 @@
 - **Minor API additions:**
     - !204 implements `BaseDataGroup.clear` to remove all entries from a group.
     - !204 adds the `overwrite` argument to `BaseDataGroup.recursive_update`.
-    - !204 adds the `BasicComparisonMixin`, which supplies a simple `__eq__` magic method. 
+    - !204 adds the `BasicComparisonMixin`, which supplies a simple `__eq__` magic method.
+- !207 improves the computation time for data selection in the `GraphGroup`.
 
 #### Breaking changes
 - As of !204, the `PickleLoaderMixin` no longer allows choosing which load  function to use via a class variable but _always_ uses `dill.load`.
