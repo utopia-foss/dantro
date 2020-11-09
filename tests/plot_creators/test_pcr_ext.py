@@ -36,7 +36,7 @@ def tmp_module(tmpdir) -> str:
         "    with open(out_path, 'w') as f:\n"
         "        f.write(str(kwargs))\n"
         "    return 42\n"
-        )
+    )
 
     path = tmpdir.join("test_module.py")
     path.write(write_something_funcdef)
@@ -47,10 +47,7 @@ def tmp_module(tmpdir) -> str:
 @pytest.fixture
 def tmp_rc_file(tmpdir) -> str:
     """Creates a temporary yaml file with matplotlib rcParams"""
-    rc_paramaters = (
-        "figure.dpi: 10 \n"
-        "axes.grid: True\n"
-        )
+    rc_paramaters = "figure.dpi: 10 \naxes.grid: True\n"
 
     path = tmpdir.join("test_rc_file.yml")
     path.write(rc_paramaters)
@@ -66,17 +63,19 @@ def test_init(init_kwargs, tmpdir):
     ExternalPlotCreator("init", **init_kwargs)
 
     # Test passing a base_module_file_dir
-    ExternalPlotCreator("init", **init_kwargs,
-                        base_module_file_dir=tmpdir)
+    ExternalPlotCreator("init", **init_kwargs, base_module_file_dir=tmpdir)
 
     # Check with invalid directories
     with pytest.raises(ValueError, match="needs to be an absolute path"):
-        ExternalPlotCreator("init", **init_kwargs,
-                            base_module_file_dir="foo/bar/baz")
+        ExternalPlotCreator(
+            "init", **init_kwargs, base_module_file_dir="foo/bar/baz"
+        )
 
     with pytest.raises(ValueError, match="does not exists or does not point"):
-        ExternalPlotCreator("init", **init_kwargs,
-                            base_module_file_dir=tmpdir.join("foo.bar"))
+        ExternalPlotCreator(
+            "init", **init_kwargs, base_module_file_dir=tmpdir.join("foo.bar")
+        )
+
 
 
 def test_style_context(init_kwargs, tmp_rc_file):
@@ -221,6 +220,7 @@ def test_resolve_plot_func(init_kwargs, tmpdir, tmp_module):
     assert callable(resolve(module=".basic", plot_func="plt.plot"))
     # NOTE that this would not work as a plot function; just for testing here
 
+
 # -----------------------------------------------------------------------------
 
 
@@ -243,79 +243,84 @@ def test_use_dag(tmpdir, init_kwargs):
         assert isinstance(out_path, str)
 
     # Invoke plots with different callable vs. dag-usage combinations
-    epc.plot(out_path=out_path,
-             plot_func=pf_with_dag, use_dag=True)
+    epc.plot(out_path=out_path, plot_func=pf_with_dag, use_dag=True)
 
     with pytest.raises(TypeError, match="unexpected keyword argument 'data'"):
-        epc.plot(out_path=out_path,
-                 plot_func=pf_without_dag, use_dag=True)
+        epc.plot(out_path=out_path, plot_func=pf_without_dag, use_dag=True)
 
-    epc.plot(out_path=out_path,
-             plot_func=pf_without_dag, use_dag=False)
+    epc.plot(out_path=out_path, plot_func=pf_without_dag, use_dag=False)
 
     with pytest.raises(TypeError, match="takes 0 positional arguments"):
-        epc.plot(out_path=out_path,
-                 plot_func=pf_with_dag, use_dag=False)
+        epc.plot(out_path=out_path, plot_func=pf_with_dag, use_dag=False)
 
     # Passing the DAG object along to plot function, using function attributes
     def pf_with_dag_object(*, data, dag, out_path):
         assert isinstance(data, dict)
         assert isinstance(dag, TransformationDAG)
         assert isinstance(out_path, str)
+
     pf_with_dag_object.use_dag = True
     pf_with_dag_object.pass_dag_object_along = True
 
-    epc.plot(out_path=out_path,
-             plot_func=pf_with_dag_object)
+    epc.plot(out_path=out_path, plot_func=pf_with_dag_object)
 
     # With helper enabled
     def pf_with_dag_and_helper(*, data, hlpr):
         assert isinstance(data, dict)
         assert isinstance(hlpr, PlotHelper)
+
     pf_with_dag_and_helper.use_dag = True
     pf_with_dag_and_helper.use_helper = True
 
-    epc.plot(out_path=out_path,
-             plot_func=pf_with_dag_and_helper)
+    epc.plot(out_path=out_path, plot_func=pf_with_dag_and_helper)
 
     def pf_with_dag_and_helper_and_dag_object(*, data, dag, hlpr):
         assert isinstance(data, dict)
         assert isinstance(dag, TransformationDAG)
         assert isinstance(hlpr, PlotHelper)
+
     pf_with_dag_and_helper_and_dag_object.use_dag = True
     pf_with_dag_and_helper_and_dag_object.use_helper = True
     pf_with_dag_and_helper_and_dag_object.pass_dag_object_along = True
 
-    epc.plot(out_path=out_path,
-             plot_func=pf_with_dag_and_helper_and_dag_object)
+    epc.plot(
+        out_path=out_path, plot_func=pf_with_dag_and_helper_and_dag_object
+    )
 
     # Overwriting DAG usage enabled in attribute but disabled via plot config
     def pf_with_dag_disabled_via_cfg(dm, *, out_path):
         assert isinstance(dm, DataManager)
+
     pf_with_dag_disabled_via_cfg.use_dag = True
     pf_with_dag_disabled_via_cfg.pass_dag_object_along = True
 
-    epc.plot(out_path=out_path,
-             plot_func=pf_with_dag_disabled_via_cfg,
-             use_dag=False)
+    epc.plot(
+        out_path=out_path,
+        plot_func=pf_with_dag_disabled_via_cfg,
+        use_dag=False,
+    )
 
     # Unpacking dag results
     def pf_with_dag_results_unpacked(*, out_path, foo, bar):
         pass
+
     pf_with_dag_results_unpacked.use_dag = True
     pf_with_dag_results_unpacked.unpack_dag_results = True
     pf_with_dag_results_unpacked.compute_only_required_dag_tags = True
 
-    epc.plot(out_path=out_path,
-             plot_func=pf_with_dag_results_unpacked,
-             transform=[dict(define=1, tag="foo"), dict(define=2, tag="bar")])
+    epc.plot(
+        out_path=out_path,
+        plot_func=pf_with_dag_results_unpacked,
+        transform=[dict(define=1, tag="foo"), dict(define=2, tag="bar")],
+    )
 
     with pytest.raises(TypeError, match="Failed unpacking DAG results!"):
-        epc.plot(out_path=out_path,
-                 plot_func=pf_with_dag_results_unpacked,
-                 transform=[dict(define=1, tag="foo"),
-                            dict(define=2, tag="bar")],
-                 foo="bar")
+        epc.plot(
+            out_path=out_path,
+            plot_func=pf_with_dag_results_unpacked,
+            transform=[dict(define=1, tag="foo"), dict(define=2, tag="bar")],
+            foo="bar",
+        )
 
 
 def test_dag_required_tags(tmpdir, init_kwargs):
@@ -326,8 +331,7 @@ def test_dag_required_tags(tmpdir, init_kwargs):
     out_path = str(tmpdir.join("foo"))
 
     # Some basic transformations for testing
-    sum_and_sub = [dict(add=[1,2], tag="sum"),
-                   dict(sub=[3,2], tag="sub")]
+    sum_and_sub = [dict(add=[1, 2], tag="sum"), dict(sub=[3, 2], tag="sub")]
 
     # Define a plot function for testing expected tags
     def pf(*, data: dict, dag, out_path, expected_tags: set):
@@ -335,63 +339,100 @@ def test_dag_required_tags(tmpdir, init_kwargs):
         if expected_tags is not None:
             assert set(data.keys()) == expected_tags
             assert all([t in dag.tags for t in expected_tags])
+
     pf.use_dag = True
     pf.pass_dag_object_along = True
 
     # Without required tags given, there should be no checks
-    epc.plot(out_path=out_path, plot_func=pf, transform=sum_and_sub,
-             expected_tags=None)
+    epc.plot(
+        out_path=out_path,
+        plot_func=pf,
+        transform=sum_and_sub,
+        expected_tags=None,
+    )
 
     # Now, require some tags. These should be the only ones set now.
-    pf.required_dag_tags = ('sum', 'sub')
-    epc.plot(out_path=out_path, plot_func=pf, transform=sum_and_sub,
-             expected_tags={'sum', 'sub'})
+    pf.required_dag_tags = ("sum", "sub")
+    epc.plot(
+        out_path=out_path,
+        plot_func=pf,
+        transform=sum_and_sub,
+        expected_tags={"sum", "sub"},
+    )
 
     # Modify required tags and check that this leads to an error
-    pf.required_dag_tags = ('sum', 'sub', 'mul')
+    pf.required_dag_tags = ("sum", "sub", "mul")
 
-    with pytest.raises(ValueError,
-                       match="required tags that were not specified in the "
-                             "DAG: mul. Available tags: .*sum, sub"):
+    with pytest.raises(
+        ValueError,
+        match=(
+            "required tags that were not specified in the "
+            "DAG: mul. Available tags: .*sum, sub"
+        ),
+    ):
         epc.plot(out_path=out_path, plot_func=pf, transform=sum_and_sub)
         # expected_tags not checked here
 
     # ... unless there actually is another transformation
-    epc.plot(out_path=out_path, plot_func=pf,
-             transform=sum_and_sub + [dict(mul=[1,1], tag="mul")],
-             expected_tags={'sum', 'sub', 'mul'})
+    epc.plot(
+        out_path=out_path,
+        plot_func=pf,
+        transform=sum_and_sub + [dict(mul=[1, 1], tag="mul")],
+        expected_tags={"sum", "sub", "mul"},
+    )
 
     # What about if there are more transformations?
     # By default, all are computed, leading to a ZeroDivisionError here
     with pytest.raises(RuntimeError, match="ZeroDivisionError"):
-        epc.plot(out_path=out_path, plot_func=pf,
-                 transform=sum_and_sub + [dict(mul=[1,1], tag="mul"),
-                                          dict(div=[1,0], tag="div")],
-                 expected_tags={'sum', 'sub', 'mul'})  # not checked
+        epc.plot(
+            out_path=out_path,
+            plot_func=pf,
+            transform=sum_and_sub
+            + [dict(mul=[1, 1], tag="mul"), dict(div=[1, 0], tag="div")],
+            expected_tags={"sum", "sub", "mul"},
+        )  # not checked
 
     # When setting the compute_only_required_dag_tags, this is not an issue
-    pf.required_dag_tags = ('sum', 'sub')
+    pf.required_dag_tags = ("sum", "sub")
     pf.compute_only_required_dag_tags = True
-    epc.plot(out_path=out_path, plot_func=pf,
-             transform=sum_and_sub + [dict(mul=[1,1], tag="mul"),
-                                      dict(div=[1,0], tag="div")],
-             expected_tags={'sum', 'sub'})
+    epc.plot(
+        out_path=out_path,
+        plot_func=pf,
+        transform=sum_and_sub
+        + [dict(mul=[1, 1], tag="mul"), dict(div=[1, 0], tag="div")],
+        expected_tags={"sum", "sub"},
+    )
 
     # ... but the compute_only argument is stronger:
-    with pytest.raises(ValueError,
-                       match="required tags that were not set to be computed "
-                             "by the DAG: sub."):
-        epc.plot(out_path=out_path, plot_func=pf, compute_only=['sum'],
-                 transform=sum_and_sub)
+    with pytest.raises(
+        ValueError,
+        match=(
+            "required tags that were not set to be computed by the DAG: sub."
+        ),
+    ):
+        epc.plot(
+            out_path=out_path,
+            plot_func=pf,
+            compute_only=["sum"],
+            transform=sum_and_sub,
+        )
 
     # Adjust computed tags via config to provoke an error message
     pf.compute_only_required_dag_tags = False
-    with pytest.raises(ValueError,
-                       match="required tags that were not set to be computed "
-                             "by the DAG: sum, sub. Make sure to set the "
-                             "`compute_only` argument such that results"):
-        epc.plot(out_path=out_path, plot_func=pf, transform=sum_and_sub,
-                 compute_only=[])
+    with pytest.raises(
+        ValueError,
+        match=(
+            "required tags that were not set to be computed "
+            "by the DAG: sum, sub. Make sure to set the "
+            "`compute_only` argument such that results"
+        ),
+    ):
+        epc.plot(
+            out_path=out_path,
+            plot_func=pf,
+            transform=sum_and_sub,
+            compute_only=[],
+        )
 
     # Disabled DAG usage should also raise an error
     with pytest.raises(ValueError, match="requires DAG tags to be computed"):
@@ -411,52 +452,88 @@ def test_dag_required_tags(tmpdir, init_kwargs):
     assert pf_dec.pass_dag_object_along is False
 
     # ... without required DAG tags
-    epc.plot(out_path=out_path, plot_func=pf_dec,
-             transform=sum_and_sub,
-             expected_tags={'sum', 'sub'})
+    epc.plot(
+        out_path=out_path,
+        plot_func=pf_dec,
+        transform=sum_and_sub,
+        expected_tags={"sum", "sub"},
+    )
 
-    epc.plot(out_path=out_path, plot_func=pf_dec,
-             transform=sum_and_sub + [dict(mul=[1,1], tag="mul")],
-             expected_tags={'sum', 'sub', 'mul'})
+    epc.plot(
+        out_path=out_path,
+        plot_func=pf_dec,
+        transform=sum_and_sub + [dict(mul=[1, 1], tag="mul")],
+        expected_tags={"sum", "sub", "mul"},
+    )
 
-    epc.plot(out_path=out_path, plot_func=pf_dec,
-             transform=sum_and_sub + [dict(mul=[1,1], tag="mul")],
-             compute_only=['sum'], expected_tags={'sum'})
+    epc.plot(
+        out_path=out_path,
+        plot_func=pf_dec,
+        transform=sum_and_sub + [dict(mul=[1, 1], tag="mul")],
+        compute_only=["sum"],
+        expected_tags={"sum"},
+    )
 
     # ... with required DAG tags (and compute_only_required_dag_tags ENABLED)
-    pf_dec.required_dag_tags = ('sum', 'sub')
+    pf_dec.required_dag_tags = ("sum", "sub")
 
-    epc.plot(out_path=out_path, plot_func=pf_dec,
-             transform=sum_and_sub + [dict(mul=[1,1], tag="mul")],
-             expected_tags={'sum', 'sub'})
+    epc.plot(
+        out_path=out_path,
+        plot_func=pf_dec,
+        transform=sum_and_sub + [dict(mul=[1, 1], tag="mul")],
+        expected_tags={"sum", "sub"},
+    )
 
-    with pytest.raises(ValueError,
-                       match="required tags that were not set to be computed "
-                             "by the DAG: sub."):
-        epc.plot(out_path=out_path, plot_func=pf_dec,
-                 transform=sum_and_sub + [dict(mul=[1,1], tag="mul")],
-                 compute_only=['sum'], expected_tags={'sum', 'sub'})
+    with pytest.raises(
+        ValueError,
+        match=(
+            "required tags that were not set to be computed by the DAG: sub."
+        ),
+    ):
+        epc.plot(
+            out_path=out_path,
+            plot_func=pf_dec,
+            transform=sum_and_sub + [dict(mul=[1, 1], tag="mul")],
+            compute_only=["sum"],
+            expected_tags={"sum", "sub"},
+        )
 
     # ... with required DAG tags (and compute_only_required_dag_tags DISABLED)
     pf_dec.compute_only_required_dag_tags = False
 
-    epc.plot(out_path=out_path, plot_func=pf_dec,
-             transform=sum_and_sub + [dict(mul=[1,1], tag="mul")],
-             expected_tags={'sum', 'sub', 'mul'})
+    epc.plot(
+        out_path=out_path,
+        plot_func=pf_dec,
+        transform=sum_and_sub + [dict(mul=[1, 1], tag="mul")],
+        expected_tags={"sum", "sub", "mul"},
+    )
 
-    epc.plot(out_path=out_path, plot_func=pf_dec,
-             transform=sum_and_sub + [dict(mul=[1,1], tag="mul")],
-             compute_only=['sum', 'sub'], expected_tags={'sum', 'sub'})
+    epc.plot(
+        out_path=out_path,
+        plot_func=pf_dec,
+        transform=sum_and_sub + [dict(mul=[1, 1], tag="mul")],
+        compute_only=["sum", "sub"],
+        expected_tags={"sum", "sub"},
+    )
 
-    with pytest.raises(ValueError,
-                       match="required tags that were not set to be computed "
-                             "by the DAG: sum, sub."):
-        epc.plot(out_path=out_path, plot_func=pf_dec,
-                 transform=sum_and_sub + [dict(mul=[1,1], tag="mul")],
-                 compute_only=[], expected_tags={})
+    with pytest.raises(
+        ValueError,
+        match=(
+            "required tags that were not set to be computed "
+            "by the DAG: sum, sub."
+        ),
+    ):
+        epc.plot(
+            out_path=out_path,
+            plot_func=pf_dec,
+            transform=sum_and_sub + [dict(mul=[1, 1], tag="mul")],
+            compute_only=[],
+            expected_tags={},
+        )
 
 
 # -----------------------------------------------------------------------------
+
 
 def test_can_plot(init_kwargs, tmp_module):
     """Tests the can_plot and _valid_plot_func_signature methods"""
@@ -555,7 +632,7 @@ def test_decorator(tmpdir):
 def test_figure_leak_prevention():
     """Tests the figure_leak_prevention context manager"""
     # After a fresh start, open some figures
-    plt.close('all')
+    plt.close("all")
     figs = [plt.figure() for i in range(3)]
     assert plt.get_fignums() == [1, 2, 3]
 

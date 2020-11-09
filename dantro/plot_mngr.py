@@ -21,10 +21,11 @@ from .tools import load_yml, write_yml, recursive_update
 log = logging.getLogger(__name__)
 
 # Substrings that may not appear in plot names
-BAD_NAME_CHARS = ('*', '?', '[', ']', '!', ':', '.')
+BAD_NAME_CHARS = ("*", "?", "[", "]", "!", ":", ".")
 
 # -----------------------------------------------------------------------------
 # Custom exception classes
+
 
 class PlottingError(Exception):
     """Custom exception class for all plotting errors"""
@@ -76,17 +77,22 @@ class PlotManager:
 
     # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-    def __init__(self, *, dm: DataManager, base_cfg: Union[dict, str]=None,
-                 update_base_cfg: Union[dict, str]=None,
-                 plots_cfg: Union[dict, str]=None,
-                 out_dir: Union[str, None]="{timestamp:}/",
-                 out_fstrs: dict=None,
-                 creator_init_kwargs: Dict[str, dict]=None,
-                 default_creator: str=None,
-                 auto_detect_creator: bool=False,
-                 save_plot_cfg: bool=True,
-                 raise_exc: bool=False,
-                 cfg_exists_action: str='raise'):
+    def __init__(
+        self,
+        *,
+        dm: DataManager,
+        base_cfg: Union[dict, str] = None,
+        update_base_cfg: Union[dict, str] = None,
+        plots_cfg: Union[dict, str] = None,
+        out_dir: Union[str, None] = "{timestamp:}/",
+        out_fstrs: dict = None,
+        creator_init_kwargs: Dict[str, dict] = None,
+        default_creator: str = None,
+        auto_detect_creator: bool = False,
+        save_plot_cfg: bool = True,
+        raise_exc: bool = False,
+        cfg_exists_action: str = "raise",
+    ):
         """Initialize the PlotManager
 
         The initialization comes with three (optional) hierarchical levels to
@@ -245,17 +251,20 @@ class PlotManager:
         # Update the default format strings, if any were given here
         self._out_fstrs = self.DEFAULT_OUT_FSTRS
         if out_fstrs:
-            self._out_fstrs = recursive_update(copy.deepcopy(self._out_fstrs),
-                                               out_fstrs)
+            self._out_fstrs = recursive_update(
+                copy.deepcopy(self._out_fstrs), out_fstrs
+            )
 
         # Store creator init kwargs
         self._cckwargs = creator_init_kwargs if creator_init_kwargs else {}
 
         # Store default creator name
         if default_creator and default_creator not in self.CREATORS:
-            raise InvalidCreator("No such creator '{}' available, only: {}"
-                                 "".format(default_creator,
-                                           [k for k in self.CREATORS.keys()]))
+            raise InvalidCreator(
+                "No such creator '{}' available, only: {}".format(
+                    default_creator, [k for k in self.CREATORS.keys()]
+                )
+            )
         self._default_creator = default_creator
 
         log.debug("%s initialized.", self.__class__.__name__)
@@ -296,7 +305,7 @@ class PlotManager:
             str: The path of the created directory
         """
         # Get date format string and current time and create a string
-        timefstr = self._out_fstrs.get('timestamp', "%y%m%d-%H%M%S")
+        timefstr = self._out_fstrs.get("timestamp", "%y%m%d-%H%M%S")
         timestr = time.strftime(timefstr)
 
         out_dir = fstr.format(timestamp=timestr, name=name)
@@ -305,15 +314,23 @@ class PlotManager:
         out_dir = os.path.expanduser(out_dir)
         if not os.path.isabs(out_dir):
             # Regard it as relative to the data manager's output directory
-            out_dir = os.path.join(self._dm.dirs['out'], out_dir)
+            out_dir = os.path.join(self._dm.dirs["out"], out_dir)
 
         # Return the full path
         return out_dir
 
-    def _parse_out_path(self, creator: BasePlotCreator, *, name: str,
-                        out_dir: str, file_ext: str=None, state_no: int=None,
-                        state_no_max: int=None, state_vector: Tuple[int]=None,
-                        dims: dict=None) -> str:
+    def _parse_out_path(
+        self,
+        creator: BasePlotCreator,
+        *,
+        name: str,
+        out_dir: str,
+        file_ext: str = None,
+        state_no: int = None,
+        state_no_max: int = None,
+        state_vector: Tuple[int] = None,
+        dims: dict = None,
+    ) -> str:
         """Given a creator and (optionally) parameter sweep information, a full
         and absolute output path is generated, including the file extension.
 
@@ -337,16 +354,18 @@ class PlotManager:
         Returns:
             str: The fully parsed output path for this plot
         """
-        def parse_state_pair(name: str, dim: ParamDim, *,
-                             fstrs: dict) -> Tuple[str]:
+
+        def parse_state_pair(
+            name: str, dim: ParamDim, *, fstrs: dict
+        ) -> Tuple[str]:
             """Helper method to create a state pair"""
             # Parse the name
-            for search, replace in fstrs['state_name_replace_chars']:
+            for search, replace in fstrs["state_name_replace_chars"]:
                 name = name.replace(search, replace)
 
             # Parse the value
             val = str(dim.current_value)
-            for search, replace in fstrs['state_val_replace_chars']:
+            for search, replace in fstrs["state_val_replace_chars"]:
                 val = val.replace(search, replace)
 
             return name, val
@@ -355,7 +374,7 @@ class PlotManager:
         fstrs = self.out_fstrs
 
         # Evaluate the keys available for both cases
-        keys = dict(timestamp=time.strftime(fstrs['timestamp']), name=name)
+        keys = dict(timestamp=time.strftime(fstrs["timestamp"]), name=name)
 
         # Parse file extension and ensure it starts with a dot
         ext = file_ext if file_ext else creator.get_ext()
@@ -365,45 +384,53 @@ class PlotManager:
         elif ext is None:
             ext = ""
 
-        keys['ext'] = ext
+        keys["ext"] = ext
 
         # Change behaviour depending on whether state information was given
         if state_no is None:
             # Assume the other arguments are also None -> Not part of the sweep
             # Evaluate it
-            out_path = fstrs['path'].format(**keys)
+            out_path = fstrs["path"].format(**keys)
 
         else:
             # Is part of a sweep
             # Parse additional keys
             # state number
             digits = len(str(state_no_max))
-            keys['state_no'] = fstrs['state_no'].format(no=state_no,
-                                                        digits=digits)
+            keys["state_no"] = fstrs["state_no"].format(
+                no=state_no, digits=digits
+            )
 
             # state values -- need to do some parsing here ...
-            state_pairs = [parse_state_pair(name, dim, fstrs=fstrs)
-                           for name, dim in dims.items()]
+            state_pairs = [
+                parse_state_pair(name, dim, fstrs=fstrs)
+                for name, dim in dims.items()
+            ]
 
-            sjc = fstrs['state_join_char']
-            keys['state'] = sjc.join([fstrs['state'].format(name=k, val=v)
-                                      for k, v in state_pairs])
+            sjc = fstrs["state_join_char"]
+            keys["state"] = sjc.join(
+                [fstrs["state"].format(name=k, val=v) for k, v in state_pairs]
+            )
 
             # state vector
-            svjc = fstrs['state_vector_join_char']
-            keys['state_vector'] = svjc.join([str(s) for s in state_vector])
+            svjc = fstrs["state_vector_join_char"]
+            keys["state_vector"] = svjc.join([str(s) for s in state_vector])
 
             # Evaluate it
-            out_path = fstrs['sweep'].format(**keys)
+            out_path = fstrs["sweep"].format(**keys)
 
         # Prepend the output directory and return
         out_path = os.path.join(out_dir, out_path)
 
         return out_path
 
-    def _resolve_based_on(self, *, cfg: dict,
-                          based_on: Union[str, Tuple[str]]=None,
-                          work_on_deepcopy: bool=True) -> dict:
+    def _resolve_based_on(
+        self,
+        *,
+        cfg: dict,
+        based_on: Union[str, Tuple[str]] = None,
+        work_on_deepcopy: bool = True,
+    ) -> dict:
         """Resolves the ``based_on`` reference in a plot configuration
 
         Args:
@@ -433,10 +460,11 @@ class PlotManager:
         base_cfg = dict()
         for _based_on in based_on:
             if _based_on not in self.base_cfg.keys():
-                raise KeyError("No base plot configuration named '{}' "
-                               "available! Choose from: {}"
-                               "".format(_based_on,
-                                         ", ".join(self._base_cfg.keys())))
+                raise KeyError(
+                    "No base plot configuration named '{}' "
+                    "available! Choose from: {}"
+                    "".format(_based_on, ", ".join(self._base_cfg.keys()))
+                )
 
             # Do the recursive update. The base_cfg property already returns
             # a deep copy of the base configuration ...
@@ -445,10 +473,16 @@ class PlotManager:
         # As final step, update the base configuration with everything
         return recursive_update(base_cfg, cfg)
 
-    def _get_plot_creator(self, creator: Union[str, None],
-                          *, name: str, init_kwargs: dict,
-                          from_pspace: ParamSpace=None, plot_cfg: dict,
-                          auto_detect: bool=None) -> BasePlotCreator:
+    def _get_plot_creator(
+        self,
+        creator: Union[str, None],
+        *,
+        name: str,
+        init_kwargs: dict,
+        from_pspace: ParamSpace = None,
+        plot_cfg: dict,
+        auto_detect: bool = None,
+    ) -> BasePlotCreator:
         """Determines which plot creator to use by looking at the given
         arguments. If set, tries to auto-detect from the arguments, which
         creator is to be used.
@@ -478,8 +512,11 @@ class PlotManager:
         # If no creator is given, check if a default one can be used
         if creator is None:
             # Combine auto-detect related settings
-            auto_detect = (auto_detect if auto_detect is not None
-                           else self._auto_detect_creator)
+            auto_detect = (
+                auto_detect
+                if auto_detect is not None
+                else self._auto_detect_creator
+            )
 
             # Find other ways to determine the name of the creator
             if self._default_creator:
@@ -502,10 +539,13 @@ class PlotManager:
                 for pc_name in self.CREATORS.keys():
                     try:
                         # Instantiate them by calling this function recursively
-                        pc = self._get_plot_creator(pc_name, name=name,
-                                                    init_kwargs=init_kwargs,
-                                                    from_pspace=from_pspace,
-                                                    plot_cfg=plot_cfg)
+                        pc = self._get_plot_creator(
+                            pc_name,
+                            name=name,
+                            init_kwargs=init_kwargs,
+                            from_pspace=from_pspace,
+                            plot_cfg=plot_cfg,
+                        )
                         # NOTE Cannot call a class method here, because some
                         #      creators might need the actual arguments in
                         #      order to work properly
@@ -518,8 +558,10 @@ class PlotManager:
                     # Successfully initialized. Check if it's a candidate for
                     # this plot configuration
                     if pc.can_plot(pc_name, **cfg):
-                        log.debug("Plot creator '%s' declared itself a "
-                                  "candidate.", pc_name)
+                        log.debug(
+                            "Plot creator '%s' declared itself a candidate.",
+                            pc_name,
+                        )
                         pc_candidates.append((pc_name, pc))
 
                 # If there is more than one candidate, cannot decide
@@ -565,8 +607,8 @@ class PlotManager:
             log.debug("Recursively updating creator initialization kwargs ...")
             pc_kwargs = recursive_update(copy.deepcopy(pc_kwargs), init_kwargs)
 
-        if 'raise_exc' not in pc_kwargs:
-            pc_kwargs['raise_exc'] = self.raise_exc
+        if "raise_exc" not in pc_kwargs:
+            pc_kwargs["raise_exc"] = self.raise_exc
 
         # Instantiate the creator class
         pc = self.CREATORS[creator](name=name, dm=self._dm, **pc_kwargs)
@@ -574,9 +616,14 @@ class PlotManager:
         log.debug("Initialized %s.", pc.logstr)
         return pc
 
-    def _invoke_creator(self, plot_creator: BasePlotCreator, *,
-                        out_path: str, debug: bool=None,
-                        **plot_cfg) -> Union[bool, str]:
+    def _invoke_creator(
+        self,
+        plot_creator: BasePlotCreator,
+        *,
+        out_path: str,
+        debug: bool = None,
+        **plot_cfg,
+    ) -> Union[bool, str]:
         """This method wraps the plot creator's ``__call__`` and is the last
         PlotManager method that is called prior to handing over to the selected
         plot creator. It takes care of invoking the plot creator's ``__call__``
@@ -605,7 +652,7 @@ class PlotManager:
 
         except SkipPlot as skip_reason:
             log.caution("Skipped. %s\n", skip_reason)
-            return 'skipped'
+            return "skipped"
 
         except Exception as err:
             # Conditionally assemble an error message
@@ -621,7 +668,7 @@ class PlotManager:
                 "configuration or disable debug mode for the PlotManager."
             )
             e_msg = (
-                f"An error occurred during plotting with "
+                "An error occurred during plotting with "
                 f"{plot_creator.logstr}! "
                 f"{e_dbg if not should_raise else e_no_dbg}\n\n"
                 f"{err.__class__.__name__}: {err}"
@@ -635,32 +682,54 @@ class PlotManager:
         log.debug("Plot creator call returned successfully.")
         return True
 
-    def _store_plot_info(self, name: str,
-                         *, plot_cfg: dict, creator_name: str, save: bool,
-                         target_dir: str, **info):
+    def _store_plot_info(
+        self,
+        name: str,
+        *,
+        plot_cfg: dict,
+        creator_name: str,
+        save: bool,
+        target_dir: str,
+        **info,
+    ):
         """Stores all plot information in the plot_info list and, if `save` is
         set, also saves it using the _save_plot_cfg method.
         """
         # Prepare the entry
-        entry = dict(name=name, plot_cfg=plot_cfg, target_dir=target_dir,
-                     creator_name=creator_name, **info,
-                     plot_cfg_path=None)
+        entry = dict(
+            name=name,
+            plot_cfg=plot_cfg,
+            target_dir=target_dir,
+            creator_name=creator_name,
+            **info,
+            plot_cfg_path=None,
+        )
 
         if save:
             # Save the plot configuration
-            save_path = self._save_plot_cfg(plot_cfg, name=name,
-                                            target_dir=target_dir,
-                                            creator_name=creator_name)
+            save_path = self._save_plot_cfg(
+                plot_cfg,
+                name=name,
+                target_dir=target_dir,
+                creator_name=creator_name,
+            )
 
             # Store the path the configuration was saved at
-            entry['plot_cfg_path'] = save_path
+            entry["plot_cfg_path"] = save_path
 
         # Append to the plot_info list
         self._plot_info.append(entry)
 
-    def _save_plot_cfg(self, cfg: dict,
-                       *, name: str, creator_name: str, target_dir: str,
-                       exists_action: str=None, is_sweep: bool=False) -> str:
+    def _save_plot_cfg(
+        self,
+        cfg: dict,
+        *,
+        name: str,
+        creator_name: str,
+        target_dir: str,
+        exists_action: str = None,
+        is_sweep: bool = False,
+    ) -> str:
         """Saves the given configuration under the top-level entry ``name`` to
         a yaml file.
 
@@ -691,61 +760,67 @@ class PlotManager:
         d[name] = copy.deepcopy(cfg)
 
         if not isinstance(cfg, ParamSpace):
-            d[name]['creator'] = creator_name
+            d[name]["creator"] = creator_name
 
         else:
             # FIXME hacky, should not use the internal API!
-            d[name]._dict['creator'] = creator_name
+            d[name]._dict["creator"] = creator_name
 
         # Generate the filename and save path
-        fn_fstr = self.out_fstrs['plot_cfg_sweep' if is_sweep else 'plot_cfg']
-        fname = fn_fstr.format(name=name,
-                               basename=os.path.basename(name))
+        fn_fstr = self.out_fstrs["plot_cfg_sweep" if is_sweep else "plot_cfg"]
+        fname = fn_fstr.format(name=name, basename=os.path.basename(name))
         save_path = os.path.join(target_dir, fname)
 
         # Try to write
         try:
-            write_yml(d, path=save_path, mode='x')
+            write_yml(d, path=save_path, mode="x")
 
         except FileExistsError:
             log.debug("Config file already exists at %s!", save_path)
 
-            if exists_action == 'raise':
+            if exists_action == "raise":
                 raise
 
-            elif exists_action == 'skip':
+            elif exists_action == "skip":
                 log.debug("Skipping ...")
 
-            elif exists_action == 'append':
+            elif exists_action == "append":
                 log.debug("Appending ...")
-                write_yml(d, path=save_path, mode='a')
+                write_yml(d, path=save_path, mode="a")
 
-            elif exists_action == 'overwrite':
+            elif exists_action == "overwrite":
                 log.warning("Overwriting existing plot configuration ...")
-                write_yml(d, path=save_path, mode='w')
+                write_yml(d, path=save_path, mode="w")
 
-            elif exists_action == 'overwrite_nowarn':
+            elif exists_action == "overwrite_nowarn":
                 log.debug("Overwriting ...")
-                write_yml(d, path=save_path, mode='w')
+                write_yml(d, path=save_path, mode="w")
 
             else:
-                raise ValueError("Invalid value '{}' for argument "
-                                 "`exists_action`!".format(exists_action))
+                raise ValueError(
+                    "Invalid value '{}' for argument `exists_action`!".format(
+                        exists_action
+                    )
+                )
 
         else:
-            log.debug("Saved plot configuration for '%s' to: %s",
-                      name, save_path)
+            log.debug(
+                "Saved plot configuration for '%s' to: %s", name, save_path
+            )
 
         return save_path
 
     # .........................................................................
     # Plotting
 
-    def plot_from_cfg(self, *,
-                      plots_cfg: Union[dict, str]=None,
-                      plot_only: List[str]=None,
-                      out_dir: str=None,
-                      **update_plots_cfg) -> None:
+    def plot_from_cfg(
+        self,
+        *,
+        plots_cfg: Union[dict, str] = None,
+        plot_only: List[str] = None,
+        out_dir: str = None,
+        **update_plots_cfg,
+    ) -> None:
         """Create multiple plots from a configuration, either a given one or
         the one passed during initialization.
 
@@ -776,8 +851,10 @@ class PlotManager:
         # Determine which plot configuration to use
         if not plots_cfg:
             if not self._plots_cfg and not update_plots_cfg:
-                e_msg = ("Got empty `plots_cfg` and `plots_cfg` given at "
-                         "initialization was also empty. Nothing to plot.")
+                e_msg = (
+                    "Got empty `plots_cfg` and `plots_cfg` given at "
+                    "initialization was also empty. Nothing to plot."
+                )
 
                 if self.raise_exc:
                     raise PlotConfigError(e_msg)
@@ -785,8 +862,10 @@ class PlotManager:
                 log.error(e_msg)
                 return
 
-            log.debug("No new plots configuration given; will use plots "
-                      "configuration given at initialization.")
+            log.debug(
+                "No new plots configuration given; will use plots "
+                "configuration given at initialization."
+            )
             plots_cfg = self._plots_cfg
 
         elif isinstance(plots_cfg, str):
@@ -805,18 +884,19 @@ class PlotManager:
         # Check the plot configuration for invalid types
         for plot_name, cfg in plots_cfg.items():
             if not isinstance(cfg, (dict, ParamSpace)):
-                raise PlotConfigError("Got invalid plots specifications for "
-                                      "entry '{}'! Expected dict, got {} with "
-                                      "value '{}'. Check the correctness of "
-                                      "the given plots configuration!"
-                                      "".format(plot_name, type(cfg), cfg))
+                raise PlotConfigError(
+                    "Got invalid plots specifications for "
+                    f"entry '{plot_name}'! Expected dict, got {type(cfg)} "
+                    f"with value '{cfg}'. Check the correctness of "
+                    "the given plots configuration!"
+                )
 
         # Filter the plot selection
         if plot_only is not None:
             # Resolve glob-like patterns
             to_plot = []
             for name in plot_only:
-                if any([s in name for s in ('*', '?', '[', ']')]):
+                if any([s in name for s in ("*", "?", "[", "]")]):
                     # Add all matching plot names
                     to_plot += fnmatch.filter(plots_cfg.keys(), name)
                 else:
@@ -841,16 +921,20 @@ class PlotManager:
             # Remove all `enabled` keys from the remaining entries, thus also
             # enabling those plots that were set `enabled: False`
             for cfg in plots_cfg.values():
-                cfg.pop('enabled', None)
+                cfg.pop("enabled", None)
 
         else:
             # Resolve all `enabled` entries, creating a new plots_cfg dict
-            plots_cfg = {k: v for k, v in plots_cfg.items()
-                         if v.pop('enabled', True)}
+            plots_cfg = {
+                k: v for k, v in plots_cfg.items() if v.pop("enabled", True)
+            }
 
         # Throw out entries that start with an underscore or dot
-        plots_cfg = {k: v for k, v in plots_cfg.items()
-                     if not (k.startswith("_") or k.startswith("."))}
+        plots_cfg = {
+            k: v
+            for k, v in plots_cfg.items()
+            if not (k.startswith("_") or k.startswith("."))
+        }
 
         # Determine the output directory path to use; not creating directories!
         if not out_dir:
@@ -864,13 +948,20 @@ class PlotManager:
         #      time stamps.
 
         # Provide information on how many plots will be created
-        log.hilight("Performing plots from %d plot configuration entr%s:",
-                    len(plots_cfg), "ies" if len(plots_cfg) != 1 else "y")
+        log.hilight(
+            "Performing plots from %d plot configuration entr%s:",
+            len(plots_cfg),
+            "ies" if len(plots_cfg) != 1 else "y",
+        )
 
         for plot_name, cfg in plots_cfg.items():
             if isinstance(cfg, ParamSpace):
-                log.note("  - %-40s  (%d plot%s)", plot_name,
-                         cfg.volume, "s" if cfg.volume != 1 else "")
+                log.note(
+                    "  - %-40s  (%d plot%s)",
+                    plot_name,
+                    cfg.volume,
+                    "s" if cfg.volume != 1 else "",
+                )
             else:
                 log.note("  - %-40s  (1 plot)", plot_name)
 
@@ -887,14 +978,20 @@ class PlotManager:
                 self.plot(plot_name, default_out_dir=out_dir, **cfg)
 
         # All done
-        log.success("Successfully performed plots for %d plot "
-                    "configuration%s.\n",
-                    len(plots_cfg), "s" if len(plots_cfg) != 1 else "")
+        log.success(
+            "Successfully performed plots for %d plot configuration%s.\n",
+            len(plots_cfg),
+            "s" if len(plots_cfg) != 1 else "",
+        )
 
-    def plot(self, name: str, *,
-             based_on: Union[str, Tuple[str]]=None,
-             from_pspace: Union[dict, ParamSpace]=None,
-             **plot_cfg) -> BasePlotCreator:
+    def plot(
+        self,
+        name: str,
+        *,
+        based_on: Union[str, Tuple[str]] = None,
+        from_pspace: Union[dict, ParamSpace] = None,
+        **plot_cfg,
+    ) -> BasePlotCreator:
         """Create plot(s) from a single configuration entry.
 
         A call to this function resolves the ``based_on`` feature and passes
@@ -954,9 +1051,9 @@ class PlotManager:
 
             # Resolve `based_on`
             based_on = pspace_plot_cfg.pop("based_on", None)
-            pspace_plot_cfg = self._resolve_based_on(cfg=pspace_plot_cfg,
-                                                     based_on=based_on,
-                                                     work_on_deepcopy=False)
+            pspace_plot_cfg = self._resolve_based_on(
+                cfg=pspace_plot_cfg, based_on=based_on, work_on_deepcopy=False
+            )
 
             # Extract info, then re-create the ParamSpace with the updated cfg
             creator = pspace_plot_cfg.pop("creator", None)
@@ -969,9 +1066,9 @@ class PlotManager:
             based_on = from_pspace.pop("based_on", None)
 
             # Do the update; no deepcopy needed in there because done here
-            from_pspace = self._resolve_based_on(cfg=from_pspace,
-                                                 based_on=based_on,
-                                                 work_on_deepcopy=False)
+            from_pspace = self._resolve_based_on(
+                cfg=from_pspace, based_on=based_on, work_on_deepcopy=False
+            )
 
             # Now also extract the creator; might have come in only by the
             # based_on resolution
@@ -982,20 +1079,24 @@ class PlotManager:
 
         # Now have all the information extracted / removed from from_pspace to
         # be ready to call _plot. Finally.
-        return self._plot(name, creator=creator, from_pspace=from_pspace,
-                          **plot_cfg) # **plot_cfg is anything remaining ...
+        return self._plot(
+            name, creator=creator, from_pspace=from_pspace, **plot_cfg
+        )  # **plot_cfg is anything remaining ...
 
-    def _plot(self, name: str, *,
-              creator: str=None,
-              out_dir: str=None,
-              default_out_dir: str=None,
-              from_pspace: ParamSpace=None,
-              file_ext: str=None,
-              save_plot_cfg: bool=None,
-              auto_detect_creator: bool=None,
-              creator_init_kwargs: dict=None,
-              **plot_cfg
-              ) -> BasePlotCreator:
+    def _plot(
+        self,
+        name: str,
+        *,
+        creator: str = None,
+        out_dir: str = None,
+        default_out_dir: str = None,
+        from_pspace: ParamSpace = None,
+        file_ext: str = None,
+        save_plot_cfg: bool = None,
+        auto_detect_creator: bool = None,
+        creator_init_kwargs: dict = None,
+        **plot_cfg,
+    ) -> BasePlotCreator:
         """Create plot(s) from a single configuration entry.
 
         A call to this function creates a single PlotCreator, which is also
@@ -1049,23 +1150,29 @@ class PlotManager:
                 out_dir = self._out_dir
 
             else:
-                raise PlotConfigError("No `out_dir` specified here and at "
-                                      "initialization; cannot perform plot.")
+                raise PlotConfigError(
+                    "No `out_dir` specified here and at "
+                    "initialization; cannot perform plot."
+                )
 
         # Whether to save the plot config
         if save_plot_cfg is None:
             save_plot_cfg = self.save_plot_cfg
 
         # Get the plot creator, either by name or using auto-detect feature
-        plot_creator = self._get_plot_creator(creator, name=name,
-                                              init_kwargs=creator_init_kwargs,
-                                              from_pspace=from_pspace,
-                                              plot_cfg=plot_cfg,
-                                              auto_detect=auto_detect_creator)
+        plot_creator = self._get_plot_creator(
+            creator,
+            name=name,
+            init_kwargs=creator_init_kwargs,
+            from_pspace=from_pspace,
+            plot_cfg=plot_cfg,
+            auto_detect=auto_detect_creator,
+        )
 
         # Let the creator process arguments
-        plot_cfg, from_pspace = plot_creator.prepare_cfg(plot_cfg=plot_cfg,
-                                                         pspace=from_pspace)
+        plot_cfg, from_pspace = plot_creator.prepare_cfg(
+            plot_cfg=plot_cfg, pspace=from_pspace
+        )
 
         # Distinguish single calls and parameter sweeps
         if not from_pspace:
@@ -1073,20 +1180,26 @@ class PlotManager:
 
             # Generate the output path
             out_dir = self._parse_out_dir(out_dir, name=name)
-            out_path = self._parse_out_path(plot_creator, name=name,
-                                            out_dir=out_dir, file_ext=file_ext)
+            out_path = self._parse_out_path(
+                plot_creator, name=name, out_dir=out_dir, file_ext=file_ext
+            )
 
             # Call the plot creator to perform the plot, using the private
             # method to perform exception handling
-            rv = self._invoke_creator(plot_creator, out_path=out_path,
-                                      **plot_cfg)
+            rv = self._invoke_creator(
+                plot_creator, out_path=out_path, **plot_cfg
+            )
 
             # Store plot information (_save_ only if not skipped)
-            self._store_plot_info(name=name, creator_name=creator,
-                                  out_path=out_path, plot_cfg=plot_cfg,
-                                  save=save_plot_cfg and rv != 'skipped',
-                                  target_dir=os.path.dirname(out_path),
-                                  creator_rv=rv)
+            self._store_plot_info(
+                name=name,
+                creator_name=creator,
+                out_path=out_path,
+                plot_cfg=plot_cfg,
+                save=save_plot_cfg and rv != "skipped",
+                target_dir=os.path.dirname(out_path),
+                creator_rv=rv,
+            )
 
             if rv is True:
                 log.progress("Performed '%s' plot.\n", name)
@@ -1110,58 +1223,72 @@ class PlotManager:
                 max_dname_len = max(len(n) for n in amap_coords.keys())
 
                 log.progress("Performing %d '%s' plots ...", psp_vol, name)
-                log.note("... iterating over parameter space:\n%s",
-                         "\n".join(["  * {0:<{d:}} : {1:}"
-                                    "".format(dim_name,
-                                             ", ".join([str(c) for c in
-                                                        coords.values]),
-                                             d=max_dname_len)
-                                    for dim_name, coords
-                                    in amap_coords.items()]))
+                log.note(
+                    "... iterating over parameter space:\n%s",
+                    "\n".join(
+                        [
+                            "  * {0:<{d:}} : {1:}".format(
+                                dim_name,
+                                ", ".join([str(c) for c in coords.values]),
+                                d=max_dname_len,
+                            )
+                            for dim_name, coords in amap_coords.items()
+                        ]
+                    ),
+                )
 
             else:
                 log.progress("Performing '%s' plot ...", name)
-                log.note("... from default point in zero-volume parameter "
-                         "space.")
+                log.note(
+                    "... from default point in zero-volume parameter space."
+                )
 
             # Parse the output directory, such that all plots are together in
             # one directory even if the timestamp varies
             out_dir = self._parse_out_dir(out_dir, name=name)
 
             # Create the iterator
-            it = from_pspace.iterator(with_info=('state_no', 'state_vector',
-                                                 'coords'))
+            it = from_pspace.iterator(
+                with_info=("state_no", "state_vector", "coords")
+            )
 
             # Keep track of how many plots are skipped
             num_skipped = 0
 
             # ...and loop over all points:
             for n, (cfg, state_no, state_vector, coords) in enumerate(it):
-                log.progress("Performing plot {n:{d:}d} / {v:} ..."
-                             "".format(n=n+1, d=len(str(psp_vol)), v=psp_vol))
-                log.note("Current coordinates:  %s",
-                         ",  ".join("{}: {}".format(*kv)
-                                    for kv in coords.items()))
+                log.progress(
+                    "Performing plot {n:{d:}d} / {v:} ...".format(
+                        n=n + 1, d=len(str(psp_vol)), v=psp_vol
+                    )
+                )
+                log.note(
+                    "Current coordinates:  %s",
+                    ",  ".join("{}: {}".format(*kv) for kv in coords.items()),
+                )
 
                 # Handle the file extension parameter; it might come from the
                 # given configuration and then needs to be popped such that it
                 # is not propagated to the plot creator.
-                _file_ext = cfg.pop('file_ext', file_ext)
+                _file_ext = cfg.pop("file_ext", file_ext)
 
                 # Generate the output path
-                out_path = self._parse_out_path(plot_creator,
-                                                name=name,
-                                                out_dir=out_dir,
-                                                file_ext=_file_ext,
-                                                state_no=state_no,
-                                                state_no_max=psp_vol-1,
-                                                state_vector=state_vector,
-                                                dims=psp_dims)
+                out_path = self._parse_out_path(
+                    plot_creator,
+                    name=name,
+                    out_dir=out_dir,
+                    file_ext=_file_ext,
+                    state_no=state_no,
+                    state_no_max=psp_vol - 1,
+                    state_vector=state_vector,
+                    dims=psp_dims,
+                )
 
                 # Call the plot creator to perform the plot, using the private
                 # method to perform exception handling
-                rv = self._invoke_creator(plot_creator, out_path=out_path,
-                                          **cfg, **plot_cfg)
+                rv = self._invoke_creator(
+                    plot_creator, out_path=out_path, **cfg, **plot_cfg
+                )
                 # NOTE The **plot_cfg is passed here in order to not lose any
                 #      arguments that might have been passed to it. While `cfg`
                 #      _should_ hold all the arguments from the parameter space
@@ -1170,32 +1297,45 @@ class PlotManager:
                 #      forward responsibility downstream ...
 
                 # Count skipped plots
-                if rv == 'skipped':
+                if rv == "skipped":
                     num_skipped += 1
 
                 # Always store plot information, regardless of skipping
                 # (Saving is disabled here anyway as it will be done below)
-                self._store_plot_info(name=name, creator_name=creator,
-                                      out_path=out_path, plot_cfg=plot_cfg,
-                                      state_no=state_no,
-                                      state_vector=state_vector,
-                                      save=False,
-                                      target_dir=os.path.dirname(out_path),
-                                      creator_rv=rv)
+                self._store_plot_info(
+                    name=name,
+                    creator_name=creator,
+                    out_path=out_path,
+                    plot_cfg=plot_cfg,
+                    state_no=state_no,
+                    state_vector=state_vector,
+                    save=False,
+                    target_dir=os.path.dirname(out_path),
+                    creator_rv=rv,
+                )
 
             # Finished parameter space iteration.
             # Save the plot configuration alongside, if configured to do so and
             # if at least one of the plots was *not* skipped.
-            if save_plot_cfg and num_skipped < (n+1):
-                self._save_plot_cfg(from_pspace, name=name,
-                                    creator_name=creator,
-                                    target_dir=out_dir, is_sweep=True)
+            if save_plot_cfg and num_skipped < (n + 1):
+                self._save_plot_cfg(
+                    from_pspace,
+                    name=name,
+                    creator_name=creator,
+                    target_dir=out_dir,
+                    is_sweep=True,
+                )
 
             if not num_skipped:
                 log.progress("Performed all '%s' plots.\n", name)
             else:
-                log.progress("Performed %d / %d '%s' plots, skipped %d.\n",
-                             (n+1)-num_skipped, n+1, name, num_skipped)
+                log.progress(
+                    "Performed %d / %d '%s' plots, skipped %d.\n",
+                    (n + 1) - num_skipped,
+                    n + 1,
+                    name,
+                    num_skipped,
+                )
 
         # Done now. Return the plot creator object
         return plot_creator

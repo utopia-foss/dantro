@@ -17,6 +17,7 @@ from dantro.groups import OrderedDataGroup
 
 from ..test_base import pickle_roundtrip
 
+
 @pytest.fixture
 def root() -> OrderedDataGroup:
     """A fixture returning a group with some content"""
@@ -35,7 +36,9 @@ def root() -> OrderedDataGroup:
 
     return root
 
+
 # -----------------------------------------------------------------------------
+
 
 def test_Link(root):
     """Test the Link class"""

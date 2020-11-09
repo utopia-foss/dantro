@@ -42,7 +42,7 @@ from dantro.tools import load_yml
 
 # Local Variables -------------------------------------------------------------
 
-DOC_EXAMPLES_CFG = resource_filename('tests', 'cfg/doc_examples.yml')
+DOC_EXAMPLES_CFG = resource_filename("tests", "cfg/doc_examples.yml")
 
 
 # Fixtures --------------------------------------------------------------------
@@ -54,9 +54,9 @@ def data_dir(tmpdir):
     from dantro.tools import write_yml
 
     # Create YAML dummy data and write it out
-    foobar = dict(one=1, two=2,
-                  go_deeper=dict(eleven=11),
-                  a_list=list(range(10)))
+    foobar = dict(
+        one=1, two=2, go_deeper=dict(eleven=11), a_list=list(range(10))
+    )
     barbaz = dict(nothing="to see here")
 
     write_yml(foobar, path=tmpdir.join("foobar.yml"))
@@ -67,8 +67,10 @@ def data_dir(tmpdir):
     cfgdir = tmpdir.mkdir("config")
 
     for cfg_name in ("defaults", "user", "machine", "update", "combined"):
-        write_yml(dict(),  # empty, but irrelevant
-                  path=cfgdir.join(cfg_name+"_cfg.yml"))
+        write_yml(
+            dict(),  # empty, but irrelevant
+            path=cfgdir.join(cfg_name + "_cfg.yml"),
+        )
 
     # Create some dummy HDF5 data
     h5dir = tmpdir.mkdir("measurements")
@@ -79,24 +81,28 @@ def data_dir(tmpdir):
         day = "day{:03d}".format(i)
 
         # Write some yaml file
-        write_yml(dict(day=i),
-                  path=h5dir.join(day + "_params.yml"))
+        write_yml(dict(day=i), path=h5dir.join(day + "_params.yml"))
 
         # Now the HDF5 data
-        f = h5.File(h5dir.join(day + ".hdf5"), 'w')
+        f = h5.File(h5dir.join(day + ".hdf5"), "w")
 
         N = np.random.randint(100, 200)
 
-        f.create_dataset("temperatures",
-                         data=((np.random.random((N,)) - .4) * 70),
-                         chunks=True)
-        f.create_dataset("precipitation",
-                         data=(np.random.random((N,)) * 1000.), dtype=int,
-                         chunks=True)
+        f.create_dataset(
+            "temperatures",
+            data=((np.random.random((N,)) - 0.4) * 70),
+            chunks=True,
+        )
+        f.create_dataset(
+            "precipitation",
+            data=(np.random.random((N,)) * 1000.0),
+            dtype=int,
+            chunks=True,
+        )
         # TODO Consider adding coordinates here?!
 
         g = f.create_group("sensor_data")
-        g.attrs['some_attribute'] = "this is some group level attribute"
+        g.attrs["some_attribute"] = "this is some group level attribute"
 
         for j in range(23):
             _data = np.random.random((3, np.random.randint(80, 100)))
@@ -111,6 +117,13 @@ def data_dir(tmpdir):
 def cfg() -> dict:
     """Loads the documentation examples config file"""
     return load_yml(DOC_EXAMPLES_CFG)
+
+
+# -----------------------------------------------------------------------------
+# -- INCLUDES START BELOW -----------------------------------------------------
+# -----------------------------------------------------------------------------
+# NOTE Important! Turn off black formatting for everything that is included...
+# fmt: off
 
 # -----------------------------------------------------------------------------
 # usage.rst

@@ -1,4 +1,6 @@
-"""This module implements a BaseDataProxy specialization for Hdf5 data."""
+"""This module implements a :py:class:`dantro.base.BaseDataProxy`
+specialization for HDF5 data.
+"""
 
 import logging
 

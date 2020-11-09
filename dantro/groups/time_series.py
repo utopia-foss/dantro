@@ -5,6 +5,7 @@ from .ordered import IndexedDataGroup
 
 # -----------------------------------------------------------------------------
 
+
 class TimeSeriesGroup(LabelledDataGroup, IndexedDataGroup):
     """A time-series group assumes that each stored member refers to one
     point in time, where the name is to be interpreted as the time coordinate.
@@ -14,11 +15,12 @@ class TimeSeriesGroup(LabelledDataGroup, IndexedDataGroup):
         * ~`dantro.groups.LabelledDataGroup.sel`
         * ~`dantro.groups.LabelledDataGroup.isel`
     """
+
     # There is only one dimension in a TimeSeriesGroup: time
-    LDG_DIMS = ('time',)
+    LDG_DIMS = ("time",)
 
     # Names are expected to be the time coordinates of each container
-    LDG_EXTRACT_COORDS_FROM = 'name'
+    LDG_EXTRACT_COORDS_FROM = "name"
 
 
 class HeterogeneousTimeSeriesGroup(TimeSeriesGroup):
@@ -46,6 +48,7 @@ class HeterogeneousTimeSeriesGroup(TimeSeriesGroup):
     Additionally, it supports them not being stored in regular intervals but
     only upon a change in coordinates.
     """
+
     # Coordinates are extracted from the data directly, inspecting only the
     # group-level dimensions (here: ``time``)
-    LDG_EXTRACT_COORDS_FROM = 'data'
+    LDG_EXTRACT_COORDS_FROM = "data"

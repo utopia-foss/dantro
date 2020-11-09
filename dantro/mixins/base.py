@@ -14,10 +14,12 @@ log = logging.getLogger(__name__)
 
 class UnexpectedTypeWarning(UserWarning):
     """Given when there was an unexpected type passed to a data container."""
+
     pass
 
 
 # -----------------------------------------------------------------------------
+
 
 class AttrsMixin:
     """This Mixin class supplies the `attrs` property getter and setter and
@@ -31,6 +33,7 @@ class AttrsMixin:
     For changing the class that is used for the attributes, an overwrite of the
     _ATTRS_CLS class variable suffices.
     """
+
     # The class attribute that the attributes will be stored to
     _attrs = None
 
@@ -46,11 +49,13 @@ class AttrsMixin:
     def attrs(self, new_attrs):
         """Setter method for the container `attrs` attribute."""
         if self._ATTRS_CLS is None:
-            raise ValueError("Need to declare the class variable _ATTRS_CLS "
-                             "in order to use the AttrsMixin!")
+            raise ValueError(
+                "Need to declare the class variable _ATTRS_CLS "
+                "in order to use the AttrsMixin!"
+            )
 
         # Perform the initialisation
-        self._attrs = self._ATTRS_CLS(name='attrs', attrs=new_attrs)
+        self._attrs = self._ATTRS_CLS(name="attrs", attrs=new_attrs)
 
 
 class SizeOfMixin:
@@ -75,7 +80,7 @@ class SizeOfMixin:
 
             https://docs.python.org/3/library/sys.html#sys.getsizeof
         """
-        nbytes =  sys.getsizeof(self._data)
+        nbytes = sys.getsizeof(self._data)
         nbytes += sys.getsizeof(self._attrs)
         nbytes += sys.getsizeof(self._name)
         nbytes += sys.getsizeof(self._logstr)
@@ -87,6 +92,7 @@ class LockDataMixin:
     """This Mixin class provides a flag for marking the data of a group or
     container as locked.
     """
+
     # Whether the data is regarded as locked. Note name-mangling here.
     __locked = False
 
@@ -105,14 +111,14 @@ class LockDataMixin:
         self.__locked = False
         self._unlock_hook()
 
-    def raise_if_locked(self, *, prefix: str=None):
-        """Raises an exception if this object is locked; does nothing otherwise
-        """
+    def raise_if_locked(self, *, prefix: str = None):
+        """Raises an exception if this object is locked; does nothing otherwise"""
         if self.locked:
-            raise RuntimeError("{}Cannot modify {} because it was already "
-                               "marked locked."
-                               "".format(prefix + " " if prefix else "",
-                                         self.logstr))
+            raise RuntimeError(
+                "{}Cannot modify {} because it was already "
+                "marked locked."
+                "".format(prefix + " " if prefix else "", self.logstr)
+            )
 
     def _lock_hook(self):
         """Invoked upon locking."""
@@ -236,9 +242,9 @@ class CheckDataMixin:
     """
 
     # Specify expected data types for this container class
-    DATA_EXPECTED_TYPES = None       # as tuple or None (allow all)
-    DATA_ALLOW_PROXY = False         # to check for AbstractDataProxy
-    DATA_UNEXPECTED_ACTION = 'warn'  # Can be: raise, warn, ignore
+    DATA_EXPECTED_TYPES = None  # as tuple or None (allow all)
+    DATA_ALLOW_PROXY = False  # to check for AbstractDataProxy
+    DATA_UNEXPECTED_ACTION = "warn"  # Can be: raise, warn, ignore
 
     def _check_data(self, data) -> None:
         """A general method to check the received data for its type
@@ -269,25 +275,29 @@ class CheckDataMixin:
 
         # else: was not of the expected type
         # Create a base message
-        msg = ("Unexpected type {} for data passed to {}! "
-               "Expected types are: {}.".format(type(data), self.logstr,
-                                                expected_types))
+        msg = (
+            f"Unexpected type {type(data)} for data passed to {self.logstr}! "
+            f"Expected types are: {expected_types}."
+        )
 
         # Handle according to the specified action
-        if self.DATA_UNEXPECTED_ACTION == 'raise':
+        if self.DATA_UNEXPECTED_ACTION == "raise":
             raise TypeError(msg)
 
-        elif self.DATA_UNEXPECTED_ACTION == 'warn':
-            warnings.warn(msg + "\nInitialization will work, but be informed "
-                          "that there might be errors at runtime.",
-                          UnexpectedTypeWarning)
+        elif self.DATA_UNEXPECTED_ACTION == "warn":
+            warnings.warn(
+                msg
+                + "\nInitialization will work, but be informed "
+                "that there might be errors at runtime.",
+                UnexpectedTypeWarning,
+            )
 
-        elif self.DATA_UNEXPECTED_ACTION == 'ignore':
+        elif self.DATA_UNEXPECTED_ACTION == "ignore":
             log.debug(msg + " Ignoring ...")
 
         else:
-            raise ValueError("Illegal value '{}' for class variable "
-                             "DATA_UNEXPECTED_ACTION of {}. "
-                             "Allowed values are: raise, warn, ignore"
-                             "".format(self.DATA_UNEXPECTED_ACTION,
-                                       self.classname))
+            raise ValueError(
+                f"Illegal value '{self.DATA_UNEXPECTED_ACTION}' for class "
+                f"variable DATA_UNEXPECTED_ACTION of {self.classname}. "
+                "Allowed values are: raise, warn, ignore"
+            )

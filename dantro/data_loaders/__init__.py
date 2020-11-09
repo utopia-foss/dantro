@@ -32,12 +32,15 @@ from .load_hdf5 import Hdf5LoaderMixin
 from .load_xarray import XarrayLoaderMixin
 from .load_numpy import NumpyLoaderMixin
 
-class AllAvailableLoadersMixin(TextLoaderMixin,
-                               YamlLoaderMixin,
-                               PickleLoaderMixin,
-                               Hdf5LoaderMixin,
-                               XarrayLoaderMixin,
-                               NumpyLoaderMixin):
+
+class AllAvailableLoadersMixin(
+    TextLoaderMixin,
+    YamlLoaderMixin,
+    PickleLoaderMixin,
+    Hdf5LoaderMixin,
+    XarrayLoaderMixin,
+    NumpyLoaderMixin,
+):
     """A mixin bundling all data loaders that are available in dantro.
 
     This is useful for a more convenient import in a downstream
@@ -45,7 +48,11 @@ class AllAvailableLoadersMixin(TextLoaderMixin,
 
     See the individual mixins for a more detailed documentation.
     """
+
     pass
+
+
+# fmt: off
 
 # A dict of file extensions and preferred loader names for those extensions
 LOADER_BY_FILE_EXT = {

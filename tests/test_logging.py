@@ -6,6 +6,7 @@ from dantro import log
 
 # -----------------------------------------------------------------------------
 
+
 def test_logging():
     """...using the root logger"""
     log.trace("Trace")

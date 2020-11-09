@@ -12,8 +12,16 @@ import pytest
 
 # Local Variables and test fixtures -------------------------------------------
 
-INTEGRATION_CFG_PATH = resource_filename('tests', 'cfg/integration.yml')
-PLOTS_CFG_PATH = resource_filename('tests', 'cfg/integration_plots.yml')
+INTEGRATION_CFG_PATH = resource_filename("tests", "cfg/integration.yml")
+PLOTS_CFG_PATH = resource_filename("tests", "cfg/integration_plots.yml")
+
+
+# -----------------------------------------------------------------------------
+# -- INCLUDES START BELOW -----------------------------------------------------
+# -----------------------------------------------------------------------------
+# NOTE Important! Turn off black formatting for everything that is included...
+# fmt: off
+
 
 
 # -----------------------------------------------------------------------------

@@ -2,9 +2,16 @@
 to a derived contaier or group class
 """
 
-from .base import (AttrsMixin, SizeOfMixin, BasicComparisonMixin,
-                   CheckDataMixin, LockDataMixin,
-                   CollectionMixin, ItemAccessMixin, MappingAccessMixin)
+from .base import (
+    AttrsMixin,
+    SizeOfMixin,
+    BasicComparisonMixin,
+    CheckDataMixin,
+    LockDataMixin,
+    CollectionMixin,
+    ItemAccessMixin,
+    MappingAccessMixin,
+)
 
 from .general import ForwardAttrsMixin, ForwardAttrsToDataMixin
 from .indexing import IntegerItemAccessMixin, PaddedIntegerItemAccessMixin

@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
+# fmt: off
 
 from setuptools import setup, find_packages
 
 # Dependencies for dantro itself
 install_deps = [
-    'numpy>=1.17.4',
-    'xarray>=0.16.0',
-    'dask>=2.10.1',
-    'toolz>=0.10.0',        # For dask.delayed
-    'distributed>=2.10.0',  # For dask's distributed scheduler
-    'scipy>=1.5.3',         # Used as a netcdf4 storage engine for xarray
-    'sympy>=1.6.1',
-    'h5py>=2.10.0,<3.0',    # TODO Upgrade to >= 3.0
-    'matplotlib>=3.2.1',
-    'networkx>=2.2',
-    'ruamel.yaml>=0.16.10',
-    'dill>=0.3.3',          # For faster and more powerful pickling
-    'paramspace>=2.5.1',
+    "numpy>=1.17.4",
+    "xarray>=0.16.0",
+    "dask>=2.10.1",
+    "toolz>=0.10.0",        # For dask.delayed
+    "distributed>=2.10.0",  # For dask's distributed scheduler
+    "scipy>=1.5.3",         # Used as a netcdf4 storage engine for xarray
+    "sympy>=1.6.1",
+    "h5py>=2.10.0,<3.0",    # TODO Upgrade to >= 3.0
+    "matplotlib>=3.2.1",
+    "networkx>=2.2",
+    "ruamel.yaml>=0.16.10",
+    "dill>=0.3.3",          # For faster and more powerful pickling
+    "paramspace>=2.5.1",
 ]
 # NOTE When changing any of the dependencies, make sure to update the table of
 #      dependencies in README.md
@@ -26,16 +27,16 @@ minimal_install_deps = [dep.replace(">=", "==") for dep in install_deps]
 
 # Dependencies for the tests
 test_deps = [
-    'pytest>=3.4.0',
-    'pytest-cov>=2.5.1',
-    'tox>=3.1.2',
+    "pytest>=3.4.0",
+    "pytest-cov>=2.5.1",
+    "tox>=3.1.2",
 ]
 
 # Dependencies for the documentation
 doc_deps = [
-    'sphinx>=2.4,<3.0',
-    'sphinx_rtd_theme>=0.5',
-    'ipython>=7.0',
+    "sphinx>=2.4,<3.0",
+    "sphinx_rtd_theme>=0.5",
+    "ipython>=7.0",
 ]
 
 # .............................................................................
@@ -92,6 +93,7 @@ Learn more
 
 
 # .............................................................................
+# fmt: on
 
 # A function to extract version number from __init__.py
 def find_version(*file_paths) -> str:
@@ -101,7 +103,7 @@ def find_version(*file_paths) -> str:
     def read(*parts):
         """Reads a file from the given path sequence, relative to this file"""
         here = os.path.abspath(os.path.dirname(__file__))
-        with codecs.open(os.path.join(here, *parts), 'r') as fp:
+        with codecs.open(os.path.join(here, *parts), "r") as fp:
             return fp.read()
 
     # Read the file and match the __version__ string
@@ -115,25 +117,26 @@ def find_version(*file_paths) -> str:
 # .............................................................................
 
 setup(
-    name='dantro',
+    name="dantro",
     #
     # Set the version from dantro.__version__
-    version=find_version('dantro', '__init__.py'),
+    version=find_version("dantro", "__init__.py"),
     #
     # Project info
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     author="dantro developers",
     author_email="dantro-dev@iup.uni.heidelberg.de",
-    license='LGPL-3.0-or-later',
-    url='https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro',
+    license="LGPL-3.0-or-later",
+    url="https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro",
     classifiers=[
-        'Intended Audience :: Science/Research',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-        'Topic :: Utilities',
-        'License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)'
+        "Intended Audience :: Science/Research",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Topic :: Utilities",
+        "License :: OSI Approved :: GNU Lesser General Public License v3 or"
+        " later (LGPLv3+)",
     ],
     #
     # Distribution details, dependencies, ...
@@ -141,8 +144,11 @@ setup(
     data_files=[("", ["COPYING", "COPYING.LESSER", "README.md"])],
     install_requires=install_deps,
     tests_require=test_deps,
-    test_suite='py.test',
-    extras_require=dict(minimal_deps=minimal_install_deps,
-                        test=test_deps, doc=doc_deps,
-                        dev=test_deps + doc_deps)
+    test_suite="py.test",
+    extras_require=dict(
+        minimal_deps=minimal_install_deps,
+        test=test_deps,
+        doc=doc_deps,
+        dev=test_deps + doc_deps,
+    ),
 )

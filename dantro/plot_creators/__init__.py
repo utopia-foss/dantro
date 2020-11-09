@@ -15,9 +15,10 @@ from .pcr_base import SkipPlot
 from .pcr_ext import is_plot_func, PlotHelper
 
 # And gather them into a dictionary that gives names to each of them
-ALL = dict(external=ExternalPlotCreator,
-           declarative=DeclarativePlotCreator,
-           universe=UniversePlotCreator,
-           multiverse=MultiversePlotCreator,
-           vega=VegaPlotCreator,
-           )
+ALL = dict(
+    external=ExternalPlotCreator,
+    declarative=DeclarativePlotCreator,
+    universe=UniversePlotCreator,
+    multiverse=MultiversePlotCreator,
+    vega=VegaPlotCreator,
+)

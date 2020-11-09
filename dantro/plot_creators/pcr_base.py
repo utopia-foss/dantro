@@ -24,6 +24,7 @@ log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
+
 class SkipPlot(Exception):
     """A custom exception class that denotes that a plot is to be skipped.
 
@@ -31,11 +32,13 @@ class SkipPlot(Exception):
     and can thus be raised anywhere below it: in the plot creators, in the
     user-defined plotting functions, ...
     """
-    def __init__(self, what: str=""):
+
+    def __init__(self, what: str = ""):
         super().__init__(what)
 
 
 # -----------------------------------------------------------------------------
+
 
 class BasePlotCreator(AbstractPlotCreator):
     """The base class for PlotCreators
@@ -71,7 +74,8 @@ class BasePlotCreator(AbstractPlotCreator):
             _prepare_path method, adjusted or not, should be called at another
             point of the plot execution.
     """
-    EXTENSIONS = 'all'
+
+    EXTENSIONS = "all"
     DEFAULT_EXT = None
     DEFAULT_EXT_REQUIRED = True
     POSTPONE_PATH_PREPARATION = False
@@ -79,11 +83,16 @@ class BasePlotCreator(AbstractPlotCreator):
     DAG_SUPPORTED = False
     DAG_INVOKE_IN_BASE = True
 
-    def __init__(self, name: str, *, dm: DataManager,
-                 default_ext: str=None,
-                 exist_ok: bool=None,
-                 raise_exc: bool=None,
-                 **plot_cfg):
+    def __init__(
+        self,
+        name: str,
+        *,
+        dm: DataManager,
+        default_ext: str = None,
+        exist_ok: bool = None,
+        raise_exc: bool = None,
+        **plot_cfg,
+    ):
         """Create a PlotCreator instance for a plot with the given ``name``.
 
         Typically, a creator has not be instantiated separately, but the
@@ -114,8 +123,9 @@ class BasePlotCreator(AbstractPlotCreator):
         self._name = name
         self._dm = dm
         self._plot_cfg = plot_cfg
-        self._exist_ok = (self.OUT_PATH_EXIST_OK if exist_ok is None
-                          else exist_ok)
+        self._exist_ok = (
+            self.OUT_PATH_EXIST_OK if exist_ok is None else exist_ok
+        )
         self.raise_exc = raise_exc
 
         # Initialize property-managed attributes
@@ -179,13 +189,13 @@ class BasePlotCreator(AbstractPlotCreator):
     @default_ext.setter
     def default_ext(self, val: str) -> None:
         """Sets the default extension. Needs to be in EXTENSIONS"""
-        if self.EXTENSIONS != 'all' and val not in self.EXTENSIONS:
-            raise ValueError("Extension '{}' not supported in {}. Supported "
-                             "extensions are: {}"
-                             "".format(val, self.logstr, self.EXTENSIONS))
+        if self.EXTENSIONS != "all" and val not in self.EXTENSIONS:
+            raise ValueError(
+                f"Extension '{val}' not supported in {self.logstr}. "
+                f"Supported extensions are: {self.EXTENSIONS}"
+            )
 
         self._default_ext = val
-
 
     # .........................................................................
     # Main API functions, required by PlotManager
@@ -218,17 +228,18 @@ class BasePlotCreator(AbstractPlotCreator):
         # in that case, the method below behaves like a passthrough of the cfg,
         # filtering out all transformation-related arguments.
         if self.DAG_SUPPORTED and self.DAG_INVOKE_IN_BASE:
-            use_dag = cfg.pop('use_dag', None)
-            _, cfg = self._perform_data_selection(use_dag=use_dag,
-                                                  plot_kwargs=cfg)
+            use_dag = cfg.pop("use_dag", None)
+            _, cfg = self._perform_data_selection(
+                use_dag=use_dag, plot_kwargs=cfg
+            )
 
         # Allow derived creators to check whether this plot should be skipped
         self._check_skipping(plot_kwargs=cfg)
 
         # Find out if it's ok if out_path already exists, then prepare the path
         exist_ok = self._exist_ok
-        if 'exist_ok' in cfg:
-            exist_ok = cfg.pop('exist_ok')
+        if "exist_ok" in cfg:
+            exist_ok = cfg.pop("exist_ok")
 
         if not self.POSTPONE_PATH_PREPARATION:
             self._prepare_path(out_path, exist_ok=exist_ok)
@@ -243,8 +254,9 @@ class BasePlotCreator(AbstractPlotCreator):
         """
         return self.default_ext
 
-    def prepare_cfg(self, *, plot_cfg: dict, pspace: Union[ParamSpace, dict]
-                    ) -> Tuple[dict, ParamSpace]:
+    def prepare_cfg(
+        self, *, plot_cfg: dict, pspace: Union[ParamSpace, dict]
+    ) -> Tuple[dict, ParamSpace]:
         """Prepares the plot configuration for the PlotManager.
 
         This function is called by the plot manager before the first plot
@@ -291,8 +303,10 @@ class BasePlotCreator(AbstractPlotCreator):
         """
         # Check that the file path does not already exist:
         if os.path.exists(out_path):
-            msg = ("There already exists a file at the specified output path "
-                   f"for {self.logstr}:\n  {out_path}")
+            msg = (
+                "There already exists a file at the specified output path "
+                f"for {self.logstr}:\n  {out_path}"
+            )
             if not exist_ok:
                 raise FileExistsError(msg)
             log.warning(msg)
@@ -330,8 +344,9 @@ class BasePlotCreator(AbstractPlotCreator):
     # .........................................................................
     # Data selection interface, using TransformationDAG
 
-    def _perform_data_selection(self, *, use_dag: bool=None, plot_kwargs: dict,
-                                **shared_kwargs) -> Tuple[bool, dict]:
+    def _perform_data_selection(
+        self, *, use_dag: bool = None, plot_kwargs: dict, **shared_kwargs
+    ) -> Tuple[bool, dict]:
         """If this plot creator supports data selection and transformation, it
         is carried out in this method.
 
@@ -362,32 +377,40 @@ class BasePlotCreator(AbstractPlotCreator):
                 method.
         """
         # Determine whether the DAG framework should be used or not
-        if not self._use_dag(use_dag=use_dag, plot_kwargs=plot_kwargs,
-                             **shared_kwargs):
+        if not self._use_dag(
+            use_dag=use_dag, plot_kwargs=plot_kwargs, **shared_kwargs
+        ):
             # Only return the plot configuration, without DAG-related keys
             return False, plot_kwargs
 
         # Extract DAG-related parameters from the plot configuration. These are
         # not available in the plotting function.
-        dag_params, plot_kwargs = self._get_dag_params(**plot_kwargs,
-                                                       **shared_kwargs)
+        dag_params, plot_kwargs = self._get_dag_params(
+            **plot_kwargs, **shared_kwargs
+        )
 
         # else: DAG should be used -> Create and compute it.
-        dag = self._create_dag(**dag_params['init'])
-        dag_results = self._compute_dag(dag, **dag_params['compute'])
+        dag = self._create_dag(**dag_params["init"])
+        dag_results = self._compute_dag(dag, **dag_params["compute"])
 
         # Prepare the parameters passed back to __call__ and on to self.plot
-        kws = self._combine_dag_results_and_plot_cfg(dag=dag,
-                                                     dag_results=dag_results,
-                                                     dag_params=dag_params,
-                                                     plot_kwargs=plot_kwargs)
+        kws = self._combine_dag_results_and_plot_cfg(
+            dag=dag,
+            dag_results=dag_results,
+            dag_params=dag_params,
+            plot_kwargs=plot_kwargs,
+        )
         return True, kws
 
-    def _get_dag_params(self, *,
-                        select: dict=None, transform: Sequence[dict]=None,
-                        compute_only: Sequence[str]=None,
-                        dag_options: dict=None,
-                        **plot_kwargs) -> Tuple[dict, dict]:
+    def _get_dag_params(
+        self,
+        *,
+        select: dict = None,
+        transform: Sequence[dict] = None,
+        compute_only: Sequence[str] = None,
+        dag_options: dict = None,
+        **plot_kwargs,
+    ) -> Tuple[dict, dict]:
         """Filters out parameters needed for DAG initialization and compute
 
         Args:
@@ -422,7 +445,7 @@ class BasePlotCreator(AbstractPlotCreator):
         Returns:
             bool: Whether the DAG should be used or not
         """
-        return (use_dag if use_dag is not None else False)
+        return use_dag if use_dag is not None else False
 
     def _create_dag(self, **dag_params) -> TransformationDAG:
         """Creates the actual DAG object"""
@@ -432,9 +455,14 @@ class BasePlotCreator(AbstractPlotCreator):
         """Compute the dag results"""
         return dag.compute(**compute_kwargs)
 
-    def _combine_dag_results_and_plot_cfg(self, *, dag: TransformationDAG,
-                                          dag_results: dict, dag_params: dict,
-                                          plot_kwargs: dict) -> dict:
+    def _combine_dag_results_and_plot_cfg(
+        self,
+        *,
+        dag: TransformationDAG,
+        dag_results: dict,
+        dag_params: dict,
+        plot_kwargs: dict,
+    ) -> dict:
         """Combines DAG reuslts and plot configuration into one dict. The
         returned dict is then passed along to the ``plot`` method.
 

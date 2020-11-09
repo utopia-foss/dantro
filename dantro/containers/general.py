@@ -4,8 +4,13 @@ import logging
 from collections.abc import MutableSequence, MutableMapping
 
 from ..base import BaseDataContainer
-from ..mixins import (ItemAccessMixin, CollectionMixin, MappingAccessMixin,
-                      CheckDataMixin, ForwardAttrsToDataMixin)
+from ..mixins import (
+    ItemAccessMixin,
+    CollectionMixin,
+    MappingAccessMixin,
+    CheckDataMixin,
+    ForwardAttrsToDataMixin,
+)
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -21,24 +26,30 @@ class ObjectContainer(ItemAccessMixin, BaseDataContainer):
 
     def _format_info(self) -> str:
         """A __format__ helper function: returns info about the stored data"""
-        return "{} stored, {}".format(type(self.data).__name__,
-                                      super()._format_info())
+        return "{} stored, {}".format(
+            type(self.data).__name__, super()._format_info()
+        )
 
 
 class PassthroughContainer(ForwardAttrsToDataMixin, ObjectContainer):
     """An object container that forwards all attribute calls to .data"""
+
     pass
 
 
-class MutableSequenceContainer(CheckDataMixin, ItemAccessMixin,
-                               CollectionMixin, BaseDataContainer,
-                               MutableSequence):
+class MutableSequenceContainer(
+    CheckDataMixin,
+    ItemAccessMixin,
+    CollectionMixin,
+    BaseDataContainer,
+    MutableSequence,
+):
     """The MutableSequenceContainer stores data that is sequence-like"""
 
     # Specify expected data types for this container class
     DATA_EXPECTED_TYPES = (MutableSequence, list)
     DATA_ALLOW_PROXY = False
-    DATA_UNEXPECTED_ACTION = 'warn'
+    DATA_UNEXPECTED_ACTION = "warn"
 
     def insert(self, idx: int, val) -> None:
         """Insert an item at a given position. The first argument is the index
@@ -53,14 +64,15 @@ class MutableSequenceContainer(CheckDataMixin, ItemAccessMixin,
         self.data.insert(idx, val)
 
 
-class MutableMappingContainer(CheckDataMixin, MappingAccessMixin,
-                              BaseDataContainer, MutableMapping):
+class MutableMappingContainer(
+    CheckDataMixin, MappingAccessMixin, BaseDataContainer, MutableMapping
+):
     """The MutableMappingContainer stores mutable mapping data, e.g. dicts"""
 
     # Specify expected data types for this container class
     DATA_EXPECTED_TYPES = (MutableMapping, dict)
     DATA_ALLOW_PROXY = False
-    DATA_UNEXPECTED_ACTION = 'warn'
+    DATA_UNEXPECTED_ACTION = "warn"
 
     def __init__(self, *, name: str, data=None, **dc_kwargs):
         """Initialize a MutableMappingContainer, storing mapping data.

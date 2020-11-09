@@ -9,13 +9,17 @@ import numpy as np
 
 # -----------------------------------------------------------------------------
 
-def plot_errorbar(*, ax,
-                  x: np.ndarray,
-                  y: np.ndarray,
-                  yerr: np.ndarray,
-                  fill_between: bool=False,
-                  fill_between_kwargs: dict=None,
-                  **errorbar_kwargs):
+
+def plot_errorbar(
+    *,
+    ax,
+    x: np.ndarray,
+    y: np.ndarray,
+    yerr: np.ndarray,
+    fill_between: bool = False,
+    fill_between_kwargs: dict = None,
+    **errorbar_kwargs,
+):
     """Given the data and (optionally) the y-error data, plots a single
     errorbar line. With ``fill_between=True``, a shaded area is plotted instead
     of the errorbar markers.
@@ -45,15 +49,17 @@ def plot_errorbar(*, ax,
         The matplotlib legend handle of the errorbar line or of the errorbands
     """
     if y.ndim != 1 or (yerr is not None and yerr.ndim != 1):
-        raise ValueError("Requiring 1D `y` and `yerr` for errorbar plot! "
-                         f"Got `y`: {y}\n\nGot `yerr`: {yerr}")
+        raise ValueError(
+            "Requiring 1D `y` and `yerr` for errorbar plot! "
+            f"Got `y`: {y}\n\nGot `yerr`: {yerr}"
+        )
 
     # Data is ok.
     # Plot the data against its coordinates, including the y-error data only if
     # no fill-between is to be performed
-    ebar = ax.errorbar(x, y,
-                       yerr=yerr if not fill_between else None,
-                       **errorbar_kwargs)
+    ebar = ax.errorbar(
+        x, y, yerr=yerr if not fill_between else None, **errorbar_kwargs
+    )
 
     if not fill_between or yerr is None:
         # Return the regular errorbar artist
@@ -63,15 +69,16 @@ def plot_errorbar(*, ax,
     # Find out the colour of the error bar line by inspecting line collection
     lc, _, _ = ebar
     line_color = lc.get_c()
-    line_alpha = lc.get_alpha() if lc.get_alpha() else 1.
+    line_alpha = lc.get_alpha() if lc.get_alpha() else 1.0
 
     # Prepare fill between arguments, setting some default values
-    fb_kwargs = (copy.deepcopy(fill_between_kwargs) if fill_between_kwargs
-                 else {})
+    fb_kwargs = (
+        copy.deepcopy(fill_between_kwargs) if fill_between_kwargs else {}
+    )
 
-    fb_kwargs['color'] = fb_kwargs.get('color', line_color)
-    fb_kwargs['alpha'] = fb_kwargs.get('alpha', line_alpha * .2)
-    fb_kwargs['lw'] = fb_kwargs.get('lw', 0.)
+    fb_kwargs["color"] = fb_kwargs.get("color", line_color)
+    fb_kwargs["alpha"] = fb_kwargs.get("alpha", line_alpha * 0.2)
+    fb_kwargs["lw"] = fb_kwargs.get("lw", 0.0)
 
     # Fill.
     fb = ax.fill_between(x, y1=(y - yerr), y2=(y + yerr), **fb_kwargs)

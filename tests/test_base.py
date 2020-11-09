@@ -24,9 +24,12 @@ log = logging.getLogger()
 
 # Fixtures and tools ----------------------------------------------------------
 
-def pickle_roundtrip(original_obj, *,
-                     protocols: tuple=(pkl.HIGHEST_PROTOCOL,
-                                       pkl.DEFAULT_PROTOCOL)):
+
+def pickle_roundtrip(
+    original_obj,
+    *,
+    protocols: tuple = (pkl.HIGHEST_PROTOCOL, pkl.DEFAULT_PROTOCOL),
+):
     """Makes pickling roundtrips with the given object. It does so multiple
     times with different protocols and returns the _last_ protocol's result.
     """
@@ -35,14 +38,17 @@ def pickle_roundtrip(original_obj, *,
         log.debug("Pickled '%s'. (Protocol: %s)", type(original_obj), protocol)
 
         loaded_obj = pkl.loads(s)
-        log.debug("Unpickled '%s'. (Protocol: %s",
-                  type(original_obj), protocol)
+        log.debug(
+            "Unpickled '%s'. (Protocol: %s", type(original_obj), protocol
+        )
 
     assert loaded_obj is not original_obj
 
     return loaded_obj
 
+
 # Tests -----------------------------------------------------------------------
+
 
 def test_BaseDataAttrs():
     """Test the BaseDataAttrs class"""
@@ -52,21 +58,24 @@ def test_BaseDataAttrs():
     assert bda.data == dict()
     assert bda._format_info() == "0 attribute(s)"
 
-    bda['foo'] = "bar"
+    bda["foo"] = "bar"
     assert bda.data == dict(foo="bar")
     assert bda.as_dict() == dict(foo="bar")
 
     assert bda._format_info() == "1 attribute(s)"
 
+
 def test_BaseDataAttrs_pickling():
     """Makes sure that these types are pickleable"""
     bda = dtr.base.BaseDataAttrs(name="test")
-    bda['foo'] = "bar"
-    bda['bar'] = dict(foofoo="barbar")
+    bda["foo"] = "bar"
+    bda["bar"] = dict(foofoo="barbar")
 
     assert pickle_roundtrip(bda) == bda
 
+
 # .............................................................................
+
 
 def test_BaseDataGroup():
     """Tests the BaseDataGroup using OrderedDataGroup"""
@@ -76,12 +85,12 @@ def test_BaseDataGroup():
     bar.add(dtr.containers.ObjectContainer(name="obj", data=dict(test=123)))
 
     # Test item interface
-    assert root['foo'] is foo
-    assert root['foo/bar'] is bar
+    assert root["foo"] is foo
+    assert root["foo/bar"] is bar
 
     # Setting should not work
     with pytest.raises(ValueError, match="cannot carry out __setitem__"):
-        root['baz'] = dtr.groups.OrderedDataGroup(name="baz")
+        root["baz"] = dtr.groups.OrderedDataGroup(name="baz")
 
     # String representation
     assert "foo" in str(foo)
@@ -95,18 +104,17 @@ def test_BaseDataGroup():
         foo.data
 
     # Put passing on the __item__ calls to the object beneath should work
-    assert root['foo/bar/obj/test'] == 123
-    root['foo/bar/obj/test'] = 234
-    assert root['foo/bar/obj/test'] == 234
+    assert root["foo/bar/obj/test"] == 123
+    root["foo/bar/obj/test"] = 234
+    assert root["foo/bar/obj/test"] == 234
 
     # Test the `add` method
-    baz1 = foo.new_group('baz')
-    assert foo['baz'] is baz1
+    baz1 = foo.new_group("baz")
+    assert foo["baz"] is baz1
 
     baz2 = dtr.groups.OrderedDataGroup(name="baz")
     foo.add(baz2, overwrite=True)
-    assert foo['baz'] is baz2
-
+    assert foo["baz"] is baz2
 
     # Test clearing, then reset to previous state
     assert len(root) == 1
@@ -118,30 +126,28 @@ def test_BaseDataGroup():
     assert len(root) == 1
     assert foo.parent is root
 
-
     # And adding new containers that are not of the correct type
     with pytest.raises(TypeError, match="needs to be a subclass of BaseData"):
         root.new_container("testpath", Cls=dict, foo="bar")
-
 
     # Recursive update
     root2 = dtr.groups.OrderedDataGroup(name="root")
     foo2 = root2.new_group("foo")
     spam = foo2.new_group("spam")
-    sth = foo2.new_container("sth", Cls=dtr.containers.ObjectContainer,
-                             data=dict(foo="bar"))
+    sth = foo2.new_container(
+        "sth", Cls=dtr.containers.ObjectContainer, data=dict(foo="bar")
+    )
 
     root.recursive_update(root2)
-    assert 'foo/spam' in root
-    assert 'foo/sth' in root
-    assert root['foo/sth'].data == dict(foo="bar")
+    assert "foo/spam" in root
+    assert "foo/sth" in root
+    assert root["foo/sth"].data == dict(foo="bar")
 
     with pytest.raises(TypeError, match="Can only update (.+) with objects"):
         root.recursive_update(dict(foo="bar"))
 
     with pytest.raises(ValueError, match="already has a member with name"):
         root.recursive_update(root2, overwrite=False)
-
 
     # Linking and unlinking
     # When the object is not a member
@@ -158,32 +164,28 @@ def test_BaseDataGroup():
     root._link_child(new_child=foo)
     assert foo.parent is root
 
-
     # __contains__
-    assert 'foo' in root
+    assert "foo" in root
     assert foo in root
     assert [] not in root
 
     with pytest.raises(TypeError, match="Can only check content of"):
-        ('foo', 'bar') in root
-
+        ("foo", "bar") in root
 
     # iteration and dict access
-    assert [k for k in root] == ['foo']
-    assert [k for k in root.keys()] == ['foo']
+    assert [k for k in root] == ["foo"]
+    assert [k for k in root.keys()] == ["foo"]
     assert [v for v in root.values()] == [foo]
-    assert [v for v in root.items()] == [('foo', foo)]
+    assert [v for v in root.items()] == [("foo", foo)]
 
-    assert root.get('FOO') is None
-    assert root.get('FOO', foo) is foo
+    assert root.get("FOO") is None
+    assert root.get("FOO", foo) is foo
 
     with pytest.raises(NotImplementedError, match="is not supported"):
         root.setdefault(foo)
 
-
     # IPython key completions
     assert root._ipython_key_completions_() == list(root.keys())
-
 
     # SizeOfMixin
     # Groups with the same number of members take up the same number of bytes
@@ -192,6 +194,7 @@ def test_BaseDataGroup():
 
     # Groups with larger number of members take up more bytes
     assert sys.getsizeof(foo) > sys.getsizeof(root)
+
 
 def test_BaseDataGroup_tree_repr():
     """Tests the tree representation algorithm.
@@ -203,15 +206,18 @@ def test_BaseDataGroup_tree_repr():
     root = dtr.groups.OrderedDataGroup(name="root")
     grps = [root.new_group("grp_{:d}".format(i)) for i in range(13)]
     for n, grp in zip(range(13), grps):
-        for i in range(n+1):
-            grp.add(dtr.containers.ObjectContainer(name="obj_{:d}".format(i),
-                                                   data=dict(foo=i)))
+        for i in range(n + 1):
+            grp.add(
+                dtr.containers.ObjectContainer(
+                    name="obj_{:d}".format(i), data=dict(foo=i)
+                )
+            )
 
     def ct_func_half(*, num_items, **_) -> int:
         return num_items // 2
 
     def ct_func_by_level(*, level, **_) -> int:
-        return 10 - 3*level
+        return 10 - 3 * level
 
     def ct_func_tot(*, total_item_count, **_) -> int:
         if total_item_count <= 13:
@@ -219,8 +225,20 @@ def test_BaseDataGroup_tree_repr():
         return 3
 
     # Test the condense_thresh feature
-    for ct in (None, 3, 4, 5, 6, 7, 8, 9, 10,
-               ct_func_half, ct_func_tot, ct_func_by_level):
+    for ct in (
+        None,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        ct_func_half,
+        ct_func_tot,
+        ct_func_by_level,
+    ):
         print("condense_thresh:", ct, root._tree_repr(condense_thresh=ct))
 
     # Test the max_level feature
@@ -229,10 +247,14 @@ def test_BaseDataGroup_tree_repr():
 
     # Invoke again using properties
     assert root.tree == root._format_tree() == root._tree_repr()
-    assert (  root.tree_condensed
-            ==root._format_tree_condensed()
-            ==root._tree_repr(max_level=root._COND_TREE_MAX_LEVEL,
-                              condense_thresh=root._COND_TREE_CONDENSE_THRESH))
+    assert (
+        root.tree_condensed
+        == root._format_tree_condensed()
+        == root._tree_repr(
+            max_level=root._COND_TREE_MAX_LEVEL,
+            condense_thresh=root._COND_TREE_CONDENSE_THRESH,
+        )
+    )
 
 
 def test_BaseDataGroup_path_behaviour():
@@ -270,8 +292,10 @@ def test_BaseDataGroup_renaming():
     assert foo.path == "/root/foo"
 
     # Cannot rename foo
-    with pytest.raises(ValueError, match="Cannot rename .* because a parent "
-                                         "was already associated"):
+    with pytest.raises(
+        ValueError,
+        match="Cannot rename .* because a parent was already associated",
+    ):
         foo.name = "bar"
 
     # Can rename root
@@ -291,8 +315,9 @@ def test_BaseDataGroup_pickling():
 
     assert pickle_roundtrip(root) == root
 
-    sth = foo.new_container("sth", Cls=dtr.containers.ObjectContainer,
-                            data=dict(foo="bar"))
+    sth = foo.new_container(
+        "sth", Cls=dtr.containers.ObjectContainer, data=dict(foo="bar")
+    )
 
     assert pickle_roundtrip(sth) == sth
     root_pkld = pickle_roundtrip(root)

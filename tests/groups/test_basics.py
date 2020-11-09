@@ -13,6 +13,7 @@ from dantro.containers import MutableSequenceContainer, NumpyDataContainer
 
 # -----------------------------------------------------------------------------
 
+
 def test_basics():
     """Tests whether the basic group interface behaves as desired."""
     # Basic initialisation, without containers
@@ -23,10 +24,12 @@ def test_basics():
         OrderedDataGroup(name=123)
 
     # Passing some containers
-    conts = [MutableSequenceContainer(name=str(i), data=list(range(i)))
-             for i in range(10)]
+    conts = [
+        MutableSequenceContainer(name=str(i), data=list(range(i)))
+        for i in range(10)
+    ]
     dg2 = OrderedDataGroup(name="bar", containers=conts)
-    
+
     # Nest these together
     root = OrderedDataGroup(name="root", containers=[dg1, dg2])
 
@@ -35,16 +38,16 @@ def test_basics():
         OrderedDataGroup(name="bar", containers=["foo", "bar"])
 
     # Try to access them
-    assert 'foo' in root
-    assert 'bar' in root
-    assert 'baz' not in root
+    assert "foo" in root
+    assert "bar" in root
+    assert "baz" not in root
 
     # There should be a custom key error if accessing something not available
     with pytest.raises(KeyError, match="No key or key sequence '.*' in .*!"):
-        root['i_am_a_ghost']
-    
+        root["i_am_a_ghost"]
+
     with pytest.raises(KeyError, match="No key or key sequence '.*' in .*!"):
-        root['foo/is/a/ghost']
+        root["foo/is/a/ghost"]
 
     # Test adding a new group in that group
     subgroup = root.new_group("subgroup")
@@ -63,13 +66,14 @@ def test_basics():
     # TODO pass another class here
 
     # Should _not_ work with something that is not a class or not a group
-    with pytest.raises(TypeError,
-                       match="Argument `Cls` needs to be a class"):
+    with pytest.raises(TypeError, match="Argument `Cls` needs to be a class"):
         root.new_group("foobar", Cls="not_a_class")
 
-    with pytest.raises(TypeError,
-                       match="Argument `Cls` needs to be a subclass"):
+    with pytest.raises(
+        TypeError, match="Argument `Cls` needs to be a subclass"
+    ):
         root.new_group("foobar", Cls=MutableSequenceContainer)
+
 
 def test_group_creation():
     """Tests whether groups and containers can be created as desired."""
@@ -80,8 +84,9 @@ def test_group_creation():
     assert foo in root
 
     # Add a container
-    msc = root.new_container("spam", Cls=MutableSequenceContainer,
-                             data=[1, 2, 3])
+    msc = root.new_container(
+        "spam", Cls=MutableSequenceContainer, data=[1, 2, 3]
+    )
     assert msc in root
 
     # Should raise an error withou Cls given
@@ -113,6 +118,7 @@ def test_group_creation():
     # While adding a MutableSequenceContainer should work
     bar.new_container("eggs", Cls=MutableSequenceContainer, data=[1, 2, 3])
 
+
 def test_list_item_access():
     """Tests that passing lists with arbitrary content along __getitem__ works
     as desired ...
@@ -121,7 +127,7 @@ def test_list_item_access():
     root = OrderedDataGroup(name="root")
     one = root.new_group("one")
     two = one.new_group("two")
-    two.add(NumpyDataContainer(name="arr", data=np.zeros((2,3,4))))
+    two.add(NumpyDataContainer(name="arr", data=np.zeros((2, 3, 4))))
     # Path created: root/one/two/arr
 
     # Test that regular item access is possible

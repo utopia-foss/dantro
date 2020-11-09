@@ -25,16 +25,18 @@ log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
+
 class MultiversePlotCreator(ExternalPlotCreator):
     """A MultiversePlotCreator is an ExternalPlotCreator that allows data to be
     selected before being passed to the plot function.
     """
+
     # Where the ``ParamSpaceGroup`` object is expected within the data manager
     PSGRP_PATH = None
 
     # .........................................................................
 
-    def __init__(self, *args, psgrp_path: str=None, **kwargs):
+    def __init__(self, *args, psgrp_path: str = None, **kwargs):
         """Initialize a MultiversePlotCreator
 
         Args:
@@ -55,9 +57,11 @@ class MultiversePlotCreator(ExternalPlotCreator):
         creator by looking up a certain path in the data manager.
         """
         if self.PSGRP_PATH is None:
-            raise ValueError("Missing class variable PSGRP_PATH! Either set "
-                             "it directly or pass the `psgrp_path` argument "
-                             "to the __init__ function.")
+            raise ValueError(
+                "Missing class variable PSGRP_PATH! Either set "
+                "it directly or pass the `psgrp_path` argument "
+                "to the __init__ function."
+            )
 
         # Retrieve the parameter space group
         return self.dm[self.PSGRP_PATH]
@@ -75,7 +79,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
         super()._check_skipping(plot_kwargs=plot_kwargs)
 
         # Extract the parameter value; popping intended and required here.
-        ndim = plot_kwargs.pop('expected_multiverse_ndim', None)
+        ndim = plot_kwargs.pop("expected_multiverse_ndim", None)
 
         # Only need to continue if there are any requirements
         if ndim is None:
@@ -97,10 +101,13 @@ class MultiversePlotCreator(ExternalPlotCreator):
                 f"{self.psgrp.logstr} dimensionality {mv_ndim} ∉ {ndims}."
             )
 
-    def _prepare_plot_func_args(self, *args,
-                                select: dict=None,
-                                select_and_combine: dict=None,
-                                **kwargs) -> Tuple[tuple, dict]:
+    def _prepare_plot_func_args(
+        self,
+        *args,
+        select: dict = None,
+        select_and_combine: dict = None,
+        **kwargs,
+    ) -> Tuple[tuple, dict]:
         """Prepares the arguments for the plot function.
 
         This also implements the functionality to select and combine data from
@@ -142,16 +149,18 @@ class MultiversePlotCreator(ExternalPlotCreator):
         # old (and soon-to-be-deprecated) one.
         if select and not select_and_combine:
             # Select multiverse data via the ParamSpaceGroup
-            kwargs['mv_data'] = self.psgrp.select(**select)
+            kwargs["mv_data"] = self.psgrp.select(**select)
 
         elif select_and_combine:
             # Pass both arguments along
-            kwargs['select'] = select
-            kwargs['select_and_combine'] = select_and_combine
+            kwargs["select"] = select
+            kwargs["select_and_combine"] = select_and_combine
 
         else:
-            raise TypeError("Expected at least one of the arguments `select` "
-                            "or `select_and_combine`, got neither!")
+            raise TypeError(
+                "Expected at least one of the arguments `select` "
+                "or `select_and_combine`, got neither!"
+            )
 
         # Let the parent method (from ExternalPlotCreator) do its thing.
         # It will invoke the specialized _get_dag_params and _create_dag helper
@@ -161,8 +170,9 @@ class MultiversePlotCreator(ExternalPlotCreator):
     # .........................................................................
     # DAG specialization
 
-    def _get_dag_params(self, *, select_and_combine: dict, **cfg
-                        ) -> Tuple[dict, dict]:
+    def _get_dag_params(
+        self, *, select_and_combine: dict, **cfg
+    ) -> Tuple[dict, dict]:
         """Extends the parent method by extracting the select_and_combine
         argument that handles MultiversePlotCreator behaviour
         """
@@ -170,15 +180,21 @@ class MultiversePlotCreator(ExternalPlotCreator):
 
         # Add the select_and_combine argument; converting None to an empty dict
         select_and_combine = select_and_combine if select_and_combine else {}
-        dag_params['init']['select_and_combine'] = select_and_combine
+        dag_params["init"]["select_and_combine"] = select_and_combine
 
         return dag_params, plot_kwargs
 
-    def _create_dag(self, *, _plot_func: Callable,
-                    select_and_combine: dict,
-                    select: dict=None, transform: Sequence[dict]=None,
-                    select_base: str=None, select_path_prefix: str=None,
-                    **dag_init_params) -> TransformationDAG:
+    def _create_dag(
+        self,
+        *,
+        _plot_func: Callable,
+        select_and_combine: dict,
+        select: dict = None,
+        transform: Sequence[dict] = None,
+        select_base: str = None,
+        select_path_prefix: str = None,
+        **dag_init_params,
+    ) -> TransformationDAG:
         """Extends the parent method by translating the ``select_and_combine``
         argument into selection of tags from a universe subspace, subsequent
         transformations, and a ``combine`` operation, that aligns the data in
@@ -212,11 +228,16 @@ class MultiversePlotCreator(ExternalPlotCreator):
         Returns:
             TransformationDAG: The populated DAG object.
         """
-        def add_uni_transformations(dag: TransformationDAG, *,
-                                    uni: ParamSpaceStateGroup,
-                                    coords: dict, path: str,
-                                    transform: Sequence[dict]=None,
-                                    **select_kwargs) -> DAGReference:
+
+        def add_uni_transformations(
+            dag: TransformationDAG,
+            *,
+            uni: ParamSpaceStateGroup,
+            coords: dict,
+            path: str,
+            transform: Sequence[dict] = None,
+            **select_kwargs,
+        ) -> DAGReference:
             """Adds the sequence of select and transform operations that is
             to be applied to the data from a *single* universe; this is in
             preparation to the combination of all single-universe DAG strands.
@@ -241,8 +262,12 @@ class MultiversePlotCreator(ExternalPlotCreator):
 
             # Prepare arguments for the select operation
             select = dict()
-            select[uni.name] = dict(path=field_path, transform=transform,
-                                    omit_tag=True, **select_kwargs)
+            select[uni.name] = dict(
+                path=field_path,
+                transform=transform,
+                omit_tag=True,
+                **select_kwargs,
+            )
 
             # Add the nodes that handle the selection and optional transform
             # operations on the selected data. This is all user-determined.
@@ -252,35 +277,47 @@ class MultiversePlotCreator(ExternalPlotCreator):
             # With the latest-added transformation as input, add the parameter
             # space coordinates to it such that all single universes can be
             # aligned properly. Don't cache this result.
-            return dag.add_node(operation='dantro.expand_dims',
-                                args=[DAGNode(-1)],
-                                kwargs=dict(
-                                    dim={k:[v] for k,v in coords.items()}),
-                                file_cache=dict(read=False, write=False))
+            return dag.add_node(
+                operation="dantro.expand_dims",
+                args=[DAGNode(-1)],
+                kwargs=dict(dim={k: [v] for k, v in coords.items()}),
+                file_cache=dict(read=False, write=False),
+            )
 
-        def add_transformations(dag: TransformationDAG, *,
-                                path: str, tag: str, subspace: dict,
-                                combination_method: str,
-                                combination_kwargs: dict=None,
-                                **select_kwargs) -> None:
+        def add_transformations(
+            dag: TransformationDAG,
+            *,
+            path: str,
+            tag: str,
+            subspace: dict,
+            combination_method: str,
+            combination_kwargs: dict = None,
+            **select_kwargs,
+        ) -> None:
             """Adds the sequence of transformations that is necessary to select
             data from a single universe and transform it, i.e.: all the preps
             necessary to arrive at another input argument to the combiation.
             """
+
             def get_uni(state_no: int) -> ParamSpaceStateGroup:
                 """Given a state number, returns the corresponding universe"""
                 try:
                     return self.psgrp[state_no]
 
                 except Exception as exc:
-                    if combination_method not in ['merge']:
-                        raise ValueError("Missing data for universe {}, which "
-                                         "is required for concatenation."
-                                         "".format(state_no))
-                    log.warning("Missing data for universe %d; this will lead "
-                                "to NaNs in the combined results.")
-                    raise NotImplementedError("Cannot handle missing data "
-                                              "during merge operations yet.")
+                    if combination_method not in ["merge"]:
+                        raise ValueError(
+                            f"Missing data for universe {state_no}, which "
+                            "is required for concatenation."
+                        )
+                    log.warning(
+                        "Missing data for universe %d; this will lead "
+                        "to NaNs in the combined results."
+                    )
+                    raise NotImplementedError(
+                        "Cannot handle missing data "
+                        "during merge operations yet."
+                    )
                     return None  # TODO
 
             # Get the parameter space object
@@ -291,55 +328,71 @@ class MultiversePlotCreator(ExternalPlotCreator):
                 psp.activate_subspace(**subspace)
 
             # Prepare iterators and extract shape information
-            psp_it = psp.iterator(with_info=('state_no', 'current_coords'),
-                                  omit_pt=True)
+            psp_it = psp.iterator(
+                with_info=("state_no", "current_coords"), omit_pt=True
+            )
 
             # For each universe in the subspace, add a sequence of transform
             # operations that lead to the data being selected and (optionally)
             # further transformed. Keep track of the reference to the last
             # node of each branch, which is a node that assigns coordinates to
             # each node of the parameter space
-            refs = [add_uni_transformations(dag, uni=get_uni(state_no),
-                                            coords=coords, path=path,
-                                            **select_kwargs)
-                    for state_no, coords in psp_it]
+            refs = [
+                add_uni_transformations(
+                    dag,
+                    uni=get_uni(state_no),
+                    coords=coords,
+                    path=path,
+                    **select_kwargs,
+                )
+                for state_no, coords in psp_it
+            ]
 
             # Depending on the chosen combination method, create corresponding
             # additional transformations for combination via merge or via
             # concatenation.
-            if combination_method in ['merge']:
-                dag.add_node(operation='dantro.merge',
-                             args=[refs],
-                             kwargs=dict(reduce_to_array=True),
-                             tag=tag,
-                             **(combination_kwargs if combination_kwargs
-                                else {}))
+            if combination_method in ["merge"]:
+                dag.add_node(
+                    operation="dantro.merge",
+                    args=[refs],
+                    kwargs=dict(reduce_to_array=True),
+                    tag=tag,
+                    **(combination_kwargs if combination_kwargs else {}),
+                )
 
-            elif combination_method in ['concat']:
+            elif combination_method in ["concat"]:
                 # For concatenation, it's best to have the data in an ndarray
                 # of xr.DataArray's, such that sequential applications of the
                 # xr.concat method along the array axes can be used for
                 # combining the data.
-                dag.add_node(operation='populate_ndarray',
-                             args=[refs],
-                             kwargs=dict(shape=psp.shape, dtype='object'))
+                dag.add_node(
+                    operation="populate_ndarray",
+                    args=[refs],
+                    kwargs=dict(shape=psp.shape, dtype="object"),
+                )
 
-                dag.add_node(operation='dantro.multi_concat',
-                             args=[DAGNode(-1)],
-                             kwargs=dict(dims=list(psp.dims.keys())),
-                             tag=tag,
-                             **(combination_kwargs if combination_kwargs
-                                else {}))
+                dag.add_node(
+                    operation="dantro.multi_concat",
+                    args=[DAGNode(-1)],
+                    kwargs=dict(dims=list(psp.dims.keys())),
+                    tag=tag,
+                    **(combination_kwargs if combination_kwargs else {}),
+                )
 
             else:
-                raise ValueError("Invalid combination method '{}'! Available "
-                                 "methods: merge, concat."
-                                 "".format(combination_method))
+                raise ValueError(
+                    f"Invalid combination method '{combination_method}'! "
+                    "Available methods: merge, concat."
+                )
 
-        def add_sac_transformations(dag: TransformationDAG, *,
-                                    fields: dict, subspace: dict=None,
-                                    combination_method: str='concat',
-                                    base_path: str=None) -> None:
+        def add_sac_transformations(
+            dag: TransformationDAG,
+            *,
+            fields: dict,
+            subspace: dict = None,
+            combination_method: str = "concat",
+            base_path: str = None,
+        ) -> None:
             """Adds transformations to the given DAG that select data from the
             selected multiverse subspace.
 
@@ -357,8 +410,9 @@ class MultiversePlotCreator(ExternalPlotCreator):
             """
             # To make selections shorter, add a transformation to get to the
             # ParamSpaceGroup and set that as the selection base.
-            dag.select_base = dag.add_node(operation='getitem',
-                                           args=[DAGTag('dm'),self.PSGRP_PATH])
+            dag.select_base = dag.add_node(
+                operation="getitem", args=[DAGTag("dm"), self.PSGRP_PATH]
+            )
 
             # For all tags, update the default values with custom arguments
             # and then add transformations
@@ -373,22 +427,29 @@ class MultiversePlotCreator(ExternalPlotCreator):
                 # If a base path was given, prepend it. This is the path that
                 # is selected *within* each universe.
                 if base_path is not None:
-                    spec['path'] = PATH_JOIN_CHAR.join([base_path,
-                                                        spec['path']])
+                    spec["path"] = PATH_JOIN_CHAR.join(
+                        [base_path, spec["path"]]
+                    )
 
                 # Parse parameters, i.e.: Use defaults defined on this level
                 # if the spec does not provide more specific information.
-                spec['subspace'] = spec.get('subspace',copy.deepcopy(subspace))
-                spec['combination_method'] = spec.get('combination_method',
-                                                      combination_method)
+                spec["subspace"] = spec.get(
+                    "subspace", copy.deepcopy(subspace)
+                )
+                spec["combination_method"] = spec.get(
+                    "combination_method", combination_method
+                )
 
                 # Add the transformations for this specific tag
                 add_transformations(dag, tag=tag, **spec)
 
             # Done. :)
-            log.remark("Added select-and-combine transformations for "
-                       "tags: %s. The DAG contains %d nodes now.",
-                       ", ".join(fields.keys()), len(dag.nodes))
+            log.remark(
+                "Added select-and-combine transformations for "
+                "tags: %s. The DAG contains %d nodes now.",
+                ", ".join(fields.keys()),
+                len(dag.nodes),
+            )
             # NOTE Resetting the selection base is not necessary here, because
             #      the user-specified value is set directly after this function
             #      returns.
@@ -397,9 +458,11 @@ class MultiversePlotCreator(ExternalPlotCreator):
         # To not create further confusion regarding base paths, raise an error
         # if it is attempted to set the `select_path_prefix` argument.
         if select_path_prefix:
-            raise ValueError("The select_path_prefix argument cannot be used "
-                             "within {}! Use the select_and_combine.base_path "
-                             "argument instead.".format(self.logstr))
+            raise ValueError(
+                "The select_path_prefix argument cannot be used "
+                f"within {self.logstr}! Use the select_and_combine.base_path "
+                "argument instead."
+            )
 
         # Initialize an (empty) DAG, i.e.: without select and transform args
         # and without setting the selection base
@@ -419,16 +482,18 @@ class MultiversePlotCreator(ExternalPlotCreator):
 
 # -----------------------------------------------------------------------------
 
+
 class UniversePlotCreator(ExternalPlotCreator):
     """A UniversePlotCreator is an ExternalPlotCreator that allows looping of
     all or a selected subspace of universes.
     """
+
     # Where the `ParamSpaceGroup` object is expected within the data manager
     PSGRP_PATH = None
 
     # .........................................................................
 
-    def __init__(self, *args, psgrp_path: str=None, **kwargs):
+    def __init__(self, *args, psgrp_path: str = None, **kwargs):
         """Initialize a UniversePlotCreator"""
         super().__init__(*args, **kwargs)
 
@@ -448,15 +513,18 @@ class UniversePlotCreator(ExternalPlotCreator):
         creator by looking up a certain path in the data manager.
         """
         if self.PSGRP_PATH is None:
-            raise ValueError("Missing class variable PSGRP_PATH! Either set "
-                             "it directly or pass the `psgrp_path` argument "
-                             "to the __init__ function.")
+            raise ValueError(
+                "Missing class variable PSGRP_PATH! Either set "
+                "it directly or pass the `psgrp_path` argument "
+                "to the __init__ function."
+            )
 
         # Retrieve the parameter space group
         return self.dm[self.PSGRP_PATH]
 
-    def prepare_cfg(self, *, plot_cfg: dict, pspace: Union[dict, ParamSpace]
-                    ) -> Tuple[dict, ParamSpace]:
+    def prepare_cfg(
+        self, *, plot_cfg: dict, pspace: Union[dict, ParamSpace]
+    ) -> Tuple[dict, ParamSpace]:
         """Converts a regular plot configuration to one that can be configured
         to iterate over multiple universes via a parameter space.
 
@@ -483,11 +551,13 @@ class UniversePlotCreator(ExternalPlotCreator):
         # Now have the plot config
         # Identify those keys that specify which universes to loop over
         try:
-            unis = plot_cfg.pop('universes')
+            unis = plot_cfg.pop("universes")
 
         except KeyError as err:
-            raise ValueError("Missing required keyword-argument `universes` "
-                             "in plot configuration!") from err
+            raise ValueError(
+                "Missing required keyword-argument `universes` "
+                "in plot configuration!"
+            ) from err
 
         # Get the parameter space, as it might be needed for certain values of
         # the `universes` argument
@@ -496,15 +566,16 @@ class UniversePlotCreator(ExternalPlotCreator):
         # If there was no parameter space available in the first place, only
         # the default point is available, which should be handled differently
         if self._psp.num_dims == 0 or self.psgrp.only_default_data_present:
-            if unis not in ['all', 'single', 'first', 'random', 'any']:
-                raise ValueError("Could not select a universe for plotting "
-                                 "because the associated parameter space has "
-                                 "no dimensions available or only data for "
-                                 "the default point was available in {}. "
-                                 "For these cases, the only valid values for "
-                                 "the `universes` argument are: 'all', "
-                                 "'single', 'first', 'random', or 'any'."
-                                 "".format(self.psgrp.logstr))
+            if unis not in ("all", "single", "first", "random", "any"):
+                raise ValueError(
+                    "Could not select a universe for plotting "
+                    "because the associated parameter space has "
+                    "no dimensions available or only data for "
+                    f"the default point was available in {self.psgrp.logstr}. "
+                    "For these cases, the only valid values for "
+                    "the `universes` argument are: 'all', "
+                    "'single', 'first', 'random', or 'any'."
+                )
 
             # Set a flag to carry information to _prepare_plot_func_args
             self._without_pspace = True
@@ -520,11 +591,11 @@ class UniversePlotCreator(ExternalPlotCreator):
 
         # Parse it such that it is a valid subspace selector
         if isinstance(unis, str):
-            if unis in ['all']:
+            if unis in ("all",):
                 # is equivalent to an empty specifier -> empty dict
                 unis = dict()
 
-            elif unis in ['single', 'first', 'random', 'any']:
+            elif unis in ("single", "first", "random", "any"):
                 # Find the state number from the universes available in the
                 # parameter space group. Then retrieve the coordinates from
                 # the corresponding parameter space state map
@@ -533,7 +604,7 @@ class UniversePlotCreator(ExternalPlotCreator):
                 uni_ids = [int(_id) for _id in self.psgrp.keys()]
 
                 # Select the first or a random ID
-                if unis in ['single', 'first']:
+                if unis in ["single", "first"]:
                     uni_id = min(uni_ids)
                 else:
                     uni_id = np.random.choice(uni_ids)
@@ -547,26 +618,31 @@ class UniversePlotCreator(ExternalPlotCreator):
                 unis = {k: c.item() for k, c in point.coords.items()}
 
             else:
-                raise ValueError("Invalid value for `universes` argument. Got "
-                                 "'{}', but expected one of: 'all', 'single', "
-                                 "'first', 'random', or 'any'.".format(unis))
+                raise ValueError(
+                    "Invalid value for `universes` argument. Got "
+                    f"'{unis}', but expected one of: 'all', 'single', "
+                    "'first', 'random', or 'any'."
+                )
 
         elif not isinstance(unis, dict):
-            raise TypeError("Need parameter `universes` to be either a "
-                            "string or a dictionary of subspace selectors, "
-                            "but got: {} {}.".format(type(unis), unis))
+            raise TypeError(
+                "Need parameter `universes` to be either a "
+                "string or a dictionary of subspace selectors, "
+                f"but got: {type(unis)} {unis}."
+            )
 
         # else: was a dict, can be used as a subspace selector
 
         # Ensure that no invalid dimension names were selected
         for pdim_name in unis.keys():
             if pdim_name not in self._psp.dims.keys():
-                raise ValueError("No parameter dimension '{}' was available "
-                                 "in the parameter space associated with {}! "
-                                 "Available parameter dimensions: {}"
-                                 "".format(pdim_name, self.psgrp.logstr,
-                                           ", ".join([n for n
-                                                      in self._psp.dims])))
+                _dim_names = ", ".join([n for n in self._psp.dims])
+                raise ValueError(
+                    f"No parameter dimension '{pdim_name}' was available "
+                    "in the parameter space associated with "
+                    f"{self.psgrp.logstr}! Available parameter "
+                    f"dimensions: {_dim_names}"
+                )
 
         # Copy parameter dimension objects for each coordinate
         # As the parameter space with the coordinates has a different
@@ -594,11 +670,13 @@ class UniversePlotCreator(ExternalPlotCreator):
             coords[name] = _pdim
 
         # Add these as a new key to the plot configuration
-        if '_coords' in plot_cfg:
-            raise ValueError("The given plot configuration may _not_ contain "
-                             "the key '_coords' on the top-most level!")
+        if "_coords" in plot_cfg:
+            raise ValueError(
+                "The given plot configuration may _not_ contain "
+                "the key '_coords' on the top-most level!"
+            )
 
-        plot_cfg['_coords'] = coords
+        plot_cfg["_coords"] = coords
 
         # Convert the whole dict to a parameter space, the "multi plot config"
         mpc = ParamSpace(plot_cfg)
@@ -617,8 +695,9 @@ class UniversePlotCreator(ExternalPlotCreator):
         # in there now.
         return {}, mpc
 
-    def _prepare_plot_func_args(self, *args, _coords: dict=None,
-                                **kwargs) -> Tuple[tuple, dict]:
+    def _prepare_plot_func_args(
+        self, *args, _coords: dict = None, **kwargs
+    ) -> Tuple[tuple, dict]:
         """Prepares the arguments for the plot function and implements the
         special arguments required for ParamSpaceGroup-like data: selection of
         a single universe from the given coordinates.
@@ -657,8 +736,9 @@ class UniversePlotCreator(ExternalPlotCreator):
         # additional helper methods; see below.
         return super()._prepare_plot_func_args(*args, uni=uni, **kwargs)
 
-    def _get_dag_params(self, *, uni: ParamSpaceStateGroup, **cfg
-                        ) -> Tuple[dict, dict]:
+    def _get_dag_params(
+        self, *, uni: ParamSpaceStateGroup, **cfg
+    ) -> Tuple[dict, dict]:
         """Makes the selected universe available and adjusts DAG parameters
         such that selections can be based on that universe.
         """
@@ -668,10 +748,17 @@ class UniversePlotCreator(ExternalPlotCreator):
         # to get to the selected universe and subsequently use that as the
         # selection base.
         uni_path = PATH_JOIN_CHAR.join([self.PSGRP_PATH, uni.name])
-        base_transform = [dict(getitem=[DAGTag('dm'), uni_path], tag='uni',
-                               file_cache=dict(read=False, write=False))]
-        dag_params['init'] = dict(**dag_params['init'],
-                                  base_transform=base_transform,
-                                  select_base='uni')
+        base_transform = [
+            dict(
+                getitem=[DAGTag("dm"), uni_path],
+                tag="uni",
+                file_cache=dict(read=False, write=False),
+            )
+        ]
+        dag_params["init"] = dict(
+            **dag_params["init"],
+            base_transform=base_transform,
+            select_base="uni",
+        )
 
         return dag_params, plot_kwargs

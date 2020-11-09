@@ -32,6 +32,7 @@ class ParamSpaceStateGroup(OrderedDataGroup):
     in the enclosing :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` but also
     here), it can *hold* members with any name.
     """
+
     _NEW_GROUP_CLS = OrderedDataGroup
 
     def _check_name(self, name: str) -> None:
@@ -61,7 +62,7 @@ class ParamSpaceStateGroup(OrderedDataGroup):
         """Retrieves the coordinates of this group within the parameter space
         described by the :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`
         this group is enclosed in.
-        
+
         Returns:
             dict: The coordinates of this group, keys being dimension names and
                 values being the coordinate values for this group.
@@ -85,7 +86,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
 
     # Class variables that define some of the behaviour
     # Define which .attrs entry to return from the `pspace` property
-    _PSPGRP_PSPACE_ATTR_NAME = 'pspace'
+    _PSPGRP_PSPACE_ATTR_NAME = "pspace"
 
     # A transformation callable that can be used during data selection
     _PSPGRP_TRANSFORMATOR = None
@@ -98,8 +99,14 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
 
     # .........................................................................
 
-    def __init__(self, *, name: str, pspace: ParamSpace=None,
-                 containers: list=None, **kwargs):
+    def __init__(
+        self,
+        *,
+        name: str,
+        pspace: ParamSpace = None,
+        containers: list = None,
+        **kwargs,
+    ):
         """Initialize a OrderedDataGroup from the list of given containers.
 
         Args:
@@ -136,14 +143,16 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
         accessed by the .pspace property
         """
         if self.pspace is not None:
-            raise RuntimeError("The attribute for the parameter space of this "
-                               "{} was already set, cannot set it again!"
-                               "".format(self.logstr))
+            raise RuntimeError(
+                "The attribute for the parameter space of this "
+                f"{self.logstr} was already set, cannot set it again!"
+            )
 
         elif not isinstance(val, ParamSpace):
-            raise TypeError("The attribute for the parameter space of {} "
-                            "needs to be a ParamSpace-derived object, was {}!"
-                            "".format(self.logstr, type(val)))
+            raise TypeError(
+                f"The attribute for the parameter space of {self.logstr} "
+                f"needs to be a ParamSpace-derived object, was {type(val)}!"
+            )
 
         # Checked it, now set it
         self.attrs[self._PSPGRP_PSPACE_ATTR_NAME] = val
@@ -159,14 +168,17 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
 
     # Data access .............................................................
 
-    def select(self, *,
-               field: Union[str, List[str]]=None,
-               fields: Dict[str, List[str]]=None,
-               subspace: dict=None,
-               method: str='concat',
-               idx_as_label: bool=False,
-               base_path: str=None,
-               **kwargs) -> xr.Dataset:
+    def select(
+        self,
+        *,
+        field: Union[str, List[str]] = None,
+        fields: Dict[str, List[str]] = None,
+        subspace: dict = None,
+        method: str = "concat",
+        idx_as_label: bool = False,
+        base_path: str = None,
+        **kwargs,
+    ) -> xr.Dataset:
         """Selects a multi-dimensional slab of this ParamSpaceGroup and the
         specified fields and returns them bundled into an ``xarray.Dataset``
         with labelled dimensions and coordinates.
@@ -234,12 +246,16 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
             """
 
             if field is not None and fields is not None:
-                raise ValueError("Can only specify either of the arguments "
-                                 "`field` or `fields`, got both!")
+                raise ValueError(
+                    "Can only specify either of the arguments "
+                    "`field` or `fields`, got both!"
+                )
 
             elif field is None and fields is None:
-                raise ValueError("Need to specify one of the arguments "
-                                 "`field` or `fields`, got neither of them!")
+                raise ValueError(
+                    "Need to specify one of the arguments "
+                    "`field` or `fields`, got neither of them!"
+                )
 
             elif field is not None:
                 # Generate a dict from the single field argument and put it
@@ -252,8 +268,8 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                     kwargs = {}
 
                 elif isinstance(field, dict):
-                    path = field['path']
-                    kwargs = {k:v for k, v in field.items() if k != "path"}
+                    path = field["path"]
+                    kwargs = {k: v for k, v in field.items() if k != "path"}
                     # Not using .pop here in order to not change the dict.
 
                     if isinstance(path, str):
@@ -270,8 +286,10 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
             # The fields variable is now available
             # Make sure it is of right type
             if not isinstance(fields, dict):
-                raise TypeError("Argument `fields` needs to be a dict, "
-                                "but was {}!".format(type(fields)))
+                raise TypeError(
+                    "Argument `fields` needs to be a dict, "
+                    f"but was {type(fields)}!"
+                )
 
             # Ensure values of the dict are dicts of the proper structre
             for name, field in fields.items():
@@ -293,17 +311,21 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
 
             except (KeyError, ValueError) as err:
                 # TODO use custom exception class, e.g. from DataManager?
-                raise ValueError("No state {} available in {}! Make sure the "
-                                 "data was fully loaded."
-                                 "".format(state_no, self.logstr)) from err
+                raise ValueError(
+                    f"No state {state_no} available in {self.logstr}! Make "
+                    "sure the data was fully loaded."
+                ) from err
 
-        def get_var(state_grp: ParamSpaceStateGroup, *,
-                    path: List[str],
-                    base_path: List[str]=None,
-                    dtype: str=None,
-                    dims: List[str]=None,
-                    transform: Sequence[dict]=None,
-                    **transform_kwargs) -> Union[xr.Variable, xr.DataArray]:
+        def get_var(
+            state_grp: ParamSpaceStateGroup,
+            *,
+            path: List[str],
+            base_path: List[str] = None,
+            dtype: str = None,
+            dims: List[str] = None,
+            transform: Sequence[dict] = None,
+            **transform_kwargs,
+        ) -> Union[xr.Variable, xr.DataArray]:
             """Extracts the field specified by the given path and returns it as
             either an xr.Variable or (for supported containers) directly as an
             xr.DataArray.
@@ -334,14 +356,19 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
             Raises:
                 ValueError: Description
             """
+
             def convert_dtype(data, dtype, *, path):
                 """Change the dtype of the data, if it does not match the
                 specified one.
                 """
                 if data.dtype == dtype:
                     return data
-                log.debug("Converting data from '%s' with dtype %s to %s ...",
-                          PATH_JOIN_CHAR.join(path), data.dtype, dtype)
+                log.debug(
+                    "Converting data from '%s' with dtype %s to %s ...",
+                    PATH_JOIN_CHAR.join(path),
+                    data.dtype,
+                    dtype,
+                )
                 return data.astype(dtype)
 
             # Prepare the path, ensuring to work on the list representation
@@ -357,13 +384,16 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
             # Apply the transformator on the container, if arguments given
             if transform or transform_kwargs:
                 if self._PSPGRP_TRANSFORMATOR is None:
-                    raise ValueError("Got transform arguments or kwargs, but "
-                                     "no transformator callable was defined "
-                                     "as class variable!")
+                    raise ValueError(
+                        "Got transform arguments or kwargs, but "
+                        "no transformator callable was defined "
+                        "as class variable!"
+                    )
 
                 # Invoke the transformator on the container
-                cont = self._PSPGRP_TRANSFORMATOR(cont, *transform,
-                                                  **transform_kwargs)
+                cont = self._PSPGRP_TRANSFORMATOR(
+                    cont, *transform, **transform_kwargs
+                )
 
             # Shortcut: specialised containers might already supply all the
             # information, including coordinates. In that case, return it as
@@ -377,8 +407,9 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                     darr = convert_dtype(darr, dtype, path=path)
 
                 if dims is not None:
-                    darr = darr.rename({old: new for old, new
-                                        in zip(darr.dims, dims)})
+                    darr = darr.rename(
+                        {old: new for old, new in zip(darr.dims, dims)}
+                    )
 
                 return darr
 
@@ -415,8 +446,9 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
 
             return xr.DataArray(data, dims=dims, coords=coords, attrs=attrs)
 
-        def combine(*, method: str,
-                    dsets: np.ndarray, psp: ParamSpace) -> xr.Dataset:
+        def combine(
+            *, method: str, dsets: np.ndarray, psp: ParamSpace
+        ) -> xr.Dataset:
             """Tries to combine the given datasets either by concatenation or
             by merging and returns a combined xr.Dataset
             """
@@ -424,7 +456,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
             #      function is called.
 
             # Merging . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-            if method in ['merge']:
+            if method in ["merge"]:
                 log.remark("Combining datasets by merging ...")
                 # TODO consider warning about dtype changes?!
 
@@ -434,8 +466,12 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 return dset
 
             # else: Concatenation . . . . . . . . . . . . . . . . . . . . . . .
-            log.remark("Combining %d datasets by concatenation along %d "
-                       "dimensions ...", dsets.size, len(dsets.shape))
+            log.remark(
+                "Combining %d datasets by concatenation along %d "
+                "dimensions ...",
+                dsets.size,
+                len(dsets.shape),
+            )
 
             # Reduce the dsets array to one dimension by applying xr.concat
             # along each axis. The returned object contains the combined data.
@@ -450,12 +486,16 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
         # Some initial checks
 
         if self.pspace is None:
-            raise ValueError("Cannot get data from {} without having a "
-                             "parameter space associated!".format(self.logstr))
+            raise ValueError(
+                f"Cannot get data from {self.logstr} without having a "
+                "parameter space associated!"
+            )
 
-        elif method not in ('concat', 'merge'):
-            raise ValueError("Invalid value for argument `method`: '{}'. Can "
-                             "be: 'concat' (default), 'merge'".format(method))
+        elif method not in ("concat", "merge"):
+            raise ValueError(
+                f"Invalid value for argument `method`: '{method}'. Can "
+                "be: 'concat' (default), 'merge'"
+            )
 
         # Pre-process arguments . . . . . . . . . . . . . . . . . . . . . . . .
         # From field and fields arguments, generate a fields dict, such that
@@ -472,41 +512,52 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
         if subspace:
             # Need the parameter space to be of non-zero volume
             if psp.volume == 0:
-                raise ValueError("Cannot select a subspace because the "
-                                 "associated parameter space has no "
-                                 "dimensions defined! Remove the `subspace` "
-                                 "argument in the call to this method.")
+                raise ValueError(
+                    "Cannot select a subspace because the "
+                    "associated parameter space has no "
+                    "dimensions defined! Remove the `subspace` "
+                    "argument in the call to this method."
+                )
 
             try:
                 psp.activate_subspace(**subspace)
 
             except KeyError as err:
-                raise KeyError("Could not select a subspace! {}: {}\n"
-                               "Make sure your subspace selector contains "
-                               "only valid dimension names and coordinates. "
-                               "Available dimension names: {}"
-                               "".format(type(err).__name__, err,
-                                         ", ".join(psp.dims.keys()))
-                               ) from err
+                _dim_names = ", ".join(psp.dims.keys())
+                raise KeyError(
+                    "Could not select a subspace! "
+                    f"{type(err).__name__}: {err}\n"
+                    "Make sure your subspace selector contains "
+                    "only valid dimension names and coordinates. "
+                    f"Available dimension names: {_dim_names}"
+                ) from err
 
         # Now, the data needs to be collected from each point in this subspace
         # and associated with the correct coordinate, such that the datasets
         # can later be merged and aligned by that coordinate.
         if psp.volume > 0:
-            log.info("Collecting data for %d fields from %d points in "
-                     "parameter space ...", len(fields), psp.volume)
+            log.info(
+                "Collecting data for %d fields from %d points in "
+                "parameter space ...",
+                len(fields),
+                psp.volume,
+            )
         else:
-            log.info("Collecting data for %d fields from a dimensionless "
-                     "parameter space ...", len(fields))
+            log.info(
+                "Collecting data for %d fields from a dimensionless "
+                "parameter space ...",
+                len(fields),
+            )
 
         # Gather them in a multi-dimensional array
         dsets = np.zeros(psp.shape, dtype="object")
         dsets.fill(dict())  # these are ignored in xr.merge
 
         # Prepare the iterators
-        psp_it = psp.iterator(with_info=('state_no', 'current_coords'),
-                              omit_pt=True)
-        arr_it = np.nditer(dsets, flags=('multi_index', 'refs_ok'))
+        psp_it = psp.iterator(
+            with_info=("state_no", "current_coords"), omit_pt=True
+        )
+        arr_it = np.nditer(dsets, flags=("multi_index", "refs_ok"))
 
         for (_state_no, _coords), _ in zip(psp_it, arr_it):
             # Select the corresponding state group
@@ -514,7 +565,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 _state_grp = get_state_grp(_state_no)
 
             except ValueError:
-                if method == 'merge':
+                if method == "merge":
                     # In merge, this will mereley lead to a NaN ...
                     log.warning("Missing state group:  %d", _state_no)
                     continue
@@ -522,8 +573,10 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 raise
 
             # Get the variables for all fields
-            _vars = {k: get_var(_state_grp, **f, base_path=base_path)
-                     for k, f in fields.items()}
+            _vars = {
+                k: get_var(_state_grp, **f, base_path=base_path)
+                for k, f in fields.items()
+            }
 
             # Construct a dataset from that ...
             _dset = xr.Dataset(_vars)
@@ -546,16 +599,21 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
             dset = combine(method=method, dsets=dsets, psp=psp)
 
         except ValueError as err:
-            raise ValueError("Combination of datasets failed; see below. This "
-                             "is probably due to a failure of alignment, "
-                             "which can be resolved by adding trivial "
-                             "coordinates (i.e.: the indices) to unlabelled "
-                             "dimensions by setting the `idx_as_label` "
-                             "argument to True.") from err
+            raise ValueError(
+                "Combination of datasets failed; see below. This "
+                "is probably due to a failure of alignment, "
+                "which can be resolved by adding trivial "
+                "coordinates (i.e.: the indices) to unlabelled "
+                "dimensions by setting the `idx_as_label` "
+                "argument to True."
+            ) from err
 
         log.info("Data selected.")
-        log.note("Available data variables:      %s",
-                 ", ".join(dset.data_vars))
-        log.note("Dataset dimensions and sizes:  %s",
-                 ", ".join("{}: {}".format(*kv) for kv in dset.sizes.items()))
+        log.note(
+            "Available data variables:      %s", ", ".join(dset.data_vars)
+        )
+        log.note(
+            "Dataset dimensions and sizes:  %s",
+            ", ".join("{}: {}".format(*kv) for kv in dset.sizes.items()),
+        )
         return dset

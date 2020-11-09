@@ -11,6 +11,7 @@ import importlib.util
 from typing import Callable, Union, List, Tuple, Sequence
 
 import matplotlib as mpl
+
 mpl.use("Agg")  # TODO Remove this. Should not be necessary!
 import matplotlib.animation
 import matplotlib.pyplot as plt
@@ -20,9 +21,13 @@ from .pcr_base import BasePlotCreator
 from ..dag import TransformationDAG
 
 from ._movie_writers import FileWriter
-from ._plot_helper import (PlotHelper,
-                           EnterAnimationMode, ExitAnimationMode,
-                           PlotHelperError, PlotHelperErrors)
+from ._plot_helper import (
+    PlotHelper,
+    EnterAnimationMode,
+    ExitAnimationMode,
+    PlotHelperError,
+    PlotHelperErrors,
+)
 
 
 # Local constants
@@ -30,6 +35,7 @@ log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 # Tools
+
 
 class figure_leak_prevention:
     """Context manager that aims to prevent superfluous matplotlib figures
@@ -47,7 +53,7 @@ class figure_leak_prevention:
 
     """
 
-    def __init__(self, *, close_current_fig_on_raise: bool=False):
+    def __init__(self, *, close_current_fig_on_raise: bool = False):
         """Initialize the context manager
 
         Args:
@@ -62,8 +68,10 @@ class figure_leak_prevention:
     def __enter__(self):
         """Upon entering, store all currently open figure numbers"""
         self._fignums = plt.get_fignums()
-        log.trace("Entering figure_leak_prevention context. Open figures: %s",
-                  self._fignums)
+        log.trace(
+            "Entering figure_leak_prevention context. Open figures: %s",
+            self._fignums,
+        )
 
     def __exit__(self, exc_type: type, *args) -> None:
         """Iterates over all currently open figures and closes all figures
@@ -73,11 +81,12 @@ class figure_leak_prevention:
         current figure is only closed if the context manager was entered with
         the ``close_current_fig_on_raise`` flag set.
         """
-        log.trace("Exiting figure_leak_prevention (exception: %s) ...",
-                  exc_type)
+        log.trace(
+            "Exiting figure_leak_prevention (exception: %s) ...", exc_type
+        )
 
         # Determine whether to exclude the current figure or not
-        exclude_current = (not self._close_current or exc_type is None)
+        exclude_current = not self._close_current or exc_type is None
         cfn = plt.gcf().number
         log.trace("  Current figure: %d", cfn)
 
@@ -95,7 +104,7 @@ class ExternalPlotCreator(BasePlotCreator):
     """This PlotCreator uses external scripts to create plots."""
 
     # Settings of functionality implemented in parent classes
-    EXTENSIONS = 'all'  # no checks performed
+    EXTENSIONS = "all"  # no checks performed
     DEFAULT_EXT = None
     DEFAULT_EXT_REQUIRED = False
     DAG_SUPPORTED = True
@@ -116,8 +125,14 @@ class ExternalPlotCreator(BasePlotCreator):
     # .........................................................................
     # Main API functions, required by PlotManager
 
-    def __init__(self, name: str, *, base_module_file_dir: str=None,
-                 style: dict=None, **parent_kwargs):
+    def __init__(
+        self,
+        name: str,
+        *,
+        base_module_file_dir: str = None,
+        style: dict = None,
+        **parent_kwargs,
+    ):
         """Initialize an ExternalPlotCreator.
 
         Args:
@@ -142,12 +157,17 @@ class ExternalPlotCreator(BasePlotCreator):
             bmfd = os.path.expanduser(base_module_file_dir)
 
             if not os.path.isabs(bmfd):
-                raise ValueError("Argument `base_module_file_dir` needs to be "
-                                 "an absolute path, was not! Got: "+str(bmfd))
+                raise ValueError(
+                    "Argument `base_module_file_dir` needs to be "
+                    "an absolute path, was not! Got: "
+                    + str(bmfd)
+                )
 
             elif not os.path.exists(bmfd) or not os.path.isdir(bmfd):
-                raise ValueError("Argument `base_module_file_dir` does not "
-                                 "exists or does not point to a directory!")
+                raise ValueError(
+                    "Argument `base_module_file_dir` does not "
+                    "exists or does not point to a directory!"
+                )
 
         self.base_module_file_dir = base_module_file_dir
 
@@ -157,10 +177,19 @@ class ExternalPlotCreator(BasePlotCreator):
         if style is not None:
             self._default_rc_params = self._prepare_style_context(**style)
 
-    def plot(self, *, out_path: str, plot_func: Union[str, Callable],
-             module: str=None, module_file: str=None, style: dict=None,
-             helpers: dict=None, animation: dict=None, use_dag: bool=None,
-             **func_kwargs):
+    def plot(
+        self,
+        *,
+        out_path: str,
+        plot_func: Union[str, Callable],
+        module: str = None,
+        module_file: str = None,
+        style: dict = None,
+        helpers: dict = None,
+        animation: dict = None,
+        use_dag: bool = None,
+        **func_kwargs,
+    ):
         """Performs the plot operation by calling a specified plot function.
 
         The plot function is specified by its name, which is interpreted as a
@@ -209,9 +238,9 @@ class ExternalPlotCreator(BasePlotCreator):
                 in cases where these are not supported
         """
         # Get the plotting function
-        plot_func = self._resolve_plot_func(plot_func=plot_func,
-                                            module=module,
-                                            module_file=module_file)
+        plot_func = self._resolve_plot_func(
+            plot_func=plot_func, module=module, module_file=module_file
+        )
 
         # Generate a style dictionary
         rc_params = self._prepare_style_context(**(style if style else {}))
@@ -224,30 +253,36 @@ class ExternalPlotCreator(BasePlotCreator):
             style_context = DoNothingContext()
 
         # Check if PlotHelper is to be used
-        if getattr(plot_func, 'use_helper', False):
+        if getattr(plot_func, "use_helper", False):
             switch_anim_mode = False
 
             # Delegate to private helper method that performs the plot or the
             # animation. In case that animation mode is to be entered or
             # exited, adjust the animation-related parameters accordingly.
             try:
-                self._plot_with_helper(out_path=out_path, plot_func=plot_func,
-                                       helpers=helpers,
-                                       style_context=style_context,
-                                       func_kwargs=func_kwargs,
-                                       use_dag=use_dag, animation=animation)
+                self._plot_with_helper(
+                    out_path=out_path,
+                    plot_func=plot_func,
+                    helpers=helpers,
+                    style_context=style_context,
+                    func_kwargs=func_kwargs,
+                    use_dag=use_dag,
+                    animation=animation,
+                )
 
             except EnterAnimationMode:
                 if not animation:
-                    raise ValueError("Cannot dynamically enter animation mode "
-                                     "without any `animation` parameters "
-                                     "having been specified in the "
-                                     "configuration of the {} '{}' plot!"
-                                     "".format(self.classname, self.name))
+                    raise ValueError(
+                        "Cannot dynamically enter animation mode "
+                        "without any `animation` parameters "
+                        "having been specified in the "
+                        "configuration of the {} '{}' plot!"
+                        "".format(self.classname, self.name)
+                    )
 
                 switch_anim_mode = True
                 animation = copy.deepcopy(animation)
-                animation['enabled'] = True
+                animation["enabled"] = True
 
             except ExitAnimationMode:
                 switch_anim_mode = True
@@ -259,51 +294,59 @@ class ExternalPlotCreator(BasePlotCreator):
             if switch_anim_mode:
                 log.debug("Plotting anew (with change in animation mode) ...")
                 try:
-                    self._plot_with_helper(out_path=out_path,
-                                           plot_func=plot_func,
-                                           helpers=helpers,
-                                           style_context=style_context,
-                                           func_kwargs=func_kwargs,
-                                           use_dag=use_dag,
-                                           animation=animation)
+                    self._plot_with_helper(
+                        out_path=out_path,
+                        plot_func=plot_func,
+                        helpers=helpers,
+                        style_context=style_context,
+                        func_kwargs=func_kwargs,
+                        use_dag=use_dag,
+                        animation=animation,
+                    )
 
                 except (EnterAnimationMode, ExitAnimationMode):
-                    raise RuntimeError("Cannot repeatedly enter or exit "
-                                       "animation mode! Make sure that the "
-                                       "plotting function of {} respects "
-                                       "this requirement and that the plot "
-                                       "configuration you specified does not "
-                                       "contradict itself."
-                                       "".format(self.logstr))
+                    raise RuntimeError(
+                        "Cannot repeatedly enter or exit "
+                        "animation mode! Make sure that the "
+                        "plotting function of {} respects "
+                        "this requirement and that the plot "
+                        "configuration you specified does not "
+                        "contradict itself."
+                        "".format(self.logstr)
+                    )
 
         else:
             # Call only the plot function
             # Do not allow helper or animation parameters
             if helpers:
-                raise ValueError("The key 'helpers' was found in the "
-                                 "configuration of plot '{}' but usage of the "
-                                 "PlotHelper is not supported by plot "
-                                 "function '{}'!"
-                                 "".format(self.name, plot_func.__name__))
+                raise ValueError(
+                    "The key 'helpers' was found in the "
+                    "configuration of plot '{}' but usage of the "
+                    "PlotHelper is not supported by plot "
+                    "function '{}'!"
+                    "".format(self.name, plot_func.__name__)
+                )
 
             if animation:
-                raise ValueError("The key 'animation' was found in the "
-                                 "configuration of plot '{}' but the "
-                                 "animation feature is only available when "
-                                 "using the PlotHelper for plot function '{}'!"
-                                 "".format(self.name, plot_func.__name__))
+                raise ValueError(
+                    "The key 'animation' was found in the "
+                    "configuration of plot '{}' but the "
+                    "animation feature is only available when "
+                    "using the PlotHelper for plot function '{}'!"
+                    "".format(self.name, plot_func.__name__)
+                )
 
             # Prepare the arguments. The DataManager is added to args there
             # and data transformation via DAG occurs there as well.
-            args, kwargs = self._prepare_plot_func_args(plot_func,
-                                                        use_dag=use_dag,
-                                                        out_path=out_path,
-                                                        **func_kwargs)
+            args, kwargs = self._prepare_plot_func_args(
+                plot_func, use_dag=use_dag, out_path=out_path, **func_kwargs
+            )
 
             # Enter the stlye context (can also be DoNothingContext, see above)
             with style_context:
-                log.debug("Calling plotting function '%s' ...",
-                          plot_func.__name__)
+                log.debug(
+                    "Calling plotting function '%s' ...", plot_func.__name__
+                )
                 plot_func(*args, **kwargs)
             # Done.
 
@@ -324,14 +367,17 @@ class ExternalPlotCreator(BasePlotCreator):
         Returns:
             bool: Whether this creator can be used for plotting or not
         """
-        log.debug("Checking if %s can plot the given configuration ...",
-                  self.logstr)
+        log.debug(
+            "Checking if %s can plot the given configuration ...", self.logstr
+        )
 
         # Gather the arguments needed for plot function resolution and remove
         # those that are None
-        pf_kwargs = dict(plot_func=cfg.get('plot_func'),
-                         module=cfg.get('module'),
-                         module_file=cfg.get('module_file'))
+        pf_kwargs = dict(
+            plot_func=cfg.get("plot_func"),
+            module=cfg.get("module"),
+            module_file=cfg.get("module_file"),
+        )
         pf_kwargs = {k: v for k, v in pf_kwargs.items() if v is not None}
 
         # Try to resolve the function
@@ -339,9 +385,12 @@ class ExternalPlotCreator(BasePlotCreator):
             pf = self._resolve_plot_func(**pf_kwargs)
 
         except Exception:
-            log.debug("Cannot plot this configuration, because a plotting "
-                      "function could not be resolved with the given "
-                      "arguments: %s", pf_kwargs)
+            log.debug(
+                "Cannot plot this configuration, because a plotting "
+                "function could not be resolved with the given "
+                "arguments: %s",
+                pf_kwargs,
+            )
             return False
 
         # else: was able to resolve a plotting function
@@ -358,9 +407,17 @@ class ExternalPlotCreator(BasePlotCreator):
     # .........................................................................
     # Helpers: Main plot routines
 
-    def _plot_with_helper(self, *, out_path: str, plot_func: Callable,
-                          helpers: dict, style_context, func_kwargs: dict,
-                          animation: dict, use_dag: bool):
+    def _plot_with_helper(
+        self,
+        *,
+        out_path: str,
+        plot_func: Callable,
+        helpers: dict,
+        style_context,
+        func_kwargs: dict,
+        animation: dict,
+        use_dag: bool,
+    ):
         """A helper method that performs plotting using the
         :py:class:`~dantro.plot_creators._plot_helper.PlotHelper`.
 
@@ -376,31 +433,36 @@ class ExternalPlotCreator(BasePlotCreator):
         """
         # Determine if animation is enabled, which is relevant for PlotHelper
         animation = copy.deepcopy(animation) if animation else {}
-        animation_enabled = animation.pop('enabled', False)
+        animation_enabled = animation.pop("enabled", False)
 
         # Initialize a PlotHelper instance that will take care of figure
         # setup, invoking helper-functions and saving the figure
-        helper_defaults = getattr(plot_func, 'helper_defaults', None)
-        hlpr = self.PLOT_HELPER_CLS(out_path=out_path,
-                                    helper_defaults=helper_defaults,
-                                    update_helper_cfg=helpers,
-                                    raise_on_error=self.raise_exc,
-                                    animation_enabled=animation_enabled)
+        helper_defaults = getattr(plot_func, "helper_defaults", None)
+        hlpr = self.PLOT_HELPER_CLS(
+            out_path=out_path,
+            helper_defaults=helper_defaults,
+            update_helper_cfg=helpers,
+            raise_on_error=self.raise_exc,
+            animation_enabled=animation_enabled,
+        )
 
         # Prepare the arguments. The DataManager is added to args there
         # and data transformation via DAG occurs there as well.
-        args, kwargs = self._prepare_plot_func_args(plot_func,
-                                                    use_dag=use_dag,
-                                                    hlpr=hlpr,
-                                                    **func_kwargs)
+        args, kwargs = self._prepare_plot_func_args(
+            plot_func, use_dag=use_dag, hlpr=hlpr, **func_kwargs
+        )
 
         # Check if an animation is to be done
         if animation_enabled:
             # Let the private animation helper method do the rest
-            self._perform_animation(hlpr=hlpr, style_context=style_context,
-                                    plot_func=plot_func,
-                                    plot_args=args, plot_kwargs=kwargs,
-                                    **animation)
+            self._perform_animation(
+                hlpr=hlpr,
+                style_context=style_context,
+                plot_func=plot_func,
+                plot_args=args,
+                plot_kwargs=kwargs,
+                **animation,
+            )
 
         else:
             # No animation to be done.
@@ -411,20 +473,26 @@ class ExternalPlotCreator(BasePlotCreator):
             with style_context, leak_prev:
                 hlpr.setup_figure()
 
-                log.note("Now calling plotting function '%s' ...",
-                         plot_func.__name__)
+                log.note(
+                    "Now calling plotting function '%s' ...",
+                    plot_func.__name__,
+                )
                 plot_func(*args, **kwargs)
 
                 log.note("Plot function finished. Finishing up ...")
-                hlpr.invoke_enabled(axes='all')
+                hlpr.invoke_enabled(axes="all")
                 hlpr.save_figure()
 
     # .........................................................................
     # Helpers: Plot function resolution and argument preparation
 
-    def _resolve_plot_func(self, *,
-                           plot_func: Union[str, Callable], module: str=None,
-                           module_file: str=None) -> Callable:
+    def _resolve_plot_func(
+        self,
+        *,
+        plot_func: Union[str, Callable],
+        module: str = None,
+        module_file: str = None,
+    ) -> Callable:
         """
         Args:
             plot_func (Union[str, Callable]): The plot function or a name or
@@ -446,9 +514,11 @@ class ExternalPlotCreator(BasePlotCreator):
             return plot_func
 
         elif not isinstance(plot_func, str):
-            raise TypeError("Argument `plot_func` needs to be a string or a "
-                            "callable, was {} with value '{}'."
-                            "".format(type(plot_func), plot_func))
+            raise TypeError(
+                "Argument `plot_func` needs to be a string or a "
+                "callable, was {} with value '{}'."
+                "".format(type(plot_func), plot_func)
+            )
 
         # else: need to resolve the module and find the plot_func in it
         # First resolve the module, either from file or via import
@@ -459,12 +529,14 @@ class ExternalPlotCreator(BasePlotCreator):
             mod = self._get_module_via_import(module)
 
         else:
-            raise TypeError("Could not import a module, because neither "
-                            "argument `module_file` was given nor did "
-                            "argument `module` have the correct type "
-                            "(needs to be string but was {} with value "
-                            "'{}')."
-                            "".format(type(module), module))
+            raise TypeError(
+                "Could not import a module, because neither "
+                "argument `module_file` was given nor did "
+                "argument `module` have the correct type "
+                "(needs to be string but was {} with value "
+                "'{}')."
+                "".format(type(module), module)
+            )
 
         # plot_func could be something like "A.B.C.d"; go along the segments to
         # allow for more versatile plot function retrieval
@@ -487,9 +559,11 @@ class ExternalPlotCreator(BasePlotCreator):
         # Make it absolute
         if not os.path.isabs(path):
             if not self.base_module_file_dir:
-                raise ValueError("Need to specify `base_module_file_dir` "
-                                 "during initialization to use relative paths "
-                                 "for `module_file` argument!")
+                raise ValueError(
+                    "Need to specify `base_module_file_dir` "
+                    "during initialization to use relative paths "
+                    "for `module_file` argument!"
+                )
 
             path = os.path.join(self.base_module_file_dir, path)
 
@@ -512,9 +586,9 @@ class ExternalPlotCreator(BasePlotCreator):
         # package defined as base package
         return importlib.import_module(module, package=self.BASE_PKG)
 
-    def _prepare_plot_func_args(self, plot_func: Callable,
-                                *args, use_dag: bool=None,
-                                **kwargs) -> Tuple[tuple, dict]:
+    def _prepare_plot_func_args(
+        self, plot_func: Callable, *args, use_dag: bool = None, **kwargs
+    ) -> Tuple[tuple, dict]:
         """Prepares the args and kwargs passed to the plot function.
 
         The passed args and kwargs are carried over, while the positional
@@ -532,9 +606,9 @@ class ExternalPlotCreator(BasePlotCreator):
         """
         # If enabled, use the DAG interface to perform data selection. The
         # returned kwargs are the adjusted plot function keyword arguments.
-        using_dag, kwargs = self._perform_data_selection(use_dag=use_dag,
-                                                         plot_kwargs=kwargs,
-                                                         _plot_func=plot_func)
+        using_dag, kwargs = self._perform_data_selection(
+            use_dag=use_dag, plot_kwargs=kwargs, _plot_func=plot_func
+        )
 
         # Aggregate as (args, kwargs), passed on to plot function. When using
         # the DAG, the DataManager is NOT passed along, as it is accessible via
@@ -546,8 +620,9 @@ class ExternalPlotCreator(BasePlotCreator):
     # .........................................................................
     # Helpers: specialization of data selection and transformation framework
 
-    def _get_dag_params(self, *, _plot_func: Callable,
-                        **cfg) -> Tuple[dict, dict]:
+    def _get_dag_params(
+        self, *, _plot_func: Callable, **cfg
+    ) -> Tuple[dict, dict]:
         """Extends the parent method by making the plot function callable
         available to the other helper methods and extracting some further
         information from the plot function.
@@ -556,50 +631,60 @@ class ExternalPlotCreator(BasePlotCreator):
 
         # Store the plot function, such that it is available as argument in the
         # other subclassed helper methods
-        dag_params['init']['_plot_func'] = _plot_func
-        dag_params['compute']['_plot_func'] = _plot_func
+        dag_params["init"]["_plot_func"] = _plot_func
+        dag_params["compute"]["_plot_func"] = _plot_func
 
         # Determine whether the DAG object should be passed along to the func
-        pass_dag = getattr(_plot_func, 'pass_dag_object_along', False)
-        dag_params['pass_dag_object_along'] = pass_dag
+        pass_dag = getattr(_plot_func, "pass_dag_object_along", False)
+        dag_params["pass_dag_object_along"] = pass_dag
 
         # Determine whether the DAG results should be unpacked when passing
         # them to the plot function
-        unpack_results = getattr(_plot_func, 'unpack_dag_results', False)
-        dag_params['unpack_dag_results'] = unpack_results
+        unpack_results = getattr(_plot_func, "unpack_dag_results", False)
+        dag_params["unpack_dag_results"] = unpack_results
 
         return dag_params, plot_kwargs
 
-    def _use_dag(self, *, use_dag: bool, plot_kwargs: dict,
-                 _plot_func: Callable) -> bool:
+    def _use_dag(
+        self, *, use_dag: bool, plot_kwargs: dict, _plot_func: Callable
+    ) -> bool:
         """Whether the DAG should be used or not. This method extends that of
         the base class by additionally checking the plot function attributes
         for any information regarding the DAG
         """
         # If None was given, check the plot function attributes
         if use_dag is None:
-            use_dag = getattr(_plot_func, 'use_dag', None)
+            use_dag = getattr(_plot_func, "use_dag", None)
 
         # Let the parent class do whatever else it does
         use_dag = super()._use_dag(use_dag=use_dag, plot_kwargs=plot_kwargs)
 
         # Complain, if tags where required, but DAG usage was disabled
-        if not use_dag and getattr(_plot_func, 'required_dag_tags', None):
-            raise ValueError("The plot function {} requires DAG tags to be "
-                             "computed, but DAG usage was disabled."
-                             "".format(_plot_func))
+        if not use_dag and getattr(_plot_func, "required_dag_tags", None):
+            raise ValueError(
+                "The plot function {} requires DAG tags to be "
+                "computed, but DAG usage was disabled."
+                "".format(_plot_func)
+            )
 
         return use_dag
 
-    def _create_dag(self, *, _plot_func: Callable,
-                    **dag_params) -> TransformationDAG:
+    def _create_dag(
+        self, *, _plot_func: Callable, **dag_params
+    ) -> TransformationDAG:
         """Extends the parent method by allowing to pass the _plot_func, which
         can be used to adjust DAG behaviour ...
         """
         return super()._create_dag(**dag_params)
 
-    def _compute_dag(self, dag: TransformationDAG, *, _plot_func: Callable,
-                     compute_only: Sequence[str], **compute_kwargs) -> dict:
+    def _compute_dag(
+        self,
+        dag: TransformationDAG,
+        *,
+        _plot_func: Callable,
+        compute_only: Sequence[str],
+        **compute_kwargs,
+    ) -> dict:
         """Compute the dag results.
 
         This extends the parent method by additionally checking whether all
@@ -607,28 +692,37 @@ class ExternalPlotCreator(BasePlotCreator):
         tags were computed.
         """
         # Extract the required tags from the plot function
-        required_tags = getattr(_plot_func, 'required_dag_tags', None)
+        required_tags = getattr(_plot_func, "required_dag_tags", None)
 
         # Make sure that all required tags are actually defined
         if required_tags:
             missing_tags = [t for t in required_tags if t not in dag.tags]
 
             if missing_tags:
-                raise ValueError("Plot function {} required tags that were "
-                                 "not specified in the DAG: {}. Available "
-                                 "tags: {}. Please adjust the DAG "
-                                 "specification accordingly."
-                                 "".format(_plot_func,
-                                           ", ".join(missing_tags),
-                                           ", ".join(dag.tags)))
+                raise ValueError(
+                    "Plot function {} required tags that were "
+                    "not specified in the DAG: {}. Available "
+                    "tags: {}. Please adjust the DAG "
+                    "specification accordingly."
+                    "".format(
+                        _plot_func,
+                        ", ".join(missing_tags),
+                        ", ".join(dag.tags),
+                    )
+                )
 
         # If the compute_only argument was not explicitly given, determine
         # whether to compute only the required tags
-        if (    compute_only is None and required_tags is not None
-            and getattr(_plot_func, 'compute_only_required_dag_tags', False)):
-            log.remark("Computing only tags that were specified as required "
-                       "tags by the plot function: %s",
-                       ", ".join(required_tags))
+        if (
+            compute_only is None
+            and required_tags is not None
+            and getattr(_plot_func, "compute_only_required_dag_tags", False)
+        ):
+            log.remark(
+                "Computing only tags that were specified as required "
+                "tags by the plot function: %s",
+                ", ".join(required_tags),
+            )
             compute_only = required_tags
 
         # Make sure the compute_only argument contains all the required tags
@@ -636,26 +730,36 @@ class ExternalPlotCreator(BasePlotCreator):
             missing_tags = [t for t in required_tags if t not in compute_only]
 
             if missing_tags:
-                raise ValueError("Plot function {} required tags that were "
-                                 "not set to be computed by the DAG: {}. Make "
-                                 "sure to set the `compute_only` argument "
-                                 "such that results for all required tags "
-                                 "({}) will actually be computed.\n"
-                                 "Available tags:  {}\n"
-                                 "compute_only:    {}"
-                                 "".format(_plot_func,
-                                           ", ".join(missing_tags),
-                                           ", ".join(required_tags),
-                                           ", ".join(dag.tags),
-                                           ", ".join(compute_only)))
+                raise ValueError(
+                    "Plot function {} required tags that were "
+                    "not set to be computed by the DAG: {}. Make "
+                    "sure to set the `compute_only` argument "
+                    "such that results for all required tags "
+                    "({}) will actually be computed.\n"
+                    "Available tags:  {}\n"
+                    "compute_only:    {}"
+                    "".format(
+                        _plot_func,
+                        ", ".join(missing_tags),
+                        ", ".join(required_tags),
+                        ", ".join(dag.tags),
+                        ", ".join(compute_only),
+                    )
+                )
 
         # Now, compute, using the parent method
-        return super()._compute_dag(dag, compute_only=compute_only,
-                                    **compute_kwargs)
+        return super()._compute_dag(
+            dag, compute_only=compute_only, **compute_kwargs
+        )
 
-    def _combine_dag_results_and_plot_cfg(self, *, dag: TransformationDAG,
-                                          dag_results: dict, dag_params: dict,
-                                          plot_kwargs: dict) -> dict:
+    def _combine_dag_results_and_plot_cfg(
+        self,
+        *,
+        dag: TransformationDAG,
+        dag_results: dict,
+        dag_params: dict,
+        plot_kwargs: dict,
+    ) -> dict:
         """Returns a dict of plot configuration and ``data``, where all the
         DAG results are stored in.
         In case where the DAG results are to be unpacked, the DAG results will
@@ -672,31 +776,34 @@ class ExternalPlotCreator(BasePlotCreator):
             DAG results are passed on as ``dag_results``.
 
         """
-        if dag_params['unpack_dag_results']:
+        if dag_params["unpack_dag_results"]:
             # Unpack the results such that they can be specified in the plot
             # function signature
             try:
                 cfg = dict(**dag_results, **plot_kwargs)
 
             except TypeError as err:
-                raise TypeError("Failed unpacking DAG results! There were "
-                                "arguments of the same names as some DAG tags "
-                                "given in the plot configuration. Make sure "
-                                "they have unique names or disable unpacking "
-                                "of the DAG results.\n"
-                                "Keys in DAG results: {}\n"
-                                "Keys in plot config: {}\n"
-                                "".format(", ".join(dag_results.keys()),
-                                          ", ".join(plot_kwargs.keys()))
-                                ) from err
+                raise TypeError(
+                    "Failed unpacking DAG results! There were "
+                    "arguments of the same names as some DAG tags "
+                    "given in the plot configuration. Make sure "
+                    "they have unique names or disable unpacking "
+                    "of the DAG results.\n"
+                    "Keys in DAG results: {}\n"
+                    "Keys in plot config: {}\n"
+                    "".format(
+                        ", ".join(dag_results.keys()),
+                        ", ".join(plot_kwargs.keys()),
+                    )
+                ) from err
 
         else:
             # Make the DAG results available as `data` kwarg
             cfg = dict(data=dag_results, **plot_kwargs)
 
         # Add the `dag` kwarg, if configured to do so.
-        if dag_params['pass_dag_object_along']:
-            cfg['dag'] = dag
+        if dag_params["pass_dag_object_along"]:
+            cfg["dag"] = dag
 
         return cfg
 
@@ -913,8 +1020,9 @@ class ExternalPlotCreator(BasePlotCreator):
     # .........................................................................
     # Helpers: PlotManager's auto-detection feature
 
-    def _declared_plot_func_by_attrs(self, pf: Callable,
-                                     creator_name: str) -> bool:
+    def _declared_plot_func_by_attrs(
+        self, pf: Callable, creator_name: str
+    ) -> bool:
         """Checks whether the given function has attributes set that declare
         it as a plotting function that is to be used with this creator.
 
@@ -927,48 +1035,72 @@ class ExternalPlotCreator(BasePlotCreator):
             bool: Whether the plot function attributes declare the given plot
                 function as suitable for working with this specific creator.
         """
-        if hasattr(pf, 'creator_type') and pf.creator_type is not None:
+        if hasattr(pf, "creator_type") and pf.creator_type is not None:
             if isinstance(self, pf.creator_type):
-                log.debug("The desired type of the plot function, %s, is the "
-                          "same or a parent type of this %s.",
-                          pf.creator_type, self.logstr)
+                log.debug(
+                    "The desired type of the plot function, %s, is the "
+                    "same or a parent type of this %s.",
+                    pf.creator_type,
+                    self.logstr,
+                )
                 return True
         else:
-            log.debug("The plot function's specified creator type (%s) does "
-                      "not match %s.",
-                      getattr(pf, 'creator_type', None), self.logstr)
+            log.debug(
+                "The plot function's specified creator type (%s) does "
+                "not match %s.",
+                getattr(pf, "creator_type", None),
+                self.logstr,
+            )
 
-        if hasattr(pf, 'creator_name') and pf.creator_name == creator_name:
-            log.debug("The plot function's desired creator name '%s' "
-                      "matches the name under which %s is known to the "
-                      "PlotManager.", pf.creator_name, self.classname)
+        if hasattr(pf, "creator_name") and pf.creator_name == creator_name:
+            log.debug(
+                "The plot function's desired creator name '%s' "
+                "matches the name under which %s is known to the "
+                "PlotManager.",
+                pf.creator_name,
+                self.classname,
+            )
             return True
         else:
-            log.debug("The plot function's specified creator name (%s) does "
-                      "not match the specified creator name '%s' of %s.",
-                      getattr(pf, 'creator_name', None), creator_name,
-                      self.logstr)
+            log.debug(
+                "The plot function's specified creator name (%s) does "
+                "not match the specified creator name '%s' of %s.",
+                getattr(pf, "creator_name", None),
+                creator_name,
+                self.logstr,
+            )
 
-        log.debug("Checked plot function attributes, but neither the type "
-                  "nor the creator name were specified or matched this "
-                  "creator.")
+        log.debug(
+            "Checked plot function attributes, but neither the type "
+            "nor the creator name were specified or matched this "
+            "creator."
+        )
         return False
 
 
 # -----------------------------------------------------------------------------
+
 
 class is_plot_func:
     """This is a decorator class declaring the decorated function as a
     plotting function to use with ExternalPlotCreator-derived plot creators
     """
 
-    def __init__(self, *, creator_type: type=None, creator_name: str=None,
-                 use_helper: bool=True, helper_defaults: Union[dict, str]=None,
-                 use_dag: bool=None, required_dag_tags: Sequence[str]=None,
-                 compute_only_required_dag_tags: bool=True,
-                 pass_dag_object_along: bool=False,
-                 unpack_dag_results: bool=False,
-                 supports_animation=False, add_attributes: dict=None):
+    def __init__(
+        self,
+        *,
+        creator_type: type = None,
+        creator_name: str = None,
+        use_helper: bool = True,
+        helper_defaults: Union[dict, str] = None,
+        use_dag: bool = None,
+        required_dag_tags: Sequence[str] = None,
+        compute_only_required_dag_tags: bool = True,
+        pass_dag_object_along: bool = False,
+        unpack_dag_results: bool = False,
+        supports_animation=False,
+        add_attributes: dict = None,
+    ):
         """Initialize the decorator. Note that the function to be decorated is
         not passed to this method.
 
@@ -1009,10 +1141,12 @@ class is_plot_func:
 
             # Should be absolute
             if not os.path.isabs(fpath):
-                raise ValueError("`helper_defaults` string argument was a "
-                                 "relative path: {}, but needs to be either a "
-                                 "dict or an absolute path (~ allowed)."
-                                 "".format(fpath))
+                raise ValueError(
+                    "`helper_defaults` string argument was a "
+                    "relative path: {}, but needs to be either a "
+                    "dict or an absolute path (~ allowed)."
+                    "".format(fpath)
+                )
 
             log.debug("Loading helper defaults from file %s ...", fpath)
             helper_defaults = load_yml(fpath)
@@ -1028,7 +1162,7 @@ class is_plot_func:
             compute_only_required_dag_tags=compute_only_required_dag_tags,
             pass_dag_object_along=pass_dag_object_along,
             supports_animation=supports_animation,
-            **(add_attributes if add_attributes else {})
+            **(add_attributes if add_attributes else {}),
         )
 
     def __call__(self, func: Callable):

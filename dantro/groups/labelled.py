@@ -34,6 +34,7 @@ class LabelledDataGroup(OrderedDataGroup):
     works fully on the dimension labels and coordinates and can cooperate with
     the xarray selection interface, i.e. the ``sel`` and ``isel`` methods.
     """
+
     # Let new containers be xarray-based
     _NEW_CONTAINER_CLS = XrDataContainer
 
@@ -47,21 +48,26 @@ class LabelledDataGroup(OrderedDataGroup):
 
     # How to extract coordinates of the members; for available modes, see the
     # `dantro.utils.coords.extract_coords` function.
-    LDG_EXTRACT_COORDS_FROM = 'data'
+    LDG_EXTRACT_COORDS_FROM = "data"
 
     # Configuration for mode 'attrs' . . . . . . . . . . . . . . . . . . . . .
-    LDG_COORDS_ATTR_PREFIX = 'ext_coords__'
-    LDG_COORDS_MODE_ATTR_PREFIX = 'ext_coords_mode__'
-    LDG_COORDS_MODE_DEFAULT = 'scalar'
+    LDG_COORDS_ATTR_PREFIX = "ext_coords__"
+    LDG_COORDS_MODE_ATTR_PREFIX = "ext_coords_mode__"
+    LDG_COORDS_MODE_DEFAULT = "scalar"
     LDG_STRICT_ATTR_CHECKING = False
 
     # Configuration for mode 'name' . . . . . . . . . . . . . . . . . . . . . .
-    LDG_COORDS_SEPARATOR_IN_NAME = ';'
+    LDG_COORDS_SEPARATOR_IN_NAME = ";"
 
     # .........................................................................
 
-    def __init__(self, *args, dims: TDims=None,
-                 allow_deep_selection: bool=None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        dims: TDims = None,
+        allow_deep_selection: bool = None,
+        **kwargs,
+    ):
         """Initialize a LabelledDataGroup
 
         Args:
@@ -180,8 +186,11 @@ class LabelledDataGroup(OrderedDataGroup):
 
         # Create an empty DataArray of strings, using the existing dimension
         # names and coordinates to label it
-        mm = xr.DataArray(data=np.zeros(self.shape, dtype='<U255'),
-                          dims=self.dims, coords=self.coords)
+        mm = xr.DataArray(
+            data=np.zeros(self.shape, dtype="<U255"),
+            dims=self.dims,
+            coords=self.coords,
+        )
 
         # Iterate over members and populate the array with member names
         for name, cont in self.items():
@@ -198,13 +207,19 @@ class LabelledDataGroup(OrderedDataGroup):
     @property
     def member_map_available(self) -> bool:
         """Whether the member map is available yet."""
-        return (self.__member_map is not None)
+        return self.__member_map is not None
 
     # Selection interface .....................................................
 
-    def isel(self, indexers: dict=None, *, drop: bool=False,
-             combination_method: str='try_concat', deep: bool=None,
-             **indexers_kwargs) -> xr.DataArray:
+    def isel(
+        self,
+        indexers: dict = None,
+        *,
+        drop: bool = False,
+        combination_method: str = "try_concat",
+        deep: bool = None,
+        **indexers_kwargs,
+    ) -> xr.DataArray:
         """Return a new labelled `xr.DataArray` with an index-selected subset
         of members of this group.
 
@@ -242,8 +257,9 @@ class LabelledDataGroup(OrderedDataGroup):
             xr.DataArray: The selected data, potentially a combination of data
                 on group level and member-level data.
         """
-        idxrs, deep_idxrs = self._parse_indexers(indexers, allow_deep=deep,
-                                                 **indexers_kwargs)
+        idxrs, deep_idxrs = self._parse_indexers(
+            indexers, allow_deep=deep, **indexers_kwargs
+        )
 
         # Use the (shallow) indexers to select (by index) those members that
         # are to be combined ...
@@ -258,14 +274,25 @@ class LabelledDataGroup(OrderedDataGroup):
             return cont.isel(deep_idxrs, drop=drop)
 
         # Now, combine them, potentially also applying deep indexing
-        return self._combine(tbc, combination_method=combination_method,
-                             deep_indexers=deep_idxrs, by_index=True,
-                             drop=drop)
+        return self._combine(
+            tbc,
+            combination_method=combination_method,
+            deep_indexers=deep_idxrs,
+            by_index=True,
+            drop=drop,
+        )
 
-    def sel(self, indexers: dict=None, *, method: str=None,
-            tolerance: float=None, drop: bool=False,
-            combination_method: str='try_concat', deep: bool=None,
-            **indexers_kwargs) -> xr.DataArray:
+    def sel(
+        self,
+        indexers: dict = None,
+        *,
+        method: str = None,
+        tolerance: float = None,
+        drop: bool = False,
+        combination_method: str = "try_concat",
+        deep: bool = None,
+        **indexers_kwargs,
+    ) -> xr.DataArray:
         """Return a new labelled `xr.DataArray` with a coordinate-selected
         subset of members of this group.
 
@@ -306,13 +333,15 @@ class LabelledDataGroup(OrderedDataGroup):
             xr.DataArray: The selected data, potentially a combination of data
                 on group level and member-level data.
         """
-        idxrs, deep_idxrs = self._parse_indexers(indexers, allow_deep=deep,
-                                                 **indexers_kwargs)
+        idxrs, deep_idxrs = self._parse_indexers(
+            indexers, allow_deep=deep, **indexers_kwargs
+        )
 
         # Use the (shallow) indexers to select (by label) those members that
         # are to be combined ...
-        tbc = self.member_map.sel(idxrs, method=method,
-                                  tolerance=tolerance, drop=drop)
+        tbc = self.member_map.sel(
+            idxrs, method=method, tolerance=tolerance, drop=drop
+        )
 
         # If only a single item remains, pass deep indexers on to it
         if tbc.size == 1:
@@ -320,19 +349,27 @@ class LabelledDataGroup(OrderedDataGroup):
 
             if not deep_idxrs:
                 return cont
-            return cont.sel(deep_idxrs, method=method,
-                            tolerance=tolerance, drop=drop)
+            return cont.sel(
+                deep_idxrs, method=method, tolerance=tolerance, drop=drop
+            )
 
         # Now, combine them, potentially also applying deep indexing
-        return self._combine(tbc, combination_method=combination_method,
-                             deep_indexers=deep_idxrs, by_index=False,
-                             method=method, tolerance=tolerance, drop=drop)
+        return self._combine(
+            tbc,
+            combination_method=combination_method,
+            deep_indexers=deep_idxrs,
+            by_index=False,
+            method=method,
+            tolerance=tolerance,
+            drop=drop,
+        )
 
     # Helpers .................................................................
     # General . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-    def _get_coords_of(self, obj: AbstractDataContainer, *,
-                       mode=None) -> TCoordsDict:
+    def _get_coords_of(
+        self, obj: AbstractDataContainer, *, mode=None
+    ) -> TCoordsDict:
         """Extract the coordinates for the given object using the
         `dantro.utils.coords.extract_coords` function.
 
@@ -350,14 +387,14 @@ class LabelledDataGroup(OrderedDataGroup):
         mode = mode if mode is not None else self.LDG_EXTRACT_COORDS_FROM
         kwargs = dict()
 
-        if mode == 'attrs':
-            kwargs['coords_attr_prefix'] = self.LDG_COORDS_ATTR_PREFIX
-            kwargs['mode_attr_prefix'] = self.LDG_COORDS_MODE_ATTR_PREFIX
-            kwargs['default_mode'] = self.LDG_COORDS_MODE_DEFAULT
-            kwargs['strict'] = self.LDG_STRICT_ATTR_CHECKING
+        if mode == "attrs":
+            kwargs["coords_attr_prefix"] = self.LDG_COORDS_ATTR_PREFIX
+            kwargs["mode_attr_prefix"] = self.LDG_COORDS_MODE_ATTR_PREFIX
+            kwargs["default_mode"] = self.LDG_COORDS_MODE_DEFAULT
+            kwargs["strict"] = self.LDG_STRICT_ATTR_CHECKING
 
-        elif mode == 'name':
-            kwargs['separator'] = self.LDG_COORDS_SEPARATOR_IN_NAME
+        elif mode == "name":
+            kwargs["separator"] = self.LDG_COORDS_SEPARATOR_IN_NAME
 
         return extract_coords(obj, dims=self.dims, mode=mode, **kwargs)
 
@@ -395,8 +432,9 @@ class LabelledDataGroup(OrderedDataGroup):
 
     # For selection . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-    def _parse_indexers(self, indexers: dict, *, allow_deep: bool,
-                        **indexers_kwargs) -> Tuple[dict, dict]:
+    def _parse_indexers(
+        self, indexers: dict, *, allow_deep: bool, **indexers_kwargs
+    ) -> Tuple[dict, dict]:
         """Parses the given indexer arguments and split them into indexers for
         the selection of group members and deep selection.
 
@@ -412,8 +450,9 @@ class LabelledDataGroup(OrderedDataGroup):
             ValueError: If deep indexers were given but deep selection was not
                 enabled
         """
-        allow_deep = (allow_deep if allow_deep is not None
-                      else self.allow_deep_selection)
+        allow_deep = (
+            allow_deep if allow_deep is not None else self.allow_deep_selection
+        )
         idxrs = dict(**(indexers if indexers else {}), **indexers_kwargs)
 
         # Split by those for deep selection and those for this group
@@ -421,18 +460,26 @@ class LabelledDataGroup(OrderedDataGroup):
         idxrs = {k: v for k, v in idxrs.items() if k in self.dims}
 
         if deep_idxrs and not allow_deep:
-            raise ValueError("Deep indexing is not allowed for {}, but got "
-                             "indexers that don't match any of its dimension "
-                             "names: {}.  You can change this behavior using "
-                             "the allow_deep_selection property or the class "
-                             "variable LDG_ALLOW_DEEP_SELECTION."
-                             "".format(self.logstr, ", ".join(self.dims)))
+            _dim_names = ", ".join(self.dims)
+            raise ValueError(
+                f"Deep indexing is not allowed for {self.logstr}, but got "
+                "indexers that don't match any of its dimension "
+                f"names: {_dim_names}.  You can change this behavior using "
+                "the allow_deep_selection property or the class "
+                "variable LDG_ALLOW_DEEP_SELECTION."
+            )
 
         return idxrs, deep_idxrs
 
-    def _combine(self, cont_names: xr.DataArray, *, combination_method: str,
-                 deep_indexers: dict, by_index: bool,
-                 **sel_kwargs) -> xr.Dataset:
+    def _combine(
+        self,
+        cont_names: xr.DataArray,
+        *,
+        combination_method: str,
+        deep_indexers: dict,
+        by_index: bool,
+        **sel_kwargs,
+    ) -> xr.Dataset:
         """Combine the given objects by the specified method. If deep indexers
         are given, apply the deep indexing on each of the members.
 
@@ -475,8 +522,10 @@ class LabelledDataGroup(OrderedDataGroup):
             ValueError: Invalid combination method
             KeyError: In ``concat`` mode, upon missing members.
         """
-        def get_cont(name: str, combination_method: str
-                     ) -> Tuple[Union[XrDataContainer, None], str]:
+
+        def get_cont(
+            name: str, combination_method: str
+        ) -> Tuple[Union[XrDataContainer, None], str]:
             """Retrieve the container from the group, potentially changing the
             combination method. If no container could be found, returns None,
             which denotes that further processing should be skipped
@@ -485,17 +534,17 @@ class LabelledDataGroup(OrderedDataGroup):
                 cont = self[name]
 
             except KeyError as err:
-                if combination_method != 'concat':
+                if combination_method != "concat":
                     # Failing is ok. But cannot do anything else here
                     return None, combination_method
 
                 # Otherwise, should raise!
-                raise KeyError("Could not find a member named '{}' in {}, but "
-                               "need it for concatenation! Make sure that the "
-                               "member can be found under this name or change "
-                               "the combination method to 'merge' or "
-                               "'try_concat'.".format(name, self.logstr)
-                               ) from err
+                raise KeyError(
+                    f"Could not find a member named '{name}' in "
+                    f"{self.logstr}, but need it for concatenation! Make sure "
+                    "that the member can be found under this name or change "
+                    "the combination method to 'merge' or 'try_concat'."
+                ) from err
 
             else:
                 return cont, combination_method
@@ -506,9 +555,14 @@ class LabelledDataGroup(OrderedDataGroup):
             """
             # Apply the coordinates of the overlapping dimensions
             # (Does nothing if there are no overlapping dimensions)
-            darr = cont.sel({dim: coord for dim, coord in coords.items()
-                             if dim in cont.dims},
-                             drop=False)
+            darr = cont.sel(
+                {
+                    dim: coord
+                    for dim, coord in coords.items()
+                    if dim in cont.dims
+                },
+                drop=False,
+            )
             # This is to ensure that the array that is used matches only a
             # single coordinate combination, i.e. one _point_ in the space
             # spanned by self.member_map.coords.
@@ -526,23 +580,26 @@ class LabelledDataGroup(OrderedDataGroup):
 
             # For the following, the container coordinates may not contain
             # any dimension names that are overlapping with those of the group
-            coords = {dim_name: coords for dim_name, coords in coords.items()
-                      if dim_name not in darr.dims}
+            coords = {
+                dim_name: coords
+                for dim_name, coords in coords.items()
+                if dim_name not in darr.dims
+            }
 
             return darr, coords
 
-
-        dsets = np.zeros(cont_names.shape, dtype='object')
+        dsets = np.zeros(cont_names.shape, dtype="object")
         dsets.fill(dict())  # placeholders, ignored in xr.merge
 
         # Create an iterator over the container names (mirrors dsets iteration)
-        names_iter = np.nditer(cont_names, flags=('multi_index', 'refs_ok'))
+        names_iter = np.nditer(cont_names, flags=("multi_index", "refs_ok"))
 
         for name in names_iter:
             # Get the corresponding member container, potentially changing the
             # combination method
-            cont, combination_method = get_cont(name.item(),
-                                                combination_method)
+            cont, combination_method = get_cont(
+                name.item(), combination_method
+            )
 
             # Might not have been found; go to the next iteration
             if cont is None:
@@ -556,7 +613,7 @@ class LabelledDataGroup(OrderedDataGroup):
             # As it's easier to work on xr.Datasets than on xr.DataArray-like
             # objects, create a dataset from the container, using a temporary
             # name which will later be used to resolve it back to a DataArray
-            dset = darr.to_dataset(name='_tmp_dset_name')
+            dset = darr.to_dataset(name="_tmp_dset_name")
 
             # Now, need to expand the dimensions to accomodate the coordinates.
             # Add the new dimensions in front. (Important for concatenation!)
@@ -576,34 +633,38 @@ class LabelledDataGroup(OrderedDataGroup):
             dsets[names_iter.multi_index] = dset
 
         # Now ready to combine them.
-        if combination_method == 'concat':
-            dset = self._combine_by_concatenation(dsets,
-                                                  dims=cont_names.dims)
+        if combination_method == "concat":
+            dset = self._combine_by_concatenation(dsets, dims=cont_names.dims)
 
-        elif combination_method == 'merge':
+        elif combination_method == "merge":
             dset = self._combine_by_merge(dsets)
 
-        elif combination_method == 'try_concat':
+        elif combination_method == "try_concat":
             try:
-                dset = self._combine_by_concatenation(dsets,
-                                                      dims=cont_names.dims)
+                dset = self._combine_by_concatenation(
+                    dsets, dims=cont_names.dims
+                )
 
             except Exception as exc:
                 # NOTE The exception is now something other than a member
                 #      missing, i.e. some numerical issue during concatenation
                 # Try again with merging ...
-                log.warning("Failed concatenation with %s: %s",
-                            exc.__class__.__name__, exc)
+                log.warning(
+                    "Failed concatenation with %s: %s",
+                    exc.__class__.__name__,
+                    exc,
+                )
                 dset = self._combine_by_merge(dsets)
 
         else:
-            raise ValueError("Invalid combination_method argument: {}! "
-                             "Available methods: try_concat, concat, merge."
-                             "".format(combination_method))
+            raise ValueError(
+                f"Invalid combination_method argument: {combination_method}! "
+                "Available methods: try_concat, concat, merge."
+            )
 
         # Combined into one dataset now, with '_tmp_dset_name' data variable...
         # Convert back into a DataArray; can drop the temporary name now.
-        darr = dset['_tmp_dset_name']
+        darr = dset["_tmp_dset_name"]
         darr.name = None
         return darr
 
@@ -626,8 +687,9 @@ class LabelledDataGroup(OrderedDataGroup):
         return dset
 
     @classmethod
-    def _combine_by_concatenation(cls, dsets: np.ndarray, *,
-                                  dims: TDims) -> xr.Dataset:
+    def _combine_by_concatenation(
+        cls, dsets: np.ndarray, *, dims: TDims
+    ) -> xr.Dataset:
         """Combine the given datasets by concatenation using `xarray.concat`
         and subsequent application along all dimensions specified in ``dims``.
 
@@ -640,9 +702,12 @@ class LabelledDataGroup(OrderedDataGroup):
         Returns:
             xr.Dataset: The dataset resulting from the concatenation
         """
-        log.debug("Combining %d datasets by concatenation along %d "
-                  "dimension%s ...", dsets.size, len(dsets.shape),
-                  "s" if len(dsets.shape) != 1 else "")
+        log.debug(
+            "Combining %d datasets by concatenation along %d dimension%s ...",
+            dsets.size,
+            len(dsets.shape),
+            "s" if len(dsets.shape) != 1 else "",
+        )
 
         # Go over all dimensions and concatenate
         # This effectively reduces the dsets array by one dimension in each
@@ -652,11 +717,15 @@ class LabelledDataGroup(OrderedDataGroup):
         #      which is not what we want here at all!
         #      Thus, there is one implemented in dantro.tools ...
         for dim_idx, dim_name in reversed(list(enumerate(dims))):
-            log.debug("Concatenating along axis '%s' (axis # %d) ...",
-                      dim_name, dim_idx)
+            log.debug(
+                "Concatenating along axis '%s' (axis # %d) ...",
+                dim_name,
+                dim_idx,
+            )
 
-            dsets = apply_along_axis(xr.concat, axis=dim_idx, arr=dsets,
-                                     dim=dim_name)
+            dsets = apply_along_axis(
+                xr.concat, axis=dim_idx, arr=dsets, dim=dim_name
+            )
 
         log.debug("Concatenation successful.")
 
