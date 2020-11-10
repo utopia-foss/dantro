@@ -23,7 +23,9 @@ sys.path.insert(0, os.path.abspath("../dantro"))
 
 def find_version(*file_paths) -> str:
     """Tries to extract a version from the given path sequence"""
-    import os, re, codecs
+    import codecs
+    import os
+    import re
 
     def read(*parts):
         """Reads a file from the given path sequence, relative to this file"""

@@ -1,36 +1,35 @@
 """Test the DataManager class and the loader functions"""
 
-import os
 import copy
-import pkg_resources
+import os
 
-import numpy as np
-import xarray as xr
-import h5py as h5
 import dill as pkl
-
+import h5py as h5
+import numpy as np
+import pkg_resources
 import pytest
+import xarray as xr
 
 import dantro.base
+import dantro.data_mngr
 from dantro.containers import (
     NumpyDataContainer,
-    XrDataContainer,
     ObjectContainer,
     PassthroughContainer,
     StringContainer,
+    XrDataContainer,
+)
+from dantro.data_loaders import (
+    AllAvailableLoadersMixin,
+    Hdf5LoaderMixin,
+    NumpyLoaderMixin,
+    PickleLoaderMixin,
+    TextLoaderMixin,
+    XarrayLoaderMixin,
+    YamlLoaderMixin,
 )
 from dantro.groups import OrderedDataGroup
 from dantro.mixins import Hdf5ProxySupportMixin
-import dantro.data_mngr
-from dantro.data_loaders import (
-    YamlLoaderMixin,
-    PickleLoaderMixin,
-    Hdf5LoaderMixin,
-    NumpyLoaderMixin,
-    XarrayLoaderMixin,
-    TextLoaderMixin,
-    AllAvailableLoadersMixin,
-)
 from dantro.tools import write_yml
 
 from .test_base import pickle_roundtrip

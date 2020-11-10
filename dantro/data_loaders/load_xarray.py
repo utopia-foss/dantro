@@ -2,7 +2,7 @@
 
 import xarray as xr
 
-from ..containers import XrDataContainer, PassthroughContainer
+from ..containers import PassthroughContainer, XrDataContainer
 from ._tools import add_loader
 
 # -----------------------------------------------------------------------------

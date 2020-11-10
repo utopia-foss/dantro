@@ -4,19 +4,19 @@ between hierarchically stored data and the creation of graph objects.
 See :ref:`data_structures_graph_group` for more information.
 """
 
-import warnings
 import logging
+import warnings
 from typing import List, Union
 
-import numpy as np
-import xarray as xr
 import networkx as nx
 import networkx.exception
+import numpy as np
+import xarray as xr
 
-from .labelled import LabelledDataGroup
 from ..base import BaseDataGroup
 from ..containers import XrDataContainer
 from ..tools import recursive_update
+from .labelled import LabelledDataGroup
 
 # Local constants
 log = logging.getLogger(__name__)

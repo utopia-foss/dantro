@@ -1,25 +1,28 @@
 """Test the BaseDataContainer-derived classes"""
 
-import sys
 import math
 import operator
+import sys
 
-import numpy as np
-import xarray as xr
-import h5py as h5
 import dask.array as da
-
+import h5py as h5
+import numpy as np
 import pytest
+import xarray as xr
 
-from dantro.base import BaseDataContainer, CheckDataMixin
-from dantro.base import ItemAccessMixin
+from dantro.base import BaseDataContainer, CheckDataMixin, ItemAccessMixin
+from dantro.containers import (
+    LinkContainer,
+    MutableSequenceContainer,
+    NumpyDataContainer,
+    ObjectContainer,
+    StringContainer,
+    XrDataContainer,
+)
+from dantro.groups import OrderedDataGroup
 from dantro.mixins import ForwardAttrsToDataMixin
 from dantro.mixins.base import UnexpectedTypeWarning
 from dantro.mixins.proxy_support import Hdf5ProxySupportMixin
-from dantro.groups import OrderedDataGroup
-from dantro.containers import MutableSequenceContainer, StringContainer
-from dantro.containers import ObjectContainer, LinkContainer
-from dantro.containers import NumpyDataContainer, XrDataContainer
 from dantro.proxy import Hdf5DataProxy
 from dantro.utils import Link
 
@@ -38,8 +41,8 @@ class DummyContainer(ItemAccessMixin, BaseDataContainer):
 
 
 # Fixtures --------------------------------------------------------------------
-from .test_proxy import tmp_h5file
 from .test_base import pickle_roundtrip
+from .test_proxy import tmp_h5file
 
 
 @pytest.fixture

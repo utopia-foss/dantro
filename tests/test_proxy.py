@@ -4,11 +4,10 @@ NOTE Parts of the tests for the proxies are done elsewhere.
 """
 import copy
 
-import pytest
-
+import dask as da
 import h5py as h5
 import numpy as np
-import dask as da
+import pytest
 
 import dantro
 from dantro.proxy import Hdf5DataProxy

@@ -2,18 +2,17 @@
 
 import builtins
 
-import pytest
-
 import numpy as np
-import xarray as xr
+import pytest
 import sympy as sym
+import xarray as xr
 
 import dantro
-from dantro.groups import OrderedDataGroup
-from dantro.containers import ObjectContainer
-from dantro.utils import register_operation, apply_operation
-from dantro.utils.data_ops import _OPERATIONS as OPERATIONS
 import dantro.utils.data_ops as dops
+from dantro.containers import ObjectContainer
+from dantro.groups import OrderedDataGroup
+from dantro.utils import apply_operation, register_operation
+from dantro.utils.data_ops import _OPERATIONS as OPERATIONS
 
 # -----------------------------------------------------------------------------
 

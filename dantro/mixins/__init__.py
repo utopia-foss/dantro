@@ -4,16 +4,15 @@ to a derived contaier or group class
 
 from .base import (
     AttrsMixin,
-    SizeOfMixin,
     BasicComparisonMixin,
     CheckDataMixin,
-    LockDataMixin,
     CollectionMixin,
     ItemAccessMixin,
+    LockDataMixin,
     MappingAccessMixin,
+    SizeOfMixin,
 )
-
 from .general import ForwardAttrsMixin, ForwardAttrsToDataMixin
 from .indexing import IntegerItemAccessMixin, PaddedIntegerItemAccessMixin
-from .numeric import UnaryOperationsMixin, NumbersMixin, ComparisonMixin
-from .proxy_support import ProxySupportMixin, Hdf5ProxySupportMixin
+from .numeric import ComparisonMixin, NumbersMixin, UnaryOperationsMixin
+from .proxy_support import Hdf5ProxySupportMixin, ProxySupportMixin

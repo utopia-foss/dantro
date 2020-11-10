@@ -2,7 +2,7 @@
 
 import logging
 from itertools import product
-from typing import TypeVar, Sequence, Tuple, Union, Dict, List, Hashable
+from typing import Dict, Hashable, List, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
 

@@ -1,18 +1,17 @@
 """Test the utils.ordereddict module"""
 
-import sys
 import random
+import sys
 import uuid
 from typing import Callable
 
+import numpy as np
 import pytest
 
-import numpy as np
-
 import dantro
+import dantro.groups
 import dantro.utils
 import dantro.utils.coords
-import dantro.groups
 
 # Fixtures --------------------------------------------------------------------
 

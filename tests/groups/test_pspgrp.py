@@ -1,21 +1,22 @@
 """Test the pspgrp module"""
 
-from pkg_resources import resource_filename
 from typing import Union
 
-import pytest
-
 import numpy as np
+import pytest
 import xarray as xr
+from paramspace import ParamDim, ParamSpace
+from pkg_resources import resource_filename
 
-from paramspace import ParamSpace, ParamDim
-
-from dantro.groups import OrderedDataGroup
-from dantro.groups import ParamSpaceGroup, ParamSpaceStateGroup
 from dantro.containers import (
     MutableMappingContainer,
     NumpyDataContainer,
     XrDataContainer,
+)
+from dantro.groups import (
+    OrderedDataGroup,
+    ParamSpaceGroup,
+    ParamSpaceStateGroup,
 )
 from dantro.tools import load_yml
 

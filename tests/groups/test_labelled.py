@@ -3,16 +3,15 @@
 
 from itertools import product
 
+import numpy as np
 import pytest
 
-import numpy as np
-
+from dantro.containers import XrDataContainer
 from dantro.groups import (
+    HeterogeneousTimeSeriesGroup,
     LabelledDataGroup,
     TimeSeriesGroup,
-    HeterogeneousTimeSeriesGroup,
 )
-from dantro.containers import XrDataContainer
 
 # -----------------------------------------------------------------------------
 

@@ -1,15 +1,15 @@
 """This module implements general specialisations of the BaseDataContainer"""
 
 import logging
-from collections.abc import MutableSequence, MutableMapping
+from collections.abc import MutableMapping, MutableSequence
 
 from ..base import BaseDataContainer
 from ..mixins import (
-    ItemAccessMixin,
-    CollectionMixin,
-    MappingAccessMixin,
     CheckDataMixin,
+    CollectionMixin,
     ForwardAttrsToDataMixin,
+    ItemAccessMixin,
+    MappingAccessMixin,
 )
 
 # Local constants

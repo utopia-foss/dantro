@@ -1,6 +1,6 @@
 # Pass regular log output to devnull; pytest catches log calls by other means
-import os
 import logging
+import os
 
 logging.basicConfig(level=logging.DEBUG, stream=open(os.devnull, "w"))
 

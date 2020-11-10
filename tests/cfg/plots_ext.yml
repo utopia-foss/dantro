@@ -32,7 +32,7 @@ from_file:
   #      the `common_creator_kwargs` option to all instances of this class.
 
   plot_func: write_something
-  
+
   # This function does not actually plot something but just writes the kwargs
   # that now follow to a file
   foo: bar

@@ -6,8 +6,13 @@ import logging
 import numpy as np
 
 from ..base import BaseDataContainer
-from ..mixins import ItemAccessMixin, CheckDataMixin
-from ..mixins import ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin
+from ..mixins import (
+    CheckDataMixin,
+    ComparisonMixin,
+    ForwardAttrsToDataMixin,
+    ItemAccessMixin,
+    NumbersMixin,
+)
 
 # Local constants
 log = logging.getLogger(__name__)

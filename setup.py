@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # fmt: off
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 # Dependencies for dantro itself
 install_deps = [
@@ -20,7 +20,10 @@ install_deps = [
     "paramspace>=2.5.1",
 ]
 # NOTE When changing any of the dependencies, make sure to update the table of
-#      dependencies in README.md
+#      dependencies in README.md.
+#      When adding a NEW dependency, make sure to denote it in the isort
+#      configuration, see pyproject.toml.
+
 
 # Minimal versions of all of the above
 minimal_install_deps = [dep.replace(">=", "==") for dep in install_deps]
@@ -98,7 +101,9 @@ Learn more
 # A function to extract version number from __init__.py
 def find_version(*file_paths) -> str:
     """Tries to extract a version from the given path sequence"""
-    import os, re, codecs
+    import codecs
+    import os
+    import re
 
     def read(*parts):
         """Reads a file from the given path sequence, relative to this file"""

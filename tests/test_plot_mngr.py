@@ -1,25 +1,23 @@
 """Tests the PlotManager class"""
 
 import os
-from pkg_resources import resource_filename
 
 import numpy as np
-
-import pytest
-
 import paramspace as psp
+import pytest
+from pkg_resources import resource_filename
 
-from dantro.tools import load_yml
-from dantro.data_mngr import DataManager
 from dantro.containers import NumpyDataContainer as NumpyDC
+from dantro.data_mngr import DataManager
 from dantro.plot_mngr import (
+    InvalidCreator,
+    PlotConfigError,
+    PlotCreatorError,
     PlotManager,
     PlottingError,
-    PlotConfigError,
-    InvalidCreator,
-    PlotCreatorError,
     SkipPlot,
 )
+from dantro.tools import load_yml
 
 # Local constants .............................................................
 # Paths

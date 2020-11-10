@@ -1,29 +1,27 @@
 """Tests the generic external plot functions."""
 
-import os
-import copy
 import builtins
+import copy
 import logging
+import os
 from itertools import product
 from typing import Tuple
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pytest
+import xarray as xr
 from pkg_resources import resource_filename
 
-import pytest
-
-import numpy as np
-import xarray as xr
-import matplotlib.pyplot as plt
-
-from dantro.tools import load_yml, DoNothingContext
+from dantro.containers import PassthroughContainer, XrDataContainer
+from dantro.plot_creators import ExternalPlotCreator, PlotHelper
+from dantro.plot_creators.ext_funcs._utils import plot_errorbar
 from dantro.plot_creators.ext_funcs.generic import (
-    errorbar,
     errorbands,
+    errorbar,
     facet_grid,
 )
-from dantro.plot_creators.ext_funcs._utils import plot_errorbar
-from dantro.plot_creators import PlotHelper, ExternalPlotCreator
-from dantro.containers import XrDataContainer, PassthroughContainer
-
+from dantro.tools import DoNothingContext, load_yml
 
 # Local variables and configuration ...........................................
 # If True, runs all tests. If False, runs only the basics (much faster)

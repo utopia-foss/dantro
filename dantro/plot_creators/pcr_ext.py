@@ -3,12 +3,12 @@ creating matplotlib-based plots. These are accessed via 'external' modules
 being imported and plot functions defined in these modules being invoked.
 """
 
-import os
 import copy
-import logging
 import importlib
 import importlib.util
-from typing import Callable, Union, List, Tuple, Sequence
+import logging
+import os
+from typing import Callable, List, Sequence, Tuple, Union
 
 import matplotlib as mpl
 
@@ -16,19 +16,17 @@ mpl.use("Agg")  # TODO Remove this. Should not be necessary!
 import matplotlib.animation
 import matplotlib.pyplot as plt
 
-from ..tools import load_yml, recursive_update, DoNothingContext
-from .pcr_base import BasePlotCreator
 from ..dag import TransformationDAG
-
+from ..tools import DoNothingContext, load_yml, recursive_update
 from ._movie_writers import FileWriter
 from ._plot_helper import (
-    PlotHelper,
     EnterAnimationMode,
     ExitAnimationMode,
+    PlotHelper,
     PlotHelperError,
     PlotHelperErrors,
 )
-
+from .pcr_base import BasePlotCreator
 
 # Local constants
 log = logging.getLogger(__name__)

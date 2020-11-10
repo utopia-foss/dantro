@@ -4,17 +4,16 @@ NOTE This test module merely complements the other, already existing tests of
      the base classes that are made implicitly through testing the derivatives.
 """
 
-import sys
 import logging
+import sys
 
 import dill as pkl
 import pytest
 
 import dantro as dtr
 import dantro.base
-import dantro.groups
 import dantro.containers
-
+import dantro.groups
 
 log = logging.getLogger()
 

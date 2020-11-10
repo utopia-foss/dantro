@@ -6,9 +6,9 @@ import pytest
 
 import dantro as dtr
 import dantro.base
-import dantro.mixins
 import dantro.containers
 import dantro.groups
+import dantro.mixins
 
 from .test_data_mngr import NumpyTestDC
 

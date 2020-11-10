@@ -1,16 +1,16 @@
 """This module implements specialisations of the BaseDataContainer class."""
 
+import copy
 import logging
-from typing import Union, Tuple, Sequence
+from typing import Sequence, Tuple, Union
 
 import numpy as np
 import xarray as xr
-import copy
 
-from ..base import BaseDataContainer, ItemAccessMixin, CheckDataMixin
-from ..mixins import ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin
 from ..abc import AbstractDataProxy
-from ..utils import Link, extract_dim_names, extract_coords
+from ..base import BaseDataContainer, CheckDataMixin, ItemAccessMixin
+from ..mixins import ComparisonMixin, ForwardAttrsToDataMixin, NumbersMixin
+from ..utils import Link, extract_coords, extract_dim_names
 
 # Local constants
 log = logging.getLogger(__name__)

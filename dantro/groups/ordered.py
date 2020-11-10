@@ -2,8 +2,8 @@
 specific order.
 """
 
-import logging
 import collections
+import logging
 from typing import Generator, List
 
 from ..base import BaseDataGroup

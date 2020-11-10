@@ -1,11 +1,11 @@
 """This sub-module implements the basic mixin classes that are required
 in the dantro.base module"""
 
-import sys
 import logging
+import sys
 import warnings
 
-from ..abc import AbstractDataProxy, PATH_JOIN_CHAR
+from ..abc import PATH_JOIN_CHAR, AbstractDataProxy
 from ..tools import TTY_COLS
 
 # Local constants

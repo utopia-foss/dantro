@@ -1,23 +1,21 @@
 """Test the GraphGroup"""
 
-from pkg_resources import resource_filename
+from math import isnan
 from typing import Union
 
-import pytest
-
-import numpy as np
 import networkx as nx
 import networkx.exception
+import numpy as np
+import pytest
 from networkx.classes.multidigraph import MultiDiGraph
 from networkx.classes.multigraph import MultiGraph
-from math import isnan
+from pkg_resources import resource_filename
 
 # Import the dantro objects to test here
 from dantro.base import BaseDataGroup
 from dantro.containers import NumpyDataContainer, XrDataContainer
-from dantro.groups import GraphGroup, TimeSeriesGroup, LabelledDataGroup
+from dantro.groups import GraphGroup, LabelledDataGroup, TimeSeriesGroup
 from dantro.tools import load_yml
-
 
 # Local paths
 GRAPH_GRP_PATH = resource_filename("tests", "cfg/graph_grps.yml")

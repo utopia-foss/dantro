@@ -8,17 +8,17 @@ stored data.
 """
 
 import logging
-from typing import Tuple, Dict, Union, List
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 import xarray as xr
 
-from . import OrderedDataGroup
 from ..abc import AbstractDataContainer
 from ..containers import XrDataContainer
+from ..tools import apply_along_axis
 from ..utils import extract_coords
 from ..utils.coords import TCoord, TCoordsDict, TDims
-from ..tools import apply_along_axis
+from . import OrderedDataGroup
 
 # Local constants
 log = logging.getLogger(__name__)

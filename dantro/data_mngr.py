@@ -1,26 +1,26 @@
 """This module implements the DataManager class, the root of the data tree."""
 
-import os
 import copy
 import datetime
-import re
 import glob
 import logging
+import os
+import re
 import warnings
-from typing import Union, Callable, List, Tuple, Dict
+from typing import Callable, Dict, List, Tuple, Union
 
 import dill as pkl
 
+from ._hash import _hash
 from .base import PATH_JOIN_CHAR, BaseDataContainer, BaseDataGroup
 from .groups import OrderedDataGroup
 from .tools import (
-    fill_line,
     clear_line,
-    recursive_update,
-    load_yml,
+    fill_line,
     format_bytesize,
+    load_yml,
+    recursive_update,
 )
-from ._hash import _hash
 
 # Local constants
 log = logging.getLogger(__name__)

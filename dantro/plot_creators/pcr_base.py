@@ -6,17 +6,17 @@ The interface is defined as an abstract base class and partly implemented by
 the BasePlotCreator (which still remains abstract).
 """
 
-import os
 import copy
 import logging
-from typing import Union, Tuple, Sequence
+import os
+from typing import Sequence, Tuple, Union
 
 from paramspace import ParamSpace
 
 from ..abc import AbstractPlotCreator
-from ..tools import recursive_update
-from ..data_mngr import DataManager
 from ..dag import TransformationDAG
+from ..data_mngr import DataManager
+from ..tools import recursive_update
 
 # Local constants
 log = logging.getLogger(__name__)

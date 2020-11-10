@@ -4,19 +4,18 @@ from the paramspace package are implemented.
 
 import copy
 import logging
-from typing import Union, List, Dict, Sequence
+from typing import Dict, List, Sequence, Union
 
 import numpy as np
 import numpy.ma
 import xarray as xr
-
 from paramspace import ParamSpace
 
-from .ordered import OrderedDataGroup, IndexedDataGroup
-from ..utils.data_ops import multi_concat as _multi_concat
 from ..base import PATH_JOIN_CHAR
 from ..containers import XrDataContainer
 from ..mixins import PaddedIntegerItemAccessMixin
+from ..utils.data_ops import multi_concat as _multi_concat
+from .ordered import IndexedDataGroup, OrderedDataGroup
 
 # Local constants
 log = logging.getLogger(__name__)

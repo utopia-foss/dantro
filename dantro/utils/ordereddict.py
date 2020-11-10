@@ -4,15 +4,20 @@ comparison function for ordering keys.
 """
 
 import collections
-from typing import Callable
 
 # Imports needed for replicating OrderedDict behaviour
 import sys as _sys
-from operator import eq as _eq
-from collections import _proxy, _Link, _OrderedDictKeysView
-from collections import _OrderedDictValuesView, _OrderedDictItemsView
+from collections import (
+    _Link,
+    _OrderedDictItemsView,
+    _OrderedDictKeysView,
+    _OrderedDictValuesView,
+    _proxy,
+)
 from collections.abc import MutableMapping
+from operator import eq as _eq
 from reprlib import recursive_repr as _recursive_repr
+from typing import Callable
 
 # -----------------------------------------------------------------------------
 

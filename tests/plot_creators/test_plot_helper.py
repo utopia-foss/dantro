@@ -1,28 +1,26 @@
 """Test the plot helper module"""
 
-import os
-import copy
 import builtins
+import copy
+import os
 from itertools import chain
-from pkg_resources import resource_filename
 
-import pytest
-
-import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import numpy as np
+import pytest
+from pkg_resources import resource_filename
 
-from dantro.tools import load_yml
 from dantro.data_mngr import DataManager
-from dantro.plot_creators import ExternalPlotCreator
-from dantro.plot_creators import PlotHelper, is_plot_func
+from dantro.plot_creators import ExternalPlotCreator, PlotHelper, is_plot_func
 from dantro.plot_creators._plot_helper import (
-    temporarily_changed_axis,
-    coords_match,
-    ExitAnimationMode,
     EnterAnimationMode,
+    ExitAnimationMode,
     PlotHelperErrors,
+    coords_match,
+    temporarily_changed_axis,
 )
+from dantro.tools import load_yml
 
 # Local constants
 # Paths

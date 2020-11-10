@@ -1,13 +1,13 @@
 # Configuration (including data) for GraphGroup tests
 ---
 # For _all_ working configurations, the graph data, if given, is the following:
-# 
+#
 #   * Nodes: 0, 1, 2, 3, 4
 #   * Edges: (1,0), (2,0), (3,4), (3,4), (4,3)
 #   * Node properties (keyed by node): {0: 0, 1: 1, 2: 2, 3: 3, 4: 4}
 #   * Edge properties (keyed by edge): {(1,0): 10, (2,0): 20, (3,4): 34,
 #                                       (3,4): 34, (4,3): 43}
-# 
+#
 # .............................................................................
 # The basic cases
 basic_dir_par: &base
@@ -17,7 +17,7 @@ basic_dir_par: &base
     directed: True
     parallel: True
 
-basic_ndir_par: 
+basic_ndir_par:
   <<: *base
   attrs:
     directed: False
@@ -35,7 +35,7 @@ basic_ndir_npar:
     directed: False
     parallel: False
 
-transposed_edges: 
+transposed_edges:
   <<: *base
   edges: [[[1, 2, 3, 3, 4], [0, 0, 4, 4, 3]]]
 

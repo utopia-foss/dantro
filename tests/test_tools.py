@@ -1,11 +1,10 @@
 """Test the tools module"""
 
-import pytest
 import numpy as np
+import pytest
 
 import dantro
 import dantro.tools as t
-
 
 # Local constants
 

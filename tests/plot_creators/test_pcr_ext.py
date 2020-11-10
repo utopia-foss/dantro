@@ -1,16 +1,19 @@
 """Tests the ExternalPlotCreator class."""
 
+import matplotlib.pyplot as plt
+import pytest
 from pkg_resources import resource_filename
 
-import pytest
-import matplotlib.pyplot as plt
-
-from dantro.data_mngr import DataManager
-from dantro.tools import load_yml, recursive_update
-from dantro.plot_creators import ExternalPlotCreator, UniversePlotCreator
-from dantro.plot_creators import is_plot_func, PlotHelper
-from dantro.plot_creators.pcr_ext import figure_leak_prevention
 from dantro.dag import TransformationDAG
+from dantro.data_mngr import DataManager
+from dantro.plot_creators import (
+    ExternalPlotCreator,
+    PlotHelper,
+    UniversePlotCreator,
+    is_plot_func,
+)
+from dantro.plot_creators.pcr_ext import figure_leak_prevention
+from dantro.tools import load_yml, recursive_update
 
 # Load configuration files
 PLOTS_AUTO_DETECT = load_yml(resource_filename("tests", "cfg/auto_detect.yml"))

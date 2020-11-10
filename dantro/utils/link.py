@@ -1,7 +1,7 @@
 """Implements the Link class"""
 
-import weakref
 import logging
+import weakref
 from typing import TypeVar
 
 from ..abc import PATH_JOIN_CHAR

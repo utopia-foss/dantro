@@ -13,21 +13,22 @@ implement more specialized BaseDataGroup- or BaseDataContainer-derived classes.
 
 import abc
 import copy
-import logging
 import inspect
-from typing import Union, List, Tuple, Callable
+import logging
+from typing import Callable, List, Tuple, Union
 
 import dantro.abc
+
 from .abc import PATH_JOIN_CHAR
 from .mixins import (
     AttrsMixin,
-    SizeOfMixin,
     BasicComparisonMixin,
     CheckDataMixin,
-    LockDataMixin,
     CollectionMixin,
     ItemAccessMixin,
+    LockDataMixin,
     MappingAccessMixin,
+    SizeOfMixin,
 )
 from .tools import TTY_COLS
 

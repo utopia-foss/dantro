@@ -3,14 +3,12 @@
 NOTE This is imported by dantro.tools to register classes with YAML.
 """
 import logging
-from typing import Any, Union, Tuple
+from typing import Any, Tuple, Union
 
 import sympy as sym
-from sympy.parsing.sympy_parser import (
-    parse_expr as _parse_expr,
-    standard_transformations as _std_trf,
-    convert_xor as _convert_xor,
-)
+from sympy.parsing.sympy_parser import convert_xor as _convert_xor
+from sympy.parsing.sympy_parser import parse_expr as _parse_expr
+from sympy.parsing.sympy_parser import standard_transformations as _std_trf
 
 # Local constants
 log = logging.getLogger(__name__)

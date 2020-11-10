@@ -30,15 +30,12 @@ In order to let the tests be independent, even for imports, there should NOT
 be any imports on the global level of this test file!
 """
 
+import h5py as h5
+import numpy as np
+import pytest
 from pkg_resources import resource_filename
 
-import pytest
-
-import numpy as np
-import h5py as h5
-
 from dantro.tools import load_yml
-
 
 # Local Variables -------------------------------------------------------------
 
@@ -257,7 +254,7 @@ def test_specializing_containers():
 
     # Import base container class and the mixins we would like to use
     from dantro.base import BaseDataContainer
-    from dantro.mixins import ItemAccessMixin, CollectionMixin, CheckDataMixin
+    from dantro.mixins import CheckDataMixin, CollectionMixin, ItemAccessMixin
 
     class MutableSequenceContainer(CheckDataMixin,
                                    ItemAccessMixin,
@@ -317,7 +314,7 @@ def test_specializing_containers():
 def test_specializing_data_manager():
     ### Start -- specializing_data_manager
     import dantro
-    from dantro.data_loaders import YamlLoaderMixin, PickleLoaderMixin
+    from dantro.data_loaders import PickleLoaderMixin, YamlLoaderMixin
 
     class MyDataManager(PickleLoaderMixin,
                         YamlLoaderMixin,
@@ -508,8 +505,8 @@ def test_data_io_load_cfg(data_dir, cfg):
 
 def test_data_io_faq():
     ### Start -- data_io_faq_add_any_object
-    from dantro.groups import OrderedDataGroup
     from dantro.containers import ObjectContainer, PassthroughContainer
+    from dantro.groups import OrderedDataGroup
 
     # The object we want to add to the tree
     some_object = ("foo", b"bar", 123, 4.56, None)
@@ -633,7 +630,9 @@ def test_groups_graphgroup():
 # -- plotting -----------------------------------------------------------------
 # -----------------------------------------------------------------------------
 # plotting/plot_cfg_ref.rst
-from .test_plot_mngr import dm as pm_dm, pm_kwargs, pcr_ext_kwargs
+from .test_plot_mngr import dm as pm_dm
+from .test_plot_mngr import pcr_ext_kwargs, pm_kwargs
+
 
 def test_plot_cfg_ref(cfg, tmpdir, pm_dm, pm_kwargs, pcr_ext_kwargs):
     """Tests the examples for the plot configuration reference"""

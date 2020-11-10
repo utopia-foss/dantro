@@ -2,9 +2,9 @@
 containers
 """
 
+import logging
 import math
 import operator
-import logging
 
 import numpy as np
 

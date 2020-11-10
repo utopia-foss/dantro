@@ -4,9 +4,9 @@ specialization for HDF5 data.
 
 import logging
 
-import numpy as np
-import h5py as h5
 import dask.array as da
+import h5py as h5
+import numpy as np
 
 from ..base import BaseDataProxy
 

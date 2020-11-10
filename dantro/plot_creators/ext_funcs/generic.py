@@ -3,13 +3,13 @@
 creators.
 """
 
-import logging
 import copy
+import logging
 
 import matplotlib.pyplot as plt
 import xarray as xr
 
-from ..pcr_ext import is_plot_func, PlotHelper, figure_leak_prevention
+from ..pcr_ext import PlotHelper, figure_leak_prevention, is_plot_func
 from ._utils import plot_errorbar as _plot_errorbar
 
 # Local constants

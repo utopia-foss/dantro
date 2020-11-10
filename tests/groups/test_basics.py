@@ -4,12 +4,11 @@ NOTE This uses OrderedDataGroup as that is the simplest non-abstract group
      that is regularly implemented in dantro.
 """
 
+import numpy as np
 import pytest
 
-import numpy as np
-
-from dantro.groups import OrderedDataGroup
 from dantro.containers import MutableSequenceContainer, NumpyDataContainer
+from dantro.groups import OrderedDataGroup
 
 # -----------------------------------------------------------------------------
 

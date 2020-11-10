@@ -3,19 +3,19 @@ configuration of multiple plots and prepares the data and configuration to pass
 to the PlotCreator.
 """
 
-import os
-import time
 import copy
 import fnmatch
 import logging
-from typing import Union, List, Dict, Tuple, Any
+import os
+import time
+from typing import Any, Dict, List, Tuple, Union
 
-from paramspace import ParamSpace, ParamDim
+from paramspace import ParamDim, ParamSpace
 
 from .data_mngr import DataManager
 from .plot_creators import ALL as ALL_PCRS
 from .plot_creators import BasePlotCreator, SkipPlot
-from .tools import load_yml, write_yml, recursive_update
+from .tools import load_yml, recursive_update, write_yml
 
 # Local constants
 log = logging.getLogger(__name__)

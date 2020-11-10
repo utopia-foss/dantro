@@ -4,9 +4,9 @@ The ``ruamel.yaml.YAML`` object used here is imported from ``paramspace`` and
 specialized such that it can load and dump dantro classes.
 """
 
-import os
 import io
 import logging
+import os
 from typing import Any, Union
 
 import ruamel.yaml
@@ -23,12 +23,12 @@ yaml.default_flow_style = False
 
 # Register further classes
 from ._dag_utils import (
-    Placeholder,
-    PositionalArgument,
-    KeywordArgument,
+    DAGNode,
     DAGReference,
     DAGTag,
-    DAGNode,
+    KeywordArgument,
+    Placeholder,
+    PositionalArgument,
 )
 
 yaml.register_class(Placeholder)

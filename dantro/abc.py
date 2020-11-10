@@ -3,8 +3,8 @@
 import abc
 import collections
 import collections.abc
-from typing import Union, Tuple, Any
 import logging
+from typing import Any, Tuple, Union
 
 # Local constants
 log = logging.getLogger(__name__)

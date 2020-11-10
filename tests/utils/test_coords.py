@@ -1,15 +1,12 @@
 """Test the utils.coords module"""
 
-import pytest
-
 import numpy as np
+import pytest
 
 import dantro
 import dantro.utils
 import dantro.utils.coords
-
 from dantro.containers import ObjectContainer, XrDataContainer
-
 
 # -----------------------------------------------------------------------------
 # NOTE Partly tested by containers using this, e.g. XrDataContainer ...

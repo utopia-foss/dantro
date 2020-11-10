@@ -2,9 +2,9 @@
 
 import pytest
 
+from dantro.dag import TransformationDAG
 from dantro.data_mngr import DataManager
 from dantro.plot_creators import BasePlotCreator
-from dantro.dag import TransformationDAG
 
 # Test classes ----------------------------------------------------------------
 

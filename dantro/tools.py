@@ -1,10 +1,10 @@
 """This module implements tools that are generally useful in dantro"""
 
-import sys
-import subprocess
 import collections
 import logging
-from typing import Tuple, Sequence, Union, Mapping
+import subprocess
+import sys
+from typing import Mapping, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -25,8 +25,7 @@ log.debug("Determined TTY_COLS: %d, IS_A_TTY: %d", TTY_COLS, IS_A_TTY)
 # -----------------------------------------------------------------------------
 # Import private yaml module, where everything is configured
 
-from ._yaml import yaml, load_yml, write_yml
-
+from ._yaml import load_yml, write_yml, yaml
 
 # -----------------------------------------------------------------------------
 # Dictionary operations

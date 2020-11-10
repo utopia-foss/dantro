@@ -2,14 +2,14 @@
 
 import logging
 
-import numpy as np
 import h5py as h5
+import numpy as np
 
-from ..base import BaseDataGroup, BaseDataContainer
+from ..base import BaseDataContainer, BaseDataGroup
 from ..containers import NumpyDataContainer
 from ..groups import OrderedDataGroup
 from ..proxy import Hdf5DataProxy
-from ..tools import fill_line, decode_bytestrings
+from ..tools import decode_bytestrings, fill_line
 from ._tools import add_loader
 
 # Local constants

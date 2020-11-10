@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 from ...data_mngr import DataManager
 from ..pcr_ext import is_plot_func
 
-
 # Local constants
 log = logging.getLogger(__name__)
 

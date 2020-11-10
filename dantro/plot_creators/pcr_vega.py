@@ -4,7 +4,6 @@ import logging
 
 from .pcr_base import BasePlotCreator
 
-
 # Local constants
 log = logging.getLogger(__name__)
 

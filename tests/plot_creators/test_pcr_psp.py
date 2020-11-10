@@ -2,21 +2,18 @@
 
 from pprint import pprint
 
-import pytest
-
 import numpy as np
+import pytest
 import xarray as xr
-
 from paramspace import ParamDim, ParamSpace
 
 from dantro.data_mngr import DataManager
 from dantro.groups import ParamSpaceGroup
 from dantro.plot_creators import (
-    UniversePlotCreator,
     MultiversePlotCreator,
     SkipPlot,
+    UniversePlotCreator,
 )
-
 
 # Fixtures --------------------------------------------------------------------
 # Import some from other tests

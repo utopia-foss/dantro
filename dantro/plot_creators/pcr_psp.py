@@ -5,19 +5,18 @@ stored in a ParamSpaceGroup.
 
 import copy
 import logging
-from typing import Union, Tuple, Callable, Sequence
+from typing import Callable, Sequence, Tuple, Union
 
 import numpy as np
 import xarray as xr
-
 from paramspace import ParamSpace
 
-from .pcr_ext import ExternalPlotCreator
-from .pcr_base import SkipPlot
-from ..groups import ParamSpaceGroup, ParamSpaceStateGroup
-from ..tools import recursive_update, is_iterable
 from ..abc import PATH_JOIN_CHAR
-from ..dag import TransformationDAG, DAGReference, DAGTag, DAGNode
+from ..dag import DAGNode, DAGReference, DAGTag, TransformationDAG
+from ..groups import ParamSpaceGroup, ParamSpaceStateGroup
+from ..tools import is_iterable, recursive_update
+from .pcr_base import SkipPlot
+from .pcr_ext import ExternalPlotCreator
 
 # Local constants
 log = logging.getLogger(__name__)

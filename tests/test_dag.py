@@ -1,35 +1,33 @@
 """Tests the utils.dag module"""
 
 import os
-from pkg_resources import resource_filename
-
-import pytest
 
 import numpy as np
+import pytest
 import xarray as xr
+from pkg_resources import resource_filename
 
 import dantro
-import dantro.dag as dag
 import dantro._dag_utils as dag_utils
-
+import dantro.dag as dag
 from dantro import DataManager
+from dantro._hash import _hash
+from dantro._yaml import yaml_dumps
 from dantro.base import BaseDataGroup
-from dantro.groups import OrderedDataGroup
 from dantro.containers import (
-    StringContainer,
-    ObjectContainer,
     NumpyDataContainer,
+    ObjectContainer,
+    StringContainer,
     XrDataContainer,
 )
 from dantro.data_loaders import (
-    YamlLoaderMixin,
-    PickleLoaderMixin,
     NumpyLoaderMixin,
+    PickleLoaderMixin,
     XarrayLoaderMixin,
+    YamlLoaderMixin,
 )
+from dantro.groups import OrderedDataGroup
 from dantro.tools import load_yml, write_yml
-from dantro._hash import _hash
-from dantro._yaml import yaml_dumps
 
 # Local constants
 TRANSFORMATIONS_PATH = resource_filename("tests", "cfg/transformations.yml")

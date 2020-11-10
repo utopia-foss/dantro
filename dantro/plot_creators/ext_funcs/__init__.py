@@ -4,4 +4,4 @@ creators.
 """
 
 from .basic import lineplot
-from .generic import errorbar, errorbands, facet_grid
+from .generic import errorbands, errorbar, facet_grid

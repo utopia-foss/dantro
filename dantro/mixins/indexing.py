@@ -3,8 +3,8 @@
 import logging
 from typing import Union
 
-from .base import ItemAccessMixin
 from ..abc import AbstractDataContainer, AbstractDataGroup
+from .base import ItemAccessMixin
 
 # Local constants
 log = logging.getLogger(__name__)

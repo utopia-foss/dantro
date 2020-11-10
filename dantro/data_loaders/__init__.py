@@ -25,12 +25,12 @@ If ``self`` is required for some reason, set the ``omit_self`` option of the
 decorator to ``False``, making it a regular (instead of a static) method.
 """
 
-from .load_text import TextLoaderMixin
-from .load_yaml import YamlLoaderMixin
-from .load_pkl import PickleLoaderMixin
 from .load_hdf5 import Hdf5LoaderMixin
-from .load_xarray import XarrayLoaderMixin
 from .load_numpy import NumpyLoaderMixin
+from .load_pkl import PickleLoaderMixin
+from .load_text import TextLoaderMixin
+from .load_xarray import XarrayLoaderMixin
+from .load_yaml import YamlLoaderMixin
 
 
 class AllAvailableLoadersMixin(

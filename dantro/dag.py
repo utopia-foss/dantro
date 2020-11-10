@@ -1,50 +1,40 @@
 """This is an implementation of a DAG for transformations on dantro objects"""
 
+import copy
+import glob
+import logging
 import os
 import sys
-import glob
-import copy
 import time
-import logging
 import warnings
 from collections import defaultdict as _defaultdict
 from itertools import chain
+from typing import Any, Dict, List, Sequence, Set, Tuple, Union
 
-from typing import Dict, Tuple, Sequence, Any, Union, List, Set
-
+import dill as pkl
 import numpy as np
 import xarray as xr
-import dill as pkl
+from paramspace.tools import recursive_collect, recursive_replace
 
-from paramspace.tools import recursive_replace, recursive_collect
-
-from .abc import AbstractDataContainer, PATH_JOIN_CHAR
+from ._dag_utils import DAGMetaOperationTag as _MOpTag
+from ._dag_utils import DAGNode, DAGObjects, DAGReference, DAGTag
+from ._dag_utils import KeywordArgument as _Kwarg
+from ._dag_utils import PositionalArgument as _Arg
+from ._dag_utils import parse_dag_minimal_syntax as _parse_dag_minimal_syntax
+from ._dag_utils import parse_dag_syntax as _parse_dag_syntax
+from ._hash import FULL_HASH_LENGTH, SHORT_HASH_LENGTH, _hash
+from .abc import PATH_JOIN_CHAR, AbstractDataContainer
 from .base import BaseDataGroup
+from .containers import NumpyDataContainer, ObjectContainer, XrDataContainer
+from .data_loaders import LOADER_BY_FILE_EXT
+from .tools import adjusted_log_levels as _adjusted_log_levels
+from .tools import recursive_update
 from .utils import (
     KeyOrderedDict,
     apply_operation,
-    register_operation,
     available_operations,
+    register_operation,
 )
-from .tools import (
-    recursive_update,
-    adjusted_log_levels as _adjusted_log_levels,
-)
-from .data_loaders import LOADER_BY_FILE_EXT
-from .containers import ObjectContainer, NumpyDataContainer, XrDataContainer
-from ._dag_utils import (
-    DAGObjects,
-    DAGReference,
-    DAGTag,
-    DAGNode,
-    PositionalArgument as _Arg,
-    KeywordArgument as _Kwarg,
-    DAGMetaOperationTag as _MOpTag,
-    parse_dag_syntax as _parse_dag_syntax,
-    parse_dag_minimal_syntax as _parse_dag_minimal_syntax,
-)
-from ._hash import _hash, SHORT_HASH_LENGTH, FULL_HASH_LENGTH
-
 
 # Local constants .............................................................
 

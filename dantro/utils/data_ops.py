@@ -1,27 +1,24 @@
 """This module implements data processing operations for dantro objects"""
 
-import re
-import math
 import logging
+import math
 import operator
-from importlib import import_module as _import_module
+import re
 from difflib import get_close_matches as _get_close_matches
-from typing import Callable, Any, Sequence, Union, Tuple, Iterable, List
+from importlib import import_module as _import_module
+from typing import Any, Callable, Iterable, List, Sequence, Tuple, Union
 
 import numpy as np
-import xarray as xr
 import scipy
 import scipy.optimize
+import xarray as xr
+from sympy.parsing.sympy_parser import parse_expr as _parse_expr
+from sympy.parsing.sympy_parser import standard_transformations as _std_trf
 
-from sympy.parsing.sympy_parser import (
-    parse_expr as _parse_expr,
-    standard_transformations as _std_trf,
-)
-
-from .coords import extract_dim_names, extract_coords_from_attrs
-from .ordereddict import KeyOrderedDict
 from ..base import BaseDataContainer, BaseDataGroup
 from ..tools import apply_along_axis, recursive_getitem
+from .coords import extract_coords_from_attrs, extract_dim_names
+from .ordereddict import KeyOrderedDict
 
 # Local constants
 log = logging.getLogger(__name__)

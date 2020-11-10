@@ -1,15 +1,15 @@
 """This module implements the PlotHelper class"""
 
-import os
 import copy
-import logging
 import inspect
+import logging
+import os
 from itertools import product
-from typing import Union, Callable, Tuple, List, Dict, Generator, Sequence
+from typing import Callable, Dict, Generator, List, Sequence, Tuple, Union
 
-import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import numpy as np
 
 from dantro.tools import recursive_update
 
