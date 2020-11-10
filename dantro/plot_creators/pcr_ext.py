@@ -159,8 +159,7 @@ class ExternalPlotCreator(BasePlotCreator):
             if not os.path.isabs(bmfd):
                 raise ValueError(
                     "Argument `base_module_file_dir` needs to be "
-                    "an absolute path, was not! Got: "
-                    + str(bmfd)
+                    f"an absolute path, was not! Got: {bmfd}"
                 )
 
             elif not os.path.exists(bmfd) or not os.path.isdir(bmfd):
@@ -516,8 +515,7 @@ class ExternalPlotCreator(BasePlotCreator):
         elif not isinstance(plot_func, str):
             raise TypeError(
                 "Argument `plot_func` needs to be a string or a "
-                "callable, was {} with value '{}'."
-                "".format(type(plot_func), plot_func)
+                f"callable, was {type(plot_func)} with value '{plot_func}'."
             )
 
         # else: need to resolve the module and find the plot_func in it
@@ -533,9 +531,8 @@ class ExternalPlotCreator(BasePlotCreator):
                 "Could not import a module, because neither "
                 "argument `module_file` was given nor did "
                 "argument `module` have the correct type "
-                "(needs to be string but was {} with value "
-                "'{}')."
-                "".format(type(module), module)
+                f"(needs to be string but was {type(module)} with value "
+                f"'{module}')."
             )
 
         # plot_func could be something like "A.B.C.d"; go along the segments to

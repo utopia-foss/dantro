@@ -286,8 +286,7 @@ class CheckDataMixin:
 
         elif self.DATA_UNEXPECTED_ACTION == "warn":
             warnings.warn(
-                msg
-                + "\nInitialization will work, but be informed "
+                f"{msg}\nInitialization will work, but be informed "
                 "that there might be errors at runtime.",
                 UnexpectedTypeWarning,
             )

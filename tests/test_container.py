@@ -25,6 +25,7 @@ from dantro.utils import Link
 
 # Local constants
 
+
 class DummyContainer(ItemAccessMixin, BaseDataContainer):
     """A dummy container that fulfills all the requirements of the abstract
     BaseDataContainer class.

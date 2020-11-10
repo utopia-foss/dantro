@@ -348,11 +348,11 @@ def test_Transformation():
     assert hash(t0.hashstr) == hash(t0)
 
     assert "operation: add, 2 args, 0 kwargs" in str(t0)
-    assert (
-        "<dantro.dag.Transformation, operation='add', args=[1, 2], kwargs={},"
-        " salt=None>"
-        == repr(t0)
+    expected_repr = (
+        "<dantro.dag.Transformation, operation='add', "
+        "args=[1, 2], kwargs={}, salt=None>"
     )
+    assert repr(t0) == expected_repr
 
     assert t0.compute() == 3
     assert t0.compute() == 3  # to hit the (memory) cache
