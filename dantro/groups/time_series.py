@@ -12,8 +12,8 @@ class TimeSeriesGroup(LabelledDataGroup, IndexedDataGroup):
 
     For more information on selection methods, see:
 
-        * ~`dantro.groups.LabelledDataGroup.sel`
-        * ~`dantro.groups.LabelledDataGroup.isel`
+        * :py:meth:`~dantro.groups.labelled.LabelledDataGroup.sel`
+        * :py:meth:`~dantro.groups.labelled.LabelledDataGroup.isel`
     """
 
     # There is only one dimension in a TimeSeriesGroup: time
@@ -24,15 +24,15 @@ class TimeSeriesGroup(LabelledDataGroup, IndexedDataGroup):
 
 
 class HeterogeneousTimeSeriesGroup(TimeSeriesGroup):
-    """This extends the ~`dantro.groups.TimeSeriesGroup` by configuring it
-    such that it retrieves its coordinates not from the name of the members
-    contained in it but from _their_ data.
+    """This extends the :py:class:`~dantro.groups.time_series.TimeSeriesGroup`
+    by configuring it such that it retrieves its coordinates not from the name
+    of the members contained in it but from _their_ data.
 
     It still manages only the ``time`` dimension, which is now overlapping with
     the ``time`` dimension in the members of this group. However, the
-    ~`dantro.groups.LabelledDataGroup` can handle this overlap and provides a
-    uniform selection interface that allows combining this heterogeneously
-    stored data.
+    py:class:`~dantro.groups.labelled.LabelledDataGroup` can handle this
+    overlap and provides a uniform selection interface that allows combining
+    this heterogeneously stored data.
 
     This becomes especially useful in cases where the members of this group
     store data with the following properties:

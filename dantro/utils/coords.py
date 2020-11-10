@@ -272,15 +272,15 @@ def extract_coords_from_attrs(
             * ``linspace``: np.linspace arguments
             * ``logspace``: np.logspace arguments
             * ``trivial``: The trivial indices. This does not require a value
-                for the coordinate argument.
+              for the coordinate argument.
             * ``scalar``: makes sure only a single coordinate is provided
             * ``start_and_step``: the start and step values of an integer range
-                expression; the stop value is deduced by looking at the length
-                of the corresponding dimension. This is then passed to the
-                python range function as (start, stop, step)
+              expression; the stop value is deduced by looking at the length of
+              the corresponding dimension. This is then passed to the python
+              range function as (start, stop, step)
             * ``linked``: Load the coordinates from a linked object within the
-                tree; this works only if ``link_anchor_obj`` is part of a data
-                tree at the point of coordinate resolution!
+              tree; this works only if ``link_anchor_obj`` is part of a data
+              tree at the point of coordinate resolution!
 
         mode_attr_prefix (str, optional): The attribute name prefix that can
             be used to specify a non-default extraction mode. If not given, the
@@ -422,14 +422,11 @@ def extract_coords_from_name(
 
     Raises:
         ValueError: Raised upon failure to extract external coordinates:
-
-            * On ``ext_dims`` evaluating to False
-            * If coordinates were missing for any of the external
-              dimensions
-            * If the number of coordinates extracted from the name did not
-              match the number of external dimensions
-            * If any of the strings extracted from the object's name were
-              empty
+            On ``ext_dims`` evaluating to False, f coordinates were missing for
+            any of the external dimensions, if the number of coordinates
+            extracted from the name did not match the number of external
+            dimensions, if any of the strings extracted from the object's name
+            were empty.
     """
 
     def try_conversion(c: str) -> TCoord:

@@ -215,14 +215,11 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 on the ``method`` argument.
 
         Raises:
-            KeyError: Description
-            ValueError: Raised in multiple scenarios:
-
-                - If no ParamSpace was associated with this group
-                - For wrong argument values
-                - If the data to select cannot be extracted with the given
-                  argument values
-                - Exceptions passed on from xarray
+            KeyError: On invalid state key.
+            ValueError: Raised in multiple scenarios: If no ParamSpace was
+                associated with this group, for wrong argument values, if the
+                data to select cannot be extracted with the given argument
+                values, exceptions passed on from xarray.
 
         Returns:
             xr.Dataset: The selected hyperslab of the parameter space, holding

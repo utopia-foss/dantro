@@ -20,7 +20,7 @@ class UnaryOperationsMixin:
     """This Mixin class implements the methods needed for unary operations.
 
     It leaves out those that expect that return values are of a certain type,
-    e.g. __complex__, __int__, ...
+    e.g. ``__complex__``, ``__int__``, ...
     """
 
     def __neg__(self):

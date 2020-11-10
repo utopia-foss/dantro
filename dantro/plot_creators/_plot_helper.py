@@ -22,7 +22,9 @@ log = logging.getLogger(__name__)
 
 
 class temporarily_changed_axis:
-    """Context manager to temporarily change an axis in the PlotHelper"""
+    """Context manager to temporarily change an axis in the
+    :py:class:`~dantro.plot_creators._plot_helper.PlotHelper`
+    """
 
     def __init__(self, hlpr, *, tmp_ax_coords: Tuple[int] = None):
         """Initialize the context manager.

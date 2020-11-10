@@ -238,13 +238,13 @@ class LabelledDataGroup(OrderedDataGroup):
                 with member-level data. Can be:
 
                     * ``concat``: Concatenate. This can preserve the dtype, but
-                        requires that no data is missing.
+                      requires that no data is missing.
                     * ``merge``: Merge, using `xarray.merge`. This leads to a
-                        type conversion to ``float64``, but allows members
-                        being missing or coordinates not fully filling the
-                        available space.
+                      type conversion to ``float64``, but allows members being
+                      missing or coordinates not fully filling the available
+                      space.
                     * ``try_concat``: Try concatenation, fall back to merging
-                        if that was unsuccessful.
+                      if that was unsuccessful.
 
             deep (bool, optional): Whether to allow deep indexing, i.e.: that
                 ``indexers`` may contain dimensions that don't refer to group-
@@ -314,13 +314,13 @@ class LabelledDataGroup(OrderedDataGroup):
                 with member-level data. Can be:
 
                     * ``concat``: Concatenate. This can preserve the dtype, but
-                        requires that no data is missing.
+                      requires that no data is missing.
                     * ``merge``: Merge, using `xarray.merge`. This leads to a
-                        type conversion to ``float64``, but allows members
-                        being missing or coordinates not fully filling the
-                        available space.
+                      type conversion to ``float64``, but allows members being
+                      missing or coordinates not fully filling the available
+                      space.
                     * ``try_concat``: Try concatenation, fall back to merging
-                        if that was unsuccessful.
+                      if that was unsuccessful.
 
             deep (bool, optional): Whether to allow deep indexing, i.e.: that
                 ``indexers`` may contain dimensions that don't refer to group-
@@ -371,14 +371,14 @@ class LabelledDataGroup(OrderedDataGroup):
         self, obj: AbstractDataContainer, *, mode=None
     ) -> TCoordsDict:
         """Extract the coordinates for the given object using the
-        `dantro.utils.coords.extract_coords` function.
+        :py:func:`~dantro.utils.coords.extract_coords` function.
 
         Args:
             obj (AbstractDataContainer): The object to get the coordinates of.
             mode (None, optional): By which coordiante extraction mode to get
                 the coordinates from the object. Can be ``attrs``, ``name``,
                 ``data`` or anything else specified in
-                ~`dantro.utils.coords.extract_coords`.
+                :py:func:`~dantro.utils.coords.extract_coords`.
 
         Returns:
             TCoordsDict: The extracted coordinates

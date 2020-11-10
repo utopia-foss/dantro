@@ -14,14 +14,18 @@ log = logging.getLogger(__name__)
 
 class IntegerItemAccessMixin:
     """This mixin allows accessing items via integer keys and also supports
-    calling the __contains__ magic method with integer keys. It is meant to be
-    used to add features to an AbstractDataGroup-derived class, although this
-    is not enforced.
+    calling the ``__contains__`` magic method with integer keys. It is meant to
+    be used to add features to an AbstractDataGroup-derived class, although
+    this is not enforced.
 
-    NOTE The __setitem__ method is not covered by this!
+    .. note::
 
-    NOTE The class using this mixin has to implement index access methods and
-         the __contains__ magic method independently from this mixin!
+        The ``__setitem__`` method is not covered by this!
+
+    .. note::
+
+        The class using this mixin has to implement index access methods and
+        the ``__contains__`` magic method independently from this mixin!
     """
 
     def _parse_key(self, key: Union[str, int]) -> str:
@@ -51,10 +55,12 @@ class PaddedIntegerItemAccessMixin(IntegerItemAccessMixin):
     that have a zero-padded integer name. It can only be used as mixin for
     AbstractDataGroup-derived classes!
 
-    The __contains__ magic method is also supported in this mixin.
+    The ``__contains__`` magic method is also supported in this mixin.
 
-    NOTE The class using this mixin has to implement index access methods and
-         the __contains__ magic method independently from this mixin!
+    .. note::
+
+        The class using this mixin has to implement index access methods and
+        the ``__contains__`` magic method independently from this mixin!
     """
 
     # The number of digits of the padded string representing the integer

@@ -118,7 +118,7 @@ class BasePlotCreator(AbstractPlotCreator):
                 creator is supposed to create.
 
         Raises:
-            ValueError: On bad `default_ext` argument
+            ValueError: On bad ``default_ext`` argument
         """
         self._name = name
         self._dm = dm

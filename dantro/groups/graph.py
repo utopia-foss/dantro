@@ -116,9 +116,8 @@ class GraphGroup(BaseDataGroup):
             return super().__getitem__(key=key)
 
         except KeyError as err:
-            _available_keys = [str(k) for k in self.keys()] + [
-                str(k) for k in self._property_maps.keys()
-            ]
+            _available_keys = [str(k) for k in self.keys()]
+            _available_keys += [str(k) for k in self._property_maps.keys()]
             _available_keys = ", ".join(_available_keys)
 
             raise KeyError(
