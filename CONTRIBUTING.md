@@ -60,7 +60,7 @@ After a proper discussion of a task and its possible implementation in an issue,
 If you are willing to implement the changes, open a merge request by clicking on the *"Create merge request"* button in the issue.
 Then, use one of the available templates to provide a description of the changes (even if brief), and add the corresponding labels.
 
-When opening MRs like this, GitLab will automatically mark the MR as "work in progress" by prefixing `WIP: ` to its title.
+When opening MRs like this, GitLab will automatically mark the MR as a draft by prefixing `Draft: ` to its title.
 This indicates, that this MR is currently being worked on.
 To further specify that *you* are working on this MR, it's best to assign the MR to your self, e.g. via the right-hand sidebar.
 
@@ -71,7 +71,7 @@ Once you are ready with an implementation, follow these steps to get your MR rea
     - Appropriate tests are implemented and the pipeline passes
     - The code is well-documented
     - ...
-1. Remove the `WIP: ` in the title to denote that the MR is ready for review.
+1. Remove the `Draft: ` in the title to denote that the MR is ready for review.
 1. Assign a reviewer, e.g. one of the maintainers. They will guide you through the review process and the remaining steps to merge the MR.
 
 After all discussions are resolved (by you or the reviewer), your MR will be merged. :tada:
@@ -85,8 +85,8 @@ To remain a maintainable and future-proof project, we aim to adhere to the follo
 
 - **Code should be legible and follow a consistent style**
     - Ideally, write code that documents itself, alleviating the need for many inline comments.
-    - We loosely follow [PEP8][pep8], but it is not enforced as long as the above premise is adhered to. (See #125 for updates on this.)
-    - For a succint summary, see [The Zen of Python][zen]
+    - For a succint summary, see [The Zen of Python][zen].
+    - To ensure consistent code formatting, we let [black][black] do all the hard work. See the section on [pre-commit hooks](README.md#commit-hooks) for more information.
 
 - **Code should be documented**
     - Always add a docstring with a one-line description and a documentation of the parameters. Use [Google-style docstrings][google_docstrings].
@@ -128,6 +128,7 @@ Of course, you can always contact the developer team [directly via e-mail][devma
 [request_access]: https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/-/project_members/request_access
 [new_issue]: https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/issues/new?issue
 [pep8]: https://www.python.org/dev/peps/pep-0008/
+[black]: https://black.readthedocs.io/en/stable/
 [zen]: https://www.python.org/dev/peps/pep-0020/
 [google_docstrings]: https://www.sphinx-doc.org/en/master/usage/extensions/example_google.html#example-google
 [pytest]: https://docs.pytest.org/en/latest/contents.html

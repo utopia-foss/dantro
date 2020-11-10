@@ -1,5 +1,6 @@
 ---
 stages:
+  - check
   - test
   - test_minimal_deps
   - build
@@ -69,6 +70,20 @@ variables:
       cobertura: coverage.xml
 
 
+# -- Checks -------------------------------------------------------------------
+
+check:hooks:
+  stage: check
+  image: python:3.8
+  extends:
+    - .default_tags
+  before_script:
+    - pip install pre-commit
+  script:
+    - pre-commit run --all-files --verbose --show-diff-on-failure
+
+
+
 # -- Test Stage ---------------------------------------------------------------
 # ... for testing with different python environments
 
@@ -78,6 +93,7 @@ test:py36:
   extends:
     - .default_tags
     - .cobertura
+  needs: []
   before_script:
     - pip3 install tox
   script:

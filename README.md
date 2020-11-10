@@ -113,6 +113,8 @@ For development purposes, the following additional packages are required.
 | [tox][tox]                    | 3.1.2            | Test environments        |
 | [Sphinx][sphinx]              | 2.4 (< 3.0)      | Documentation generator  |
 | [sphinx_rtd_theme][sphinxrtd] | 0.5              | Documentation HTML theme |
+| [pre-commit][pre-commit]      | 2.8.2            | For [commit hooks](#commit-hooks) |
+| [black][black]                | 20.8b1           | For code formatting      |
 
 To install these development-related dependencies, enter the virtual environment, navigate to the cloned repository, and perform the installation using:
 
@@ -120,6 +122,14 @@ To install these development-related dependencies, enter the virtual environment
 (dantro) $ cd dantro
 (dantro) $ pip install -e .[dev]
 ```
+
+With these dependencies having been installed, make sure to set up the git hook that allows pre-commit to run before making a commit:
+
+```bash
+(dantro) $ pre-commit install
+```
+
+For more information on commit hooks, see [the commit hooks section below](#commit-hooks).
 
 
 ### Testing framework
@@ -169,6 +179,30 @@ The result can either be downloaded from the job artifacts or the deployed GitLa
 
 Upon warnings or errors in the build, the job will exit with an orange warning sign.
 You can inspect the `build_errors.log` file via the exposed CI artifacts.
+
+
+### Commit hooks
+To streamline dantro development, a number of automations are used which take care of code formatting and perform some basic checks.
+These automations are managed by [pre-commit][pre-commit] and are run when invoking `git commit` (hence the name).
+
+If these so-called hooks determine a problem, they will display an error and you will not be able to commit just yet.
+Some of the hooks automatically fix the error (e.g.: removing whitespace), others require some manual action on your part.
+_Either way,_ you will have to stage these changes manually (using `git add`, as usual).
+To check which changes were made by the hooks, use `git diff`.
+
+Once you applied the requested changes, invoke `git commit` anew.
+This will again trigger the hooks, but — with all issues resolved — the hooks should now all pass and lead you to the usual commit message prompt.
+
+The most notable hooks are:
+
+* [black][black]: The uncompromising code formatter
+* [isort][isort]: Systematically sorts Python `import` statements
+
+Both [isort][isort] and [black][black] are configured in the [`pyproject.toml`](pyproject.toml) file.
+For the other hooks' configuration, see [`.pre-commit-config.yaml`](.pre-commit-config.yaml).
+All hooks are also being run in the [GitLab CI/CD](.gitlab-ci.yml) `check:hooks` job.
+
+If you have trouble setting up the hooks or if they create erroneous results, please let us know.
 
 
 
@@ -255,6 +289,9 @@ Contact the developers via: [`dantro-dev@iup.uni-heidelberg.de`][devmail]
 [tox]: https://tox.readthedocs.io/en/latest/
 [sphinx]: https://www.sphinx-doc.org/
 [sphinxrtd]: https://sphinx-rtd-theme.readthedocs.io/en/stable/
+[pre-commit]: https://pre-commit.com
+[black]: https://black.readthedocs.io/en/stable/
+[isort]: https://pycqa.github.io/isort/
 
 [pip-install-docs]: https://pip.pypa.io/en/stable/reference/pip_install/#git
 [venv]: https://docs.python.org/3/library/venv.html

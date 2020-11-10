@@ -28,14 +28,15 @@ install_deps = [
 # Minimal versions of all of the above
 minimal_install_deps = [dep.replace(">=", "==") for dep in install_deps]
 
-# Dependencies for the tests
+# Dependencies for running tests and general development of dantro
 test_deps = [
     "pytest>=3.4.0",
     "pytest-cov>=2.5.1",
     "tox>=3.1.2",
+    "pre-commit>=2.8.2",
 ]
 
-# Dependencies for the documentation
+# Dependencies for building the dantro documentation
 doc_deps = [
     "sphinx>=2.4,<3.0",
     "sphinx_rtd_theme>=0.5",
