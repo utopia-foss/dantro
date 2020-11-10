@@ -175,7 +175,7 @@ When using the recommended creator-averse plot function signature, the DAG is au
         base_path: data/MyModel     # ... to navigate to the model base group
 
         # Default values for combination method and subspace selection; can be
-        # overwritten within the entries specified in `fields`.
+        # overwritten within the entries specified in ``fields``.
         combination_method: concat  # can be 'concat' (default) or 'merge'
         subspace: ~                 # some subspace selection
 

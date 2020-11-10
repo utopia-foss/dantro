@@ -60,7 +60,7 @@ _Note_ that if you have both Python 2 and Python 3 installed, you might have to 
 
 | Package Name                  | Minimum Version  | Purpose                  |
 | ----------------------------- | ---------------- | ------------------------ |
-| [numpy][numpy]                | 1.17.4           | 
+| [numpy][numpy]                | 1.17.4           | |
 | [xarray][xarray]              | 0.16             | For labelled N-dimensional arrays |
 | [dask][dask]                  | 2.10.1           | To work with large data |
 | [toolz][toolz]                | 0.10             | For [dask.delayed][dask-delayed]

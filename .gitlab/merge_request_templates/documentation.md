@@ -8,7 +8,7 @@ This MR updates the documentation such that ...
 <!-- 2 - Fill in the checklist below.
          If some parts do not apply, remove them or use ~~strikethrough~~. -->
 
-<!-- Progress: If desired, give a more detailed overview of the progress --> 
+<!-- Progress: If desired, give a more detailed overview of the progress -->
 - [ ] Documentation extended or updated
     - [ ] _provide more information here on which parts are changed_
     - [ ] ...

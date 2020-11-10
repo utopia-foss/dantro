@@ -455,7 +455,7 @@ Say you have defined the following plot function:
                        hlpr: PlotHelper,
                        at_time: int,
                        **plot_kwargs):
-        """Plots the data `time_series` for the selected time `at_time`."""
+        """Plots the data ``time_series`` for the selected time ``at_time``."""
         # Via plot helper, perform a line plot of the data at the specified time
         hlpr.ax.plot(data['time_series'][at_time], **plot_kwargs)
 
@@ -477,7 +477,7 @@ update function, register that function with the helper, and mark the plot funct
                        hlpr: PlotHelper,
                        at_time: int,
                        **plot_kwargs):
-        """Plots the data `time_series` for the selected time `at_time`."""
+        """Plots the data ``time_series`` for the selected time ``at_time``."""
         # Via plot helper, perform a line plot of the data at the specified time
         hlpr.ax.plot(data['time_series'][at_time], **plot_kwargs)
 
@@ -614,9 +614,9 @@ A plot function could then look like this:
         elif not frames and d.ndim == 2:
             hlpr.disable_animation()
         else:
-            raise ValueError("Need either 2D data without the `frames` "
-                             "argument, or 3D data with the `frames` argument "
-                             "specified!")
+            raise ValueError("Need either 2D data without the ``frames`` "
+                             "argument, or 3D data with the ``frames`` "
+                             "argument specified!")
 
         # Do the 2D plotting for x and y dimensions here
         # ...
@@ -644,7 +644,7 @@ For :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator`, a specializat
         """My custom external plot creator, using
         # For relative module imports, regard the following as the base package
         BASE_PKG = "my_plot_funcs_package"  # some imported Python module
-        # `module` arguments starting with a '.' are looked up here
+        # ``module`` arguments starting with a '.' are looked up here
 
         # Which plot helper class to use
         PLOT_HELPER_CLS = MyPlotHelper

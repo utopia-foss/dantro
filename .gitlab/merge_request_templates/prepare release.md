@@ -1,4 +1,4 @@
-<!-- Use this template for MRs that prepare for a dantro release. --> 
+<!-- Use this template for MRs that prepare for a dantro release. -->
 
 <!-- 1 - Set as MR title: Prepare release of vX.Y -->
 <!-- 2 - Adjust the following quick commands: -->

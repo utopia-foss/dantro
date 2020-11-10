@@ -32,7 +32,7 @@
 ## v0.14.0
 #### Features and Improvements
 - `PlotHelper` extensions and improvements (#94)
-    - !181 improves error message handling, now composing a single error message for _all_ encountered errors and providing axis-specific information on the errors. 
+    - !181 improves error message handling, now composing a single error message for _all_ encountered errors and providing axis-specific information on the errors.
     - !181 extends `set_legend` to allow gathering handles and labels from already existing `matplotlib.legend.Legend` objects.
     - !181 improves docstrings of helper methods to convey more clearly which kinds of arguments are expected.
 - The plotting framework now *experimentally* supports skipping of plots.
@@ -187,7 +187,7 @@
 - !104 adds the `set_text` function to the `PlotHelper`
 - !106 changes `PathMixin` such that detached objects now have `/<name>` as their path, which improves path handling. Furthermore, the `Link` object is now adjusted to this change and its tests are extended to a wide range of scenarios.
 - #100 deprecates plot creator auto-detection via the plot function signature of `ExternalPlotCreator`. Instead, the `is_plot_func` decorator should be used.
-- !107 changes the `xarray` version requirement from `0.12.1` to `0.13.0`. 
+- !107 changes the `xarray` version requirement from `0.12.1` to `0.13.0`.
 - !105 adds a transformation framework (#48) that allows caching of data operations (#96). It does so by implementing a directed acyclic graph of data transformations, where each node is uniquely represented by a hash. This hash can then be used reliably to determine cache hits. See the MR description for more information. Other minor changes alongside this MR:
     - Improve `LinkContainer`
     - Add `SizeOfMixin`, allowing to compute the size of a container's data
@@ -312,7 +312,7 @@
 
 ## v0.5.0
 - #33 improves package structure and modularization by creating sub-packages and moving class definitions into separate modules. This changes the import locations from `group` and `container` to `groups` and `containers`; all other import paths should remain valid.
-- #29 implements a `NetworkGroup` that stores network data and enables the direct 
+- #29 implements a `NetworkGroup` that stores network data and enables the direct
 creation of a [`NetworkX`](https://networkx.github.io/documentation/stable/reference/classes/index.html) graph object (`Graph`, `DiGraph`, `MultiGraph`, `MultiDiGraph`)
 with or without vertex properties (edge properties not yet implemented) from the data given in the members of the group.
 

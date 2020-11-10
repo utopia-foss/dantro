@@ -276,7 +276,7 @@ An associated plot configuration might look like this:
               - mean: [!dag_prev ]
               - increment: [!dag_prev ]
 
-        combination_method: concat  # can be `concat` (default) or `merge`
+        combination_method: concat  # can be ``concat`` (default) or ``merge``
         subspace: ~                 # some subspace selection
 
       transform:
@@ -301,8 +301,8 @@ An example of all options available in the :py:class:`~dantro.plot_creators.pcr_
       select_and_combine:
         fields:
           # Define a tag 'foo' that will use the defaults defined directly on
-          # the `select_and_combine` level
-          foo: foo                       # `base_path` will be prepended here
+          # the ``select_and_combine`` level
+          foo: foo                       # ``base_path`` will be prepended here
                                          # resulting in: some/path/foo
 
           # Define a tag 'bar' that overwrites some of the defaults
@@ -331,19 +331,19 @@ An example of all options available in the :py:class:`~dantro.plot_creators.pcr_
                 args: [!dag_prev ]
                 file_cache: {}      # can configure file cache here
 
-        base_path: some_path        # if given, prepended to `path` in `fields`
+        base_path: some_path        # if given, prepended to ``path`` in ``fields``
 
-        # Default arguments, can be overwritten in each `fields` entry
-        combination_method: concat  # can be `concat` (default) or `merge`
+        # Default arguments, can be overwritten in each ``fields`` entry
+        combination_method: concat  # can be ``concat`` (default) or ``merge``
         subspace: ~                 # some subspace selection
 
-      # Additional selections, now based on `dm` tag
+      # Additional selections, now based on ``dm`` tag
       select: {}
 
       # Additional transformations; all tags from above available here
       transform: []
 
-      # Other DAG-related parameters: `compute_only`, `dag_options`
+      # Other DAG-related parameters: ``compute_only``, ``dag_options``
       # ...
 
 .. note::

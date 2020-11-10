@@ -124,7 +124,7 @@ Of course, you can always contact the developer team [directly via e-mail][devma
 [ts_hp]: https://ts.iup.uni-heidelberg.de/
 [iup_hp]: https://www.iup.uni-heidelberg.de/
 [ext_user]: https://docs.gitlab.com/ee/user/permissions.html#external-users-core-only
-[dantro_project]: https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro 
+[dantro_project]: https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro
 [request_access]: https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/-/project_members/request_access
 [new_issue]: https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/issues/new?issue
 [pep8]: https://www.python.org/dev/peps/pep-0008/
