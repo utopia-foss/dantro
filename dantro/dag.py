@@ -1,46 +1,47 @@
 """This is an implementation of a DAG for transformations on dantro objects"""
 
+import copy
+import glob
+import logging
 import os
 import sys
-import glob
-import copy
 import time
-import logging
 import warnings
 from collections import defaultdict as _defaultdict
 from itertools import chain
+from typing import Any, Dict, List, Sequence, Set, Tuple, Union
 
-from typing import Dict, Tuple, Sequence, Any, Union, List, Set
-
+import dill as pkl
 import numpy as np
 import xarray as xr
-import dill as pkl
+from paramspace.tools import recursive_collect, recursive_replace
 
-from paramspace.tools import recursive_replace, recursive_collect
-
-from .abc import AbstractDataContainer, PATH_JOIN_CHAR
+from ._dag_utils import DAGMetaOperationTag as _MOpTag
+from ._dag_utils import DAGNode, DAGObjects, DAGReference, DAGTag
+from ._dag_utils import KeywordArgument as _Kwarg
+from ._dag_utils import PositionalArgument as _Arg
+from ._dag_utils import parse_dag_minimal_syntax as _parse_dag_minimal_syntax
+from ._dag_utils import parse_dag_syntax as _parse_dag_syntax
+from ._hash import FULL_HASH_LENGTH, SHORT_HASH_LENGTH, _hash
+from .abc import PATH_JOIN_CHAR, AbstractDataContainer
 from .base import BaseDataGroup
-from .utils import (KeyOrderedDict,
-                    apply_operation, register_operation, available_operations)
-from .tools import (recursive_update,
-                    adjusted_log_levels as _adjusted_log_levels)
+from .containers import NumpyDataContainer, ObjectContainer, XrDataContainer
 from .data_loaders import LOADER_BY_FILE_EXT
-from .containers import ObjectContainer, NumpyDataContainer, XrDataContainer
-from ._dag_utils import (DAGObjects, DAGReference, DAGTag, DAGNode,
-                         PositionalArgument as _Arg,
-                         KeywordArgument as _Kwarg,
-                         DAGMetaOperationTag as _MOpTag,
-                         parse_dag_syntax as _parse_dag_syntax,
-                         parse_dag_minimal_syntax as _parse_dag_minimal_syntax)
-from ._hash import _hash, SHORT_HASH_LENGTH, FULL_HASH_LENGTH
-
+from .tools import adjusted_log_levels as _adjusted_log_levels
+from .tools import recursive_update
+from .utils import (
+    KeyOrderedDict,
+    apply_operation,
+    available_operations,
+    register_operation,
+)
 
 # Local constants .............................................................
 
 log = logging.getLogger(__name__)
 
 # The path within the DAG's associated DataManager to which caches are loaded
-DAG_CACHE_DM_PATH = 'cache/dag'
+DAG_CACHE_DM_PATH = "cache/dag"
 
 # Functions that can store the DAG computation result objects, distinguishing
 # by their type.
@@ -48,22 +49,17 @@ DAG_CACHE_DM_PATH = 'cache/dag'
 #      file at the given location _by default_!
 DAG_CACHE_RESULT_SAVE_FUNCS = {
     # Saving functions of specific dantro objects
-    (NumpyDataContainer,):
-        lambda obj, p, **kws: obj.save(p+".npy", **kws),
-    (XrDataContainer,):
-        lambda obj, p, **kws: obj.save(p+".xrdc", **kws),
-
+    (NumpyDataContainer,): lambda obj, p, **kws: obj.save(p + ".npy", **kws),
+    (XrDataContainer,): lambda obj, p, **kws: obj.save(p + ".xrdc", **kws),
     # Saving functions of external packages
-    (np.ndarray,):
-        lambda obj, p, **kws: np.save(p+".npy", obj, **kws),
-    (xr.DataArray,):
-        lambda obj, p, **kws: obj.to_netcdf(p+".nc_da", **kws),
-    (xr.Dataset,):
-        lambda obj, p, **kws: obj.to_netcdf(p+".nc_ds", **kws),
+    (np.ndarray,): lambda obj, p, **kws: np.save(p + ".npy", obj, **kws),
+    (xr.DataArray,): lambda obj, p, **kws: obj.to_netcdf(p + ".nc_da", **kws),
+    (xr.Dataset,): lambda obj, p, **kws: obj.to_netcdf(p + ".nc_ds", **kws),
 }
 
 
 # -----------------------------------------------------------------------------
+
 
 class Transformation:
     """A transformation is the collection of an N-ary operation and its inputs.
@@ -91,12 +87,16 @@ class Transformation:
         read-only. This should be respected!
     """
 
-    def __init__(self, *, operation: str,
-                 args: Sequence[Union[DAGReference, Any]],
-                 kwargs: Dict[str, Union[DAGReference, Any]],
-                 dag: 'TransformationDAG'=None,
-                 salt: int=None,
-                 file_cache: dict=None):
+    def __init__(
+        self,
+        *,
+        operation: str,
+        args: Sequence[Union[DAGReference, Any]],
+        kwargs: Dict[str, Union[DAGReference, Any]],
+        dag: "TransformationDAG" = None,
+        salt: int = None,
+        file_cache: dict = None,
+    ):
         """Initialize a Transformation object.
 
         Args:
@@ -185,25 +185,27 @@ class Transformation:
         self._dag = dag
         self._salt = salt
         self._hashstr = None
-        self._profile = dict(compute=np.nan,
-                             cumulative_compute=np.nan,
-                             hashstr=np.nan,
-                             cache_lookup=np.nan,
-                             cache_writing=np.nan,
-                             effective=np.nan)
+        self._profile = dict(
+            compute=np.nan,
+            cumulative_compute=np.nan,
+            hashstr=np.nan,
+            cache_lookup=np.nan,
+            cache_writing=np.nan,
+            effective=np.nan,
+        )
 
         # Parse file cache options, making sure it's a dict with default values
         self._fc_opts = file_cache if file_cache is not None else {}
 
-        if isinstance(self._fc_opts.get('write', {}), bool):
-            self._fc_opts['write'] = dict(enabled=self._fc_opts['write'])
-        elif 'write' not in self._fc_opts:
-            self._fc_opts['write'] = dict(enabled=False)
+        if isinstance(self._fc_opts.get("write", {}), bool):
+            self._fc_opts["write"] = dict(enabled=self._fc_opts["write"])
+        elif "write" not in self._fc_opts:
+            self._fc_opts["write"] = dict(enabled=False)
 
-        if isinstance(self._fc_opts.get('read', {}), bool):
-            self._fc_opts['read'] = dict(enabled=self._fc_opts['read'])
-        elif 'read' not in self._fc_opts:
-            self._fc_opts['read'] = dict(enabled=False)
+        if isinstance(self._fc_opts.get("read", {}), bool):
+            self._fc_opts["read"] = dict(enabled=self._fc_opts["read"])
+        elif "read" not in self._fc_opts:
+            self._fc_opts["read"] = dict(enabled=False)
 
         # Cache dict, containing the result and whether the cache is in memory
         self._cache = dict(result=None, filled=False)
@@ -213,12 +215,19 @@ class Transformation:
 
     def __str__(self) -> str:
         """A human-readable string characterizing this Transformation"""
-        return ("<{t:}, operation: {op:}, {Na:d} args, {Nkw:d} kwargs>\n"
-                "  args:   {args:}\n"
-                "  kwargs: {kwargs:}\n"
-                "".format(t=type(self).__name__, op=self._operation,
-                          Na=len(self._args), Nkw=len(self._kwargs),
-                          args=self._args, kwargs=self._kwargs))
+        return (
+            "<{t:}, operation: {op:}, {Na:d} args, {Nkw:d} kwargs>\n"
+            "  args:   {args:}\n"
+            "  kwargs: {kwargs:}\n"
+            "".format(
+                t=type(self).__name__,
+                op=self._operation,
+                Na=len(self._args),
+                Nkw=len(self._kwargs),
+                args=self._args,
+                kwargs=self._kwargs,
+            )
+        )
 
     def __repr__(self) -> str:
         """A deterministic string representation of this transformation.
@@ -233,13 +242,18 @@ class Transformation:
 
             Changing this method will lead to cache invalidations!
         """
-        return ("<{mod:}.{t:}, operation={op:}, args={args:}, "
-                "kwargs={kwargs:}, salt={salt:}>"
-                "".format(mod=type(self).__module__, t=type(self).__name__,
-                          op=repr(self._operation),
-                          args=repr(self._args),
-                          kwargs=repr(dict(self._kwargs)),# TODO Check sorting!
-                          salt=repr(self._salt)))
+        return (
+            "<{mod:}.{t:}, operation={op:}, args={args:}, "
+            "kwargs={kwargs:}, salt={salt:}>"
+            "".format(
+                mod=type(self).__module__,
+                t=type(self).__name__,
+                op=repr(self._operation),
+                args=repr(self._args),
+                kwargs=repr(dict(self._kwargs)),  # TODO Check sorting!
+                salt=repr(self._salt),
+            )
+        )
 
     @property
     def hashstr(self) -> str:
@@ -278,7 +292,7 @@ class Transformation:
         return self._operation
 
     @property
-    def dag(self) -> 'TransformationDAG':
+    def dag(self) -> "TransformationDAG":
         """The associated TransformationDAG; used for object lookup"""
         return self._dag
 
@@ -287,14 +301,19 @@ class Transformation:
         """Recursively collects the references that are found in the positional
         and keyword arguments of this Transformation.
         """
-        return set(recursive_collect(chain(self._args, self._kwargs.values()),
-                   select_func=(lambda o: isinstance(o, DAGReference))))
+        return set(
+            recursive_collect(
+                chain(self._args, self._kwargs.values()),
+                select_func=(lambda o: isinstance(o, DAGReference)),
+            )
+        )
 
     @property
-    def resolved_dependencies(self) -> Set['Transformation']:
+    def resolved_dependencies(self) -> Set["Transformation"]:
         """Transformation objects that this Transformation depends on"""
-        return set([ref.resolve_object(dag=self.dag)
-                    for ref in self.dependencies])
+        return set(
+            [ref.resolve_object(dag=self.dag) for ref in self.dependencies]
+        )
 
     @property
     def profile(self) -> Dict[str, float]:
@@ -302,7 +321,7 @@ class Transformation:
         return self._profile
 
     # YAML representation .....................................................
-    yaml_tag = u'!dag_trf'
+    yaml_tag = "!dag_trf"
 
     @classmethod
     def from_yaml(cls, constructor, node):
@@ -330,13 +349,15 @@ class Transformation:
 
         """
         # Collect the attributes that are relevant for the transformation.
-        d = dict(operation=node._operation,
-                 args=node._args,
-                 kwargs=dict(node._kwargs))
+        d = dict(
+            operation=node._operation,
+            args=node._args,
+            kwargs=dict(node._kwargs),
+        )
 
         # If a specific salt was given, add that to the dict as well
         if node._salt is not None:
-            d['salt'] = node._salt
+            d["salt"] = node._salt
 
         # Let YAML represent this as a mapping with an additional tag
         return representer.represent_mapping(cls.yaml_tag, d)
@@ -354,6 +375,7 @@ class Transformation:
         Returns:
             Any: The result of the operation
         """
+
         def is_DAGReference(obj: Any) -> bool:
             return isinstance(obj, DAGReference)
 
@@ -364,9 +386,11 @@ class Transformation:
             Makes use of arguments from outer scope.
             """
             if self.dag is None:
-                raise ValueError("Cannot resolve Transformation arguments "
-                                 "that contain DAG references, because no DAG "
-                                 "was associated with this Transformation!")
+                raise ValueError(
+                    "Cannot resolve Transformation arguments "
+                    "that contain DAG references, because no DAG "
+                    "was associated with this Transformation!"
+                )
 
             # Let the reference resolve the corresponding object from the DAG
             obj = ref.resolve_object(dag=self.dag)
@@ -388,12 +412,16 @@ class Transformation:
         if not success:
             # Did not find a result in memory or file cache -> Compute it.
             # First, compute the result of the references in the arguments.
-            args =   recursive_replace(copy.deepcopy(self._args),
-                                       select_func=is_DAGReference,
-                                       replace_func=resolve_and_compute)
-            kwargs = recursive_replace(copy.deepcopy(self._kwargs),
-                                       select_func=is_DAGReference,
-                                       replace_func=resolve_and_compute)
+            args = recursive_replace(
+                copy.deepcopy(self._args),
+                select_func=is_DAGReference,
+                replace_func=resolve_and_compute,
+            )
+            kwargs = recursive_replace(
+                copy.deepcopy(self._kwargs),
+                select_func=is_DAGReference,
+                replace_func=resolve_and_compute,
+            )
             # NOTE Important to deepcopy here, because otherwise the recursive
             #      replacement and the mutability of both args and kwargs will
             #      lead to DAGReference objects being replaced with the actual
@@ -440,9 +468,9 @@ class Transformation:
 
         return res
 
-    def _update_profile(self, *,
-                        cumulative_compute: float=None,
-                        **times) -> None:
+    def _update_profile(
+        self, *, cumulative_compute: float = None, **times
+    ) -> None:
         """Given some new profiling times, updates the profiling information.
 
         Args:
@@ -453,24 +481,33 @@ class Transformation:
         """
         # If cumulative computation time was given, calculate individual time
         if cumulative_compute is not None:
-            self._profile['cumulative_compute'] = cumulative_compute
+            self._profile["cumulative_compute"] = cumulative_compute
 
             # Aggregate the dependencies' cumulative computation times
-            deps_cctime = sum([dep.profile['cumulative_compute']
-                               for dep in self.resolved_dependencies
-                               if isinstance(dep, Transformation)])
+            deps_cctime = sum(
+                [
+                    dep.profile["cumulative_compute"]
+                    for dep in self.resolved_dependencies
+                    if isinstance(dep, Transformation)
+                ]
+            )
             # NOTE The dependencies might not have this value set because there
             #      might have been a cache lookup
-            self._profile['compute'] = max(0., cumulative_compute-deps_cctime)
+            self._profile["compute"] = max(
+                0.0, cumulative_compute - deps_cctime
+            )
 
         # Store the remaining entries
         self._profile.update(times)
 
         # Update effective time
-        self._profile['effective'] = sum([self._profile[k]
-                                          for k in ('compute', 'cache_lookup',
-                                                    'cache_writing')
-                                          if not np.isnan(self._profile[k])])
+        self._profile["effective"] = sum(
+            [
+                self._profile[k]
+                for k in ("compute", "cache_lookup", "cache_writing")
+                if not np.isnan(self._profile[k])
+            ]
+        )
 
     # Cache handling . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -479,29 +516,30 @@ class Transformation:
         success, res = False, None
 
         # Retrieve cache parameters
-        read_opts = self._fc_opts.get('read', {})
-        load_opts = read_opts.get('load_options', {})
+        read_opts = self._fc_opts.get("read", {})
+        load_opts = read_opts.get("load_options", {})
 
         # Check if the cache is already filled. If not, see if the file cache
         # can be read and is configured to be read.
-        if self._cache['filled']:
+        if self._cache["filled"]:
             success = True
-            res = self._cache['result']
+            res = self._cache["result"]
             log.trace("Re-using memory-cached result for %s.", self.hashstr)
 
-        elif self.dag is not None and read_opts.get('enabled', False):
+        elif self.dag is not None and read_opts.get("enabled", False):
             # Setup profiling
             t0 = time.time()
 
             # Let the DAG check if there is a file cache, i.e. if a file with
             # this Transformation's hash exists in the DAG's cache directory.
-            success, res = self.dag._retrieve_from_cache_file(self.hashstr,
-                                                              **load_opts)
+            success, res = self.dag._retrieve_from_cache_file(
+                self.hashstr, **load_opts
+            )
 
             # Store the result
             if success:
-                self._cache['result'] = res
-                self._cache['filled'] = True
+                self._cache["result"] = res
+                self._cache["filled"] = True
 
             self._update_profile(cache_lookup=(time.time() - t0))
 
@@ -509,13 +547,18 @@ class Transformation:
 
     def _cache_result(self, result: Any) -> None:
         """Stores a computed result in the cache"""
-        def should_write(*, enabled: bool, always: bool=False,
-                         allow_overwrite: bool=False,
-                         min_size: int=None, max_size: int=None,
-                         min_compute_time: float=None,
-                         min_cumulative_compute_time: float=None,
-                         storage_options: dict=None
-                         ) -> bool:
+
+        def should_write(
+            *,
+            enabled: bool,
+            always: bool = False,
+            allow_overwrite: bool = False,
+            min_size: int = None,
+            max_size: int = None,
+            min_compute_time: float = None,
+            min_cumulative_compute_time: float = None,
+            storage_options: dict = None,
+        ) -> bool:
             """A helper function to evaluate _whether_ the file cache is to be
             written or not.
 
@@ -561,18 +604,22 @@ class Transformation:
 
             # Evaluate profiling information
             if min_compute_time is not None:
-                if self.profile['compute'] < min_compute_time:
+                if self.profile["compute"] < min_compute_time:
                     return False
 
             if min_cumulative_compute_time is not None:
-                if (  self.profile['cumulative_compute']
-                    < min_cumulative_compute_time):
+                if (
+                    self.profile["cumulative_compute"]
+                    < min_cumulative_compute_time
+                ):
                     return False
 
             # Evaluate object size
             if min_size is not None or max_size is not None:
-                size_itvl = [min_size if min_size is not None else 0,
-                             max_size if max_size is not None else np.inf]
+                size_itvl = [
+                    min_size if min_size is not None else 0,
+                    max_size if max_size is not None else np.inf,
+                ]
                 obj_size = sys.getsizeof(result)  # from outer scope
 
                 if not (size_itvl[0] < obj_size < size_itvl[1]):
@@ -582,14 +629,14 @@ class Transformation:
             return True
 
         # Store a reference to the result and mark the cache as being in use
-        self._cache['result'] = result
-        self._cache['filled'] = True
+        self._cache["result"] = result
+        self._cache["filled"] = True
         # NOTE If instead of a proper computation, the passed result object was
         #      previously looked up from the cache, this will not have an
         #      effect.
 
         # Get file cache writing parameters; don't write if not
-        write_opts = self._fc_opts['write']
+        write_opts = self._fc_opts["write"]
 
         # Determine whether to write to a file
         if self.dag is not None and should_write(**write_opts):
@@ -599,9 +646,10 @@ class Transformation:
             # Write the result to a file inside the DAG's cache directory. This
             # is handled by the DAG itself, because the Transformation does not
             # know (and should not care) aboute the cache directory ...
-            storage_opts = write_opts.get('storage_options', {})
-            self.dag._write_to_cache_file(self.hashstr, result=result,
-                                          **storage_opts)
+            storage_opts = write_opts.get("storage_options", {})
+            self.dag._write_to_cache_file(
+                self.hashstr, result=result, **storage_opts
+            )
 
             self._update_profile(cache_writing=(time.time() - t0))
 
@@ -626,17 +674,24 @@ class TransformationDAG:
     a simple definition syntax, for example the ``select`` syntax, which takes
     care of selecting a basic set of data from the associated DataManager.
     """
-    # The tags that have special meaning
-    SPECIAL_TAGS = ('dag', 'dm', 'select_base')
 
-    def __init__(self, *, dm: 'DataManager',
-                 select: dict=None, transform: Sequence[dict]=None,
-                 cache_dir: str='.cache', file_cache_defaults: dict=None,
-                 base_transform: Sequence[Transformation]=None,
-                 select_base: Union[DAGReference, str]=None,
-                 select_path_prefix: str=None,
-                 meta_operations: Dict[str, Union[list, dict]]=None,
-                 verbosity: int=1):
+    # The tags that have special meaning
+    SPECIAL_TAGS = ("dag", "dm", "select_base")
+
+    def __init__(
+        self,
+        *,
+        dm: "DataManager",
+        select: dict = None,
+        transform: Sequence[dict] = None,
+        cache_dir: str = ".cache",
+        file_cache_defaults: dict = None,
+        base_transform: Sequence[Transformation] = None,
+        select_base: Union[DAGReference, str] = None,
+        select_path_prefix: str = None,
+        meta_operations: Dict[str, Union[list, dict]] = None,
+        verbosity: int = 1,
+    ):
         """Initialize a DAG which is associated with a DataManager and load the
         specified transformations configuration into it.
 
@@ -696,10 +751,10 @@ class TransformationDAG:
         self._tags = dict()
         self._nodes = list()
         self._meta_ops = dict()
-        self._ref_stacks=_defaultdict(list)
+        self._ref_stacks = _defaultdict(list)
         self._fc_opts = file_cache_defaults if file_cache_defaults else {}
         self._select_base = None
-        self._profile = dict(add_node=0., compute=0.)
+        self._profile = dict(add_node=0.0, compute=0.0)
         self._select_path_prefix = select_path_prefix
         self.verbosity = verbosity
 
@@ -708,13 +763,13 @@ class TransformationDAG:
         if os.path.isabs(cache_dir):
             self._cache_dir = cache_dir
         else:
-            self._cache_dir = os.path.join(self.dm.dirs['data'], cache_dir)
+            self._cache_dir = os.path.join(self.dm.dirs["data"], cache_dir)
 
         # Add the special tags: the DAG itself, the DataManager, and the
         # (changing) selection base
-        self.tags['dag'] = self.objects.add_object(self)
-        self.tags['dm'] = self.objects.add_object(self.dm)
-        self.tags['select_base'] = self.tags['dm']  # here: default value only
+        self.tags["dag"] = self.objects.add_object(self)
+        self.tags["dm"] = self.objects.add_object(self.dm)
+        self.tags["select_base"] = self.tags["dm"]  # here: default value only
         # NOTE The data manager is NOT a node of the DAG, but more like an
         #      external data source, thus being accessible only as a tag
 
@@ -744,14 +799,16 @@ class TransformationDAG:
 
     def __str__(self) -> str:
         """A human-readable string characterizing this TransformationDAG"""
-        return ("<TransformationDAG, "
-                "{:d} node(s), {:d} tag(s), {:d} object(s)>"
-                "".format(len(self.nodes), len(self.tags), len(self.objects)))
+        return (
+            "<TransformationDAG, "
+            "{:d} node(s), {:d} tag(s), {:d} object(s)>"
+            "".format(len(self.nodes), len(self.tags), len(self.objects))
+        )
 
     # .........................................................................
 
     @property
-    def dm(self) -> 'DataManager':
+    def dm(self) -> "DataManager":
         """The associated DataManager"""
         return self._dm
 
@@ -760,8 +817,10 @@ class TransformationDAG:
         """Returns the hash of this DAG, which depends solely on the hash of
         the associated DataManager.
         """
-        return _hash("<TransformationDAG, coupled to DataManager with ref {}>"
-                     "".format(self.dm.hashstr))
+        return _hash(
+            "<TransformationDAG, coupled to DataManager "
+            f"with ref {self.dm.hashstr}>"
+        )
 
     @property
     def objects(self) -> DAGObjects:
@@ -813,7 +872,7 @@ class TransformationDAG:
         info = dict()
 
         # Go over all files in the cache dir that have an extension
-        for path in glob.glob(os.path.join(self.cache_dir, '*.*')):
+        for path in glob.glob(os.path.join(self.cache_dir, "*.*")):
             if not os.path.isfile(path):
                 continue
 
@@ -848,7 +907,7 @@ class TransformationDAG:
         """
         # Distinguish by type. If it's not a DAGReference, assume it's a tag.
         if new_base is None:
-            new_base = DAGTag('dm').convert_to_ref(dag=self)
+            new_base = DAGTag("dm").convert_to_ref(dag=self)
 
         elif isinstance(new_base, DAGReference):
             # Make sure it is a proper DAGReference object (hash-based) and not
@@ -872,7 +931,7 @@ class TransformationDAG:
 
         # Have a DAGReference now. Store it and update the special tag.
         self._select_base = new_base
-        self.tags['select_base'] = new_base.ref
+        self.tags["select_base"] = new_base.ref
 
     @property
     def profile(self) -> Dict[str, float]:
@@ -896,27 +955,34 @@ class TransformationDAG:
         prof = copy.deepcopy(self.profile)
 
         # Add tag-specific information
-        prof['tags'] = dict()
+        prof["tags"] = dict()
         for tag, obj_hash in self.tags.items():
             obj = self.objects[obj_hash]
             if not isinstance(obj, Transformation):
                 continue
 
             tprof = copy.deepcopy(obj.profile)
-            prof['tags'][tag] = tprof
+            prof["tags"][tag] = tprof
 
         # Aggregate the profiled times from all transformations (by item)
-        to_aggregate = ('compute', 'hashstr',
-                        'cache_lookup', 'cache_writing', 'effective')
-        stat_funcs = dict(mean=lambda d: np.nanmean(d),
-                          std=lambda d: np.nanstd(d),
-                          min=lambda d: np.nanmin(d),
-                          max=lambda d: np.nanmax(d),
-                          q25=lambda d: np.nanquantile(d, .25),
-                          q50=lambda d: np.nanquantile(d, .50),
-                          q75=lambda d: np.nanquantile(d, .75),
-                          sum=lambda d: np.nansum(d),
-                          count=lambda d: np.count_nonzero(~np.isnan(d)))
+        to_aggregate = (
+            "compute",
+            "hashstr",
+            "cache_lookup",
+            "cache_writing",
+            "effective",
+        )
+        stat_funcs = dict(
+            mean=lambda d: np.nanmean(d),
+            std=lambda d: np.nanstd(d),
+            min=lambda d: np.nanmin(d),
+            max=lambda d: np.nanmax(d),
+            q25=lambda d: np.nanquantile(d, 0.25),
+            q50=lambda d: np.nanquantile(d, 0.50),
+            q75=lambda d: np.nanquantile(d, 0.75),
+            sum=lambda d: np.nansum(d),
+            count=lambda d: np.count_nonzero(~np.isnan(d)),
+        )
         tprofs = {item: list() for item in to_aggregate}
 
         for obj_hash, obj in self.objects.items():
@@ -929,73 +995,92 @@ class TransformationDAG:
 
         # Compute some statistics for the aggregated elements; need to ignore
         # warnings because values can be NaN, e.g. without cache lookup
-        prof['aggregated'] = dict()
+        prof["aggregated"] = dict()
 
         with warnings.catch_warnings():
-            warnings.simplefilter('ignore', category=RuntimeWarning)
+            warnings.simplefilter("ignore", category=RuntimeWarning)
             for item in to_aggregate:
-                prof['aggregated'][item] = {k: (f(tprofs[item])
-                                                if tprofs[item] else np.nan)
-                                            for k, f in stat_funcs.items()}
+                prof["aggregated"][item] = {
+                    k: (f(tprofs[item]) if tprofs[item] else np.nan)
+                    for k, f in stat_funcs.items()
+                }
 
         # Also sort the node profiling results, setting NaNs to zeros
-        to_sort_by = to_aggregate + ('cumulative_compute',)
-        prof['sorted'] = dict()
+        to_sort_by = to_aggregate + ("cumulative_compute",)
+        prof["sorted"] = dict()
         nodes = [self.objects[obj_hash] for obj_hash in self.nodes]
         for sort_by in to_sort_by:
-            nct = [(n.hashstr, n.profile[sort_by])
-                   if not np.isnan(n.profile[sort_by]) else (n.hashstr, 0.)
-                   for n in nodes]
-            prof['sorted'][sort_by] = sorted(nct, key=lambda tup: tup[1],
-                                             reverse=True)
+            nct = [
+                (n.hashstr, n.profile[sort_by])
+                if not np.isnan(n.profile[sort_by])
+                else (n.hashstr, 0.0)
+                for n in nodes
+            ]
+            prof["sorted"][sort_by] = sorted(
+                nct, key=lambda tup: tup[1], reverse=True
+            )
 
         # Additionally, aggregate effective times by operation
         eff_op_times = _defaultdict(list)
         for node in nodes:
-            eff_op_times[node.operation].append(node.profile['effective'])
+            eff_op_times[node.operation].append(node.profile["effective"])
         eff_op_times = dict(eff_op_times)
 
-        prof['operations'] = dict()
+        prof["operations"] = dict()
 
         with warnings.catch_warnings():
-            warnings.simplefilter('ignore', category=RuntimeWarning)
+            warnings.simplefilter("ignore", category=RuntimeWarning)
 
             for op, times in eff_op_times.items():
-                prof['operations'][op] = {k: (f(times) if times else np.nan)
-                                          for k, f in stat_funcs.items()}
+                prof["operations"][op] = {
+                    k: (f(times) if times else np.nan)
+                    for k, f in stat_funcs.items()
+                }
 
-        prof['slow_operations'] = sorted([(op, prof['operations'][op]['sum'])
-                                          for op in prof['operations']],
-                                         key=lambda tup: tup[1], reverse=True)
+        prof["slow_operations"] = sorted(
+            [(op, prof["operations"][op]["sum"]) for op in prof["operations"]],
+            key=lambda tup: tup[1],
+            reverse=True,
+        )
 
         return prof
 
     # .........................................................................
 
-    def register_meta_operation(self, name: str, *,
-                                select: dict=None,
-                                transform: Sequence[dict]=None) -> None:
+    def register_meta_operation(
+        self,
+        name: str,
+        *,
+        select: dict = None,
+        transform: Sequence[dict] = None,
+    ) -> None:
         """Registers a new meta-operation, i.e. a transformation sequence with
         placeholders for the required positional and keyword arguments.
         """
         if name in self._meta_ops or name in available_operations():
-            raise ValueError("An operation or meta-operation with the name "
-                             f"'{name}' already exists!")
+            raise ValueError(
+                "An operation or meta-operation with the name "
+                f"'{name}' already exists!"
+            )
 
         # First, evaluate the select and transform arguments, returning a list
         # of transformation specifications.
         specs = self._parse_trfs(select=select, transform=transform)
 
         if not specs:
-            raise ValueError("Meta-operations need to contain at least one "
-                             "transformation, but there was none specified "
-                             f"for meta-operation '{name}'!")
+            raise ValueError(
+                "Meta-operations need to contain at least one "
+                "transformation, but there was none specified "
+                f"for meta-operation '{name}'!"
+            )
 
         # Define some helper lambdas to identify placeholders and tags
-        is_normal_tag  = lambda obj: (    isinstance(obj, DAGTag)
-                                      and obj.name not in self.SPECIAL_TAGS)
-        is_special_tag = lambda obj: (    isinstance(obj, DAGTag)
-                                      and obj.name in self.SPECIAL_TAGS)
+        is_normal_tag = lambda obj: (
+            isinstance(obj, DAGTag) and obj.name not in self.SPECIAL_TAGS
+        )
+        is_special_tag = lambda obj: (
+            isinstance(obj, DAGTag) and obj.name in self.SPECIAL_TAGS
+        )
         is_arg = lambda obj: isinstance(obj, _Arg)
         is_kwarg = lambda obj: isinstance(obj, _Kwarg)
 
@@ -1005,7 +1090,7 @@ class TransformationDAG:
         kwargs = list()
 
         for i, spec in enumerate(specs):
-            args +=   recursive_collect(spec, select_func=is_arg)
+            args += recursive_collect(spec, select_func=is_arg)
             kwargs += recursive_collect(spec, select_func=is_kwarg)
 
         _arg_pos = [arg.position for arg in args]
@@ -1025,8 +1110,9 @@ class TransformationDAG:
         # used to refer to other transformations _within_ a meta-operation.
         # Need to check two things: they should be unique and they should all
         # be used (further down).
-        defined_tags = {i:spec['tag'] for i, spec in enumerate(specs)
-                        if spec.get('tag')}
+        defined_tags = {
+            i: spec["tag"] for i, spec in enumerate(specs) if spec.get("tag")
+        }
         unused_tags = set(defined_tags.values())
 
         if len(set(defined_tags.values())) != len(defined_tags):
@@ -1085,8 +1171,11 @@ class TransformationDAG:
         for i, spec in enumerate(specs):
             # Replace any (non-special) DAGTags within the specification, as
             # these need to be associated via the reference stack.
-            spec = recursive_replace(spec, select_func=is_normal_tag,
-                                     replace_func=to_meta_operation_tag)
+            spec = recursive_replace(
+                spec,
+                select_func=is_normal_tag,
+                replace_func=to_meta_operation_tag,
+            )
 
         if unused_tags:
             _unused = ", ".join(unused_tags)
@@ -1101,15 +1190,23 @@ class TransformationDAG:
         # Finally, store all extracted info in the meta operations registry.
         # The reference stack entry keeps track of the nodes that define an
         # internal tag, such that it can be resolved when adding the node.
-        self._meta_ops[name] = dict(specs=specs,
-                                    defined_tags=defined_tags,
-                                    num_args=num_args,
-                                    kwarg_names=kwarg_names)
+        self._meta_ops[name] = dict(
+            specs=specs,
+            defined_tags=defined_tags,
+            num_args=num_args,
+            kwarg_names=kwarg_names,
+        )
 
-    def add_node(self, *, operation: str,
-                 args: list=None, kwargs: dict=None,
-                 tag: str=None, file_cache: dict=None,
-                 **trf_kwargs) -> DAGReference:
+    def add_node(
+        self,
+        *,
+        operation: str,
+        args: list = None,
+        kwargs: dict = None,
+        tag: str = None,
+        file_cache: dict = None,
+        **trf_kwargs,
+    ) -> DAGReference:
         """Add a new node by creating a new Transformation object and adding it
         to the node list.
 
@@ -1139,18 +1236,23 @@ class TransformationDAG:
                 reference to the result node of the meta-operation.
         """
         if operation in self._meta_ops:
-            return self._add_meta_operation_nodes(operation, args=args,
-                                                  kwargs=kwargs, tag=tag,
-                                                  file_cache=file_cache,
-                                                  **trf_kwargs)
+            return self._add_meta_operation_nodes(
+                operation,
+                args=args,
+                kwargs=kwargs,
+                tag=tag,
+                file_cache=file_cache,
+                **trf_kwargs,
+            )
 
         # Keep track of the time
         t0 = time.time()
 
         # Some helper methods for the recursive replacement
         def not_proper_ref(obj: Any) -> bool:
-            return (    isinstance(obj, DAGReference)
-                    and type(obj) is not DAGReference)
+            return (
+                isinstance(obj, DAGReference) and type(obj) is not DAGReference
+            )
 
         def convert_to_ref(obj: DAGReference) -> DAGReference:
             return obj.convert_to_ref(dag=self)
@@ -1170,10 +1272,12 @@ class TransformationDAG:
         # The recursiveness is needed because args and kwargs can be deeply
         # nested structures and we want to replace all references regardless
         # of their position within args and kwargs.
-        args =   recursive_replace(args, select_func=not_proper_ref,
-                                   replace_func=convert_to_ref)
-        kwargs = recursive_replace(kwargs, select_func=not_proper_ref,
-                                   replace_func=convert_to_ref)
+        args = recursive_replace(
+            args, select_func=not_proper_ref, replace_func=convert_to_ref
+        )
+        kwargs = recursive_replace(
+            kwargs, select_func=not_proper_ref, replace_func=convert_to_ref
+        )
 
         # Parse file cache parameters
         fc_opts = copy.deepcopy(self._fc_opts)  # Always a dict
@@ -1183,8 +1287,14 @@ class TransformationDAG:
 
         # From these arguments, create the Transformation object and add it to
         # the objects database.
-        trf = Transformation(operation=operation, args=args, kwargs=kwargs,
-                             dag=self, file_cache=fc_opts, **trf_kwargs)
+        trf = Transformation(
+            operation=operation,
+            args=args,
+            kwargs=kwargs,
+            dag=self,
+            file_cache=fc_opts,
+            **trf_kwargs,
+        )
         trf_hash = self.objects.add_object(trf)
         # NOTE From this point on, the object itself has no relevance.
         #      Transformation objects should only be handled via their hash in
@@ -1209,7 +1319,9 @@ class TransformationDAG:
 
         return DAGReference(trf_hash)
 
-    def add_nodes(self, *, select: dict=None, transform: Sequence[dict]=None):
+    def add_nodes(
+        self, *, select: dict = None, transform: Sequence[dict] = None
+    ):
         """Adds multiple nodes by parsing the specification given via the
         ``select`` and ``transform`` arguments.
 
@@ -1233,7 +1345,7 @@ class TransformationDAG:
         for spec in specs:
             self.add_node(**spec)
 
-    def compute(self, *, compute_only: Sequence[str]=None) -> Dict[str, Any]:
+    def compute(self, *, compute_only: Sequence[str] = None) -> Dict[str, Any]:
         """Computes all specified tags and returns a result dict.
 
         Depending on the ``verbosity`` attribute, a varying level of profiling
@@ -1246,6 +1358,7 @@ class TransformationDAG:
         Returns:
             Dict[str, Any]: A mapping from tags to fully computed results.
         """
+
         def postprocess_result(res, *, tag: str):
             """Performs some postprocessing operations on the results of
             individual tag computations.
@@ -1268,42 +1381,59 @@ class TransformationDAG:
                 return
 
             prof = self.profile_extended
-            to_exclude = (('hashstr', 'effective') if self.verbosity == 1
-                          else ('hashstr',))
+            to_exclude = (
+                ("hashstr", "effective")
+                if self.verbosity == 1
+                else ("hashstr",)
+            )
 
             # Show aggregated statistics
-            _fstr = ("{name:>25s}   {p[mean]:<7s}  ±  {p[std]:<7s}   "
-                     "({p[min]:<7s} | {p[max]:<7s})")
-            _stats = [_fstr.format(name=k,
-                                   p={_k: "{:.2g}".format(_v)
-                                      for _k, _v in v.items()})
-                      for k, v in prof['aggregated'].items()
-                      if k not in to_exclude]
-            log.remark("Profiling results per node:  mean ± std (min|max) [s]"
-                       "\n%s", "\n".join(_stats))
+            _fstr = (
+                "{name:>25s}   {p[mean]:<7s}  ±  {p[std]:<7s}   "
+                "({p[min]:<7s} | {p[max]:<7s})"
+            )
+            _stats = [
+                _fstr.format(
+                    name=k, p={_k: "{:.2g}".format(_v) for _k, _v in v.items()}
+                )
+                for k, v in prof["aggregated"].items()
+                if k not in to_exclude
+            ]
+            log.remark(
+                "Profiling results per node:  mean ± std (min|max) [s]\n%s",
+                "\n".join(_stats),
+            )
 
             if self.verbosity < 2:
                 return
 
             # Show operations with highest sum of effective time
-            num_ops = 5 if self.verbosity < 3 else len(prof['slow_operations'])
-            _ops = prof['operations']
-            _fstr2 = ("{name:>25s}   {p[sum]:<7s}    {cnt:>2d} call{s:}   "
-                      "({p[mean]:<7s} ± {p[std]:<7s})")
-            _stats2 = [_fstr2.format(name=op,
-                                     p={_k: "{:.2g}".format(_v)
-                                        for _k, _v in _ops[op].items()},
-                                     cnt=_ops[op]['count'],
-                                     s="s" if _ops[op]['count'] != 1 else " ")
-                       for op, _ in prof['slow_operations'][:num_ops]]
-            log.remark("Total effective operation computation times:"
-                       "\n%s", "\n".join(_stats2))
+            num_ops = 5 if self.verbosity < 3 else len(prof["slow_operations"])
+            _ops = prof["operations"]
+            _fstr2 = (
+                "{name:>25s}   {p[sum]:<7s}    {cnt:>2d} call{s:}   "
+                "({p[mean]:<7s} ± {p[std]:<7s})"
+            )
+            _stats2 = [
+                _fstr2.format(
+                    name=op,
+                    p={_k: "{:.2g}".format(_v) for _k, _v in _ops[op].items()},
+                    cnt=_ops[op]["count"],
+                    s="s" if _ops[op]["count"] != 1 else " ",
+                )
+                for op, _ in prof["slow_operations"][:num_ops]
+            ]
+            log.remark(
+                "Total effective operation computation times:\n%s",
+                "\n".join(_stats2),
+            )
 
         # Determine which tags to compute
-        compute_only = compute_only if compute_only is not None else 'all'
-        if compute_only == 'all':
-            compute_only = [t for t in self.tags.keys()
-                            if t not in self.SPECIAL_TAGS]
+        compute_only = compute_only if compute_only is not None else "all"
+        if compute_only == "all":
+            compute_only = [
+                t for t in self.tags.keys() if t not in self.SPECIAL_TAGS
+            ]
 
         log.info("Computation invoked on DAG with %d nodes.", len(self.nodes))
 
@@ -1311,20 +1441,25 @@ class TransformationDAG:
         results = dict()
 
         if not compute_only:
-            log.remark("No tags were selected to be computed. "
-                       "Available tags:\n  %s", ", ".join(self.tags))
+            log.remark(
+                "No tags were selected to be computed. Available tags:\n  %s",
+                ", ".join(self.tags),
+            )
             return results
-        log.note("Tag%s to be computed:  %s",
-                 "s" if len(compute_only) != 1 else "",
-                 ", ".join(compute_only))
+        log.note(
+            "Tag%s to be computed:  %s",
+            "s" if len(compute_only) != 1 else "",
+            ", ".join(compute_only),
+        )
 
         # Initiate start time for profiling
         t0 = time.time()
 
         # Compute and collect the results
         for i, tag in enumerate(compute_only):
-            log.note("Computing tag '%s' (%d/%d) ...",
-                     tag, i+1, len(compute_only))
+            log.note(
+                "Computing tag '%s' (%d/%d) ...", tag, i + 1, len(compute_only)
+            )
             _tt = time.time()
 
             # Resolve the transformation, then compute the result, postprocess
@@ -1337,12 +1472,16 @@ class TransformationDAG:
 
         # Update profiling information
         t1 = time.time()
-        self._update_profile(compute=t1-t0)
+        self._update_profile(compute=t1 - t0)
 
         # Provide some information to the user
-        log.note("Computed %d tag%s in %.2gs:  %s",
-                 len(compute_only), "s" if len(compute_only) != 1 else "",
-                 t1-t0, ", ".join(results.keys()))
+        log.note(
+            "Computed %d tag%s in %.2gs:  %s",
+            len(compute_only),
+            "s" if len(compute_only) != 1 else "",
+            t1 - t0,
+            ", ".join(results.keys()),
+        )
 
         show_compute_profile_info()
         return results
@@ -1350,8 +1489,9 @@ class TransformationDAG:
     # .........................................................................
     # Helpers
 
-    def _parse_trfs(self, *, select: dict,
-                    transform: Sequence[dict]) -> Sequence[dict]:
+    def _parse_trfs(
+        self, *, select: dict, transform: Sequence[dict]
+    ) -> Sequence[dict]:
         """Parse the given arguments to bring them into a uniform format: a
         sequence of parameters for transformation operations.
 
@@ -1388,13 +1528,15 @@ class TransformationDAG:
                 omit_tag = False
 
             elif isinstance(params, dict):
-                path = params['path']
-                with_previous_result = params.get('with_previous_result',False)
-                more_trfs = params.get('transform')
-                salt = params.get('salt')
-                omit_tag = params.get('omit_tag', False)
+                path = params["path"]
+                with_previous_result = params.get(
+                    "with_previous_result", False
+                )
+                more_trfs = params.get("transform")
+                salt = params.get("salt")
+                omit_tag = params.get("omit_tag", False)
 
-                if 'file_cache' in params:
+                if "file_cache" in params:
                     raise ValueError(
                         "For selection from the selection base, the file "
                         "cache is always disabled! The `file_cache` argument "
@@ -1413,20 +1555,24 @@ class TransformationDAG:
                 if self._select_path_prefix[-1] == PATH_JOIN_CHAR:
                     path = self._select_path_prefix + path
                 else:
-                    path = PATH_JOIN_CHAR.join([self._select_path_prefix,path])
+                    path = PATH_JOIN_CHAR.join(
+                        [self._select_path_prefix, path]
+                    )
 
             # Construct parameters to select from the selection base.
             # Only assign a tag if there are no further transformations;
             # otherwise, the last additional transformation should set the tag.
-            sel_trf = dict(operation='getitem',
-                           tag=None if (more_trfs or omit_tag) else tag,
-                           args=[DAGTag('select_base'), path],
-                           kwargs=dict(),
-                           file_cache=dict(read=False, write=False))
+            sel_trf = dict(
+                operation="getitem",
+                tag=None if (more_trfs or omit_tag) else tag,
+                args=[DAGTag("select_base"), path],
+                kwargs=dict(),
+                file_cache=dict(read=False, write=False),
+            )
 
             # Carry additional parameters only if given
             if salt is not None:
-                sel_trf['salt'] = salt
+                sel_trf["salt"] = salt
 
             # Now finished with the formulation of the select operation.
             trfs.append(sel_trf)
@@ -1440,16 +1586,16 @@ class TransformationDAG:
                 trf_params = _parse_dag_minimal_syntax(trf_params)
 
                 # Might have to use the previous result ...
-                if 'with_previous_result' not in trf_params:
-                    trf_params['with_previous_result'] = with_previous_result
+                if "with_previous_result" not in trf_params:
+                    trf_params["with_previous_result"] = with_previous_result
 
                 # Can now parse the regular syntax
                 trf_params = _parse_dag_syntax(**trf_params)
 
                 # If the tag is not to be omitted, the last transformation for
                 # the selected tag needs to set the tag.
-                if i+1 == len(more_trfs) and not omit_tag:
-                    if trf_params.get('tag'):
+                if i + 1 == len(more_trfs) and not omit_tag:
+                    if trf_params.get("tag"):
                         raise ValueError(
                             "The tag of the last transform operation within a "
                             "select routine cannot be set manually. Check the "
@@ -1457,7 +1603,7 @@ class TransformationDAG:
                         )
 
                     # Add the tag to the parameters
-                    trf_params['tag'] = tag
+                    trf_params["tag"] = tag
 
                 # Can append it now
                 trfs.append(trf_params)
@@ -1471,10 +1617,16 @@ class TransformationDAG:
         # Done parsing, yay.
         return trfs
 
-    def _add_meta_operation_nodes(self, operation: str, *,
-                                  args: list=None, kwargs: dict=None,
-                                  tag: str=None, file_cache: dict=None,
-                                  **trf_kwargs) -> DAGReference:
+    def _add_meta_operation_nodes(
+        self,
+        operation: str,
+        *,
+        args: list = None,
+        kwargs: dict = None,
+        tag: str = None,
+        file_cache: dict = None,
+        **trf_kwargs,
+    ) -> DAGReference:
         """Adds Transformation nodes for meta-operations
 
         This method resolves the placeholder references in the specified meta-
@@ -1503,14 +1655,14 @@ class TransformationDAG:
         """
         # Retrieve the meta-operation information (important: as a copy)
         meta_op = copy.deepcopy(self._meta_ops[operation])
-        specs = meta_op['specs']
-        kwarg_names = meta_op['kwarg_names']
+        specs = meta_op["specs"]
+        kwarg_names = meta_op["kwarg_names"]
 
         # Check that all the expected args and kwargs are present
         args = args if args else []
         kwargs = kwargs if kwargs else {}
 
-        if len(args) != meta_op['num_args']:
+        if len(args) != meta_op["num_args"]:
             raise ValueError(
                 f"Meta-operation '{operation}' expects {meta_op['num_args']} "
                 f"positional argument(s) but got {len(args)}!"
@@ -1541,25 +1693,29 @@ class TransformationDAG:
         # stacks can be cleaned-up after all nodes were added.
         added_tags = list()
 
-        def fill_placeholders_and_add_node(spec: dict,
-                                           **node_kwargs) -> DAGReference:
+        def fill_placeholders_and_add_node(
+            spec: dict, **node_kwargs
+        ) -> DAGReference:
             """Fills all placeholder objects (positional and keyword arguments
             as well as internally-defined meta-operation tags) and then adds a
             node to the DAG via the regular method.
 
             This also adjusts the reference stacks for this meta-operation.
             """
-            spec = recursive_replace(spec, select_func=is_arg,
-                                     replace_func=replace_arg)
-            spec = recursive_replace(spec, select_func=is_kwarg,
-                                     replace_func=replace_kwarg)
-            spec = recursive_replace(spec, select_func=is_mop_tag,
-                                     replace_func=replace_mop_tag)
+            spec = recursive_replace(
+                spec, select_func=is_arg, replace_func=replace_arg
+            )
+            spec = recursive_replace(
+                spec, select_func=is_kwarg, replace_func=replace_kwarg
+            )
+            spec = recursive_replace(
+                spec, select_func=is_mop_tag, replace_func=replace_mop_tag
+            )
 
             # If a tag were to be defined, remove it here; have to handle it
             # via the reference stacks, as there would otherwise be duplicate
             # tags registered via add_node.
-            tag = spec.pop('tag', None)
+            tag = spec.pop("tag", None)
 
             # Can now add the node
             ref = self.add_node(**spec, **node_kwargs)
@@ -1579,8 +1735,9 @@ class TransformationDAG:
         for spec in specs[:-1]:
             fill_placeholders_and_add_node(spec, **trf_kwargs)
 
-        ref = fill_placeholders_and_add_node(specs[-1], **trf_kwargs,
-                                             tag=tag, file_cache=file_cache)
+        ref = fill_placeholders_and_add_node(
+            specs[-1], **trf_kwargs, tag=tag, file_cache=file_cache
+        )
 
         # With all nodes added now, can pop off all the references for the tags
         # that were defined by this specific use of the meta-operation. This is
@@ -1596,15 +1753,16 @@ class TransformationDAG:
         matching key.
         """
         for key, t in times.items():
-            self._profile[key] = self._profile.get(key, 0.) + t
+            self._profile[key] = self._profile.get(key, 0.0) + t
 
     # .........................................................................
     # Cache writing and reading
     # NOTE This is done here rather than in Transformation because this is the
     #      more central entity and it is a bit easier ...
 
-    def _retrieve_from_cache_file(self, trf_hash: str,
-                                  **load_kwargs) -> Tuple[bool, Any]:
+    def _retrieve_from_cache_file(
+        self, trf_hash: str, **load_kwargs
+    ) -> Tuple[bool, Any]:
         """Retrieves a transformation's result from a cache file."""
         success, res = False, None
         cache_files = self.cache_files
@@ -1615,21 +1773,23 @@ class TransformationDAG:
             return success, res
 
         # Parse load options
-        if 'exists_action' not in load_kwargs:
-            load_kwargs['exists_action'] = 'skip_nowarn'
+        if "exists_action" not in load_kwargs:
+            load_kwargs["exists_action"] = "skip_nowarn"
 
         # else: There was a file. Let the DataManager load it.
-        file_ext = cache_files[trf_hash]['ext']
+        file_ext = cache_files[trf_hash]["ext"]
         log.trace("Loading result %s from cache file ...", trf_hash)
 
-        with _adjusted_log_levels(('dantro.data_mngr', logging.WARNING)):
-            self.dm.load('dag_cache',
-                         loader=LOADER_BY_FILE_EXT[file_ext[1:]],
-                         base_path=self.cache_dir,
-                         glob_str=trf_hash + file_ext,
-                         target_path=DAG_CACHE_DM_PATH + "/{basename:}",
-                         required=True,
-                         **load_kwargs)
+        with _adjusted_log_levels(("dantro.data_mngr", logging.WARNING)):
+            self.dm.load(
+                "dag_cache",
+                loader=LOADER_BY_FILE_EXT[file_ext[1:]],
+                base_path=self.cache_dir,
+                glob_str=trf_hash + file_ext,
+                target_path=DAG_CACHE_DM_PATH + "/{basename:}",
+                required=True,
+                **load_kwargs,
+            )
         # NOTE If a file was already loaded from the cache, it will not be
         #      loaded again. Thus, the DataManager acts as a persistent
         #      storage for loaded cache files. Consequently, these are shared
@@ -1646,12 +1806,17 @@ class TransformationDAG:
         success = True
         return success, res
 
-    def _write_to_cache_file(self, trf_hash: str, *, result: Any,
-                             ignore_groups: bool=True,
-                             attempt_pickling: bool=True,
-                             raise_on_error: bool=False,
-                             pkl_kwargs: dict=None,
-                             **save_kwargs) -> bool:
+    def _write_to_cache_file(
+        self,
+        trf_hash: str,
+        *,
+        result: Any,
+        ignore_groups: bool = True,
+        attempt_pickling: bool = True,
+        raise_on_error: bool = False,
+        pkl_kwargs: dict = None,
+        **save_kwargs,
+    ) -> bool:
         """Writes the given result object to a hash file, overwriting existing
         ones.
 
@@ -1682,7 +1847,8 @@ class TransformationDAG:
         # Cannot store groups
         if isinstance(result, BaseDataGroup):
             if not ignore_groups:
-                raise NotImplementedError("Cannot currently write dantro "
+                raise NotImplementedError(
+                    "Cannot currently write dantro "
                     "groups to a cache file. Sorry. Adjust the ignore_groups "
                     "argument in the file cache write options for the "
                     f"transformation resulting in {result}."
@@ -1714,8 +1880,10 @@ class TransformationDAG:
                 # not know the file extension ...
                 for bad_fpath in glob.glob(fpath + "*"):
                     os.remove(bad_fpath)
-                    log.trace("Removed cache file after storage failure: %s",
-                              bad_fpath)
+                    log.trace(
+                        "Removed cache file after storage failure: %s",
+                        bad_fpath,
+                    )
 
                 # Generate an error or warning message
                 msg = (
@@ -1743,9 +1911,10 @@ class TransformationDAG:
 
         # Try to pickle it
         try:
-            with open(fpath + ".pkl", mode='wb') as pkl_file:
-                pkl.dump(result, pkl_file,
-                         **(pkl_kwargs if pkl_kwargs else {}))
+            with open(fpath + ".pkl", mode="wb") as pkl_file:
+                pkl.dump(
+                    result, pkl_file, **(pkl_kwargs if pkl_kwargs else {})
+                )
 
         except Exception as exc:
             msg = (

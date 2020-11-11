@@ -3,25 +3,31 @@
 import logging
 from typing import Union
 
-from .base import ItemAccessMixin
 from ..abc import AbstractDataContainer, AbstractDataGroup
+from .base import ItemAccessMixin
 
 # Local constants
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
+
 class IntegerItemAccessMixin:
     """This mixin allows accessing items via integer keys and also supports
-    calling the __contains__ magic method with integer keys. It is meant to be
-    used to add features to an AbstractDataGroup-derived class, although this
-    is not enforced.
+    calling the ``__contains__`` magic method with integer keys. It is meant to
+    be used to add features to an AbstractDataGroup-derived class, although
+    this is not enforced.
 
-    NOTE The __setitem__ method is not covered by this!
+    .. note::
 
-    NOTE The class using this mixin has to implement index access methods and
-         the __contains__ magic method independently from this mixin!
+        The ``__setitem__`` method is not covered by this!
+
+    .. note::
+
+        The class using this mixin has to implement index access methods and
+        the ``__contains__`` magic method independently from this mixin!
     """
+
     def _parse_key(self, key: Union[str, int]) -> str:
         """Makes sure a key is a string"""
         if isinstance(key, int):
@@ -48,12 +54,15 @@ class PaddedIntegerItemAccessMixin(IntegerItemAccessMixin):
     """This mixin allows accessing items via integer keys that map to members
     that have a zero-padded integer name. It can only be used as mixin for
     AbstractDataGroup-derived classes!
-    
-    The __contains__ magic method is also supported in this mixin.
 
-    NOTE The class using this mixin has to implement index access methods and
-         the __contains__ magic method independently from this mixin!
+    The ``__contains__`` magic method is also supported in this mixin.
+
+    .. note::
+
+        The class using this mixin has to implement index access methods and
+        the ``__contains__`` magic method independently from this mixin!
     """
+
     # The number of digits of the padded string representing the integer
     _PADDED_INT_KEY_WIDTH = None
 
@@ -77,25 +86,29 @@ class PaddedIntegerItemAccessMixin(IntegerItemAccessMixin):
         not already specified.
         """
         return self._PADDED_INT_KEY_WIDTH
-    
+
     @padded_int_key_width.setter
     def padded_int_key_width(self, key_width: int):
         """Method to manually provide an integer key width
-        
+
         Args:
             key_width (int): The
-        
+
         Raises:
             ValueError: Description
         """
         if self._PADDED_INT_FSTR:
-            raise ValueError("Padded integer key width is already set for {}; "
-                             "cannot set it again!".format(self.logstr))
+            raise ValueError(
+                "Padded integer key width is already set for {}; "
+                "cannot set it again!".format(self.logstr)
+            )
 
         elif key_width <= 0:
-            raise ValueError("Argument `key_width` to padded_int_key_width "
-                             "setter property of {} needs to be positive, was "
-                             "'{}'!".format(self.logstr, key_width))
+            raise ValueError(
+                "Argument `key_width` to padded_int_key_width "
+                "setter property of {} needs to be positive, was "
+                "'{}'!".format(self.logstr, key_width)
+            )
 
         # Deduce the key width by going over all member names
         self._PADDED_INT_KEY_WIDTH = key_width
@@ -104,7 +117,7 @@ class PaddedIntegerItemAccessMixin(IntegerItemAccessMixin):
         self._PADDED_INT_FSTR = "{:0" + str(self._PADDED_INT_KEY_WIDTH) + "d}"
 
         # Compute the maximum value that is fully representable by the string
-        self._PADDED_INT_MAX_VAL = 10**self._PADDED_INT_KEY_WIDTH - 1
+        self._PADDED_INT_MAX_VAL = 10 ** self._PADDED_INT_KEY_WIDTH - 1
 
     # .........................................................................
 
@@ -123,9 +136,11 @@ class PaddedIntegerItemAccessMixin(IntegerItemAccessMixin):
         # Optionally, make an additional check for integer key values
         if self._PADDED_INT_STRICT_CHECKING:
             if key < 0 or key > self._PADDED_INT_MAX_VAL:
-                raise IndexError("Integer index {} out of range [0, {}] for "
-                                 "{}!".format(key, self._PADDED_INT_MAX_VAL,
-                                              self.logstr))
+                raise IndexError(
+                    "Integer index {} out of range [0, {}] for {}!".format(
+                        key, self._PADDED_INT_MAX_VAL, self.logstr
+                    )
+                )
 
         # Generate the key string from the format string
         return self._PADDED_INT_FSTR.format(key)
@@ -137,7 +152,7 @@ class PaddedIntegerItemAccessMixin(IntegerItemAccessMixin):
         Also, upon first call, communicates the zero padded integer key width,
         i.e.: the length of the container name, to the
         PaddedIntegerItemAccessMixin.
-        
+
         Args:
             cont: The member container to add
 
@@ -148,12 +163,11 @@ class PaddedIntegerItemAccessMixin(IntegerItemAccessMixin):
             self.padded_int_key_width = len(cont.name)
 
         if len(cont.name) != self.padded_int_key_width:
-            raise ValueError("All containers that are to be added to {} need "
-                             "names of the same length ({}), but {} had a "
-                             "name of length {}!"
-                             "".format(self.logstr, self.padded_int_key_width,
-                                       cont.logstr, len(cont.name)))
+            raise ValueError(
+                f"All containers that are to be added to {self.logstr} need "
+                f"names of the same length ({self.padded_int_key_width}), "
+                f"but {cont.logstr} had a name of length {len(cont.name)}!"
+            )
 
         # Still invoke the potentially existing parent method
         super()._check_cont(cont)
-

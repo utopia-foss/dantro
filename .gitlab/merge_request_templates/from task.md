@@ -17,7 +17,7 @@ This MR ...
 ### Can this MR be accepted?
 <!-- 4 - Fill in the checklist below. -->
 
-<!-- Progress: If desired, give a more detailed overview of the progress --> 
+<!-- Progress: If desired, give a more detailed overview of the progress -->
 - [ ] **Implementation** ready
 - [ ] **Tests** added or adjusted
 - [ ] **Documentation** extended or updated

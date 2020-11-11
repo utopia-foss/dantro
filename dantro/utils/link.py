@@ -1,7 +1,7 @@
 """Implements the Link class"""
 
-import weakref
 import logging
+import weakref
 from typing import TypeVar
 
 from ..abc import PATH_JOIN_CHAR
@@ -12,10 +12,12 @@ from ..mixins import ForwardAttrsMixin
 log = logging.getLogger(__name__)
 
 # Type definitions
-TGroupOrContainer = TypeVar('TGroupOrContainer',
-                            BaseDataContainer, BaseDataGroup)
+TGroupOrContainer = TypeVar(
+    "TGroupOrContainer", BaseDataContainer, BaseDataGroup
+)
 
 # -----------------------------------------------------------------------------
+
 
 class Link(ForwardAttrsMixin):
     """A link is a connection between two objects in the data tree, i.e. a
@@ -28,6 +30,7 @@ class Link(ForwardAttrsMixin):
     linked object (if not already cached) and then forward the attribute call
     to that object.
     """
+
     FORWARD_ATTR_TO = "target_object"  # ...but see …_forwarding_target method!
 
     def __init__(self, *, anchor: TGroupOrContainer, rel_path: str):
@@ -38,8 +41,11 @@ class Link(ForwardAttrsMixin):
         self.__rel_path = rel_path
         self.__target_ref_cache = None
 
-        log.debug("Created link with anchor %s and relative path '%s'.",
-                  anchor.logstr, rel_path)
+        log.debug(
+            "Created link with anchor %s and relative path '%s'.",
+            anchor.logstr,
+            rel_path,
+        )
 
     def __eq__(self, other) -> bool:
         """Evaluates equality by making the following comparisons: identity,
@@ -56,8 +62,8 @@ class Link(ForwardAttrsMixin):
             return NotImplemented
 
         return (
-            self.anchor_weakref == other.anchor_weakref and
-            self.target_rel_path == other.target_rel_path
+            self.anchor_weakref == other.anchor_weakref
+            and self.target_rel_path == other.target_rel_path
         )
 
     @property
@@ -135,9 +141,12 @@ class Link(ForwardAttrsMixin):
                 "same data tree?"
             ) from err
 
-        log.debug("Resolved link '%s' relative to anchor %s @ %s",
-                  self.__rel_path, self.__anchor().logstr,
-                  self.__anchor().path)
+        log.debug(
+            "Resolved link '%s' relative to anchor %s @ %s",
+            self.__rel_path,
+            self.__anchor().logstr,
+            self.__anchor().path,
+        )
 
         self.__target_ref_cache = weakref.ref(obj)
 

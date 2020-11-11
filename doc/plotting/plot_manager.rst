@@ -64,7 +64,7 @@ A set of plot configurations may look like this:
       plot_func: lineplot
 
       # The data manager is passed to that function as first positional argument.
-      # Also, the generated output path is passed as `out_path` keyword argument.
+      # Also, the generated output path is passed as ``out_path`` keyword argument.
 
       # All further kwargs on this level are passed on to that function.
       # Specify how to get to the data in the data manager
@@ -81,7 +81,7 @@ A set of plot configurations may look like this:
 
       # This time, get the module from a file
       module_file: /path/to/my/fancy/plotting/script.py
-      # NOTE Can also be a relative path if `base_module_file_dir` was set
+      # NOTE Can also be a relative path if ``base_module_file_dir`` was set
 
       # Get the plot function from that module
       plot_func: my_plot_func

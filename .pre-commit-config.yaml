@@ -1,0 +1,48 @@
+# pre-commit configuration for dantro
+---
+repos:
+  # Manually run this every now and again .....................................
+  # Command:  pre-commit run --all-files --hook-stage manual
+
+  # Run if desiring to make use of newer language features
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v2.7.3
+    hooks:
+    - id: pyupgrade
+      name: upgrade python syntax
+      args:
+        - --py3-plus
+        - --py36-plus
+      stages: [manual]
+
+  # Default pre-commit hooks ..................................................
+  - repo: https://github.com/timothycrosley/isort
+    rev: 5.6.4
+    hooks:
+      - id: isort
+        name: sort imports
+        additional_dependencies: [toml]
+        files: \.py$
+        args: [--project=dantro]
+
+  - repo: https://github.com/psf/black
+    rev: 20.8b1
+    hooks:
+      - id: black
+        name: black code formatting
+
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.7.0
+    hooks:
+      - id: rst-backticks
+        name: check RST backticks
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.3.0
+    hooks:
+      - id: end-of-file-fixer
+        name: fix end of files
+
+      - id: trailing-whitespace
+        name: fix trailing whitespace
+        args: [--markdown-linebreak-ext=md]

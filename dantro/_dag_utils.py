@@ -3,12 +3,12 @@
 NOTE This is imported by dantro.tools to register classes with YAML.
 """
 import logging
-from typing import Any, Union, Tuple
+from typing import Any, Tuple, Union
 
 import sympy as sym
-from sympy.parsing.sympy_parser import (parse_expr as _parse_expr,
-                                        standard_transformations as _std_trf,
-                                        convert_xor as _convert_xor)
+from sympy.parsing.sympy_parser import convert_xor as _convert_xor
+from sympy.parsing.sympy_parser import parse_expr as _parse_expr
+from sympy.parsing.sympy_parser import standard_transformations as _std_trf
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -40,6 +40,7 @@ DAG_PARSER_OPERATION_HOOKS = dict()
 
 # -----------------------------------------------------------------------------
 
+
 class Placeholder:
     """A generic placeholder class for use in the DAG framework.
 
@@ -69,7 +70,7 @@ class Placeholder:
         return hash(repr(self))
 
     # YAML representation . . . . . . . . . . . . . . . . . . . . . . . . . . .
-    yaml_tag = u'!dag_placeholder'
+    yaml_tag = "!dag_placeholder"
 
     @classmethod
     def from_yaml(cls, constructor, node):
@@ -87,13 +88,16 @@ class Placeholder:
         """
         return representer.represent_scalar(cls.yaml_tag, str(node._data))
 
+
 # -----------------------------------------------------------------------------
+
 
 class PositionalArgument(Placeholder):
     """A PositionalArgument is a placeholder that holds as payload a positional
     argument's position. This is used, e.g., for meta-operation specification.
     """
-    yaml_tag = u'!arg'
+
+    yaml_tag = "!arg"
 
     def __init__(self, pos: int):
         """Initialize from an integer, also accepting int-convertibles"""
@@ -102,13 +106,17 @@ class PositionalArgument(Placeholder):
             try:
                 pos = int(pos)
             except:
-                raise TypeError("PositionalArgument requires an "
-                                f"int-convertible argument, got {type(pos)} "
-                                f"with value {repr(pos)}!")
+                raise TypeError(
+                    "PositionalArgument requires an "
+                    f"int-convertible argument, got {type(pos)} "
+                    f"with value {repr(pos)}!"
+                )
 
         if pos < 0:
-            raise ValueError("PositionalArgument requires a non-negative "
-                             f"position, got {pos}!")
+            raise ValueError(
+                "PositionalArgument requires a non-negative "
+                f"position, got {pos}!"
+            )
 
         self._data = pos
 
@@ -121,13 +129,16 @@ class KeywordArgument(Placeholder):
     """A KeywordArgument is a placeholder that holds as payload the name of a
     keyword argument. This is used, e.g., for meta-operation specification.
     """
-    yaml_tag = u'!kwarg'
+
+    yaml_tag = "!kwarg"
 
     def __init__(self, name: str):
         """Initialize by storing the keyword argument name"""
         if not isinstance(name, str):
-            raise TypeError("KeywordArgument requires a string "
-                            f"as argument name, got {type(name)}!")
+            raise TypeError(
+                "KeywordArgument requires a string "
+                f"as argument name, got {type(name)}!"
+            )
 
         self._data = name
 
@@ -138,18 +149,22 @@ class KeywordArgument(Placeholder):
 
 # -----------------------------------------------------------------------------
 
+
 class DAGReference(Placeholder):
     """The DAGReference class is the base class of all DAG reference objects.
     It extends the generic Placeholder class with the ability to resolve
     references within a :py:class:`~dantro.dag.TransformationDAG`.
     """
-    yaml_tag = u'!dag_ref'
+
+    yaml_tag = "!dag_ref"
 
     def __init__(self, ref: str):
         """Initialize a DAGReference object from a hash."""
         if not isinstance(ref, str):
-            raise TypeError("DAGReference requires a string-like argument, "
-                            f"got {type(ref)}!")
+            raise TypeError(
+                "DAGReference requires a string-like argument, "
+                f"got {type(ref)}!"
+            )
 
         self._data = ref
 
@@ -158,39 +173,44 @@ class DAGReference(Placeholder):
         """The associated reference of this object"""
         return self._data
 
-    def _resolve_ref(self, *, dag: 'TransformationDAG') -> str:
+    def _resolve_ref(self, *, dag: "TransformationDAG") -> str:
         """Return the hash reference; for the base class, the data is already
         the hash reference, so no DAG is needed. Derived classes _might_ need
         the DAG to resolve their reference hash.
         """
         return self._data
 
-    def convert_to_ref(self, *, dag: 'TransformationDAG') -> 'DAGReference':
+    def convert_to_ref(self, *, dag: "TransformationDAG") -> "DAGReference":
         """Create a new object that is a hash ref to the same object this
         tag refers to."""
         return DAGReference(self._resolve_ref(dag=dag))
 
-    def resolve_object(self, *, dag: 'TransformationDAG') -> Any:
+    def resolve_object(self, *, dag: "TransformationDAG") -> Any:
         """Resolve the object by looking up the reference in the DAG's object
         database.
         """
         return dag.objects[self._resolve_ref(dag=dag)]
 
+
 # .............................................................................
+
 
 class DAGTag(DAGReference):
     """A DAGTag object stores a name of a tag, which serves as a named
     reference to some object in the DAG.
     """
-    yaml_tag = u'!dag_tag'
+
+    yaml_tag = "!dag_tag"
 
     def __init__(self, name: str):
         """Initialize a DAGTag object, storing the specified field name"""
         # Prohibit certain names that would collide with DAGMetaOperationTag
         if DAGMetaOperationTag.SPLIT_STR in name:
-            raise ValueError("DAGTag names cannot include the "
-                             f"'{DAGMetaOperationTag.SPLIT_STR}' substring! "
-                             f"Adjust the name of tag '{name}' accordingly.")
+            raise ValueError(
+                "DAGTag names cannot include the "
+                f"'{DAGMetaOperationTag.SPLIT_STR}' substring! "
+                f"Adjust the name of tag '{name}' accordingly."
+            )
 
         self._data = name
 
@@ -199,7 +219,7 @@ class DAGTag(DAGReference):
         """The name of the tag within the DAG that this object references"""
         return self._data
 
-    def _resolve_ref(self, *, dag: 'TransformationDAG') -> str:
+    def _resolve_ref(self, *, dag: "TransformationDAG") -> str:
         """Return the hash reference by looking up the tag in the DAG"""
         return dag.tags[self.name]
 
@@ -209,7 +229,8 @@ class DAGMetaOperationTag(DAGTag):
     only be used inside a meta-operation. When resolving this tag's reference,
     the target is looked up from the stack of the TransformationDAG.
     """
-    yaml_tag = u'!mop_tag'
+
+    yaml_tag = "!mop_tag"
     SPLIT_STR = "::"
 
     def __init__(self, name: str):
@@ -223,13 +244,15 @@ class DAGMetaOperationTag(DAGTag):
         try:
             mop, tag = name.split(self.SPLIT_STR)
         except Exception as exc:
-            raise ValueError(f"Invalid name '{name}' for DAGMetaOperationTag! "
-                             f"The '{self.SPLIT_STR}' substring "
-                             "is missing or is used more than once!") from exc
+            raise ValueError(
+                f"Invalid name '{name}' for DAGMetaOperationTag! "
+                f"The '{self.SPLIT_STR}' substring "
+                "is missing or is used more than once!"
+            ) from exc
 
         self._data = name
 
-    def _resolve_ref(self, *, dag: 'TransformationDAG') -> str:
+    def _resolve_ref(self, *, dag: "TransformationDAG") -> str:
         """Return the hash reference by looking it up in the reference stacks
         of the specified TransformationDAG. The last entry always refers to the
         currently active meta-operation.
@@ -244,18 +267,22 @@ class DAGMetaOperationTag(DAGTag):
         return f"{meta_operation}{cls.SPLIT_STR}{tag}"
 
     @classmethod
-    def from_names(cls, meta_operation: str, *,
-                   tag: str) -> 'DAGMetaOperationTag':
+    def from_names(
+        cls, meta_operation: str, *, tag: str
+    ) -> "DAGMetaOperationTag":
         """Generates a DAGMetaOperationTag using the names of a meta-operation
         and the name of a tag.
         """
         return cls(cls.make_name(meta_operation, tag=tag))
 
+
 # .............................................................................
+
 
 class DAGNode(DAGReference):
     """A DAGNode is a reference by the index within the DAG's node list."""
-    yaml_tag = u'!dag_node'
+
+    yaml_tag = "!dag_node"
 
     def __init__(self, idx: int):
         """Initialize a DAGNode object with a node index.
@@ -273,9 +300,11 @@ class DAGNode(DAGReference):
             try:
                 idx = int(idx)
             except:
-                raise TypeError("DAGNode requires an int-convertible "
-                                f"argument, got {type(idx)} with "
-                                f"value {repr(idx)}!")
+                raise TypeError(
+                    "DAGNode requires an int-convertible "
+                    f"argument, got {type(idx)} with "
+                    f"value {repr(idx)}!"
+                )
 
         self._data = idx
 
@@ -284,12 +313,13 @@ class DAGNode(DAGReference):
         """The idx to the referenced node within the DAG's node list"""
         return self._data
 
-    def _resolve_ref(self, *, dag: 'TransformationDAG') -> str:
+    def _resolve_ref(self, *, dag: "TransformationDAG") -> str:
         """Return the hash reference by looking up the node index in the DAG"""
         return dag.nodes[self.idx]
 
 
 # -----------------------------------------------------------------------------
+
 
 class DAGObjects:
     """An objects database for the DAG framework.
@@ -311,10 +341,11 @@ class DAGObjects:
 
     def __str__(self) -> str:
         """A human-readable string representation of the object database"""
-        return ("<DAGObjects database with {:d} entr{}>"
-                "".format(len(self), "ies" if len(self) != 1 else "y"))
+        return "<DAGObjects database with {:d} entr{}>".format(
+            len(self), "ies" if len(self) != 1 else "y"
+        )
 
-    def add_object(self, obj, *, custom_hash: str=None) -> str:
+    def add_object(self, obj, *, custom_hash: str = None) -> str:
         """Add an object to the object database, storing it under its hash.
 
         Note that the object cannot be just any object that is hashable but it
@@ -342,7 +373,7 @@ class DAGObjects:
             ValueError: If the given ``custom_hash`` already exists.
         """
         if custom_hash is not None:
-            if hasattr(obj, 'hashstr'):
+            if hasattr(obj, "hashstr"):
                 raise TypeError(
                     "Cannot use a custom hash for objects that provide their "
                     f"own `hashstr` property! Got object of type {type(obj)} "
@@ -389,7 +420,9 @@ class DAGObjects:
     def items(self):
         return self._d.items()
 
+
 # -----------------------------------------------------------------------------
+
 
 def parse_dag_minimal_syntax(params: Union[str, dict]) -> dict:
     """Parses the minimal syntax parameters, effectively translating a string-
@@ -402,15 +435,24 @@ def parse_dag_minimal_syntax(params: Union[str, dict]) -> dict:
         return dict(operation=params, with_previous_result=True)
 
     # else:
-    raise TypeError("Expected either dict or string for minimal syntax, got "
-                    f"{type(params)} with value: {params}")
+    raise TypeError(
+        "Expected either dict or string for minimal syntax, got "
+        f"{type(params)} with value: {params}"
+    )
 
 
-def parse_dag_syntax(*, operation: str=None, args: list=None,
-                     kwargs: dict=None, tag: str=None,
-                     with_previous_result: bool=False,
-                     salt: int=None, file_cache: dict=None,
-                     ignore_hooks: bool=False, **ops) -> dict:
+def parse_dag_syntax(
+    *,
+    operation: str = None,
+    args: list = None,
+    kwargs: dict = None,
+    tag: str = None,
+    with_previous_result: bool = False,
+    salt: int = None,
+    file_cache: dict = None,
+    ignore_hooks: bool = False,
+    **ops,
+) -> dict:
     """Given the parameters of a transform operation, possibly in a shorthand
     notation, returns a dict with normalized content by expanding the
     shorthand notation.
@@ -444,6 +486,7 @@ def parse_dag_syntax(*, operation: str=None, args: list=None,
         ValueError: For invalid notation, e.g. unambiguous specification of
             arguments or the operation.
     """
+
     def _raise_error(mode: type, *, operation: str, op_params):
         if mode is dict:
             kind, arg_name = "keyword", "kwargs"
@@ -455,7 +498,7 @@ def parse_dag_syntax(*, operation: str=None, args: list=None,
             f"When specifying {kind} arguments via the shorthand notation "
             f"('{operation}: {op_params}'), there can be no additional "
             f"`{arg_name}` argument specified! Remove that argument or merge "
-            f"its content with the arguments specified via the shorthand."
+            "its content with the arguments specified via the shorthand."
         )
 
     # Distinguish between explicit and shorthand mode
@@ -468,9 +511,11 @@ def parse_dag_syntax(*, operation: str=None, args: list=None,
         # Shorthand parametrization
         # Make sure there are no stray argument
         if len(ops) > 1:
-            raise ValueError("For shorthand notation, there can only be a "
-                             "single operation specified, but got multiple "
-                             f"operations: {ops}")
+            raise ValueError(
+                "For shorthand notation, there can only be a "
+                "single operation specified, but got multiple "
+                f"operations: {ops}"
+            )
 
         # Extract operation name and parameters
         operation, op_params = list(ops.items())[0]
@@ -502,15 +547,19 @@ def parse_dag_syntax(*, operation: str=None, args: list=None,
             kwargs = kwargs if kwargs else {}
 
     elif not operation and not ops:
-        raise ValueError("Missing operation specification. Either use the "
-                         "`operation` key to specify one or use shorthand "
-                         "notation by using the name of the operation as a "
-                         "key and adding the arguments to it as values.")
+        raise ValueError(
+            "Missing operation specification. Either use the "
+            "`operation` key to specify one or use shorthand "
+            "notation by using the name of the operation as a "
+            "key and adding the arguments to it as values."
+        )
 
     else:
-        raise ValueError(f"Got two specifications of operations, one via the "
-                         f"`operation` argument ('{operation}'), another via "
-                         f"the shorthand notation ({ops}). Remove one!")
+        raise ValueError(
+            "Got two specifications of operations, one via the "
+            f"`operation` argument ('{operation}'), another via "
+            f"the shorthand notation ({ops}). Remove one!"
+        )
 
     # Have variables operation, args, and kwargs set now.
 
@@ -526,12 +575,16 @@ def parse_dag_syntax(*, operation: str=None, args: list=None,
         try:
             operation, args, kwargs = hook(operation, *args, **kwargs)
         except Exception as exc:
-            log.warning("Failed applying operation-specific hook for '%s'! "
-                        "Got %s: %s.\nEither correct the error or disable "
-                        "the hook for this operation by setting the "
-                        "``ignore_hooks`` flag. Otherwise, this operation "
-                        "might fail during computation.",
-                        operation, exc.__class__.__name__, exc)
+            log.warning(
+                "Failed applying operation-specific hook for '%s'! "
+                "Got %s: %s.\nEither correct the error or disable "
+                "the hook for this operation by setting the "
+                "``ignore_hooks`` flag. Otherwise, this operation "
+                "might fail during computation.",
+                operation,
+                exc.__class__.__name__,
+                exc,
+            )
 
     # Done. Construct the dict.
     # Mandatory parameters
@@ -539,10 +592,10 @@ def parse_dag_syntax(*, operation: str=None, args: list=None,
 
     # Add optional parameters only if they were specified
     if salt is not None:
-        d['salt'] = salt
+        d["salt"] = salt
 
     if file_cache is not None:
-        d['file_cache'] = file_cache
+        d["file_cache"] = file_cache
 
     return d
 
@@ -552,6 +605,7 @@ def parse_dag_syntax(*, operation: str=None, args: list=None,
 # NOTE:
 #   - Names should follow ``op_hook_<operation-name>``
 #   - A documentation entry should be added in doc/data_io/dag_op_hooks.rst
+
 
 def op_hook_expression(operation, *args, **kwargs) -> Tuple[str, list, dict]:
     """An operation hook for the ``expression`` operation, attempting to
@@ -580,7 +634,7 @@ def op_hook_expression(operation, *args, **kwargs) -> Tuple[str, list, dict]:
     else:
         raise TypeError(
             f"Got unexpected positional arguments: {args}; expected either "
-            f"(expr,) or (prev_node, expr)."
+            "(expr,) or (prev_node, expr)."
         )
 
     # Try to extract all symbols from the expression
@@ -589,22 +643,27 @@ def op_hook_expression(operation, *args, **kwargs) -> Tuple[str, list, dict]:
     # Some symbols might already be given; only add those that were not given.
     # Also, convert the ``prev`` and ``previous_result`` symbols the
     # corresponding DAGNode object
-    symbols = kwargs.get('symbols', {})
+    symbols = kwargs.get("symbols", {})
     for symbol in all_symbols:
         symbol = str(symbol)
         if symbol in symbols:
-            log.remark("Symbol '%s' was already specified explicitly! It "
-                       "will not be replaced.", symbol)
+            log.remark(
+                "Symbol '%s' was already specified explicitly! It "
+                "will not be replaced.",
+                symbol,
+            )
             continue
 
-        if symbol in ('prev', 'previous_result'):
+        if symbol in ("prev", "previous_result"):
             symbols[symbol] = DAGNode(-1)
         else:
             symbols[symbol] = DAGTag(symbol)
 
     # For the case of missing ``symbols`` key, need to write it back to kwargs
-    kwargs['symbols'] = symbols
+    kwargs["symbols"] = symbols
 
     # For args, return _only_ ``expr``, as expected by the operation
     return operation, (expr,), kwargs
-DAG_PARSER_OPERATION_HOOKS['expression'] = op_hook_expression
+
+
+DAG_PARSER_OPERATION_HOOKS["expression"] = op_hook_expression

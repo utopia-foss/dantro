@@ -1,21 +1,19 @@
 """Test the utils.link module"""
 
-import pytest
-
 import numpy as np
+import pytest
 
 import dantro
 import dantro.utils.coords
-
-from dantro.utils import Link
 from dantro.containers import ObjectContainer, StringContainer
-from dantro.mixins import ForwardAttrsToDataMixin
 from dantro.groups import OrderedDataGroup
+from dantro.mixins import ForwardAttrsToDataMixin
+from dantro.utils import Link
 
+from ..test_base import pickle_roundtrip
 
 # Fixtures and Tools ----------------------------------------------------------
 
-from ..test_base import pickle_roundtrip
 
 @pytest.fixture
 def root() -> OrderedDataGroup:
@@ -35,7 +33,9 @@ def root() -> OrderedDataGroup:
 
     return root
 
+
 # -----------------------------------------------------------------------------
+
 
 def test_Link(root):
     """Test the Link class"""

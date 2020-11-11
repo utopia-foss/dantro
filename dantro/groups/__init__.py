@@ -1,7 +1,10 @@
-"""The groups sub-package implements BaseDataGroup specializations"""
+"""The groups sub-package implements BaseDataGroup specializations
 
-from .ordered import OrderedDataGroup, IndexedDataGroup
-from .labelled import LabelledDataGroup
-from .time_series import TimeSeriesGroup, HeterogeneousTimeSeriesGroup
-from .pspgrp import ParamSpaceStateGroup, ParamSpaceGroup
+isort:skip_file
+"""
+
+from .ordered import IndexedDataGroup, OrderedDataGroup
 from .graph import GraphGroup
+from .labelled import LabelledDataGroup
+from .pspgrp import ParamSpaceGroup, ParamSpaceStateGroup
+from .time_series import HeterogeneousTimeSeriesGroup, TimeSeriesGroup

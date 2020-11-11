@@ -1,23 +1,24 @@
 """Test the utils.ordereddict module"""
 
-import sys
 import random
+import sys
 import uuid
 from typing import Callable
 
+import numpy as np
 import pytest
 
-import numpy as np
-
 import dantro
+import dantro.groups
 import dantro.utils
 import dantro.utils.coords
-import dantro.groups
 
 # Fixtures --------------------------------------------------------------------
 
-def random_kv_pairs(max_num: int=100, *, key_kind="int",
-                    key_sort_func: Callable=None) -> tuple:
+
+def random_kv_pairs(
+    max_num: int = 100, *, key_kind="int", key_sort_func: Callable = None
+) -> tuple:
     """Returns a randomly shuffled list of key-value pairs and a sequence
     of the ordered keys.
     """
@@ -41,6 +42,7 @@ def random_kv_pairs(max_num: int=100, *, key_kind="int",
 
 
 # Tests -----------------------------------------------------------------------
+
 
 def test_KeyOrderedDict():
     """Tests the KeyOrderedDict, a subclass of OrderedDict maintaining key
@@ -67,8 +69,9 @@ def test_KeyOrderedDict():
     assert all([k1 == k2 for k1, k2 in zip(kod.keys(), sorted_keys)])
 
     # Reverse iteration should also work
-    assert all([k1 == k2 for k1, k2 in zip(reversed(kod),
-                                           reversed(sorted_keys))])
+    assert all(
+        [k1 == k2 for k1, k2 in zip(reversed(kod), reversed(sorted_keys))]
+    )
 
     # Custom comparator, here: for reverse ordering
     comp_reversed = lambda k: -k
@@ -82,8 +85,9 @@ def test_KeyOrderedDict():
 
     # With str-cast keys but integer sorting
     comp_reversed = lambda k: int(k)
-    kv_pairs, sorted_keys = random_kv_pairs(key_kind="str",
-                                            key_sort_func=comp_reversed)
+    kv_pairs, sorted_keys = random_kv_pairs(
+        key_kind="str", key_sort_func=comp_reversed
+    )
     kod = KOD(kv_pairs, key=comp_reversed)
     assert all([k1 == k2 for k1, k2 in zip(kod.keys(), sorted_keys)])
 
@@ -165,5 +169,3 @@ def test_KeyOrderedDict():
     kod._key = lambda k: None
     with pytest.raises(ValueError, match="Failed comparing 'None'"):
         kod["foo"] = "bar"
-
-

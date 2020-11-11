@@ -6,9 +6,9 @@ import pytest
 
 import dantro as dtr
 import dantro.base
-import dantro.mixins
 import dantro.containers
 import dantro.groups
+import dantro.mixins
 
 from .test_data_mngr import NumpyTestDC
 
@@ -19,6 +19,7 @@ from .test_data_mngr import NumpyTestDC
 
 
 # Tests -----------------------------------------------------------------------
+
 
 def test_AttrsMixin():
     """Tests the AttrsMixin (without embedding)"""
@@ -75,6 +76,7 @@ def test_BasicComparisonMixin():
 
 def test_LockDataMixin():
     """Test the LockDataMixin using an OrderedDataGroup"""
+
     class ODG(dantro.groups.OrderedDataGroup):
         def _lock_hook(self):
             # Should be locked now
@@ -116,8 +118,10 @@ def test_LockDataMixin():
 
 def test_ForwardAttrsMixin():
     """Tests the ForwardAttrsMixin"""
-    class MyObjectContainer(dantro.mixins.ForwardAttrsMixin,
-                            dantro.containers.ObjectContainer):
+
+    class MyObjectContainer(
+        dantro.mixins.ForwardAttrsMixin, dantro.containers.ObjectContainer
+    ):
         # The name of the existing attribute to forward to.
         FORWARD_ATTR_TO = None
 
@@ -141,7 +145,7 @@ def test_ForwardAttrsMixin():
     with pytest.raises(AttributeError, match="invalid_attr_name"):
         moc.invalid_attr_name
 
-    moc.FORWARD_ATTR_TO = 'data'
+    moc.FORWARD_ATTR_TO = "data"
     assert moc.foo is moc.data.foo
     assert moc.bar is moc.data.bar
     assert moc.baz is moc.data.baz
@@ -152,13 +156,13 @@ def test_ForwardAttrsMixin():
     with pytest.raises(AttributeError, match="invalid_attr_name"):
         assert moc.invalid_attr_name
 
-    moc.FORWARD_ATTR_EXCLUDE = ('bar',)
+    moc.FORWARD_ATTR_EXCLUDE = ("bar",)
     assert moc.foo is moc.data.foo
     assert moc.baz is moc.data.baz
     with pytest.raises(AttributeError, match="bar"):
         moc.bar
 
-    moc.FORWARD_ATTR_ONLY = ('foo',)
+    moc.FORWARD_ATTR_ONLY = ("foo",)
     assert moc.foo is moc.data.foo
     with pytest.raises(AttributeError, match="bar"):
         moc.bar
@@ -167,17 +171,18 @@ def test_ForwardAttrsMixin():
 
     # Test hooks
     class HookedObjectContainer(MyObjectContainer):
-        FORWARD_ATTR_TO = 'data'
+        FORWARD_ATTR_TO = "data"
 
-        def _forward_attr_pre_hook(self, attr_name: str=None):
+        def _forward_attr_pre_hook(self, attr_name: str = None):
             """Invoked before attribute forwarding occurs"""
             assert attr_name is not None
             self.__last_attr_name = attr_name
 
         def _forward_attr_post_hook(self, attr):
             """Invoked before attribute forwarding occurs"""
-            assert hasattr(getattr(self, self.FORWARD_ATTR_TO),
-                           self.__last_attr_name)
+            assert hasattr(
+                getattr(self, self.FORWARD_ATTR_TO), self.__last_attr_name
+            )
             return attr
 
     hoc = HookedObjectContainer(name="foo_hooked", data=MyObject())
@@ -192,65 +197,68 @@ def test_ItemAccessMixin():
     # corresponding syntactic sugar to the dict data
 
     # Set an element of the dict
-    obj['foo'] = "bar"
-    assert obj.data.get('foo') == "bar"
+    obj["foo"] = "bar"
+    assert obj.data.get("foo") == "bar"
 
     # Get the value
-    assert obj['foo'] == "bar"
+    assert obj["foo"] == "bar"
 
     # Delete the value
-    del obj['foo']
+    del obj["foo"]
     with pytest.raises(KeyError, match="foo"):
-        obj['foo']
-
+        obj["foo"]
 
     # Passing on to the object works
     root = dtr.groups.OrderedDataGroup(name="root", containers=[obj])
-    root['obj/foo'] = "bar"
-    assert root['obj/foo'] == "bar"
+    root["obj/foo"] = "bar"
+    assert root["obj/foo"] == "bar"
 
-    del root['obj/foo']
+    del root["obj/foo"]
     with pytest.raises(KeyError, match="No key or key sequence"):
-        root['obj/foo']
+        root["obj/foo"]
 
     # List arguments
-    root[['obj', 'foo']] = "bar"
-    assert root[['obj', 'foo']] == "bar"
+    root[["obj", "foo"]] = "bar"
+    assert root[["obj", "foo"]] == "bar"
 
-    del root[['obj', 'foo']]
+    del root[["obj", "foo"]]
     with pytest.raises(KeyError, match="No key or key sequence"):
-        root[['obj', 'foo']]
+        root[["obj", "foo"]]
 
     # Too long lists
     with pytest.raises(KeyError, match="No key or key sequence"):
-        root[['obj', 'foo', 'spam']]
+        root[["obj", "foo", "spam"]]
 
 
 def test_MappingAccessMixin():
     """Tests the MappingAccessMixin using MutableMappingContainer"""
-    mmc = dtr.containers.MutableMappingContainer(name="map",
-                                                 data=dict(foo="bar",
-                                                           spam="eggs"))
+    mmc = dtr.containers.MutableMappingContainer(
+        name="map", data=dict(foo="bar", spam="eggs")
+    )
 
-    assert list(mmc.keys()) == ['foo', 'spam']
+    assert list(mmc.keys()) == ["foo", "spam"]
     assert list(mmc.values()) == ["bar", "eggs"]
-    assert list(mmc.items()) == [('foo', "bar"), ('spam', "eggs")]
+    assert list(mmc.items()) == [("foo", "bar"), ("spam", "eggs")]
 
-    assert mmc.get('foo') == "bar"
-    assert mmc.get('spam') == "eggs"
-    assert mmc.get('baz', "buz") == "buz"
+    assert mmc.get("foo") == "bar"
+    assert mmc.get("spam") == "eggs"
+    assert mmc.get("baz", "buz") == "buz"
 
 
 def test_numeric_mixins():
     """Tests UnaryOperationsMixin and NumbersMixin"""
     # Define a test class using the NumbersMixin, which inherits the
     # UnaryOperationsMixin
-    class Num(dtr.mixins.NumbersMixin, dtr.mixins.ComparisonMixin,
-              dtr.mixins.ItemAccessMixin, dtr.base.BaseDataContainer):
-
+    class Num(
+        dtr.mixins.NumbersMixin,
+        dtr.mixins.ComparisonMixin,
+        dtr.mixins.ItemAccessMixin,
+        dtr.base.BaseDataContainer,
+    ):
         def copy(self):
-            return type(self)(name=self.name + "_copy",
-                              data=copy.deepcopy(self.data))
+            return type(self)(
+                name=self.name + "_copy", data=copy.deepcopy(self.data)
+            )
 
     num = Num(name="foo", data=1.23)
     assert num.data == 1.23
@@ -258,10 +266,10 @@ def test_numeric_mixins():
     # Test each function
     assert num.__neg__() == -1.23 == -num
     assert abs(-num) == 1.23
-    assert round(num) == 1.
-    assert num.__ceil__() == 2.
-    assert num.__floor__() == 1.
-    assert num.__trunc__() == 1.
+    assert round(num) == 1.0
+    assert num.__ceil__() == 2.0
+    assert num.__floor__() == 1.0
+    assert num.__trunc__() == 1.0
 
     # Make sure functions are called, even if raising errors
     with pytest.raises(TypeError, match="bad operand type for unary ~"):
@@ -271,8 +279,9 @@ def test_numeric_mixins():
 def test_IntegerItemAccessMixin():
     """Test the IntegerItemAccessMixin"""
 
-    class IntItemAccessGroup(dtr.mixins.IntegerItemAccessMixin,
-                             dtr.groups.OrderedDataGroup):
+    class IntItemAccessGroup(
+        dtr.mixins.IntegerItemAccessMixin, dtr.groups.OrderedDataGroup
+    ):
         pass
 
     grp = IntItemAccessGroup(name="test_group")
@@ -295,8 +304,9 @@ def test_IntegerItemAccessMixin():
 def test_PaddedIntegerItemAccessMixin():
     """Test PaddedIntegerItemAccessMixin"""
 
-    class PaddedIntItemAccessGroup(dtr.mixins.PaddedIntegerItemAccessMixin,
-                                   dtr.groups.OrderedDataGroup):
+    class PaddedIntItemAccessGroup(
+        dtr.mixins.PaddedIntegerItemAccessMixin, dtr.groups.OrderedDataGroup
+    ):
         pass
 
     grp = PaddedIntItemAccessGroup(name="test_group")
@@ -320,10 +330,10 @@ def test_PaddedIntegerItemAccessMixin():
         assert grp[int_key] is grp[str_key]
 
     # Check bad access values
-    with pytest.raises(IndexError, match=r'out of range \[0, 99\]'):
+    with pytest.raises(IndexError, match=r"out of range \[0, 99\]"):
         grp[-1]
 
-    with pytest.raises(IndexError, match=r'out of range \[0, 99\]'):
+    with pytest.raises(IndexError, match=r"out of range \[0, 99\]"):
         grp[100]
 
     # Check bad container names

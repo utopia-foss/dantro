@@ -4,17 +4,23 @@ comparison function for ordering keys.
 """
 
 import collections
-from typing import Callable
 
 # Imports needed for replicating OrderedDict behaviour
 import sys as _sys
-from operator import eq as _eq
-from collections import _proxy, _Link, _OrderedDictKeysView
-from collections import _OrderedDictValuesView, _OrderedDictItemsView
+from collections import (
+    _Link,
+    _OrderedDictItemsView,
+    _OrderedDictKeysView,
+    _OrderedDictValuesView,
+    _proxy,
+)
 from collections.abc import MutableMapping
+from operator import eq as _eq
 from reprlib import recursive_repr as _recursive_repr
+from typing import Callable
 
 # -----------------------------------------------------------------------------
+
 
 class KeyOrderedDict(dict):
     """This dict maintains the order of keys not by their insertion but by
@@ -39,24 +45,25 @@ class KeyOrderedDict(dict):
     # The default key comparator
     DEFAULT_KEY_COMPARATOR = lambda _, k: k
 
-    def __init__(self, *args, key: Callable=None, **kwds):
+    def __init__(self, *args, key: Callable = None, **kwds):
         """Initialize a KeyOrderedDict, which maintains key ordering. If no
         custom ordering function is given, orders by simple "smaller than"
         comparison.
-        
+
         Apart from that, the interface is the same as for regular dictionaries.
-        
+
         Args:
             *args: a single sequence of (key, value) pairs to insert
-            key (Callable, optional): The callable used to 
+            key (Callable, optional): The callable used to
             **kwds: Passed on to ``update`` method
-        
+
         Raises:
             TypeError: on len(args) > 1
         """
         if len(args) > 1:
-            raise TypeError("expected at most 1 arguments, got {}"
-                            "".format(len(args)))
+            raise TypeError(
+                "expected at most 1 arguments, got {}".format(len(args))
+            )
 
         # Set the key comparison function, passing through if nothing is set
         self._key = key if key is not None else self.DEFAULT_KEY_COMPARATOR
@@ -79,44 +86,58 @@ class KeyOrderedDict(dict):
 
     def _key_comp_lt(self, k1, k2) -> bool:
         """The key comparator. Returns true for k1 < k2.
-        
+
         Before comparison, the unary ``self._key`` method is invoked on both
         keys.
-        
+
         Args:
             k1: lhs of comparison
             k2: rhs of comparison
-        
+
         Returns:
             bool: k1 < k2
         """
         # Create the actual keys to compare
         try:
             _k1, _k2 = self._key(k1), self._key(k2)
-        
+
         except Exception as exc:
-            raise ValueError("Could not apply key transformation method on "
-                             "one or both of the keys '{}' and '{}'!"
-                             "".format(k1, k2)
-                             ) from exc
-        
+            raise ValueError(
+                "Could not apply key transformation method on "
+                f"one or both of the keys '{k1}' and '{k2}'!"
+            ) from exc
+
         # Compare
         try:
             return _k1 < _k2
 
         except Exception as exc:
-            raise ValueError("Failed comparing '{}' (type {}, from key '{}') "
-                             "to '{}' (type {}, from key '{}')! Keys of {} "
-                             "need to be comparable after the key "
-                             "transformation function {} was applied to them."
-                             "".format(_k1, type(_k1), k1,
-                                       _k2, type(_k2), k2,
-                                       self.__class__.__name__,
-                                       self._key.__name__)
-                             ) from exc
+            raise ValueError(
+                "Failed comparing '{}' (type {}, from key '{}') "
+                "to '{}' (type {}, from key '{}')! Keys of {} "
+                "need to be comparable after the key "
+                "transformation function {} was applied to them."
+                "".format(
+                    _k1,
+                    type(_k1),
+                    k1,
+                    _k2,
+                    type(_k2),
+                    k2,
+                    self.__class__.__name__,
+                    self._key.__name__,
+                )
+            ) from exc
 
-    def __setitem__(self, key, value, *,
-                    dict_setitem=dict.__setitem__, proxy=_proxy, Link=_Link):
+    def __setitem__(
+        self,
+        key,
+        value,
+        *,
+        dict_setitem=dict.__setitem__,
+        proxy=_proxy,
+        Link=_Link,
+    ):
         """Set the item with the provided key to the given value, maintaining
         the ordering specified by NEW_KEY_GT_NEXT_KEY
 
@@ -138,7 +159,7 @@ class KeyOrderedDict(dict):
             # Start with root element. For empty maps, this is already the
             # element after which the link can be inserted.
             element = root
-            
+
             # For populated maps, need to iterate over the linked list
             if last is not root:
                 # Start at root and iterate until again reaching root
@@ -174,7 +195,7 @@ class KeyOrderedDict(dict):
 
     def __delitem__(self, key, dict_delitem=dict.__delitem__):
         """kod.__delitem__(y) <==> del kod[y]
-        
+
         Deleting an existing item uses self.__map to find the link which gets
         removed by updating the links in the predecessor and successor nodes.
         """
@@ -200,7 +221,7 @@ class KeyOrderedDict(dict):
 
     def __reversed__(self):
         """kod.__reversed__() <==> reversed(kod)
-        
+
         Traverse the linked list in reverse order.
         """
         root = self.__root
@@ -215,7 +236,6 @@ class KeyOrderedDict(dict):
         root.prev = root.next = root
         self.__map.clear()
         dict.clear(self)
-
 
     def __sizeof__(self):
         """Get the size of this object"""
@@ -270,7 +290,6 @@ class KeyOrderedDict(dict):
             raise KeyError(key)
         return default
 
-
     def setdefault(self, key, default=None):
         """kod.setdefault(k[,d]) -> kod.get(k,d), also set kod[k]=d if k not
         in kod
@@ -284,8 +303,8 @@ class KeyOrderedDict(dict):
     def __repr__(self):
         """kod.__repr__() <==> repr(kod)"""
         if not self:
-            return '%s()' % (self.__class__.__name__,)
-        return '%s(%r)' % (self.__class__.__name__, list(self.items()))
+            return "%s()" % (self.__class__.__name__,)
+        return "%s(%r)" % (self.__class__.__name__, list(self.items()))
 
     def __reduce__(self):
         """Return state information for pickling"""
@@ -299,7 +318,7 @@ class KeyOrderedDict(dict):
         return self.__class__(self, key=self._key)
 
     @classmethod
-    def fromkeys(cls, iterable, value=None, *, key: Callable=None):
+    def fromkeys(cls, iterable, value=None, *, key: Callable = None):
         """KOD.fromkeys(S[, v]) -> New key-ordered dictionary with keys from S.
         If not specified, the value defaults to None.
         """
@@ -321,9 +340,11 @@ class KeyOrderedDict(dict):
 # -----------------------------------------------------------------------------
 # Specializations
 
+
 class IntOrderedDict(KeyOrderedDict):
     """A :py:class:`~dantro.utils.ordereddict.KeyOrderedDict` specialization
     that assumes keys to be castable to integer and using the comparison of
     the resulting integer values for maintaining the order
     """
+
     DEFAULT_KEY_COMPARATOR = lambda _, k: int(k)

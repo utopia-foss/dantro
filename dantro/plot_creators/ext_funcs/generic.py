@@ -3,34 +3,50 @@
 creators.
 """
 
-import logging
 import copy
+import logging
 
 import matplotlib.pyplot as plt
 import xarray as xr
 
-from ..pcr_ext import is_plot_func, PlotHelper, figure_leak_prevention
+from ..pcr_ext import PlotHelper, figure_leak_prevention, is_plot_func
 from ._utils import plot_errorbar as _plot_errorbar
 
 # Local constants
 log = logging.getLogger(__name__)
 
 # The available plot kinds for the xarray plotting interface
-_XR_PLOT_KINDS = ('contourf', 'contour', 'imshow', 'line', 'pcolormesh',
-                  'step', 'hist', 'scatter')
+_XR_PLOT_KINDS = (
+    "contourf",
+    "contour",
+    "imshow",
+    "line",
+    "pcolormesh",
+    "step",
+    "hist",
+    "scatter",
+)
 
 
 # -----------------------------------------------------------------------------
 
-@is_plot_func(supports_animation=True,
-              use_dag=True, required_dag_tags=('y', 'yerr'))
-def errorbar(*, data: dict, hlpr: PlotHelper,
-             x: str=None, frames: str=None,
-             hue: str=None, hue_fstr: str='{value:}',
-             use_bands: bool=False,
-             fill_between_kwargs: dict=None,
-             suptitle_kwargs: dict=None,
-             **errorbar_kwargs) -> None:
+
+@is_plot_func(
+    supports_animation=True, use_dag=True, required_dag_tags=("y", "yerr")
+)
+def errorbar(
+    *,
+    data: dict,
+    hlpr: PlotHelper,
+    x: str = None,
+    frames: str = None,
+    hue: str = None,
+    hue_fstr: str = "{value:}",
+    use_bands: bool = False,
+    fill_between_kwargs: dict = None,
+    suptitle_kwargs: dict = None,
+    **errorbar_kwargs,
+) -> None:
     """A DAG-based generic errorbar plot.
 
     This plot expects data to be provided via :ref:`plot_creator_dag`.
@@ -76,15 +92,28 @@ def errorbar(*, data: dict, hlpr: PlotHelper,
     Raises:
         ValueError: Upon badly shaped data
     """
-    def plot_frame(*, y: xr.DataArray, yerr: xr.DataArray,
-                   x: str, hue: str=None, **kwargs):
+
+    def plot_frame(
+        *,
+        y: xr.DataArray,
+        yerr: xr.DataArray,
+        x: str,
+        hue: str = None,
+        **kwargs,
+    ):
         """Invokes a single errorbar plot, potentially for multiple hues."""
         # Get the x-data from the coordinates
         _x = y.coords[x]
 
         if hue is None:
-            _plot_errorbar(ax=hlpr.ax, x=_x, y=y, yerr=yerr,
-                           fill_between=use_bands, **kwargs)
+            _plot_errorbar(
+                ax=hlpr.ax,
+                x=_x,
+                y=y,
+                yerr=yerr,
+                fill_between=use_bands,
+                **kwargs,
+            )
             return
 
         # else: will plot multiple lines
@@ -100,9 +129,15 @@ def errorbar(*, data: dict, hlpr: PlotHelper,
             _yerr = _yerr.squeeze(drop=True)
 
             label = hue_fstr.format(dim=hue, value=_y_coord)
-            handle = _plot_errorbar(ax=hlpr.ax, x=_x, y=_y, yerr=_yerr,
-                                    label=label, fill_between=use_bands,
-                                    **kwargs)
+            handle = _plot_errorbar(
+                ax=hlpr.ax,
+                x=_x,
+                y=_y,
+                yerr=_yerr,
+                label=label,
+                fill_between=use_bands,
+                **kwargs,
+            )
             handles.append(handle)
             labels.append(label)
 
@@ -111,16 +146,18 @@ def errorbar(*, data: dict, hlpr: PlotHelper,
         # NOTE Other aesthetics are specified by the user via the PlotHelper
 
     # Retrieve and prepare data ...............................................
-    y = data['y']
-    yerr = data['yerr']
+    y = data["y"]
+    yerr = data["yerr"]
 
     # Check shape
     if y.sizes != yerr.sizes:
         _sizes_y = ", ".join([f"{k}: {v:d}" for k, v in y.sizes.items()])
         _sizes_yerr = ", ".join([f"{k}: {v:d}" for k, v in yerr.sizes.items()])
-        raise ValueError("The 'y' and 'yerr' data need to be of the same size "
-                         f"but had sizes ({_sizes_y}) and ({_sizes_yerr}), "
-                         "respectively!")
+        raise ValueError(
+            "The 'y' and 'yerr' data need to be of the same size "
+            f"but had sizes ({_sizes_y}) and ({_sizes_yerr}), "
+            "respectively!"
+        )
     # TODO Check that coordinates match?
     # Only need to check vals from now on, knowing that the shape is the same.
 
@@ -128,25 +165,33 @@ def errorbar(*, data: dict, hlpr: PlotHelper,
     expected_ndim = 1 + bool(hue) + bool(frames)
     if y.ndim != expected_ndim:
         _dims = ", ".join(y.dims)
-        raise ValueError(f"Data has unexpected number of dimensions! With "
-                         f"`hue: {hue}` and `frames: {frames}`, expected data "
-                         f"to be {expected_ndim}-dimensional, but got "
-                         f"{y.ndim}-dimensional data with dimensions: {_dims}")
+        raise ValueError(
+            "Data has unexpected number of dimensions! With "
+            f"`hue: {hue}` and `frames: {frames}`, expected data "
+            f"to be {expected_ndim}-dimensional, but got "
+            f"{y.ndim}-dimensional data with dimensions: {_dims}"
+        )
 
     # If x is not given, can infer it now
     if x is None:
         x = [dim for dim in y.dims if dim not in (hue, frames)][0]
-    hlpr.invoke_helper('set_labels', x=dict(label=x),
-                       mark_disabled_after_use=False)
-
+    hlpr.invoke_helper(
+        "set_labels", x=dict(label=x), mark_disabled_after_use=False
+    )
 
     # Actual plotting routine starts here .....................................
     # If no animation is desired, the plotting routine is really simple
     if not frames:
         # Exit animation mode, if it was enabled. Then plot the figure. Done.
         hlpr.disable_animation()
-        plot_frame(y=y, yerr=yerr, x=x, hue=hue,
-                   fill_between_kwargs=fill_between_kwargs, **errorbar_kwargs)
+        plot_frame(
+            y=y,
+            yerr=yerr,
+            x=x,
+            hue=hue,
+            fill_between_kwargs=fill_between_kwargs,
+            **errorbar_kwargs,
+        )
         return
 
     # else: Animation is desired. Might have to enable it.
@@ -157,8 +202,8 @@ def errorbar(*, data: dict, hlpr: PlotHelper,
 
     # Prepare some parameters for the update routine
     suptitle_kwargs = suptitle_kwargs if suptitle_kwargs else {}
-    if 'title' not in suptitle_kwargs:
-        suptitle_kwargs['title'] = "{dim:} = {value:.3g}"
+    if "title" not in suptitle_kwargs:
+        suptitle_kwargs["title"] = "{dim:} = {value:.3g}"
 
     # Define an animation update function. All frames are plotted therein.
     # There is no need to plot the first frame _outside_ the update function,
@@ -170,16 +215,23 @@ def errorbar(*, data: dict, hlpr: PlotHelper,
         for (_y_coord, _y), (_yerr_coord, _yerr) in frames_iter:
             hlpr.ax.clear()
 
-            plot_frame(y=_y, yerr=_yerr, x=x, hue=hue,
-                       fill_between_kwargs=fill_between_kwargs,
-                       **errorbar_kwargs)
+            plot_frame(
+                y=_y,
+                yerr=_yerr,
+                x=x,
+                hue=hue,
+                fill_between_kwargs=fill_between_kwargs,
+                **errorbar_kwargs,
+            )
 
             # Convey frame coordinate information via suptile
             st_kwargs = copy.deepcopy(suptitle_kwargs)
-            st_kwargs['title'] = st_kwargs['title'].format(dim=frames,
-                                                           value=_y_coord)
-            hlpr.invoke_helper('set_suptitle', **st_kwargs,
-                               mark_disabled_after_use=False)
+            st_kwargs["title"] = st_kwargs["title"].format(
+                dim=frames, value=_y_coord
+            )
+            hlpr.invoke_helper(
+                "set_suptitle", **st_kwargs, mark_disabled_after_use=False
+            )
 
             # Done with this frame. Let the writer grab it.
             yield
@@ -188,8 +240,9 @@ def errorbar(*, data: dict, hlpr: PlotHelper,
     hlpr.register_animation_update(update, invoke_helpers_before_grab=True)
 
 
-@is_plot_func(supports_animation=True,
-              use_dag=True, required_dag_tags=('y', 'yerr'))
+@is_plot_func(
+    supports_animation=True, use_dag=True, required_dag_tags=("y", "yerr")
+)
 def errorbands(*, data: dict, hlpr: PlotHelper, **kwargs):
     """A DAG-based generic errorbands plot.
 
@@ -201,15 +254,19 @@ def errorbands(*, data: dict, hlpr: PlotHelper, **kwargs):
 
 # -----------------------------------------------------------------------------
 
-@is_plot_func(use_dag=True, required_dag_tags=('data',),
-              supports_animation=True)
-def facet_grid(*,
-               data: dict,
-               hlpr: PlotHelper,
-               kind: str = None,
-               frames: str = None,
-               suptitle_kwargs: dict = None,
-               **plot_kwargs):
+
+@is_plot_func(
+    use_dag=True, required_dag_tags=("data",), supports_animation=True
+)
+def facet_grid(
+    *,
+    data: dict,
+    hlpr: PlotHelper,
+    kind: str = None,
+    frames: str = None,
+    suptitle_kwargs: dict = None,
+    **plot_kwargs,
+):
     """This is a generic FacetGrid plot function with preprocessed DAG data.
 
     This function calls the data['data'].plot function if no plot kind is given
@@ -277,6 +334,7 @@ def facet_grid(*,
             ``dim``, ``value``. Default: ``{dim:} = {value:.3g}``.
         **plot_kwargs: Passed on to ``<data>.plot`` or ``<data>.plot.<kind>``
     """
+
     def plot_frame(_d):
         """Plot a FacetGrid frame"""
         # Use the automatically deduced plot kind, e.g. line plot for 1D
@@ -299,14 +357,14 @@ def facet_grid(*,
                 plot_func = getattr(_d.plot, kind)
 
             except AttributeError as err:
-                raise AttributeError("The plot kind '{}' seems not to be "
-                                     "available for data of type {}! Please "
-                                     "check the documentation regarding the "
-                                     "expected data types. For xarray data "
-                                     "structures, valid choices are: {}"
-                                     "".format(kind, type(_d),
-                                               ", ".join(_XR_PLOT_KINDS))
-                                     ) from err
+                _available = ", ".join(_XR_PLOT_KINDS)
+                raise AttributeError(
+                    f"The plot kind '{kind}' seems not to be "
+                    f"available for data of type {type(_d)}! Please "
+                    "check the documentation regarding the "
+                    "expected data types. For xarray data "
+                    f"structures, valid choices are: {_available}"
+                ) from err
 
             # Make sure to work on a fully cleared figure. This is important
             # for *some* specialized plot functions and for certain
@@ -347,7 +405,7 @@ def facet_grid(*,
 
     # Actual plotting routine starts here .....................................
     # Get the Dataset, DataArray, or other compatible data
-    d = data['data']
+    d = data["data"]
 
     # If no animation is desired, the plotting routine is really simple
     if not frames:
@@ -365,8 +423,8 @@ def facet_grid(*,
 
     # Prepare some parameters for the update routine
     suptitle_kwargs = suptitle_kwargs if suptitle_kwargs else {}
-    if 'title' not in suptitle_kwargs:
-        suptitle_kwargs['title'] = "{dim:} = {value:.3g}"
+    if "title" not in suptitle_kwargs:
+        suptitle_kwargs["title"] = "{dim:} = {value:.3g}"
 
     # Define an animation update function. All frames are plotted therein.
     # There is no need to plot the first frame _outside_ the update function,
@@ -380,9 +438,10 @@ def facet_grid(*,
 
             # Apply the suptitle format string, then invoke the helper
             st_kwargs = copy.deepcopy(suptitle_kwargs)
-            st_kwargs['title'] = st_kwargs['title'].format(dim=frames,
-                                                           value=f_value)
-            hlpr.invoke_helper('set_suptitle', **st_kwargs)
+            st_kwargs["title"] = st_kwargs["title"].format(
+                dim=frames, value=f_value
+            )
+            hlpr.invoke_helper("set_suptitle", **st_kwargs)
 
             # Done with this frame. Let the writer grab it.
             yield

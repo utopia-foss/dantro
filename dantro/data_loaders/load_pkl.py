@@ -7,6 +7,7 @@ from ._tools import add_loader
 
 # -----------------------------------------------------------------------------
 
+
 class PickleLoaderMixin:
     """Supplies a load function for pickled python objects.
 
@@ -14,8 +15,9 @@ class PickleLoaderMixin:
     """
 
     @add_loader(TargetCls=ObjectContainer, omit_self=False)
-    def _load_pickle(self, filepath: str, *, TargetCls: type,
-                     **pkl_kwargs) -> ObjectContainer:
+    def _load_pickle(
+        self, filepath: str, *, TargetCls: type, **pkl_kwargs
+    ) -> ObjectContainer:
         """Load a pickled object using ``dill.load``.
 
         Args:
@@ -27,7 +29,7 @@ class PickleLoaderMixin:
             ObjectContainer: The unpickled object, stored in a dantro container
         """
         # Open file in binary mode and unpickle with the given load function
-        with open(filepath, mode='rb') as f:
+        with open(filepath, mode="rb") as f:
             obj = dill.load(f, **pkl_kwargs)
 
         # Populate the target container with the object

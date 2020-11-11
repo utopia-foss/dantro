@@ -12,6 +12,7 @@ CAUTION = 23
 HILIGHT = 25
 SUCCESS = 35
 
+
 class DantroLogger(logging.getLoggerClass()):
     """The custom dantro logging class with additional log levels"""
 
@@ -54,7 +55,10 @@ class DantroLogger(logging.getLoggerClass()):
         if self.isEnabledFor(SUCCESS):
             self._log(SUCCESS, msg, args, **kwargs)
 
+
 # Configure logging, valid for the whole module
 logging.setLoggerClass(DantroLogger)
-logging.basicConfig(format="%(levelname)-8s %(module)-12s %(message)s",
-                    level=logging.INFO)
+logging.basicConfig(
+    format="%(levelname)-8s %(module)-12s %(message)s",
+    level=logging.INFO,
+)

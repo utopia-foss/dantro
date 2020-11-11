@@ -2,14 +2,14 @@
 
 import logging
 
-import numpy as np
 import h5py as h5
+import numpy as np
 
-from ..base import BaseDataGroup, BaseDataContainer
+from ..base import BaseDataContainer, BaseDataGroup
 from ..containers import NumpyDataContainer
 from ..groups import OrderedDataGroup
 from ..proxy import Hdf5DataProxy
-from ..tools import fill_line, decode_bytestrings
+from ..tools import decode_bytestrings, fill_line
 from ._tools import add_loader
 
 # Local constants
@@ -17,6 +17,7 @@ log = logging.getLogger(__name__)
 
 
 # -----------------------------------------------------------------------------
+
 
 class Hdf5LoaderMixin:
     """Supplies functionality to load hdf5 files into the data manager.
@@ -50,24 +51,27 @@ class Hdf5LoaderMixin:
             regular Python strings; this can make attribute handling much
             easier.
     """
-    #Default values for class variables; see above for docstrings
+
+    # Default values for class variables; see above for docstrings
     _HDF5_DSET_DEFAULT_CLS = NumpyDataContainer
     _HDF5_GROUP_MAP = None
     _HDF5_DSET_MAP = None
     _HDF5_MAP_FROM_ATTR = None
     _HDF5_DECODE_ATTR_BYTESTRINGS = True
 
-
     @add_loader(TargetCls=OrderedDataGroup, omit_self=False)
-    def _load_hdf5(self, filepath: str, *,
-                   TargetCls: type,
-                   load_as_proxy: bool=False,
-                   proxy_kwargs: dict=None,
-                   lower_case_keys: bool=False,
-                   enable_mapping: bool=False,
-                   map_from_attr: str=None,
-                   print_params: dict=None
-                   ) -> OrderedDataGroup:
+    def _load_hdf5(
+        self,
+        filepath: str,
+        *,
+        TargetCls: type,
+        load_as_proxy: bool = False,
+        proxy_kwargs: dict = None,
+        lower_case_keys: bool = False,
+        enable_mapping: bool = False,
+        map_from_attr: str = None,
+        print_params: dict = None,
+    ) -> OrderedDataGroup:
         """Loads the specified hdf5 file into DataGroup- and DataContainer-like
         objects; this completely recreates the hierarchic structure of the hdf5
         file. The data can be loaded into memory completely, or be loaded as
@@ -125,13 +129,19 @@ class Hdf5LoaderMixin:
                 ``_HDF5_MAP_FROM_ATTR``
         """
 
-        def recursively_load_hdf5(src: h5.Group, target: BaseDataGroup, *,
-                                  load_as_proxy: bool,
-                                  proxy_kwargs: dict,
-                                  lower_case_keys: bool,
-                                  DsetCls: BaseDataContainer,
-                                  enable_mapping: bool, GroupMap: dict,
-                                  DsetMap: dict,map_attr: str):
+        def recursively_load_hdf5(
+            src: h5.Group,
+            target: BaseDataGroup,
+            *,
+            load_as_proxy: bool,
+            proxy_kwargs: dict,
+            lower_case_keys: bool,
+            DsetCls: BaseDataContainer,
+            enable_mapping: bool,
+            GroupMap: dict,
+            DsetMap: dict,
+            map_attr: str,
+        ):
             """Recursively loads the data from the source hdf5 file into the
             target DataGroup object.
             If given, each group or dataset is checked whether an attribute
@@ -163,7 +173,7 @@ class Hdf5LoaderMixin:
 
             def get_map_attr_val(attrs) -> str:
                 """Make sure the map attribute isn't a 1-sized array!"""
-                attr_val = attrs[map_attr] # map_attr and check in outer scope
+                attr_val = attrs[map_attr]  # map_attr and check in outer scope
 
                 if isinstance(attr_val, np.ndarray):
                     # Need be single item and already decoded
@@ -187,8 +197,9 @@ class Hdf5LoaderMixin:
                 if isinstance(obj, h5.Group):
                     # Need to continue recursion
                     # Extract attributes manually
-                    attrs = {k: decode_attr_val(v)
-                             for k, v in obj.attrs.items()}
+                    attrs = {
+                        k: decode_attr_val(v) for k, v in obj.attrs.items()
+                    }
 
                     # Determine the class to use for this group
                     if enable_mapping and GroupMap and attrs.get(map_attr):
@@ -198,15 +209,17 @@ class Hdf5LoaderMixin:
 
                         except KeyError:
                             # Fall back to default
-                            log.warning("Could not find a mapping from map "
-                                        "attribute %s='%s' (originally %s) "
-                                        "to a DataGroup class. Available "
-                                        "keys: %s. Falling back to default "
-                                        "class ...",
-                                        map_attr, get_map_attr_val(attrs),
-                                        attrs[map_attr],
-                                        ", ".join([k
-                                                   for k in GroupMap.keys()]))
+                            log.warning(
+                                "Could not find a mapping from map "
+                                "attribute %s='%s' (originally %s) "
+                                "to a DataGroup class. Available "
+                                "keys: %s. Falling back to default "
+                                "class ...",
+                                map_attr,
+                                get_map_attr_val(attrs),
+                                attrs[map_attr],
+                                ", ".join([k for k in GroupMap.keys()]),
+                            )
                             _GroupCls = None
 
                     else:
@@ -218,18 +231,21 @@ class Hdf5LoaderMixin:
                         # group is used as fallback type.
 
                     # Create and add the group, passing the attributes
-                    target.new_group(path=key, Cls=_GroupCls,
-                                     attrs=attrs)
+                    target.new_group(path=key, Cls=_GroupCls, attrs=attrs)
 
                     # Continue recursion
-                    recursively_load_hdf5(obj, target[key],
-                                          load_as_proxy=load_as_proxy,
-                                          proxy_kwargs=proxy_kwargs,
-                                          lower_case_keys=lower_case_keys,
-                                          DsetCls=DsetCls,
-                                          enable_mapping=enable_mapping,
-                                          GroupMap=GroupMap, DsetMap=DsetMap,
-                                          map_attr=map_attr)
+                    recursively_load_hdf5(
+                        obj,
+                        target[key],
+                        load_as_proxy=load_as_proxy,
+                        proxy_kwargs=proxy_kwargs,
+                        lower_case_keys=lower_case_keys,
+                        DsetCls=DsetCls,
+                        enable_mapping=enable_mapping,
+                        GroupMap=GroupMap,
+                        DsetMap=DsetMap,
+                        map_attr=map_attr,
+                    )
 
                 elif isinstance(obj, h5.Dataset):
                     # Reached a leaf -> Import the data and attributes into a
@@ -243,16 +259,17 @@ class Hdf5LoaderMixin:
 
                     if load_as_proxy:
                         # Instantiate a proxy object
-                        data = Hdf5DataProxy(obj,
-                                             **(proxy_kwargs if proxy_kwargs
-                                                else {}))
+                        data = Hdf5DataProxy(
+                            obj, **(proxy_kwargs if proxy_kwargs else {})
+                        )
                     else:
                         # Import the data completely
                         data = np.array(obj)
 
                     # Extract attributes manually
-                    attrs = {k: decode_attr_val(v)
-                             for k, v in obj.attrs.items()}
+                    attrs = {
+                        k: decode_attr_val(v) for k, v in obj.attrs.items()
+                    }
 
                     # Determine the class to use for this dataset
                     if enable_mapping and DsetMap and attrs.get(map_attr):
@@ -262,15 +279,18 @@ class Hdf5LoaderMixin:
 
                         except KeyError:
                             # Fall back to default
-                            log.warning("Could not find a mapping from map "
-                                        "attribute %s='%s' (originally %s) to "
-                                        "a DataContainer class. Available "
-                                        "keys: %s. "
-                                        "Falling back to default class %s...",
-                                        map_attr, get_map_attr_val(attrs),
-                                        attrs[map_attr],
-                                        ", ".join([k for k in DsetMap.keys()]),
-                                        DsetCls.__name__)
+                            log.warning(
+                                "Could not find a mapping from map "
+                                "attribute %s='%s' (originally %s) to "
+                                "a DataContainer class. Available "
+                                "keys: %s. "
+                                "Falling back to default class %s...",
+                                map_attr,
+                                get_map_attr_val(attrs),
+                                attrs[map_attr],
+                                ", ".join([k for k in DsetMap.keys()]),
+                                DsetCls.__name__,
+                            )
                             _DsetCls = DsetCls
 
                     else:
@@ -284,24 +304,27 @@ class Hdf5LoaderMixin:
                             _DsetCls = DsetCls
 
                     # Now create and add the dataset, passing data and attrs
-                    target.new_container(path=key, Cls=_DsetCls,
-                                         data=data, attrs=attrs)
+                    target.new_container(
+                        path=key, Cls=_DsetCls, data=data, attrs=attrs
+                    )
 
                 else:
-                    raise NotImplementedError("Object {} is neither a dataset "
-                                              "nor a group, but of type {}. "
-                                              "Cannot load this!"
-                                              "".format(key, type(obj)))
+                    raise NotImplementedError(
+                        f"Object {key} is neither a dataset "
+                        f"nor a group, but of type {type(obj)}. "
+                        "Cannot load this!"
+                    )
 
         # Prepare print format strings
         print_params = print_params if print_params else {}
-        plvl = print_params.get('level', 0)
-        fstr1 = print_params.get('fstr1', "  Loading {name:} ... ")
-        fstr2 = print_params.get('fstr2', "  Loading {name:} - {key:} ...")
+        plvl = print_params.get("level", 0)
+        fstr1 = print_params.get("fstr1", "  Loading {name:} ... ")
+        fstr2 = print_params.get("fstr2", "  Loading {name:} - {key:} ...")
 
         # Initialize the root group
-        log.debug("Loading hdf5 file %s into %s ...",
-                  filepath, TargetCls.__name__)
+        log.debug(
+            "Loading hdf5 file %s into %s ...", filepath, TargetCls.__name__
+        )
         root = TargetCls()
 
         # Get the classes to use for groups and/or containers
@@ -316,33 +339,38 @@ class Hdf5LoaderMixin:
             elif enable_mapping:
                 # Mapping was enabled but it is unclear from which attribute
                 # the map should be read. Need to raise an exception
-                raise ValueError("Could not determine from which attribute "
-                                 "to read the mapping. Either set the loader "
-                                 "argument `map_from_attr`, the class "
-                                 "variable _HDF5_MAP_FROM_ATTR, or disable "
-                                 "mapping altogether via the `enable_mapping` "
-                                 "argument.")
+                raise ValueError(
+                    "Could not determine from which attribute "
+                    "to read the mapping. Either set the loader "
+                    "argument `map_from_attr`, the class "
+                    "variable _HDF5_MAP_FROM_ATTR, or disable "
+                    "mapping altogether via the `enable_mapping` "
+                    "argument."
+                )
 
         # Now recursively go through the hdf5 file and add them to the roo
-        with h5.File(filepath, 'r') as h5file:
+        with h5.File(filepath, "r") as h5file:
             if plvl >= 1:
                 # Print information on the level of this file
                 line = fstr1.format(name=root.name, file=filepath)
                 print(fill_line(line), end="\r")
 
             # Load the file level attributes, manually re-creating the dict
-            root.attrs = {k:v for k, v in h5file.attrs.items()}
+            root.attrs = {k: v for k, v in h5file.attrs.items()}
 
             # Now recursively load the data into the root group
-            recursively_load_hdf5(h5file, root,
-                                  load_as_proxy=load_as_proxy,
-                                  proxy_kwargs=proxy_kwargs,
-                                  lower_case_keys=lower_case_keys,
-                                  DsetCls=DsetCls,
-                                  enable_mapping=enable_mapping,
-                                  GroupMap=self._HDF5_GROUP_MAP,
-                                  DsetMap=self._HDF5_DSET_MAP,
-                                  map_attr=map_from_attr)
+            recursively_load_hdf5(
+                h5file,
+                root,
+                load_as_proxy=load_as_proxy,
+                proxy_kwargs=proxy_kwargs,
+                lower_case_keys=lower_case_keys,
+                DsetCls=DsetCls,
+                enable_mapping=enable_mapping,
+                GroupMap=self._HDF5_GROUP_MAP,
+                DsetMap=self._HDF5_DSET_MAP,
+                map_attr=map_from_attr,
+            )
 
         return root
 
@@ -361,7 +389,9 @@ class Hdf5LoaderMixin:
         with the ``load_as_proxy`` flag set and ``resolve_as_dask`` passed as
         additional arguments to the proxy via ``proxy_kwargs``.
         """
-        return self._load_hdf5(*args,
-                               load_as_proxy=True,
-                               proxy_kwargs=dict(resolve_as_dask=True),
-                               **kwargs)
+        return self._load_hdf5(
+            *args,
+            load_as_proxy=True,
+            proxy_kwargs=dict(resolve_as_dask=True),
+            **kwargs,
+        )
