@@ -47,15 +47,18 @@ DAG_CACHE_DM_PATH = "cache/dag"
 # by their type.
 # NOTE It is important that these methods all _overwrite_ an already existing
 #      file at the given location _by default_!
+# fmt: off
 DAG_CACHE_RESULT_SAVE_FUNCS = {
     # Saving functions of specific dantro objects
     (NumpyDataContainer,): lambda obj, p, **kws: obj.save(p + ".npy", **kws),
-    (XrDataContainer,): lambda obj, p, **kws: obj.save(p + ".xrdc", **kws),
+    (XrDataContainer,):    lambda obj, p, **kws: obj.save(p + ".xrdc", **kws),
+
     # Saving functions of external packages
-    (np.ndarray,): lambda obj, p, **kws: np.save(p + ".npy", obj, **kws),
+    (np.ndarray,):   lambda obj, p, **kws: np.save(p + ".npy", obj, **kws),
     (xr.DataArray,): lambda obj, p, **kws: obj.to_netcdf(p + ".nc_da", **kws),
-    (xr.Dataset,): lambda obj, p, **kws: obj.to_netcdf(p + ".nc_ds", **kws),
+    (xr.Dataset,):   lambda obj, p, **kws: obj.to_netcdf(p + ".nc_ds", **kws),
 }
+# fmt: on
 
 
 # -----------------------------------------------------------------------------
@@ -438,8 +441,20 @@ class Transformation:
 
         return res
 
-    def _perform_operation(self, *, args, kwargs) -> Any:
-        """Perform the operation, updating the profiling info on the side"""
+    def _perform_operation(self, *, args: list, kwargs: dict) -> Any:
+        """Perform the operation, updating the profiling info on the side
+
+        Args:
+            args (list): The positional arguments to the operation
+            kwargs (dict): The keyword arguments to the operation
+
+        Returns:
+            Any: The result of the operation
+
+        Raises:
+            ValueError: Upon bad operation or meta-operation name.
+            RuntimeError: Upon failure to perform the operation
+        """
         t0 = time.time()
 
         # Actually perform the operation
@@ -447,6 +462,9 @@ class Transformation:
             res = apply_operation(self._operation, *args, **kwargs)
 
         except ValueError as err:
+            # NOTE apply_operation raises ValueError only in cases the name of
+            #      the operation was not found. If the operation itself fails,
+            #      a RuntimeError is raised, thus not ending up in this block.
             _meta_ops = self.dag.meta_operations
             if _meta_ops:
                 _join = "\n  - "
@@ -463,7 +481,7 @@ class Transformation:
                 "initialization of the TransformationDAG."
             )
 
-        # Prase profiling info and return the result
+        # Parse profiling info and return the result
         self._update_profile(cumulative_compute=(time.time() - t0))
 
         return res
@@ -1345,7 +1363,9 @@ class TransformationDAG:
         for spec in specs:
             self.add_node(**spec)
 
-    def compute(self, *, compute_only: Sequence[str] = None) -> Dict[str, Any]:
+    def compute(
+        self, *, compute_only: Sequence[str] = None, verbosity: int = None
+    ) -> Dict[str, Any]:
         """Computes all specified tags and returns a result dict.
 
         Depending on the ``verbosity`` attribute, a varying level of profiling
@@ -1358,6 +1378,8 @@ class TransformationDAG:
         Returns:
             Dict[str, Any]: A mapping from tags to fully computed results.
         """
+        if verbosity is None:
+            verbosity = self.verbosity
 
         def postprocess_result(res, *, tag: str):
             """Performs some postprocessing operations on the results of
@@ -1377,14 +1399,12 @@ class TransformationDAG:
 
         def show_compute_profile_info():
             """Shows info on computation profiles, depending on verbosity"""
-            if self.verbosity < 1:
+            if verbosity < 1:
                 return
 
             prof = self.profile_extended
             to_exclude = (
-                ("hashstr", "effective")
-                if self.verbosity == 1
-                else ("hashstr",)
+                ("hashstr", "effective") if verbosity == 1 else ("hashstr",)
             )
 
             # Show aggregated statistics
@@ -1404,11 +1424,11 @@ class TransformationDAG:
                 "\n".join(_stats),
             )
 
-            if self.verbosity < 2:
+            if verbosity < 2:
                 return
 
             # Show operations with highest sum of effective time
-            num_ops = 5 if self.verbosity < 3 else len(prof["slow_operations"])
+            num_ops = 5 if verbosity < 3 else len(prof["slow_operations"])
             _ops = prof["operations"]
             _fstr2 = (
                 "{name:>25s}   {p[sum]:<7s}    {cnt:>2d} call{s:}   "
@@ -1428,14 +1448,26 @@ class TransformationDAG:
                 "\n".join(_stats2),
             )
 
+        log.info("Computation invoked on DAG with %d nodes.", len(self.nodes))
+
         # Determine which tags to compute
         compute_only = compute_only if compute_only is not None else "all"
         if compute_only == "all":
             compute_only = [
                 t for t in self.tags.keys() if t not in self.SPECIAL_TAGS
             ]
-
-        log.info("Computation invoked on DAG with %d nodes.", len(self.nodes))
+        else:
+            # Check that all given tags actually are available
+            invalid_tags = [t for t in compute_only if t not in self.tags]
+            if invalid_tags:
+                _invalid_tags = ", ".join(invalid_tags)
+                _available_tags = ", ".join(self.tags)
+                raise ValueError(
+                    "Some of the tags specified in `compute_only` were not "
+                    "available in the TransformationDAG!\n"
+                    f"  Invalid tags:   {_invalid_tags}\n"
+                    f"  Available tags: {_available_tags}"
+                )
 
         # The results dict
         results = dict()

@@ -270,11 +270,10 @@ class ExternalPlotCreator(BasePlotCreator):
             except EnterAnimationMode:
                 if not animation:
                     raise ValueError(
-                        "Cannot dynamically enter animation mode "
-                        "without any `animation` parameters "
-                        "having been specified in the "
-                        "configuration of the {} '{}' plot!"
-                        "".format(self.classname, self.name)
+                        "Cannot dynamically enter animation mode without any "
+                        "`animation` parameters having been specified in the "
+                        f"configuration of the {self.classname} "
+                        f"'{self.name}' plot!"
                     )
 
                 switch_anim_mode = True
@@ -303,13 +302,11 @@ class ExternalPlotCreator(BasePlotCreator):
 
                 except (EnterAnimationMode, ExitAnimationMode):
                     raise RuntimeError(
-                        "Cannot repeatedly enter or exit "
-                        "animation mode! Make sure that the "
-                        "plotting function of {} respects "
-                        "this requirement and that the plot "
-                        "configuration you specified does not "
-                        "contradict itself."
-                        "".format(self.logstr)
+                        "Cannot repeatedly enter or exit animation mode! Make "
+                        f"sure that the plotting function of {self.logstr} "
+                        "respects this requirement and that the plot "
+                        "configuration you specified does not contradict "
+                        "itself."
                     )
 
         else:
@@ -318,19 +315,17 @@ class ExternalPlotCreator(BasePlotCreator):
             if helpers:
                 raise ValueError(
                     "The key 'helpers' was found in the "
-                    "configuration of plot '{}' but usage of the "
+                    f"configuration of plot '{self.name}' but usage of the "
                     "PlotHelper is not supported by plot "
-                    "function '{}'!"
-                    "".format(self.name, plot_func.__name__)
+                    f"function '{plot_func.__name__}'!"
                 )
 
             if animation:
                 raise ValueError(
                     "The key 'animation' was found in the "
-                    "configuration of plot '{}' but the "
-                    "animation feature is only available when "
-                    "using the PlotHelper for plot function '{}'!"
-                    "".format(self.name, plot_func.__name__)
+                    f"configuration of plot '{self.name}' but the animation "
+                    "feature is only available when using the PlotHelper for "
+                    f"plot function '{plot_func.__name__}'!"
                 )
 
             # Prepare the arguments. The DataManager is added to args there
@@ -383,9 +378,8 @@ class ExternalPlotCreator(BasePlotCreator):
 
         except Exception:
             log.debug(
-                "Cannot plot this configuration, because a plotting "
-                "function could not be resolved with the given "
-                "arguments: %s",
+                "Cannot plot this configuration, because a plotting function "
+                "could not be resolved with the given arguments: %s",
                 pf_kwargs,
             )
             return False
@@ -448,6 +442,10 @@ class ExternalPlotCreator(BasePlotCreator):
         args, kwargs = self._prepare_plot_func_args(
             plot_func, use_dag=use_dag, hlpr=hlpr, **func_kwargs
         )
+
+        # Replace
+        if use_dag:
+            hlpr._resolve_placeholders(dag=self.dag)
 
         # Check if an animation is to be done
         if animation_enabled:
@@ -526,11 +524,10 @@ class ExternalPlotCreator(BasePlotCreator):
 
         else:
             raise TypeError(
-                "Could not import a module, because neither "
-                "argument `module_file` was given nor did "
-                "argument `module` have the correct type "
-                f"(needs to be string but was {type(module)} with value "
-                f"'{module}')."
+                "Could not import a module, because neither argument "
+                "`module_file` was given nor did argument `module` have the "
+                f"correct type (needs to be string but was {type(module)} "
+                f"with value '{module}')."
             )
 
         # plot_func could be something like "A.B.C.d"; go along the segments to
@@ -779,13 +776,12 @@ class ExternalPlotCreator(BasePlotCreator):
 
             except TypeError as err:
                 raise TypeError(
-                    "Failed unpacking DAG results! There were "
-                    "arguments of the same names as some DAG tags "
-                    "given in the plot configuration. Make sure "
-                    "they have unique names or disable unpacking "
-                    "of the DAG results.\n"
-                    "Keys in DAG results: {}\n"
-                    "Keys in plot config: {}\n"
+                    "Failed unpacking DAG results! There were arguments of "
+                    "the same names as some DAG tags given in the plot "
+                    "configuration. Make sure they have unique names or "
+                    "disable unpacking of the DAG results.\n"
+                    "  Keys in DAG results: {}\n"
+                    "  Keys in plot config: {}\n"
                     "".format(
                         ", ".join(dag_results.keys()),
                         ", ".join(plot_kwargs.keys()),

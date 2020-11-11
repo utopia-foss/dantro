@@ -13,6 +13,7 @@ from typing import Sequence, Tuple, Union
 
 from paramspace import ParamSpace
 
+from .._dag_utils import resolve_placeholders as _resolve_placeholders
 from ..abc import AbstractPlotCreator
 from ..dag import TransformationDAG
 from ..data_mngr import DataManager
@@ -131,6 +132,7 @@ class BasePlotCreator(AbstractPlotCreator):
         # Initialize property-managed attributes
         self._logstr = None
         self._default_ext = None
+        self._dag = None
 
         # And others via their property setters
         # Set the default extension, first from argument, then default.
@@ -196,6 +198,15 @@ class BasePlotCreator(AbstractPlotCreator):
             )
 
         self._default_ext = val
+
+    @property
+    def dag(self) -> TransformationDAG:
+        """The associated TransformationDAG object. If not set up, raises."""
+        if self._dag is not None:
+            return self._dag
+        raise ValueError(
+            f"{self.logstr} has no TransformationDAG associated (yet)!"
+        )
 
     # .........................................................................
     # Main API functions, required by PlotManager
@@ -356,11 +367,20 @@ class BasePlotCreator(AbstractPlotCreator):
         the whole configuration, thus allowing to parse the parameters that
         they need.
 
+        Furthermore, this method sets the ``_dag`` attribute, making the
+        created :py:class:`~dantro.dag.TransformationDAG` object available for
+        further processing downstream.
+
         .. note::
 
             For specializing the behaviour of the data selection and transform,
             it is best to specialize *NOT* this method, but the more granular
             DAG-related private methods.
+
+        .. warning::
+
+            If subclassing this method, make sure to either invoke this parent
+            method or set the ``_dag`` attribute in the subclass's method.
 
         Args:
             use_dag (bool, optional): The main toggle for whether the DAG
@@ -392,6 +412,9 @@ class BasePlotCreator(AbstractPlotCreator):
         # else: DAG should be used -> Create and compute it.
         dag = self._create_dag(**dag_params["init"])
         dag_results = self._compute_dag(dag, **dag_params["compute"])
+
+        # Also make available via attribute, to re-use elesewhere
+        self._dag = dag
 
         # Prepare the parameters passed back to __call__ and on to self.plot
         kws = self._combine_dag_results_and_plot_cfg(

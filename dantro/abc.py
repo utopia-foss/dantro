@@ -360,7 +360,7 @@ class AbstractDataProxy(metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def __init__(self, obj):
+    def __init__(self, obj: Any = None):
         """Initialize the proxy object, being supplied with the object that
         this proxy is to be proxy for.
         """

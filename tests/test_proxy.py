@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 
 import dantro
+import dantro.dag
 from dantro.proxy import Hdf5DataProxy
 
 # Fixtures --------------------------------------------------------------------
@@ -38,6 +39,7 @@ def tmp_h5file(tmpdir) -> h5.File:
 
 
 # -----------------------------------------------------------------------------
+# Hdf5DataProxy
 
 
 def test_Hdf5DataProxy(tmp_h5file):
