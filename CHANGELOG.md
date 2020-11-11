@@ -23,6 +23,10 @@
 - !205 addresses scipy netcdf warnings by requiring a more recent version.
 - !206 fixes a regression in the [generic `errorbar` and `errorbands` plot functions](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html) where size-1 dimensions were not always squeezed out.
 
+#### Internal
+- !209 addresses #125 by reformatting all code using [black](https://black.readthedocs.io/en/stable/).
+- !209 sets up [pre-commit infrastructure](https://pre-commit.com/) to automate code formatting.
+
 
 ## v0.14.1
 - !199 and !201 update the GitLab CI/CD configuration using latest GitLab features, e.g. to show code coverage inside Merge Request diffs.
