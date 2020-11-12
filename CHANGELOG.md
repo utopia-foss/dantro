@@ -22,6 +22,8 @@
 #### Bug fixes
 - !205 addresses scipy netcdf warnings by requiring a more recent version.
 - !206 fixes a regression in the [generic `errorbar` and `errorbands` plot functions](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html) where size-1 dimensions were not always squeezed out.
+- !215 fixes passing on the file format to the `FileWriters`' `savefig function in cases where it cannot be deduced from the filename.
+
 
 #### Internal
 - !209 addresses #125 by reformatting all code using [black](https://black.readthedocs.io/en/stable/).
