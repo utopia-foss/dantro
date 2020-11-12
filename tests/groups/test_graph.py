@@ -260,6 +260,53 @@ def test_create_graph_function(graph_grps, graph_data):
         # Check that the basic graph creation works
         basic_graph_creation_test(g, cfg)
 
+    # -------------------------------------------------------------------------
+    # Check graph creation for single node/edge using `keep_dim`
+    # Single node
+    gg = GraphGroup(
+        name="foo",
+        attrs=dict(directed=False, parallel=True, keep_dim=("node_idx",)),
+    )
+    gg.new_container(
+        "nodes",
+        Cls=XrDataContainer,
+        data=[0],
+    )
+    gg.new_container("edges", Cls=XrDataContainer, data=[])
+    gg.new_container(
+        "np", Cls=XrDataContainer, data=[[0, 1]], dims=("node_idx", "foo")
+    )
+    g = gg.create_graph(node_props=["np"])
+
+    with pytest.raises(
+        ValueError, match="Received 2 property values for 1 nodes"
+    ):
+        gg.create_graph(node_props=["np"], keep_dim=("bar",))
+
+    # Single edge
+    gg = GraphGroup(
+        name="foo",
+        attrs=dict(directed=False, parallel=True, keep_dim=("edge_idx",)),
+    )
+    gg.new_container(
+        "nodes",
+        Cls=XrDataContainer,
+        data=[0, 1],
+        dims=("node_idx"),
+    )
+    gg.new_container(
+        "edges",
+        Cls=XrDataContainer,
+        data=[[1, 0]],
+        dims=("edge_idx", "type"),
+    )
+    g = gg.create_graph()
+
+    with pytest.raises(
+        TypeError, match="The edge dimension might have been squeezed"
+    ):
+        gg.create_graph(keep_dim=("bar",))
+
 
 def test_set_property_functions(graph_grps, graph_data):
     """Test the GraphGroup.set_node_property
@@ -400,23 +447,6 @@ def test_set_property_functions(graph_grps, graph_data):
         grp.set_edge_property(
             g=g, name="ep2", at_time_idx=cfg.get("at_time_idx", None)
         )
-
-    # Test error being thrown when `edges` contains different-sized tuples
-    gg = GraphGroup(name="foo", attrs=dict(directed=False, parallel=True))
-    gg.new_container("nodes", Cls=XrDataContainer, data=[0, 1])
-    gg.new_container("edges", Cls=XrDataContainer, data=[[0, 1], [0, 1, 1]])
-    gg.new_container("ep", Cls=XrDataContainer, data=[0, 1])
-    g = gg.create_graph()
-
-    with pytest.raises(
-        TypeError,
-        match=(
-            "Make sure that all edges in "
-            "XrDataContainer 'edges' are of the "
-            "same size"
-        ),
-    ):
-        gg.set_edge_property(g=g, name="ep")
 
     # -------------------------------------------------------------------------
     # Test set_edge_property for nx.MultiGraph, nx.Graph, and nx.DiGraph

@@ -22,6 +22,7 @@ The :py:class:`~dantro.groups.graph.GraphGroup` holds the following, customizabl
 - ``_GG_attr_directed = "directed"``: The :py:class:`~dantro.groups.graph.GraphGroup` attribute (boolean) describing whether the graph is directed or not
 - ``_GG_attr_parallel = "parallel"``: The :py:class:`~dantro.groups.graph.GraphGroup` attribute (boolean) describing whether the graph allows for parallel edges or not
 - ``_GG_attr_edge_container_is_transposed = "edge_container_is_transposed"``: The :py:class:`~dantro.groups.graph.GraphGroup` attribute (boolean) describing whether the edge container is transposed, i.e., has the shape ``(edge-tuple-size, edge-number)``
+- ``_GG_attr_keep_dim = "keep_dim"``: The :py:class:`~dantro.groups.graph.GraphGroup` attribute (iterable) describing which dimensions are not to be squeezed during data selection.
 
 If you do not change anything, the default values are taken.
 
@@ -68,6 +69,10 @@ Let's now create a graph from the :py:class:`~dantro.groups.graph.GraphGroup`:
     :start-after: ### Start -- groups_graphgroup_create_graph
     :end-before:  ### End ---- groups_graphgroup_create_graph
     :dedent: 4
+
+.. hint::
+
+    Graph creation might fail for graphs with a single node (edge) due to the node (edge) dimension (of size 1) being squeezed out. It is therefore strongly recommended to specify the node and edge dimension names in the ``_GG_attr_keep_dim`` group attribute. Alternatively, they can be specified via the ``keep_dim`` argument in :py:meth:`~dantro.groups.graph.GraphGroup.create_graph`, :py:meth:`~dantro.groups.graph.GraphGroup.set_node_property`, and :py:meth:`~dantro.groups.graph.GraphGroup.set_edge_property`.
 
 
 Setting Graph Properties
