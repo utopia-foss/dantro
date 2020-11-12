@@ -1448,8 +1448,6 @@ class TransformationDAG:
                 "\n".join(_stats2),
             )
 
-        log.info("Computation invoked on DAG with %d nodes.", len(self.nodes))
-
         # Determine which tags to compute
         compute_only = compute_only if compute_only is not None else "all"
         if compute_only == "all":
@@ -1479,9 +1477,11 @@ class TransformationDAG:
             )
             return results
         log.note(
-            "Tag%s to be computed:  %s",
+            "Now computing %d tag%s (%s) on DAG with %d nodes ...",
+            len(compute_only),
             "s" if len(compute_only) != 1 else "",
             ", ".join(compute_only),
+            len(self.nodes),
         )
 
         # Initiate start time for profiling

@@ -26,7 +26,7 @@ from ._plot_helper import (
     PlotHelperError,
     PlotHelperErrors,
 )
-from .pcr_base import BasePlotCreator
+from .pcr_base import BasePlotCreator, _resolve_placeholders
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -314,10 +314,9 @@ class ExternalPlotCreator(BasePlotCreator):
             # Do not allow helper or animation parameters
             if helpers:
                 raise ValueError(
-                    "The key 'helpers' was found in the "
-                    f"configuration of plot '{self.name}' but usage of the "
-                    "PlotHelper is not supported by plot "
-                    f"function '{plot_func.__name__}'!"
+                    "The key 'helpers' was found in the configuration of "
+                    f"plot '{self.name}' but usage of the PlotHelper is not "
+                    f"supported by plot function '{plot_func.__name__}'!"
                 )
 
             if animation:
@@ -426,8 +425,20 @@ class ExternalPlotCreator(BasePlotCreator):
         animation = copy.deepcopy(animation) if animation else {}
         animation_enabled = animation.pop("enabled", False)
 
+        # Prepare the arguments. The DataManager is added to args there; if the
+        # DAG is used, data transformation and placeholder resolution will
+        # happen there as well.
+        # In order to apply placeholder resolution to the helper configuration
+        # as well, the helpers are passed along here (and popped from the
+        # parsed kwargs again a few lines below).
+        args, kwargs = self._prepare_plot_func_args(
+            plot_func, use_dag=use_dag, helpers=helpers, **func_kwargs
+        )
+
         # Initialize a PlotHelper instance that will take care of figure
-        # setup, invoking helper-functions and saving the figure
+        # setup, invoking helper-functions and saving the figure.
+        # Then, add the Helper instance to the plot function keyword arguments.
+        helpers = kwargs.pop("helpers")
         helper_defaults = getattr(plot_func, "helper_defaults", None)
         hlpr = self.PLOT_HELPER_CLS(
             out_path=out_path,
@@ -436,20 +447,10 @@ class ExternalPlotCreator(BasePlotCreator):
             raise_on_error=self.raise_exc,
             animation_enabled=animation_enabled,
         )
+        kwargs["hlpr"] = hlpr
 
-        # Prepare the arguments. The DataManager is added to args there
-        # and data transformation via DAG occurs there as well.
-        args, kwargs = self._prepare_plot_func_args(
-            plot_func, use_dag=use_dag, hlpr=hlpr, **func_kwargs
-        )
-
-        # Replace
-        if use_dag:
-            hlpr._resolve_placeholders(dag=self.dag)
-
-        # Check if an animation is to be done
+        # Check if an animation is to be done; if so, delegate to helper method
         if animation_enabled:
-            # Let the private animation helper method do the rest
             self._perform_animation(
                 hlpr=hlpr,
                 style_context=style_context,
@@ -458,25 +459,25 @@ class ExternalPlotCreator(BasePlotCreator):
                 plot_kwargs=kwargs,
                 **animation,
             )
+            return
+        # else: No animation to be done.
 
-        else:
-            # No animation to be done.
-            # Enter two context: one for style (could also be DoNothingContext)
-            # and one for prevention of figures leaking from the plot function.
-            leak_prev = figure_leak_prevention(close_current_fig_on_raise=True)
+        # Enter two context: one for style (could also be DoNothingContext)
+        # and one for prevention of figures leaking from the plot function.
+        leak_prev = figure_leak_prevention(close_current_fig_on_raise=True)
 
-            with style_context, leak_prev:
-                hlpr.setup_figure()
+        with style_context, leak_prev:
+            hlpr.setup_figure()
 
-                log.note(
-                    "Now calling plotting function '%s' ...",
-                    plot_func.__name__,
-                )
-                plot_func(*args, **kwargs)
+            log.info(
+                "Now calling plotting function '%s' ...",
+                plot_func.__name__,
+            )
+            plot_func(*args, **kwargs)
 
-                log.note("Plot function finished. Finishing up ...")
-                hlpr.invoke_enabled(axes="all")
-                hlpr.save_figure()
+            log.note("Plot function finished. Finishing up ...")
+            hlpr.invoke_enabled(axes="all")
+            hlpr.save_figure()
 
     # .........................................................................
     # Helpers: Plot function resolution and argument preparation

@@ -135,11 +135,17 @@ def resolve_placeholders(
 
     # If there weren't any, don't have anything to do
     if not phs:
-        log.debug("No placeholders found to resolve.")
+        log.remark("No placeholders found to resolve.")
         return d
 
     # Otherwise, get ready for computing results and resolving placeholders
     to_compute = {ph.result_name for ph in phs}
+
+    log.info(
+        "Resolving %d placeholder%s ...",
+        len(phs),
+        "s" if len(phs) != 1 else "",
+    )
 
     try:
         results = dag.compute(compute_only=list(to_compute), **compute_kwargs)
@@ -154,7 +160,6 @@ def resolve_placeholders(
             "(3) the required transformations could be carried out correctly."
         ) from exc
 
-    log.debug("Resolving placeholders ...")
     d = recursive_replace(
         d,
         select_func=is_placeholder,
@@ -162,15 +167,7 @@ def resolve_placeholders(
     )
 
     # Let's have a nice log message :)
-    log.remark(
-        "Resolved %d placeholder%s with values "
-        "from %d data transformation result%s: %s",
-        len(phs),
-        "s" if len(phs) != 1 else "",
-        len(to_compute),
-        "s" if len(to_compute) != 1 else "",
-        ", ".join(to_compute),
-    )
+    log.remark("Finished resolving placeholders.")
     return d
 
 

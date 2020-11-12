@@ -52,6 +52,9 @@ class BasePlotCreator(AbstractPlotCreator):
             computed here (in the base class). If False, the base class does
             nothing to create or compute it and the derived classes have to
             take care of it on their own.
+        DAG_RESOLVE_PLACEHOLDERS (bool): Whether placeholders in the plot
+            config, :py:class:`~dantro._dag_utils.ResultPlaceholder` objects,
+            should be replaced with results from the data transformations.
         DAG_SUPPORTED (bool): Whether the data selection and transformation
             interface is supported by this PlotCreator. If False, the related
             methods will not be called.
@@ -83,6 +86,7 @@ class BasePlotCreator(AbstractPlotCreator):
     OUT_PATH_EXIST_OK = False
     DAG_SUPPORTED = False
     DAG_INVOKE_IN_BASE = True
+    DAG_RESOLVE_PLACEHOLDERS = True
 
     def __init__(
         self,
@@ -367,9 +371,12 @@ class BasePlotCreator(AbstractPlotCreator):
         the whole configuration, thus allowing to parse the parameters that
         they need.
 
-        Furthermore, this method sets the ``_dag`` attribute, making the
-        created :py:class:`~dantro.dag.TransformationDAG` object available for
-        further processing downstream.
+        This method also sets the ``_dag`` attribute, making the created
+        :py:class:`~dantro.dag.TransformationDAG` object available for further
+        processing downstream.
+
+        Furthermore, this method invokes placeholder resolution by applying
+        :py:func:`~dantro._dag_utils.resolve_placeholders` on the plot config.
 
         .. note::
 
@@ -381,6 +388,8 @@ class BasePlotCreator(AbstractPlotCreator):
 
             If subclassing this method, make sure to either invoke this parent
             method or set the ``_dag`` attribute in the subclass's method.
+            Also note that, when subclassing, the ability to resolve the
+            placeholders gets lost / has to be re-implemented in the subclass.
 
         Args:
             use_dag (bool, optional): The main toggle for whether the DAG
@@ -402,19 +411,21 @@ class BasePlotCreator(AbstractPlotCreator):
         ):
             # Only return the plot configuration, without DAG-related keys
             return False, plot_kwargs
-
+        # else: DAG should be used
         # Extract DAG-related parameters from the plot configuration. These are
         # not available in the plotting function.
         dag_params, plot_kwargs = self._get_dag_params(
             **plot_kwargs, **shared_kwargs
         )
 
-        # else: DAG should be used -> Create and compute it.
+        # Create and compute it, then make available for re-use elsewhere
         dag = self._create_dag(**dag_params["init"])
         dag_results = self._compute_dag(dag, **dag_params["compute"])
-
-        # Also make available via attribute, to re-use elesewhere
         self._dag = dag
+
+        # If enabled, perform placeholder resolution in plot_kwargs
+        if self.DAG_RESOLVE_PLACEHOLDERS:
+            plot_kwargs = _resolve_placeholders(plot_kwargs, dag=dag)
 
         # Prepare the parameters passed back to __call__ and on to self.plot
         kws = self._combine_dag_results_and_plot_cfg(
@@ -476,6 +487,7 @@ class BasePlotCreator(AbstractPlotCreator):
 
     def _compute_dag(self, dag: TransformationDAG, **compute_kwargs) -> dict:
         """Compute the dag results"""
+        log.info("Computing data transformation results ...")
         return dag.compute(**compute_kwargs)
 
     def _combine_dag_results_and_plot_cfg(
