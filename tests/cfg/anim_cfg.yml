@@ -71,7 +71,7 @@ should_not_work:  # all automatically enabled
     writer_kwargs:
       frames:
         grab_frame:
-          file_format: pdf # already given!
+          format: pdf # already given!
   - writer: frames
     animation_update_kwargs:  # not accepted by plot function
       foo: bar
