@@ -38,7 +38,7 @@ class FileWriter(mpl.animation.AbstractMovieWriter):
         self.fig = None
         self.out_dir = None
         self.dpi = None
-        self.file_format = None
+        self.format = None
 
     def setup(self):
         """Called when entering the saving context"""
@@ -70,7 +70,7 @@ class FileWriter(mpl.animation.AbstractMovieWriter):
         """
         # Parse the given base file path to get a directory and extension
         out_dir, ext = os.path.splitext(base_outfile)
-        self.file_format = ext[1:]  # includes leading dot
+        self.format = ext[1:]  # includes leading dot
 
         # Store all required objects
         self.fig = fig
@@ -90,14 +90,14 @@ class FileWriter(mpl.animation.AbstractMovieWriter):
             dir=self.out_dir,
             num=self.cntr,
             pad=self.name_padding,
-            ext=self.file_format,
+            ext=self.format,
         )
 
         # Save the frame using the context manager, then increment the cntr
         self.fig.savefig(
             outfile,
             dpi=self.dpi,
-            file_format=self.file_format,
+            format=self.format,
             **savefig_kwargs,
         )
         self.cntr += 1
