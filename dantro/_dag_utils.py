@@ -113,7 +113,8 @@ def resolve_placeholders(
     Computes :py:class:`~dantro.dag.TransformationDAG` results and replaces
     the placeholder objects with entries from the results dict, thereby
     making it possible to compute configuration values using results of the
-    `data transformation framework <dag_framework>`.
+    `data transformation framework <dag_framework>`, for example as done in
+    the plotting framework; see :ref:`dag_result_placeholder`.
 
     .. warning::
 
@@ -122,9 +123,10 @@ def resolve_placeholders(
         value is ignored on the calling site.
 
     Args:
-        d (dict): The object to replace placeholders in
-        dag (TransformationDAG): The data transformation tree that is used
-            to create the data for the plot this helper will be used on.
+        d (dict): The object to replace placeholders in. Will recursively walk
+            through all dict- and list-like objects to find placeholders.
+        dag (TransformationDAG): The data transformation tree to resolve the
+            placeholders' results from.
         Cls (type, optional): The expected type of the placeholders.
         **compute_kwargs: Passed on to
             :py:meth:`~dantro.dag.TransformationDAG.compute`.
@@ -170,8 +172,6 @@ def resolve_placeholders(
         select_func=is_placeholder,
         replace_func=lambda p: results[p.result_name],
     )
-
-    # Let's have a nice log message :)
     log.remark("Finished resolving placeholders.")
     return d
 

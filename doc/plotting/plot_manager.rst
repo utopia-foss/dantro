@@ -1,3 +1,5 @@
+.. _plot_manager:
+
 The :py:class:`~dantro.plot_mngr.PlotManager`
 =============================================
 

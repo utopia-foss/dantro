@@ -127,3 +127,49 @@ config_based:
 
     _raises: PlotCreatorError
     _match: Failed applying operation '.format'
+
+
+
+
+
+
+  # .. Documentation Examples .................................................
+  doc_examples_placeholder_title:
+    plot_cfg:
+      # Keys that need/should not be included
+      creator_init_kwargs:
+        psgrp_path: psp/regular
+      dag_options:
+        select_path_prefix: labelled
+
+      ### Start -- placeholder_title
+      # Select the creator and use the generic errorbar plotting function
+      creator: universe
+      universes: any
+
+      module: .generic
+      plot_func: errorbar
+
+      select:
+        # 3D data with random integers
+        some_data: randints
+
+      transform:
+        # For the y values, take the mean ...
+        - .mean: [!dag_tag some_data, [x, z]]
+          tag: y
+        # ... and use the standard deviation for the errors
+        - .std: [!dag_tag some_data, [x, z]]
+          tag: yerr
+
+        # Additional transformations for ResultPlaceholders
+        - .mean: [!dag_tag y]
+        - .item  # ... otherwise it's still an xr.DataArray
+        - .format: ["Some Data (total mean: {:.3g})", !dag_prev ]
+          tag: title_str
+
+      # Now, use the place holder in the helper configuration
+      helpers:
+        set_title:
+          title: !dag_result title_str
+      ### End ---- placeholder_title

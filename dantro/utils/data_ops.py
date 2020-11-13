@@ -1206,6 +1206,9 @@ def apply_operation(
             this function.
         **op_kwargs: The keyword arguments to the operation
 
+    Returns:
+        Any: The result of the operation
+
     Raises:
         ValueError: On invalid operation name. This also suggests possible
             other names that might match.
