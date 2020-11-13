@@ -2,7 +2,7 @@
 
 import pytest
 
-from dantro.dag import TransformationDAG
+from dantro.dag import TransformationDAG, _ResultPlaceholder
 from dantro.data_mngr import DataManager
 from dantro.plot_creators import BasePlotCreator
 
@@ -114,6 +114,10 @@ def test_data_selection_interface(init_kwargs, tmpdir):
     """Tests the data selection interface"""
     mpc = MockPlotCreator("test", **init_kwargs)
 
+    # Has no DAG
+    with pytest.raises(ValueError, match="has no TransformationDAG"):
+        mpc.dag
+
     # Some test parameters
     params0 = dict(foo="bar", baz=123)  # mock parameters for some plot config
     params1 = dict(**params0)
@@ -138,12 +142,25 @@ def test_data_selection_interface(init_kwargs, tmpdir):
             select_base="nonexisting",
         ),
     )
+    params6 = dict(
+        **params3,
+        foo=dict(bar=_ResultPlaceholder("sum")),
+        spam=[
+            "some",
+            ["deeply", dict(nested=dict(one=_ResultPlaceholder("sub")))],
+        ],
+    )
+    params7 = dict(**params3, foo=dict(bar=_ResultPlaceholder("BAD_TAG")))
 
     # Disabled DAG usage -> parameters should be passed through
     flg, ds0 = mpc._perform_data_selection(use_dag=False, plot_kwargs=params0)
     assert flg is False
     assert "use_dag" not in ds0
     assert ds0 is params0
+
+    # ... still no DAG
+    with pytest.raises(ValueError, match="has no TransformationDAG"):
+        mpc.dag
 
     # Enabled DAG usage -> DAG should be created, but of course without result
     flg, ds1 = mpc._perform_data_selection(use_dag=True, plot_kwargs=params1)
@@ -153,6 +170,9 @@ def test_data_selection_interface(init_kwargs, tmpdir):
     assert ds1["dag_results"] == dict()
     assert ds1["foo"] == "bar"
     assert ds1["baz"] == 123
+
+    # ... but now!
+    assert mpc.dag is not None
 
     # Now with some actual transformations, results are generated
     _, ds2 = mpc._perform_data_selection(use_dag=True, plot_kwargs=params2)
@@ -178,6 +198,15 @@ def test_data_selection_interface(init_kwargs, tmpdir):
     # are bad, it will fail
     with pytest.raises(KeyError, match="cannot be used to set `select_base`"):
         mpc._perform_data_selection(use_dag=True, plot_kwargs=params5)
+
+    # Placeholders get resolved
+    _, ds6 = mpc._perform_data_selection(use_dag=True, plot_kwargs=params6)
+    assert ds6["foo"]["bar"] == 3
+    assert ds6["spam"][1][1]["nested"]["one"] == 1
+
+    # ... and for bad placeholder names, the error message propagates
+    with pytest.raises(ValueError, match="Some of the tags specified in"):
+        mpc._perform_data_selection(use_dag=True, plot_kwargs=params7)
 
     # Perform data selection via __call__ to test it is carried through
     # Need to change some class variables for that

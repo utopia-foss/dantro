@@ -239,7 +239,7 @@ def test_ResultPlaceholder_resolution(tmpdir):
     rph_BAD = ResultPlaceholder("BAD")
     d = dict(foo=rph_foo, spam=dict(bad=rph_BAD))
 
-    with pytest.raises(Exception, match="Placeholder resolution failed!.*BAD"):
+    with pytest.raises(Exception, match="BAD"):
         resolve_placeholders(d, dag=mdag)
 
 
