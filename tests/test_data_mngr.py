@@ -252,11 +252,14 @@ def hdf5_dm(data_dir) -> Hdf5DataManager:
     basic.create_group("UpperCaseGroup")
     basic.attrs["foo"] = "file level attribute"
     basic["group"].attrs["foo"] = "group level attribute"
-    basic["group"].attrs["encoded_str"] = bytes("encoded string", "utf8")
+    basic["int_dset"].attrs["foo"] = "dset level attribute"
+
+    # Also write some encoded data
     basic["group"].attrs["encoded_arr"] = np.array(["foo", "bar"], dtype="S3")
     basic["group"].attrs["encoded_arra"] = np.array(["foo", "bar"], dtype="a")
     basic["group"].attrs["encoded_arrb"] = np.array([b"foo", b"bar"])
-    basic["int_dset"].attrs["foo"] = "dset level attribute"
+    basic["group"].attrs["encoded_utf8"] = bytes("🎉", "utf8")
+    basic["group"].attrs["encoded_utf16"] = bytes("👻", "utf16")
 
     basic.close()
 
@@ -1166,10 +1169,15 @@ def test_hdf5_bytestring_conversion(hdf5_dm):
     """Tests whether bytestrings are decoded during loading"""
     hdf5_dm.load("decode_enabled", loader="hdf5", glob_str="**/*.h5")
 
-    # Test that strings are loaded as unicode strings
+    # Test that strings are loaded as strings
     grp = hdf5_dm["decode_enabled/basic/group"]
-    assert isinstance(grp.attrs["encoded_str"], str)
+    assert isinstance(grp.attrs["encoded_utf8"], str)
+    assert isinstance(grp.attrs["encoded_utf16"], str)
     assert grp.attrs["encoded_arr"].dtype.kind == "U"
+
+    # Decoding works for utf8, but not for other encodings (here: utf16)
+    assert grp.attrs["encoded_utf8"] == "🎉"
+    assert grp.attrs["encoded_utf16"] != "👻"
 
     # When deactivated, the bytestring should be loaded
     # Enable the mapping to make sure that also works with decoding deactivated
@@ -1181,10 +1189,18 @@ def test_hdf5_bytestring_conversion(hdf5_dm):
         enable_mapping=True,
     )
 
-    # Test that strings are NOT loaded as unicode strings
+    # Test that strings are NOT loaded as unicode strings now … inside arrays
     grp = hdf5_dm["decode_disabled/basic/group"]
-    assert isinstance(grp.attrs["encoded_str"], bytes)
     assert grp.attrs["encoded_arr"].dtype.kind == "S"
+
+    # ... for other objects, h5py >= 3.0 already takes care of decoding ...
+    assert isinstance(grp.attrs["encoded_utf8"], str)
+    assert isinstance(grp.attrs["encoded_utf16"], str)
+    assert grp.attrs["encoded_utf8"] == "🎉"
+
+    # ... but assumes some other encoding. With decoding disabled, there's
+    # nothing we can or should do about this.
+    assert grp.attrs["encoded_utf16"] != "👻"
 
 
 # Pickling, dumping, restoring ------------------------------------------------
