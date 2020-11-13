@@ -150,14 +150,19 @@ def resolve_placeholders(
     try:
         results = dag.compute(compute_only=list(to_compute), **compute_kwargs)
 
-    except Exception as exc:
+    except ValueError as exc:
         _ph_names = ", ".join(to_compute)
-        raise type(exc)(
-            "Placeholder resolution failed! Inspect the chained traceback and "
-            "check that "
-            f"(1) all specified placeholder names ({_ph_names}) are valid, "
-            "(2) the operation was specified correctly, and "
-            "(3) the required transformations could be carried out correctly."
+        raise ValueError(
+            "Placeholder resolution failed for one or more of the specified "
+            f"placeholder names ({_ph_names})!\n{exc}"
+        ) from exc
+
+    except RuntimeError as exc:
+        _ph_names = ", ".join(to_compute)
+        raise RuntimeError(
+            "Placeholder resolution failed due to an error during "
+            "computation of the transformation result for any of "
+            f"the placeholder tags ({_ph_names})!\n{exc}"
         ) from exc
 
     d = recursive_replace(

@@ -20,6 +20,7 @@ from ._dag_utils import DAGMetaOperationTag as _MOpTag
 from ._dag_utils import DAGNode, DAGObjects, DAGReference, DAGTag
 from ._dag_utils import KeywordArgument as _Kwarg
 from ._dag_utils import PositionalArgument as _Arg
+from ._dag_utils import ResultPlaceholder as _ResultPlaceholder
 from ._dag_utils import parse_dag_minimal_syntax as _parse_dag_minimal_syntax
 from ._dag_utils import parse_dag_syntax as _parse_dag_syntax
 from ._hash import FULL_HASH_LENGTH, SHORT_HASH_LENGTH, _hash
