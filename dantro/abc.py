@@ -65,6 +65,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
                     f"Cannot rename {self.logstr} to '{new_name}', because a"
                     " parent was already associated with it."
                 )
+            log.debug("Renaming %s to '%s' ...", self.logstr, new_name)
 
         # Require strings as name
         if not isinstance(new_name, str):
@@ -83,8 +84,9 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
         # Allow further checks by an additional method
         self._check_name(new_name)
 
-        # Everything ok, store the attribute
+        # Everything ok, store the attribute and invalidate cached logstring
         self._name = new_name
+        self._logstr = None
 
     @property
     def classname(self) -> str:

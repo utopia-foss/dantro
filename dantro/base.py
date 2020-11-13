@@ -874,9 +874,20 @@ class BaseDataGroup(
                         )
                     )
 
-            # Get key and info, truncating if necessary, and the mark
+            # Get the mark, and key and info strings (truncating if necessary)
+            try:
+                info_str = info_fstr.format(obj)
+            except Exception as exc:
+                raise ValueError(
+                    f"Failed formatting info string '{info_fstr}' for "
+                    f"{type(obj)} with value:\n{obj}\nThis should not have "
+                    "happened! Is there a non-dantro object included as a "
+                    f"direct part of the tree? Parent object: {self.logstr} "
+                    f"@ {self.path}."
+                ) from exc
+
             name = truncate(key, max_length=name_width)
-            info = truncate(info_fstr.format(obj), max_length=info_width)
+            info = truncate(info_str, max_length=info_width)
             mark = get_mark(n, max_n=num_items - 1)
 
             # Format the line and add to list of lines
