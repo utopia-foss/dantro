@@ -4,20 +4,22 @@
 
 ## v0.15.0 _(WIP)_
 #### Features and Improvements
-- !202 adds meta-operations to the data transformation framework (#174), thereby allowing to define function-like constructs which help with modularization.
-- !204 makes pickling of the data tree possible. If building the data tree takes a long time, storing its structure to a tree cache file and restoring it can bring a significant speed-up.
+- !202 adds [meta-operations](https://dantro.readthedocs.io/en/latest/data_io/transform.html#meta-operations) to the data transformation framework (#174), thereby allowing to define function-like constructs which help with modularization.
+- Features and improvements in the **plotting framework**:
+    - !210 adds the `set_ticks` PlotHelper function that enables setting tick locations and labels.
+    - !211 makes it possible to [use data transformation results inside other parts of the plot configuration](https://dantro.readthedocs.io/en/latest/plotting/plot_data_selection.html#using-data-transformation-results-in-the-plot-configuration), e.g. to specify plot helper arguments.
+    - !215 adds the [`auto_encoding` feauture](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html#auto-encoding-of-plot-layout) to the generic plot functions `facet_grid` and `errorbar`, allowing more data-averse plot configurations.
+- !207 improves the computation time for data selection in the `GraphGroup`.
+- !208 addresses #199 by adding the `keep_dim` option in the `GraphGroup` to specify dimensions that are not squeezed during data selection.
+- !204 makes pickling of the data tree possible. If building the data tree takes a long time, storing its structure to a tree cache file and restoring it can bring a speed-up.
     - Data tree objects can be pickled and unpickled manually. To be more versatile, dantro now uses [dill](https://pypi.org/project/dill/) for pickling.
     - The `DataManager.dump` method can be used to store the full tree.
     - The `DataManager.restore` method allows to populate an existing `DataManager` with the content of a stored data tree, either clearing existing data or merging them.
     - !205 adds default file path handling, controlled via the `default_tree_cache_path` argument to the `DataManager` or a class variable.
-- !210 adds the `set_ticks` PlotHelper function that enables setting tick locations and labels.
-- !215 adds the [`auto_encoding` feauture](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html#auto-encoding-of-plot-layout) to the generic plot functions `facet_grid` and `errorbar`, allowing more data-averse plot configurations.
 - **Minor API additions:**
     - !204 implements `BaseDataGroup.clear` to remove all entries from a group.
     - !204 adds the `overwrite` argument to `BaseDataGroup.recursive_update`.
     - !204 adds the `BasicComparisonMixin`, which supplies a simple `__eq__` magic method.
-- !207 improves the computation time for data selection in the `GraphGroup`.
-- !208 addresses #199 by adding the `keep_dim` option in the `GraphGroup` to specify dimensions that are not squeezed during data selection.
 
 #### Breaking changes
 - As of !204, the `PickleLoaderMixin` no longer allows choosing which load function to use via a class variable but _always_ uses `dill.load`.
@@ -27,7 +29,7 @@
 - !206 fixes a regression in the [generic `errorbar` and `errorbands` plot functions](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html) where size-1 dimensions were not always squeezed out.
 - !215 fixes passing on the file format to the `FileWriters`' `savefig function in cases where it cannot be deduced from the filename.
 - !214 makes dantro compatible to the latest h5py version, addressing #212, and sets the minimum version to 3.1.
-
+- !211 fixes a bug that lead to an outdated `logstr` after renaming a group or container.
 
 #### Internal
 - !209 addresses #125 by reformatting all code using [black](https://black.readthedocs.io/en/stable/).
