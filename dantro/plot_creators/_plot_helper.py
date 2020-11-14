@@ -1529,3 +1529,103 @@ class PlotHelper:
         if y:
             y = y if not isinstance(y, str) else dict(scale=y)
             set_scale(self.ax.set_yscale, **y)
+
+    def _hlpr_set_ticks(self, *, x: dict = None, y: dict = None):
+        """Sets the ticks for the current axis
+
+        The arguments are used to call ``ax.set_xticks`` or ``ax.set_yticks``,
+        and ``ax.set_xticklabels`` or ``ax.set_yticklabels``, respectively.
+        The dict-like arguments may contain the keys ``major`` and/or ``minor``,
+        referring to major or minor tick locations and labels, respectively.
+        They should either be list-like, directly specifying the ticks'
+        locations, or dict-like requiring a ``locs`` key that contains the
+        ticks' locations and is passed on to matplotlib.axes.Axes.set_xticks
+        as ``ticks`` argument. Further kwargs such as ``labels`` can be given
+        and are passed on to matplotlib.axes.Axes.set_xticklabels.
+
+        Example:
+
+        .. code-block:: yaml
+
+            set_ticks:
+              x:
+                major: [2, 4, 6, 8]
+                minor:
+                  locs: [1, 3, 5, 7, 9]
+              y:
+                major:
+                  locs: [0, 1000, 2000, 3000]
+                  labels: [0, 1k, 2k, 3k]
+                  # ... further kwargs here specify label aesthetics
+
+
+        For more information, see
+        https://matplotlib.org/api/_as_gen/matplotlib.axes.Axes.set_xticks.html
+        https://matplotlib.org/api/_as_gen/matplotlib.axes.Axes.set_xticklabels.html
+
+        Args:
+            x (Union[list, dict], optional): The ticks and optionally their labels to
+                set on the x-axis
+            y (Union[list, dict], optional): The ticks and optionally their labels to
+                set on the y-axis
+        """
+
+        def set_ticks(
+            func: Callable,
+            *,
+            ticks: list,
+            minor: bool,
+        ):
+            func(ticks, minor=minor)
+
+        def set_ticklabels(
+            func: Callable, *, labels: list, **ticklabels_kwargs
+        ):
+            func(labels, **ticklabels_kwargs)
+
+        def set_ticks_and_labels(*, axis: str, minor: bool, axis_cfg: dict):
+            axis_cfg = (
+                axis_cfg
+                if not isinstance(axis_cfg, (list, tuple))
+                else dict(locs=axis_cfg)
+            )
+
+            if axis_cfg.get("labels") and not axis_cfg.get("locs"):
+                raise ValueError(
+                    "Labels can only be set through the `labels` argument "
+                    "if their location is also given through the `locs` "
+                    "argument. However, `locs` is not given."
+                )
+
+            # Get the axis specific
+            if axis == "x":
+                ticks_func = self.ax.set_xticks
+                tickslabel_func = self.ax.set_xticklabels
+            elif axis == "y":
+                ticks_func = self.ax.set_yticks
+                tickslabel_func = self.ax.set_yticklabels
+
+            # Set the ticks
+            set_ticks(ticks_func, ticks=axis_cfg.pop("locs"), minor=minor)
+
+            # Set the tick labels, passing on the additional kwargs
+            if axis_cfg.get("labels"):
+                set_ticklabels(tickslabel_func, minor=minor, **axis_cfg)
+
+        if x:
+            if x.get("major"):
+                set_ticks_and_labels(
+                    axis="x", minor=False, axis_cfg=x["major"]
+                )
+
+            if x.get("minor"):
+                set_ticks_and_labels(axis="x", minor=True, axis_cfg=x["minor"])
+
+        if y:
+            if y.get("major"):
+                set_ticks_and_labels(
+                    axis="y", minor=False, axis_cfg=y["major"]
+                )
+
+            if y.get("minor"):
+                set_ticks_and_labels(axis="y", minor=True, axis_cfg=y["minor"])

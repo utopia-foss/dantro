@@ -10,6 +10,7 @@
     - The `DataManager.dump` method can be used to store the full tree.
     - The `DataManager.restore` method allows to populate an existing `DataManager` with the content of a stored data tree, either clearing existing data or merging them.
     - !205 adds default file path handling, controlled via the `default_tree_cache_path` argument to the `DataManager` or a class variable.
+- !210 adds the `set_ticks` PlotHelper function that enables setting tick locations and labels.
 - **Minor API additions:**
     - !204 implements `BaseDataGroup.clear` to remove all entries from a group.
     - !204 adds the `overwrite` argument to `BaseDataGroup.recursive_update`.
@@ -23,6 +24,9 @@
 #### Bug fixes
 - !205 addresses scipy netcdf warnings by requiring a more recent version.
 - !206 fixes a regression in the [generic `errorbar` and `errorbands` plot functions](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html) where size-1 dimensions were not always squeezed out.
+- !215 fixes passing on the file format to the `FileWriters`' `savefig function in cases where it cannot be deduced from the filename.
+- !214 makes dantro compatible to the latest h5py version, addressing #212, and sets the minimum version to 3.1.
+
 
 #### Internal
 - !209 addresses #125 by reformatting all code using [black](https://black.readthedocs.io/en/stable/).

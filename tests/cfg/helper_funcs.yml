@@ -187,3 +187,41 @@
       scale: linear
     y:
       scale: log
+
+# .............................................................................
+- set_ticks: {}
+- set_ticks:
+    x:
+      major: [0, 3, 6]
+    y:
+      minor: [0, 3, 6]
+- set_ticks:
+    x:
+      major:
+        locs: [0, 3, 6]
+      minor:
+        locs: [0.5, 3.5, 6.5]
+    y:
+      major:
+        locs: [0, 3, 6]
+- set_ticks:
+    x:
+      major:
+        locs: [0, 3, 6]
+        labels: ['FIRST', 'SECOND', 'THIRD']
+        color: g
+      minor:
+        locs: [1.5, 4.5, 7.5]
+        labels: ['first', 'second', 'third']
+        rotation: vertical
+- set_ticks:
+    y:
+      minor:
+        locs: [0, 3, 6]
+        labels: ['first', 'second', 'third']
+- set_ticks:
+    x:
+      major:
+        labels: ['first', 'second', 'third']
+  _raises: ValueError
+  _match: Labels can only be set

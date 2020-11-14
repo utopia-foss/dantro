@@ -67,7 +67,7 @@ _Note_ that if you have both Python 2 and Python 3 installed, you might have to 
 | [distributed][distributed]    | 2.10             | For distributed computing |
 | [scipy][scipy]                | 1.5.3            | As engine for NetCDF files |
 | [sympy][sympy]                | 1.6.1            | For symbolic math operations |
-| [h5py][h5py]                  | 2.10, < 3.0      | For reading HDF5 datasets |
+| [h5py][h5py]                  | 3.1              | For reading HDF5 datasets |
 | [matplotlib][matplotlib]      | 3.2.1            | For data visualization |
 | [networkx][networkx]          | 2.2              | For network visualization |
 | [ruamel.yaml][ruamelyaml]     | 0.16.10          | For parsing YAML configuration files |
@@ -136,7 +136,7 @@ For more information on commit hooks, see [the commit hooks section below](#comm
 To assert correct functionality, tests are written alongside all features.
 The [`pytest`][pytest] and [`tox`][tox] packages are used as testing frameworks.
 
-All tests are carried out for Python 3.6 through 3.8 using the GitLab CI/CD and the newest versions of all [dependencies](#dependencies).
+All tests are carried out for Python 3.6 through 3.9 using the GitLab CI/CD and the newest versions of all [dependencies](#dependencies).
 When merging to the master branch, `dantro` is additionally tested against the specified _minimum_ versions.
 
 Test coverage and pipeline status can be seen on [the project page][dantro-project].

@@ -25,18 +25,16 @@ should_work:  # all automatically enabled
       frames:
         saving:
           dpi: 123
-        grab_frame:
-          spam: spam
+        grab_frame: {}
   - writer: frames
     writer_kwargs:
       some_other_writer:
         saving: {foo: bar}
-        grab_frame: {spam: spam}
+        grab_frame: {}
   - writer: frames
     writer_kwargs:
       frames:
-        grab_frame:
-          some_bad_entry: this_is_ignored
+        grab_frame: {}
 
 should_not_work:  # all automatically enabled
   - writer: foo
@@ -71,7 +69,7 @@ should_not_work:  # all automatically enabled
     writer_kwargs:
       frames:
         grab_frame:
-          file_format: pdf # already given!
+          format: pdf # already given!
   - writer: frames
     animation_update_kwargs:  # not accepted by plot function
       foo: bar

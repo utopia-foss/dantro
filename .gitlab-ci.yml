@@ -111,6 +111,12 @@ test:py38:
   script:
     - tox -v -e py38
 
+test:py39:
+  extends: test:py36
+  image: python:3.9
+  script:
+    - tox -v -e py39
+
 
 # ... and again, this time with minimal versions of all dependencies
 
@@ -143,6 +149,14 @@ test_minimal_deps:py38:
     - test:py38
   script:
     - tox -v -e py38-minimal_deps
+
+test_minimal_deps:py39:
+  extends: test_minimal_deps:py36
+  image: python:3.9
+  needs:
+    - test:py39
+  script:
+    - tox -v -e py39-minimal_deps
 
 
 # -- Build Stage --------------------------------------------------------------
