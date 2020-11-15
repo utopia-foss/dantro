@@ -47,9 +47,53 @@ Thus, generating a plot of multidimensional data does not require touching any a
 For more information, have a look at the :py:func:`~.facet_grid` docstring.
 
 
+.. _dag_generic_facet_grid_auto_kind:
+
+Automatically selecting plot kind
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``kind`` keyword of the facet grid plot is quite important. It determines most of the aesthetics and the possible dimensionality that the to-be-visualized data may have.
+
+However, in some scenarios, one would like to choose an *appropriate* plot kind.
+While ``kind: None`` outsources the plot kind to xarray, this frequently leads to ``kind: hist`` being created, depending on which layout specifiers were given.
+
+The :py:func:`~.determine_plot_kind` function used in :py:func:`~.facet_grid` uses the plot data's dimensionality to select a plotting ``kind``.
+By default, the following mapping of data-dimensionality to plot kind is used:
+
+.. literalinclude:: ../../dantro/plot_creators/ext_funcs/generic.py
+    :language: python
+    :start-after: _AUTO_PLOT_KINDS = {  # --- start literalinclude
+    :end-before:  }   # --- end literalinclude
+    :dedent: 4
+
+Note the ``fallback`` case (used for all other dimensionalities) and the ``dataset`` option, for data that is ``xr.Dataset``-like.
+For details, see the docstring of :py:func:`~.determine_plot_kind`.
+
+Setting ``kind: auto`` becomes especially powerful in conjunction with :ref:`dag_generic_auto_encoding`.
+
+
+.. _dag_generic_auto_encoding:
+
+Auto-encoding of plot layout
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+dantro also adds the ``auto_encoding`` feature to the facet grid plot, which automatically associates data dimensions with certain layout encoding specifiers (``x``, ``y``, ``col``, and others).
+With this functionality, the facet grid plot can be used to visualize high-dimensional data *regardless of the dimension names*; the only relevant information is the dimensionality of the data.
+
+In combination with :ref:`dag_generic_facet_grid_auto_kind`, this further reduces the plot configuration arguments required to generate facet grid plots.
+
+For details, see :py:func:`~.determine_layout_encoding`.
+
+
+
+----
+
 .. _dag_generic_errorbar:
 
 :py:func:`~.errorbar` and :py:func:`~.errorbands`: Visualizing Confidence Intervals
 ----------------------------------------------------------------------------------------
 The :py:func:`~.errorbar` and :py:func:`~.errorbands` plotting functions provide the ability to visualize data together with corresponding confidence intervals.
 Similar to :py:func:`~.facet_grid`, these functions offer the ``hue`` and ``frames`` arguments, allowing to represent data with up to three dimensions.
+
+.. hint::
+
+    These plot functions also support the :ref:`auto-encoding feature <dag_generic_auto_encoding>`, similar to the facet grid plot.
+    The available specifiers are: ``x``, ``hue`` and ``frames``.
