@@ -619,60 +619,65 @@ def facet_grid(
         **plot_kwargs: Passed on to ``<data>.plot`` or ``<data>.plot.<kind>``
             These should include the layout encoding specifiers (``x``, ``y``,
             ``hue``, ``col``, and/or ``row``).
+
+    Raises:
+        AttributeError: Upon unsupported ``kind`` value
+        ValueError: Upon *any* upstream error in invocation of the xarray
+            plotting capabilities. This wraps the given error message and
+            provides additional information that helps to track down why the
+            plotting failed.
     """
 
     def plot_frame(_d, *, kind: str, plot_kwargs: dict):
         """Plot a FacetGrid frame"""
-        # Use the automatically deduced plot kind, e.g. line plot for 1D
+        # Retrieve the generic or specialized plot function, depending on kind
         if kind is None:
-            # If the helper figure is to be used, make sure there's absolutely
-            # nothing on it; this prevents plotting artifacts.
-            hlpr.fig.clear()
+            plot_func = _d.plot
 
-            # Directly call the plot function of the underlying data object,
-            # making sure that any additionally created figure will not survive
-            # in case of an exception being raised from that plot function.
-            with figure_leak_prevention(close_current_fig_on_raise=True):
-                rv = _d.plot(**plot_kwargs)
-            # NOTE See extended NOTE below about the type of the return value.
-
-        # Use a specific kind of plot function
         else:
-            # Retrieve the specialized plot function
             try:
                 plot_func = getattr(_d.plot, kind)
 
             except AttributeError as err:
                 _available = ", ".join(_XR_PLOT_KINDS)
                 raise AttributeError(
-                    f"The plot kind '{kind}' seems not to be "
-                    f"available for data of type {type(_d)}! Please "
-                    "check the documentation regarding the "
-                    "expected data types. For xarray data "
+                    f"The plot kind '{kind}' seems not to be available for "
+                    f"data of type {type(_d)}! Please check the documentation "
+                    "regarding the expected data types. For xarray data "
                     f"structures, valid choices are: {_available}"
                 ) from err
 
-            # Make sure to work on a fully cleared figure. This is important
-            # for *some* specialized plot functions and for certain
-            # dimensionality of the data: in these specific cases, an existing
-            # figure can be re-used, in some cases leading to plotting
-            # artifacts.
-            # In other cases, a new figure is opened by the plot function. The
-            # currently attached helper figure is then discarded below.
-            hlpr.fig.clear()
+        # Make sure to work on a fully cleared figure. This is important for
+        # *some* specialized plot functions and for certain dimensionality of
+        # the data: in these specific cases, an existing figure can be
+        # re-used, in some cases leading to plotting artifacts.
+        # In other cases, a new figure is opened by the plot function. The
+        # currently attached helper figure is then discarded below.
+        hlpr.fig.clear()
 
-            # Invoke the specialized plot function, taking care that no figures
-            # that are additionally created survive beyond that point, which
-            # would lead to figure leakage, gobbling up memory.
-            with figure_leak_prevention(close_current_fig_on_raise=True):
+        # Invoke the specialized plot function, taking care that no figures
+        # that are additionally created survive beyond that point, which would
+        # lead to figure leakage, gobbling up memory.
+        with figure_leak_prevention(close_current_fig_on_raise=True):
+            try:
                 rv = plot_func(**plot_kwargs)
-            # NOTE rv usually is a xarray.FaceGrid object but not always:
-            #      `hist` returns what matplotlib.pyplot.hist returns.
-            #      This leads to the question why `hist`s do not seem to be
-            #      possible in `xarray.FacetGrid`s, although they would be
-            #      useful? Gaining a deeper understanding of this issue and
-            #      corresponding xarray functionality is something to
-            #      investigate in the future. :)
+
+            except Exception as exc:
+                raise ValueError(
+                    "facet_grid plotting failed, most probably because the "
+                    "dimensionality of the data, the chosen plot kind "
+                    f"({kind}) and the specified layout encoding were not "
+                    "compatible.\n"
+                    f"The upstream error was a {type(exc).__name__}: {exc}\n\n"
+                    f"facet_grid arguments:\n  {plot_kwargs}\n\n"
+                    f"Data:\n  {_d}\n"
+                ) from exc
+        # NOTE rv usually is a xarray.FaceGrid object but not always: `hist`
+        #      returns what matplotlib.pyplot.hist returns.
+        #      This leads to the question why `hist`s do not seem to be
+        #      possible in `xarray.FacetGrid`s, although they would be useful?
+        #      Gaining a deeper understanding of this issue and corresponding
+        #      xarray functionality is something to investigate in the future.
 
         # Determine which figure and axes to attach to the PlotHelper
         if isinstance(rv, xr.plot.FacetGrid):

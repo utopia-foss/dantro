@@ -49,7 +49,7 @@ auto:
     plot_kwargs:
       auto_encoding: true
     raises:
-      6: &hist_type_err [TypeError, 'hist\(\) got multiple values for arg']
+      6: &hist_type_err [ValueError, 'hist\(\) got multiple values for arg']
 
   custom_auto_encoding:
     kinds: [line, pcolormesh]
