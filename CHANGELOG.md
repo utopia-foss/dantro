@@ -18,6 +18,7 @@
     - !204 adds the `BasicComparisonMixin`, which supplies a simple `__eq__` magic method.
 - !207 improves the computation time for data selection in the `GraphGroup`.
 - !208 addresses #199 by adding the `keep_dim` option in the `GraphGroup` to specify dimensions that are not squeezed during data selection.
+- !216 extends the operations database with commonly used operations and makes operations on the `nx.` module easier.
 
 #### Breaking changes
 - As of !204, the `PickleLoaderMixin` no longer allows choosing which load function to use via a class variable but _always_ uses `dill.load`.
