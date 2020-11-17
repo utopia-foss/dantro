@@ -1,7 +1,7 @@
 # Configuration for the generic DAG facet grid plotting function
 ---
-# .. Automatic, i.e.: no `kind` specified .....................................
-auto:
+# .. No `kind` specified ......................................................
+no_kind:
   no_hue: &no_hue
     specifiers: [x, 'y', row, col, frames]
     max_dims: 7
@@ -31,6 +31,49 @@ auto:
       col_wrap: 2
     raises:
       5: *only_1d_and_2d
+
+
+# .. Automatic, i.e.: `kind: auto` and auto-encoding feature ..................
+auto:
+  fully_automatic:
+    kinds: [auto]
+    specifiers: []
+    max_dims: 7
+    plot_kwargs:
+      auto_encoding: true
+
+  partly_specified:
+    kinds: [auto]
+    specifiers: [y, x, row]
+    max_dims: 6
+    plot_kwargs:
+      auto_encoding: true
+    raises:
+      6: &hist_type_err [ValueError, 'hist\(\) got multiple values for arg']
+
+  custom_auto_encoding:
+    kinds: [line, pcolormesh]
+    specifiers: []
+    min_dims: 2
+    max_dims: 5
+    plot_kwargs:
+      auto_encoding:
+        # Use custom order of encoding specifiers
+        pcolormesh: [y, x, frames, row, col]
+        line: [y, frames, row, col, hue]
+
+  auto_col_wrap:
+    kinds: [line]
+    specifiers: []
+    min_dims: 2
+    max_dims: 6
+    plot_kwargs:
+      auto_encoding:
+        line: [x, col, hue, frames, row]  # to provoke early col_wrap
+      col_wrap: auto
+    raises:
+      6: *line_plots_1d_or_2d
+
 
 # .. With `kind` specified ....................................................
 # A brief test of all various kinds.
@@ -152,6 +195,6 @@ hist:
     specifiers: [x, frames]
     max_dims: 3
     raises:
-      1: &hist_type_err [TypeError, 'hist\(\) got multiple values for arg']
+      1: *hist_type_err
       2: *hist_type_err
       3: *hist_type_err

@@ -17,6 +17,8 @@ from dantro.containers import PassthroughContainer, XrDataContainer
 from dantro.plot_creators import ExternalPlotCreator, PlotHelper
 from dantro.plot_creators.ext_funcs._utils import plot_errorbar
 from dantro.plot_creators.ext_funcs.generic import (
+    determine_layout_encoding,
+    determine_plot_kind,
     errorbands,
     errorbar,
     facet_grid,
@@ -33,7 +35,7 @@ skip_if_not_full = pytest.mark.skipif(
 # Whether to write test output to a temporary directory
 # NOTE When manually debugging, it's useful to set this to False, such that the
 #      output can be inspected in TEST_OUTPUT_PATH
-USE_TMPDIR = True
+USE_TMPDIR = False
 
 # If not using a temporary directory, the desired output directory
 TEST_OUTPUT_PATH = os.path.abspath(os.path.expanduser("~/dantro_test_output"))
@@ -106,6 +108,7 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
     be used to detect figure leakage.
     """
     epc = ExternalPlotCreator("test_facet_grid", dm=dm)
+    epc._exist_ok = True
 
     # Shortcuts
     animation = dict(
@@ -145,6 +148,7 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
         for kind, (cont_name, cont) in product(kinds_it, conts_it):
             aspecs = associate_specifiers(cont, specifiers=specifiers)
             print("... with data:    ", cont)
+            print("    plot_kwargs:  ", plot_kwargs)
             print("    kind:         ", kind)
             print("    and spec map: ", aspecs)
 
@@ -162,8 +166,8 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
             with context:
                 epc(
                     **out_path(
-                        "{kind:}__{case:}_{data:}_{specs:}".format(
-                            kind=kind if kind else "auto",
+                        "{case:}__kind_{kind:}_{data:}_{specs:}".format(
+                            kind=kind if kind else "None",
                             case=case_name,
                             data=cont.name,
                             specs="-".join(aspecs),
@@ -184,6 +188,13 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
 
         print("Scenario '{}' succeeded.\n".format(case_name))
     print("All scenarios tested successfully.")
+
+
+class MockDataArray:
+    """A Mock class for a data array, simply with the ndim attribute."""
+
+    def __init__(self, ndim: int):
+        self.ndim = ndim
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -252,6 +263,41 @@ def out_dir(tmpdir) -> str:
 
 # -- Tests --------------------------------------------------------------------
 
+# .. Isolated helper function tests ...........................................
+
+
+def test_determine_plot_kind():
+    dpk = determine_plot_kind
+    DA = MockDataArray
+
+    # Not like a data array -> return dset_default_kind
+    assert dpk("no_ndim", kind="auto") == "scatter"
+    assert (
+        dpk("no_ndim", kind="auto", default_kind_map=dict(dataset="foo"))
+        == "foo"
+    )
+
+    # Like a data array -> depends on (mocked) dimensionality, fallback to hist
+    assert dpk(DA(0), kind="auto") == "hist"
+    assert dpk(DA(1), kind="auto") == "line"
+    for i in range(2, 6):
+        assert dpk(DA(i), kind="auto") == "pcolormesh"
+    assert dpk(DA(6), kind="auto") == "hist"
+    assert dpk(DA(23), kind="auto") == "hist"
+
+    # With custom mapping
+    custom_map = {1: "one", 2: "two", "fallback": "some_default"}
+    assert dpk(DA(1), kind=custom_map) == "one"
+    assert dpk(DA(2), kind=custom_map) == "two"
+    assert dpk(DA(42), kind=custom_map) == "some_default"
+
+    # Without a fallback or dataset, should get KeyErrors
+    with pytest.raises(KeyError, match="fallback"):
+        dpk(DA(123), kind=dict(foo="bar"), default_kind_map=dict())
+    with pytest.raises(KeyError, match="dataset"):
+        dpk("not_an_array", kind="auto", default_kind_map=dict())
+
+
 # .. Errorbar Tests ...........................................................
 
 
@@ -306,6 +352,14 @@ def test_errorbar(dm, out_dir, anim_disabled):
         **kws_eband,
         hue="dim_0",
         frames="dim_2",
+        select=dict(y="ndim_da/3D", yerr="ndim_da/3D"),
+    )
+
+    # Test auto-encoding
+    epc(
+        **out_path("eband_3D_auto_encoded"),
+        **kws_eband,
+        auto_encoding=True,
         select=dict(y="ndim_da/3D", yerr="ndim_da/3D"),
     )
 
@@ -418,14 +472,19 @@ def test_facet_grid(dm, out_dir, anim_disabled):
     )
 
 
-def test_facet_grid_auto(dm, out_dir):
+def test_facet_grid_no_kind(dm, out_dir):
     """Tests the facet_grid without a ``kind`` specified"""
+    invoke_facet_grid(dm=dm, out_dir=out_dir, to_test=PLOTS_CFG_FG["no_kind"])
+
+
+def test_facet_grid_auto_encoding(dm, out_dir):
+    """Tests the facet_grid with auto-encoding of kind and specifiers"""
     invoke_facet_grid(dm=dm, out_dir=out_dir, to_test=PLOTS_CFG_FG["auto"])
 
 
 def test_facet_grid_kinds(dm, out_dir):
-    """Very briefly tests the different facet_grid ``kind``s. Mor extended
-    tests are part of the full test suite.
+    """Very briefly tests the different facet_grid ``kind``s. More extended
+    tests are part of the full test suite, see ``FULL_TEST``.
     """
     invoke_facet_grid(dm=dm, out_dir=out_dir, to_test=PLOTS_CFG_FG["kinds"])
 
