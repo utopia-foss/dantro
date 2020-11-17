@@ -1,5 +1,6 @@
 """Test the pspgrp module"""
 
+import copy
 from typing import Union
 
 import numpy as np
@@ -114,11 +115,14 @@ def psp_grp(pspace):
 
 
 @pytest.fixture()
-def psp_grp_missing_data(psp_grp):
+def psp_grp_missing_data(pspace):
     """A ParamSpaceGroup with some states missing"""
-    for state_no in (12, 31, 38, 39, 52, 59, 66):
-        if state_no in psp_grp:
-            del psp_grp[state_no]
+    psp_grp = ParamSpaceGroup(name="mv_missing", pspace=pspace)
+
+    for params, state_no_str in pspace.iterator(with_info="state_no_str"):
+        if state_no_str in ("12", "31", "38", "39", "52", "59", "66"):
+            continue
+        create_test_data(psp_grp, params=params, state_no_str=state_no_str)
 
     return psp_grp
 

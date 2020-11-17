@@ -567,13 +567,12 @@ class UniversePlotCreator(ExternalPlotCreator):
         if self._psp.num_dims == 0 or self.psgrp.only_default_data_present:
             if unis not in ("all", "single", "first", "random", "any"):
                 raise ValueError(
-                    "Could not select a universe for plotting "
-                    "because the associated parameter space has "
-                    "no dimensions available or only data for "
-                    f"the default point was available in {self.psgrp.logstr}. "
-                    "For these cases, the only valid values for "
-                    "the `universes` argument are: 'all', "
-                    "'single', 'first', 'random', or 'any'."
+                    "Could not select a universe for plotting because the "
+                    "associated parameter space has no dimensions available "
+                    "or only data for the default point was available in "
+                    f"{self.psgrp.logstr}. For these cases, the only valid "
+                    "values for the `universes` argument are: "
+                    "'all', 'single', 'first', 'random', or 'any'."
                 )
 
             # Set a flag to carry information to _prepare_plot_func_args

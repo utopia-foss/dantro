@@ -5,13 +5,14 @@ import inspect
 import logging
 import os
 from itertools import product
-from typing import Callable, Dict, Generator, List, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, Generator, List, Sequence, Tuple, Union
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+from paramspace.tools import recursive_replace
 
-from dantro.tools import recursive_update
+from ..tools import recursive_update
 
 # Public constants
 log = logging.getLogger(__name__)
@@ -353,9 +354,8 @@ class PlotHelper:
 
         except RuntimeError as err:
             raise RuntimeError(
-                "The axis-specific configuration is only "
-                "available while a figure is associated with "
-                "the PlotHelper!"
+                "The axis-specific configuration is only available while a "
+                "figure is associated with the PlotHelper!"
             ) from err
 
     @property
@@ -1168,6 +1168,9 @@ class PlotHelper:
             raise phe
         log.warning(phe)
 
+    # -------------------------------------------------------------------------
+    # -- Helper methods -------------------------------------------------------
+    # -------------------------------------------------------------------------
     # .........................................................................
     # Helper Methods -- acting on the figure
 

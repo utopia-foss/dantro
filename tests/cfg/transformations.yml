@@ -1003,6 +1003,18 @@ error_bad_operation_name_with_meta_operations:
   _match: my_meta_op  # includes name of available meta-operations
 
 
+error_bad_compute_only_tag:
+  params:
+    transform:
+      - add: [1, 2]
+        tag: result
+  compute_only: [bad_tag]
+  _raises: ValueError
+  _raises_on_compute: true
+  _match: Some of the tags specified
+
+
+
 # Operation Hooks -------------------------------------------------------------
 
 op_hook_deactivated:

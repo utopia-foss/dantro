@@ -967,6 +967,7 @@ _OPERATIONS = KeyOrderedDict({
     '.real':        lambda d: d.real,
     '.nonzero':     lambda d: d.nonzero,
     '.flat':        lambda d: d.flat,
+    '.item':        lambda d: d.item(),
 
     # xarray
     '.head':        lambda d: d.head(),
@@ -1224,10 +1225,9 @@ def apply_operation(
         Any: The result of the operation
 
     Raises:
-        KeyError: On invalid operation name. This also suggests possible other
-            names that might match.
-        Exception: On failure to apply the operation, preserving the original
-            exception.
+        ValueError: On invalid operation name. This also suggests possible
+            other names that might match.
+        RuntimeError: On failure to *apply* the operation.
     """
     try:
         op = _OPERATIONS[op_name]

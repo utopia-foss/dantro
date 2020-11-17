@@ -6,6 +6,7 @@ import logging
 from typing import Any, Tuple, Union
 
 import sympy as sym
+from paramspace.tools import recursive_collect, recursive_replace
 from sympy.parsing.sympy_parser import convert_xor as _convert_xor
 from sympy.parsing.sympy_parser import parse_expr as _parse_expr
 from sympy.parsing.sympy_parser import standard_transformations as _std_trf
@@ -50,7 +51,7 @@ class Placeholder:
     representation.
     """
 
-    def __init__(self, data):
+    def __init__(self, data: Any):
         """Initialize a Placeholder by storing its payload"""
         self._data = data
 
@@ -89,7 +90,94 @@ class Placeholder:
         return representer.represent_scalar(cls.yaml_tag, str(node._data))
 
 
+class ResultPlaceholder(Placeholder):
+    """A placeholder class for a data transformation result"""
+
+    yaml_tag = "!dag_result"
+
+    @property
+    def result_name(self) -> str:
+        """The name of the transformation result this is a placeholder for"""
+        return self._data
+
+
+def resolve_placeholders(
+    d: dict,
+    *,
+    dag: "TransformationDAG",
+    Cls: type = ResultPlaceholder,
+    **compute_kwargs,
+) -> dict:
+    """Recursively replaces placeholder objects throughout the given dict.
+
+    Computes :py:class:`~dantro.dag.TransformationDAG` results and replaces
+    the placeholder objects with entries from the results dict, thereby
+    making it possible to compute configuration values using results of the
+    `data transformation framework <dag_framework>`, for example as done in
+    the plotting framework; see :ref:`dag_result_placeholder`.
+
+    .. warning::
+
+        While this function has a return value, it resolves the placeholders
+        in-place, such that the given ``d`` will be mutated even if the return
+        value is ignored on the calling site.
+
+    Args:
+        d (dict): The object to replace placeholders in. Will recursively walk
+            through all dict- and list-like objects to find placeholders.
+        dag (TransformationDAG): The data transformation tree to resolve the
+            placeholders' results from.
+        Cls (type, optional): The expected type of the placeholders.
+        **compute_kwargs: Passed on to
+            :py:meth:`~dantro.dag.TransformationDAG.compute`.
+    """
+    # First, collect the placeholders
+    is_placeholder = lambda obj: isinstance(obj, Cls)
+    phs = recursive_collect(d, select_func=is_placeholder)
+
+    # If there weren't any, don't have anything to do
+    if not phs:
+        log.remark("No placeholders found to resolve.")
+        return d
+
+    # Otherwise, get ready for computing results and resolving placeholders
+    to_compute = {ph.result_name for ph in phs}
+
+    log.info(
+        "Resolving %d placeholder%s ...",
+        len(phs),
+        "s" if len(phs) != 1 else "",
+    )
+
+    try:
+        results = dag.compute(compute_only=list(to_compute), **compute_kwargs)
+
+    except ValueError as exc:
+        _ph_names = ", ".join(to_compute)
+        raise ValueError(
+            "Placeholder resolution failed for one or more of the specified "
+            f"placeholder names ({_ph_names})!\n{exc}"
+        ) from exc
+
+    except RuntimeError as exc:
+        _ph_names = ", ".join(to_compute)
+        raise RuntimeError(
+            "Placeholder resolution failed due to an error during "
+            "computation of the transformation result for any of "
+            f"the placeholder tags ({_ph_names})!\n{exc}"
+        ) from exc
+
+    d = recursive_replace(
+        d,
+        select_func=is_placeholder,
+        replace_func=lambda p: results[p.result_name],
+    )
+    log.remark("Finished resolving placeholders.")
+    return d
+
+
 # -----------------------------------------------------------------------------
+# Used in meta-operations
 
 
 class PositionalArgument(Placeholder):

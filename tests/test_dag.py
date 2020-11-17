@@ -1,6 +1,8 @@
 """Tests the utils.dag module"""
 
+import copy
 import os
+from typing import Any
 
 import numpy as np
 import pytest
@@ -53,7 +55,24 @@ class UnpickleableString(StringContainer):
         raise RuntimeError("I refuse to be pickled!")
 
 
-# Fixtures --------------------------------------------------------------------
+class MockTransformationDAG:
+    """A mock class for the TransformationDAG, only containing features needed
+    for the placeholder resolution.
+    """
+
+    def __init__(self, **results):
+        """Just stores the "results" as attributes, later to be returned"""
+        self._results = results
+        self.tags = tuple(results.keys())
+
+    def compute(self, *, compute_only: list = None, **_):
+        """Returns all or a subset of the results set"""
+        if not compute_only:
+            compute_only = self.tags
+        return {k: self._results[k] for k in compute_only}
+
+
+# Fixtures and Helpers --------------------------------------------------------
 
 
 @pytest.fixture
@@ -142,6 +161,14 @@ def dm() -> FullDataManager:
     return _dm
 
 
+def yaml_roundtrip(obj: Any, *, path: str) -> Any:
+    """Makes a YAML roundtrip to the given path"""
+    from dantro._yaml import load_yml, write_yml
+
+    write_yml(obj, path=path)
+    return load_yml(path=path)
+
+
 # -----------------------------------------------------------------------------
 
 
@@ -150,7 +177,7 @@ def test_hash():
     assert _hash("I will not change.") == "cac42c9aeca87793905d257c1b1b89b8"
 
 
-def test_Placeholder():
+def test_Placeholder(tmpdir):
     """Test the Placeholder class"""
     ph = dag_utils.Placeholder("foo bar")
 
@@ -159,6 +186,61 @@ def test_Placeholder():
 
     assert "Placeholder" in repr(ph)
     assert "foo bar" in repr(ph)
+
+    # YAML Roundtrip
+    yaml_rt = lambda o: yaml_roundtrip(o, path=tmpdir.join(ph._data))
+    assert yaml_rt(ph) == ph
+    assert yaml_rt(ph) is not ph
+
+
+def test_ResultPlaceholder_resolution(tmpdir):
+    """Tests the placeholder resolution in an isolated setting"""
+    from dantro._dag_utils import ResultPlaceholder, resolve_placeholders
+
+    # Basics
+    rph = ResultPlaceholder("some_result_name")
+    assert rph.result_name == "some_result_name"
+
+    # YAML roundtrip
+    yaml_rt = lambda o: yaml_roundtrip(o, path=tmpdir.join(o.result_name))
+    assert yaml_rt(rph) == rph
+    assert yaml_rt(rph) is not rph
+
+    # -- Test resolution
+    # Basic case
+    rph_foo = ResultPlaceholder("foo")
+    rph_bar = ResultPlaceholder("bar")
+    d = dict(
+        one=rph_foo,
+        two=dict(
+            some_list=[0, 1, rph_bar, 2, rph_foo],
+            more_nesting=[[], dict(foo=rph_foo)],
+        ),
+    )
+    print("d before:", d)
+
+    mdag = MockTransformationDAG(foo="FOO", bar="BAR")
+    d_after = resolve_placeholders(copy.deepcopy(d), dag=mdag)
+    print("d after:", d)
+
+    assert d != d_after
+    assert d_after["one"] == "FOO"
+    assert d_after["two"]["some_list"] == [0, 1, "BAR", 2, "FOO"]
+    assert d_after["two"]["more_nesting"][1]["foo"] == "FOO"
+
+    # Without placeholders, nothing happens
+    d = dict(foo="bar", spam=dict(fish="foobar"))
+    d_after = resolve_placeholders(d, dag=mdag)
+    assert d == d_after
+    assert d is d_after  # ... because not a deepcopy here
+
+    # With a bad placeholder, this will fail. As this is only the Mock DAG, we
+    # don't need to care too much about the exception type ...
+    rph_BAD = ResultPlaceholder("BAD")
+    d = dict(foo=rph_foo, spam=dict(bad=rph_BAD))
+
+    with pytest.raises(Exception, match="BAD"):
+        resolve_placeholders(d, dag=mdag)
 
 
 def test_argument_placeholders():

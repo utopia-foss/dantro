@@ -8,6 +8,7 @@ import logging
 import sys
 
 import dill as pkl
+import numpy as np
 import pytest
 
 import dantro as dtr
@@ -254,6 +255,11 @@ def test_BaseDataGroup_tree_repr():
             condense_thresh=root._COND_TREE_CONDENSE_THRESH,
         )
     )
+
+    # With a bad member, where formatting fails, there is an error message
+    root._data["baaad_member"] = np.array([1, 2, 3])
+    with pytest.raises(ValueError, match="Failed formatting.*ndarray"):
+        root.tree
 
 
 def test_BaseDataGroup_path_behaviour():

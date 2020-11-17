@@ -1,0 +1,175 @@
+# Test configuration used in plot_creators/test_dag_plotting module
+---
+# Additional initialization kwargs for the shared PlotManager fixture
+_pm_init_kwargs:
+  # The base plots configuration, available in the shared plot manager
+  base_cfg:
+    # .. Creators .............................................................
+    creator.ext:
+      creator: external
+
+    creator.uni:
+      creator: universe
+      universes: any  # otherwise it's way too many plots ...
+
+      creator_init_kwargs:
+        psgrp_path: psp/regular
+
+      dag_options:
+        select_path_prefix: ""
+
+    creator.mv:
+      creator: multiverse
+      creator_init_kwargs:
+        psgrp_path: psp/regular
+
+    # .. Plot functions .......................................................
+    dag.facet_grid:
+      module: .generic
+      plot_func: facet_grid
+
+    dag.errorbar:
+      module: .generic
+      plot_func: errorbar
+
+    # .. Selection ............................................................
+    select.randints_3D:
+      select:
+        randints: labelled/randints  # these are 3d, dimensions x, y, z
+
+
+_shared_plot_cfg: &shared_plot_cfg {}
+
+# -----------------------------------------------------------------------------
+# -- Test config below this line ----------------------------------------------
+# -----------------------------------------------------------------------------
+
+# Test cases for the test_config_based test function
+config_based:
+  # .. Example cases ..........................................................
+  # Example for a succeeding plot invocation
+  simple_example:
+    plot_cfg:
+      <<: *shared_plot_cfg
+      based_on: [creator.ext, dag.errorbar]
+
+      # Create some mock data with the DAG framework
+      transform:
+        - xr.DataArray: [[.5,1,2,4,8,16,32]]
+          kwargs:
+            dims: [x]
+            coords:
+              x: [0,1,2,3,4,5,6]
+          tag: y
+        - pow: [!dag_tag y, .5]
+          tag: yerr
+
+  # Example for a failing invocation
+  simple_failing:
+    plot_cfg: {}
+    _raises: ValueError
+    _match: No `creator` argument given
+
+
+  # .. Test DAG placeholder resolution ........................................
+  phres_simple:
+    plot_cfg: &phres_simple
+      <<: *shared_plot_cfg
+      based_on: [creator.uni, dag.errorbar, select.randints_3D]
+
+      transform:
+        - .mean: [!dag_tag randints, [x, z]]
+          tag: y
+        - .std: [!dag_tag randints, [x, z]]
+          tag: yerr
+
+        # Transformations for ResultPlaceholders
+        - .mean: [!dag_tag y]
+        - .item  # ... otherwise it's still an xr.DataArray
+        - .format: ["The mean value is: {:.3g}", !dag_prev ]
+        - print: !dag_prev  # ... to see what's going on in the test
+          tag: title_str
+
+        - define: true
+          tag: use_errorbands
+
+      # Below here, the placeholders above should be resolved
+      use_bands: !dag_result use_errorbands
+
+      helpers:
+        set_title:
+          title: !dag_result title_str
+
+  phres_bad_tag:
+    plot_cfg:
+      <<: *phres_simple
+
+      some_other_kwarg: !dag_result i_do_not_exist
+
+    _raises: PlotCreatorError
+    _match: Some of the tags specified in `compute_only`
+
+  phres_operation_fails:
+    plot_cfg:
+      <<: *phres_simple
+      transform:
+        - .mean: [!dag_tag randints, [x, z]]
+          tag: y
+        - .std: [!dag_tag randints, [x, z]]
+          tag: yerr
+
+        - .format: ["{:d}", 1.23]  # fails due to bad format string
+          tag: i_fail
+
+      use_bands: false
+      helpers: {}
+      some_other_kwarg: !dag_result i_fail
+
+    _raises: PlotCreatorError
+    _match: Failed applying operation '.format'
+
+
+
+
+
+
+  # .. Documentation Examples .................................................
+  doc_examples_placeholder_title:
+    plot_cfg:
+      # Keys that need/should not be included
+      creator_init_kwargs:
+        psgrp_path: psp/regular
+      dag_options:
+        select_path_prefix: labelled
+
+      ### Start -- placeholder_title
+      # Select the creator and use the generic errorbar plotting function
+      creator: universe
+      universes: any
+
+      module: .generic
+      plot_func: errorbar
+
+      select:
+        # 3D data with random integers
+        some_data: randints
+
+      transform:
+        # For the y values, take the mean ...
+        - .mean: [!dag_tag some_data, [x, z]]
+          tag: y
+        # ... and use the standard deviation for the errors
+        - .std: [!dag_tag some_data, [x, z]]
+          tag: yerr
+
+        # Additional transformations for ResultPlaceholders
+        - .mean: [!dag_tag y]
+        - .item  # ... otherwise it's still an xr.DataArray
+        - .format: ["Some Data (total mean: {:.3g})", !dag_prev ]
+          tag: title_str
+
+      # Now, use the place holder in the helper configuration
+      helpers:
+        set_title:
+          title: !dag_result title_str
+      ### End ---- placeholder_title

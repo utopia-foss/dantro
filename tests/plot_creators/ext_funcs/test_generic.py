@@ -254,10 +254,8 @@ def out_dir(tmpdir) -> str:
     if USE_TMPDIR:
         return str(tmpdir)
 
-    # else: Create an output path if it does not yet exist
-    if not os.path.exists(TEST_OUTPUT_PATH):
-        os.mkdir(TEST_OUTPUT_PATH)
-
+    # else: Create an output path if it does not yet exist, use that one
+    os.makedirs(TEST_OUTPUT_PATH, exist_ok=True)
     return TEST_OUTPUT_PATH
 
 

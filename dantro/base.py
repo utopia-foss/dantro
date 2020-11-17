@@ -15,7 +15,7 @@ import abc
 import copy
 import inspect
 import logging
-from typing import Callable, List, Tuple, Union
+from typing import Any, Callable, List, Tuple, Union
 
 import dantro.abc
 
@@ -30,7 +30,6 @@ from .mixins import (
     MappingAccessMixin,
     SizeOfMixin,
 )
-from .tools import TTY_COLS
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -44,13 +43,16 @@ class BaseDataProxy(dantro.abc.AbstractDataProxy):
     NOTE: This is still an abstract class and needs to be subclassed.
     """
 
-    @abc.abstractmethod
-    def __init__(self, obj):
-        """Initialize a proxy object for the given object."""
-        log.trace("Initialising %s for %s ...", self.classname, type(obj))
+    # Associated tags, empty by default; may also be overwritten in the object
+    _tags = tuple()
 
-        # Specify the tags of this proxy; none by default
-        self._tags = tuple()
+    @abc.abstractmethod
+    def __init__(self, obj: Any = None):
+        """Initialize a proxy object for the given object."""
+        if obj is not None:
+            log.trace("Initialising %s for %s ...", self.classname, type(obj))
+        else:
+            log.trace("Initialising %s ...", self.classname)
 
     @property
     def tags(self) -> Tuple[str]:
@@ -821,6 +823,8 @@ class BaseDataGroup(
                 max_lines = None
 
         # Calculations that make the output line fit into one terminal line
+        from .tools import TTY_COLS
+
         num_cols = TTY_COLS
         info_width = int(num_cols * info_ratio)
         name_width = (num_cols - info_width) - (len(offset) + 3 + 1 + 2)
@@ -870,9 +874,20 @@ class BaseDataGroup(
                         )
                     )
 
-            # Get key and info, truncating if necessary, and the mark
+            # Get the mark, and key and info strings (truncating if necessary)
+            try:
+                info_str = info_fstr.format(obj)
+            except Exception as exc:
+                raise ValueError(
+                    f"Failed formatting info string '{info_fstr}' for "
+                    f"{type(obj)} with value:\n{obj}\nThis should not have "
+                    "happened! Is there a non-dantro object included as a "
+                    f"direct part of the tree? Parent object: {self.logstr} "
+                    f"@ {self.path}."
+                ) from exc
+
             name = truncate(key, max_length=name_width)
-            info = truncate(info_fstr.format(obj), max_length=info_width)
+            info = truncate(info_str, max_length=info_width)
             mark = get_mark(n, max_n=num_items - 1)
 
             # Format the line and add to list of lines

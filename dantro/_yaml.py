@@ -29,9 +29,11 @@ from ._dag_utils import (
     KeywordArgument,
     Placeholder,
     PositionalArgument,
+    ResultPlaceholder,
 )
 
 yaml.register_class(Placeholder)
+yaml.register_class(ResultPlaceholder)
 yaml.register_class(PositionalArgument)
 yaml.register_class(KeywordArgument)
 yaml.register_class(DAGReference)
