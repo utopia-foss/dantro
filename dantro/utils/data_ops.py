@@ -8,6 +8,7 @@ from difflib import get_close_matches as _get_close_matches
 from importlib import import_module as _import_module
 from typing import Any, Callable, Iterable, List, Sequence, Tuple, Union
 
+import networkx as nx
 import numpy as np
 import scipy
 import scipy.optimize
@@ -896,6 +897,7 @@ _OPERATIONS = KeyOrderedDict({
     'np.':          lambda ms, *a, **k: get_from_module(np, name=ms)(*a, **k),
     'xr.':          lambda ms, *a, **k: get_from_module(xr, name=ms)(*a, **k),
     'scipy.':       lambda ms, *a, **k: get_from_module(scipy, name=ms)(*a, **k),
+    'nx.':          lambda ms, *a, **k: get_from_module(nx, name=ms)(*a, **k),
 
     # Defining lambdas
     'lambda':       generate_lambda,
@@ -932,6 +934,7 @@ _OPERATIONS = KeyOrderedDict({
     'sum':          sum,
     'map':          map,
     'repr':         repr,
+    'sorted':       sorted,
 
     # Common operations on strings
     '.format':      lambda s, *a, **k: s.format(*a, **k),
@@ -1075,6 +1078,7 @@ _OPERATIONS = KeyOrderedDict({
 
     'np.invert':        np.invert,
     'np.transpose':     np.transpose,
+    'np.flip':          np.flip,
     'np.diff':          np.diff,
     'np.reshape':       np.reshape,
     'np.take':          np.take,
@@ -1097,6 +1101,7 @@ _OPERATIONS = KeyOrderedDict({
     # xarray
     '.sel':             lambda d, *a, **k: d.sel(*a, **k),
     '.isel':            lambda d, *a, **k: d.isel(*a, **k),
+    '.drop_sel':        lambda d, *a, **k: d.drop_sel(*a, **k),
     '.median':          lambda d, *a, **k: d.median(*a, **k),
     '.quantile':        lambda d, *a, **k: d.quantile(*a, **k),
     '.argmin':          lambda d, *a, **k: d.argmin(*a, **k),
@@ -1104,17 +1109,27 @@ _OPERATIONS = KeyOrderedDict({
     '.count':           lambda d, *a, **k: d.count(*a, **k),
     '.diff':            lambda d, *a, **k: d.diff(*a, **k),
     '.where':           lambda d, c, *a, **k: d.where(c, *a, **k),
+    '.ffill':           lambda d, *a, **k: d.ffill(*a, **k),
+    '.bfill':           lambda d, *a, **k: d.bfill(*a, **k),
+    '.fillna':          lambda d, *a, **k: d.fillna(*a, **k),
+    '.interpolate_na':  lambda d, *a, **k: d.interpolate_na(*a, **k),
+    '.dropna':          lambda d, *a, **k: d.dropna(*a, **k),
+    '.isin':            lambda d, *a, **k: d.isin(*a, **k),
 
     '.groupby':         lambda d, g, **k: d.groupby(g, **k),
     '.groupby_bins':    lambda d, g, **k: d.groupby_bins(g, **k),
     '.map':             lambda ds, func, **k: ds.map(func, **k),
-    '.reduce':          lambda ds, func, **k: ds.reduce(func, **k),
+    '.reduce':          lambda d, func, **k: d.reduce(func, **k),
 
     '.rename':          lambda d, *a, **k: d.rename(*a, **k),
     '.expand_dims':     lambda d, *a, **k: d.expand_dims(*a, **k),
     '.assign_coords':   lambda d, *a, **k: d.assign_coords(*a, **k),
+    '.assign_attrs':    lambda d, *a, **k: d.assign_attrs(*a, **k),
+    '.assign':          lambda d, *a, **k: d.assign(*a, **k),
 
     '.to_array':        lambda ds, *a, **k: ds.to_array(*a, **k),
+
+    '.to_dataframe':    lambda d, *a, **k: d.to_dataframe(*a, **k),
 
     'xr.Dataset':       xr.Dataset,
     'xr.DataArray':     xr.DataArray,
