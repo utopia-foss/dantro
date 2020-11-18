@@ -20,6 +20,7 @@ from typing import Any, Callable, List, Tuple, Union
 import dantro.abc
 
 from .abc import PATH_JOIN_CHAR
+from .exceptions import ItemAccessError
 from .mixins import (
     AttrsMixin,
     BasicComparisonMixin,
@@ -205,39 +206,101 @@ class BaseDataGroup(
     # .........................................................................
     # Item access and manipulation
 
-    def __getitem__(self, key: Union[str, List[str]]):
-        """Returns the container in this group with the given name.
+    def __getitem__(self, key: Union[str, List[str]]) -> Any:
+        """Looks up the given key and returns the corresponding item.
+
+        This supports recursive *relative* lookups in two ways:
+
+            * By supplying a path as a string that includes the path separator.
+              For example, ``foo/bar/spam`` walks down the tree along the given
+              path segments.
+            * By directly supplying a key sequence, i.e. a list or tuple of
+              key strings.
+
+        With the last path segment, it *is* possible to access an element that
+        is no longer part of the data tree; successive lookups thus need to
+        use the interface of the corresponding leaf object of the data tree.
+
+        Absolute lookups, i.e. from path ``/foo/bar``, are **not** possible!
+
+        .. note::
+
+            This method aims to replicate the behavior of POSIX paths.
+
+            Thus, it can also be used to access the element itself or the
+            parent element: Use ``.`` to refer to this object and ``..`` to
+            access this object's ``parent``.
 
         Args:
-            key (Union[str, List[str]]): The object to retrieve.
-                If this is a path, will recurse down until at the end.
+            key (Union[str, List[str]]): The name of the object to retrieve or
+                a path via which it can be found in the data tree.
 
         Returns:
-            The object at `key`
+            Any: The object at ``key``.
 
         Raises:
-            KeyError: If no such key can be found
+            ItemAccessError: If no object could be found at the given ``key``
+                or if an absolute lookup, starting with ``/``, was attempted.
         """
-        if not isinstance(key, list):
-            # Assuming this is a string, i.e.: the only other type allowed
-            key = key.split(PATH_JOIN_CHAR)
+        if isinstance(key, str):
+            key_seq = key.split(PATH_JOIN_CHAR)
+        else:
+            # Assume it is list-like ... that's all we need to assume here.
+            key_seq = key
 
-        # Can be sure that this is a list now
-        try:
-            # If there is more than one entry, need to call this recursively
-            if len(key) > 1:
-                return self._data[key[0]][key[1:]]
-            # else: end of recursion
-            return self._data[key[0]]
+        # Do not allow absolute lookups or empty arguments
+        if not key_seq or (key_seq and not key_seq[0]):
+            _key = PATH_JOIN_CHAR.join(key_seq)
+            raise ItemAccessError(
+                self,
+                key=_key,
+                show_hints=False,
+                suffix=(
+                    "Can only do relative lookups! Remove the leading '/' "
+                    "from the given path or make sure that the given key "
+                    f"sequence ({key_seq}) does not start with an element "
+                    "that evaluates to False."
+                ),
+            )
 
-        except (KeyError, IndexError) as err:
-            raise KeyError(
-                "No key or key sequence '{}' in {}! "
-                "Available keys at top level: {}"
-                "".format(
-                    key, self.logstr, ", ".join([k for k in self.keys()])
+        # Remove any empty elements to allow paths like foo////bar
+        key_seq = [seg for seg in key_seq if seg]
+
+        # Now can be sure that there is at least one segment in the path
+        # Have three cases now ...
+        # ... next item is this item
+        if key_seq[0] == ".":
+            item = self
+
+        # ... next item is the parent item
+        elif key_seq[0] == "..":
+            if self.parent is None:
+                raise ItemAccessError(
+                    self,
+                    key="..",
+                    show_hints=False,
+                    suffix="No parent associated.",
                 )
-            ) from err
+            item = self.parent
+
+        # ... next item is a downstream item
+        else:
+            try:
+                item = self._data[key_seq[0]]
+
+            except (KeyError, IndexError) as err:
+                _key = PATH_JOIN_CHAR.join(key_seq)
+                raise ItemAccessError(self, key=_key) from err
+
+        # If there was only one key, this is the end of the recursion.
+        if len(key_seq) == 1:
+            return item
+
+        # Otherwise, we have to recursively continue with the key lookup ...
+        # NOTE There deliberately is no error handling here. Further errors
+        #      should be handled by the *next* item, because *so far*, all the
+        #      item access was successful.
+        return item[key_seq[1:]]
 
     def __setitem__(
         self, key: Union[str, List[str]], val: BaseDataContainer
@@ -391,25 +454,26 @@ class BaseDataGroup(
         pass
 
     def new_container(
-        self, path: Union[str, list], *, Cls: type = None, **kwargs
+        self, path: Union[str, List[str]], *, Cls: type = None, **kwargs
     ):
-        """Creates a new container of class `Cls` and adds it at the given path
-        relative to this group.
+        """Creates a new container of class ``Cls`` and adds it at the given
+        path relative to this group.
+
+        If needed, intermediate groups are automatically created.
 
         Args:
-            path (Union[str, list]): Where to add the container. Note that the
-                intermediates of this path need to already exist.
+            path (Union[str, List[str]]): Where to add the container.
             Cls (type, optional): The class of the container to add. If None,
-                the _NEW_CONTAINER_CLS class variable's value is used; if not
-                given, this will raise a ValueError.
-            **kwargs: kwargs to pass on to Cls.__init__
+                the ``_NEW_CONTAINER_CLS`` class variable's value is used.
+            **kwargs: passed on to ``Cls.__init__``
 
         Returns:
             Cls: the created container
 
         Raises:
-            KeyError: When intermediate groups to `path` are missing
-            TypeError: When the given Cls is invalid
+            ValueError: If neither the ``Cls`` argument nor the class variable
+                ``_NEW_CONTAINER_CLS`` were set or if ``path`` was empty.
+            TypeError: When ``Cls`` is not compatible to the data tree
         """
         # Resolve the Cls argument, if possible from the class variable
         if Cls is None:
@@ -437,9 +501,13 @@ class BaseDataGroup(
             )
         # Class is checked now
 
-        # Make sure the path is a list
-        if not isinstance(path, list):
+        # Make sure the path is a list and of valid content
+        if isinstance(path, str):
             path = path.split(PATH_JOIN_CHAR)
+        path = list(path)
+
+        if not path or not path[0]:
+            raise ValueError(f"`path` argument may not be empty! Got: {path}")
 
         # Check whether recursion ends here, i.e.: the path ends here
         if len(path) == 1:
@@ -451,21 +519,15 @@ class BaseDataGroup(
         # Recursive branch: need to split off the front section and continue
         grp_name, new_path = path[0], path[1:]
 
-        try:
-            return self[grp_name].new_container(new_path, Cls=Cls, **kwargs)
+        # Retrieve the group, creating it if it does not exist
+        if grp_name not in self:
+            grp = self.new_group(grp_name)
+        else:
+            grp = self[grp_name]
 
-        except KeyError as err:
-            raise KeyError(
-                "Could not create {} at '{}'! Check that all "
-                "intermediate groups have already been created. "
-                "Entries available in {}: {}"
-                "".format(
-                    Cls.__name__,
-                    PATH_JOIN_CHAR.join(path),
-                    self.logstr,
-                    ", ".join([k for k in self.keys()]),
-                )
-            ) from err
+        # Can now create the container, potentially recursively creating more
+        # intermediate groups along the path ...
+        return grp.new_container(new_path, Cls=Cls, **kwargs)
 
     def new_group(self, path: Union[str, list], *, Cls: type = None, **kwargs):
         """Creates a new group at the given path.
@@ -503,8 +565,10 @@ class BaseDataGroup(
         """Recursively updates the contents of this data group with the entries
         of the given data group
 
-        NOTE This will create shallow copies of those elements in `other` that
-        are added to this object.
+        .. note::
+
+            This will create *shallow* copies of those elements in ``other``
+            that are added to this object.
 
         Args:
             other (BaseDataGroup): The group to update with
@@ -609,6 +673,10 @@ class BaseDataGroup(
     def __contains__(self, cont: Union[str, BaseDataContainer]) -> bool:
         """Whether the given container is in this group or not.
 
+        If this is an actual object, it will be checked whether this *specific*
+        instance is part of the group, using ``is``-comparison.
+        Otherwise, assumes that ``cont`` is a valid
+
         Args:
             cont (Union[str, BaseDataContainer]): The name of the container or
                 an object reference.
@@ -617,44 +685,18 @@ class BaseDataGroup(
             bool: Whether the given container is in this group.
         """
         if isinstance(cont, (BaseDataGroup, BaseDataContainer)):
-            # Implement a contains-check via is-relationships
+            # Case: look for the specific object instance
             for obj in self.values():
                 if obj is cont:
                     return True
             return False
 
-        # Check via the string, if such a key is available
-        elif isinstance(cont, str):
-            key_seq = cont.split(PATH_JOIN_CHAR)
-
-        else:
-            # Need to check its type
-            if not isinstance(cont, list):
-                raise TypeError(
-                    f"Can only check content of {self.logstr} against the "
-                    "container name or path (as string), or the "
-                    "explicit reference to the object! "
-                    f"Got {type(cont)} with value '{cont}'."
-                )
-
-            key_seq = cont
-
-        # key_seq is now a list of keys
-        if len(key_seq) > 1:
-            # More than one element.
-            # If the target element exists and is a group, continue recursively
-            if key_seq[0] in self and isinstance(
-                self[key_seq[0]], BaseDataGroup
-            ):
-                return key_seq[1:] in self[key_seq[0]]
-
-            # else: does not exist or is not a group
+        # Otherwise: look for an object reachable at this path ...
+        try:
+            self[cont]
+        except Exception:
             return False
-
-        elif len(key_seq) == 1:
-            return bool(key_seq[0] in self.keys())
-
-        return False
+        return True
 
     def _ipython_key_completions_(self) -> List[str]:
         """For ipython integration, return a list of available keys"""

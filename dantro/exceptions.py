@@ -37,12 +37,31 @@ class ItemAccessError(KeyError, IndexError):
     ):
         """Set up an ItemAccessError object, storing some metadata that is
         used to create a helpful error message.
+
+        Args:
+            obj (AbstractDataContainer): The object from which item access was
+                attempted but failed
+            key (str): The key with which ``__getitem__`` was called
+            show_hints (bool, optional): Whether to show hints in the error
+                message, e.g. available keys or "Did you mean ...?"
+            prefix (str, optional): A prefix string for the error message
+            suffix (str, optional): A suffix string for the error message
+
+        Raises:
+            TypeError: Upon ``obj`` without attributes ``logstr`` and ``path``;
+                or ``key`` not being a string.
         """
         if not (hasattr(obj, "logstr") and hasattr(obj, "path")):
             raise TypeError(
                 "ItemAccessError can only be used for objects that supply the "
                 "`logstr` and `path` attributes, i.e. objects similar to "
                 f"those comprising the dantro data tree! Got {type(obj)}."
+            )
+
+        if not isinstance(key, str):
+            raise TypeError(
+                "ItemAccessError `key` argument needs to be a "
+                f"string, but was {type(key)} {repr(key)}!"
             )
 
         super().__init__(obj, key, show_hints, prefix, suffix)
@@ -58,7 +77,10 @@ class ItemAccessError(KeyError, IndexError):
         # If possible, add a hint.
         hint = ""
         if show_hints and hasattr(obj, "keys") and hasattr(obj, "__len__"):
-            if len(obj) < 10:
+            if len(obj) == 0:
+                hint = "This object is empty (== has zero length)."
+
+            elif len(obj) <= 5:
                 _keys = ", ".join(obj.keys())
                 hint = f"Available keys:  {_keys}"
 

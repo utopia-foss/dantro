@@ -70,8 +70,17 @@ def test_basics():
     with pytest.raises(TypeError, match="Name for DummyContainer needs"):
         DummyContainer(name=123, data="foo")
 
-    with pytest.raises(ValueError, match="Name for DummyContainer cannot "):
-        DummyContainer(name="a/name/with/the/PATH_JOIN_CHAR", data="foo")
+    # Invalid names
+    for bad_name in (
+        "a/path/that/contains/the/PATH_JOIN_CHAR",
+        "some_(weird):characters!",
+        "backslash\\",
+        "name*",
+        "name?",
+        "bra]cke[ts",
+    ):
+        with pytest.raises(ValueError, match="Invalid name"):
+            DummyContainer(name=bad_name, data="foo")
 
 
 def test_CheckDataMixin():
