@@ -254,7 +254,8 @@ def determine_layout_encoding(
                 plot_kwargs["col_wrap"],
             )
         else:
-            plot_kwargs["col_wrap"] = None  # ... to avoid a plot warning
+            # Remove it to avoid a plot warning or "unexpected argument"
+            del plot_kwargs["col_wrap"]
 
     # Finally, return the merged layout specifiers and plot kwargs
     return dict(**plot_kwargs, **specs)
