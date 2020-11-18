@@ -12,6 +12,9 @@ log = logging.getLogger(__name__)
 # The character used for separating hierarchies in the path
 PATH_JOIN_CHAR = "/"
 
+# Substrings that may not appear in names of data containers
+BAD_NAME_CHARS = ("*", "?", "[", "]", "!", ":", "(", ")", PATH_JOIN_CHAR, "\\")
+
 # -----------------------------------------------------------------------------
 
 
@@ -62,23 +65,26 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
         if self._name is not None:
             if self.parent is not None:
                 raise ValueError(
-                    f"Cannot rename {self.logstr} to '{new_name}', because a"
-                    " parent was already associated with it."
+                    f"Cannot rename {self.logstr} to '{new_name}', because a "
+                    "parent was already associated with it."
                 )
             log.debug("Renaming %s to '%s' ...", self.logstr, new_name)
 
-        # Require strings as name
+        # Require string as name
         if not isinstance(new_name, str):
             raise TypeError(
                 f"Name for {self.classname} needs to be a string, was of type "
                 f"{type(new_name)} with value '{new_name}'."
             )
 
-        # Ensure name does not contain path join character
-        if PATH_JOIN_CHAR in new_name:
+        # Ensure name does not contain any bad substrings. Do this here rather
+        # than in _check_name because these checks are crucial.
+        if any([c in new_name for c in BAD_NAME_CHARS]):
+            _bad_name_chars = ", ".join(repr(s) for s in BAD_NAME_CHARS)
             raise ValueError(
-                f"Name for {self.classname} cannot contain the path separator "
-                f"'{PATH_JOIN_CHAR}'! Got: '{new_name}'"
+                f"Invalid name '{new_name}' for new {self.classname}! "
+                "The name may not contain any of the following "
+                f"substrings: {_bad_name_chars}"
             )
 
         # Allow further checks by an additional method

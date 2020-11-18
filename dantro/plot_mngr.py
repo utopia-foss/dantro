@@ -12,7 +12,9 @@ from typing import Any, Dict, List, Tuple, Union
 
 from paramspace import ParamDim, ParamSpace
 
+from .abc import BAD_NAME_CHARS as _BAD_NAME_CHARS
 from .data_mngr import DataManager
+from .exceptions import *
 from .plot_creators import ALL as ALL_PCRS
 from .plot_creators import BasePlotCreator, SkipPlot
 from .tools import load_yml, recursive_update, write_yml
@@ -21,26 +23,12 @@ from .tools import load_yml, recursive_update, write_yml
 log = logging.getLogger(__name__)
 
 # Substrings that may not appear in plot names
-BAD_NAME_CHARS = ("*", "?", "[", "]", "!", ":", ".")
-
-# -----------------------------------------------------------------------------
-# Custom exception classes
-
-
-class PlottingError(Exception):
-    """Custom exception class for all plotting errors"""
-
-
-class PlotConfigError(ValueError, PlottingError):
-    """Raised when there were errors in the plot configuration"""
-
-
-class InvalidCreator(ValueError, PlottingError):
-    """Raised when an invalid creator was specified"""
-
-
-class PlotCreatorError(PlottingError):
-    """Raised when an error occured in a plot creator"""
+# Unlike the dantro.abc.BAD_NAME_CHARS, these *allow* the ``/`` (such that new
+# directories can be created) and disallows ``.`` (in order to not get confused
+# with file extensions).
+BAD_PLOT_NAME_CHARS = tuple(
+    [c for c in _BAD_NAME_CHARS if c not in ("/",)] + ["."]
+)
 
 
 # -----------------------------------------------------------------------------
@@ -1026,8 +1014,8 @@ class PlotManager:
             BasePlotCreator: The PlotCreator used for these plots
         """
         # Make sure the name does not contain bad characters
-        if any([s in name for s in BAD_NAME_CHARS]):
-            _bad_name_chars = ", ".join(repr(s) for s in BAD_NAME_CHARS)
+        if any([s in name for s in BAD_PLOT_NAME_CHARS]):
+            _bad_name_chars = ", ".join(repr(s) for s in BAD_PLOT_NAME_CHARS)
             raise ValueError(
                 f"The plot name '{name}' contains unsupported characters! "
                 "Remove any of the following offending substrings from the "
