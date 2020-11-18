@@ -176,10 +176,10 @@ def test_create_graph_function(graph_grps, graph_data):
 
         for e in _edges:
             if directed:
-                assert e in [edge[:2] for edge in g.edges]
+                assert e in g.edges()
             else:
-                assert e in [edge[:2] for edge in g.edges] or e in [
-                    edge[:2][::-1] for edge in g.edges
+                assert e in g.edges() or e in [
+                    edge[::-1] for edge in g.edges()
                 ]
 
         # Check that properties are set correctly
@@ -306,6 +306,39 @@ def test_create_graph_function(graph_grps, graph_data):
         TypeError, match="The edge dimension might have been squeezed"
     ):
         gg.create_graph(keep_dim=("bar",))
+
+    # -------------------------------------------------------------------------
+    # Check graph attributes being set correctly from node and edge coordinates
+    gg = GraphGroup(name="foo", attrs=dict(directed=False, parallel=True))
+    gg.new_container(
+        "nodes",
+        Cls=XrDataContainer,
+        data=[[0, 1, 2]],
+        dims=("time", "node_idx"),
+        coords={"time": [42], "node_idx": [0, 1, 2]},
+    )
+    gg.new_container(
+        "edges",
+        Cls=XrDataContainer,
+        data=[[[[0, 1], [1, 2], [2, 0]]]],
+        dims=("time", "foo", "edge_idx", "type"),
+        coords={
+            "time": [42],
+            "foo": [42],
+            "edge_idx": [0, 1, 2],
+            "type": ["source", "target"],
+        },
+    )
+    gg.new_container(
+        "np",
+        Cls=XrDataContainer,
+        data=[[99, 99, 99]],
+        dims=("bar", "node_idx"),
+        coords={"bar": [42], "node_idx": [0, 1, 2]},
+    )
+    g = gg.create_graph(node_props=["np"], isel=dict(time=0))
+
+    assert g.graph == {"time": 42, "foo": 42, "bar": 42}
 
 
 def test_set_property_functions(graph_grps, graph_data):

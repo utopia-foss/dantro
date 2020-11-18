@@ -408,7 +408,9 @@ class GraphGroup(BaseDataGroup):
     ) -> nx.Graph:
         """Create a networkx graph object from the node and edge data
         associated with the graph group. Optionally, node and edge properties
-        can be added from data stored or registered in the graph group.
+        can be added from data stored or registered in the graph group. The
+        coordinates for the selected or squeezed dimensions of the node, edge,
+        and property data are stored as Graph attributes (in ``g.graph``).
 
         .. note::
 
@@ -511,6 +513,25 @@ class GraphGroup(BaseDataGroup):
         log.debug("Adding edges to the graph...")
         g.add_edges_from(edge_cont.values)
 
+        # Store node and edge coordinates as graph attribute for dimensions
+        # of size 1; they are discarded otherwise. Since the networkx graph
+        # does not ensure the same edge-ordering, the edge-idx coordinates
+        # should not be stored. For the sake of consistency, this is not done
+        # for any of the dimensions of size > 1 (node-idx, edge-idx, edge).
+        # If needed, the node-idx coordinates can be added as property.
+        node_coords = {
+            d: node_cont.coords[d].item()
+            for d in node_cont.coords
+            if node_cont.coords[d].size == 1
+        }
+        edge_coords = {
+            d: edge_cont.coords[d].item()
+            for d in edge_cont.coords
+            if edge_cont.coords[d].size == 1
+        }
+        # The order of the dictionary update should not matter
+        g.graph.update(node_coords, **edge_coords)
+
         # Add properties to nodes and edges
         if node_props:
             for prop_name in node_props:
@@ -557,8 +578,10 @@ class GraphGroup(BaseDataGroup):
         keep_dim=None,
         **selector,
     ):
-        """Sets a property to every node in Graph ``g`` which is also in the
-        ``node_container`` of the graph group.
+        """Sets a property to every node in Graph ``g`` that is also in the
+        ``node_container`` of the graph group. The coordinates for the selected
+        or squeezed dimensions of the property data are stored as Graph
+        attributes (in ``g.graph``).
 
         Args:
             g: The networkx graph object
@@ -658,6 +681,15 @@ class GraphGroup(BaseDataGroup):
         # Add property to graph
         nx.set_node_attributes(g, values=props, name=name)
 
+        # Store the coords of the selected property data for dimensions of size
+        # 1 as graph attribute (potentially overwriting existing attributes).
+        prop_coords = {
+            d: prop_data.coords[d].item()
+            for d in prop_data.coords
+            if prop_data.coords[d].size == 1
+        }
+        g.graph.update(prop_coords)
+
         log.remark(
             "Successfully added node property data from '%s' in %s.",
             name,
@@ -674,13 +706,15 @@ class GraphGroup(BaseDataGroup):
         keep_dim=None,
         **selector,
     ):
-        """Sets a property to every edge in Graph ``g`` which is also in the
-        ``edge_container`` of the graph group.
+        """Sets a property to every edge in Graph ``g`` that is also in the
+        ``edge_container`` of the graph group. The coordinates for the selected
+        or squeezed dimensions of the property data are stored as Graph
+        attributes (in ``g.graph``).
 
         Args:
             g: The networkx graph object
             name (str): If ``data`` is ``None``, ``name`` must specify the
-                container within the graph group which contains the property
+                container within the graph group that contains the property
                 values, or be valid key in ``property_maps``. ``name`` is used
                 as the name for the property in the graph object, potentially
                 overwriting an existing property.
@@ -825,6 +859,15 @@ class GraphGroup(BaseDataGroup):
 
         # Add property to graph
         nx.set_edge_attributes(g, values=props, name=name)
+
+        # Store the coords of the selected property data for dimensions of size
+        # 1 as graph attribute (potentially overwriting existing attributes).
+        prop_coords = {
+            d: prop_data.coords[d].item()
+            for d in prop_data.coords
+            if prop_data.coords[d].size == 1
+        }
+        g.graph.update(prop_coords)
 
         log.remark(
             "Successfully added edge property data from '%s' in %s.",
