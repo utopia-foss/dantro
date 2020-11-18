@@ -5,6 +5,9 @@
 ## v0.15.0 _(WIP)_
 #### Features and Improvements
 - !202 adds [meta-operations](https://dantro.readthedocs.io/en/latest/data_io/transform.html#meta-operations) to the data transformation framework (#174), thereby allowing to define function-like constructs which help with modularization.
+- !218 improves path handling within the data tree:
+    - Item access now allows accessing the parent object (via `../`) or the object itself (`./`), similar to navigating within POSIX paths.
+    - Addressing #220, error messages are improved to more accurately show where item access went wrong, and even provide a hint for the correct key.
 - Features and improvements in the **plotting framework**:
     - !210 adds the `set_ticks` PlotHelper function that enables setting tick locations and labels.
     - !211 makes it possible to [use data transformation results inside other parts of the plot configuration](https://dantro.readthedocs.io/en/latest/plotting/plot_data_selection.html#using-data-transformation-results-in-the-plot-configuration), e.g. to specify plot helper arguments.
@@ -25,6 +28,13 @@
 
 #### Breaking changes
 - As of !204, the `PickleLoaderMixin` no longer allows choosing which load function to use via a class variable but _always_ uses `dill.load`.
+- With the changes to path handling in !218, there are the following notable changes that depart from the behavior of the previous interface:
+    - In addition to the `/` character, names of data containers or group may no longer contain a set of characters (e.g. `*` or `?`) as these may interfere with operations on paths.
+    - The `BaseDataGroup.__contains__` method now returns true if the given path-like argument (e.g. `foo/bar`) is a valid argument to `__getitem__`
+    and there is an object at that path.
+      Previously, this check was implemented independently, thus behaving slightly differently.
+      For group- or container-like arguments, the behavior remains as it was: a non-recursive check whether the _object_ is part of this group, using `is` comparison.
+    - The `BaseDataGroup.new_group` method used to raise a `KeyError` if an intermediate path segment was not available; now, the intermediate groups will automatically be created and no such error is raised.
 
 #### Bug fixes
 - !205 addresses scipy netcdf warnings by requiring a more recent version.
@@ -36,6 +46,7 @@
 #### Internal
 - !209 addresses #125 by reformatting all code using [black](https://black.readthedocs.io/en/stable/).
 - !209 sets up [pre-commit infrastructure](https://pre-commit.com/) to automate code formatting.
+- !218 moves custom dantro exception types into their own module and provides a common base class.
 
 
 ## v0.14.1

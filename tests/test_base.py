@@ -216,6 +216,10 @@ def test_BaseDataGroup_new_group():
     assert "also_foo" in root
     assert also_foo in root
 
+    # Errors
+    with pytest.raises(ValueError, match="may not be empty"):
+        root.new_group("")
+
 
 def test_BaseDataGroup_getitem():
     """Tests the item access interface"""

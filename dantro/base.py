@@ -19,7 +19,7 @@ from typing import Any, Callable, List, Tuple, Union
 
 import dantro.abc
 
-from .abc import PATH_JOIN_CHAR
+from .abc import PATH_JOIN_CHAR, AbstractDataContainer
 from .exceptions import ItemAccessError
 from .mixins import (
     AttrsMixin,
@@ -667,24 +667,30 @@ class BaseDataGroup(
     # Information
 
     def __len__(self) -> int:
-        """The length of the data."""
+        """The number of members in this group."""
         return len(self._data)
 
-    def __contains__(self, cont: Union[str, BaseDataContainer]) -> bool:
+    def __contains__(self, cont: Union[str, AbstractDataContainer]) -> bool:
         """Whether the given container is in this group or not.
 
-        If this is an actual object, it will be checked whether this *specific*
-        instance is part of the group, using ``is``-comparison.
-        Otherwise, assumes that ``cont`` is a valid
+        If this is a data tree object, it will be checked whether this
+        *specific* instance is part of the group, using ``is``-comparison.
+
+        Otherwise, assumes that ``cont`` is a valid argument to the
+        :py:meth:`~dantro.base.BaseDataGroup.__getitem__` method (a key or key
+        sequence) and tries to access the item at that path, returning ``True``
+        if this succeeds and ``False`` if not.
 
         Args:
-            cont (Union[str, BaseDataContainer]): The name of the container or
-                an object reference.
+            cont (Union[str, AbstractDataContainer]): The name of the
+                container, a path, or an object to check via identity
+                comparison.
 
         Returns:
-            bool: Whether the given container is in this group.
+            bool: Whether the given container object is part of this group or
+                whether the given path is accessible from this group.
         """
-        if isinstance(cont, (BaseDataGroup, BaseDataContainer)):
+        if isinstance(cont, AbstractDataContainer):
             # Case: look for the specific object instance
             for obj in self.values():
                 if obj is cont:

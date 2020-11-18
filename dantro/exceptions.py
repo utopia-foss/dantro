@@ -72,22 +72,22 @@ class ItemAccessError(KeyError, IndexError):
         """
         obj, key, show_hints, prefix, suffix = self.args
         prefix = prefix + " " if prefix else ""
-        suffix = " " + suffix if suffix else ""
+        suffix = suffix if suffix else ""
 
         # If possible, add a hint.
         hint = ""
         if show_hints and hasattr(obj, "keys") and hasattr(obj, "__len__"):
             if len(obj) == 0:
-                hint = "This object is empty (== has zero length)."
+                hint = "This object is empty (== has zero length). "
 
             elif len(obj) <= 5:
                 _keys = ", ".join(obj.keys())
-                hint = f"Available keys:  {_keys}"
+                hint = f"Available keys:  {_keys} "
 
             else:
                 matches = _get_close_matches(key, obj.keys(), n=5, cutoff=0.0)
                 _matches = ", ".join(matches)
-                hint = f"Did you mean: {_matches} ?"
+                hint = f"Did you mean: {_matches} ? "
 
         return (
             f"{prefix}"
