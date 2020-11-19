@@ -4,7 +4,7 @@ import collections
 import logging
 import subprocess
 import sys
-from typing import Mapping, Sequence, Tuple, Union
+from typing import List, Mapping, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -32,17 +32,18 @@ from ._yaml import load_yml, write_yml, yaml
 
 
 def recursive_update(d: dict, u: dict) -> dict:
-    """Recursively updates the Mapping-like object `d` with the Mapping-like
-    object `u` and returns it. Note that this does not create a copy of `d`!
+    """Recursively updates the Mapping-like object ``d`` with the Mapping-like
+    object ``u`` and returns it. Note that this does *not* create a copy of
+    ``d``, but changes it mutably!
 
     Based on: http://stackoverflow.com/a/32357112/1827608
 
     Args:
         d (dict): The mapping to update
-        u (dict): The mapping whose values are used to update `d`
+        u (dict): The mapping whose values are used to update ``d``
 
     Returns:
-        dict: The updated dict `d`
+        dict: The updated dict ``d``
     """
     for k, v in u.items():
         if isinstance(d, collections.abc.Mapping):
@@ -195,6 +196,50 @@ def center_in_line(
         fill_char=fill_char,
         align="centre",
     )
+
+
+def make_columns(
+    items: List[str],
+    *,
+    wrap_width: int = TTY_COLS,
+    fstr: str = "  {item:<{width:}s}  ",
+) -> str:
+    """Given a sequence of string items, returns a string with these items
+    spread out over several columns. Iteration is first within the row and
+    then into the next row.
+
+    The number of columns is determined automatically from the wrap width, the
+    length of the longest item in the items list, and the length of the
+    evaluated format string.
+
+    Args:
+        items (List[str]): The string items to represent in columns.
+        wrap_width (int, optional): The maximum width of each full row
+        fstr (str, optional): The format string to use. Needs to accept the
+            keys ``item`` and ``width``, the latter of which will be used for
+            padding. The format string should lead to strings of equal length,
+            otherwise the column layout will be messed up!
+    """
+    if not items:
+        return ""
+
+    max_item_width = max(len(item) for item in items)
+    item_str_width = len(
+        fstr.format(item=" " * max_item_width, width=max_item_width)
+    )
+    num_cols = wrap_width // item_str_width
+
+    rows = []
+    for i, item in enumerate(items):
+        item_str = fstr.format(item=item, width=max_item_width)
+
+        # New row or new column?
+        if i % num_cols == 0:
+            rows.append(item_str)
+        else:
+            rows[-1] += item_str
+
+    return "\n".join(rows) + "\n"
 
 
 # -----------------------------------------------------------------------------

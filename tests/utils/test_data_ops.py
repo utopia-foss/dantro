@@ -102,7 +102,7 @@ def test_apply_operation():
         apply_operation("addd")
 
     # ... and check that a list of available operations is posted
-    with pytest.raises(ValueError, match="  - getitem"):
+    with pytest.raises(ValueError, match="getitem"):
         apply_operation("addd")
 
     # Test application failure error message

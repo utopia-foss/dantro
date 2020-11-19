@@ -16,6 +16,7 @@
     - The `DataManager.dump` method can be used to store the full tree.
     - The `DataManager.restore` method allows to populate an existing `DataManager` with the content of a stored data tree, either clearing existing data or merging them.
     - !205 adds default file path handling, controlled via the `default_tree_cache_path` argument to the `DataManager` or a class variable.
+- !220 improves error messages upon missing data operations
 - **Minor API additions:**
     - !204 implements `BaseDataGroup.clear` to remove all entries from a group.
     - !204 adds the `overwrite` argument to `BaseDataGroup.recursive_update`.

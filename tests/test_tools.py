@@ -62,6 +62,31 @@ def test_fill_line():
     assert t.center_in_line("foob", num_cols=10, spacing=2) == "·  foob  ·"
 
 
+def test_make_columns():
+    """Tests wrapping a string into columns"""
+    make_cols = lambda *a, **kws: t.make_columns(*a, **kws, wrap_width=20)
+
+    assert make_cols([]) == ""
+    assert make_cols(["foo", "bar"]) == "  foo    bar  \n"
+    assert (
+        make_cols(["one", "two", "seven", "eight"]) == "  one      two    \n"
+        "  seven    eight  \n"
+    )
+    assert (
+        make_cols(["some", "strings", "that are longer"])
+        == "  some             \n"
+        "  strings          \n"
+        "  that are longer  \n"
+    )
+
+    # custom fstr, right-aligned, fewer spaces
+    assert (
+        make_cols(["foo", "spam", "fishzzz"], fstr=" {item:>{width:}s} ")
+        == "     foo     spam \n"
+        " fishzzz \n"
+    )
+
+
 def test_is_iterable():
     """Tests the is_iterable function"""
     assert t.is_iterable("foo")

@@ -17,7 +17,7 @@ from sympy.parsing.sympy_parser import parse_expr as _parse_expr
 from sympy.parsing.sympy_parser import standard_transformations as _std_trf
 
 from ..base import BaseDataContainer, BaseDataGroup
-from ..tools import apply_along_axis, recursive_getitem
+from ..tools import apply_along_axis, make_columns, recursive_getitem
 from .coords import extract_coords_from_attrs, extract_dim_names
 from .ordereddict import KeyOrderedDict
 
@@ -1234,15 +1234,18 @@ def apply_operation(
 
     except KeyError as err:
         # Find some close matches to make operation discovery easier
-        close_matches = available_operations(match=op_name)
-        join_str = "\n  - "
+        _close_matches = available_operations(match=op_name, n=8)
+        _did_you_mean = (
+            f" Did you mean: {', '.join(_close_matches)} ?"
+            if _close_matches
+            else ""
+        )
+        _available = make_columns(available_operations())
 
         raise ValueError(
-            f"No operation '{op_name}' registered! Did you mean: "
-            f"{', '.join(close_matches) if close_matches else '(no match)'} ?"
-            f"\nAvailable operations:{join_str}"
-            f"{join_str.join(available_operations())}\nIf you need to "
-            "register a new operation, use dantro.utils.register_operation."
+            f"No operation '{op_name}' registered!{_did_you_mean} "
+            f"\nAvailable operations:\n{_available}If you need to register "
+            "a new operation, use dantro.utils.register_operation."
         ) from err
 
     # Compute and return the results
