@@ -29,7 +29,7 @@ from .base import BaseDataGroup
 from .containers import NumpyDataContainer, ObjectContainer, XrDataContainer
 from .data_loaders import LOADER_BY_FILE_EXT
 from .tools import adjusted_log_levels as _adjusted_log_levels
-from .tools import recursive_update
+from .tools import make_columns, recursive_update
 from .utils import (
     KeyOrderedDict,
     apply_operation,
@@ -468,16 +468,15 @@ class Transformation:
             #      a RuntimeError is raised, thus not ending up in this block.
             _meta_ops = self.dag.meta_operations
             if _meta_ops:
-                _join = "\n  - "
-                _meta_ops = _join + _join.join(self.dag.meta_operations)
+                _meta_ops = "\n" + make_columns(self.dag.meta_operations)
             else:
-                _meta_ops = " (none)"
+                _meta_ops = " (none)\n"
 
             raise ValueError(
                 "Could not find an operation or meta-operation named "
                 f"'{self._operation}'!\n\n"
                 f"{err}\n\n"
-                f"Available meta-operations:{_meta_ops}\n"
+                f"Available meta-operations:{_meta_ops}"
                 "To register a new meta-operation, specify it during "
                 "initialization of the TransformationDAG."
             )
