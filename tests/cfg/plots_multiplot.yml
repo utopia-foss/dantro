@@ -1,7 +1,6 @@
 # Configuration for the DAG multiplot function
 ---
-# .. With `kind` specified ....................................................
-# A brief test of all various kinds.
+# A brief test of all various available plot configurations
 multiplots:
   simple_scatter:
     plot_func: multiplot
@@ -9,15 +8,19 @@ multiplots:
       - function: sns.scatterplot
         x: dim_0
         y: dim_1
+        marker: x
 
   multiple_funcs:
     plot_func: multiplot
     to_plot:
       - function: sns.lineplot
       - function: sns.scatterplot
-      - funciton: sns.despine
+      - function: sns.despine
 
-  all_funcs:
+  # Try to plot all different plot kinds.
+  # All plot functions should be available, but single plots are allowed
+  # to fail. The plot should succeed.
+  all_succeeding_sns_funcs:
     plot_func: multiplot
     to_plot:
       - function: sns.scatterplot
@@ -34,8 +37,7 @@ multiplots:
       - function: sns.pointplot
       - function: sns.barplot
       - function: sns.countplot
-      - function: sns.regplot
-      - function: sns.residplot
       - function: sns.heatmap
       - function: sns.despine
-      
+      - function: sns.regplot
+      - function: sns.residplot

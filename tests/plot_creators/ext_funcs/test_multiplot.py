@@ -3,14 +3,16 @@
 import logging
 import os
 
-import pytest
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pytest
+import seaborn as sns
 from pkg_resources import resource_filename
 
 from dantro.containers import PassthroughContainer, XrDataContainer
 from dantro.plot_creators import ExternalPlotCreator, PlotHelper
 from dantro.plot_creators.ext_funcs.multiplot import multiplot
-
 from dantro.tools import load_yml
 
 from .test_generic import create_nd_data, out_dir
@@ -35,17 +37,6 @@ logging.getLogger("matplotlib").setLevel(logging.WARNING)
 # -- Helpers ------------------------------------------------------------------
 
 
-def create_pd_data(
-    n: int, *, name: str, shape=None, with_coords: bool = False, **data_array_kwargs
-):
-    """Creates n-dimensional random data of a certain shape. If no shape is
-    given, will use ``(3, 4, 5, ..)``.
-    Can also add coords.
-    """
-    xr_data = create_nd_data(n, shape=shape, with_coords=with_coords, **data_array_kwargs)
-    return xr_data.to_dataframe(name=name)
-
-
 # -- Fixtures -----------------------------------------------------------------
 # Import fixtures from other tests
 from ...test_plot_mngr import dm as _dm
@@ -53,26 +44,15 @@ from ...test_plot_mngr import dm as _dm
 
 @pytest.fixture
 def dm(_dm):
-    """Returns a data manager populated with some high-dimensional test data"""
-    # Add ndim random data for DataArrays, going from 0 to 7 dimensions
-    grp_ndim_df = _dm.new_group("ndim_df")
-    grp_ndim_df.add(
-        *[
-            PassthroughContainer(name="{:d}D".format(n), data=create_pd_data(n, name="{:d}D".format(n)))
-            for n in [2, 3]
-        ]
+    """Returns a data manager populated with test data as pd.DataFrame"""
+
+    df = pd.DataFrame(
+        np.random.randn(6, 2).cumsum(axis=0), columns=["dim_0", "dim_1"]
     )
 
-    grp_labelled = _dm.new_group("labelled")
-    grp_labelled.add(
-        *[
-            PassthroughContainer(
-                name="{:d}D".format(n),
-                data=create_pd_data(n, with_coords=True, name="{:d}D".format(n)),
-            )
-            for n in [2, 3]
-        ]
-    )
+    grp_df = _dm.new_group("test_data")
+
+    grp_df.add(PassthroughContainer(name="tips", data=df))
 
     return _dm
 
@@ -95,12 +75,11 @@ def test_multiplot(dm, out_dir):
 
     # Invoke the plotting function with data of different dimensionality.
     for plots in PLOTS_CFG_MP.values():
-
-        for cont_name, key in zip(dm["ndim_df"], plots.keys()):
+        for key, plot_cfg in plots.items():
             epc(
-                **out_path("multiplot_" + str(key) + cont_name),
+                **out_path("multiplot_" + str(key)),
                 **plots[key],
-                select=dict(data="ndim_df/" + cont_name),
+                select=dict(data="test_data/tips"),
                 module=".multiplot",
             )
 

@@ -36,7 +36,7 @@ Handling, transforming, and plotting high-dimensional data is difficult and ofte
 ``dantro`` provides the generic :py:func:`~dantro.plot_creators.ext_funcs.generic.facet_grid` plot function that - together with the other dantro features - allows for a declarative way of creating plots from high-dimensional data.
 
 The idea is that high-dimensional raw data first is transformed using the :ref:`dag_framework`.
-The :py:func:`~.facet_grid` function then gets the ready-to-plot data as input and visualizes it by automatically choosing an appropriate kind of plot – if possible and not explicitely given – in a declarative way through specification of layout keywords such as ``col``\ ums, ``row``\ s, or ``hue``.
+The :py:func:`~.facet_grid` function then gets the ready-to-plot data as input and visualizes it by automatically choosing an appropriate kind of plot – if possible and not explicitly given – in a declarative way through the specification of layout keywords such as ``col``\ ums, ``row``\ s, or ``hue``.
 This approach is called `faceting <http://xarray.pydata.org/en/stable/plotting.html#faceting>`_; dantro makes use of the `excellent plotting functionality of xarray <http://xarray.pydata.org/en/stable/plotting.html>`_ for this feature.
 The :py:func:`~.facet_grid` plot function further extends the xarray plotting functionality by adding the possibility to create :ref:`animations <pcr_ext_animations>`, simply by using the ``frames`` argument to specify the data dimension to represent as individual frames of an animation.
 
@@ -89,7 +89,7 @@ For details, see :py:func:`~.determine_layout_encoding`.
 .. _dag_generic_errorbar:
 
 :py:func:`~.errorbar` and :py:func:`~.errorbands`: Visualizing Confidence Intervals
-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------
 The :py:func:`~.errorbar` and :py:func:`~.errorbands` plotting functions provide the ability to visualize data together with corresponding confidence intervals.
 Similar to :py:func:`~.facet_grid`, these functions offer the ``hue`` and ``frames`` arguments, allowing to represent data with up to three dimensions.
 
@@ -97,3 +97,20 @@ Similar to :py:func:`~.facet_grid`, these functions offer the ``hue`` and ``fram
 
     These plot functions also support the :ref:`auto-encoding feature <dag_generic_auto_encoding>`, similar to the facet grid plot.
     The available specifiers are: ``x``, ``hue`` and ``frames``.
+
+
+
+
+----
+
+.. _dag_multiplot:
+
+:py:func:`~.multiplot`: Plot multiple functions on one axis
+-----------------------------------------------------------
+The :py:func:`~.multiplot` plotting function enables the consecutive application of multiple plot functions on an axis.
+The following plot functions are available mapping to their corresponding `seaborn plot function <https://seaborn.pydata.org/api.html>`_ taking an ``ax`` object as function argument:
+
+.. literalinclude:: ../../dantro/plot_creators/ext_funcs/multiplot.py
+    :language: python
+    :start-after: _MULTIPLOT_PLOT_KINDS = { # --- start literalinclude
+    :end-before:  }   # --- end literalinclude
