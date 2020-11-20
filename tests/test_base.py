@@ -15,6 +15,7 @@ import dantro as dtr
 import dantro.base
 import dantro.containers
 import dantro.groups
+from dantro.exceptions import ItemAccessError
 
 log = logging.getLogger()
 
@@ -164,13 +165,10 @@ def test_BaseDataGroup():
     root._link_child(new_child=foo)
     assert foo.parent is root
 
-    # __contains__
+    # __contains__  (more tests below)
     assert "foo" in root
-    assert foo in root
-    assert [] not in root
-
-    with pytest.raises(TypeError, match="Can only check content of"):
-        ("foo", "bar") in root
+    assert foo in root  # is-comparison
+    assert log not in root
 
     # iteration and dict access
     assert [k for k in root] == ["foo"]
@@ -194,6 +192,126 @@ def test_BaseDataGroup():
 
     # Groups with larger number of members take up more bytes
     assert sys.getsizeof(foo) > sys.getsizeof(root)
+
+
+def test_BaseDataGroup_new_group():
+    """Tests adding new groups"""
+    root = dtr.groups.OrderedDataGroup(name="root")
+    assert not len(root)
+
+    # Simple case
+    foo = root.new_group("foo")
+    assert "foo" in root
+    assert foo is root["foo"]
+
+    # Intermediate groups
+    baz = root.new_group("foo/bar/baz")
+    assert "bar" in root["foo"]
+    assert "baz" in root["foo/bar"]
+    assert "bar" in foo
+    assert "baz" in foo["bar"]
+
+    # Create object in PARENT
+    also_foo = foo.new_group("../also_foo")
+    assert "also_foo" in root
+    assert also_foo in root
+
+    # Errors
+    with pytest.raises(ValueError, match="may not be empty"):
+        root.new_group("")
+
+
+def test_BaseDataGroup_getitem():
+    """Tests the item access interface"""
+    root = dtr.groups.OrderedDataGroup(name="root")
+
+    # Create a deep hierarchy
+    root.new_group("alpha/beta/gamma/delta/epsilon")
+
+    gamma = root["alpha/beta/gamma"]
+    assert gamma.name == "gamma"
+    assert gamma.parent.name == "beta"
+    assert "delta" in gamma
+
+    # Walk through the tree, up and down
+    for path, expected_name in (
+        # Access self
+        (".", "gamma"),
+        ("./.", "gamma"),
+        ([".", "."], "gamma"),
+        #
+        # Access via parent
+        ("..", "beta"),
+        ([".."], "beta"),
+        ("../.", "beta"),
+        (["..", "."], "beta"),
+        (["..", ".."], "alpha"),
+        ("../../", "alpha"),
+        ("../../.", "alpha"),
+        #
+        # Downstream access
+        ("delta", "delta"),
+        ("delta/", "delta"),
+        ("./delta/", "delta"),
+        ("delta/epsilon", "epsilon"),
+        ("delta/epsilon/", "epsilon"),
+        ("./delta/epsilon", "epsilon"),
+        #
+        # Mixed
+        (".//delta/epsilon/../", "delta"),
+        (".//delta/./epsilon/////../epsilon/", "epsilon"),
+    ):
+        print("path:         ", path)
+        print("expected_name:", expected_name)
+        assert gamma[path].name == expected_name
+
+    # Errors
+    with pytest.raises(ItemAccessError, match="No parent associated."):
+        root[".."]
+
+    with pytest.raises(ItemAccessError, match="No item .*Available.*alpha"):
+        root["i_do_not_exist"]
+
+    with pytest.raises(ItemAccessError, match="No item .*Available.*gamma"):
+        root["alpha/beta/i_do_not_exist"]
+
+    with pytest.raises(ItemAccessError, match="Can only do relative lookups!"):
+        gamma["/delta"]
+
+    with pytest.raises(ItemAccessError, match="Can only do relative lookups!"):
+        gamma[()]
+
+    # Hints if there are many keys
+    for i in range(100):
+        root.new_group(f"group_with_many_members/{i:02d}")
+    grp = root["group_with_many_members"]
+    assert len(grp) == 100
+
+    with pytest.raises(ItemAccessError, match="Did you mean.*42.*?"):
+        grp["042"]
+
+
+def test_BaseDataGroup_contains():
+    """Tests the __contains__ method"""
+    root = dtr.groups.OrderedDataGroup(name="root")
+    baz = root.new_group("foo/bar/baz")
+
+    # Via object lookup
+    assert baz in root["foo/bar"]
+    assert baz not in root["foo"]
+
+    # Via path
+    assert "baz" in root["foo/bar"]
+    assert "bar/baz" in root["foo"]
+    assert "foo/bar/baz" in root
+    assert "foo//bar/./baz" in root
+    assert "../foo/bar/baz/../baz" in root["foo"]
+
+    assert "baz" not in root
+    assert "baz" not in root["foo"]
+    assert "./baz" not in root["foo"]
+
+    assert "something else" not in root["foo"]
 
 
 def test_BaseDataGroup_tree_repr():

@@ -214,7 +214,7 @@ def test_ItemAccessMixin():
     assert root["obj/foo"] == "bar"
 
     del root["obj/foo"]
-    with pytest.raises(KeyError, match="No key or key sequence"):
+    with pytest.raises(KeyError, match="'foo'"):
         root["obj/foo"]
 
     # List arguments
@@ -222,11 +222,11 @@ def test_ItemAccessMixin():
     assert root[["obj", "foo"]] == "bar"
 
     del root[["obj", "foo"]]
-    with pytest.raises(KeyError, match="No key or key sequence"):
+    with pytest.raises(KeyError, match="'foo'"):
         root[["obj", "foo"]]
 
     # Too long lists
-    with pytest.raises(KeyError, match="No key or key sequence"):
+    with pytest.raises(KeyError, match="'foo'"):
         root[["obj", "foo", "spam"]]
 
 

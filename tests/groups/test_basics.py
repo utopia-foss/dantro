@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from dantro.containers import MutableSequenceContainer, NumpyDataContainer
+from dantro.exceptions import ItemAccessError
 from dantro.groups import OrderedDataGroup
 
 # -----------------------------------------------------------------------------
@@ -42,10 +43,10 @@ def test_basics():
     assert "baz" not in root
 
     # There should be a custom key error if accessing something not available
-    with pytest.raises(KeyError, match="No key or key sequence '.*' in .*!"):
+    with pytest.raises(ItemAccessError, match="Available keys:  foo, bar"):
         root["i_am_a_ghost"]
 
-    with pytest.raises(KeyError, match="No key or key sequence '.*' in .*!"):
+    with pytest.raises(ItemAccessError, match="is empty"):
         root["foo/is/a/ghost"]
 
     # Test adding a new group in that group
@@ -74,7 +75,7 @@ def test_basics():
         root.new_group("foobar", Cls=MutableSequenceContainer)
 
 
-def test_group_creation():
+def test_container_creation():
     """Tests whether groups and containers can be created as desired."""
     root = OrderedDataGroup(name="root")
 
@@ -103,9 +104,10 @@ def test_group_creation():
     assert "foo/bar" in root
     assert "bar" in foo
 
-    # Check that intermediate parts not existing leads to errors
-    with pytest.raises(KeyError, match="Could not create OrderedDataGroup at"):
-        root.new_group("some/longer/path")
+    # Check that intermediate parts not existing does not lead to errors
+    root.new_group("some/longer/path")
+    assert "some" in root
+    assert "some/longer/path" in root
 
     # Set the allowed container types of the bar group differently
     bar._ALLOWED_CONT_TYPES = (MutableSequenceContainer,)

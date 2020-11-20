@@ -13,6 +13,7 @@ import dill as pkl
 
 from ._hash import _hash
 from .base import PATH_JOIN_CHAR, BaseDataContainer, BaseDataGroup
+from .exceptions import *
 from .groups import OrderedDataGroup
 from .tools import (
     clear_line,
@@ -26,63 +27,6 @@ from .tools import (
 log = logging.getLogger(__name__)
 
 DATA_TREE_DUMP_EXT = ".d3"
-
-
-# Exception classes ...........................................................
-
-
-class DataManagerError(Exception):
-    """All DataManager exceptions derive from this one"""
-
-    pass
-
-
-class RequiredDataMissingError(DataManagerError):
-    """Raised if required data was missing."""
-
-    pass
-
-
-class MissingDataError(DataManagerError):
-    """Raised if data was missing, but is not required."""
-
-    pass
-
-
-class ExistingDataError(DataManagerError):
-    """Raised if data already existed."""
-
-    pass
-
-
-class ExistingGroupError(DataManagerError):
-    """Raised if a group already existed."""
-
-    pass
-
-
-class LoaderError(DataManagerError):
-    """Raised if a data loader was not available"""
-
-    pass
-
-
-class MissingDataWarning(UserWarning):
-    """Used as warning instead of MissingDataError"""
-
-    pass
-
-
-class ExistingDataWarning(UserWarning):
-    """If there was data already existing ..."""
-
-    pass
-
-
-class NoMatchWarning(UserWarning):
-    """If there was no regex match"""
-
-    pass
 
 
 # -----------------------------------------------------------------------------
