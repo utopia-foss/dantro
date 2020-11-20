@@ -54,7 +54,7 @@ _MULTIPLOT_PLOT_KINDS = {
 def apply_plot_func(ax, plot_spec: list, **kwargs):
     pass
 
-def get_multiplot_function(str: name):
+def get_multiplot_function(name: str):
     pass
 
 # -----------------------------------------------------------------------------
@@ -62,12 +62,12 @@ def get_multiplot_function(str: name):
 # -----------------------------------------------------------------------------
 
 @is_plot_func(
-    use_dag=True, required_dag_tags=("data")
+    use_dag=True, required_dag_tags=(("data",))
 )
 def multiplot (
     *,
     data: dict,
-    to_plot: Union[list, dict]
+    to_plot: Union[list, dict],
     hlpr: PlotHelper,
     **multiplot_kwargs,
 ) -> None:

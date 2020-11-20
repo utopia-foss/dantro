@@ -1,0 +1,41 @@
+# Configuration for the DAG multiplot function
+---
+# .. With `kind` specified ....................................................
+# A brief test of all various kinds.
+multiplots:
+  simple_scatter:
+    plot_func: multiplot
+    to_plot:
+      - function: sns.scatterplot
+        x: dim_0
+        y: dim_1
+
+  multiple_funcs:
+    plot_func: multiplot
+    to_plot:
+      - function: sns.lineplot
+      - function: sns.scatterplot
+      - funciton: sns.despine
+
+  all_funcs:
+    plot_func: multiplot
+    to_plot:
+      - function: sns.scatterplot
+      - function: sns.lineplot
+      - function: sns.histplot
+      - function: sns.kdeplot
+      - function: sns.ecdfplot
+      - function: sns.rugplot
+      - function: sns.stripplot
+      - function: sns.swarmplot
+      - function: sns.boxplot
+      - function: sns.violinplot
+      - function: sns.boxenplot
+      - function: sns.pointplot
+      - function: sns.barplot
+      - function: sns.countplot
+      - function: sns.regplot
+      - function: sns.residplot
+      - function: sns.heatmap
+      - function: sns.despine
+      
