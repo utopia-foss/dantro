@@ -35,7 +35,7 @@ skip_if_not_full = pytest.mark.skipif(
 # Whether to write test output to a temporary directory
 # NOTE When manually debugging, it's useful to set this to False, such that the
 #      output can be inspected in TEST_OUTPUT_PATH
-USE_TMPDIR = False
+USE_TMPDIR = True
 
 # If not using a temporary directory, the desired output directory
 TEST_OUTPUT_PATH = os.path.abspath(os.path.expanduser("~/dantro_test_output"))
@@ -288,6 +288,12 @@ def test_determine_plot_kind():
     assert dpk(DA(1), kind=custom_map) == "one"
     assert dpk(DA(2), kind=custom_map) == "two"
     assert dpk(DA(42), kind=custom_map) == "some_default"
+
+    # With partly specified layout encoding: fixes line or pcolormesh
+    for i in range(6):
+        assert dpk(DA(i), kind="auto", hue="foo") == "line"
+    for i in range(6):
+        assert dpk(DA(i), kind="auto", x="foo", y="bar") == "pcolormesh"
 
     # Without a fallback or dataset, should get KeyErrors
     with pytest.raises(KeyError, match="fallback"):

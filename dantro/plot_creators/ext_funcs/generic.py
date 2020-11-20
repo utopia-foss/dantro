@@ -52,13 +52,15 @@ _DANTRO_PLOT_KINDS = {  # --- start literalinclude
 # A mapping from data dimensionality to preferred plot kind, used in automatic
 # plot kind selection. This assumes the specifiers of ``_DANTRO_PLOT_KINDS``.
 _AUTO_PLOT_KINDS = {  # --- start literalinclude
-    1:           "line",
-    2:           "pcolormesh",
-    3:           "pcolormesh",
-    4:           "pcolormesh",
-    5:           "pcolormesh",
-    "fallback":  "hist",
-    "dataset":   "scatter",
+    1:               "line",
+    2:               "pcolormesh",
+    3:               "pcolormesh",
+    4:               "pcolormesh",
+    5:               "pcolormesh",
+    "with_hue":      "line",         # used when `hue` is explicitly set
+    "with_x_and_y":  "pcolormesh",   # used when _both_ `x` and `y` were set
+    "dataset":       "scatter",      # used for xr.Dataset-like data
+    "fallback":      "hist",         # used when none of the above matches
 }   # --- end literalinclude
 
 
@@ -76,10 +78,32 @@ def determine_plot_kind(
     *,
     kind: Union[str, dict],
     default_kind_map: dict = _AUTO_PLOT_KINDS,
+    **plot_kwargs,
 ) -> str:
     """Determines the plot kind to use for the given data. If ``kind: auto``,
     this will determine the plot kind depending on the dimensionality of the
-    data. Otherwise, it will simply return ``kind``.
+    data and other (potentially fixed) encoding specifiers. Otherwise, it will
+    simply return ``kind``.
+
+    **What if layout encodings were partly fixed?** There are two special cases
+    where this is of relevance, and both these cases are covered explicitly:
+
+        - If *both* ``x`` and ``y`` are given, ``line``- or ``hist``-like plot
+          kinds are no longer possible; hence, a ``pcolormesh``-like kind has
+          to be chosen.
+        - In turn, if ``hue`` was given, ``pcolormesh``-like plot kinds are no
+          longer applicable, thus a ``line``-like argument needs to be chosen.
+
+    These two special cases are specified via the extra keys ``with_x_and_y``
+    and ``with_hue`` in the kind mapping.
+
+    A kind mapping may look like this:
+
+    .. literalinclude:: ../../dantro/plot_creators/ext_funcs/generic.py
+        :language: python
+        :start-after: _AUTO_PLOT_KINDS = {  # --- start literalinclude
+        :end-before:  }   # --- end literalinclude
+        :dedent: 4
 
     Args:
         d (Union[xr.DataArray, xr.Dataset]): The data for which to determine
@@ -97,6 +121,10 @@ def determine_plot_kind(
             like, i.e. does not have an ``ndim`` attribute. The value of
             ``fallback`` specifies the plot kind for data dimensionalities
             that match no other key.
+        **plot_kwargs: All remaining plot function arguments, including any
+            layout encoding arguments that aim to *fix* a dimension; these are
+            used to determine the ``with_hue`` and ``with_x_and_y`` special
+            cases. Everything else is ignored.
 
     Returns:
         str: The selected plot kind. This is equal to the *given* ``kind`` if
@@ -113,9 +141,18 @@ def determine_plot_kind(
     if isinstance(kind, dict):
         kind_map.update(kind)
 
-    # For datasets, always fall back to the specified default kind
+    # Handle special cases ...
+    # ... for datasets: always fall back to the specified default kind
     if not hasattr(d, "ndim"):
         return kind_map["dataset"]
+
+    # ... for given x *and* y layout specifiers
+    elif plot_kwargs.get("x") and plot_kwargs.get("y"):
+        return kind_map["with_x_and_y"]
+
+    # ... for given hue layout specifier
+    elif plot_kwargs.get("hue"):
+        return kind_map["with_hue"]
 
     # Select the kind from the dimensionality. If this fails, use the default
     # value instead.
@@ -702,7 +739,9 @@ def facet_grid(
     # Determine kind and encoding, updating the plot kwargs accordingly.
     # NOTE Need to pop all explicitly given specifiers in order to not have
     #      them appear as part of plot_kwargs further downstream.
-    kind = determine_plot_kind(d, kind=kind, default_kind_map=_AUTO_PLOT_KINDS)
+    kind = determine_plot_kind(
+        d, kind=kind, default_kind_map=_AUTO_PLOT_KINDS, **plot_kwargs
+    )
     plot_kwargs = determine_layout_encoding(
         d,
         kind=kind,

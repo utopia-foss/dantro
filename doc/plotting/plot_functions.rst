@@ -65,7 +65,7 @@ By default, the following mapping of data-dimensionality to plot kind is used:
     :end-before:  }   # --- end literalinclude
     :dedent: 4
 
-Note the ``fallback`` case (used for all other dimensionalities) and the ``dataset`` option, for data that is ``xr.Dataset``-like.
+Aside from the dimensionality as key, there are a few special cases that handle already-fixed layout encoding (``hue`` / ``x`` and ``y``); the case of  ``xr.Dataset``-like data; and a ``fallback`` option for all other dimensionalities or cases.
 For details, see the docstring of :py:func:`~.determine_plot_kind`.
 
 Setting ``kind: auto`` becomes especially powerful in conjunction with :ref:`dag_generic_auto_encoding`.

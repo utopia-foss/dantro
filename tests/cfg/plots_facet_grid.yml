@@ -44,12 +44,12 @@ auto:
 
   partly_specified:
     kinds: [auto]
-    specifiers: [y, x, row]
+    specifiers: [y, x, row]  # x and y given -> forces pcolormesh
     max_dims: 6
     plot_kwargs:
       auto_encoding: true
     raises:
-      6: &hist_type_err [ValueError, 'hist\(\) got multiple values for arg']
+      6: [ValueError, must be a permuted list]
 
   custom_auto_encoding:
     kinds: [line, pcolormesh]
@@ -195,6 +195,6 @@ hist:
     specifiers: [x, frames]
     max_dims: 3
     raises:
-      1: *hist_type_err
+      1: &hist_type_err [ValueError, 'hist\(\) got multiple values for arg']
       2: *hist_type_err
       3: *hist_type_err
