@@ -15,6 +15,7 @@
     - !221 improves auto-encoding in case of partly fixed layout specifiers
 - !207 improves the computation time for data selection in the `GraphGroup`.
 - !208 addresses #199 by adding the `keep_dim` option in the `GraphGroup` to specify dimensions that are not squeezed during data selection.
+- !217 improves the `GraphGroup`, now storing selection information as graph attribute (in `g.graph`) whenever data is added to the graph object.
 - !204 makes pickling of the data tree possible. If building the data tree takes a long time, storing its structure to a tree cache file and restoring it can bring a speed-up.
     - Data tree objects can be pickled and unpickled manually. To be more versatile, dantro now uses [dill](https://pypi.org/project/dill/) for pickling.
     - The `DataManager.dump` method can be used to store the full tree.
@@ -40,7 +41,7 @@
 #### Bug fixes
 - !205 addresses scipy netcdf warnings by requiring a more recent version.
 - !206 fixes a regression in the [generic `errorbar` and `errorbands` plot functions](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html) where size-1 dimensions were not always squeezed out.
-- !215 fixes passing on the file format to the `FileWriters`' `savefig function in cases where it cannot be deduced from the filename.
+- !215 fixes passing on the file format to the `FileWriters`' `savefig` function in cases where it cannot be deduced from the filename.
 - !214 makes dantro compatible to the latest h5py version, addressing #212, and sets the minimum version to 3.1.
 - !211 fixes a bug that lead to an outdated `logstr` after renaming a group or container.
 
