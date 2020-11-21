@@ -63,7 +63,13 @@ def apply_plot_func(*, ax, func: Callable, **kwargs) -> None:
 
 
 def get_multiplot_func(name: str) -> Callable:
-    """Get the multiplot function from the _MULTIPLOT_PLOT_KINDS dict.
+    """Get the multiplot function from the _MULTIPLOT_PLOT_KINDS dict
+    containing the following entries:
+
+    .. literalinclude:: ../../dantro/plot_creators/ext_funcs/multiplot.py
+        :language: python
+        :start-after: _MULTIPLOT_PLOT_KINDS = { # --- start literalinclude
+        :end-before:  }   # --- end literalinclude
 
     Args:
         name (str):             The name of the multiplot function to plot.
@@ -102,14 +108,18 @@ def multiplot(
             a list of plot function configurations to apply consecutively.
             Each single plot function is configured via the following kwargs:
 
-            function (str): The name of the function to plot. It is looked up
-                in the _MULTIPLOT_PLOT_KINDS dict and mapped to the
-                respective function to apply.
-            **func_kwargs (dict, optional): The function kwargs passed on to
-                the selected function to plot.
+                ``function (str)``
+                    The name of the function to plot. The corresponding
+                    plot function is retreaved from the
+                    :py:func:`~dantro.plot_creators.ext_funcs.multiplot.get_multiplot_func`
+                    function.
+
+                ``**func_kwargs (dict, optional)``
+                    The function kwargs passed on to
+                    the selected function to plot.
 
             Examples:
-                A simple `to_plot` configuration on the hlpr.ax is:
+                A simple ``to_plot`` configuration on the hlpr.ax is:
 
                 .. code-block:: yaml
 
@@ -118,7 +128,7 @@ def multiplot(
                       data: !dag_result data
                     - function: sns.despine
 
-                A simple `to_plot` configuration specifying two axis is:
+                A simple ``to_plot`` configuration specifying two axis is:
 
                 .. code-block:: yaml
 
@@ -135,9 +145,9 @@ def multiplot(
         same axis.
 
     Raises:
-        NotImplementedError: On a dict-like 'to_plot' argument that would
+        NotImplementedError: On a dict-like ``to_plot`` argument that would
             define the ax to plot on in case of multiple axes to select from.
-        TypeError: On a non-list-like or non-dict-like 'to_plot' argument.
+        TypeError: On a non-list-like or non-dict-like ``to_plot`` argument.
     """
     # dict-like to_plot is not yet implemented
     if isinstance(to_plot, dict):
