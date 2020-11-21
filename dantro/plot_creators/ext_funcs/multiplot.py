@@ -71,7 +71,14 @@ def get_multiplot_func(name: str) -> Callable:
     Returns:
         A callable function object
     """
-    return _MULTIPLOT_PLOT_KINDS[name]
+    try:
+        plot_func = _MULTIPLOT_PLOT_KINDS[name]
+    except KeyError as err:
+        raise KeyError(
+            f"The function '{name}' is not a valid multiplot function. "
+            f"Valid options are: {_MULTIPLOT_PLOT_KINDS.values()}."
+        ) from err
+    return plot_func
 
 
 # -----------------------------------------------------------------------------
@@ -108,6 +115,7 @@ def multiplot(
 
                     to_plot:
                     - function: sns.lineplot
+                      data: !dag_result data
                     - function: sns.despine
 
                 A simple `to_plot` configuration specifying two axis is:
@@ -116,7 +124,9 @@ def multiplot(
 
                     to_plot:
                     [0,0]: - function: sns.lineplot
+                             data: !dag_result data
                     [1,0]: - function: sns.scatterplot
+                             data: !dag_result data
 
     .. note::
 
@@ -125,8 +135,6 @@ def multiplot(
         same axis.
 
     Raises:
-        ValueError: On invalid or non-computed dag tags in
-            ``register_property_maps``.
         NotImplementedError: On a dict-like 'to_plot' argument that would
             define the ax to plot on in case of multiple axes to select from.
         TypeError: On a non-list-like or non-dict-like 'to_plot' argument.
@@ -151,6 +159,22 @@ def multiplot(
         func_name = func_kwargs.pop("function")
         func = get_multiplot_func(func_name)
 
+        # Warn if no data-key was given in the case of functions requiring
+        # a `data` specification. Otherwise, most of the plots functions would
+        # just not plot anything without any hint to the user.
+        if func_name != "sns.despine" and ("data" not in func_kwargs):
+            if hlpr.raise_on_error:
+                raise KeyError(
+                    "The required 'data' key is missing in the plot "
+                    f"configuration of {func_name}"
+                )
+
+            log.warning(
+                "The required 'data' key is missing in the plot "
+                "configuration of '%s'",
+                func_name,
+            )
+
         # Apply the function to the PlotHelper axis hlpr.ax.
         # Allow for a single plot to fail.
         try:
@@ -159,6 +183,8 @@ def multiplot(
         # If plotting fails, just pass and try to plot the next plot :)
         except Exception as exc:
             log.warning(
-                f"Plotting '{func_name}' did not succeed with the "
-                f"following error message: '{exc}'"
+                "Plotting '%s' did not succeed with the following error "
+                "message: '%s'",
+                func_name,
+                exc,
             )

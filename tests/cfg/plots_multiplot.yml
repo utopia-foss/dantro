@@ -6,7 +6,7 @@ multiplots:
     plot_func: multiplot
     to_plot:
       - function: sns.scatterplot
-        # data: !dag_result data
+        data: !dag_result data
         x: dim_0
         y: dim_1
         marker: x
@@ -26,8 +26,7 @@ multiplots:
   all_succeeding_sns_funcs:
     plot_func: multiplot
     to_plot:
-      - function: sns.scatterplot
-        data: !dag_result data
+      - function: sns.scatterplot    # Do not fail, but warn, if 'data' missing
       - function: sns.lineplot
         data: !dag_result data
       - function: sns.histplot
@@ -60,4 +59,3 @@ multiplots:
       - function: sns.regplot
         data: !dag_result data
       - function: sns.residplot
-        data: !dag_result data
