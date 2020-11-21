@@ -6,7 +6,7 @@ multiplots:
     plot_func: multiplot
     to_plot:
       - function: sns.scatterplot
-        data: !dag_result data
+        # data: !dag_result data
         x: dim_0
         y: dim_1
         marker: x
@@ -57,7 +57,6 @@ multiplots:
       - function: sns.heatmap
         data: !dag_result data
       - function: sns.despine
-        data: !dag_result data
       - function: sns.regplot
         data: !dag_result data
       - function: sns.residplot

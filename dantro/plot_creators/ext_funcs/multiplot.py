@@ -52,18 +52,14 @@ _MULTIPLOT_PLOT_KINDS = { # --- start literalinclude
 # -- Helper functions ---------------------------------------------------------
 
 
-def apply_plot_func(*, data, ax, func: Callable, **kwargs) -> None:
+def apply_plot_func(*, ax, func: Callable, **kwargs) -> None:
     """Apply a plot function to a given axis.
 
     Args:
-        data:               The data to plot.
         ax:                 The matplotlib Axes object to plot the data on.
         func (Callable):    The callable plot function.
     """
-    if data is None:
-        func(ax=ax, **kwargs)
-    else:
-        func(data=data, ax=ax, **kwargs)
+    func(ax=ax, **kwargs)
 
 
 def get_multiplot_func(name: str) -> Callable:
