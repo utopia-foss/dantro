@@ -6,6 +6,7 @@ multiplots:
     plot_func: multiplot
     to_plot:
       - function: sns.scatterplot
+        data: !dag_result data
         x: dim_0
         y: dim_1
         marker: x
@@ -14,7 +15,9 @@ multiplots:
     plot_func: multiplot
     to_plot:
       - function: sns.lineplot
+        data: !dag_result data
       - function: sns.scatterplot
+        data: !dag_result data
       - function: sns.despine
 
   # Try to plot all different plot kinds.
@@ -24,20 +27,38 @@ multiplots:
     plot_func: multiplot
     to_plot:
       - function: sns.scatterplot
+        data: !dag_result data
       - function: sns.lineplot
+        data: !dag_result data
       - function: sns.histplot
+        data: !dag_result data
       - function: sns.kdeplot
+        data: !dag_result data
       - function: sns.ecdfplot
+        data: !dag_result data
       - function: sns.rugplot
+        data: !dag_result data
       - function: sns.stripplot
+        data: !dag_result data
       - function: sns.swarmplot
+        data: !dag_result data
       - function: sns.boxplot
+        data: !dag_result data
       - function: sns.violinplot
+        data: !dag_result data
       - function: sns.boxenplot
+        data: !dag_result data
       - function: sns.pointplot
+        data: !dag_result data
       - function: sns.barplot
+        data: !dag_result data
       - function: sns.countplot
+        data: !dag_result data
       - function: sns.heatmap
+        data: !dag_result data
       - function: sns.despine
+        data: !dag_result data
       - function: sns.regplot
+        data: !dag_result data
       - function: sns.residplot
+        data: !dag_result data

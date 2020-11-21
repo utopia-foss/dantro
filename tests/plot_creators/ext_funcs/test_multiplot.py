@@ -52,7 +52,7 @@ def dm(_dm):
 
     grp_df = _dm.new_group("test_data")
 
-    grp_df.add(PassthroughContainer(name="tips", data=df))
+    grp_df.add(PassthroughContainer(name="2D_random", data=df))
 
     return _dm
 
@@ -79,7 +79,7 @@ def test_multiplot(dm, out_dir):
             epc(
                 **out_path("multiplot_" + str(key)),
                 **plots[key],
-                select=dict(data="test_data/tips"),
+                select=dict(data="test_data/2D_random"),
                 module=".multiplot",
             )
 

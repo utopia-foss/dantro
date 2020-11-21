@@ -83,15 +83,14 @@ def get_multiplot_func(name: str) -> Callable:
 # -----------------------------------------------------------------------------
 
 
-@is_plot_func(use_dag=True, required_dag_tags=(("data",)))
+@is_plot_func(use_dag=True)
 def multiplot(
     *, data: dict, hlpr: PlotHelper, to_plot: Union[list, dict]
 ) -> None:
     """Consecutively plot multiple functions on one or multiple axes.
 
     Args:
-        data (dict): Data from TransformationDAG selection. It has to provide
-            the `data` key containing the data to plot.
+        data (dict): Data from TransformationDAG selection.
         hlpr (PlotHelper): The PlotHelper instance for this plot
         to_plot (Union[list, dict]): The data to plot. If to_plots is list-like
             the plot functions are plotted on the axes provided through hlpr.ax.
@@ -159,17 +158,7 @@ def multiplot(
         # Apply the function to the PlotHelper axis hlpr.ax.
         # Allow for a single plot to fail.
         try:
-            # sns.despine does not take data as input argument and therefore
-            # has to be treated separately
-            if func_name == "sns.despine":
-                apply_plot_func(
-                    data=None, ax=hlpr.ax, func=func, **func_kwargs
-                )
-
-            else:
-                apply_plot_func(
-                    data=data["data"], ax=hlpr.ax, func=func, **func_kwargs
-                )
+            apply_plot_func(ax=hlpr.ax, func=func, **func_kwargs)
 
         # If plotting fails, just pass and try to plot the next plot :)
         except Exception as exc:
