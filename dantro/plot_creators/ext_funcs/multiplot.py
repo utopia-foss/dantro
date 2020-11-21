@@ -8,7 +8,7 @@ from typing import Callable, Union
 
 import seaborn as sns
 
-from ..pcr_ext import PlotHelper, is_plot_func
+from ..pcr_ext import PlotHelper, PlotHelperErrors, is_plot_func
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -81,8 +81,8 @@ def get_multiplot_func(name: str) -> Callable:
         plot_func = _MULTIPLOT_PLOT_KINDS[name]
     except KeyError as err:
         raise KeyError(
-            f"The function '{name}' is not a valid multiplot function. "
-            f"Valid options are: {_MULTIPLOT_PLOT_KINDS.values()}."
+            f"The function `{name}` is not a valid multiplot function. "
+            f"Available functions: {', '.join(_MULTIPLOT_PLOT_KINDS.keys())}."
         ) from err
     return plot_func
 
@@ -190,8 +190,12 @@ def multiplot(
         try:
             apply_plot_func(ax=hlpr.ax, func=func, **func_kwargs)
 
-        # If plotting fails, just pass and try to plot the next plot :)
+        # If plotting fails, just pass and try to plot the next plot if
+        # raise_on_error is deactivated in the PlotHelper.
         except Exception as exc:
+            if hlpr.raise_on_error:
+                raise PlotHelperErrors(...) from exc
+
             log.warning(
                 "Plotting '%s' did not succeed with the following error "
                 "message: '%s'",
