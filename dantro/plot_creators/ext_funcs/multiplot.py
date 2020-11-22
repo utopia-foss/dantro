@@ -62,29 +62,44 @@ def apply_plot_func(*, ax, func: Callable, **kwargs) -> None:
     func(ax=ax, **kwargs)
 
 
-def get_multiplot_func(name: str) -> Callable:
-    """Get the multiplot function from the _MULTIPLOT_PLOT_KINDS dict
-    containing the following entries:
-
-    .. literalinclude:: ../../dantro/plot_creators/ext_funcs/multiplot.py
-        :language: python
-        :start-after: _MULTIPLOT_PLOT_KINDS = { # --- start literalinclude
-        :end-before:  }   # --- end literalinclude
+def parse_func_kwargs(function: Union[str, Callable], **func_kwargs):
+    """Parse the multiplot function kwargs.
 
     Args:
-        name (str):             The name of the multiplot function to plot.
+        function (Union[str, Callable]):  The callable function object or the
+            name of the plot function to look up in the _MULTIPLOT_PLOT_KINDS
+            dict containing the following entries:
+
+            .. literalinclude:: ../../dantro/plot_creators/ext_funcs/multiplot.py
+                :language: python
+                :start-after: _MULTIPLOT_PLOT_KINDS = { # --- start literalinclude
+                :end-before:  }   # --- end literalinclude
+
+
+        **func_kwargs (dict): The function kwargs to be passed on to the
+            function object.
 
     Returns:
-        A callable function object
+        func_name:      The plot function name
+        func:           A callable function object
+        func_kwargs:    The kwargs for the multiplot function
     """
-    try:
-        plot_func = _MULTIPLOT_PLOT_KINDS[name]
-    except KeyError as err:
-        raise KeyError(
-            f"The function `{name}` is not a valid multiplot function. "
-            f"Available functions: {', '.join(_MULTIPLOT_PLOT_KINDS.keys())}."
-        ) from err
-    return plot_func
+    if callable(function):
+        func_name = function.__name__
+        func = function
+    else:
+        func_name = function
+
+        # Look up the function in the _MULTIPLOT_PLOT_KINDS dict
+        try:
+            func = _MULTIPLOT_PLOT_KINDS[func_name]
+        except KeyError as err:
+            raise KeyError(
+                f"The function `{func_name}` is not a valid multiplot function. "
+                f"Available functions: {', '.join(_MULTIPLOT_PLOT_KINDS.keys())}."
+            ) from err
+
+    return func_name, func, func_kwargs
 
 
 # -----------------------------------------------------------------------------
@@ -106,17 +121,9 @@ def multiplot(
             If to_plot is dict-like, the keys specify the coordinate pair
             selecting an ax to plot on, e.g. (0,0), while the values specify
             a list of plot function configurations to apply consecutively.
-            Each single plot function is configured via the following kwargs:
-
-                ``function (str)``
-                    The name of the function to plot. The corresponding
-                    plot function is retreaved from the
-                    :py:func:`~dantro.plot_creators.ext_funcs.multiplot.get_multiplot_func`
-                    function.
-
-                ``**func_kwargs (dict, optional)``
-                    The function kwargs passed on to
-                    the selected function to plot.
+            Each list entry specifies one function plot and is parsed via the
+            :py:func:`~dantro.plot_creators.ext_funcs.multiplot.parse_func_kwargs`
+            function.
 
             Examples:
                 A simple ``to_plot`` configuration on the hlpr.ax is:
@@ -126,6 +133,10 @@ def multiplot(
                     to_plot:
                     - function: sns.lineplot
                       data: !dag_result data
+                      # Note that seaborn plot functions require a `data`
+                      # input argument that can conveniently be provided via
+                      # the !dag_result YAML-tag. If not provided, nothing
+                      # is plotted without showing a warning.
                     - function: sns.despine
 
                 A simple ``to_plot`` configuration specifying two axis is:
@@ -164,26 +175,10 @@ def multiplot(
             f"of type {type(to_plot)}. Please assure to pass a list."
         )
 
-    for func_kwargs in to_plot:
-        # Extract the multiplot function
-        func_name = func_kwargs.pop("function")
-        func = get_multiplot_func(func_name)
-
-        # Warn if no data-key was given in the case of functions requiring
-        # a `data` specification. Otherwise, most of the plots functions would
-        # just not plot anything without any hint to the user.
-        if func_name != "sns.despine" and ("data" not in func_kwargs):
-            if hlpr.raise_on_error:
-                raise KeyError(
-                    "The required 'data' key is missing in the plot "
-                    f"configuration of {func_name}"
-                )
-
-            log.warning(
-                "The required 'data' key is missing in the plot "
-                "configuration of '%s'",
-                func_name,
-            )
+    for func_num, func_kwargs in enumerate(to_plot):
+        # Get the function name, the function object and all function kwargs
+        # from the configuration entry.
+        func_name, func, func_kwargs = parse_func_kwargs(**func_kwargs)
 
         # Apply the function to the PlotHelper axis hlpr.ax.
         # Allow for a single plot to fail.
@@ -197,8 +192,9 @@ def multiplot(
                 raise PlotHelperErrors(...) from exc
 
             log.warning(
-                "Plotting '%s' did not succeed with the following error "
-                "message: '%s'",
+                "Plotting function '%i' with name '%s' did not "
+                "succeed emitting the following error message: '%s'",
+                func_num,
                 func_name,
                 exc,
             )

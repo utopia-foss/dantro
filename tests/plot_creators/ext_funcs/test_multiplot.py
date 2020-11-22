@@ -12,10 +12,7 @@ from pkg_resources import resource_filename
 
 from dantro.containers import PassthroughContainer, XrDataContainer
 from dantro.plot_creators import ExternalPlotCreator, PlotHelper
-from dantro.plot_creators.ext_funcs.multiplot import (
-    get_multiplot_func,
-    multiplot,
-)
+from dantro.plot_creators.ext_funcs.multiplot import multiplot
 from dantro.tools import load_yml
 
 from .test_generic import create_nd_data, out_dir
@@ -94,13 +91,3 @@ def test_multiplot(dm, out_dir):
     plt.close("all")
 
     assert len(plt.get_fignums()) == 0
-
-
-def test_get_multiplot_func():
-    """Test the get_multiplot_func function"""
-    # Test looking up one example plot function
-    get_multiplot_func("sns.scatterplot")
-
-    # Test looking up an incorrect key from the get_multiplot_func function
-    with pytest.raises(KeyError, match="not a valid multiplot function"):
-        get_multiplot_func("wrong_key")
