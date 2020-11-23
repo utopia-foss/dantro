@@ -110,9 +110,7 @@ def parse_func_kwargs(function: Union[str, Callable], **func_kwargs):
             function object.
 
     Returns:
-        func_name:      The plot function name
-        func:           A callable function object
-        func_kwargs:    The kwargs for the multiplot function
+        (str, Callable, dict): (function name, function object, function kwargs)
     """
     if callable(function):
         func_name = function.__name__
@@ -154,6 +152,10 @@ def multiplot(
             Each list entry specifies one function plot and is parsed via the
             :py:func:`~dantro.plot_creators.ext_funcs.multiplot.parse_func_kwargs`
             function.
+            Note that many functions require a 'data' argument that needs to
+            be passed via a `!dag_result` key. The multiplot function neither
+            expects nor automatically passes a 'data' dag_node to the
+            individual functions.
 
             Examples:
                 A simple ``to_plot`` configuration on the hlpr.ax is:
@@ -163,10 +165,11 @@ def multiplot(
                     to_plot:
                     - function: sns.lineplot
                       data: !dag_result data
-                      # Note that seaborn plot functions require a `data`
-                      # input argument that can conveniently be provided via
-                      # the !dag_result YAML-tag. If not provided, nothing
-                      # is plotted without showing a warning.
+                      # Note that especially seaborn plot functions require a
+                      # `data` input argument that can conveniently be
+                      # provided via the !dag_result YAML-tag.
+                      # If not provided, nothing is plotted without emitting
+                      # a warning.
                     - function: sns.despine
 
                 A simple ``to_plot`` configuration specifying two axis is:
