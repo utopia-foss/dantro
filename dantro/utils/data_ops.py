@@ -12,6 +12,7 @@ import networkx as nx
 import numpy as np
 import scipy
 import scipy.optimize
+import seaborn as sns
 import xarray as xr
 from sympy.parsing.sympy_parser import parse_expr as _parse_expr
 from sympy.parsing.sympy_parser import standard_transformations as _std_trf
@@ -45,7 +46,7 @@ BOOLEAN_OPERATORS = {
     # Performing bitwise boolean operations to support numpy logic
     'in interval':      (lambda x, y: x >= y[0] & x <= y[1]),
     'not in interval':  (lambda x, y: x < y[0] | x > y[1]),
-} # End of boolean operator definitions
+}  # End of boolean operator definitions
 # fmt: on
 
 # .............................................................................
@@ -833,9 +834,9 @@ def expand_object_array(
     item_name = d.name if d.name else "data"
     item_shape = tuple([1 for _ in d.shape]) + tuple(shape)
     item_dims = d.dims + tuple(dims)
-    item_coords = lambda e: dict(
-        **{n: [c.item()] for n, c in e.coords.items()}, **coords
-    )
+
+    def item_coords(e):
+        return dict(**{n: [c.item()] for n, c in e.coords.items()}, **coords)
 
     # The array that gathers all to-be-combined object arrays
     arrs = np.empty_like(d, dtype=object)
@@ -883,25 +884,26 @@ def expand_object_array(
 #      operation, it should be accepted as the first positional argument.
 _OPERATIONS = KeyOrderedDict({
     # General operations - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    'define':       lambda d: d,
-    'pass':         lambda d: d,
+    'define': lambda d: d,
+    'pass': lambda d: d,
     'print':        print_data,
 
     # Working on imported modules (useful if other operations don't match)
     'from_module':  get_from_module,
     'import':       import_module_or_object,
-    'call':         lambda c, *a, **k: c(*a, **k),
+    'call': lambda c, *a, **k: c(*a, **k),
     'import_and_call':
         lambda m, n, *a, **k: import_module_or_object(m, n)(*a, **k),
 
-    'np.':          lambda ms, *a, **k: get_from_module(np, name=ms)(*a, **k),
-    'xr.':          lambda ms, *a, **k: get_from_module(xr, name=ms)(*a, **k),
-    'scipy.':       lambda ms, *a, **k: get_from_module(scipy, name=ms)(*a, **k),
-    'nx.':          lambda ms, *a, **k: get_from_module(nx, name=ms)(*a, **k),
+    'np.': lambda ms, *a, **k: get_from_module(np, name=ms)(*a, **k),
+    'xr.': lambda ms, *a, **k: get_from_module(xr, name=ms)(*a, **k),
+    'sns.': lambda ms, *a, **k: get_from_module(sns, name=ms)(*a, **k),
+    'scipy.': lambda ms, *a, **k: get_from_module(scipy, name=ms)(*a, **k),
+    'nx.': lambda ms, *a, **k: get_from_module(nx, name=ms)(*a, **k),
 
     # Defining lambdas
     'lambda':       generate_lambda,
-    'call_lambda':  lambda e, *a, **k: generate_lambda(e)(*a, **k),
+    'call_lambda': lambda e, *a, **k: generate_lambda(e)(*a, **k),
 
     # Some commonly used types
     'list':         list,
@@ -916,14 +918,14 @@ _OPERATIONS = KeyOrderedDict({
     'str':          str,
 
     # Item access and manipulation
-    'getitem':              lambda d, k:    d[k],
-    'setitem':              lambda d, k, v: d.__setitem__(k, v),
+    'getitem': lambda d, k:    d[k],
+    'setitem': lambda d, k, v: d.__setitem__(k, v),
     'recursive_getitem':    recursive_getitem,
 
     # Attribute-related
     'getattr':      getattr,
     'setattr':      setattr,
-    'callattr':     lambda d, attr, *a, **k: getattr(d, attr)(*a, **k),
+    'callattr': lambda d, attr, *a, **k: getattr(d, attr)(*a, **k),
 
     # Other common Python builtins
     'all':          all,
@@ -937,80 +939,80 @@ _OPERATIONS = KeyOrderedDict({
     'sorted':       sorted,
 
     # Common operations on strings
-    '.format':      lambda s, *a, **k: s.format(*a, **k),
-    '.join':        lambda s, *a, **k: s.join(*a, **k),
-    '.split':       lambda s, *a, **k: s.split(*a, **k),
+    '.format': lambda s, *a, **k: s.format(*a, **k),
+    '.join': lambda s, *a, **k: s.join(*a, **k),
+    '.split': lambda s, *a, **k: s.split(*a, **k),
 
 
     # Numerical operations - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Unary ...................................................................
-    'neg':          lambda d: operator.neg(d),
-    'pos':          lambda d: operator.pos(d),
-    'truth':        lambda d: operator.truth(d),
+    'neg': lambda d: operator.neg(d),
+    'pos': lambda d: operator.pos(d),
+    'truth': lambda d: operator.truth(d),
 
-    'increment':    lambda d: d + 1,
-    'decrement':    lambda d: d - 1,
+    'increment': lambda d: d + 1,
+    'decrement': lambda d: d - 1,
     'count_unique': count_unique,
 
     # numpy
-    '.T':           lambda d: d.T,
-    '.any':         lambda d: d.any(),
-    '.all':         lambda d: d.all(),
-    '.dtype':       lambda d: d.dtype,
-    '.shape':       lambda d: d.shape,
-    '.ndim':        lambda d: d.ndim,
-    '.size':        lambda d: d.size,
-    '.itemsize':    lambda d: d.itemsize,
-    '.nbytes':      lambda d: d.nbytes,
-    '.base':        lambda d: d.base,
-    '.imag':        lambda d: d.imag,
-    '.real':        lambda d: d.real,
-    '.nonzero':     lambda d: d.nonzero,
-    '.flat':        lambda d: d.flat,
-    '.item':        lambda d: d.item(),
+    '.T': lambda d: d.T,
+    '.any': lambda d: d.any(),
+    '.all': lambda d: d.all(),
+    '.dtype': lambda d: d.dtype,
+    '.shape': lambda d: d.shape,
+    '.ndim': lambda d: d.ndim,
+    '.size': lambda d: d.size,
+    '.itemsize': lambda d: d.itemsize,
+    '.nbytes': lambda d: d.nbytes,
+    '.base': lambda d: d.base,
+    '.imag': lambda d: d.imag,
+    '.real': lambda d: d.real,
+    '.nonzero': lambda d: d.nonzero,
+    '.flat': lambda d: d.flat,
+    '.item': lambda d: d.item(),
 
     # xarray
-    '.head':        lambda d: d.head(),
-    '.tail':        lambda d: d.tail(),
+    '.head': lambda d: d.head(),
+    '.tail': lambda d: d.tail(),
 
     # logarithms and powers
-    'log':          lambda d: np.log(d),
-    'log10':        lambda d: np.log10(d),
-    'log2':         lambda d: np.log2(d),
-    'log1p':        lambda d: np.log1p(d),
-    'squared':      lambda d: np.square(d),
-    'sqrt':         lambda d: np.sqrt(d),
-    'cubed':        lambda d: np.power(d, 3),
-    'sqrt3':        lambda d: np.power(d, 1./.3),
+    'log': lambda d: np.log(d),
+    'log10': lambda d: np.log10(d),
+    'log2': lambda d: np.log2(d),
+    'log1p': lambda d: np.log1p(d),
+    'squared': lambda d: np.square(d),
+    'sqrt': lambda d: np.sqrt(d),
+    'cubed': lambda d: np.power(d, 3),
+    'sqrt3': lambda d: np.power(d, 1./.3),
 
     # normalization and cumulation
-    'normalize_to_sum':         lambda d: d / np.sum(d),
-    'normalize_to_max':         lambda d: d / np.max(d),
-    'cumulate':                 lambda d: np.cumsum(d),
-    'cumulate_complementary':   lambda d: np.cumsum(d[::-1])[::-1],
+    'normalize_to_sum': lambda d: d / np.sum(d),
+    'normalize_to_max': lambda d: d / np.max(d),
+    'cumulate': lambda d: np.cumsum(d),
+    'cumulate_complementary': lambda d: np.cumsum(d[::-1])[::-1],
 
 
     # Binary ..................................................................
     # Elementwise operations
-    'add':          lambda d, v: operator.add(d, v),
-    'concat':       lambda d, v: operator.concat(d, v),
-    'div':          lambda d, v: operator.truediv(d, v),
-    'truediv':      lambda d, v: operator.truediv(d, v),
-    'floordiv':     lambda d, v: operator.floordiv(d, v),
-    'lshift':       lambda d, v: operator.lshift(d, v),
-    'mod':          lambda d, v: operator.mod(d, v),
-    'mul':          lambda d, v: operator.mul(d, v),
-    'matmul':       lambda d, v: operator.matmul(d, v),
-    'pow':          lambda d, v: operator.pow(d, v),
-    'rshift':       lambda d, v: operator.rshift(d, v),
-    'sub':          lambda d, v: operator.sub(d, v),
+    'add': lambda d, v: operator.add(d, v),
+    'concat': lambda d, v: operator.concat(d, v),
+    'div': lambda d, v: operator.truediv(d, v),
+    'truediv': lambda d, v: operator.truediv(d, v),
+    'floordiv': lambda d, v: operator.floordiv(d, v),
+    'lshift': lambda d, v: operator.lshift(d, v),
+    'mod': lambda d, v: operator.mod(d, v),
+    'mul': lambda d, v: operator.mul(d, v),
+    'matmul': lambda d, v: operator.matmul(d, v),
+    'pow': lambda d, v: operator.pow(d, v),
+    'rshift': lambda d, v: operator.rshift(d, v),
+    'sub': lambda d, v: operator.sub(d, v),
 
     # numpy
-    'power':        lambda d, e: np.power(d, e),
+    'power': lambda d, e: np.power(d, e),
     'np.dot':       np.dot,
 
     # xarray
-    '.coords':      lambda d, key: d.coords[key],
+    '.coords': lambda d, key: d.coords[key],
 
 
     # N-ary ...................................................................
@@ -1035,33 +1037,33 @@ _OPERATIONS = KeyOrderedDict({
     # NOTE: The `^` operator acts as XOR; use `**` for exponentiation!
 
     # numpy
-    '.sum':             lambda d, *a, **k: d.sum(*a, **k),
-    '.prod':            lambda d, *a, **k: d.prod(*a, **k),
-    '.cumsum':          lambda d, *a, **k: d.cumsum(*a, **k),
-    '.cumprod':         lambda d, *a, **k: d.cumprod(*a, **k),
+    '.sum': lambda d, *a, **k: d.sum(*a, **k),
+    '.prod': lambda d, *a, **k: d.prod(*a, **k),
+    '.cumsum': lambda d, *a, **k: d.cumsum(*a, **k),
+    '.cumprod': lambda d, *a, **k: d.cumprod(*a, **k),
 
-    '.mean':            lambda d, *a, **k: d.mean(*a, **k),
-    '.std':             lambda d, *a, **k: d.std(*a, **k),
-    '.min':             lambda d, *a, **k: d.min(*a, **k),
-    '.max':             lambda d, *a, **k: d.max(*a, **k),
-    '.var':             lambda d, *a, **k: d.var(*a, **k),
-    '.argmin':          lambda d, *a, **k: d.argmin(*a, **k),
-    '.argmax':          lambda d, *a, **k: d.argmax(*a, **k),
-    '.argsort':         lambda d, *a, **k: d.argsort(*a, **k),
-    '.argpartition':    lambda d, *a, **k: d.argpartition(*a, **k),
+    '.mean': lambda d, *a, **k: d.mean(*a, **k),
+    '.std': lambda d, *a, **k: d.std(*a, **k),
+    '.min': lambda d, *a, **k: d.min(*a, **k),
+    '.max': lambda d, *a, **k: d.max(*a, **k),
+    '.var': lambda d, *a, **k: d.var(*a, **k),
+    '.argmin': lambda d, *a, **k: d.argmin(*a, **k),
+    '.argmax': lambda d, *a, **k: d.argmax(*a, **k),
+    '.argsort': lambda d, *a, **k: d.argsort(*a, **k),
+    '.argpartition': lambda d, *a, **k: d.argpartition(*a, **k),
 
-    '.transpose':       lambda d, *ax: d.transpose(*ax),
-    '.squeeze':         lambda d, **k: d.squeeze(**k),
-    '.flatten':         lambda d, **k: d.flatten(**k),
-    '.diagonal':        lambda d, **k: d.diagonal(**k),
-    '.trace':           lambda d, **k: d.trace(**k),
-    '.sort':            lambda d, **k: d.sort(**k),
-    '.fill':            lambda d, val: d.fill(val),
-    '.round':           lambda d, **k: d.round(**k),
-    '.take':            lambda d, i, **k: d.take(i, **k),
-    '.swapaxes':        lambda d, a1, a2: d.swapaxes(a1, a2),
-    '.reshape':         lambda d, s, **k: d.reshape(s, **k),
-    '.astype':          lambda d, t, **k: d.astype(t, **k),
+    '.transpose': lambda d, *ax: d.transpose(*ax),
+    '.squeeze': lambda d, **k: d.squeeze(**k),
+    '.flatten': lambda d, **k: d.flatten(**k),
+    '.diagonal': lambda d, **k: d.diagonal(**k),
+    '.trace': lambda d, **k: d.trace(**k),
+    '.sort': lambda d, **k: d.sort(**k),
+    '.fill': lambda d, val: d.fill(val),
+    '.round': lambda d, **k: d.round(**k),
+    '.take': lambda d, i, **k: d.take(i, **k),
+    '.swapaxes': lambda d, a1, a2: d.swapaxes(a1, a2),
+    '.reshape': lambda d, s, **k: d.reshape(s, **k),
+    '.astype': lambda d, t, **k: d.astype(t, **k),
 
     'np.array':         np.array,
     'np.empty':         np.empty,
@@ -1099,37 +1101,37 @@ _OPERATIONS = KeyOrderedDict({
     'np.count_nonzero': np.count_nonzero,
 
     # xarray
-    '.sel':             lambda d, *a, **k: d.sel(*a, **k),
-    '.isel':            lambda d, *a, **k: d.isel(*a, **k),
-    '.drop_sel':        lambda d, *a, **k: d.drop_sel(*a, **k),
-    '.median':          lambda d, *a, **k: d.median(*a, **k),
-    '.quantile':        lambda d, *a, **k: d.quantile(*a, **k),
-    '.argmin':          lambda d, *a, **k: d.argmin(*a, **k),
-    '.argmax':          lambda d, *a, **k: d.argmax(*a, **k),
-    '.count':           lambda d, *a, **k: d.count(*a, **k),
-    '.diff':            lambda d, *a, **k: d.diff(*a, **k),
-    '.where':           lambda d, c, *a, **k: d.where(c, *a, **k),
-    '.ffill':           lambda d, *a, **k: d.ffill(*a, **k),
-    '.bfill':           lambda d, *a, **k: d.bfill(*a, **k),
-    '.fillna':          lambda d, *a, **k: d.fillna(*a, **k),
-    '.interpolate_na':  lambda d, *a, **k: d.interpolate_na(*a, **k),
-    '.dropna':          lambda d, *a, **k: d.dropna(*a, **k),
-    '.isin':            lambda d, *a, **k: d.isin(*a, **k),
+    '.sel': lambda d, *a, **k: d.sel(*a, **k),
+    '.isel': lambda d, *a, **k: d.isel(*a, **k),
+    '.drop_sel': lambda d, *a, **k: d.drop_sel(*a, **k),
+    '.median': lambda d, *a, **k: d.median(*a, **k),
+    '.quantile': lambda d, *a, **k: d.quantile(*a, **k),
+    '.argmin': lambda d, *a, **k: d.argmin(*a, **k),
+    '.argmax': lambda d, *a, **k: d.argmax(*a, **k),
+    '.count': lambda d, *a, **k: d.count(*a, **k),
+    '.diff': lambda d, *a, **k: d.diff(*a, **k),
+    '.where': lambda d, c, *a, **k: d.where(c, *a, **k),
+    '.ffill': lambda d, *a, **k: d.ffill(*a, **k),
+    '.bfill': lambda d, *a, **k: d.bfill(*a, **k),
+    '.fillna': lambda d, *a, **k: d.fillna(*a, **k),
+    '.interpolate_na': lambda d, *a, **k: d.interpolate_na(*a, **k),
+    '.dropna': lambda d, *a, **k: d.dropna(*a, **k),
+    '.isin': lambda d, *a, **k: d.isin(*a, **k),
 
-    '.groupby':         lambda d, g, **k: d.groupby(g, **k),
-    '.groupby_bins':    lambda d, g, **k: d.groupby_bins(g, **k),
-    '.map':             lambda ds, func, **k: ds.map(func, **k),
-    '.reduce':          lambda d, func, **k: d.reduce(func, **k),
+    '.groupby': lambda d, g, **k: d.groupby(g, **k),
+    '.groupby_bins': lambda d, g, **k: d.groupby_bins(g, **k),
+    '.map': lambda ds, func, **k: ds.map(func, **k),
+    '.reduce': lambda d, func, **k: d.reduce(func, **k),
 
-    '.rename':          lambda d, *a, **k: d.rename(*a, **k),
-    '.expand_dims':     lambda d, *a, **k: d.expand_dims(*a, **k),
-    '.assign_coords':   lambda d, *a, **k: d.assign_coords(*a, **k),
-    '.assign_attrs':    lambda d, *a, **k: d.assign_attrs(*a, **k),
-    '.assign':          lambda d, *a, **k: d.assign(*a, **k),
+    '.rename': lambda d, *a, **k: d.rename(*a, **k),
+    '.expand_dims': lambda d, *a, **k: d.expand_dims(*a, **k),
+    '.assign_coords': lambda d, *a, **k: d.assign_coords(*a, **k),
+    '.assign_attrs': lambda d, *a, **k: d.assign_attrs(*a, **k),
+    '.assign': lambda d, *a, **k: d.assign(*a, **k),
 
-    '.to_array':        lambda ds, *a, **k: ds.to_array(*a, **k),
+    '.to_array': lambda ds, *a, **k: ds.to_array(*a, **k),
 
-    '.to_dataframe':    lambda d, *a, **k: d.to_dataframe(*a, **k),
+    '.to_dataframe': lambda d, *a, **k: d.to_dataframe(*a, **k),
 
     'xr.Dataset':       xr.Dataset,
     'xr.DataArray':     xr.DataArray,
@@ -1145,7 +1147,7 @@ _OPERATIONS = KeyOrderedDict({
     # scipy
     'curve_fit':        scipy.optimize.curve_fit,
     # NOTE: Use the 'lambda' operation to generate the callable
-}) # End of default operation definitions
+})  # End of default operation definitions
 # fmt: on
 
 # Add the boolean operators

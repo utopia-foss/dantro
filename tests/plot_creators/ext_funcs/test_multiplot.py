@@ -12,9 +12,13 @@ from pkg_resources import resource_filename
 
 from dantro.containers import PassthroughContainer, XrDataContainer
 from dantro.plot_creators import ExternalPlotCreator, PlotHelper
-from dantro.plot_creators.ext_funcs.multiplot import multiplot
+from dantro.plot_creators.ext_funcs.multiplot import (
+    multiplot,
+    parse_func_kwargs,
+)
 from dantro.tools import load_yml
 
+from ...test_plot_mngr import dm as _dm
 from .test_generic import create_nd_data, out_dir
 
 # Local variables and configuration ...........................................
@@ -39,7 +43,6 @@ logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 # -- Fixtures -----------------------------------------------------------------
 # Import fixtures from other tests
-from ...test_plot_mngr import dm as _dm
 
 
 @pytest.fixture
@@ -66,7 +69,8 @@ def test_multiplot(dm, out_dir):
     epc._exist_ok = True
 
     # Shortcuts
-    out_path = lambda name: dict(out_path=os.path.join(out_dir, name + ".pdf"))
+    def out_path(name):
+        return dict(out_path=os.path.join(out_dir, name + ".pdf"))
 
     # Make sure there are no figures currently open, in order to be able to
     # track whether any figures leak from the plot function ...
@@ -91,3 +95,35 @@ def test_multiplot(dm, out_dir):
     plt.close("all")
 
     assert len(plt.get_fignums()) == 0
+
+    # Not implemented raising check
+    with pytest.raises(
+        NotImplementedError, match="'to_plot' needs to be list-like"
+    ):
+        epc(
+            **out_path("multiplot_not_impl"),
+            **dict(plot_func=multiplot, to_plot={}),
+            select={},
+            module=".multiplot",
+        )
+
+    # Not implemented raising check
+    with pytest.raises(TypeError, match="'to_plot' needs to be list-like"):
+        epc(
+            **out_path("multiplot_not_impl"),
+            **dict(plot_func=multiplot, to_plot="some string"),
+            select={},
+            module=".multiplot",
+        )
+
+
+def test_parse_func_kwargs():
+    """Tests the basic features of the parse_func_kwargs"""
+    # Check that it is possible to get a plot function from the
+    # _MULTIPLOT_FUNC_KINDS as well as from directly passing a function
+    parse_func_kwargs("sns.lineplot")
+    parse_func_kwargs(plt.scatter)
+
+    # Check that an error is emitted for a wrong key
+    with pytest.raises(KeyError, match="is not a valid multiplot function."):
+        parse_func_kwargs("wrong_func_name")
