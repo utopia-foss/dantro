@@ -112,5 +112,5 @@ The following plot functions are available mapping to their corresponding `seabo
 
 .. literalinclude:: ../../dantro/plot_creators/ext_funcs/multiplot.py
     :language: python
-    :start-after: _MULTIPLOT_PLOT_KINDS = { # --- start literalinclude
+    :start-after: _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
     :end-before:  }   # --- end literalinclude

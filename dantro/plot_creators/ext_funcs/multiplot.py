@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 # to plot data onto.
 # Details of the seaborn-related plots can be found here in the seaborn API:
 # https://seaborn.pydata.org/api.html
-_MULTIPLOT_PLOT_KINDS = { # --- start literalinclude
+_MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
     # Relational plots
     "sns.scatterplot": sns.scatterplot,
     "sns.lineplot": sns.lineplot,
@@ -97,12 +97,12 @@ def parse_func_kwargs(function: Union[str, Callable], **func_kwargs):
 
     Args:
         function (Union[str, Callable]):  The callable function object or the
-            name of the plot function to look up in the _MULTIPLOT_PLOT_KINDS
+            name of the plot function to look up in the _MULTIPLOT_FUNC_KINDS
             dict containing the following entries:
 
             .. literalinclude:: ../../dantro/plot_creators/ext_funcs/multiplot.py
                 :language: python
-                :start-after: _MULTIPLOT_PLOT_KINDS = { # --- start literalinclude
+                :start-after: _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
                 :end-before:  }   # --- end literalinclude
 
 
@@ -120,13 +120,13 @@ def parse_func_kwargs(function: Union[str, Callable], **func_kwargs):
     else:
         func_name = function
 
-        # Look up the function in the _MULTIPLOT_PLOT_KINDS dict
+        # Look up the function in the _MULTIPLOT_FUNC_KINDS dict
         try:
-            func = _MULTIPLOT_PLOT_KINDS[func_name]
+            func = _MULTIPLOT_FUNC_KINDS[func_name]
         except KeyError as err:
             raise KeyError(
                 f"The function `{func_name}` is not a valid multiplot function. "
-                f"Available functions: {', '.join(_MULTIPLOT_PLOT_KINDS.keys())}."
+                f"Available functions: {', '.join(_MULTIPLOT_FUNC_KINDS.keys())}."
             ) from err
 
     return func_name, func, func_kwargs
