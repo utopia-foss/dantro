@@ -51,30 +51,11 @@ _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
 # when called.
 # This is helpful for functions that e.g. require a 'data' argument but do
 # not fail or warn if no 'data' is passed on to them.
-_MULTIPLOT_CAUTION_FUNC_NAMES = {
-    # Relational plots
-    "sns.scatterplot": sns.scatterplot,
-    "sns.lineplot": sns.lineplot,
-    # Distribution plots
-    "sns.histplot": sns.histplot,
-    "sns.kdeplot": sns.kdeplot,
-    "sns.ecdfplot": sns.ecdfplot,
-    "sns.rugplot": sns.rugplot,
-    # Categorical plots
-    "sns.stripplot": sns.stripplot,
-    "sns.swarmplot": sns.swarmplot,
-    "sns.boxplot": sns.boxplot,
-    "sns.violinplot": sns.violinplot,
-    "sns.boxenplot": sns.boxenplot,
-    "sns.pointplot": sns.pointplot,
-    "sns.barplot": sns.barplot,
-    "sns.countplot": sns.countplot,
-    # Regression plots
-    "sns.regplot": sns.regplot,
-    "sns.residplot": sns.residplot,
-    # Matrix plots
-    "sns.heatmap": sns.heatmap,
-}
+_MULTIPLOT_CAUTION_FUNC_NAMES = tuple([
+    func_name for func_name in _MULTIPLOT_FUNC_KINDS
+    if func_name not in ("sns.despine",)
+])
+
 
 # fmt: on
 
@@ -237,6 +218,6 @@ def multiplot(
             if hlpr.raise_on_error:
                 raise PlottingError(msg) from exc
             log.warning(
-                f"{msg}\nEnable debug mode to get a full traceback."
+                f"{msg}\nEnable debug mode to get a full traceback. "
                 "Proceeding with next plot ..."
             )
