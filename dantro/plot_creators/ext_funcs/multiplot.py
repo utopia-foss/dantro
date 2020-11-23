@@ -8,7 +8,8 @@ from typing import Callable, Union
 
 import seaborn as sns
 
-from ..pcr_ext import PlotHelper, PlotHelperErrors, is_plot_func
+from ...exceptions import PlottingError
+from ..pcr_ext import PlotHelper, is_plot_func
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -180,21 +181,19 @@ def multiplot(
         # from the configuration entry.
         func_name, func, func_kwargs = parse_func_kwargs(**func_kwargs)
 
-        # Apply the function to the PlotHelper axis hlpr.ax.
-        # Allow for a single plot to fail.
+        # Apply the plot function and allow it to fail to make sure that
+        # potential other plots are still plotted and shown.
         try:
             apply_plot_func(ax=hlpr.ax, func=func, **func_kwargs)
 
-        # If plotting fails, just pass and try to plot the next plot if
-        # raise_on_error is deactivated in the PlotHelper.
         except Exception as exc:
+            msg = (
+                f"Plotting with '{func_name}', plot number '{func_num}', "
+                f"did not succeed! Got a {type(exc).__name__}: {exc}"
+            )
             if hlpr.raise_on_error:
-                raise PlotHelperErrors(...) from exc
-
+                raise PlottingError(msg) from exc
             log.warning(
-                "Plotting function '%i' with name '%s' did not "
-                "succeed emitting the following error message: '%s'",
-                func_num,
-                func_name,
-                exc,
+                f"{msg}\nEnable debug mode to get a full traceback."
+                "Proceeding with next plot ..."
             )
