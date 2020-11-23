@@ -47,6 +47,35 @@ _MULTIPLOT_PLOT_KINDS = { # --- start literalinclude
     "sns.despine": sns.despine,
 }   # --- end literalinclude
 
+# The multiplot functions that emit a warning if they do not get any arguments
+# when called.
+# This is helpful for functions that e.g. require a 'data' argument but do
+# not fail or warn if no 'data' is passed on to them.
+_MULTIPLOT_CAUTION_FUNC_NAMES = {
+    # Relational plots
+    "sns.scatterplot": sns.scatterplot,
+    "sns.lineplot": sns.lineplot,
+    # Distribution plots
+    "sns.histplot": sns.histplot,
+    "sns.kdeplot": sns.kdeplot,
+    "sns.ecdfplot": sns.ecdfplot,
+    "sns.rugplot": sns.rugplot,
+    # Categorical plots
+    "sns.stripplot": sns.stripplot,
+    "sns.swarmplot": sns.swarmplot,
+    "sns.boxplot": sns.boxplot,
+    "sns.violinplot": sns.violinplot,
+    "sns.boxenplot": sns.boxenplot,
+    "sns.pointplot": sns.pointplot,
+    "sns.barplot": sns.barplot,
+    "sns.countplot": sns.countplot,
+    # Regression plots
+    "sns.regplot": sns.regplot,
+    "sns.residplot": sns.residplot,
+    # Matrix plots
+    "sns.heatmap": sns.heatmap,
+}
+
 # fmt: on
 
 
@@ -180,6 +209,17 @@ def multiplot(
         # Get the function name, the function object and all function kwargs
         # from the configuration entry.
         func_name, func, func_kwargs = parse_func_kwargs(**func_kwargs)
+
+        # Notify user if plot functions do not get any kwargs passed on.
+        # This is e.g. helpful and relevant for seaborn functions that require
+        # a 'data' kwarg but do not fail or warn if no 'data' is passed on to
+        # them.
+        if not func_kwargs and func_name in _MULTIPLOT_CAUTION_FUNC_NAMES:
+            log.caution(
+                "Oops, you seem to have called '%s' without any function "
+                "arguments. If the plot produces unexpected output, check that "
+                "all required arguments (e.g. `data`, `x`, ...) were given."
+            )
 
         # Apply the plot function and allow it to fail to make sure that
         # potential other plots are still plotted and shown.
