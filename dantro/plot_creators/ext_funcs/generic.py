@@ -6,11 +6,12 @@ creators.
 import copy
 import logging
 import math
-from typing import Tuple, Union
+from typing import Callable, Tuple, Union
 
 import matplotlib.pyplot as plt
 import xarray as xr
 
+from ...tools import recursive_update
 from ..pcr_ext import PlotHelper, figure_leak_prevention, is_plot_func
 from ._utils import plot_errorbar as _plot_errorbar
 
@@ -22,7 +23,7 @@ log = logging.getLogger(__name__)
 # The available plot kinds for the *xarray* plotting interface, together with
 # the supported layout specifier keywords.
 _XR_PLOT_KINDS = {
-    "scatter":      ("x", "y", "hue", "col", "row"),
+    "scatter":      ("hue", "col", "row"),
     "line":         ("x", "hue", "col", "row"),
     "step":         ("x", "col", "row"),
     "contourf":     ("x", "y", "col", "row"),
@@ -34,9 +35,9 @@ _XR_PLOT_KINDS = {
 
 # The available plot kinds for the *dantro* plotting interface, together with
 # the supported layout specifiers, which include the ``frames`` option.
-_DANTRO_PLOT_KINDS = {  # --- start literalinclude
-    # based on facet_grid
-    "scatter":      ("x", "y", "hue", "col", "row", "frames"),
+_FACET_GRID_KINDS = {  # --- start literalinclude
+    # based on xarary plotting functions
+    "scatter":      ("hue", "col", "row", "frames"),
     "line":         ("x", "hue", "col", "row", "frames"),
     "step":         ("x", "col", "row", "frames"),
     "contourf":     ("x", "y", "col", "row", "frames"),
@@ -45,12 +46,14 @@ _DANTRO_PLOT_KINDS = {  # --- start literalinclude
     "pcolormesh":   ("x", "y", "col", "row", "frames"),
     "hist":         ("frames",),
 
-    # based on other generic functions
-    "errorbar":     ("x", "hue", "frames"),
+    # based on dantro plotting functions
+    "errorbars":    ("x", "hue", "col", "row", "frames"),
 }   # --- end literalinclude
+# NOTE The dantro-based functions are actually registered via the decorator;
+#      the last entries above are only for documentation purposes.
 
 # A mapping from data dimensionality to preferred plot kind, used in automatic
-# plot kind selection. This assumes the specifiers of ``_DANTRO_PLOT_KINDS``.
+# plot kind selection. This assumes the specifiers of ``_FACET_GRID_KINDS``.
 _AUTO_PLOT_KINDS = {  # --- start literalinclude
     1:               "line",
     2:               "pcolormesh",
@@ -63,11 +66,11 @@ _AUTO_PLOT_KINDS = {  # --- start literalinclude
     "fallback":      "hist",         # used when none of the above matches
 }   # --- end literalinclude
 
-
-# All layout encoding specifiers used in the facet_grid or similar plots
-_LAYOUT_SPECIFIERS = ("x", "y", "hue", "col", "row", "frames")
-
 # fmt: on
+
+# A dict mapping additional facet grid kinds to callables.
+# This is populated by the ``make_facet_grid_plot`` decorator.
+_FACET_GRID_FUNCS = {}
 
 
 # -- Helper functions ---------------------------------------------------------
@@ -211,7 +214,7 @@ def determine_layout_encoding(
 
     .. literalinclude:: ../../dantro/plot_creators/ext_funcs/generic.py
         :language: python
-        :start-after: _DANTRO_PLOT_KINDS = {  # --- start literalinclude
+        :start-after: _FACET_GRID_KINDS = {  # --- start literalinclude
         :end-before:  }   # --- end literalinclude
         :dedent: 4
 
@@ -237,21 +240,22 @@ def determine_layout_encoding(
         "Automatically determining layout encoding for kind '%s' ...", kind
     )
 
-    # Split plotting kwargs into a dict of layout specifiers and one that only
-    # includes the remaining plotting kwargs
-    plot_kwargs = copy.deepcopy(all_plot_kwargs)
-    specs = {k: v for k, v in plot_kwargs.items() if k in _LAYOUT_SPECIFIERS}
-    plot_kwargs = {k: v for k, v in plot_kwargs.items() if k not in specs}
-
-    # Drop those specifiers that are effectively unset.
-    specs = {s: dim_name for s, dim_name in specs.items() if dim_name}
-
     # Evaluate supported encodings, then get the available encoding specifiers
     encs = copy.deepcopy(default_encodings)
     if isinstance(auto_encoding, dict):
         encs.update(auto_encoding)
 
     encoding_specs = encs[kind]
+
+    # Split plotting kwargs into a dict of layout specifiers and one that only
+    # includes the remaining plotting kwargs
+    plot_kwargs = copy.deepcopy(all_plot_kwargs)
+    specs = {k: v for k, v in plot_kwargs.items() if k in encoding_specs}
+    plot_kwargs = {k: v for k, v in plot_kwargs.items() if k not in specs}
+
+    # Add the missing encoding specifiers, such that all options will be
+    # visible to the user; those that are None are removed again later on.
+    specs.update({k: None for k in encoding_specs if k not in specs})
 
     # -- Determine specifiers, depending on kind and dimensionality
     # Get all available dimension names, sorted by size (descending)
@@ -276,19 +280,23 @@ def determine_layout_encoding(
         {s: dim_name for s, dim_name in zip(free_specs, free_dim_names)}
     )
     log.remark(
-        "Chosen layout encoding:   %s",
+        "   encoding:  %s",
         ", ".join([f"{s}: {d}" for s, d in specs.items()]),
     )
+
+    # Drop those specifiers that are effectively unset.
+    specs = {s: dim_name for s, dim_name in specs.items() if dim_name}
 
     # -- Automatic column wrapping
     if plot_kwargs.get("col_wrap") == "auto":
         if specs.get("col") and not specs.get("row"):
             num_cols = d.sizes[specs["col"]]
             plot_kwargs["col_wrap"] = math.ceil(math.sqrt(num_cols))
-            log.debug(
-                "With %d expected columns, set automatic col_wrap to %d.",
-                num_cols,
+            log.remark(
+                "   col_wrap:  %d  (length of col dimension, '%s': %d)",
                 plot_kwargs["col_wrap"],
+                specs["col"],
+                num_cols,
             )
         else:
             # Remove it to avoid a plot warning or "unexpected argument"
@@ -298,8 +306,159 @@ def determine_layout_encoding(
     return dict(**plot_kwargs, **specs)
 
 
+class make_facet_grid_plot:
+    """This is a decorator class that transforms a plot function that works on
+    a single axis into one the supports faceting. Additionally, it allows to
+    register the plotting function with the generic facet grid plot.
+    """
+
+    MAP_FUNCS = {
+        "dataset": lambda fg, f, **kws: fg.map_dataset(f, **kws),
+        "dataarray": lambda fg, f, **kws: fg.map_dataarray(f, **kws),
+        "dataarray_line": lambda fg, f, **kws: fg.map_dataarray_line(f, **kws),
+    }
+
+    def __init__(
+        self,
+        *,
+        map_as: str,
+        encodings: Tuple[str],
+        register_as_kind: Union[bool, str] = True,
+        drop_kwargs: Tuple[str] = ("meta_data", "hue_style", "add_guide"),
+        **default_map_kwargs,
+    ):
+        """Initialize the decorator.
+
+        Args:
+            map_as (str): Which mapping to use. Available: ``dataset``,
+                ``dataarray`` and ``dataarray_line``.
+            encodings (Tuple[str]): The encodings supported by the wrapped
+                plot function, e.g. ``("x", "hue")``.
+            register_as_kind (Union[bool, str], optional): If boolean, controls
+                *whether* to register the wrapped function with the generic
+                facet grid plot, using its own name. If a string, uses that
+                name for registration.
+            drop_kwargs (Tuple[str]): Which keyword arguments to drop before
+                invocation of the wrapped function; this can be useful to
+                trim down the signature of the wrapped function.
+            **default_map_kwargs: Additional arguments that are passed to the
+                selected mapping function. These are recursively updated with
+                those given upon plot function invocation.
+        """
+        try:
+            self.map_func = self.MAP_FUNCS[map_as]
+        except KeyError as exc:
+            raise ValueError(
+                f"Unsupported map_as argument '{map_as}'! Needs to be one of "
+                f"{', '.join(self.MAP_FUNCS)}"
+            )
+
+        self.encodings = encodings
+        self.register_as_kind = register_as_kind
+        self.drop_kwargs = drop_kwargs if drop_kwargs else ()
+        self.default_map_kwargs = default_map_kwargs
+
+    def __call__(self, plot_single_axis: Callable) -> Callable:
+        """Generates a standalone DAG-based plotting function that supports
+        faceting. Additionally, integrates it as ``kind`` for the
+        general facet grid plotting function by adding it to the global
+        ``_FACET_GRID_FUNCS`` dictionary.
+        """
+        # First, wrap the single-axis plot function to achieve helper support
+        def wrapped_plot_func(
+            *args, hlpr: PlotHelper, ax=None, _is_facetgrid: bool, **kwargs
+        ):
+            # If this is called as part of a facet grid plot, we need to sync
+            # the helper to the given axis, otherwise the helper cannot be used
+            if _is_facetgrid:
+                hlpr.sync_to_axis(ax=ax)
+
+            # Prepare kwargs, optionally dropping some keys that bloat the
+            # function signature ...
+            kwargs = {
+                k: v for k, v in kwargs.items() if k not in self.drop_kwargs
+            }
+
+            # Now invoke the plotting function
+            plot_single_axis(
+                *args, hlpr=hlpr, _is_facetgrid=_is_facetgrid, **kwargs
+            )
+
+        # Get the mapping function
+        map_to_facet_grid = self.map_func
+
+        # Now, generate the the facet-grid supporting function
+        def fgplot(
+            data,
+            *,
+            hlpr=None,
+            col: str = None,
+            row: str = None,
+            col_wrap: int = None,
+            sharex: bool = True,
+            sharey: bool = True,
+            **kwargs,
+        ):
+            # Without columns or rows, cannot use facet grid. Make a primitive
+            # plot instead, directly using the wrapped plot function.
+            if not col and not row:
+                return wrapped_plot_func(
+                    data, hlpr=hlpr, _is_facetgrid=False, **kwargs
+                )
+
+            # Prepare facet grid and helper
+            fg = xr.plot.FacetGrid(
+                data,
+                col=col,
+                row=row,
+                col_wrap=col_wrap,
+                sharex=sharex,
+                sharey=sharey,
+            )
+            hlpr.attach_figure_and_axes(fig=fg.fig, axes=fg.axes)
+
+            # Prepare mapping keyword arguments
+            kwargs = recursive_update(
+                copy.deepcopy(self.default_map_kwargs), kwargs
+            )
+
+            # Apply the mapping
+            map_to_facet_grid(fg, wrapped_plot_func, hlpr=hlpr, **kwargs)
+
+            # Return the FacetGrid object for further handling
+            return fg
+
+        # ... and register it as a single-axis facet grid plot function
+        if self.register_as_kind:
+            if isinstance(self.register_as_kind, str):
+                regname = self.register_as_kind
+            else:
+                regname = plot_single_axis.__name__
+
+            _FACET_GRID_FUNCS[regname] = fgplot
+            log.debug("Registered '%s' as special facet grid kind.", regname)
+
+            _FACET_GRID_KINDS[regname] = self.encodings + (
+                "col",
+                "row",
+                "frames",
+            )
+            log.debug(
+                "Registered '%s' encodings:  %s",
+                ", ".join(_FACET_GRID_KINDS[regname]),
+            )
+
+        # Build the standalone plot function, which takes the place of the
+        # decorated plot function
+        @is_plot_func(use_dag=True)
+        def standalone(*, data: dict, hlpr: PlotHelper, **kwargs):
+            fgplot(data["data"], hlpr=hlpr, **kwargs)
+
+        return standalone
+
+
 # -----------------------------------------------------------------------------
-# -- The actual plotting functions --------------------------------------------
+# -- Standalone plotting functions --------------------------------------------
 # -----------------------------------------------------------------------------
 
 
@@ -453,7 +612,7 @@ def errorbar(
         y,
         kind="errorbar",
         auto_encoding=auto_encoding,
-        default_encodings=_DANTRO_PLOT_KINDS,
+        default_encodings=_FACET_GRID_KINDS,
         x=x,
         hue=hue,
         frames=frames,
@@ -550,6 +709,8 @@ def errorbands(*, data: dict, hlpr: PlotHelper, **kwargs):
     return errorbar(data=data, hlpr=hlpr, use_bands=True, **kwargs)
 
 
+# -----------------------------------------------------------------------------
+# -- Facet Grid ---------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
 
@@ -672,6 +833,12 @@ def facet_grid(
         if kind is None:
             plot_func = _d.plot
 
+        elif kind in _FACET_GRID_FUNCS:
+            _plot_func = _FACET_GRID_FUNCS[kind]
+
+            # Bind the data and helper to the function
+            plot_func = lambda **kws: _plot_func(_d, hlpr=hlpr, **kws)
+
         else:
             try:
                 plot_func = getattr(_d.plot, kind)
@@ -728,6 +895,8 @@ def facet_grid(
 
         # When now attaching the new figure and axes, the previously existing
         # figure (the one .clear()-ed above) is closed and discarded.
+        # If the figure extracted here is identical to the already-associated
+        # figure, nothing happens.
         hlpr.attach_figure_and_axes(fig=fig, axes=axes)
 
         # Done with this frame now.
@@ -746,7 +915,7 @@ def facet_grid(
         d,
         kind=kind,
         auto_encoding=auto_encoding,
-        default_encodings=_DANTRO_PLOT_KINDS,
+        default_encodings=_FACET_GRID_KINDS,
         frames=frames,
         **plot_kwargs,
     )
@@ -793,3 +962,82 @@ def facet_grid(
 
     # Register the animation update with the helper
     hlpr.register_animation_update(update, invoke_helpers_before_grab=True)
+
+
+# -- Additional facet-grid supporting plots -----------------------------------
+
+
+@make_facet_grid_plot(
+    map_as="dataset",
+    encodings=("x", "hue"),
+    hue_style="discrete",
+)
+def errorbars(
+    ds: xr.Dataset,
+    *,
+    _is_facetgrid: bool,
+    hlpr: PlotHelper,
+    y: str,
+    yerr: str,
+    x: str = None,
+    hue: str = None,
+    hue_fstr: str = "{value:}",
+    use_bands: bool = False,
+    **kwargs,
+):
+    """An errorbar plot supporting facet grid."""
+    # Prepare data
+    _y = ds[y]
+    _yerr = ds[yerr]
+
+    # Infer x, if not given
+    if not x:
+        x = [dim for dim in _y.dims if dim not in (hue, frames)][0]
+    _x = ds.coords[x]
+
+    # If this is not a facet grid, still show some labels
+    if not _is_facetgrid:
+        hlpr.provide_defaults("set_labels", x=x, y=f"{y} & {yerr}")
+
+    # Case: No hue dimension -> plot single errorbar line
+    if hue is None:
+        _plot_errorbar(
+            ax=hlpr.ax,
+            x=_x,
+            y=_y,
+            yerr=_yerr,
+            fill_between=use_bands,
+            **kwargs,
+        )
+        return
+
+    # else: will plot multiple lines
+    # Keep track of legend handles and labels
+    _handles, _labels = [], []
+
+    # Group by the hue dimension and perform plots. Depending on the xarray
+    # version, this might or might not drop size-1 dimensions. To make sure
+    # that this does not mess up everything, squeeze explicitly.
+    hue_iter = zip(_y.groupby(hue), _yerr.groupby(hue))
+    for (_y_coord, _y_vals), (_yerr_coord, _yerr_vals) in hue_iter:
+        _y_vals = _y_vals.squeeze(drop=True)
+        _yerr_vals = _yerr_vals.squeeze(drop=True)
+
+        label = hue_fstr.format(dim=hue, value=_y_coord)
+        handle = _plot_errorbar(
+            ax=hlpr.ax,
+            x=_x,
+            y=_y_vals,
+            yerr=_yerr_vals,
+            label=label,
+            fill_between=use_bands,
+            **kwargs,
+        )
+        _handles.append(handle)
+        _labels.append(label)
+
+    # Register the custom legend handles
+    hlpr.ax.legend(_handles, _labels, title=hue)
+
+    # Register handles for figure-level legend with plot helper
+    # hlpr.track_figure_handles_labels(_handles, _labels)  # TODO

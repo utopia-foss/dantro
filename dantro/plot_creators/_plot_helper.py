@@ -499,6 +499,10 @@ class PlotHelper:
             ValueError: On multiple axes not being passed in 2d format.
 
         """
+        if fig is self._fig:
+            log.debug("Figure was already associated; not doing anything.")
+            return
+
         log.debug(
             "Closing existing figure and re-associating with a new figure ..."
         )
@@ -622,6 +626,24 @@ class PlotHelper:
         self._cfg = None
         log.debug("Associated data removed.")
 
+    def sync_to_axis(self, ax=None):
+        """Synchronises the helper with the currently selected axis"""
+        ax = ax if ax is not None else plt.gca()
+
+        # Find the corresponding axis in the associated axis array
+        try:
+            col, row = np.where(self.axes == ax)
+            col, row = col[0], row[0]
+
+        except Exception as exc:
+            raise ValueError(
+                "Cannot sync to the given axis as it is not part of the "
+                "associated axis array! Is the correct figure associated?"
+            ) from exc
+
+        self.select_axis(col, row)
+        log.debug("Successfully synced to currently selected axis.")
+
     def select_axis(self, col: int, row: int):
         """Selects the axes at the given coordinate as the current axis.
 
@@ -646,9 +668,8 @@ class PlotHelper:
 
         except IndexError as exc:
             raise ValueError(
-                "Could not select axis ({}, {}) from figure with "
-                "subplots of shape {}!"
-                "".format(col, row, self.axes.shape)
+                f"Could not select axis ({col}, {row}) from figure with "
+                f"subplots of shape {self.axes.shape}!"
             ) from exc
 
         else:
