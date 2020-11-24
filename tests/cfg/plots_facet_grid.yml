@@ -6,14 +6,14 @@ no_kind:
     specifiers: [x, 'y', row, col, frames]
     max_dims: 7
     raises:
-      6: &only_1d_and_2d [ValueError, Only 1d and 2d plots are supported]
+      6: &only_1d_and_2d [PlottingError, Only 1d and 2d plots are supported]
       7: *only_1d_and_2d
 
   line_plots: &line_plots
     specifiers: [x, hue]
     max_dims: 4
     raises:
-      3: &line_plots_1d_or_2d [ValueError, Line plots are for 1- or 2-dimensio]
+      3: &line_plots_1d_or_2d [PlottingError, Line plots are for 1- or 2-dimensio]
       4: *only_1d_and_2d
 
   line_plots_anim:
@@ -49,7 +49,7 @@ auto:
     plot_kwargs:
       auto_encoding: true
     raises:
-      6: [ValueError, must be a permuted list]
+      6: [PlottingError, must be a permuted list]
 
   custom_auto_encoding:
     kinds: [line, pcolormesh]
@@ -195,6 +195,6 @@ hist:
     specifiers: [x, frames]
     max_dims: 3
     raises:
-      1: &hist_type_err [ValueError, 'hist\(\) got multiple values for arg']
+      1: &hist_type_err [PlottingError, 'hist\(\) got multiple values for arg']
       2: *hist_type_err
       3: *hist_type_err

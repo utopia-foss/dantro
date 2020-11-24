@@ -315,6 +315,13 @@ def test_figure_attachment(hlpr):
     with pytest.raises(ValueError, match="must be passed as a 2d array-like"):
         hlpr.attach_figure_and_axes(fig=fig, axes=axes.flatten())
 
+    # If attaching again but having `skip_if_identical` set, no error should
+    # be raised
+    hlpr.attach_figure_and_axes(
+        fig=fig, axes="bad argument, but ignored", skip_if_identical=True
+    )
+    assert hlpr.fig is fig
+
 
 def test_cfg_manipulation(hlpr):
     """Test manipulation of the configuration"""

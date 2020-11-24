@@ -469,7 +469,9 @@ class PlotHelper:
     # .........................................................................
     # Figure setup and axis control
 
-    def attach_figure_and_axes(self, *, fig, axes):
+    def attach_figure_and_axes(
+        self, *, fig, axes, skip_if_identical: bool = False
+    ) -> None:
         """Attaches the given figure and axes to the PlotHelper. This method
         replaces an existing figure and existing axes with the ones given.
 
@@ -494,12 +496,20 @@ class PlotHelper:
         Args:
             fig: The new figure which replaces the existing.
             axes: single axis or 2d array-like containing the axes
+            skip_if_identical (bool, optional): If True, will check if the
+                given ``fig`` is *identical* to the already associated figure;
+                if so, will do nothing. This can be useful if one cannot be
+                sure if the figure was already associated. In such a case, note
+                that the ``axes`` argument is completely ignored.
 
         Raises:
             ValueError: On multiple axes not being passed in 2d format.
 
+        Returns:
+            None
+
         """
-        if fig is self._fig:
+        if skip_if_identical and fig is self._fig:
             log.debug("Figure was already associated; not doing anything.")
             return
 

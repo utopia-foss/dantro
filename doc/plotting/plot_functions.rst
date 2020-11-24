@@ -78,9 +78,21 @@ Auto-encoding of plot layout
 dantro also adds the ``auto_encoding`` feature to the facet grid plot, which automatically associates data dimensions with certain layout encoding specifiers (``x``, ``y``, ``col``, and others).
 With this functionality, the facet grid plot can be used to visualize high-dimensional data *regardless of the dimension names*; the only relevant information is the dimensionality of the data.
 
+The available encodings for the :py:func:`~.facet_grid` plot are:
+
+.. ipython::
+
+    @suppress
+    In [1]: from dantro.plot_creators.ext_funcs.generic import _FACET_GRID_KINDS
+
+    @suppress
+    In [2]: available_facet_grid_kinds = "\n".join([f"{kind:>15s} : {specs}" for kind, specs in _FACET_GRID_KINDS.items()])
+
+    In [3]: print(available_facet_grid_kinds)
+
 In combination with :ref:`dag_generic_facet_grid_auto_kind`, this further reduces the plot configuration arguments required to generate facet grid plots.
 
-For details, see :py:func:`~.determine_layout_encoding`.
+For further details, see :py:func:`~.determine_layout_encoding`.
 
 
 
