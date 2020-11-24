@@ -3,6 +3,7 @@
 creators.
 """
 
+import copy
 import logging
 from typing import Callable, Union
 
@@ -10,7 +11,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from ...exceptions import PlottingError
-from ...tools import make_columns
+from ...tools import make_columns, recursive_update
 from ..pcr_ext import PlotHelper, is_plot_func
 
 # Local constants
@@ -104,7 +105,10 @@ _MULTIPLOT_CAUTION_FUNC_NAMES = tuple([
 
 
 def _parse_func_kwargs(
-    function: Union[str, Callable], args: list = None, **func_kwargs
+    function: Union[str, Callable],
+    args: list = None,
+    shared_kwargs: dict = None,
+    **func_kwargs,
 ):
     """Parse a multiplot function object and its positional and keyword arguments.
     If ``function`` is a string it is looked up and mapped from the following
@@ -122,6 +126,10 @@ def _parse_func_kwargs(
 
         args (list, optional): The positional arguments for the plot function
 
+        shared_kwargs (dict, optional): Shared kwargs that passed on to
+            all multiplot functions. They are recursively updated with
+            the individual plot functions' func_kwargs.
+
         **func_kwargs (dict): The function kwargs to be passed on to the
             function object.
 
@@ -134,6 +142,11 @@ def _parse_func_kwargs(
     Returns:
         (str, Callable, list, dict):   (function name, function object, function arguments, function kwargs)
     """
+    if shared_kwargs is None:
+        shared_kwargs = {}
+
+    func_kwargs = recursive_update(copy.deepcopy(shared_kwargs), func_kwargs)
+
     if callable(function):
         func_name = function.__name__
         func = function
@@ -168,9 +181,9 @@ def _parse_func_kwargs(
 # -----------------------------------------------------------------------------
 
 
-@is_plot_func(use_dag=True)
+@is_plot_func(use_dag=True, unpack_dag_results=True)
 def multiplot(
-    *, data: dict, hlpr: PlotHelper, to_plot: Union[list, dict]
+    *, hlpr: PlotHelper, to_plot: Union[list, dict], **shared_kwargs
 ) -> None:
     """Consecutively plot multiple functions on one or multiple axes.
 
@@ -218,10 +231,9 @@ def multiplot(
     Args:
         hlpr (PlotHelper): The PlotHelper instance for this plot
         to_plot (Union[list, dict]): The data to plot.
-
-        data (dict): Data from TransformationDAG selection. These results are
-            ignored; data needs to be passed via the result placeholders!
-            See above.
+        **shared_kwargs (dict): Shared kwargs for all plot functions.
+            They are recursively updated, if to_plot specifies the same
+            kwargs.
 
     .. warning::
 
@@ -262,7 +274,7 @@ def multiplot(
         # Get the function name, the function object and all function kwargs
         # from the configuration entry.
         func_name, func, func_args, func_kwargs = _parse_func_kwargs(
-            **func_kwargs
+            shared_kwargs=shared_kwargs, **func_kwargs
         )
 
         # Notify user if plot functions do not get any kwargs passed on.

@@ -6,6 +6,8 @@
 multiplots:
   simple_scatter:
     plot_func: multiplot
+    marker: o
+    linestyle: --
     to_plot:
       - function: sns.scatterplot
         data: !dag_result data
