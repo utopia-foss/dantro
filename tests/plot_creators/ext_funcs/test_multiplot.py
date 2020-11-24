@@ -14,8 +14,8 @@ from dantro.containers import PassthroughContainer, XrDataContainer
 from dantro.exceptions import PlottingError
 from dantro.plot_creators import ExternalPlotCreator, PlotHelper
 from dantro.plot_creators.ext_funcs.multiplot import (
+    _parse_func_kwargs,
     multiplot,
-    parse_func_kwargs,
 )
 from dantro.tools import load_yml
 
@@ -145,12 +145,12 @@ def test_multiplot(dm, out_dir):
 
 
 def test_parse_func_kwargs():
-    """Tests the basic features of the parse_func_kwargs"""
+    """Tests the basic features of the _parse_func_kwargs"""
     # Check that it is possible to get a plot function from the
     # _MULTIPLOT_FUNC_KINDS as well as from directly passing a function
-    parse_func_kwargs("sns.lineplot")
-    parse_func_kwargs(plt.scatter)
+    _parse_func_kwargs("sns.lineplot")
+    _parse_func_kwargs(plt.scatter)
 
     # Check that an error is emitted for a wrong key
     with pytest.raises(KeyError, match="is not a valid multiplot function."):
-        parse_func_kwargs("wrong_func_name")
+        _parse_func_kwargs("wrong_func_name")

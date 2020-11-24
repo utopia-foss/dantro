@@ -6,6 +6,7 @@ creators.
 import logging
 from typing import Callable, Union
 
+import matplotlib.pyplot as plt
 import seaborn as sns
 
 from ...exceptions import PlottingError
@@ -20,14 +21,19 @@ log = logging.getLogger(__name__)
 # Details of the seaborn-related plots can be found here in the seaborn API:
 # https://seaborn.pydata.org/api.html
 _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
+    # Seaborn - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # https://seaborn.pydata.org/api.html
+
     # Relational plots
     "sns.scatterplot": sns.scatterplot,
     "sns.lineplot": sns.lineplot,
+
     # Distribution plots
     "sns.histplot": sns.histplot,
     "sns.kdeplot": sns.kdeplot,
     "sns.ecdfplot": sns.ecdfplot,
     "sns.rugplot": sns.rugplot,
+
     # Categorical plots
     "sns.stripplot": sns.stripplot,
     "sns.swarmplot": sns.swarmplot,
@@ -37,13 +43,47 @@ _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
     "sns.pointplot": sns.pointplot,
     "sns.barplot": sns.barplot,
     "sns.countplot": sns.countplot,
+
     # Regression plots
     "sns.regplot": sns.regplot,
     "sns.residplot": sns.residplot,
+
     # Matrix plots
     "sns.heatmap": sns.heatmap,
+
     # Utility functions
     "sns.despine": sns.despine,
+
+    # Matplotlib - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # https://matplotlib.org/tutorials/introductory/sample_plots.html
+
+    # Relational plots
+    "plt.fill": plt.fill,
+    "plt.scatter": plt.scatter,
+    "plt.plot": plt.plot,
+    "plt.polar": plt.polar,
+    "plt.loglog": plt.loglog,
+    "plt.semilogx": plt.fill,
+    "plt.semilogy": plt.semilogy,
+
+    # Distribution plots
+    "plt.hist": plt.hist,
+    "plt.hist2d": plt.hist2d,
+
+    # Categorical plots
+    "plt.bar": plt.bar,
+    "plt.barh": plt.barh,
+    "plt.pie": plt.pie,
+    "plt.table": plt.table,
+
+    # Matrix plots
+    "plt.imshow": plt.imshow,
+    "plt.pcolormesh": plt.pcolormesh,
+
+    # Vector plots
+    "plt.contour": plt.contour,
+    "plt.quiver": plt.quiver,
+    "plt.streamplot": plt.streamplot,
 }   # --- end literalinclude
 
 # The multiplot functions that emit a warning if they do not get any arguments
@@ -62,17 +102,7 @@ _MULTIPLOT_CAUTION_FUNC_NAMES = tuple([
 # -- Helper functions ---------------------------------------------------------
 
 
-def apply_plot_func(*, func: Callable, args: list, **kwargs) -> None:
-    """Apply a plot function to the current axis.
-
-    Args:
-        func (Callable):    The callable plot function.
-        args (list):        Positional arguments passed on to func
-    """
-    func(*args, **kwargs)
-
-
-def parse_func_kwargs(
+def _parse_func_kwargs(
     function: Union[str, Callable], args: list = None, **func_kwargs
 ):
     """Parse the multiplot function kwargs.
@@ -116,7 +146,7 @@ def parse_func_kwargs(
         except KeyError as err:
             raise KeyError(
                 f"The function `{func_name}` is not a valid multiplot function. "
-                f"Available functions: {', '.join(_MULTIPLOT_FUNC_KINDS.keys())}."
+                f"Available functions: {', '.join(_MULTIPLOT_FUNC_KINDS)}."
             ) from err
 
     if args is None:
@@ -137,7 +167,6 @@ def multiplot(
     """Consecutively plot multiple functions on one or multiple axes.
 
     Args:
-        data (dict): Data from TransformationDAG selection.
         hlpr (PlotHelper): The PlotHelper instance for this plot
         to_plot (Union[list, dict]): The data to plot. If to_plots is list-like
             the plot functions are plotted on the current axes created through
@@ -146,12 +175,8 @@ def multiplot(
             specify a list of plot function configurations to apply
             consecutively.
             Each list entry specifies one function plot and is parsed via the
-            :py:func:`~dantro.plot_creators.ext_funcs.multiplot.parse_func_kwargs`
+            :py:func:`~dantro.plot_creators.ext_funcs.multiplot._parse_func_kwargs`
             function.
-            Note that especially seaborn plot functions require a 'data'
-            argument that needs to be passed via a `!dag_result` key.
-            The multiplot function neither expects nor automatically passes a
-            'data' dag_node to the individual functions.
 
             Examples:
                 A simple ``to_plot`` configuration looks like this:
@@ -159,24 +184,36 @@ def multiplot(
                 .. code-block:: yaml
 
                     to_plot:
-                    - function: sns.lineplot
+                      - function: sns.lineplot
                       data: !dag_result data
                       # Note that especially seaborn plot functions require a
                       # `data` input argument that can conveniently be
                       # provided via the !dag_result YAML-tag.
                       # If not provided, nothing is plotted without emitting
                       # a warning.
-                    - function: sns.despine
+                      - function: sns.despine
 
                 A simple ``to_plot`` configuration specifying two axis is:
 
                 .. code-block:: yaml
 
                     to_plot:
-                    [0,0]: - function: sns.lineplot
-                             data: !dag_result data
-                    [1,0]: - function: sns.scatterplot
-                             data: !dag_result data
+                      [0,0]: - function: sns.lineplot
+                               data: !dag_result data
+                      [1,0]: - function: sns.scatterplot
+                               data: !dag_result data
+
+        data (dict): Data from TransformationDAG selection. These results are
+            ignored; data needs to be passed via the result placeholders!
+            See above.
+
+    .. warning::
+
+        Note that especially seaborn plot functions require a 'data'
+        argument that needs to be passed via a `!dag_result` key.
+        The multiplot function neither expects nor automatically passes a
+        'data' dag_node to the individual functions.
+
 
     .. note::
 
@@ -198,7 +235,7 @@ def multiplot(
         )
 
     # to_plot needs to be a list
-    elif not isinstance(to_plot, list):
+    elif not isinstance(to_plot, (list, tuple)):
         raise TypeError(
             "'to_plot' needs to be list-like but was "
             f"of type {type(to_plot)}. Please assure to pass a list."
@@ -207,7 +244,7 @@ def multiplot(
     for func_num, func_kwargs in enumerate(to_plot):
         # Get the function name, the function object and all function kwargs
         # from the configuration entry.
-        func_name, func, func_args, func_kwargs = parse_func_kwargs(
+        func_name, func, func_args, func_kwargs = _parse_func_kwargs(
             **func_kwargs
         )
 
@@ -225,7 +262,7 @@ def multiplot(
         # Apply the plot function and allow it to fail to make sure that
         # potential other plots are still plotted and shown.
         try:
-            apply_plot_func(func=func, args=func_args, **func_kwargs)
+            func(*func_args, **func_kwargs)
 
         except Exception as exc:
             msg = (
