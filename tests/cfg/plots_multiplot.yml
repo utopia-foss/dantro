@@ -6,6 +6,14 @@
 multiplots:
   simple_scatter:
     plot_func: multiplot
+    to_plot:
+      - function: sns.scatterplot
+        data: !dag_result data
+        x: dim_0
+        y: dim_1
+
+  shared_kwargs:
+    plot_func: multiplot
     marker: o
     linestyle: --
     to_plot:
@@ -14,6 +22,11 @@ multiplots:
         x: dim_0
         y: dim_1
         marker: x
+
+  func_without_kwargs:
+    plot_func: multiplot
+    to_plot:
+      - function: sns.scatterplot
 
   multiple_funcs:
     plot_func: multiplot

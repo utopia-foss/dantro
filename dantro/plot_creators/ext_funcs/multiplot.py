@@ -183,7 +183,12 @@ def _parse_func_kwargs(
 
 @is_plot_func(use_dag=True, unpack_dag_results=True)
 def multiplot(
-    *, hlpr: PlotHelper, to_plot: Union[list, dict], **shared_kwargs
+    *,
+    hlpr: PlotHelper,
+    to_plot: Union[list, dict],
+    show_hints: bool = True,
+    data: dict = None,
+    **shared_kwargs,
 ) -> None:
     """Consecutively plot multiple functions on one or multiple axes.
 
@@ -231,6 +236,11 @@ def multiplot(
     Args:
         hlpr (PlotHelper): The PlotHelper instance for this plot
         to_plot (Union[list, dict]): The data to plot.
+        show_hints (bool): Whether to show hints in the case of not passing
+            any arguments to a plot function.
+        data (dict): Data from TransformationDAG selection. These results are
+            ignored; data needs to be passed via the result placeholders!
+            See above.
         **shared_kwargs (dict): Shared kwargs for all plot functions.
             They are recursively updated, if to_plot specifies the same
             kwargs.
@@ -270,6 +280,12 @@ def multiplot(
             f"of type {type(to_plot)}. Please assure to pass a list."
         )
 
+    if show_hints and data:
+        log.caution(
+            "Got DAG results: {data.keys()} ... these should be "
+            "passed via placeholder ... will ignore these"
+        )
+
     for func_num, func_kwargs in enumerate(to_plot):
         # Get the function name, the function object and all function kwargs
         # from the configuration entry.
@@ -281,11 +297,16 @@ def multiplot(
         # This is e.g. helpful and relevant for seaborn functions that require
         # a 'data' kwarg but do not fail or warn if no 'data' is passed on to
         # them.
-        if not func_kwargs and func_name in _MULTIPLOT_CAUTION_FUNC_NAMES:
+        if (
+            show_hints
+            and not func_kwargs
+            and func_name in _MULTIPLOT_CAUTION_FUNC_NAMES
+        ):
             log.caution(
                 "Oops, you seem to have called '%s' without any function "
                 "arguments. If the plot produces unexpected output, check that "
-                "all required arguments (e.g. `data`, `x`, ...) were given."
+                "all required arguments (e.g. `data`, `x`, ...) were given.\n"
+                "To silence this warning, set `show_hints` to `False`."
             )
 
         # Apply the plot function and allow it to fail to make sure that
