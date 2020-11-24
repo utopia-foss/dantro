@@ -137,11 +137,12 @@ Let us look at some example configurations to illustrate features:
 
       # Add more functions to plot on the same axes below...
 
-    # The same plot as above but with some_plot overlaid on the same axes.
+    # The same plot as above but with a plt.plot overlaid on the same axes.
+    advanced_example:
       plot_func: multiplot
       transform:
-      # Import the some_module.some_plot function
-      - import: [some_module, some_plot]
+      # Import the matplotlib.pyplot.plot function
+      - import: [matplotlib.pyplot, plot]
         tag: plot
       to_plot:
       - function: sns.lineplot
@@ -151,9 +152,12 @@ Let us look at some example configurations to illustrate features:
 
       # Plot the previously imported and DAG-tagged 'plot' function
       # on the same axis.
-      # This function accepts the data to be passed as 'data' kwarg.
       - function: !dag_result plot
-        data: !dag_result plot_data
+        # plt.plot requires the x and y values to be passed as positional
+        # arguments.
+        args:
+          - !dag_result plot_x
+          - !dag_result plot_y
         # Add further plot-specific kwargs below...
 
       # Add more functions to plot on the same axes below...

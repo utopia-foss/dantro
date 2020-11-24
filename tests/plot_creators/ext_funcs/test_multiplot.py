@@ -11,6 +11,7 @@ import seaborn as sns
 from pkg_resources import resource_filename
 
 from dantro.containers import PassthroughContainer, XrDataContainer
+from dantro.exceptions import PlottingError
 from dantro.plot_creators import ExternalPlotCreator, PlotHelper
 from dantro.plot_creators.ext_funcs.multiplot import (
     multiplot,
@@ -49,13 +50,20 @@ logging.getLogger("matplotlib").setLevel(logging.WARNING)
 def dm(_dm):
     """Returns a data manager populated with test data as pd.DataFrame"""
 
+    # Test data for seaborn plots
     df = pd.DataFrame(
         np.random.randn(6, 2).cumsum(axis=0), columns=["dim_0", "dim_1"]
     )
 
+    # Test data for the plt.plot function
+    plot_x_data = np.arange(5)
+    plot_y_data = np.arange(5)
+
     grp_df = _dm.new_group("test_data")
 
     grp_df.add(PassthroughContainer(name="2D_random", data=df))
+    grp_df.add(PassthroughContainer(name="1D_x", data=plot_x_data))
+    grp_df.add(PassthroughContainer(name="1D_y", data=plot_y_data))
 
     return _dm
 
@@ -83,7 +91,11 @@ def test_multiplot(dm, out_dir):
             epc(
                 **out_path("multiplot_" + str(key)),
                 **plots[key],
-                select=dict(data="test_data/2D_random"),
+                select=dict(
+                    data="test_data/2D_random",
+                    plot_x_data="test_data/1D_x",
+                    plot_y_data="test_data/1D_y",
+                ),
                 module=".multiplot",
             )
 
@@ -96,7 +108,7 @@ def test_multiplot(dm, out_dir):
 
     assert len(plt.get_fignums()) == 0
 
-    # Not implemented raising check
+    # Test for correct error handling
     with pytest.raises(
         NotImplementedError, match="'to_plot' needs to be list-like"
     ):
@@ -107,10 +119,9 @@ def test_multiplot(dm, out_dir):
             module=".multiplot",
         )
 
-    # Not implemented raising check
     with pytest.raises(TypeError, match="'to_plot' needs to be list-like"):
         epc(
-            **out_path("multiplot_not_impl"),
+            **out_path("multiplot_string_func"),
             **dict(plot_func=multiplot, to_plot="some string"),
             select={},
             module=".multiplot",

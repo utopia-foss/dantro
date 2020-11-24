@@ -74,4 +74,6 @@ multiplots:
       # This should test that it is possible to pass matplotlib.pyplot
       # functions, too. :)
       - function: !dag_result plot
-        data: !dag_result data
+        args:
+          - !dag_result plot_x_data
+          - !dag_result plot_y_data

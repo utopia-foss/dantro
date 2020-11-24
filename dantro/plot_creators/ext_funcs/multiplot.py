@@ -63,17 +63,20 @@ _MULTIPLOT_CAUTION_FUNC_NAMES = tuple([
 # -- Helper functions ---------------------------------------------------------
 
 
-def apply_plot_func(*, ax, func: Callable, **kwargs) -> None:
+def apply_plot_func(*, ax, func: Callable, args: list, **kwargs) -> None:
     """Apply a plot function to a given axis.
 
     Args:
         ax:                 The matplotlib Axes object to plot the data on.
         func (Callable):    The callable plot function.
+        args (list):        Positional arguments passed on to func
     """
-    func(ax=ax, **kwargs)
+    func(ax=ax, *args, **kwargs)
 
 
-def parse_func_kwargs(function: Union[str, Callable], **func_kwargs):
+def parse_func_kwargs(
+    function: Union[str, Callable], args: list = None, **func_kwargs
+):
     """Parse the multiplot function kwargs.
 
     Args:
@@ -86,12 +89,22 @@ def parse_func_kwargs(function: Union[str, Callable], **func_kwargs):
                 :start-after: _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
                 :end-before:  }   # --- end literalinclude
 
+        args (list, optional): The positional arguments for the plot function
 
         **func_kwargs (dict): The function kwargs to be passed on to the
             function object.
 
+    .. note::
+
+        The function kwargs cannot pass on a `function` or `args` key because
+        both are parsed and translated into the plot function to use and
+        the optional positional function arguments, respectively.
+
     Returns:
-        (str, Callable, dict): (function name, function object, function kwargs)
+        (str, Callable, list, dict):   (function name,
+                                        function object,
+                                        function arguments,
+                                        function kwargs)
     """
     if callable(function):
         func_name = function.__name__
@@ -108,7 +121,10 @@ def parse_func_kwargs(function: Union[str, Callable], **func_kwargs):
                 f"Available functions: {', '.join(_MULTIPLOT_FUNC_KINDS.keys())}."
             ) from err
 
-    return func_name, func, func_kwargs
+    if args is None:
+        args = []
+
+    return func_name, func, args, func_kwargs
 
 
 # -----------------------------------------------------------------------------
@@ -192,7 +208,9 @@ def multiplot(
     for func_num, func_kwargs in enumerate(to_plot):
         # Get the function name, the function object and all function kwargs
         # from the configuration entry.
-        func_name, func, func_kwargs = parse_func_kwargs(**func_kwargs)
+        func_name, func, func_args, func_kwargs = parse_func_kwargs(
+            **func_kwargs
+        )
 
         # Notify user if plot functions do not get any kwargs passed on.
         # This is e.g. helpful and relevant for seaborn functions that require
@@ -208,11 +226,13 @@ def multiplot(
         # Apply the plot function and allow it to fail to make sure that
         # potential other plots are still plotted and shown.
         try:
-            apply_plot_func(ax=hlpr.ax, func=func, **func_kwargs)
+            apply_plot_func(
+                ax=hlpr.ax, func=func, args=func_args, **func_kwargs
+            )
 
         except Exception as exc:
             msg = (
-                f"Plotting with '{func_name}', plot number '{func_num}', "
+                f"Plotting with '{func_name}', plot number {func_num}, "
                 f"did not succeed! Got a {type(exc).__name__}: {exc}"
             )
             if hlpr.raise_on_error:
