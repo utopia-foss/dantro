@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from ...exceptions import PlottingError
+from ...tools import make_columns
 from ..pcr_ext import PlotHelper, is_plot_func
 
 # Local constants
@@ -25,65 +26,65 @@ _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
     # https://seaborn.pydata.org/api.html
 
     # Relational plots
-    "sns.scatterplot": sns.scatterplot,
-    "sns.lineplot": sns.lineplot,
+    "sns.scatterplot":      sns.scatterplot,
+    "sns.lineplot":         sns.lineplot,
 
     # Distribution plots
-    "sns.histplot": sns.histplot,
-    "sns.kdeplot": sns.kdeplot,
-    "sns.ecdfplot": sns.ecdfplot,
-    "sns.rugplot": sns.rugplot,
+    "sns.histplot":         sns.histplot,
+    "sns.kdeplot":          sns.kdeplot,
+    "sns.ecdfplot":         sns.ecdfplot,
+    "sns.rugplot":          sns.rugplot,
 
     # Categorical plots
-    "sns.stripplot": sns.stripplot,
-    "sns.swarmplot": sns.swarmplot,
-    "sns.boxplot": sns.boxplot,
-    "sns.violinplot": sns.violinplot,
-    "sns.boxenplot": sns.boxenplot,
-    "sns.pointplot": sns.pointplot,
-    "sns.barplot": sns.barplot,
-    "sns.countplot": sns.countplot,
+    "sns.stripplot":        sns.stripplot,
+    "sns.swarmplot":        sns.swarmplot,
+    "sns.boxplot":          sns.boxplot,
+    "sns.violinplot":       sns.violinplot,
+    "sns.boxenplot":        sns.boxenplot,
+    "sns.pointplot":        sns.pointplot,
+    "sns.barplot":          sns.barplot,
+    "sns.countplot":        sns.countplot,
 
     # Regression plots
-    "sns.regplot": sns.regplot,
-    "sns.residplot": sns.residplot,
+    "sns.regplot":          sns.regplot,
+    "sns.residplot":        sns.residplot,
 
     # Matrix plots
-    "sns.heatmap": sns.heatmap,
+    "sns.heatmap":          sns.heatmap,
 
     # Utility functions
-    "sns.despine": sns.despine,
+    "sns.despine":          sns.despine,
 
     # Matplotlib - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # https://matplotlib.org/tutorials/introductory/sample_plots.html
 
     # Relational plots
-    "plt.fill": plt.fill,
-    "plt.scatter": plt.scatter,
-    "plt.plot": plt.plot,
-    "plt.polar": plt.polar,
-    "plt.loglog": plt.loglog,
-    "plt.semilogx": plt.fill,
-    "plt.semilogy": plt.semilogy,
+    "plt.fill":             plt.fill,
+    "plt.scatter":          plt.scatter,
+    "plt.plot":             plt.plot,
+    "plt.polar":            plt.polar,
+    "plt.loglog":           plt.loglog,
+    "plt.semilogx":         plt.fill,
+    "plt.semilogy":         plt.semilogy,
 
     # Distribution plots
-    "plt.hist": plt.hist,
-    "plt.hist2d": plt.hist2d,
+    "plt.hist":             plt.hist,
+    "plt.hist2d":           plt.hist2d,
 
     # Categorical plots
-    "plt.bar": plt.bar,
-    "plt.barh": plt.barh,
-    "plt.pie": plt.pie,
-    "plt.table": plt.table,
+    "plt.bar":              plt.bar,
+    "plt.barh":             plt.barh,
+    "plt.pie":              plt.pie,
+    "plt.table":            plt.table,
 
     # Matrix plots
-    "plt.imshow": plt.imshow,
-    "plt.pcolormesh": plt.pcolormesh,
+    "plt.imshow":           plt.imshow,
+    "plt.pcolormesh":       plt.pcolormesh,
 
     # Vector plots
-    "plt.contour": plt.contour,
-    "plt.quiver": plt.quiver,
-    "plt.streamplot": plt.streamplot,
+    "plt.contour":          plt.contour,
+    "plt.quiver":           plt.quiver,
+    "plt.streamplot":       plt.streamplot,
 }   # --- end literalinclude
 
 # The multiplot functions that emit a warning if they do not get any arguments
@@ -105,17 +106,19 @@ _MULTIPLOT_CAUTION_FUNC_NAMES = tuple([
 def _parse_func_kwargs(
     function: Union[str, Callable], args: list = None, **func_kwargs
 ):
-    """Parse the multiplot function kwargs.
+    """Parse a multiplot function object and its positional and keyword arguments.
+    If ``function`` is a string it is looked up and mapped from the following
+    dictionary:
+
+    .. literalinclude:: ../../dantro/plot_creators/ext_funcs/multiplot.py
+        :language: python
+        :start-after: _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
+        :end-before:  }   # --- end literalinclude
+        :dedent: 4
 
     Args:
         function (Union[str, Callable]):  The callable function object or the
-            name of the plot function to look up in the _MULTIPLOT_FUNC_KINDS
-            dict containing the following entries:
-
-            .. literalinclude:: ../../dantro/plot_creators/ext_funcs/multiplot.py
-                :language: python
-                :start-after: _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
-                :end-before:  }   # --- end literalinclude
+            name of the plot function to look up.
 
         args (list, optional): The positional arguments for the plot function
 
@@ -124,15 +127,12 @@ def _parse_func_kwargs(
 
     .. note::
 
-        The function kwargs cannot pass on a `function` or `args` key because
+        The function kwargs cannot pass on a ``function`` or ``args`` key because
         both are parsed and translated into the plot function to use and
         the optional positional function arguments, respectively.
 
     Returns:
-        (str, Callable, list, dict):   (function name,
-                                        function object,
-                                        function arguments,
-                                        function kwargs)
+        (str, Callable, list, dict):   (function name, function object, function arguments, function kwargs)
     """
     if callable(function):
         func_name = function.__name__
@@ -144,9 +144,17 @@ def _parse_func_kwargs(
         try:
             func = _MULTIPLOT_FUNC_KINDS[func_name]
         except KeyError as err:
-            raise KeyError(
+            _mp_funcs = _MULTIPLOT_FUNC_KINDS
+            if _mp_funcs:
+                _mp_funcs = "\n" + make_columns(_MULTIPLOT_FUNC_KINDS)
+            else:
+                _mp_funcs = " (none)\n"
+
+            raise ValueError(
                 f"The function `{func_name}` is not a valid multiplot function. "
-                f"Available functions: {', '.join(_MULTIPLOT_FUNC_KINDS)}."
+                f"Available functions: \n {_mp_funcs} \n"
+                "Alternatively, pass a callable instead of the name of a plot "
+                "function."
             ) from err
 
     if args is None:
@@ -166,42 +174,50 @@ def multiplot(
 ) -> None:
     """Consecutively plot multiple functions on one or multiple axes.
 
+    ``to_plot`` contains all relevant information for the functions to plot.
+    If ``to_plot`` is list-like the plot functions are plotted on the current
+    axes created through the hlpr.
+    If ``to_plot`` is dict-like, the keys specify the coordinate pair selecting
+    an ax to plot on, e.g. (0,0), while the values specify a list of plot
+    function configurations to apply consecutively.
+    Each list entry specifies one function plot and is parsed via the
+    :py:func:`~dantro.plot_creators.ext_funcs.multiplot._parse_func_kwargs`
+    function.
+    The multiplot works with any plot function that either operates on the
+    current axis and does _not_ create a new figure or does not require an
+    axis at all.
+
+    Look at the :ref:`multiplot documentation <dag_multiplot>` for further
+    information.
+
+    Examples:
+        A simple ``to_plot`` configuration looks like this:
+
+        .. code-block:: yaml
+
+            to_plot:
+              - function: sns.lineplot
+              data: !dag_result data
+              # Note that especially seaborn plot functions require a
+              # `data` input argument that can conveniently be
+              # provided via the `!dag_result` YAML-tag.
+              # If not provided, nothing is plotted without emitting
+              # a warning.
+              - function: sns.despine
+
+        A simple ``to_plot`` configuration specifying two axis is:
+
+        .. code-block:: yaml
+
+            to_plot:
+              [0,0]: - function: sns.lineplot
+                      data: !dag_result data
+              [1,0]: - function: sns.scatterplot
+                      data: !dag_result data
+
     Args:
         hlpr (PlotHelper): The PlotHelper instance for this plot
-        to_plot (Union[list, dict]): The data to plot. If to_plots is list-like
-            the plot functions are plotted on the current axes created through
-            the hlpr. If to_plot is dict-like, the keys specify the coordinate
-            pair selecting an ax to plot on, e.g. (0,0), while the values
-            specify a list of plot function configurations to apply
-            consecutively.
-            Each list entry specifies one function plot and is parsed via the
-            :py:func:`~dantro.plot_creators.ext_funcs.multiplot._parse_func_kwargs`
-            function.
-
-            Examples:
-                A simple ``to_plot`` configuration looks like this:
-
-                .. code-block:: yaml
-
-                    to_plot:
-                      - function: sns.lineplot
-                      data: !dag_result data
-                      # Note that especially seaborn plot functions require a
-                      # `data` input argument that can conveniently be
-                      # provided via the !dag_result YAML-tag.
-                      # If not provided, nothing is plotted without emitting
-                      # a warning.
-                      - function: sns.despine
-
-                A simple ``to_plot`` configuration specifying two axis is:
-
-                .. code-block:: yaml
-
-                    to_plot:
-                      [0,0]: - function: sns.lineplot
-                               data: !dag_result data
-                      [1,0]: - function: sns.scatterplot
-                               data: !dag_result data
+        to_plot (Union[list, dict]): The data to plot.
 
         data (dict): Data from TransformationDAG selection. These results are
             ignored; data needs to be passed via the result placeholders!
@@ -209,10 +225,11 @@ def multiplot(
 
     .. warning::
 
-        Note that especially seaborn plot functions require a 'data'
-        argument that needs to be passed via a `!dag_result` key.
+        Note that especially seaborn plot functions require a ``data``
+        argument that needs to be passed via a ``!dag_result`` key,
+        see :ref:`dag_result_placeholder`.
         The multiplot function neither expects nor automatically passes a
-        'data' dag_node to the individual functions.
+        ``data`` DAG-node to the individual functions.
 
 
     .. note::

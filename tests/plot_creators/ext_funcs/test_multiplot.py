@@ -152,5 +152,5 @@ def test_parse_func_kwargs():
     _parse_func_kwargs(plt.scatter)
 
     # Check that an error is emitted for a wrong key
-    with pytest.raises(KeyError, match="is not a valid multiplot function."):
+    with pytest.raises(ValueError, match="is not a valid multiplot function."):
         _parse_func_kwargs("wrong_func_name")

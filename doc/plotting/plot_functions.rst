@@ -116,6 +116,7 @@ For the former, the following `seaborn plot functions <https://seaborn.pydata.or
     :language: python
     :start-after: _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
     :end-before:  }   # --- end literalinclude
+    :dedent: 4
 
 However, you can also plot any other function operating on a ``matplotlib.axes`` object.
 Let us look at some example configurations to illustrate features:

@@ -1,6 +1,8 @@
 # Configuration for the DAG multiplot function
 ---
 # A brief test of all various available plot configurations
+# The test_multiplot.py file contains a USE_TMPDIR boolean switch that
+# allows you to save the created plots and look at them.
 multiplots:
   simple_scatter:
     plot_func: multiplot
