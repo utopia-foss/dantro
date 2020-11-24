@@ -127,6 +127,22 @@ def test_multiplot(dm, out_dir):
             module=".multiplot",
         )
 
+    # Enable raising errors to check whether errors are risen
+    epc.raise_exc = True
+
+    with pytest.raises(PlottingError, match="Plotting with "):
+        epc(
+            **out_path("multiplot_" + str(key)),
+            **dict(
+                plot_func=multiplot, to_plot=[dict(function="sns.regplot")]
+            ),
+            select=dict(data="test_data/2D_random"),
+            module=".multiplot",
+        )
+
+    # Reset raising errors
+    epc.raise_exc = False
+
 
 def test_parse_func_kwargs():
     """Tests the basic features of the parse_func_kwargs"""

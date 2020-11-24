@@ -107,7 +107,7 @@ Similar to :py:func:`~.facet_grid`, these functions offer the ``hue`` and ``fram
 
 :py:func:`~.multiplot`: Plot multiple functions on one axis
 -----------------------------------------------------------
-The :py:func:`~.multiplot` plotting function enables the consecutive application of multiple plot functions on an axis.
+The :py:func:`~.multiplot` plotting function enables the consecutive application of multiple plot functions on the current axis generated and provided through the ``PlotHelper``.
 
 Plot functions can either be given as a string that is used to map to the corresponding function or by directly passing a callable function to the multiplot.
 For the former, the following `seaborn plot functions <https://seaborn.pydata.org/api.html>`_ are available:
@@ -117,7 +117,7 @@ For the former, the following `seaborn plot functions <https://seaborn.pydata.or
     :start-after: _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
     :end-before:  }   # --- end literalinclude
 
-However, you can also plot any other function accepting a ``Matplotlib.axes`` object as well as some kind of ``data`` key to pass on your data.
+However, you can also plot any other function operating on a ``matplotlib.axes`` object.
 Let us look at some example configurations to illustrate features:
 
 .. code-block:: YAML
@@ -143,16 +143,16 @@ Let us look at some example configurations to illustrate features:
       transform:
       # Import the matplotlib.pyplot.plot function
       - import: [matplotlib.pyplot, plot]
-        tag: plot
+        tag: plt_plot
       to_plot:
       - function: sns.lineplot
         data: !dag_result seaborn_data
         # Add further sns.lineplot-specific kwargs below...
         markers: true
 
-      # Plot the previously imported and DAG-tagged 'plot' function
+      # Plot the previously imported and DAG-tagged 'plt_plot' function
       # on the same axis.
-      - function: !dag_result plot
+      - function: !dag_result plt_plot
         # plt.plot requires the x and y values to be passed as positional
         # arguments.
         args:
@@ -160,4 +160,4 @@ Let us look at some example configurations to illustrate features:
           - !dag_result plot_y
         # Add further plot-specific kwargs below...
 
-      # Add more functions to plot on the same axes below...
+      # Add more functions to plt_plot on the same axes below...

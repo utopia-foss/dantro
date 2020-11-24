@@ -59,6 +59,7 @@ multiplots:
       - function: sns.regplot
         data: !dag_result data
       - function: sns.residplot
+        data: !dag_result data
 
   pass_func_obj:
     plot_func: multiplot
@@ -70,9 +71,6 @@ multiplots:
     to_plot:
       - function: !dag_result boxplot
         data: !dag_result data
-      # This single plot will fail, but does not matter here.
-      # This should test that it is possible to pass matplotlib.pyplot
-      # functions, too. :)
       - function: !dag_result plot
         args:
           - !dag_result plot_x_data

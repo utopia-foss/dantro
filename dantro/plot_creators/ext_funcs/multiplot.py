@@ -16,8 +16,7 @@ log = logging.getLogger(__name__)
 
 # fmt: off
 
-# The available plot kinds for the multiplot interface that require an axes
-# to plot data onto.
+# The available plot kinds for the multiplot interface.
 # Details of the seaborn-related plots can be found here in the seaborn API:
 # https://seaborn.pydata.org/api.html
 _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
@@ -63,15 +62,14 @@ _MULTIPLOT_CAUTION_FUNC_NAMES = tuple([
 # -- Helper functions ---------------------------------------------------------
 
 
-def apply_plot_func(*, ax, func: Callable, args: list, **kwargs) -> None:
-    """Apply a plot function to a given axis.
+def apply_plot_func(*, func: Callable, args: list, **kwargs) -> None:
+    """Apply a plot function to the current axis.
 
     Args:
-        ax:                 The matplotlib Axes object to plot the data on.
         func (Callable):    The callable plot function.
         args (list):        Positional arguments passed on to func
     """
-    func(ax=ax, *args, **kwargs)
+    func(*args, **kwargs)
 
 
 def parse_func_kwargs(
@@ -142,20 +140,21 @@ def multiplot(
         data (dict): Data from TransformationDAG selection.
         hlpr (PlotHelper): The PlotHelper instance for this plot
         to_plot (Union[list, dict]): The data to plot. If to_plots is list-like
-            the plot functions are plotted on the axes provided through hlpr.ax.
-            If to_plot is dict-like, the keys specify the coordinate pair
-            selecting an ax to plot on, e.g. (0,0), while the values specify
-            a list of plot function configurations to apply consecutively.
+            the plot functions are plotted on the current axes created through
+            the hlpr. If to_plot is dict-like, the keys specify the coordinate
+            pair selecting an ax to plot on, e.g. (0,0), while the values
+            specify a list of plot function configurations to apply
+            consecutively.
             Each list entry specifies one function plot and is parsed via the
             :py:func:`~dantro.plot_creators.ext_funcs.multiplot.parse_func_kwargs`
             function.
-            Note that many functions require a 'data' argument that needs to
-            be passed via a `!dag_result` key. The multiplot function neither
-            expects nor automatically passes a 'data' dag_node to the
-            individual functions.
+            Note that especially seaborn plot functions require a 'data'
+            argument that needs to be passed via a `!dag_result` key.
+            The multiplot function neither expects nor automatically passes a
+            'data' dag_node to the individual functions.
 
             Examples:
-                A simple ``to_plot`` configuration on the hlpr.ax is:
+                A simple ``to_plot`` configuration looks like this:
 
                 .. code-block:: yaml
 
@@ -226,9 +225,7 @@ def multiplot(
         # Apply the plot function and allow it to fail to make sure that
         # potential other plots are still plotted and shown.
         try:
-            apply_plot_func(
-                ax=hlpr.ax, func=func, args=func_args, **func_kwargs
-            )
+            apply_plot_func(func=func, args=func_args, **func_kwargs)
 
         except Exception as exc:
             msg = (
