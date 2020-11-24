@@ -513,14 +513,6 @@ class PlotHelper:
             log.debug("Figure was already associated; not doing anything.")
             return
 
-        log.debug(
-            "Closing existing figure and re-associating with a new figure ..."
-        )
-        self.close_figure()
-
-        # Assign the new figure
-        self._fig = fig
-
         # Prepare the new axis object
         try:
             # Assuming it's a scalar, np.reshape leads to np.array being called
@@ -543,7 +535,13 @@ class PlotHelper:
                 f"Got object of shape {axes.shape}."
             )
 
-        # Everything ok, attach axes
+        # Everything ok, close figure and attach new figure and axes
+        log.debug(
+            "Closing existing figure and re-associating with a new figure ..."
+        )
+        self.close_figure()
+
+        self._fig = fig
         self._axes = axes
 
         log.debug("Figure %d and axes attached.", fig.number)

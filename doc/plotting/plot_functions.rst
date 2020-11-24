@@ -101,7 +101,13 @@ For further details, see :py:func:`~.determine_layout_encoding`.
 .. _dag_generic_errorbar:
 
 :py:func:`~.errorbar` and :py:func:`~.errorbands`: Visualizing Confidence Intervals
------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------
+
+.. deprecated:: 0.15
+
+    This function is deprecated and will be removed with version 1.0.
+    Instead, use :ref:`dag_generic_facet_grid` with ``kind: errorbars``, which has additional capabilities and almost the same interface (only difference: works with an ``xr.Dataset`` instead of two ``xr.DataArray``\ s).
+
 The :py:func:`~.errorbar` and :py:func:`~.errorbands` plotting functions provide the ability to visualize data together with corresponding confidence intervals.
 Similar to :py:func:`~.facet_grid`, these functions offer the ``hue`` and ``frames`` arguments, allowing to represent data with up to three dimensions.
 

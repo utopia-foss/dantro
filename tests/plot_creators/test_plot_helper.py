@@ -322,6 +322,20 @@ def test_figure_attachment(hlpr):
     )
     assert hlpr.fig is fig
 
+    # Axis syncing
+    # ... this one does nothing: already working on the current axis
+    hlpr.sync_to_axis(hlpr.ax)
+
+    # ... this one should change the axis
+    hlpr.sync_to_axis(axes[1, 1])
+    assert hlpr.ax is axes[1, 1]
+    assert hlpr.ax_coords == (1, 1)
+
+    # ... errors: with plt.gca() not in the currently associated axes
+    assert plt.gca() not in hlpr.axes.flat
+    with pytest.raises(ValueError, match="not part of the associated"):
+        hlpr.sync_to_axis()
+
 
 def test_cfg_manipulation(hlpr):
     """Test manipulation of the configuration"""

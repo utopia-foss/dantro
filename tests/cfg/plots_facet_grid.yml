@@ -76,7 +76,7 @@ auto:
 
 
 # .. With `kind` specified ....................................................
-# A brief test of all various kinds.
+# Tests of all various kinds; not in-depth but covering most cases
 kinds:
   line: &line
     kinds: [line]
@@ -113,7 +113,7 @@ kinds:
     plot_kwargs:
       col_wrap: 2
 
-  heatmap:
+  pcolormesh:
     <<: *contour
     kinds: [pcolormesh]
 
@@ -132,6 +132,31 @@ kinds:
     specifiers: [frames]
     min_dims: 4
     max_dims: 4
+
+  errorbars:
+    kinds: [errorbars]
+    specifiers: [x, hue, col]  # rest is auto-encoded
+    min_dims: 1
+    max_dims: 5
+    test_data_path: ds_labelled
+    plot_kwargs:
+      y: foo
+      yerr: bar
+      auto_encoding: true
+      use_bands: true
+
+  scatter:
+    kinds: [scatter]
+    specifiers: [col, frames]
+    min_dims: 2
+    max_dims: 4
+    test_data_path: ds_labelled
+    plot_kwargs:
+      x: foo
+      y: bar
+      markersize: baz
+      hue: spam
+      auto_encoding: true
 
 
 # NOTE: All below are extended tests, i.e.: only run if FULL_TEST is set!

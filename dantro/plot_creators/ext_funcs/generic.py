@@ -6,6 +6,7 @@ creators.
 import copy
 import logging
 import math
+import warnings
 from typing import Callable, List, Tuple, Union
 
 import matplotlib.pyplot as plt
@@ -473,7 +474,7 @@ class make_facet_grid_plot:
                 regname = plot_single_axis.__name__
 
             if regname in _FACET_GRID_FUNCS or regname in _XR_PLOT_KINDS:
-                if not overwrite_existing:
+                if not self.overwrite_existing:
                     _in_use = ", ".join(
                         list(_FACET_GRID_FUNCS) + list(_XR_PLOT_KINDS)
                     )
@@ -492,14 +493,25 @@ class make_facet_grid_plot:
             )
             log.debug(
                 "Registered '%s' encodings:  %s",
+                regname,
                 ", ".join(_FACET_GRID_KINDS[regname]),
             )
 
         # Build the standalone plot function, which takes the place of the
         # decorated plot function
-        @is_plot_func(use_dag=True)
+        @is_plot_func(use_dag=True, required_dag_tags=("data",))
         def standalone(*, data: dict, hlpr: PlotHelper, **kwargs):
-            fgplot(data["data"], hlpr=hlpr, **kwargs)
+            try:
+                return fgplot(data["data"], hlpr=hlpr, **kwargs)
+
+            except Exception as exc:
+                raise PlottingError(
+                    "Standalone facet grid plotting for plot function "
+                    f"'{plot_single_axis.__name__}' failed! "
+                    f"Got {type(exc).__name__}: {exc}\n\n"
+                    f"Given arguments:\n  {kwargs}\n\n"
+                    f"Selected data:\n  {data['data']}\n"
+                ) from exc
 
         return standalone
 
@@ -527,6 +539,14 @@ def errorbar(
     **errorbar_kwargs,
 ) -> None:
     """A DAG-based generic errorbar plot.
+
+    .. deprecated:: 0.15
+
+        This function is deprecated. Instead, the more capable and generic
+        :py:func:`~dantro.plot_creators.ext_funcs.generic.errorbars` function
+        or :py:func:`~dantro.plot_creators.ext_funcs.generic.facet_grid` with
+        ``kind: errorbars`` can be used. The interface is mostly the same, but
+        data is expected as ``xr.Dataset`` instead of as two separate arrays.
 
     This plot expects data to be provided via :ref:`plot_creator_dag`.
     Expected tags are ``y`` and ``yerr`` and both should be labelled
@@ -578,6 +598,12 @@ def errorbar(
     Raises:
         ValueError: Upon badly shaped data
     """
+    warnings.warn(
+        "The `errorbar` function is deprecated and will be removed. Use the "
+        "`errorbars` function instead (has more capabilities and almost the "
+        "same interface, but uses xr.Dataset instead of two xr.DataArrays).",
+        DeprecationWarning,
+    )
 
     def plot_frame(
         *,
@@ -1043,9 +1069,9 @@ def errorbars(
     _y = ds[y]
     _yerr = ds[yerr]
 
-    # Infer x, if not given
+    # Try to infer x, if not given
     if not x:
-        x = [dim for dim in _y.dims if dim not in (hue, frames)][0]
+        x = [dim for dim in _y.dims if dim not in (hue,)][0]
     _x = ds.coords[x]
 
     # If this is not a facet grid, still show some labels
