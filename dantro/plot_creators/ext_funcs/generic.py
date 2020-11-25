@@ -220,6 +220,18 @@ def determine_layout_encoding(
         :end-before:  }   # --- end literalinclude
         :dedent: 4
 
+    This function also implements **automatic column wrapping**, aiming to
+    produce a more square-like figure with column wrapping. The prerequisites
+    are the following:
+
+        * The ``col_wrap`` argument is given and set to ``"auto"``
+        * The ``col`` specifier is in use
+        * The ``row`` specifier is *not* used, i.e. wrapping is possible
+        * There are more than three columns
+
+    In such a case, ``col_wrap`` will be set to ``ceil(sqrt(num_cols))``.
+    Otherwise, the entry will be removed from the plot arguments.
+
     Args:
         d (Union[xr.DataArray, xr.Dataset]): The data for which to create the
             layout association.
@@ -306,7 +318,11 @@ def determine_layout_encoding(
 
     # -- Automatic column wrapping
     if plot_kwargs.get("col_wrap") == "auto":
-        if specs.get("col") and not specs.get("row"):
+        if (
+            not specs.get("row")
+            and specs.get("col")
+            and d.sizes[specs["col"]] > 3
+        ):
             num_cols = d.sizes[specs["col"]]
             plot_kwargs["col_wrap"] = math.ceil(math.sqrt(num_cols))
             log.remark(
@@ -977,7 +993,12 @@ def facet_grid(
             provides additional information that helps to track down why the
             plotting failed.
     """
+    # Make sure to have the latest module-level variables available here; this
+    # is important to ensure that those `kind`s registered by the
+    # make_facet_grid_plot decorator are available here.
+    from .generic import _FACET_GRID_FUNCS, _FACET_GRID_KINDS
 
+    # .........................................................................
     def plot_frame(_d, *, kind: str, plot_kwargs: dict):
         """Plot a FacetGrid frame"""
         # Retrieve the generic or specialized plot function, depending on kind

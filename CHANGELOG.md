@@ -45,6 +45,7 @@
 - !215 fixes passing on the file format to the `FileWriters`' `savefig` function in cases where it cannot be deduced from the filename.
 - !214 makes dantro compatible to the latest h5py version, addressing #212, and sets the minimum version to 3.1.
 - !211 fixes a bug that lead to an outdated `logstr` after renaming a group or container.
+- !224 addresses an issue where a custom `style` context was lost upon a switch of animation mode (#173)
 
 #### Internal
 - !209 addresses #125 by reformatting all code using [black](https://black.readthedocs.io/en/stable/).
