@@ -688,9 +688,16 @@ def test_facet_grid_kinds(dm, out_dir):
     invoke_facet_grid(dm=dm, out_dir=out_dir, to_test=PLOTS_CFG_FG["kinds"])
 
 
+def test_facet_grid_errorbars(dm, out_dir):
+    """Tests the facet_grid for ``kind == 'errorbars'``"""
+    invoke_facet_grid(
+        dm=dm, out_dir=out_dir, to_test=PLOTS_CFG_FG["errorbars"]
+    )
+
+
 @skip_if_not_full
 def test_facet_grid_line(dm, out_dir):
-    """Tests the facet_grid for ``kind == line``"""
+    """Tests the facet_grid for ``kind == 'line'``"""
     invoke_facet_grid(dm=dm, out_dir=out_dir, to_test=PLOTS_CFG_FG["line"])
 
 
@@ -702,5 +709,5 @@ def test_facet_grid_2d(dm, out_dir):
 
 @skip_if_not_full
 def test_facet_grid_hist(dm, out_dir):
-    """Tests the facet_grid for ``kind == hist``"""
+    """Tests the facet_grid for ``kind == 'hist'``"""
     invoke_facet_grid(dm=dm, out_dir=out_dir, to_test=PLOTS_CFG_FG["hist"])

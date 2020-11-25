@@ -159,6 +159,7 @@ kinds:
       auto_encoding: true
 
 
+
 # NOTE: All below are extended tests, i.e.: only run if FULL_TEST is set!
 # .. line-like plots . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 line:
@@ -178,6 +179,33 @@ line:
     raises:
       0: *Exception
       5: *Exception
+
+# .. errorbar plots . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+errorbars:
+  ebars_simple: &ebars
+    kinds: [errorbars]
+    specifiers: [x, hue, col]  # rest is auto-encoded
+    min_dims: 1
+    max_dims: 4
+    test_data_path: ds_labelled
+    plot_kwargs: &ebars_kwargs
+      y: foo
+      yerr: bar
+      auto_encoding: true
+      use_bands: true
+
+  # .. failing plots
+  ebars_err_continuous_hue:
+    <<: *ebars
+    min_dims: 2
+    max_dims: 4
+    plot_kwargs:
+      <<: *ebars_kwargs
+      hue_style: continuous
+    raises:
+      2: &bad_hue_style [PlottingError, "May only be:  discrete"]
+      3: *bad_hue_style
+      4: *bad_hue_style
 
 # .. 2D plots . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 2d:

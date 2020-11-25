@@ -346,10 +346,11 @@ class make_facet_grid_plot:
         *,
         map_as: str,
         encodings: Tuple[str],
+        supported_hue_styles: Tuple[str] = None,
         register_as_kind: Union[bool, str] = True,
         overwrite_existing: bool = False,
         drop_kwargs: Tuple[str] = ("meta_data", "hue_style", "add_guide"),
-        **default_map_kwargs,
+        **default_kwargs,
     ):
         """Initialize the decorator, making the decorated function capable of
         performing a facet grid plot.
@@ -359,6 +360,11 @@ class make_facet_grid_plot:
                 ``dataarray`` and ``dataarray_line``.
             encodings (Tuple[str]): The encodings supported by the wrapped
                 plot function, e.g. ``("x", "hue")``.
+            supported_hue_styles (Tuple[str]): Which hue styles are
+                supported by the wrapped plot function. It is suggested to set
+                this value if mapping via ``dataset`` or ``dataarray_line`` in
+                order to disallow configurations that will not work with the
+                wrapped plot function. If set to None, no check will be done.
             register_as_kind (Union[bool, str], optional): If boolean, controls
                 *whether* to register the wrapped function with the generic
                 facet grid plot, using its own name. If a string, uses that
@@ -367,12 +373,15 @@ class make_facet_grid_plot:
                 existing registration in ``_FACET_GRID_FUNCS``. If False, an
                 existing entry of the same ``register_as_kind`` value will
                 lead to an error.
-            drop_kwargs (Tuple[str]): Which keyword arguments to drop before
-                invocation of the wrapped function; this can be useful to
-                trim down the signature of the wrapped function.
-            **default_map_kwargs: Additional arguments that are passed to the
-                selected mapping function. These are recursively updated with
-                those given upon plot function invocation.
+            drop_kwargs (Tuple[str], optional): Which keyword arguments to
+                drop before invocation of the wrapped function; this can be
+                useful to trim down the signature of the wrapped function.
+            **default_kwargs: Additional arguments that are passed to the
+                single-axis plotting function. These are used both when calling
+                it via the selected mapping function and when invoking it
+                without a facet grid.
+                These are recursively updated with those given upon plot
+                function invocation.
         """
         try:
             self.map_func = self.MAP_FUNCS[map_as]
@@ -383,10 +392,36 @@ class make_facet_grid_plot:
             )
 
         self.encodings = encodings
+        self.supported_hue_styles = supported_hue_styles
         self.register_as_kind = register_as_kind
         self.overwrite_existing = overwrite_existing
         self.drop_kwargs = drop_kwargs if drop_kwargs else ()
-        self.default_map_kwargs = default_map_kwargs
+        self.default_kwargs = default_kwargs
+
+    def parse_wpf_kwargs(self, data, **kwargs) -> dict:
+        """Parses the keyword arguments in preparation for invoking the wrapped
+        plot function. This can happen both in context of a facet grid mapping
+        or a single invocation.
+        """
+        # Update defaults
+        kwargs = recursive_update(copy.deepcopy(self.default_kwargs), kwargs)
+
+        # Some checks
+        if (
+            self.supported_hue_styles is not None
+            and "hue_style" in kwargs
+            and kwargs["hue_style"] not in self.supported_hue_styles
+        ):
+            raise ValueError(
+                f"The selected `hue_style` '{kwargs['hue_style']}' is not "
+                "supported for this plotting function! May only be:  "
+                f"{', '.join(self.supported_hue_styles)}"
+            )
+
+        # Can do more pre-processing here
+        # ...
+
+        return kwargs
 
     def __call__(self, plot_single_axis: Callable) -> Callable:
         """Generates a standalone DAG-based plotting function that supports
@@ -427,16 +462,37 @@ class make_facet_grid_plot:
             col_wrap: int = None,
             sharex: bool = True,
             sharey: bool = True,
+            figsize: tuple = None,
+            aspect: float = 1.0,
+            size: float = 3.0,
+            subplot_kws: dict = None,
             **kwargs,
         ):
+            """A facet-grid capable version of the given plot function.
+
+            Explicitly named arguments here are passed to the setup of the
+            facet grid; all ``kwargs`` are passed on to the selected mapping
+            function and subsequently: the wrapped single-axis plot function.
+            """
             # Without columns or rows, cannot use facet grid. Make a primitive
             # plot instead, directly using the wrapped plot function.
             if not col and not row:
+                log.debug("No `col` or `row` set. Not using a facet grid.")
+
+                kwargs = self.parse_wpf_kwargs(data, **kwargs)
+                log.debug(
+                    "Invoking single-axis plot function with kwargs:  %s",
+                    kwargs,
+                )
+
                 return wrapped_plot_func(
                     data, hlpr=hlpr, _is_facetgrid=False, **kwargs
                 )
 
             # Prepare facet grid and helper
+            log.debug(
+                "Setting up a facet grid (col: %s, row: %s) ...", col, row
+            )
             fg = xr.plot.FacetGrid(
                 data,
                 col=col,
@@ -444,15 +500,16 @@ class make_facet_grid_plot:
                 col_wrap=col_wrap,
                 sharex=sharex,
                 sharey=sharey,
+                figsize=figsize,
+                aspect=aspect,
+                size=size,
+                subplot_kws=subplot_kws if subplot_kws else {},
             )
             hlpr.attach_figure_and_axes(fig=fg.fig, axes=fg.axes)
 
-            # Prepare mapping keyword arguments
-            kwargs = recursive_update(
-                copy.deepcopy(self.default_map_kwargs), kwargs
-            )
-
-            # Apply the mapping
+            # Prepare mapping keyword arguments and apply the mapping
+            kwargs = self.parse_wpf_kwargs(data, **kwargs)
+            log.debug("Invoking mapping function with kwargs:  %s", kwargs)
             try:
                 map_to_facet_grid(fg, wrapped_plot_func, hlpr=hlpr, **kwargs)
 
@@ -460,13 +517,15 @@ class make_facet_grid_plot:
                 raise PlottingError(
                     f"Failed mapping {type(data)} data to facet grid! Check "
                     "the given arguments, dimensionality, dimension names, "
-                    "and whether the dimensions have coordinates associated."
+                    "and whether the dimensions have coordinates associated. "
+                    f"Got a {type(exc).__name__}: {exc}"
                 ) from exc
 
             # Return the FacetGrid object for further handling
             return fg
 
-        # ... and register it as a single-axis facet grid plot function
+        # facet grid plot function constructed now.
+        # ... register it as a single-axis facet grid plot kind.
         if self.register_as_kind:
             if isinstance(self.register_as_kind, str):
                 regname = self.register_as_kind
@@ -601,7 +660,9 @@ def errorbar(
     warnings.warn(
         "The `errorbar` function is deprecated and will be removed. Use the "
         "`errorbars` function instead (has more capabilities and almost the "
-        "same interface, but uses xr.Dataset instead of two xr.DataArrays).",
+        "same interface, but uses xr.Dataset instead of two xr.DataArrays). "
+        "Alternatively, use `facet_grid` with `kind = 'errorbars'`, which "
+        "additionally supports `frames` as encoding.",
         DeprecationWarning,
     )
 
@@ -1049,6 +1110,9 @@ def facet_grid(
 @make_facet_grid_plot(
     map_as="dataset",
     encodings=("x", "hue"),
+    supported_hue_styles=("discrete",),
+    #
+    # defaults
     hue_style="discrete",
 )
 def errorbars(
@@ -1064,14 +1128,46 @@ def errorbars(
     use_bands: bool = False,
     **kwargs,
 ):
-    """An errorbar plot supporting facet grid."""
+    """An errorbar plot supporting facet grid.
+
+    This function makes use of a decorator to implement faceting support:
+    :py:class:`~dantro.plot_creators.ext_funcs.generic.make_facet_grid_plot`.
+    It additionally registers this plot as an available plot ``kind`` in
+    :py:func:`~dantro.plot_creators.ext_funcs.generic.facet_grid`.
+
+    .. note::
+
+        This plot function is heavily wrapped by the decorator, which is why
+        not all functionality is exposed here. Instead, the arguments seen here
+        are those that apply to a *single* subplot of a facet grid.
+
+    Uses :py:func:`~dantro.plot_creators.ext_funcs._utils.plot_errorbar` for
+    plotting individual lines.
+
+    Args:
+        ds (xr.Dataset): The dataset containing the errorbar data
+        _is_facetgrid (bool): Indicates whether this plot is called as part of
+            a facet grid or whether no faceting takes place (i.e. when neither
+            columns nor rows are available for faceting). In such a case, this
+            plot supplies metadata to the plot helper to draw axis labels etc.
+        hlpr (PlotHelper): The plot helper, exposing the currently selected
+            axis via ``hlpr.ax``.
+        y (str): Which data variable to use for the y-axis values
+        yerr (str): Which data variable to use for the errorbars or bands
+        x (str, optional): Which data dimension to plot on the x-axis
+        hue (str, optional): Which data dimension to represent via hues
+        hue_fstr (str, optional): A format string that is used to build the
+            label of discrete hue encoding.
+        use_bands (bool, optional): Whether to use errorbands instead of bars.
+        **kwargs: Passed on to ``hlpr.ax.errorbar`` via
+            :py:func:`~dantro.plot_creators.ext_funcs._utils.plot_errorbar`.
+    """
     # Prepare data
     _y = ds[y]
     _yerr = ds[yerr]
 
     # Try to infer x, if not given
-    if not x:
-        x = [dim for dim in _y.dims if dim not in (hue,)][0]
+    x = x if x else [dim for dim in _y.dims if dim not in (hue,)][0]
     _x = ds.coords[x]
 
     # If this is not a facet grid, still show some labels
