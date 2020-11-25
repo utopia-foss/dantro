@@ -507,6 +507,11 @@ def extract_coords(
 ) -> TCoordsDict:
     """Wrapper around the more specific coordinate extraction functions.
 
+    .. note::
+
+        This function does not support the extraction of non-dimension
+        coordinates.
+
     Args:
         obj (AbstractDataContainer): The object from which to extract the
             coordinates.

@@ -8,6 +8,7 @@ stored data.
 """
 
 import logging
+import warnings
 from typing import Dict, List, Tuple, Union
 
 import numpy as np
@@ -15,6 +16,7 @@ import xarray as xr
 
 from ..abc import AbstractDataContainer
 from ..containers import XrDataContainer
+from ..exceptions import *
 from ..tools import apply_along_axis
 from ..utils import extract_coords
 from ..utils.coords import TCoord, TCoordsDict, TDims
@@ -65,6 +67,7 @@ class LabelledDataGroup(OrderedDataGroup):
         self,
         *args,
         dims: TDims = None,
+        mode: str = None,
         allow_deep_selection: bool = None,
         **kwargs,
     ):
@@ -76,6 +79,10 @@ class LabelledDataGroup(OrderedDataGroup):
             dims (TDims, optional): The dimensions associated with this group.
                 If not given, will use those defined in the ``LDG_DIMS`` class
                 variable. These can *not* be changed afterwards!
+            mode (str, optional): By which coordiante extraction mode to get
+                the coordinates from the group members. Can be ``attrs``,
+                ``name``, ``data`` or anything else specified in
+                :py:func:`~dantro.utils.coords.extract_coords`.
             allow_deep_selection (bool, optional): Whether to allow deep
                 selection. If not given, will use the
                 ``LDG_ALLOW_DEEP_SELECTION`` class variable's value. Behaviour
@@ -91,6 +98,10 @@ class LabelledDataGroup(OrderedDataGroup):
 
         self._dims = dims if dims is not None else tuple(self.LDG_DIMS)
 
+        self._mode = self.LDG_EXTRACT_COORDS_FROM
+        if mode is not None:
+            self._mode = mode
+
         self._allow_deep_selection = self.LDG_ALLOW_DEEP_SELECTION
         if allow_deep_selection is not None:
             self._allow_deep_selection = allow_deep_selection
@@ -104,51 +115,24 @@ class LabelledDataGroup(OrderedDataGroup):
         It _may_ contain dimensions that overlap with dimension names from the
         members; this is intentional.
         """
-        return self._dims
+        return self.member_map.dims
 
     @property
     def ndim(self) -> int:
         """The rank of the space covered by the group-level dimensions."""
-        return len(self.dims)
+        return self.member_map.ndim
 
     @property
     def coords(self) -> Dict[str, List[TCoord]]:
-        """Returns a dict-like container of group-level coordinates.
-
-        The coordinates are calculated by iterating over all members and
-        aggregating their individual coordinates. Once the member map is
-        available, information is retrieved from there rather than
-        recalculating it.
+        """Returns a dict-like container of group-level coordinate values keyed
+        by dimension.
         """
-        if self.member_map_available:
-            return self.member_map.coords
-
-        # Need to collect them from the members; set guarantee uniqueness
-        coords = {dim_name: set() for dim_name in self.dims}
-
-        for cont_name, cont in self.items():
-            cont_coords = self._get_coords_of(cont)
-
-            for dim_name, coord_vals in cont_coords.items():
-                coords[dim_name].update(coord_vals)
-
-        # Convert to dict of lists
-        return {dim_name: sorted(list(s)) for dim_name, s in coords.items()}
+        return self.member_map.coords
 
     @property
     def shape(self) -> Tuple[int]:
-        """Return the shape of the space covered by the group-level dimensions.
-
-        This will be calculated from the available coordinates. Once the
-        member map is available, information is retrieved from there rather
-        than recalculating it.
-        """
-        if self.member_map_available:
-            return self.member_map.shape
-
-        # Need to derive it from the coordinates
-        coords = self.coords
-        return tuple([len(coords[dim_name]) for dim_name in self.dims])
+        """Return the shape of the space covered by the group-level dimensions."""
+        return self.member_map.shape
 
     # Additional properties ...................................................
 
@@ -184,21 +168,42 @@ class LabelledDataGroup(OrderedDataGroup):
         if self.member_map_available:
             return self.__member_map
 
-        # Create an empty DataArray of strings, using the existing dimension
-        # names and coordinates to label it
+        # Member map is not available and has to be created anew.
+        # First, extract the coordinates by iterating over all members and
+        # aggregating their individual coordinates; sets guarantee uniqueness
+        coords = {dim_name: set() for dim_name in self._dims}
+
+        for cont_name, cont in self.items():
+            cont_coords = self._get_coords_of(cont)
+
+            for dim_name, coord_vals in cont_coords.items():
+                coords[dim_name].update(coord_vals)
+
+        # Convert to dict of lists
+        coords = {dim_name: sorted(list(s)) for dim_name, s in coords.items()}
+
+        # Now, derive the shape from the coordinates
+        shape = tuple([len(coords[dim_name]) for dim_name in self._dims])
+
+        # Create a DataArray containing empty strings, using the existing
+        # dimension names (as set during initialization) and coordinates to
+        # label it.
+        mm_data = np.zeros(shape, dtype="object")
+        mm_data.fill("")
+
         mm = xr.DataArray(
-            data=np.zeros(self.shape, dtype="<U255"),
-            dims=self.dims,
-            coords=self.coords,
+            data=mm_data,
+            dims=self._dims,
+            coords=coords,
         )
 
         # Iterate over members and populate the array with member names
-        for name, cont in self.items():
-            coords = self._get_coords_of(cont)
+        for cont_name, cont in self.items():
+            cont_coords = self._get_coords_of(cont)
             # These coordinates describe a hypercube in coordinate space that
             # is to be associated with this container. Thus, the member map
             # should contain the name of the member for all these coordinates:
-            mm.loc[coords] = name
+            mm.loc[cont_coords] = cont_name
 
         # Cache the map and return it
         self.__member_map = mm
@@ -227,15 +232,26 @@ class LabelledDataGroup(OrderedDataGroup):
         in the group-managed dimensions are looked up in the members of this
         group.
 
+        .. note::
+
+            For data combination (via *any* ``combination_method``)
+            dimensions that differ in size across group members have to be
+            labelled, such that arrays can be
+            `aligned <http://xarray.pydata.org/en/stable/generated/xarray.align.html>`_
+            using the respective coordinates.
+            See `the xarray documentation <http://xarray.pydata.org/en/stable/data-structures.html#coordinates>`_
+            for more information about coordinates.
+
         Args:
             indexers (dict, optional): A dict with keys matching dimensions and
                 values given by scalars, slices or arrays of tick indices.
-                As `xr.DataArray.sel`, uses pandas-like indexing, i.e.: slices
-                include the terminal value.
+                As `xr.DataArray.isel`, uses pandas-like indexing, i.e.: slices
+                do not include the terminal value.
             drop (bool, optional): Drop coordinate variables instead of making
                 them scalar.
             combination_method (str, optional): How to combine group-level data
-                with member-level data. Can be:
+                with member-level data. Ignored if data from a single group
+                member is selected, i.e. no data has to be combined. Can be:
 
                     * ``concat``: Concatenate. This can preserve the dtype, but
                       requires that no data is missing.
@@ -265,18 +281,11 @@ class LabelledDataGroup(OrderedDataGroup):
         # are to be combined ...
         tbc = self.member_map.isel(idxrs, drop=drop)
 
-        # If only a single item remains, pass deep indexers on to it
-        if tbc.size == 1:
-            cont = self[tbc.item()]
-
-            if not deep_idxrs:
-                return cont
-            return cont.isel(deep_idxrs, drop=drop)
-
         # Now, combine them, potentially also applying deep indexing
         return self._combine(
             tbc,
             combination_method=combination_method,
+            shallow_indexers=idxrs,
             deep_indexers=deep_idxrs,
             by_index=True,
             drop=drop,
@@ -300,6 +309,17 @@ class LabelledDataGroup(OrderedDataGroup):
         in the group-managed dimensions are looked up in the members of this
         group.
 
+        .. note::
+
+            For data combination (via *any* ``combination_method``)
+            dimensions that differ in size across group members have to be
+            labelled, such that arrays can be
+            `aligned <http://xarray.pydata.org/en/stable/generated/xarray.align.html>`_
+            using the respective coordinates.
+            See `the xarray documentation <http://xarray.pydata.org/en/stable/data-structures.html#coordinates>`_
+            for more information about coordinates.
+
+
         Args:
             indexers (dict, optional): A dict with keys matching dimensions and
                 values given by scalars, slices or arrays of tick labels.
@@ -311,7 +331,8 @@ class LabelledDataGroup(OrderedDataGroup):
             drop (bool, optional): Drop coordinate variables instead of making
                 them scalar.
             combination_method (str, optional): How to combine group-level data
-                with member-level data. Can be:
+                with member-level data. Ignored if data from a single group
+                member is selected, i.e. no data has to be combined. Can be:
 
                     * ``concat``: Concatenate. This can preserve the dtype, but
                       requires that no data is missing.
@@ -343,20 +364,11 @@ class LabelledDataGroup(OrderedDataGroup):
             idxrs, method=method, tolerance=tolerance, drop=drop
         )
 
-        # If only a single item remains, pass deep indexers on to it
-        if tbc.size == 1:
-            cont = self[tbc.item()]
-
-            if not deep_idxrs:
-                return cont
-            return cont.sel(
-                deep_idxrs, method=method, tolerance=tolerance, drop=drop
-            )
-
         # Now, combine them, potentially also applying deep indexing
         return self._combine(
             tbc,
             combination_method=combination_method,
+            shallow_indexers=idxrs,
             deep_indexers=deep_idxrs,
             by_index=False,
             method=method,
@@ -367,36 +379,29 @@ class LabelledDataGroup(OrderedDataGroup):
     # Helpers .................................................................
     # General . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-    def _get_coords_of(
-        self, obj: AbstractDataContainer, *, mode=None
-    ) -> TCoordsDict:
+    def _get_coords_of(self, obj: AbstractDataContainer) -> TCoordsDict:
         """Extract the coordinates for the given object using the
         :py:func:`~dantro.utils.coords.extract_coords` function.
 
         Args:
             obj (AbstractDataContainer): The object to get the coordinates of.
-            mode (None, optional): By which coordiante extraction mode to get
-                the coordinates from the object. Can be ``attrs``, ``name``,
-                ``data`` or anything else specified in
-                :py:func:`~dantro.utils.coords.extract_coords`.
 
         Returns:
             TCoordsDict: The extracted coordinates
         """
         # Depending on the mode, compile the dict of additional parameters
-        mode = mode if mode is not None else self.LDG_EXTRACT_COORDS_FROM
         kwargs = dict()
 
-        if mode == "attrs":
+        if self._mode == "attrs":
             kwargs["coords_attr_prefix"] = self.LDG_COORDS_ATTR_PREFIX
             kwargs["mode_attr_prefix"] = self.LDG_COORDS_MODE_ATTR_PREFIX
             kwargs["default_mode"] = self.LDG_COORDS_MODE_DEFAULT
             kwargs["strict"] = self.LDG_STRICT_ATTR_CHECKING
 
-        elif mode == "name":
+        elif self._mode == "name":
             kwargs["separator"] = self.LDG_COORDS_SEPARATOR_IN_NAME
 
-        return extract_coords(obj, dims=self.dims, mode=mode, **kwargs)
+        return extract_coords(obj, dims=self._dims, mode=self._mode, **kwargs)
 
     def _add_container_callback(self, cont: AbstractDataContainer) -> None:
         """Called by the base class after adding a container, this method
@@ -409,9 +414,6 @@ class LabelledDataGroup(OrderedDataGroup):
 
         Args:
             cont (AbstractDataContainer): The newly added container
-
-        Returns:
-            None: Description
         """
         # First, let the parent class do its thinkg
         super()._add_container_callback(cont)
@@ -456,11 +458,11 @@ class LabelledDataGroup(OrderedDataGroup):
         idxrs = dict(**(indexers if indexers else {}), **indexers_kwargs)
 
         # Split by those for deep selection and those for this group
-        deep_idxrs = {k: v for k, v in idxrs.items() if k not in self.dims}
-        idxrs = {k: v for k, v in idxrs.items() if k in self.dims}
+        deep_idxrs = {k: v for k, v in idxrs.items() if k not in self._dims}
+        idxrs = {k: v for k, v in idxrs.items() if k in self._dims}
 
         if deep_idxrs and not allow_deep:
-            _dim_names = ", ".join(self.dims)
+            _dim_names = ", ".join(self._dims)
             raise ValueError(
                 f"Deep indexing is not allowed for {self.logstr}, but got "
                 "indexers that don't match any of its dimension "
@@ -476,6 +478,7 @@ class LabelledDataGroup(OrderedDataGroup):
         cont_names: xr.DataArray,
         *,
         combination_method: str,
+        shallow_indexers: dict,
         deep_indexers: dict,
         by_index: bool,
         **sel_kwargs,
@@ -508,8 +511,10 @@ class LabelledDataGroup(OrderedDataGroup):
             combination_method (str): How to combine them: concat, try_concat,
                 or merge. Concatenation will allow preserving the dtype of the
                 underlying data.
-            deep_indexers (dict): Whether any further indexing is to take place
-                before combination.
+            shallow_indexers (dict): Indexer arguments that were used for the
+                group member selection.
+            deep_indexers (dict): Indexer arguments for deep selection to be
+                done before combination.
             by_index (bool): Whether the deep indexing should take place by
                 index; if False, will use label-based selection.
             **sel_kwargs: Passed on to ``.sel`` or ``.isel``.
@@ -519,7 +524,8 @@ class LabelledDataGroup(OrderedDataGroup):
                 using the given combination method.
 
         Raises:
-            ValueError: Invalid combination method
+            ValueError: On invalid combination method; on conflicting
+                coordinate information on group-level and member-level.
             KeyError: In ``concat`` mode, upon missing members.
         """
 
@@ -539,11 +545,14 @@ class LabelledDataGroup(OrderedDataGroup):
                     return None, combination_method
 
                 # Otherwise, should raise!
-                raise KeyError(
-                    f"Could not find a member named '{name}' in "
-                    f"{self.logstr}, but need it for concatenation! Make sure "
-                    "that the member can be found under this name or change "
-                    "the combination method to 'merge' or 'try_concat'."
+                raise ItemAccessError(
+                    self,
+                    key=name,
+                    suffix=(
+                        "Make sure that the member can be found under this "
+                        "name or change the combination method to 'merge' or "
+                        "'try_concat'."
+                    ),
                 ) from err
 
             else:
@@ -551,18 +560,40 @@ class LabelledDataGroup(OrderedDataGroup):
 
         def process_cont(cont, coords) -> Tuple[xr.DataArray, dict]:
             """Process the given container and coordinates into a data array;
-            this also applies the deep selection.
+            this applies selection along container dimensions that overlap with
+            the group dimensions as well as deep selection.
             """
+
+            def all_equal(x, y) -> bool:
+                """Check element-wise equality of two arrays."""
+                try:
+                    if x.dtype.kind == "f" or y.dtype.kind == "f":
+                        return np.allclose(x, y)
+
+                    else:
+                        return np.array_equal(x, y)
+
+                except Exception:
+                    warnings.warn(
+                        "Element-wise array comparison failed. Received: "
+                        f"\nx: {x}\ny: {y}\nTreating them as not equal.",
+                        DantroWarning,
+                    )
+                    return False
+
             # Apply the coordinates of the overlapping dimensions
-            # (Does nothing if there are no overlapping dimensions)
-            darr = cont.sel(
-                {
-                    dim: coord
-                    for dim, coord in coords.items()
-                    if dim in cont.dims
-                },
-                drop=False,
-            )
+            # (If there are none, select everything to get a DataArray)
+            # Note that all coordinates in `coords` are scalar coordinates
+            # since they describe a single entry within the member map.
+            overlapping_indexers = {
+                dim: coord for dim, coord in coords.items() if dim in cont.dims
+            }
+
+            darr = cont.sel(overlapping_indexers, drop=False)
+            # The selection above is done with `drop=False`, because `coords`
+            # might contain coordinates that were not passed as indexers to
+            # `.sel` or `.isel` and therefore should not be dropped.
+
             # This is to ensure that the array that is used matches only a
             # single coordinate combination, i.e. one _point_ in the space
             # spanned by self.member_map.coords.
@@ -573,20 +604,105 @@ class LabelledDataGroup(OrderedDataGroup):
             # and not allow using the convenient xarray interface).
 
             # Apply the deep indexers
-            if by_index:
-                darr = darr.isel(deep_indexers, **sel_kwargs)
-            else:
-                darr = darr.sel(deep_indexers, **sel_kwargs)
+            if deep_indexers:
+                if by_index:
+                    darr = darr.isel(deep_indexers, **sel_kwargs)
+                else:
+                    darr = darr.sel(deep_indexers, **sel_kwargs)
 
-            # For the following, the container coordinates may not contain
-            # any dimension names that are overlapping with those of the group
-            coords = {
-                dim_name: coords
-                for dim_name, coords in coords.items()
-                if dim_name not in darr.dims
+            # If the selection is done with `drop=True`, non-dimension
+            # coordinates were already removed from `coords`. If there are
+            # overlapping dimensions, these have to be applied again.
+            dropped_shallow_indexers = {
+                dim: coord
+                for dim, coord in shallow_indexers.items()
+                if dim not in coords and dim in cont.dims
             }
 
+            if dropped_shallow_indexers:
+                if by_index:
+                    darr = darr.isel(dropped_shallow_indexers, **sel_kwargs)
+                else:
+                    darr = darr.sel(dropped_shallow_indexers, **sel_kwargs)
+
+            # Finally, check for conflicting non-dimension coordinates in the
+            # processed data-array (which were ignored for the selections
+            # above).
+            confl_coords = {
+                d: (darr.coords[d].values, coords[d].values)
+                for d in darr.coords
+                if d not in darr.dims
+                and d in coords
+                and not all_equal(darr.coords[d], coords[d])
+            }
+
+            if confl_coords:
+                # Provide some information on the conflicting coords
+                infostr = (
+                    "\n"
+                    r"Name: {name}"
+                    "\n"
+                    r"Group-level coordinate: {c_grp}"
+                    "\n"
+                    r"Member-level coordinate: {c_mem}"
+                )
+
+                suffix = "\n".join(
+                    [
+                        infostr.format(name=k, c_grp=v[1], c_mem=v[0])
+                        for k, v in confl_coords.items()
+                    ]
+                )
+
+                raise ValueError(
+                    "Conflicting non-dimension coordinate"
+                    f"{'s' if len(confl_coords) > 1 else ''} found within a "
+                    f"member of {self.logstr}:\n" + suffix
+                )
+
             return darr, coords
+
+        # If the pre-selected member map contains only a single entry or single
+        # invalid entry, no data combination will have to be done, i.e. no
+        # `combination_method` needs to be applied. This can speed up the
+        # computation time a lot.
+        if cont_names.size == 1 or (cont_names != "").sum() == 1:
+            if cont_names.size == 1:
+                # Select the group member directly.
+                cont = self[cont_names.item()]
+                # Applying `.squeeze()` here is equivalent to selecting the
+                # single entry, since no dimension is of size > 1.
+                coords = cont_names.squeeze().coords
+            else:
+                # Find container name and respective index in `cont_names`
+                name = cont_names.where(cont_names != "", drop=True).item()
+                idx = tuple(e.item() for e in np.where(cont_names != ""))
+                # Extract container and coords
+                cont = self[name]
+                coords = cont_names[idx].coords
+
+            # Process the container into a DataArray.
+            darr, coords = process_cont(cont, coords)
+
+            # Pass on 1D dimensions with the coordinate information
+            darr = darr.expand_dims(
+                {
+                    d: ([c.values] if c.ndim == 0 else c.values)
+                    for d, c in coords.items()
+                    if d in cont_names.dims
+                }
+            )
+
+            # Pass on non-dimension coordinates
+            darr = darr.assign_coords(
+                {
+                    d: c.values
+                    for d, c in coords.items()
+                    if d not in cont_names.dims and d not in darr.coords
+                }
+            )
+
+            return darr
 
         dsets = np.zeros(cont_names.shape, dtype="object")
         dsets.fill(dict())  # placeholders, ignored in xr.merge
@@ -606,7 +722,7 @@ class LabelledDataGroup(OrderedDataGroup):
                 continue
 
             # Get the coordinates for this member container and further process
-            # the container into a DataArray
+            # the container into a DataArray.
             coords = cont_names[names_iter.multi_index].coords
             darr, coords = process_cont(cont, coords)
 
@@ -616,8 +732,15 @@ class LabelledDataGroup(OrderedDataGroup):
             dset = darr.to_dataset(name="_tmp_dset_name")
 
             # Now, need to expand the dimensions to accomodate the coordinates.
-            # Add the new dimensions in front. (Important for concatenation!)
-            dset = dset.expand_dims(dim=list(coords.keys()))
+            # (Important for concatenation!)
+            # Add the new dimensions in front and assign coordinates to them.
+            dset = dset.expand_dims(
+                {
+                    d: ([c.values] if c.ndim == 0 else c.values)
+                    for d, c in coords.items()
+                    if d in cont_names.dims  # only for actual dimensions
+                }
+            )
             # NOTE While this creates a non-shallow copy of the data, there is
             #      no other way of doing this: a copy can only be avoided if
             #      the DataArray can re-use the existing variables – for the
@@ -626,8 +749,19 @@ class LabelledDataGroup(OrderedDataGroup):
             #      Thus, we might as well let xarray take care of that instead
             #      of bothering with that ourselves ...
 
-            # ...and assign coordinates to them (shallow copy of existing dset)
-            dset = dset.assign_coords(**{k: [v] for k, v in coords.items()})
+            # For coordinates that are not linked to a dimension in
+            # `cont_names`, do not expand the dimensions but assign them as
+            # non-dimension coordinates.
+            dset = dset.assign_coords(
+                {
+                    d: c.values
+                    for d, c in coords.items()
+                    if d not in cont_names.dims
+                    # If coord already there, don't try assigning it. The check
+                    # for conflicting coords ensures that it's correct.
+                    and d not in dset.coords
+                }
+            )
 
             # Done. Store it in the object-array of datasets
             dsets[names_iter.multi_index] = dset
@@ -650,7 +784,7 @@ class LabelledDataGroup(OrderedDataGroup):
                 #      missing, i.e. some numerical issue during concatenation
                 # Try again with merging ...
                 log.warning(
-                    "Failed concatenation with %s: %s",
+                    "Failed concatenation with %s: %s. Attempting merge ...",
                     exc.__class__.__name__,
                     exc,
                 )
