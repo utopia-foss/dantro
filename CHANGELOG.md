@@ -9,6 +9,7 @@
     - Item access now allows accessing the parent object (via `../`) or the object itself (`./`), similar to navigating within POSIX paths.
     - Addressing #220, error messages are improved to more accurately show where item access went wrong, and even provide a hint for the correct key.
 - Features and improvements in the **plotting framework**:
+    - !222 adds the [`multiplot`](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html) function allowing configuration-based consecutive calls of any plot function that does not create a new figure and operates on the current axis. Most [`matplotlib`](https://matplotlib.org) plot functions, as well as many [`seaborn`](http://seaborn.pydata.org/index.html) plot functions, are readily accessible.
     - !210 adds the `set_ticks` PlotHelper function that enables setting tick locations and labels.
     - !211 makes it possible to [use data transformation results inside other parts of the plot configuration](https://dantro.readthedocs.io/en/latest/plotting/plot_data_selection.html#using-data-transformation-results-in-the-plot-configuration), e.g. to specify plot helper arguments.
     - !215 adds the [`auto_encoding` feauture](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html#auto-encoding-of-plot-layout) to the generic plot functions `facet_grid` and `errorbar`, allowing more data-averse plot configurations.
