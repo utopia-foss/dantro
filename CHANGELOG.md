@@ -10,10 +10,19 @@
     - Addressing #220, error messages are improved to more accurately show where item access went wrong, and even provide a hint for the correct key.
 - Features and improvements in the **plotting framework**:
     - !222 adds the [`multiplot`](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html) function allowing configuration-based consecutive calls of any plot function that does not create a new figure and operates on the current axis. Most [`matplotlib`](https://matplotlib.org) plot functions, as well as many [`seaborn`](http://seaborn.pydata.org/index.html) plot functions, are readily accessible.
-    - !210 adds the `set_ticks` PlotHelper function that enables setting tick locations and labels.
-    - !211 makes it possible to [use data transformation results inside other parts of the plot configuration](https://dantro.readthedocs.io/en/latest/plotting/plot_data_selection.html#using-data-transformation-results-in-the-plot-configuration), e.g. to specify plot helper arguments.
-    - !215 adds the [`auto_encoding` feauture](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html#auto-encoding-of-plot-layout) to the generic plot functions `facet_grid` and `errorbar`, allowing more data-averse plot configurations.
-    - !221 improves auto-encoding in case of partly fixed layout specifiers
+    - !224 adds the `errorbars` plot, which supports faceting and is additionally available via `kind: errorbars` in the general `facet_grid` plot.
+    - !211 makes it possible to [use data transformation results inside other parts of the plot configuration](https://dantro.readthedocs.io/en/latest/plotting/plot_data_selection.html#using-data-transformation-results-in-the-plot-configuration), e.g. to specify plot helper arguments or `multiplot` arguments.
+    - !215 adds the [`auto_encoding` feauture](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html#auto-encoding-of-plot-layout) to the generic plot functions `facet_grid` and `errorbar`, allowing more data-averse plot configurations. (!221 and !224 improve it further.)
+    - !224 adds the [`make_facet_grid_plot` decorator](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html#add-custom-plot-kinds-that-support-faceting) which simplifies defining plots that support faceting.
+      Plot functions that are decorated like this will also become available as a plot `kind` in the general `facet_grid` plot.
+    - Various `PlotHelper` improvements:
+        - !210 adds the `set_ticks` helper function, enabling setting tick locations and labels.
+        - !224 adds the seaborn-based `despine` helper, working on individual axes
+        - !224 adds distinctions between figure-level helpers and helpers that operate on a single axis.
+        - !224 adds the `track_handles_labels` method, which allows to keep track of artists that should appear in a legend.
+          The `set_legend` helper is extended accordingly and the `set_figlegend` function is added which supplies the same functionality but for a figure legend.
+        - !224 improves `set_suptitle` and `set_figlegend` such that the created artist no longer overlaps with the existing subplots grid.
+        - !224 allows to provide an axis object to `select_axis` to sync the `PlotHelper` to that axis.
 - !207 improves the computation time for data selection in the `GraphGroup`.
 - !208 addresses #199 by adding the `keep_dim` option in the `GraphGroup` to specify dimensions that are not squeezed during data selection.
 - !217 improves the `GraphGroup`, now storing selection information as graph attribute (in `g.graph`) whenever data is added to the graph object.
@@ -29,8 +38,9 @@
     - !204 adds the `BasicComparisonMixin`, which supplies a simple `__eq__` magic method.
     - !216 extends the operations database with commonly used operations and makes operations on the `nx.` module easier.
 
-#### Breaking changes
+#### Breaking changes and deprecations
 - As of !204, the `PickleLoaderMixin` no longer allows choosing which load function to use via a class variable but _always_ uses `dill.load`.
+- With !224, the `errorbar` plot is deprecated in favour of the `errorbars` plot, which supports faceting.
 - With the changes to path handling in !218, there are the following notable changes that depart from the behavior of the previous interface:
     - In addition to the `/` character, names of data containers or group may no longer contain a set of characters (e.g. `*` or `?`) as these may interfere with operations on paths.
     - The `BaseDataGroup.__contains__` method now returns true if the given path-like argument (e.g. `foo/bar`) is a valid argument to `__getitem__`
