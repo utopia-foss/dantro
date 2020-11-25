@@ -181,13 +181,13 @@ def _parse_func_kwargs(
 # -----------------------------------------------------------------------------
 
 
-@is_plot_func(use_dag=True, unpack_dag_results=True)
+@is_plot_func(use_dag=True)
 def multiplot(
     *,
     hlpr: PlotHelper,
     to_plot: Union[list, dict],
+    data: dict,
     show_hints: bool = True,
-    data: dict = None,
     **shared_kwargs,
 ) -> None:
     """Consecutively plot multiple functions on one or multiple axes.
@@ -238,11 +238,11 @@ def multiplot(
     Args:
         hlpr (PlotHelper): The PlotHelper instance for this plot
         to_plot (Union[list, dict]): The data to plot.
-        show_hints (bool): Whether to show hints in the case of not passing
-            any arguments to a plot function.
         data (dict): Data from TransformationDAG selection. These results are
             ignored; data needs to be passed via the result placeholders!
             See above.
+        show_hints (bool): Whether to show hints in the case of not passing
+            any arguments to a plot function.
         **shared_kwargs (dict): Shared kwargs for all plot functions.
             They are recursively updated, if to_plot specifies the same
             kwargs.
