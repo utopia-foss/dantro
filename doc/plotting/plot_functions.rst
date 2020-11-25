@@ -36,7 +36,7 @@ Handling, transforming, and plotting high-dimensional data is difficult and ofte
 ``dantro`` provides the generic :py:func:`~dantro.plot_creators.ext_funcs.generic.facet_grid` plot function that - together with the other dantro features - allows for a declarative way of creating plots from high-dimensional data.
 
 The idea is that high-dimensional raw data first is transformed using the :ref:`dag_framework`.
-The :py:func:`~.facet_grid` function then gets the ready-to-plot data as input and visualizes it by automatically choosing an appropriate kind of plot – if possible and not explicitely given – in a declarative way through specification of layout keywords such as ``col``\ ums, ``row``\ s, or ``hue``.
+The :py:func:`~.facet_grid` function then gets the ready-to-plot data as input and visualizes it by automatically choosing an appropriate kind of plot – if possible and not explicitly given – in a declarative way through the specification of layout keywords such as ``col``\ ums, ``row``\ s, or ``hue``.
 This approach is called `faceting <http://xarray.pydata.org/en/stable/plotting.html#faceting>`_; dantro makes use of the `excellent plotting functionality of xarray <http://xarray.pydata.org/en/stable/plotting.html>`_ for this feature.
 The :py:func:`~.facet_grid` plot function further extends the xarray plotting functionality by adding the possibility to create :ref:`animations <pcr_ext_animations>`, simply by using the ``frames`` argument to specify the data dimension to represent as individual frames of an animation.
 
@@ -89,7 +89,7 @@ For details, see :py:func:`~.determine_layout_encoding`.
 .. _dag_generic_errorbar:
 
 :py:func:`~.errorbar` and :py:func:`~.errorbands`: Visualizing Confidence Intervals
-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------
 The :py:func:`~.errorbar` and :py:func:`~.errorbands` plotting functions provide the ability to visualize data together with corresponding confidence intervals.
 Similar to :py:func:`~.facet_grid`, these functions offer the ``hue`` and ``frames`` arguments, allowing to represent data with up to three dimensions.
 
@@ -97,3 +97,67 @@ Similar to :py:func:`~.facet_grid`, these functions offer the ``hue`` and ``fram
 
     These plot functions also support the :ref:`auto-encoding feature <dag_generic_auto_encoding>`, similar to the facet grid plot.
     The available specifiers are: ``x``, ``hue`` and ``frames``.
+
+
+
+
+----
+
+.. _dag_multiplot:
+
+:py:func:`~.multiplot`: Plot multiple functions on one axis
+-----------------------------------------------------------
+The :py:func:`~.multiplot` plotting function enables the consecutive application of multiple plot functions on the current axis generated and provided through the ``PlotHelper``.
+
+Plot functions can either be given as a string that is used to map to the corresponding function or by directly passing a callable function to the multiplot.
+For the former, the following `seaborn plot functions <https://seaborn.pydata.org/api.html>`_ are available:
+
+.. literalinclude:: ../../dantro/plot_creators/ext_funcs/multiplot.py
+    :language: python
+    :start-after: _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
+    :end-before:  }   # --- end literalinclude
+
+However, you can also plot any other function operating on a ``matplotlib.axes`` object.
+Let us look at some example configurations to illustrate features:
+
+.. code-block:: YAML
+
+    # Minimal example
+    sns_lineplot_example:
+      plot_func: multiplot
+      to_plot:
+        # Plot a seaborn.lineplot
+        # As data use the previously DAG-tagged 'seaborn_data'.
+        # Note that it is important to specify the data to use
+        # otherwise sns.lineplot plots and shows nothing!
+        - function: sns.lineplot
+          data: !dag_result seaborn_data
+          # Add further sns.lineplot-specific kwargs below...
+          markers: true
+
+      # Add more functions to plot on the same axes below...
+
+    # The same plot as above but with a plt.plot overlaid on the same axes.
+    advanced_example:
+      plot_func: multiplot
+      transform:
+        # Import the matplotlib.pyplot.plot function
+        - import: [matplotlib.pyplot, plot]
+          tag: plt_plot
+      to_plot:
+        - function: sns.lineplot
+          data: !dag_result seaborn_data
+          # Add further sns.lineplot-specific kwargs below...
+          markers: true
+
+        # Plot the previously imported and DAG-tagged 'plt_plot' function
+        # on the same axis.
+        - function: !dag_result plt_plot
+          # plt.plot requires the x and y values to be passed as positional
+          # arguments.
+          args:
+            - !dag_result plot_x
+            - !dag_result plot_y
+          # Add further plot-specific kwargs below...
+
+        # Add more functions to plt_plot on the same axes below...

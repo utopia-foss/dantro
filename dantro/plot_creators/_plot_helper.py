@@ -461,6 +461,11 @@ class PlotHelper:
         """
         return self._invoke_before_grab
 
+    @property
+    def raise_on_error(self) -> bool:
+        """Whether the PlotHelper was configured to raise exceptions on errors."""
+        return self._raise_on_error
+
     # .........................................................................
     # Figure setup and axis control
 

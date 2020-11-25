@@ -14,6 +14,7 @@ install_deps = [
     "sympy>=1.6.1",
     "h5py>=3.1",
     "matplotlib>=3.2.1",
+    "seaborn>=0.11",
     "networkx>=2.2",
     "ruamel.yaml>=0.16.10",
     "dill>=0.3.3",          # For faster and more powerful pickling
