@@ -116,7 +116,6 @@ For the former, the following `seaborn plot functions <https://seaborn.pydata.or
     :language: python
     :start-after: _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
     :end-before:  }   # --- end literalinclude
-    :dedent: 4
 
 However, you can also plot any other function operating on a ``matplotlib.axes`` object.
 Let us look at some example configurations to illustrate features:
@@ -127,14 +126,14 @@ Let us look at some example configurations to illustrate features:
     sns_lineplot_example:
       plot_func: multiplot
       to_plot:
-      # Plot a seaborn.lineplot
-      # As data use the previously DAG-tagged 'seaborn_data'.
-      # Note that it is important to specify the data to use
-      # otherwise sns.lineplot plots and shows nothing!
-      - function: sns.lineplot
-        data: !dag_result seaborn_data
-        # Add further sns.lineplot-specific kwargs below...
-        markers: true
+        # Plot a seaborn.lineplot
+        # As data use the previously DAG-tagged 'seaborn_data'.
+        # Note that it is important to specify the data to use
+        # otherwise sns.lineplot plots and shows nothing!
+        - function: sns.lineplot
+          data: !dag_result seaborn_data
+          # Add further sns.lineplot-specific kwargs below...
+          markers: true
 
       # Add more functions to plot on the same axes below...
 
@@ -142,23 +141,23 @@ Let us look at some example configurations to illustrate features:
     advanced_example:
       plot_func: multiplot
       transform:
-      # Import the matplotlib.pyplot.plot function
-      - import: [matplotlib.pyplot, plot]
-        tag: plt_plot
+        # Import the matplotlib.pyplot.plot function
+        - import: [matplotlib.pyplot, plot]
+          tag: plt_plot
       to_plot:
-      - function: sns.lineplot
-        data: !dag_result seaborn_data
-        # Add further sns.lineplot-specific kwargs below...
-        markers: true
+        - function: sns.lineplot
+          data: !dag_result seaborn_data
+          # Add further sns.lineplot-specific kwargs below...
+          markers: true
 
-      # Plot the previously imported and DAG-tagged 'plt_plot' function
-      # on the same axis.
-      - function: !dag_result plt_plot
-        # plt.plot requires the x and y values to be passed as positional
-        # arguments.
-        args:
-          - !dag_result plot_x
-          - !dag_result plot_y
-        # Add further plot-specific kwargs below...
+        # Plot the previously imported and DAG-tagged 'plt_plot' function
+        # on the same axis.
+        - function: !dag_result plt_plot
+          # plt.plot requires the x and y values to be passed as positional
+          # arguments.
+          args:
+            - !dag_result plot_x
+            - !dag_result plot_y
+          # Add further plot-specific kwargs below...
 
-      # Add more functions to plt_plot on the same axes below...
+        # Add more functions to plt_plot on the same axes below...

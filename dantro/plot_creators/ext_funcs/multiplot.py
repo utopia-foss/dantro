@@ -215,12 +215,12 @@ def multiplot(
 
             to_plot:
               - function: sns.lineplot
-              data: !dag_result data
-              # Note that especially seaborn plot functions require a
-              # `data` input argument that can conveniently be
-              # provided via the `!dag_result` YAML-tag.
-              # If not provided, nothing is plotted without emitting
-              # a warning.
+                data: !dag_result data
+                # Note that especially seaborn plot functions require a
+                # `data` input argument that can conveniently be
+                # provided via the `!dag_result` YAML-tag.
+                # If not provided, nothing is plotted without emitting
+                # a warning.
               - function: sns.despine
 
         A simple ``to_plot`` configuration specifying two axis is:
@@ -228,10 +228,12 @@ def multiplot(
         .. code-block:: yaml
 
             to_plot:
-              [0,0]: - function: sns.lineplot
-                      data: !dag_result data
-              [1,0]: - function: sns.scatterplot
-                      data: !dag_result data
+              [0,0]:
+                - function: sns.lineplot
+                  data: !dag_result data
+              [1,0]:
+                - function: sns.scatterplot
+                  data: !dag_result data
 
     Args:
         hlpr (PlotHelper): The PlotHelper instance for this plot
@@ -282,8 +284,12 @@ def multiplot(
 
     if show_hints and data:
         log.caution(
-            "Got DAG results: {data.keys()} ... these should be "
-            "passed via placeholder ... will ignore these"
+            "Got the following transformation results via the "
+            f"`data` argument: {', '.join(data)}. "
+            "Note that the multiplot function ignores these; pass "
+            "them via result placeholders instead. Remove these tags "
+            "from the `compute_only` argument to avoid passing them "
+            "or set `show_hints` to False to suppress this hint."
         )
 
     for func_num, func_kwargs in enumerate(to_plot):
