@@ -33,7 +33,7 @@ To use these plot functions, the following information needs to be specified in 
 ------------------------------------------------------------
 
 Handling, transforming, and plotting high-dimensional data is difficult and often requires specialization to use-cases.
-``dantro`` provides the generic :py:func:`~dantro.plot_creators.ext_funcs.generic.facet_grid` plot function that - together with the other dantro features - allows for a declarative way of creating plots from high-dimensional data.
+``dantro`` provides the generic :py:func:`~.facet_grid` plot function that - together with the other dantro features - allows for a declarative way of creating plots from high-dimensional data.
 
 The idea is that high-dimensional raw data first is transformed using the :ref:`dag_framework`.
 The :py:func:`~.facet_grid` function then gets the ready-to-plot data as input and visualizes it by automatically choosing an appropriate kind of plot – if possible and not explicitly given – in a declarative way through the specification of layout keywords such as ``col``\ ums, ``row``\ s, or ``hue``.
@@ -95,6 +95,29 @@ In combination with :ref:`dag_generic_facet_grid_auto_kind`, this further reduce
 For further details, see :py:func:`~.determine_layout_encoding`.
 
 
+.. _dag_facet_grid_decorator:
+
+Add custom plot ``kind``\ s that support faceting
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+While the already-available plot kinds of the facet grid already cover a lot of use cases, there is still room for extension.
+As part of the :py:mod:`~dantro.plot_creators.ext_funcs.generic` plot functions module, dantro provides the :py:class:`~.make_facet_grid_plot` decorator, which wraps the decorated function in such a way that it becomes facetable.
+
+That means that after decoration:
+
+- The function will support faceting in ``col``, ``row`` and ``frames`` in addition to those dimensions handled within the decorated function.
+- It will be registered with the generic :py:func:`~.facet_grid` function, such that it is available as ``kind``.
+- It will be integrated in such a way that it supports :ref:`auto encoding <dag_generic_auto_encoding>`.
+
+The :py:class:`~.make_facet_grid_plot` decorator wraps the functionality of ``xarray.plot.FacetGrid`` and makes it easy to add faceting support to plot functions.
+It can be used if the following requirements are fulfilled:
+
+- Works with a single ``xr.Dataset`` or ``xr.DataArray`` object as input
+- Will only plot to the *current* axis and not create a figure
+- It is desired to have *the same kind of plot* repeated over multiple axes, the plots differing only in the slice of data passed to them.
+
+As an example, have a look at the :py:func:`~.errorbars` plot function, which supercedes :ref:`the explicitly implemented <dag_generic_errorbar>` plot.
+
+
 
 ----
 
@@ -105,8 +128,8 @@ For further details, see :py:func:`~.determine_layout_encoding`.
 
 .. deprecated:: 0.15
 
-    This function is deprecated and will be removed with version 1.0.
-    Instead, use :ref:`dag_generic_facet_grid` with ``kind: errorbars``, which has additional capabilities and almost the same interface (only difference: works with an ``xr.Dataset`` instead of two ``xr.DataArray``\ s).
+    **This function is deprecated and will be removed with version 1.0.**
+    Instead, use :ref:`the generic facet grid function <dag_generic_facet_grid>` with ``kind: errorbars``, which has additional capabilities and almost the same interface (only difference being that it works with an ``xr.Dataset`` instead of two ``xr.DataArray``\ s).
 
 The :py:func:`~.errorbar` and :py:func:`~.errorbands` plotting functions provide the ability to visualize data together with corresponding confidence intervals.
 Similar to :py:func:`~.facet_grid`, these functions offer the ``hue`` and ``frames`` arguments, allowing to represent data with up to three dimensions.
@@ -134,6 +157,7 @@ For the former, the following `seaborn plot functions <https://seaborn.pydata.or
     :language: python
     :start-after: _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
     :end-before:  }   # --- end literalinclude
+    :dedent: 4
 
 However, you can also plot any other function operating on a ``matplotlib.axes`` object.
 Let us look at some example configurations to illustrate features:
