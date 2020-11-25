@@ -341,6 +341,10 @@ class make_facet_grid_plot:
     # by the generic facet grid function
     DEFAULT_ENCODINGS = ("col", "row", "frames")
 
+    # The default kwargs that are to be dropped rather than passed on to the
+    # wrapped plotting function. Can be customized via ``drop_kwargs`` argument
+    DEFAULT_DROP_KWARGS = ("_fg", "meta_data", "hue_style", "add_guide")
+
     def __init__(
         self,
         *,
@@ -349,7 +353,7 @@ class make_facet_grid_plot:
         supported_hue_styles: Tuple[str] = None,
         register_as_kind: Union[bool, str] = True,
         overwrite_existing: bool = False,
-        drop_kwargs: Tuple[str] = ("meta_data", "hue_style", "add_guide"),
+        drop_kwargs: Tuple[str] = DEFAULT_DROP_KWARGS,
         **default_kwargs,
     ):
         """Initialize the decorator, making the decorated function capable of
@@ -431,8 +435,19 @@ class make_facet_grid_plot:
         """
         # First, wrap the single-axis plot function to achieve helper support
         def wrapped_plot_func(
-            *args, hlpr: PlotHelper, ax=None, _is_facetgrid: bool, **kwargs
+            *args,
+            hlpr: PlotHelper,
+            _is_facetgrid: bool,
+            ax=None,
+            _fg: xr.plot.FacetGrid = None,
+            **kwargs,
         ):
+            """Wraps the single-axis plotting function and performs the
+            following additional operations before invoking it:
+
+                1. Sync the plot helper to the given axis (if faceting)
+                2. Evaluates ``drop_kwargs`` to reduce the passed arguments
+            """
             # If this is called as part of a facet grid plot, we need to sync
             # the helper to the given axis, otherwise the helper cannot be used
             if _is_facetgrid:
@@ -440,14 +455,14 @@ class make_facet_grid_plot:
 
             # Prepare kwargs, optionally dropping some keys that bloat the
             # function signature ...
+            kwargs["_fg"] = _fg
+            kwargs["_is_facetgrid"] = _is_facetgrid
             kwargs = {
                 k: v for k, v in kwargs.items() if k not in self.drop_kwargs
             }
 
-            # Now invoke the plotting function
-            plot_single_axis(
-                *args, hlpr=hlpr, _is_facetgrid=_is_facetgrid, **kwargs
-            )
+            # Now invoke the single-axis plotting function
+            plot_single_axis(*args, hlpr=hlpr, **kwargs)
 
         # Get the mapping function
         map_to_facet_grid = self.map_func
@@ -511,7 +526,9 @@ class make_facet_grid_plot:
             kwargs = self.parse_wpf_kwargs(data, **kwargs)
             log.debug("Invoking mapping function with kwargs:  %s", kwargs)
             try:
-                map_to_facet_grid(fg, wrapped_plot_func, hlpr=hlpr, **kwargs)
+                map_to_facet_grid(
+                    fg, wrapped_plot_func, hlpr=hlpr, _fg=fg, **kwargs
+                )
 
             except Exception as exc:
                 raise PlottingError(
@@ -1114,6 +1131,7 @@ def facet_grid(
     #
     # defaults
     hue_style="discrete",
+    add_guide=False,
 )
 def errorbars(
     ds: xr.Dataset,
@@ -1211,8 +1229,10 @@ def errorbars(
         _handles.append(handle)
         _labels.append(label)
 
-    # Register the custom legend handles
-    hlpr.ax.legend(_handles, _labels, title=hue)
+    # Either do a single-axis legend or prepare for figure-level legend
+    if not _is_facetgrid:
+        hlpr.ax.legend(_handles, _labels, title=hue)
 
-    # Register handles for figure-level legend with plot helper
-    # hlpr.track_figure_handles_labels(_handles, _labels)  # TODO
+    else:
+        hlpr.track_handles_labels(_handles, _labels)
+        hlpr.provide_defaults("set_figlegend", title=hue)

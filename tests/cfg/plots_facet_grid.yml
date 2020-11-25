@@ -186,13 +186,21 @@ errorbars:
     kinds: [errorbars]
     specifiers: [x, hue, col]  # rest is auto-encoded
     min_dims: 1
-    max_dims: 4
+    max_dims: 5
     test_data_path: ds_labelled
     plot_kwargs: &ebars_kwargs
       y: foo
       yerr: bar
       auto_encoding: true
       use_bands: true
+
+      helpers:
+        set_suptitle:
+          title: foo
+
+        set_figlegend:
+          gather_from_fig: true
+          hiding_threshold: 5
 
   # .. failing plots
   ebars_err_continuous_hue:

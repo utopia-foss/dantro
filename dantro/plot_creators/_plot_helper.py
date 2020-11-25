@@ -1,9 +1,9 @@
 """This module implements the PlotHelper class"""
 
 import copy
-import inspect
 import logging
 import os
+from collections import defaultdict
 from itertools import product
 from typing import Any, Callable, Dict, Generator, List, Sequence, Tuple, Union
 
@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from paramspace.tools import recursive_replace
 
+from ..exceptions import *
 from ..tools import recursive_update
 
 # Public constants
@@ -141,119 +142,112 @@ def coords_match(
     return True
 
 
-class EnterAnimationMode(Exception):
-    """An exception that is used to convey to any
-    :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` or derived
-    creator that animation mode is to be entered instead of a regular
-    single-file plot.
+def remove_duplicate_handles_labels(h: list, l: list) -> Tuple[list, list]:
+    """Returns new aligned lists of handles and labels from which duplicates
+    (identified by label) are removed.
 
-    It can and should be invoked via
-    :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.enable_animation`.
+    This maintains the order and association by keeping track of seen items;
+    see https://stackoverflow.com/a/480227/1827608 for more information.
 
-    This exception can be raised from within a plot function to dynamically
-    decide whether animation should happen or not. Its counterpart is
-    :py:exc:`~dantro.plot_creators._plot_helper.ExitAnimationMode`.
+    Args:
+        h (list): List of artist handles
+        l (list): List of labels
+
+    Returns:
+        Tuple[list, list]: handles and labels
     """
+    seen = set()
+    hls = [
+        (_h, _l) for _h, _l in zip(h, l) if not (_l in seen or seen.add(_l))
+    ]
+    h, l = [hl[0] for hl in hls], [hl[1] for hl in hls]
+    return h, l
 
 
-class ExitAnimationMode(Exception):
-    """An exception that is used to convey to any
-    :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` or derived
-    creator that animation mode is to be exited and a regular single-file plot
-    should be carried out.
-
-    It can and should be invoked via
-    :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.disable_animation`.
-
-    This exception can be raised from within a plot function to dynamically
-    decide whether animation should happen or not. Its counterpart is
-    :py:exc:`~dantro.plot_creators._plot_helper.ExitAnimationMode`.
+def gather_handles_labels(mpo) -> Tuple[list, list]:
+    """Uses ``.findobj`` to search a figure or axis for legend objects and
+    returns lists of handles and (string) labels.
     """
+    h, l = [], []
+    for lg in mpo.findobj(mpl.legend.Legend):
+        h += [_h for _h in lg.legendHandles]
+        l += [_t.get_text() for _t in lg.texts]
+
+    # Remove duplicates and return
+    return remove_duplicate_handles_labels(h, l)
 
 
-class PlotHelperError(ValueError):
-    """Raised upon failure to invoke a specific plot helper function, this
-    custom exception type stores metadata on the helper invocation in order
-    to generate a useful error message.
-    """
+def prepare_legend_args(
+    h, l, *, custom_labels: list, hiding_threshold: int
+) -> Tuple[list, list, bool]:
 
-    def __init__(
-        self,
-        upstream_error: Exception,
-        *,
-        name: str,
-        ax_coords: Tuple[int, int],
-        params: dict,
-    ):
-        """Initializes a PlotHelperError"""
-        self.err = upstream_error
-        self.name = name
-        self.ax_coords = ax_coords
-        self.params = params
+    # Might want to use custom labels
+    if custom_labels:
+        log.remark("Using custom labels:  " + ", ".join(custom_labels))
+        l = custom_labels
 
-    def __str__(self):
-        """Generates an error message for this particular helper"""
-        _params = "\n".join(
-            [f"      {k}: {repr(v)}" for k, v in self.params.items()]
+    # Evaluate the hiding threshold
+    past_thresh = (
+        hiding_threshold is not None and min(len(h), len(l)) > hiding_threshold
+    )
+    if past_thresh:
+        log.remark(
+            "With %d handles and labels, passed hiding threshold of %d.",
+            min(len(h), len(l)),
+            hiding_threshold,
         )
-        return (
-            f"'{self.name}' failed on axis {self.ax_coords}!  "
-            f"{self.err.__class__.__name__}: {self.err}\n"
-            f"    Invocation parameters were:\n{_params}\n"
-        )
-
-    @property
-    def docstring(self) -> str:
-        """Returns the docstring of this helper function"""
-        func = getattr(PlotHelper, "_hlpr_" + self.name)
-        return f"{self.name}\n{'-'*len(self.name)}\n{inspect.getdoc(func)}\n"
-
-
-class PlotHelperErrors(ValueError):
-    """This custom exception type gathers multiple individual instances of
-    :py:class:`~dantro.plot_creators._plot_helper.PlotHelperError`.
-    """
-
-    def __init__(self, *errors, show_docstrings: bool = True):
-        """Bundle multiple PlotHelperErrors together
-
-        Args:
-            *errors: The individual instances of
-                :py:class:`~dantro.plot_creators._plot_helper.PlotHelperError`
-            show_docstrings (bool, optional): Whether to show docstrings in the
-                error message.
-        """
-        self._errors = list()
-        self._axes = set()
-        self._num = len(errors)
-        self._docstrings = dict()
-        self.show_docstrings = show_docstrings
-
-        for error in errors:
-            self._errors.append(error)
-            self._axes.add(error.ax_coords)
-            self._docstrings[error.name] = error.docstring
-
-    @property
-    def errors(self):
-        return self._errors
-
-    def __str__(self) -> str:
-        """Generates a combined error message for *all* registered errors"""
-        s = (
-            f"Encountered {self._num} error(s) "
-            f"for {len(self._docstrings)} different plot helper(s) "
-            f"on {len(self._axes)} different axes!\n\n"
+    else:
+        log.debug(
+            "Using %d handles and %d labels for the legend.",
+            len(h),
+            len(l),
         )
 
-        s += "\n".join([f"-- {e}" for e in self._errors]) + "\n"
+    return h, l, past_thresh
 
-        if self.show_docstrings:
-            s += "Relevant Docstrings\n"
-            s += "===================\n\n"
-            s += "\n\n".join(self._docstrings.values())
 
-        return s
+def calculate_space_needed_hv(
+    fig, obj, *, spacing_h: float = 0.02, spacing_v: float = 0.02
+) -> Tuple[float, float]:
+    """Calculates the horizontal and vertical space needed for an object in
+    this figure.
+
+    .. note:: This will invoke ``fig.draw`` two times and resize the figure!
+
+    Args:
+        fig: The figure
+        obj: The object in that figure to fit
+        spacing_h (float, optional): Added to space needed (in inches)
+        spacing_v (float, optional): Added to space needed (in inches)
+
+    Returns:
+        Tuple[float, float]: the horizontal and vertical space needed to fit
+            into the figure (in inches).
+    """
+
+    def get_obj_width_height(obj) -> tuple:
+        extent = obj.get_window_extent()
+        return (extent.width / fig.dpi, extent.height / fig.dpi)
+
+    # Draw the figure to have an object window
+    fig.draw(fig.canvas.get_renderer())
+
+    # Calculate and set the new width and height of the figure so the obj fits
+    fig_width, fig_height = fig.get_figwidth(), fig.get_figheight()
+    obj_width, obj_height = get_obj_width_height(obj)
+
+    fig.set_figwidth(fig_width + obj_width)
+    fig.set_figheight(fig_height + obj_height)
+
+    # Draw again to get new object transformations
+    fig.draw(fig.canvas.get_renderer())
+    obj_width, obj_height = get_obj_width_height(obj)
+
+    # Now calculate the needed space horizontally and vertically
+    space_needed_h = obj_width / (fig_width + obj_width) + spacing_h
+    space_needed_v = obj_height / (fig_height + obj_height) + spacing_v
+
+    return space_needed_h, space_needed_v
 
 
 # -----------------------------------------------------------------------------
@@ -266,6 +260,9 @@ class PlotHelper:
 
     # Configuration keys with special meaning
     _SPECIAL_CFG_KEYS = ("setup_figure", "save_figure")
+
+    # Helpers that are applied on the figure level
+    _FIGURE_HELPERS = ("set_suptitle", "set_figlegend")
 
     def __init__(
         self,
@@ -338,6 +335,8 @@ class PlotHelper:
         self._axes = None
         self._current_ax_coords = None
         self._additional_axes = None
+        self._handles_labels = defaultdict(dict)
+        self._figlegend = None
         self._animation_update = None
         self._invoke_before_grab = False
 
@@ -430,7 +429,18 @@ class PlotHelper:
             helper_name
             for helper_name in self._axis_cfg
             if self._axis_cfg[helper_name].get("enabled", True)
-            and helper_name not in self._SPECIAL_CFG_KEYS
+            and helper_name
+            not in (self._SPECIAL_CFG_KEYS + self._FIGURE_HELPERS)
+        ]
+
+    @property
+    def enabled_figure_helpers(self) -> list:
+        """Returns a list of enabled figure-level helpers"""
+        return [
+            helper_name
+            for helper_name in self._base_cfg
+            if self._base_cfg[helper_name].get("enabled", True)
+            and helper_name in self._FIGURE_HELPERS
         ]
 
     @property
@@ -465,6 +475,24 @@ class PlotHelper:
     def raise_on_error(self) -> bool:
         """Whether the PlotHelper was configured to raise exceptions on errors."""
         return self._raise_on_error
+
+    @property
+    def axis_handles_labels(self) -> Tuple[list, list]:
+        """Returns the tracked axis handles and labels for the current axis"""
+        return (
+            self._handles_labels[self.ax_coords].get("handles", []),
+            self._handles_labels[self.ax_coords].get("labels", []),
+        )
+
+    @property
+    def all_handles_labels(self) -> Tuple[list, list]:
+        """Returns all associated handles and labels"""
+        handles, labels = [], []
+        for hl in self._handles_labels.values():
+            handles += hl.get("handles", [])
+            labels += hl.get("labels", [])
+
+        return handles, labels
 
     # .........................................................................
     # Figure setup and axis control
@@ -545,6 +573,10 @@ class PlotHelper:
         self._axes = axes
 
         log.debug("Figure %d and axes attached.", fig.number)
+
+        # Reset some tracking attributes
+        self._handles_labels = defaultdict(dict)
+        self._additional_axes = None
 
         # Can now evaluate the axis-specific configuration
         self._cfg = self._compile_axis_specific_cfg()
@@ -757,62 +789,82 @@ class PlotHelper:
             PlotHelperErrors: On failing plot helper invocations
             ValueError: No matching helper function defined
         """
+
+        def invoke_now(
+            helper_name: str, errors: list, *, ax_coords: tuple = None
+        ):
+            """Invokes a single helper and keeps track of errors by mutably
+            appending to the given ``errors`` list.
+            """
+            # Prepare the helper params, always working on a copy.
+            # Depending on the helper, these can be either axis-specific or
+            # figure-specific configurations.
+            if helper_name not in self._FIGURE_HELPERS:
+                helper_params = self.axis_cfg.get(helper_name, {})
+            else:
+                helper_params = self.base_cfg.get(helper_name, {})
+
+            if update_kwargs:
+                recursive_update(helper_params, copy.deepcopy(update_kwargs))
+
+            # If it was disabled, have nothing else to do here
+            if not helper_params.pop("enabled", True):
+                log.debug(
+                    "Helper '%s' is not enabled for axis %s.",
+                    helper_name,
+                    self.ax_coords,
+                )
+                return
+
+            # Invoke helper
+            log.debug(
+                "Invoking helper function '%s' on axis %s ...",
+                helper_name,
+                self.ax_coords,
+            )
+
+            try:
+                helper(**helper_params)
+
+            except Exception as exc:
+                errors.append(
+                    PlotHelperError(
+                        exc,
+                        name=helper_name,
+                        ax_coords=ax_coords,
+                        params=helper_params,
+                    )
+                )
+
+            if mark_disabled_after_use:
+                self.mark_disabled(helper_name)
+
+        # Initial checks
         try:
             helper = getattr(self, "_hlpr_" + helper_name)
 
         except AttributeError as err:
             _available = ", ".join(self.available_helpers)
-            raise ValueError(
+            raise PlotConfigError(
                 f"No helper with name '{helper_name}' available! "
                 f"Available helpers: {_available}"
             ) from err
 
-        # Collect error messages
+        # A list to collect error messages in; is updated mutably.
         errors = []
 
-        # Go over all matching axis coordinates
+        # If this is a figure-level helper, handle separately:
+        if helper_name in self._FIGURE_HELPERS:
+            invoke_now(helper_name, errors)
+            # Handle errors
+            self._handle_errors(*errors, raise_on_error=raise_on_error)
+            return
+
+        # Go over all matching axis coordinates, temporarily change to an axis
+        # and invoke the helper there. Keeps track of
         for ax_coords in self.coords_iter(match=axes):
-            # Temporarily change to this axis
             with temporarily_changed_axis(self, tmp_ax_coords=ax_coords):
-                # Prepare the helper params for this axis, working on a copy
-                helper_params = self.axis_cfg.get(helper_name, {})
-
-                if update_kwargs:
-                    recursive_update(
-                        helper_params, copy.deepcopy(update_kwargs)
-                    )
-
-                # If it is disabled, go to the next iteration
-                if not helper_params.pop("enabled", True):
-                    log.debug(
-                        "Helper '%s' is not enabled for axis %s.",
-                        helper_name,
-                        self.ax_coords,
-                    )
-                    continue
-
-                # Invoke helper
-                log.debug(
-                    "Invoking helper function '%s' on axis %s ...",
-                    helper_name,
-                    self.ax_coords,
-                )
-
-                try:
-                    helper(**helper_params)
-
-                except Exception as exc:
-                    errors.append(
-                        PlotHelperError(
-                            exc,
-                            name=helper_name,
-                            ax_coords=ax_coords,
-                            params=helper_params,
-                        )
-                    )
-
-                if mark_disabled_after_use:
-                    self.mark_disabled(helper_name)
+                invoke_now(helper_name, errors)
 
             # Now back at previous axis, whatever happened above.
         # Done.
@@ -907,7 +959,7 @@ class PlotHelper:
         **update_helpers,
     ):
         """Invokes all enabled helpers with their current configuration on the
-        matching axes.
+        matching axes and all enabled figure-level helpers on the figure.
 
         Calls
         :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.invoke_helpers`
@@ -929,20 +981,32 @@ class PlotHelper:
         Raises:
             PlotHelperErrors: On failing plot helper invocations
         """
+
+        def invoke(*helper_names, errors: list):
+            """Small helper to invoke the given helpers and keep track of
+            errors via the given ``errors`` list (mutably changed)
+            """
+            try:
+                self.invoke_helpers(
+                    *helper_names,
+                    mark_disabled_after_use=mark_disabled_after_use,
+                    raise_on_error=True,
+                    **update_helpers,
+                )
+
+            except PlotHelperErrors as pherrs:
+                errors += pherrs.errors
+
+        # Mutably extended list of errors
         errors = []
 
+        # Handle figure-level helpers first ...
+        invoke(*self.enabled_figure_helpers, errors=errors)
+
+        # ... and then axis-level helpers, each on their own axis
         for ax_coords in self.coords_iter(match=axes):
             with temporarily_changed_axis(self, tmp_ax_coords=ax_coords):
-                try:
-                    self.invoke_helpers(
-                        *self.enabled_helpers,
-                        mark_disabled_after_use=mark_disabled_after_use,
-                        raise_on_error=True,
-                        **update_helpers,
-                    )
-
-                except PlotHelperErrors as pherrs:
-                    errors += pherrs.errors
+                invoke(*self.enabled_helpers, errors=errors)
 
         self._handle_errors(*errors, raise_on_error=raise_on_error)
 
@@ -970,8 +1034,9 @@ class PlotHelper:
             helper_name, special_cfg_keys_allowed=True
         )
 
-        # Special configuration keys are updating the base configuration
-        if helper_name in self._SPECIAL_CFG_KEYS:
+        # Special configuration keys and figure-level helpers are updating the
+        # base configuration
+        if helper_name in (self._SPECIAL_CFG_KEYS + self._FIGURE_HELPERS):
             if helper_name not in self._base_cfg:
                 self._base_cfg[helper_name] = dict()
 
@@ -1019,6 +1084,19 @@ class PlotHelper:
         # Check the helper names
         self._raise_on_invalid_helper_name(*helper_names)
 
+        # Handle the figure-level helpers separately
+        fig_helpers = [hn for hn in helper_names if hn in self._FIGURE_HELPERS]
+        helper_names = [hn for hn in helper_names if hn not in fig_helpers]
+
+        for helper_name in fig_helpers:
+            if helper_name not in self._base_cfg:
+                self._base_cfg[helper_name] = dict()
+
+            self._base_cfg[helper_name]["enabled"] = True
+            log.debug(
+                "Marked figure-level helper '%s' as enabled.", helper_name
+            )
+
         # Go over all selected axes
         for ax_coords in self.coords_iter(match=axes):
             # Go over the specified helper names
@@ -1046,6 +1124,19 @@ class PlotHelper:
         # Check the helper names
         self._raise_on_invalid_helper_name(*helper_names)
 
+        # Handle the figure-level helpers separately
+        fig_helpers = [hn for hn in helper_names if hn in self._FIGURE_HELPERS]
+        helper_names = [hn for hn in helper_names if hn not in fig_helpers]
+
+        for helper_name in fig_helpers:
+            if helper_name not in self._base_cfg:
+                self._base_cfg[helper_name] = dict()
+
+            self._base_cfg[helper_name]["enabled"] = False
+            log.debug(
+                "Marked figure-level helper '%s' as disabled.", helper_name
+            )
+
         # Go over all selected axes
         for ax_coords in self.coords_iter(match=axes):
             # Go over the specified helper names
@@ -1060,6 +1151,35 @@ class PlotHelper:
                     helper_name,
                     ax_coords,
                 )
+
+    # .........................................................................
+    # Methods to track artists (e.g. legend handles and labels)
+
+    def track_handles_labels(self, handles: list, labels):
+        """Keep track of legend handles and/or labels for the current axis.
+
+        Args:
+            handles (list): The handles to keep track of
+            labels (list): The associated labels
+        """
+        if len(handles) != len(labels):
+            raise ValueError(
+                "Lists of handles and labels need to be of the same size but "
+                f"were {len(handles)} != {len(labels)}, respectively."
+            )
+
+        if self.ax_coords not in self._handles_labels:
+            self._handles_labels[self.ax_coords] = defaultdict(list)
+
+        self._handles_labels[self.ax_coords]["handles"] += handles
+        self._handles_labels[self.ax_coords]["labels"] += labels
+
+        log.debug(
+            "Axis %s: now tracking %d handles and labels (%d new).",
+            self.ax_coords,
+            len(self._handles_labels[self.ax_coords]["handles"]),
+            len(handles),
+        )
 
     # .........................................................................
     # Animation interface
@@ -1135,6 +1255,14 @@ class PlotHelper:
 
             # Go over the list of updates and apply them
             for update_params in self._axis_specific_updates.values():
+                if any(k in self._FIGURE_HELPERS for k in update_params):
+                    raise PlotConfigError(
+                        "Cannot set axis-specific configuration for figure-"
+                        "level helpers. Remove any keys that refer to figure-"
+                        f"level helpers ({', '.join(self._FIGURE_HELPERS)})\n"
+                        f"Given parameters were:\n  {update_params}."
+                    )
+
                 # Work on a copy
                 update_params = copy.deepcopy(update_params)
 
@@ -1206,19 +1334,122 @@ class PlotHelper:
     # -- Helper methods -------------------------------------------------------
     # -------------------------------------------------------------------------
     # .........................................................................
-    # Helper Methods -- acting on the figure
+    # ... acting on the figure
 
-    def _hlpr_set_suptitle(self, *, title: str = None, **title_kwargs):
-        """Set the figure title, i.e. matplotlib.Figure.suptitle.
+    def _hlpr_set_suptitle(
+        self,
+        *,
+        title: str = None,
+        fit_into_figure: bool = True,
+        margin: float = 0.025,
+        **title_kwargs,
+    ):
+        """Set the figure title, i.e. ``matplotlib.Figure.suptitle``.
+
+        This figure-level helper supports adjusting the figure shape to fit
+        the suptitle into it without overlapping. This is *not* done if there
+        was an explicit ``ypos`` given via ``title_kwargs`` or if ``title``
+        was empty.
 
         Args:
             title (str, optional): The title to be set
-            **title_kwargs: Passed on to plt.set_title
+            margin (float, optional): An additional vertical margin between
+                the figure and the suptitle.
+            **title_kwargs: Passed on to ``fig.suptitle``
         """
-        self.fig.suptitle(title, **title_kwargs)
+        st = self.fig.suptitle(title, **title_kwargs)
+
+        if title and not title_kwargs.get("ypos"):
+            # Make some figure adjustments such that it does not overlap with
+            # the already existing parts.
+            _, space_needed = calculate_space_needed_hv(self.fig, st)
+            self.fig.subplots_adjust(top=(1.0 - (space_needed + margin)))
+
+    def _hlpr_set_figlegend(
+        self,
+        *,
+        gather_from_fig: bool = False,
+        custom_labels: Sequence[str] = (),
+        hiding_threshold: int = None,
+        loc="center right",
+        margin: float = 0.015,
+        **legend_kwargs,
+    ):
+        """Sets a figure legend.
+
+        As a source of handles and labels, uses all those tracked via
+        :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.track_handles_labels`.
+        Furthermore, ``gather_from_fig`` controls whether to retrieve already
+        existing handles and labels from any legend used within the figure,
+        e.g. on one of the axes.
+
+        For legend locations on the **right** side of the figure, this will
+        additionally adjust the subplot shape to accomodate for the figure
+        legend without overlapping.
+
+        Args:
+            gather_from_fig (bool, optional): Whether to extract figure handles
+                and labels from already existing legends used in the figure.
+            custom_labels (Sequence[str], optional): Custom labels to assign
+                for the given handles.
+            hiding_threshold (int, optional): If there are more handles or
+                labels available than the threshold, no figure legend will be
+                added.
+            loc (str, optional): The location of the figure legend. Note that
+                figure adjustments are done for a figure legend on the right
+                side of the figure; these are not done if the figure is located
+                somewhere else, which might lead to it overlapping with other
+                axes.
+            margin (float, optional): An additional horizontal margin between
+                the figure legend and the axes.
+            **legend_kwargs: Passed on to ``fig.legend``.
+        """
+        # Ensure that this is not called multiple times, because it's quite
+        # costly to do all of the below (and can really mess up the figure
+        # if applied multiple times).
+        if self._figlegend:
+            raise ValueError(
+                "A figure legend was already set for this figure! "
+                "Will not set another one."
+            )
+
+        # Now get the handles and labels . . . . . . . . . . . . . . . . . . .
+        h, l = self.all_handles_labels
+
+        if not h or gather_from_fig:
+            _h, _l = gather_handles_labels(self.fig)
+            log.debug(
+                "Gathered %d handles and labels from the whole figure.",
+                len(_h),
+            )
+            h += _h
+            l += _l
+
+        h, l = remove_duplicate_handles_labels(h, l)
+
+        # Evaluate custom labels and hiding threshold
+        h, l, past_thresh = prepare_legend_args(
+            h,
+            l,
+            custom_labels=custom_labels,
+            hiding_threshold=hiding_threshold,
+        )
+        if not h or past_thresh:
+            return
+
+        # Construct the legend and keep track of it
+        figlegend = self.fig.legend(h, l, loc=loc, **legend_kwargs)
+        self._figlegend = figlegend
+
+        # Figure adjustments . . . . . . . . . . . . . . . . . . . . . . . . .
+        # TODO Extend to all locs
+        if "right" in loc:
+            # These are necessary to have enough space for the legend.
+            space_needed, _ = calculate_space_needed_hv(self.fig, figlegend)
+            self.fig.subplots_adjust(right=(1.0 - (space_needed + margin)))
 
     # .........................................................................
-    # Helper Methods -- acting on a single axis
+    # ... acting on a single axis
 
     def _hlpr_set_title(self, *, title: str = None, **title_kwargs):
         """Sets the title of the current axis.
@@ -1310,7 +1541,7 @@ class PlotHelper:
                 elif arg == "max":
                     arg = ax.get_data_interval()[1]
                 else:
-                    raise ValueError(
+                    raise PlotConfigError(
                         f"Got an invalid str-type argument '{arg}' to the "
                         "set_limits helper. Allowed: 'min', 'max', None, or a "
                         "numerical value specifying the lower or upper limit."
@@ -1318,7 +1549,7 @@ class PlotHelper:
 
                 # Check that it is finite
                 if not np.isfinite(arg):
-                    raise ValueError(
+                    raise PlotConfigError(
                         "Could not get a finite value from the axis data to "
                         "use for setting axis limits to 'min' or 'max', "
                         "presumably because the axis is still empty."
@@ -1330,7 +1561,7 @@ class PlotHelper:
             if isinstance(args, dict):
                 # Make sure there are only allowed keys
                 if [k for k in args.keys() if k not in ("lower", "upper")]:
-                    raise ValueError(
+                    raise PlotConfigError(
                         "There are invalid keys present in a dict-type "
                         "argument to set_limits! Only accepting keys 'lower' "
                         f"and 'upper', but got: {args}"
@@ -1359,7 +1590,6 @@ class PlotHelper:
         gather_from_fig: bool = False,
         custom_labels: Sequence[str] = (),
         hiding_threshold: int = None,
-        use_figlegend: bool = False,
         **legend_kwargs,
     ):
         """Sets a legend for the current axis or for the figure.
@@ -1372,6 +1602,10 @@ class PlotHelper:
         current axis.
         If ``gather_from_fig`` is given, the *whole* figure will be inspected,
         regardless of whether handles were found previously.
+
+        Additionally, all axis-specific handles and labels tracked via
+        :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.track_handles_labels`
+        are added.
 
         .. note::
 
@@ -1394,75 +1628,51 @@ class PlotHelper:
                 label will not be drawn.
             hiding_threshold (int, optional): If given, will hide legends
                 that have more than this number of handles registered.
-            use_figlegend (bool, optional): Whether to use a *figure* legend
-                instead of an *axis* legend. If True, the axis legend will be
-                removed regardless of other options chosen above, and a figure
-                legend will be created. Note that setting this to False does
-                *not* remove an existing figure legend; your best choice here
-                is to make it invisible beforehand.
             **legend_kwargs: Passed on to ``ax.legend``
         """
+        if legend_kwargs.pop("use_figlegend", None):
+            log.warning(
+                "The `use_figlegend` argument is no longer supported "
+                "for the `set_legend` helper. Use `set_figlegend` instead."
+            )
+
         # Try to get (dangling) handles and labels from the axis
         handles, labels = self.ax.get_legend_handles_labels()
         # NOTE Will be empty if ax.legend() was called already
 
+        # Add those that have been tracked explicitly
+        h, l = self.axis_handles_labels
+        handles += h
+        labels += l
+
         # If there were no handles available in this way, try to gather the
         # information from the current axis or the whole figure
         if not handles or gather_from_fig:
-            h, l = [], []
-            mpo = self.fig if gather_from_fig else self.ax
-
-            for lg in mpo.findobj(mpl.legend.Legend):
-                h += [_h for _h in lg.legendHandles]
-                l += [_t.get_text() for _t in lg.texts]
-
+            h, l = gather_handles_labels(
+                self.fig if gather_from_fig else self.ax
+            )
             log.debug(
-                "Gathered %d handles and labels from the figure and "
-                "all its axes.",
+                "Gathered %d handles and labels from %s.",
                 len(h),
+                "the whole figure" if gather_from_fig else "current axis",
             )
-
-            # Remove potential duplicate handles (identified by the labels),
-            # maintaining order and association by keeping track of seen items.
-            # More info: https://stackoverflow.com/a/480227/1827608
-            seen = set()
-            hls = [
-                (_h, _l)
-                for _h, _l in zip(h, l)
-                if not (_l in seen or seen.add(_l))
-            ]
-            log.debug(
-                "Removed %d duplicate legend handles.", len(h) - len(hls)
-            )
-            h, l = [hl[0] for hl in hls], [hl[1] for hl in hls]
 
             handles += h
             labels += l
 
-        # Might want to use custom labels
-        if custom_labels:
-            log.remark("Using custom labels:  " + ", ".join(custom_labels))
-            labels = custom_labels
+        # Remove potential duplicate handles (identified by the labels)
+        h, l = remove_duplicate_handles_labels(h, l)
 
-        log.remark(
-            "Have %d handles and %d labels available for a legend.",
-            len(handles),
-            len(labels),
+        # ... and evaluate the custom labels and hiding threshold
+        h, l, past_thresh = prepare_legend_args(
+            h,
+            l,
+            custom_labels=custom_labels,
+            hiding_threshold=hiding_threshold,
         )
 
-        # Evaluate the hiding threshold
-        past_thresh = (
-            hiding_threshold is not None
-            and min(len(handles), len(labels)) > hiding_threshold
-        )
-        if past_thresh:
-            log.remark(
-                "Passed hiding threshold of %d handles or labels.",
-                hiding_threshold,
-            )
-
-        # Hide or draw the _axis_ legend
-        if not use_legend or past_thresh or use_figlegend or not handles:
+        # Hide or draw the legend
+        if not use_legend or past_thresh or not handles:
             log.remark("Hiding axis legend ...")
             legend = self.ax.legend((), fancybox=False, frameon=False)
             legend.set_visible(False)
@@ -1470,11 +1680,6 @@ class PlotHelper:
 
         else:
             self.ax.legend(handles, labels, **legend_kwargs)
-            return
-
-        if use_figlegend and not past_thresh:
-            log.remark("Drawing figure legend ...")
-            self.fig.legend(handles, labels, **legend_kwargs)
 
     def _hlpr_set_texts(self, *, texts: Sequence[dict]):
         """Sets multiple text elements for the current axis.
@@ -1513,7 +1718,7 @@ class PlotHelper:
                 pos = float(pos)
 
             except Exception as err:
-                raise ValueError(
+                raise PlotConfigError(
                     f"Got non-numeric value '{pos}' for `pos` argument in "
                     "set_hv_lines helper!"
                 )
@@ -1628,7 +1833,7 @@ class PlotHelper:
             )
 
             if axis_cfg.get("labels") and not axis_cfg.get("locs"):
-                raise ValueError(
+                raise PlotConfigError(
                     "Labels can only be set through the `labels` argument "
                     "if their location is also given through the `locs` "
                     "argument. However, `locs` is not given."

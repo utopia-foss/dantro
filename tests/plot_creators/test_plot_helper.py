@@ -16,6 +16,7 @@ from dantro.plot_creators import ExternalPlotCreator, PlotHelper, is_plot_func
 from dantro.plot_creators._plot_helper import (
     EnterAnimationMode,
     ExitAnimationMode,
+    PlotConfigError,
     PlotHelperErrors,
     coords_match,
     temporarily_changed_axis,
@@ -397,9 +398,14 @@ def test_cfg_manipulation(hlpr):
     assert hlpr.base_cfg["save_figure"]["foo"] == 24
 
     # For a helper that has no key yet
-    assert "set_suptitle" not in hlpr.axis_cfg
+    assert "set_scales" not in hlpr.axis_cfg
+    hlpr.provide_defaults("set_scales", x="linear")
+    assert hlpr.axis_cfg["set_scales"]["x"] == "linear"
+
+    # For a figure-level helper
+    assert "set_suptitle" not in hlpr.base_cfg
     hlpr.provide_defaults("set_suptitle", title="The Figure Title")
-    assert hlpr.axis_cfg["set_suptitle"]["title"] == "The Figure Title"
+    assert hlpr.base_cfg["set_suptitle"]["title"] == "The Figure Title"
 
     # trying to provide defaults for an unavailable helper raises
     with pytest.raises(ValueError, match="No helper with name 'foo'"):
@@ -416,6 +422,9 @@ def test_cfg_manipulation(hlpr):
     assert "set_title" not in hlpr.enabled_helpers
     hlpr.provide_defaults("set_title", title="something", mark_enabled=False)
     assert "set_title" not in hlpr.enabled_helpers
+
+    # Mark a figure-level helper (without defaults) as disabled
+    hlpr.mark_disabled("set_figlegend")
 
 
 def test_invocation(hlpr):
@@ -437,6 +446,9 @@ def test_invocation(hlpr):
     # trying to invoke helper that is not available
     with pytest.raises(ValueError, match="No helper with name 'foo'"):
         hlpr.invoke_helpers("set_title", "foo")
+
+    # Mark a figure-level helper as enabled
+    hlpr.mark_enabled("set_suptitle")
 
     # Invoke all enabled on the current axis
     hlpr.invoke_enabled()
@@ -465,12 +477,15 @@ def test_invocation(hlpr):
     # Errors are gathered also when invoking only
     hlpr.provide_defaults("set_title", invalid_key="something")
     hlpr.provide_defaults("set_suptitle", invalid_key="something else")
+    hlpr.provide_defaults("set_figlegend", title="this is ok")  # not an error
     hlpr.mark_enabled("set_title", "set_suptitle")
     with pytest.raises(PlotHelperErrors, match=r"Encountered 2 error\(s\)"):
         hlpr.invoke_enabled()
 
     # But it can also be just logged
+    assert hlpr.raise_on_error
     hlpr._raise_on_error = False
+    assert not hlpr.raise_on_error
     hlpr.invoke_helper("set_title", another_invalid_key="something else")
 
     # Finally, save and close the figure
@@ -612,6 +627,11 @@ def test_axis_specificity(hlpr):
     # ... check the two bottom rows were changed (were not disabled)
     for ax in chain(hlpr.axes[:, 1], hlpr.axes[:, 2]):
         assert ax.title.get_text() == "default"
+
+    # A base config entry with figure-level helper will fail
+    hlpr._axis_specific_updates = dict(foo=dict(set_suptitle=dict(foo="bar")))
+    with pytest.raises(PlotConfigError, match="figure-level helper"):
+        hlpr._compile_axis_specific_cfg()
 
 
 def test_animation(epc, tmpdir):
@@ -796,6 +816,40 @@ def test_animation_mode_switching(hlpr, epc, tmpdir):
     assert not tmpdir.join(plot_name).isdir()
 
 
+def test_legend_handle_tracking(hlpr):
+    """Tests the tracking of legend handles and labels"""
+    hlpr.setup_figure(ncols=3, nrows=2)
+    hlpr.select_axis(0, 0)
+    hlpr.track_handles_labels([hlpr.ax_coords], [str(hlpr.ax_coords)])
+
+    hlpr.select_axis(1, 1)
+    hlpr.track_handles_labels([hlpr.ax_coords], [str(hlpr.ax_coords)])
+
+    # Have these entries associated to the axis
+    h, l = hlpr.axis_handles_labels
+    assert h == [hlpr.ax_coords]
+    assert l == [str(hlpr.ax_coords)]
+
+    hlpr.select_axis(0, 0)
+    h, l = hlpr.axis_handles_labels
+    assert h == [hlpr.ax_coords]
+    assert l == [str(hlpr.ax_coords)]
+
+    # An axis without tracked handles still returns something, but empty
+    hlpr.select_axis(0, 1)
+    h, l = hlpr.axis_handles_labels
+    assert not h
+    assert not l
+
+    # How about all handles and labels?
+    all_h, all_l = hlpr.all_handles_labels
+    assert all_h == [(0, 0), (1, 1)]
+    assert all_l == ["(0, 0)", "(1, 1)"]
+
+    with pytest.raises(ValueError, match="need to be of the same size"):
+        hlpr.track_handles_labels([1, 2, 3], [2, 3])
+
+
 def test_helper_functions(hlpr):
     """Test all helper functions directly"""
 
@@ -869,7 +923,7 @@ def test_helper_functions(hlpr):
 
 
 def test_helper_set_legend(hlpr):
-    """Tests the 'set_legend' helper directly"""
+    """Tests the `set_legend` helper directly"""
     get_legends = lambda obj: obj.findobj(mpl.legend.Legend)
     get_texts = lambda lg: [t.get_text() for t in lg.texts]
     get_len = lambda lg: len(lg.legendHandles)
@@ -947,3 +1001,16 @@ def test_helper_set_legend(hlpr):
     legends = get_legends(hlpr.fig)
     assert len(legends) == 3 * 2
     assert all([get_len(lg) <= 4 for lg in get_legends(hlpr.fig)])
+
+
+def test_helper_set_figlegend(hlpr):
+    """Tests the `set_figlegend` helper directly"""
+    hlpr.setup_figure(ncols=3, nrows=2)
+
+    h = hlpr.ax.plot([1, 2, 3], [1, 2, 3])
+    hlpr.track_handles_labels(h, ["foo"])
+    hlpr.invoke_helper("set_figlegend", gather_from_fig=True)
+
+    # Can't do it twice
+    with pytest.raises(ValueError, match="was already set"):
+        hlpr.invoke_helper("set_figlegend")
