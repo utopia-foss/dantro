@@ -92,15 +92,15 @@ The available encodings for the :py:func:`~.facet_grid` plot are:
 
 In combination with :ref:`dag_generic_facet_grid_auto_kind`, this further reduces the plot configuration arguments required to generate facet grid plots.
 
-For further details, see :py:func:`~.determine_layout_encoding`.
+For further details, see :py:func:`~.determine_encoding`.
 
 
 .. _dag_facet_grid_decorator:
 
 Add custom plot ``kind``\ s that support faceting
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-While the already-available plot kinds of the facet grid already cover a lot of use cases, there is still room for extension.
-As part of the :py:mod:`~dantro.plot_creators.ext_funcs.generic` plot functions module, dantro provides the :py:class:`~.make_facet_grid_plot` decorator, which wraps the decorated function in such a way that it becomes facetable.
+While the already-available plot kinds of the facet grid cover many use cases, there is still room for extension.
+As part of the :py:mod:`~dantro.plot_creators.ext_funcs.generic` plot functions module, dantro provides the :py:class:`~.make_facet_grid_plot` decorator that wraps the decorated function in such a way that it becomes facetable.
 
 That means that after decoration:
 

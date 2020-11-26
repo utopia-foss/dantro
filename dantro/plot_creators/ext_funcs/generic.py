@@ -169,7 +169,7 @@ def determine_plot_kind(
     return kind
 
 
-def determine_layout_encoding(
+def determine_encoding(
     d: Union[xr.DataArray, xr.Dataset],
     *,
     kind: str,
@@ -326,9 +326,8 @@ def determine_layout_encoding(
             num_cols = d.sizes[specs["col"]]
             plot_kwargs["col_wrap"] = math.ceil(math.sqrt(num_cols))
             log.remark(
-                "   col_wrap:  %d  (length of col dimension, '%s': %d)",
+                "   col_wrap:  %d  (length of col dimension: %d)",
                 plot_kwargs["col_wrap"],
-                specs["col"],
                 num_cols,
             )
         else:
@@ -341,7 +340,7 @@ def determine_layout_encoding(
 
 class make_facet_grid_plot:
     """This is a decorator class that transforms a plot function that works on
-    a single axis into one the supports faceting. Additionally, it allows to
+    a single axis into one that supports faceting. Additionally, it allows to
     register the plotting function with the generic facet grid plot by adding
     the callable to ``_FACET_GRID_FUNCS``.
     """
@@ -421,7 +420,7 @@ class make_facet_grid_plot:
     def parse_wpf_kwargs(self, data, **kwargs) -> dict:
         """Parses the keyword arguments in preparation for invoking the wrapped
         plot function. This can happen both in context of a facet grid mapping
-        or a single invocation.
+        and a single invocation.
         """
         # Update defaults
         kwargs = recursive_update(copy.deepcopy(self.default_kwargs), kwargs)
@@ -483,7 +482,7 @@ class make_facet_grid_plot:
         # Get the mapping function
         map_to_facet_grid = self.map_func
 
-        # Now, generate the the facet-grid supporting function
+        # Now, generate the facet-grid supporting function
         def fgplot(
             data,
             *,
@@ -540,7 +539,7 @@ class make_facet_grid_plot:
 
             # Prepare mapping keyword arguments and apply the mapping
             kwargs = self.parse_wpf_kwargs(data, **kwargs)
-            log.debug("Invoking mapping function with kwargs:  %s", kwargs)
+            log.debug("Invoking mapping function with kwargs  %s  ...", kwargs)
             try:
                 map_to_facet_grid(
                     fg, wrapped_plot_func, hlpr=hlpr, _fg=fg, **kwargs
@@ -731,9 +730,8 @@ def errorbar(
         # Keep track of legend handles and labels
         handles, labels = [], []
 
-        # Group by the hue dimension and perform plots. Depending on the xarray
-        # version, this might or might not drop size-1 dimensions. To make sure
-        # that this does not mess up everything, squeeze explicitly.
+        # Group by the hue dimension and perform plots. To be more permissive
+        # with the requirements on data dimensionality, do a squeeze.
         hue_iter = zip(y.groupby(hue), yerr.groupby(hue))
         for (_y_coord, _y), (_yerr_coord, _yerr) in hue_iter:
             _y = _y.squeeze(drop=True)
@@ -752,9 +750,9 @@ def errorbar(
             handles.append(handle)
             labels.append(label)
 
-        # Register the custom legend handles
+        # Register the custom legend handles and let the helper track them
         hlpr.ax.legend(handles, labels, title=hue)
-        # NOTE Other aesthetics are specified by the user via the PlotHelper
+        hlpr.track_handles_labels(handles, labels)
 
     # Retrieve and prepare data ...............................................
     y = data["y"]
@@ -775,7 +773,7 @@ def errorbar(
     # Allow auto-encoding of layout specifiers
     # NOTE Need to pop all explicitly given specifiers in order to not have
     #      them appear as part of plot_kwargs further downstream.
-    layout_encoding = determine_layout_encoding(
+    layout_encoding = determine_encoding(
         y,
         kind="errorbar",
         auto_encoding=auto_encoding,
@@ -928,9 +926,13 @@ def facet_grid(
           with ``auto_encoding`` to choose the plot kind automatically as well.
         * allows ``col_wrap: 'auto'``, which selects the value such that the
           figure becomes more square-like (requires ``auto_encoding: true``)
+        * allows to register additional plot ``kind`` values that create plots
+          with a custom single-axis plotting function, using the
+          :py:class:`~dantro.plot_creators.ext_funcs.generic.make_facet_grid_plot`
+          decorator.
 
     For details about auto-encoding and how the plot ``kind`` is chosen, see
-    :py:func:`~dantro.plot_creators.ext_funcs.generic.determine_layout_encoding`
+    :py:func:`~dantro.plot_creators.ext_funcs.generic.determine_encoding`
     and :py:func:`~dantro.plot_creators.ext_funcs.generic.determine_plot_kind`.
 
     .. note::
@@ -963,7 +965,10 @@ def facet_grid(
         hlpr (PlotHelper): The plot helper
         kind (str, optional): The kind of plot to use. Options are:
             ``contourf``, ``contour``, ``imshow``, ``line``, ``pcolormesh``,
-            ``step``, ``hist``, ``scatter``.
+            ``step``, ``hist``, ``scatter``, ``errorbars`` and any plot kinds
+            that were additionally registered via the
+            :py:class:`~dantro.plot_creators.ext_funcs.generic.make_facet_grid_plot`
+            decorator.
             With ``auto``, dantro chooses an appropriate kind by itself; this
             setting is useful when also using the ``auto_encoding`` feature;
             see :ref:`dag_generic_facet_grid_auto_kind` for more information.
@@ -1089,7 +1094,7 @@ def facet_grid(
     kind = determine_plot_kind(
         d, kind=kind, default_kind_map=_AUTO_PLOT_KINDS, **plot_kwargs
     )
-    plot_kwargs = determine_layout_encoding(
+    plot_kwargs = determine_encoding(
         d,
         kind=kind,
         auto_encoding=auto_encoding,
@@ -1098,6 +1103,8 @@ def facet_grid(
         **plot_kwargs,
     )
     frames = plot_kwargs.pop("frames", None)
+
+    log.note("Facet grid plot of kind '%s' now commencing ...", kind)
 
     # If no animation is desired, the plotting routine is really simple
     if not frames:
@@ -1229,9 +1236,9 @@ def errorbars(
     # Keep track of legend handles and labels
     _handles, _labels = [], []
 
-    # Group by the hue dimension and perform plots. Depending on the xarray
-    # version, this might or might not drop size-1 dimensions. To make sure
-    # that this does not mess up everything, squeeze explicitly.
+    # Group by the hue dimension and perform plots. To be a bit more permissive
+    # regarding data shape, squeeze out any additional dimensions that might
+    # have been left over.
     hue_iter = zip(_y.groupby(hue), _yerr.groupby(hue))
     for (_y_coord, _y_vals), (_yerr_coord, _yerr_vals) in hue_iter:
         _y_vals = _y_vals.squeeze(drop=True)

@@ -192,13 +192,14 @@ def prepare_legend_args(
     )
     if past_thresh:
         log.remark(
-            "With %d handles and labels, passed hiding threshold of %d.",
-            min(len(h), len(l)),
+            "With %d handles and %d labels, passed hiding threshold of %d.",
+            len(h),
+            len(l),
             hiding_threshold,
         )
     else:
-        log.debug(
-            "Using %d handles and %d labels for the legend.",
+        log.remark(
+            "Have %d handles and %d labels available for the legend.",
             len(h),
             len(l),
         )
@@ -334,9 +335,11 @@ class PlotHelper:
         self._fig = None
         self._axes = None
         self._current_ax_coords = None
+
         self._additional_axes = None
         self._handles_labels = defaultdict(dict)
         self._figlegend = None
+
         self._animation_update = None
         self._invoke_before_grab = False
 
@@ -577,6 +580,7 @@ class PlotHelper:
         # Reset some tracking attributes
         self._handles_labels = defaultdict(dict)
         self._additional_axes = None
+        self._figlegend = None
 
         # Can now evaluate the axis-specific configuration
         self._cfg = self._compile_axis_specific_cfg()
@@ -664,10 +668,31 @@ class PlotHelper:
         self._axes = None
         self._current_ax_coords = None
         self._cfg = None
+        self._additional_axes = None
+        self._handles_labels = defaultdict(list)
+        self._figlegend = None
         log.debug("Associated data removed.")
 
     def sync_to_axis(self, ax=None):
-        """Synchronises the helper with the currently selected axis"""
+        """Synchronizes the current axis assumed by the plot helper to the
+        given axis object or the currently selected axis (if ``ax`` is None).
+
+        Calling this method may become necessary if the current axis is changed
+        in a part of the program where the plot helper is not involved; in
+        such a case, the currently selected axis may have been changed directly
+        via the matplotlib interface.
+        This method can be used to synchronize the two again.
+
+        Args:
+            ax (optional): The axis object to synchronize the helper to. If not
+                given, will use ``plt.gca()``.
+
+        Raises:
+            ValueError: If the given axis object or the result of ``plt.gca()``
+                was not part of the associated axes array. To associate the
+                correct figure and axes, use
+                :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.attach_figure_and_axes`.
+        """
         ax = ax if ax is not None else plt.gca()
 
         # Find the corresponding axis in the associated axis array
@@ -789,6 +814,7 @@ class PlotHelper:
             PlotHelperErrors: On failing plot helper invocations
             ValueError: No matching helper function defined
         """
+        is_figure_helper = helper_name in self._FIGURE_HELPERS
 
         def invoke_now(
             helper_name: str, errors: list, *, ax_coords: tuple = None
@@ -799,7 +825,7 @@ class PlotHelper:
             # Prepare the helper params, always working on a copy.
             # Depending on the helper, these can be either axis-specific or
             # figure-specific configurations.
-            if helper_name not in self._FIGURE_HELPERS:
+            if not is_figure_helper:
                 helper_params = self.axis_cfg.get(helper_name, {})
             else:
                 helper_params = self.base_cfg.get(helper_name, {})
@@ -854,9 +880,8 @@ class PlotHelper:
         errors = []
 
         # If this is a figure-level helper, handle separately:
-        if helper_name in self._FIGURE_HELPERS:
+        if is_figure_helper:
             invoke_now(helper_name, errors)
-            # Handle errors
             self._handle_errors(*errors, raise_on_error=raise_on_error)
             return
 
@@ -866,9 +891,7 @@ class PlotHelper:
             with temporarily_changed_axis(self, tmp_ax_coords=ax_coords):
                 invoke_now(helper_name, errors)
 
-            # Now back at previous axis, whatever happened above.
-        # Done.
-        # Handle errors
+        # Finally, handle the gathered errors
         self._handle_errors(*errors, raise_on_error=raise_on_error)
 
     def invoke_helper(
@@ -961,9 +984,17 @@ class PlotHelper:
         """Invokes all enabled helpers with their current configuration on the
         matching axes and all enabled figure-level helpers on the figure.
 
-        Calls
+        Internally, this first invokes all figure-level helpers and then calls
         :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.invoke_helpers`
         with all enabled helpers for all axes matching the ``axes`` argument.
+
+        .. note::
+
+            When setting ``mark_disabled_after_use = False``, this will lead to
+            figure-level helpers being invoked multiple times. As some of these
+            helpers do not allow multiple invocation, invoking this method a
+            second time *might* fail if not disabling them as part of the first
+            call to this method.
 
         Args:
             axes (Union[tuple, str], optional): A coordinate match tuple of
@@ -1340,15 +1371,13 @@ class PlotHelper:
         self,
         *,
         title: str = None,
-        fit_into_figure: bool = True,
         margin: float = 0.025,
         **title_kwargs,
     ):
         """Set the figure title, i.e. ``matplotlib.Figure.suptitle``.
 
-        This figure-level helper supports adjusting the figure shape to fit
+        This figure-level helper automatically adjusts the figure size to fit
         the suptitle into it without overlapping. This is *not* done if there
-        was an explicit ``ypos`` given via ``title_kwargs`` or if ``title``
         was empty.
 
         Args:
@@ -1379,13 +1408,16 @@ class PlotHelper:
 
         As a source of handles and labels, uses all those tracked via
         :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.track_handles_labels`.
-        Furthermore, ``gather_from_fig`` controls whether to retrieve already
-        existing handles and labels from any legend used within the figure,
-        e.g. on one of the axes.
+        Furthermore, ``gather_from_fig`` controls whether to additionally
+        retrieve already existing handles and labels from any legend used
+        within the figure, e.g. on all of the axes.
 
         For legend locations on the **right** side of the figure, this will
         additionally adjust the subplot shape to accomodate for the figure
-        legend without overlapping.
+        legend without overlapping. This is not done for other ``loc`` values.
+
+        If no handles could be retrieved by the above procedure, no figure
+        legend will be added.
 
         Args:
             gather_from_fig (bool, optional): Whether to extract figure handles
@@ -1403,12 +1435,15 @@ class PlotHelper:
             margin (float, optional): An additional horizontal margin between
                 the figure legend and the axes.
             **legend_kwargs: Passed on to ``fig.legend``.
+
+        Raises:
+            RuntimeError: If a figure legend was already set via the helper.
         """
         # Ensure that this is not called multiple times, because it's quite
         # costly to do all of the below (and can really mess up the figure
         # if applied multiple times).
         if self._figlegend:
-            raise ValueError(
+            raise RuntimeError(
                 "A figure legend was already set for this figure! "
                 "Will not set another one."
             )
@@ -1416,7 +1451,7 @@ class PlotHelper:
         # Now get the handles and labels . . . . . . . . . . . . . . . . . . .
         h, l = self.all_handles_labels
 
-        if not h or gather_from_fig:
+        if gather_from_fig:
             _h, _l = gather_handles_labels(self.fig)
             log.debug(
                 "Gathered %d handles and labels from the whole figure.",
@@ -1592,20 +1627,20 @@ class PlotHelper:
         hiding_threshold: int = None,
         **legend_kwargs,
     ):
-        """Sets a legend for the current axis or for the figure.
+        """Sets a legend for the current axis.
 
         As a first step, this helper tries to extract all relevant legend
         handles and labels. If a legend was set previously and *no* handles and
         labels could be extracted in the typical way (i.e., using the
         ``ax.get_legend_handles_labels`` method) it will be attempted to
-        retrieve them from existing matplotlib.legend.Legend objects on the
+        retrieve them from existing ``matplotlib.legend.Legend`` objects on the
         current axis.
         If ``gather_from_fig`` is given, the *whole* figure will be inspected,
         regardless of whether handles were found previously.
 
         Additionally, all axis-specific handles and labels tracked via
         :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.track_handles_labels`
-        are added.
+        will always be added.
 
         .. note::
 
@@ -1613,7 +1648,11 @@ class PlotHelper:
               that the ``legend_kwargs`` will not be passed on.
             - During gathering of handles and labels from the current axis or
               the figure, duplicates will be removed; duplicates are detected
-              via their label strings.
+              via their label strings, *not* via their handle.
+
+        .. hint::
+
+            To set a figure-level legend, use the ``set_figlegend`` helper.
 
         Args:
             use_legend (bool, optional): Whether to set a legend or not. If
@@ -1630,35 +1669,50 @@ class PlotHelper:
                 that have more than this number of handles registered.
             **legend_kwargs: Passed on to ``ax.legend``
         """
+
+        def hide_legend():
+            legend = self.ax.legend((), fancybox=False, frameon=False)
+            legend.set_visible(False)
+
+        # Warn about usage of the old interface.
+        # TODO Remove in Version 1.0
         if legend_kwargs.pop("use_figlegend", None):
             log.warning(
                 "The `use_figlegend` argument is no longer supported "
                 "for the `set_legend` helper. Use `set_figlegend` instead."
             )
 
+        # Do explicit hiding first, don't need to do all the rest in this case
+        if not use_legend:
+            log.remark("Hiding legend ...")
+            hide_legend()
+            return
+
         # Try to get (dangling) handles and labels from the axis
-        handles, labels = self.ax.get_legend_handles_labels()
+        h, l = self.ax.get_legend_handles_labels()
         # NOTE Will be empty if ax.legend() was called already
 
         # Add those that have been tracked explicitly
-        h, l = self.axis_handles_labels
-        handles += h
-        labels += l
+        _h, _l = self.axis_handles_labels
+        h += _h
+        l += _l
 
         # If there were no handles available in this way, try to gather the
         # information from the current axis or the whole figure
-        if not handles or gather_from_fig:
-            h, l = gather_handles_labels(
+        if not h or gather_from_fig:
+            _h, _l = gather_handles_labels(
                 self.fig if gather_from_fig else self.ax
             )
             log.debug(
                 "Gathered %d handles and labels from %s.",
-                len(h),
-                "the whole figure" if gather_from_fig else "current axis",
+                len(_h),
+                "the whole figure"
+                if (not h and gather_from_fig)
+                else "current axis",
             )
 
-            handles += h
-            labels += l
+            h += _h
+            l += _l
 
         # Remove potential duplicate handles (identified by the labels)
         h, l = remove_duplicate_handles_labels(h, l)
@@ -1672,11 +1726,8 @@ class PlotHelper:
         )
 
         # Hide or draw the legend
-        if not use_legend or past_thresh or not handles:
-            log.remark("Hiding axis legend ...")
-            legend = self.ax.legend((), fancybox=False, frameon=False)
-            legend.set_visible(False)
-            # ... not returning; might still want to draw the _figure_ legend!
+        if past_thresh or not handles:
+            hide_legend()
 
         else:
             self.ax.legend(handles, labels, **legend_kwargs)
@@ -1777,8 +1828,9 @@ class PlotHelper:
 
         The arguments are used to call ``ax.set_xticks`` or ``ax.set_yticks``,
         and ``ax.set_xticklabels`` or ``ax.set_yticklabels``, respectively.
-        The dict-like arguments may contain the keys ``major`` and/or ``minor``,
-        referring to major or minor tick locations and labels, respectively.
+        The dict-like arguments may contain the keys ``major`` and/or
+        ``minor``, referring to major or minor tick locations and labels,
+        respectively.
         They should either be list-like, directly specifying the ticks'
         locations, or dict-like requiring a ``locs`` key that contains the
         ticks' locations and is passed on to matplotlib.axes.Axes.set_xticks
@@ -1801,15 +1853,16 @@ class PlotHelper:
                   # ... further kwargs here specify label aesthetics
 
 
-        For more information, see
-        https://matplotlib.org/api/_as_gen/matplotlib.axes.Axes.set_xticks.html
-        https://matplotlib.org/api/_as_gen/matplotlib.axes.Axes.set_xticklabels.html
+        For more information, see:
+
+            - https://matplotlib.org/api/_as_gen/matplotlib.axes.Axes.set_xticks.html
+            - https://matplotlib.org/api/_as_gen/matplotlib.axes.Axes.set_xticklabels.html
 
         Args:
-            x (Union[list, dict], optional): The ticks and optionally their labels to
-                set on the x-axis
-            y (Union[list, dict], optional): The ticks and optionally their labels to
-                set on the y-axis
+            x (Union[list, dict], optional): The ticks and optionally their
+                labels to set on the x-axis
+            y (Union[list, dict], optional): The ticks and optionally their
+                labels to set on the y-axis
         """
 
         def set_ticks(
