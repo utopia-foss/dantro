@@ -466,7 +466,7 @@ class make_facet_grid_plot:
             # If this is called as part of a facet grid plot, we need to sync
             # the helper to the given axis, otherwise the helper cannot be used
             if _is_facetgrid:
-                hlpr.sync_to_axis(ax=ax)
+                hlpr.select_axis(ax=ax)
 
             # Prepare kwargs, optionally dropping some keys that bloat the
             # function signature ...

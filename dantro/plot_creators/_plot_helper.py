@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict, Generator, List, Sequence, Tuple, Union
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 from paramspace.tools import recursive_replace
 
 from ..exceptions import *
@@ -284,7 +285,10 @@ class PlotHelper:
         they explicitly specify `enabled: false` in their configuration.
 
         Args:
-            out_path (str): path to store the created figure
+            out_path (str): path to store the created figure. This may be an
+                absolute path or a relative path; the latter is regarded as
+                relative to the current working directory. The home directory
+                indicator ``~`` is expanded.
             helper_defaults (dict, optional): The basic configuration of the
                 helpers.
             update_helper_cfg (dict, optional): A configuration used to update
@@ -327,7 +331,7 @@ class PlotHelper:
         self._cfg = None
 
         # Store the other attributes
-        self._out_path = out_path
+        self._out_path = os.path.expanduser(out_path)
         self._raise_on_error = raise_on_error
         self._animation_enabled = animation_enabled
 
@@ -673,59 +677,78 @@ class PlotHelper:
         self._figlegend = None
         log.debug("Associated data removed.")
 
-    def sync_to_axis(self, ax=None):
-        """Synchronizes the current axis assumed by the plot helper to the
-        given axis object or the currently selected axis (if ``ax`` is None).
+    def select_axis(self, col: int = None, row: int = None, *, ax=None):
+        """Sets the current axis.
 
-        Calling this method may become necessary if the current axis is changed
-        in a part of the program where the plot helper is not involved; in
-        such a case, the currently selected axis may have been changed directly
-        via the matplotlib interface.
-        This method can be used to synchronize the two again.
+        Setting the axis can happen in three ways, depending on the arguments:
+
+            - The axis object at the given ``col`` and ``row`` coordinates.
+            - An explicitly given axis object (if ``ax`` is given)
+            - The current axis (if all arguments are None)
+
+        This method can be used to change to a different associated axis to
+        continue plotting on that axis.
+
+        Calling this method may also become necessary if the current axis is
+        changed in a part of the program where the plot helper is not
+        involved; in such a case, the currently selected axis may have been
+        changed directly via the matplotlib interface.
+        This method can then be used to synchronize the two again.
+
+        .. note::
+
+            The ``col`` and ``row`` values are wrapped around according to the
+            shape of the associated ``axes`` array, thereby allowing to specify
+            them as negative values for indexing from the back.
 
         Args:
-            ax (optional): The axis object to synchronize the helper to. If not
-                given, will use ``plt.gca()``.
+            col (int, optional): The column to select, i.e. the x-coordinate.
+                Can be negative, in which case it indexes backwards from the
+                last column.
+            row (int, optional): The row to select, i.e. the y-coordinate. Can
+                be negative, in which case it indexes backwards from the last
+                row.
+            ax (optional): If given this axis object, tries to look it up from
+                the associated axes array.
 
         Raises:
-            ValueError: If the given axis object or the result of ``plt.gca()``
-                was not part of the associated axes array. To associate the
-                correct figure and axes, use
+            ValueError: On failing to set the current axis or if the given axis
+                object or the result of ``plt.gca()`` was not part of the
+                associated axes array. To associate the correct figure and
+                axes, use
                 :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.attach_figure_and_axes`.
+
         """
-        ax = ax if ax is not None else plt.gca()
-
-        # Find the corresponding axis in the associated axis array
-        try:
-            col, row = np.where(self.axes == ax)
-            col, row = col[0], row[0]
-
-        except Exception as exc:
+        # Check arguments
+        # Column and row need either both be given or both NOT be given. (XOR)
+        if (col is None) != (row is None):
             raise ValueError(
-                "Cannot sync to the given axis as it is not part of the "
-                "associated axis array! Is the correct figure associated?"
-            ) from exc
+                "Need both `col` and `row` arguments to select the current "
+                f"axis via its coordinates! Got  col: {col},  row: {row}"
+            )
 
-        self.select_axis(col, row)
-        log.debug("Successfully synced to currently selected axis.")
+        # Without any arguments, use the current axis for the lookup
+        if col is None and row is None and ax is None:
+            ax = plt.gca()
 
-    def select_axis(self, col: int, row: int):
-        """Selects the axes at the given coordinate as the current axis.
+        # With an axis argument now given, it means that we need to retrieve
+        # the col and row values via the axis object
+        if ax is not None:
+            # ... and we require that `col` and `row` are not given.
+            if col is not None or row is not None:
+                raise ValueError(
+                    "Cannot specify arguments `col` and/or `row` if also "
+                    "setting the `ax` argument for `select_axis`!"
+                )
 
-        This does not perform a check on whether the axis is valid or already
-        set.
+            # Look up column and row
+            col, row = self._find_axis_coords(ax)
 
-        Args:
-            col (int): The column to select, i.e. the x-coordinate. Can be
-                negative, in which case it indexes backwards from the last
-                column.
-            row (int): The row to select, i.e. the y-coordinate. Can be
-                negative, in which case it indexes backwards from the last row.
+        # Wrap around negative values
+        col = col if col >= 0 else col % self.axes.shape[0]
+        row = row if row >= 0 else row % self.axes.shape[1]
 
-        Raises:
-            ValueError: On failing to set the current axis
-
-        """
+        # Now ready to select
         log.debug("Selecting axis (%d, %d) ...", col, row)
 
         try:
@@ -734,7 +757,7 @@ class PlotHelper:
         except IndexError as exc:
             raise ValueError(
                 f"Could not select axis ({col}, {row}) from figure with "
-                f"subplots of shape {self.axes.shape}!"
+                f"associated axes array of shape {self.axes.shape}!"
             ) from exc
 
         else:
@@ -1361,6 +1384,20 @@ class PlotHelper:
             raise phe
         log.warning(phe)
 
+    def _find_axis_coords(self, ax) -> Tuple[int, int]:
+        """Find the coordinates of the given axis object in the axes array"""
+        try:
+            col, row = np.where(self.axes == ax)
+            col, row = col[0], row[0]
+
+        except Exception as exc:
+            raise ValueError(
+                "Could not find the given axis within the associated axes "
+                "array! Is the correct figure associated?"
+            ) from exc
+
+        return col, row
+
     # -------------------------------------------------------------------------
     # -- Helper methods -------------------------------------------------------
     # -------------------------------------------------------------------------
@@ -1726,11 +1763,11 @@ class PlotHelper:
         )
 
         # Hide or draw the legend
-        if past_thresh or not handles:
+        if past_thresh or not h:
             hide_legend()
 
         else:
-            self.ax.legend(handles, labels, **legend_kwargs)
+            self.ax.legend(h, l, **legend_kwargs)
 
     def _hlpr_set_texts(self, *, texts: Sequence[dict]):
         """Sets multiple text elements for the current axis.
@@ -1924,3 +1961,23 @@ class PlotHelper:
 
             if y.get("minor"):
                 set_ticks_and_labels(axis="y", minor=True, axis_cfg=y["minor"])
+
+    # .........................................................................
+    # ... using seaborn
+
+    def _hlpr_despine(self, **kwargs):
+        """Despines the current *axis* using ``seaborn.despine``.
+
+        To despine the whole *figure*, apply this helper to all axes.
+        Refer to the seaborn documentation for available arguments:
+        https://seaborn.pydata.org/generated/seaborn.despine.html
+
+        Args:
+            **kwargs: Passed on to ``seaborn.despine``.
+        """
+        if "fig" in kwargs:
+            raise ValueError(
+                "Got unexpected `fig` argument! To apply the `despine` helper "
+                "to all axes, invoke the helper on each axis separately."
+            )
+        sns.despine(ax=self.ax, **kwargs)

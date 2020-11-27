@@ -323,19 +323,59 @@ def test_figure_attachment(hlpr):
     )
     assert hlpr.fig is fig
 
-    # Axis syncing
-    # ... this one does nothing: already working on the current axis
-    hlpr.sync_to_axis(hlpr.ax)
 
-    # ... this one should change the axis
-    hlpr.sync_to_axis(axes[1, 1])
-    assert hlpr.ax is axes[1, 1]
+def test_select_axis(hlpr):
+    """Tests the select_axis method"""
+    hlpr.setup_figure(ncols=2, nrows=3)
+    assert hlpr.ax_coords == (0, 0)
+
+    # Basic interface
+    hlpr.select_axis(0, 1)
+    assert hlpr.ax_coords == (0, 1)
+
+    # Negative values are wrapped around ...
+    hlpr.select_axis(col=-1, row=-2)
     assert hlpr.ax_coords == (1, 1)
 
-    # ... errors: with plt.gca() not in the currently associated axes
+    # Axis syncing
+    # ... this one does nothing: already working on the current axis
+    hlpr.select_axis(ax=hlpr.ax)
+
+    # ... this one should change the axis
+    hlpr.select_axis(ax=hlpr.axes[1, 1])
+    assert hlpr.ax is hlpr.axes[1, 1]
+    assert hlpr.ax_coords == (1, 1)
+
+    # ... this one should sync to the currently selected axis
+    hlpr.fig.sca(hlpr.axes[0, 0])
+    assert hlpr.ax_coords == (1, 1)  # not changed --> out of sync
+    hlpr.select_axis(ax=None)
+    assert hlpr.ax_coords == (0, 0)  # in sync again
+    hlpr.select_axis()
+    assert hlpr.ax_coords == (0, 0)  # nothing changed
+
+    # -- Error messages
+    # bad axes coordinates
+    with pytest.raises(ValueError, match="Could not select.*shape \(2, 3\)"):
+        hlpr.select_axis(5, 6)
+
+    # bad argument combinations
+    with pytest.raises(ValueError, match="Need both `col` and `row`"):
+        hlpr.select_axis(row=0)
+    with pytest.raises(ValueError, match="Need both `col` and `row`"):
+        hlpr.select_axis(col=0)
+    with pytest.raises(ValueError, match="Need both `col` and `row`"):
+        hlpr.select_axis(col=0, ax=hlpr.axes[1, 1])
+    with pytest.raises(ValueError, match="Need both `col` and `row`"):
+        hlpr.select_axis(row=0, ax=hlpr.axes[1, 1])
+    with pytest.raises(ValueError, match="Cannot specify.*if also setting"):
+        hlpr.select_axis(col=0, row=0, ax=hlpr.axes[1, 1])
+
+    # ... with plt.gca() not in the currently associated axes
+    _, _ = plt.subplots()
     assert plt.gca() not in hlpr.axes.flat
-    with pytest.raises(ValueError, match="not part of the associated"):
-        hlpr.sync_to_axis()
+    with pytest.raises(ValueError, match="Could not find the given axis"):
+        hlpr.select_axis()
 
 
 def test_cfg_manipulation(hlpr):

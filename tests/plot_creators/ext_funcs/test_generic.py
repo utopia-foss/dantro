@@ -18,7 +18,6 @@ from dantro.plot_creators import ExternalPlotCreator, PlotHelper
 from dantro.plot_creators.ext_funcs._utils import plot_errorbar
 from dantro.plot_creators.ext_funcs.generic import (
     _FACET_GRID_FUNCS,
-    determine_layout_encoding,
     determine_plot_kind,
     errorbands,
     errorbar,

@@ -236,3 +236,17 @@
         labels: ['first', 'second', 'third']
   _raises: ValueError
   _match: Labels can only be set
+
+
+# .............................................................................
+- despine: {}
+- despine:
+    left: true
+    bottom: true
+- despine:
+    offset: 5
+    trim: true
+- despine:
+    fig: foo
+  _raises: ValueError
+  _match: Got unexpected `fig` argument!

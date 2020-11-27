@@ -113,12 +113,12 @@ In the following example, the ``ggplot`` style is used and subsequently adjusted
         ytick.labelsize : 16
 
 
-For the ``base_style`` entry, choose the name of a `matplotlib stylesheet <https://matplotlib.org/3.1.1/gallery/style_sheets/style_sheets_reference.html>`_.
-For valid RC parameters, see the `matplotlib customization documentation <https://matplotlib.org/3.1.1/tutorials/introductory/customizing.html>`_.
+For the ``base_style`` entry, choose the name of a `matplotlib stylesheet <https://matplotlib.org/3.3.3/gallery/style_sheets/style_sheets_reference.html>`_.
+For valid RC parameters, see the `matplotlib customization documentation <https://matplotlib.org/3.3.3/tutorials/introductory/customizing.html>`_.
 
 .. hint::
 
-    Even the `axes property cycle <https://matplotlib.org/3.1.1/tutorials/intermediate/color_cycle.html>`_, i.e. the ``axes.prop_cycle`` RC parameter, can be adjusted in this way.
+    Even the `axes property cycle <https://matplotlib.org/3.3.3/tutorials/intermediate/color_cycle.html>`_, i.e. the ``axes.prop_cycle`` RC parameter, can be adjusted in this way.
     For example, to use a Tab20-based color cycle, specify:
 
     .. code-block:: yaml
@@ -173,12 +173,39 @@ To ensure that helpers stay disabled, regardless of configuration, you can call 
 
 .. hint::
 
-    The helper syntax is mostly equivalent to the matplotlib interface, but simplified in some cases, e.g. by using just ``x`` and ``y`` as arguments.
+    The syntax for each individual helper is in large parts equivalent to matplotlib's `pyplot interface <https://matplotlib.org/3.3.3/api/_as_gen/matplotlib.pyplot.html#module-matplotlib.pyplot>`_.
+    It is however wrapped and simplified in some cases, e.g. by using just ``x`` and ``y`` as arguments and gathering such functionality under one helper.
+
     If you get it wrong, the error message aims to be helpful: it provides the full signature and docstring of the invoked helper such that you can adjust the parameters to the required format.
 
-    Thus, trial and error is a useful first try before digging into the :py:class:`~dantro.plot_creators._plot_helper.PlotHelper` API reference.
+    Thus, trial and error is a useful initial approach before digging into the :py:class:`~dantro.plot_creators._plot_helper.PlotHelper` API reference.
 
 Furthermore, notice how you can combine the capabilities of the plot helper framework with the ability to :ref:`set the plot style <pcr_ext_style>`.
+
+Available helpers
+^^^^^^^^^^^^^^^^^
+
+The following helper methods are available:
+
+.. ipython::
+
+    In [1]: from dantro.plot_creators import PlotHelper
+
+    In [2]: hlpr = PlotHelper(out_path="~/my_output_directory")
+
+    In [3]: print("\n".join(hlpr.available_helpers))
+
+
+Additionally, there are "special" helpers that help with setting up and storing a figure:
+
+- :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.setup_figure`
+- :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.save_figure`
+
+.. note::
+
+    By default, helpers are regarded as **axis-level helpers**, as they operate on a single axis object.
+
+    However, there are some helpers that may *only* be used on the whole figure, so-called **figure-level helpers** (e.g. ``set_suptitle`` and ``set_figlegend``).
 
 
 Axis-specific helper configurations
@@ -195,7 +222,7 @@ A possible plot configuration with axis-specific helpers could look as follows:
     # Configure the plot helpers
     helpers:
       setup_figure:
-        n_cols: 2
+        ncols: 2
         sharey: True
       set_limits:
         x: [0, max]
