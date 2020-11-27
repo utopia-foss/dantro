@@ -9,11 +9,14 @@ full integration...
 import logging
 import os
 
+import numpy as np
 import pytest
+import xarray as xr
 from pkg_resources import resource_filename
 
 from dantro import DataManager, PlotManager
 from dantro._yaml import load_yml
+from dantro.containers import PassthroughContainer
 from dantro.plot_mngr import (
     InvalidCreator,
     PlotConfigError,
@@ -60,7 +63,32 @@ def dm(psp_grp, psp_grp_default, psp_grp_missing_data, tmpdir) -> DataManager:
     psp_grp_missing_data.name = "missing_data"
     psp_grps.add(psp_grp, psp_grp_default, psp_grp_missing_data)
 
-    # NOTE Can add more data to it here, e.g. if desired in a test
+    # Add some datasets
+    dsets = dm.new_group("datasets")
+    dsets.new_container(
+        path="mean_and_std_4D",
+        data=xr.Dataset(
+            dict(
+                mean=xr.DataArray(
+                    np.random.rand(5, 4, 3, 2),
+                    dims=("foo", "bar", "baz", "spam"),
+                    coords=dict(
+                        foo=range(5), bar=range(4), baz=range(3), spam=range(2)
+                    ),
+                ),
+                std=xr.DataArray(
+                    np.random.rand(5, 4, 3, 2),
+                    dims=("foo", "bar", "baz", "spam"),
+                    coords=dict(
+                        foo=range(5), bar=range(4), baz=range(3), spam=range(2)
+                    ),
+                ),
+            )
+        ),
+        Cls=PassthroughContainer,
+    )
+
+    # NOTE Can add more test data here, if desired
 
     print(dm.tree_condensed)
     return dm

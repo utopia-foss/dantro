@@ -1,6 +1,5 @@
 """Tests the generic external plot functions."""
 
-import builtins
 import copy
 import logging
 import os
@@ -14,14 +13,16 @@ import xarray as xr
 from pkg_resources import resource_filename
 
 from dantro.containers import PassthroughContainer, XrDataContainer
+from dantro.exceptions import *
 from dantro.plot_creators import ExternalPlotCreator, PlotHelper
 from dantro.plot_creators.ext_funcs._utils import plot_errorbar
 from dantro.plot_creators.ext_funcs.generic import (
-    determine_layout_encoding,
+    _FACET_GRID_FUNCS,
     determine_plot_kind,
     errorbands,
     errorbar,
     facet_grid,
+    make_facet_grid_plot,
 )
 from dantro.tools import DoNothingContext, load_yml
 
@@ -96,7 +97,11 @@ def associate_specifiers(
     if exclude is not None:
         specifiers = [s for s in specifiers if s not in exclude]
 
-    dim_names = data.dims[::-1]
+    if isinstance(data, (xr.DataArray, XrDataContainer)):
+        dim_names = data.dims[::-1]
+    else:
+        # Probably a dataset or something similar
+        dim_names = list(data.dims.keys())[::-1]
     return {spec: dim_name for spec, dim_name in zip(specifiers, dim_names)}
 
 
@@ -127,6 +132,7 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
         max_dims = cfg["max_dims"]
         raises = cfg.get("raises", {})
         plot_kwargs = cfg.get("plot_kwargs", {})
+        test_data_path = cfg.get("test_data_path", "ndim_da")
 
         print(
             "Testing scenario '{}' with {}…{}-dimensional data ...".format(
@@ -139,8 +145,8 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
         # Restrict the container iteration to the maximum dimensionality
         conts_it = [
             (name, cont)
-            for name, cont in dm["ndim_da"].items()
-            if cont.ndim in range(min_dims, max_dims + 1)
+            for name, cont in dm[test_data_path].items()
+            if len(cont.sizes) in range(min_dims, max_dims + 1)
         ]
         kinds_it = kinds if kinds else [None]
 
@@ -154,12 +160,13 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
 
             # Determine a context to allow to test for failing cases
             context = DoNothingContext()
-            if cont.ndim in raises:
+            ndim = len(cont.sizes)
+            if ndim in raises:
                 # These are expected to fail with a specific type and message
-                raise_spec = raises[cont.ndim]
+                raise_spec = raises[ndim]
                 exc_type, match = raise_spec
                 print("    expct. raise: ", exc_type, ": '{}'".format(match))
-                exc_type = getattr(builtins, exc_type)
+                exc_type = globals()[exc_type]
                 context = pytest.raises(exc_type, match=match)
 
             # Now, run the plot function in that context
@@ -177,7 +184,7 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
                     **aspecs,
                     **plot_kwargs,
                     kind=kind,
-                    select=dict(data="ndim_da/" + cont_name),
+                    select=dict(data=f"{test_data_path}/{cont_name}"),
                 )
 
             # Check plot figure count
@@ -206,15 +213,67 @@ from ...test_plot_mngr import dm as _dm
 def dm(_dm):
     """Returns a data manager populated with some high-dimensional test data"""
     # Add xr.Datasets for testing
+    grp_dataset = _dm.new_group("datasets")
+
     ds = xr.Dataset(
         dict(
             foo=xr.DataArray(np.random.rand(5, 4, 3)),
             bar=xr.DataArray(np.random.rand(5, 4, 3)),
         )
     )
-
-    grp_dataset = _dm.new_group("datasets")
     grp_dataset.add(PassthroughContainer(name="foobar3D", data=ds))
+
+    ds = xr.Dataset(
+        dict(
+            mean=xr.DataArray(
+                np.random.rand(5, 4, 3, 2),
+                dims=("foo", "bar", "baz", "spam"),
+                coords=dict(
+                    foo=range(5), bar=range(4), baz=range(3), spam=range(2)
+                ),
+            ),
+            std=xr.DataArray(
+                np.random.rand(5, 4, 3, 2),
+                dims=("foo", "bar", "baz", "spam"),
+                coords=dict(
+                    foo=range(5), bar=range(4), baz=range(3), spam=range(2)
+                ),
+            ),
+        )
+    )
+    grp_dataset.add(PassthroughContainer(name="mean_and_std4D", data=ds))
+
+    ds = xr.Dataset(
+        dict(
+            mean=xr.DataArray(
+                np.random.rand(5, 4),
+                dims=("foo", "bar"),
+                coords=dict(foo=range(5), bar=range(4)),
+            ),
+            std=xr.DataArray(
+                np.random.rand(5, 4),
+                dims=("foo", "bar"),
+                coords=dict(foo=range(5), bar=range(4)),
+            ),
+        )
+    )
+    grp_dataset.add(PassthroughContainer(name="mean_and_std2D", data=ds))
+
+    ds = xr.Dataset(
+        dict(
+            mean=xr.DataArray(
+                np.random.rand(5),
+                dims=("foo",),
+                coords=dict(foo=range(5)),
+            ),
+            std=xr.DataArray(
+                np.random.rand(5),
+                dims=("foo",),
+                coords=dict(foo=range(5)),
+            ),
+        )
+    )
+    grp_dataset.add(PassthroughContainer(name="mean_and_std1D", data=ds))
 
     # Add ndim random data for DataArrays, going from 0 to 7 dimensions
     grp_ndim_da = _dm.new_group("ndim_da")
@@ -231,6 +290,24 @@ def dm(_dm):
             XrDataContainer(
                 name="{:d}D".format(n),
                 data=create_nd_data(n, with_coords=True),
+            )
+            for n in range(7)
+        ]
+    )
+
+    grp_ds_labelled = _dm.new_group("ds_labelled")
+    grp_ds_labelled.add(
+        *[
+            PassthroughContainer(
+                name="{:d}D".format(n),
+                data=xr.Dataset(
+                    dict(
+                        foo=create_nd_data(n, with_coords=True),
+                        bar=create_nd_data(n, with_coords=True),
+                        baz=create_nd_data(n, with_coords=True),
+                        spam=create_nd_data(n, with_coords=True),
+                    )
+                ),
             )
             for n in range(7)
         ]
@@ -304,7 +381,8 @@ def test_determine_plot_kind():
 
 # .. Errorbar Tests ...........................................................
 
-
+# NOTE Rather than removing this test when removing `errorbar`, migrate it to
+#      test the `errorbars` function!
 def test_errorbar(dm, out_dir, anim_disabled):
     """Tests the errorbar plot"""
     epc = ExternalPlotCreator("test_errorbar", dm=dm)
@@ -419,7 +497,85 @@ def test_errorbar(dm, out_dir, anim_disabled):
         )
 
 
-# .. Facet Grid Tests .........................................................
+# -- FacetGrid tests ----------------------------------------------------------
+
+# .. make_facet_grid_plot decorator ...........................................
+
+
+def test_make_facet_grid_plot():
+    mfg = make_facet_grid_plot
+    FGF = _FACET_GRID_FUNCS
+
+    # Needs arguments
+    with pytest.raises(TypeError):
+
+        @mfg
+        def foo():
+            pass
+
+    # Only supports specific mappings
+    for m in ("dataset", "dataarray", "dataarray_line"):
+
+        @mfg(map_as=m, encodings=("foo",), register_as_kind="foo_" + m)
+        def foo():
+            pass
+
+        try:  # NOTE Can't use `with pytest.raises` here
+
+            @mfg(map_as=m + "foo", encodings=("foo",))
+            def foo():
+                pass
+
+        except ValueError as err:
+            assert "Unsupported value" in str(err)
+
+    # Custom registration name
+    assert "my_foo" not in FGF
+
+    @mfg(map_as="dataset", encodings=("foo",), register_as_kind="my_foo")
+    def foo():
+        pass
+
+    assert "my_foo" in FGF
+
+    # Skip registration
+    assert "my_bar" not in FGF
+
+    @mfg(map_as="dataset", encodings=("bar",), register_as_kind=False)
+    def bar():
+        pass
+
+    assert "my_bar" not in FGF
+
+    # Overwrite existing
+    prev_my_foo = FGF["my_foo"]
+
+    @mfg(
+        map_as="dataset",
+        encodings=("bar",),
+        register_as_kind="my_foo",
+        overwrite_existing=True,
+    )
+    def foo():
+        pass
+
+    new_my_foo = FGF["my_foo"]
+    assert new_my_foo is not prev_my_foo
+
+    # Error without overwrite
+    try:
+
+        @mfg(map_as="dataset", encodings=("bar",))
+        def my_foo():
+            pass
+
+    except ValueError as err:
+        assert "is already used" in str(err)
+    else:
+        assert FGF["my_foo"] is new_my_foo
+
+
+# .. facet_grid itself ........................................................
 
 
 def test_facet_grid(dm, out_dir, anim_disabled):
@@ -475,6 +631,44 @@ def test_facet_grid(dm, out_dir, anim_disabled):
         select=dict(data="datasets/foobar3D"),
     )
 
+    # errorbars: also requires dataset
+    epc(
+        **out_path("errorbars"),
+        **shared_kwargs,
+        kind="errorbars",
+        y="mean",
+        yerr="std",
+        x="foo",
+        col="bar",
+        hue="spam",
+        frames="baz",
+        select=dict(data="datasets/mean_and_std4D"),
+    )
+
+    epc(
+        **out_path("errorbars_single"),
+        **shared_kwargs,
+        kind="errorbars",
+        y="mean",
+        yerr="std",
+        # x="foo",  # auto-deduced
+        select=dict(data="datasets/mean_and_std1D"),
+    )
+
+    # ... will fail with unlabelled dimensions
+    with pytest.raises(PlottingError, match="coordinates associated"):
+        epc(
+            **out_path("errorbars_unlabelled"),
+            **shared_kwargs,
+            kind="errorbars",
+            y="foo",
+            yerr="bar",
+            x="dim_0",
+            col="dim_1",
+            row="dim_1",
+            select=dict(data="datasets/foobar3D"),
+        )
+
 
 def test_facet_grid_no_kind(dm, out_dir):
     """Tests the facet_grid without a ``kind`` specified"""
@@ -493,19 +687,26 @@ def test_facet_grid_kinds(dm, out_dir):
     invoke_facet_grid(dm=dm, out_dir=out_dir, to_test=PLOTS_CFG_FG["kinds"])
 
 
+def test_facet_grid_errorbars(dm, out_dir):
+    """Tests the facet_grid for ``kind == 'errorbars'``"""
+    invoke_facet_grid(
+        dm=dm, out_dir=out_dir, to_test=PLOTS_CFG_FG["errorbars"]
+    )
+
+
 @skip_if_not_full
 def test_facet_grid_line(dm, out_dir):
-    """Tests the facet_grid without a ``kind`` specified"""
+    """Tests the facet_grid for ``kind == 'line'``"""
     invoke_facet_grid(dm=dm, out_dir=out_dir, to_test=PLOTS_CFG_FG["line"])
 
 
 @skip_if_not_full
 def test_facet_grid_2d(dm, out_dir):
-    """Tests the facet_grid without a ``kind`` specified"""
+    """Tests the facet_grid for 2D ``kind``s"""
     invoke_facet_grid(dm=dm, out_dir=out_dir, to_test=PLOTS_CFG_FG["2d"])
 
 
 @skip_if_not_full
 def test_facet_grid_hist(dm, out_dir):
-    """Tests the facet_grid without a ``kind`` specified"""
+    """Tests the facet_grid for ``kind == 'hist'``"""
     invoke_facet_grid(dm=dm, out_dir=out_dir, to_test=PLOTS_CFG_FG["hist"])

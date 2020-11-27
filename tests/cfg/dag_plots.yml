@@ -32,6 +32,10 @@ _pm_init_kwargs:
       module: .generic
       plot_func: errorbar
 
+    dag.errorbars:
+      module: .generic
+      plot_func: errorbars
+
     # .. Selection ............................................................
     select.randints_3D:
       select:
@@ -129,7 +133,41 @@ config_based:
     _match: Failed applying operation '.format'
 
 
+  # .. facet_grid integration tests ...........................................
 
+  facet_grid/errorbars_standalone:
+    plot_cfg:
+      <<: *shared_plot_cfg
+      based_on: [creator.ext, dag.errorbars]
+
+      select:
+        data: datasets/mean_and_std_4D
+
+      y: mean
+      yerr: std
+      x: foo
+      col: bar
+      row: baz
+      hue: spam
+
+
+  facet_grid/errorbars_standalone_failing:
+    plot_cfg:
+      <<: *shared_plot_cfg
+      based_on: [creator.ext, dag.errorbars]
+
+      select:
+        data: datasets/mean_and_std_4D
+
+      y: mean
+      yerr: std
+      x: foo
+      col: bar
+      row: baz
+      hue: bad dimension name
+
+    _raises: PlotCreatorError
+    _match: bad dimension name
 
 
 

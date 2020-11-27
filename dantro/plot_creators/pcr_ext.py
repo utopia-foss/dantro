@@ -239,15 +239,8 @@ class ExternalPlotCreator(BasePlotCreator):
             plot_func=plot_func, module=module, module_file=module_file
         )
 
-        # Generate a style dictionary
+        # Generate a style dictionary to be used for context manager creation
         rc_params = self._prepare_style_context(**(style if style else {}))
-
-        # Get style context
-        if rc_params:
-            log.debug("Using custom style context ...")
-            style_context = plt.rc_context(rc=rc_params)
-        else:
-            style_context = DoNothingContext()
 
         # Check if PlotHelper is to be used
         if getattr(plot_func, "use_helper", False):
@@ -261,13 +254,14 @@ class ExternalPlotCreator(BasePlotCreator):
                     out_path=out_path,
                     plot_func=plot_func,
                     helpers=helpers,
-                    style_context=style_context,
+                    style_context=self._build_style_context(**rc_params),
                     func_kwargs=func_kwargs,
                     use_dag=use_dag,
                     animation=animation,
                 )
 
             except EnterAnimationMode:
+                log.note("Entering animation mode ...")
                 if not animation:
                     raise ValueError(
                         "Cannot dynamically enter animation mode without any "
@@ -281,6 +275,7 @@ class ExternalPlotCreator(BasePlotCreator):
                 animation["enabled"] = True
 
             except ExitAnimationMode:
+                log.note("Exiting animation mode ...")
                 switch_anim_mode = True
                 animation = None
 
@@ -294,7 +289,7 @@ class ExternalPlotCreator(BasePlotCreator):
                         out_path=out_path,
                         plot_func=plot_func,
                         helpers=helpers,
-                        style_context=style_context,
+                        style_context=self._build_style_context(**rc_params),
                         func_kwargs=func_kwargs,
                         use_dag=use_dag,
                         animation=animation,
@@ -333,8 +328,8 @@ class ExternalPlotCreator(BasePlotCreator):
                 plot_func, use_dag=use_dag, out_path=out_path, **func_kwargs
             )
 
-            # Enter the stlye context (can also be DoNothingContext, see above)
-            with style_context:
+            # Enter the stlye context
+            with self._build_style_context(**rc_params):
                 log.debug(
                     "Calling plotting function '%s' ...", plot_func.__name__
                 )
@@ -897,6 +892,18 @@ class ExternalPlotCreator(BasePlotCreator):
             rc_dict = recursive_update(rc_dict, update_rc_params)
 
         return rc_dict
+
+    def _build_style_context(self, **rc_params):
+        """Constructs the matplotlib style context manager, if parameters were
+        given, otherwise returns the DoNothingContext
+        """
+        if rc_params:
+            log.remark(
+                "Using custom style context with %d entries ...",
+                len(rc_params),
+            )
+            return plt.rc_context(rc=rc_params)
+        return DoNothingContext()
 
     def _perform_animation(
         self,

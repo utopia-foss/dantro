@@ -1,20 +1,31 @@
 # Configuration file to test all helper functions
 ---
+
 # .............................................................................
-- set_title: {}
-- set_title:
+- set_suptitle: {}
+- set_suptitle:
     title: foo
-- set_title:
+    margin: 0.02
+- set_suptitle:
     title: foo
     invalid_param: 123
   _raises: true
   _match: has no property 'invalid_param'
 
 # .............................................................................
-- set_suptitle: {}
-- set_suptitle:
+- set_figlegend: {}
+- set_figlegend:
+    gather_from_fig: true
     title: foo
-- set_suptitle:
+- set_figlegend:
+    hiding_threshold: 10
+
+# .............................................................................
+# .............................................................................
+- set_title: {}
+- set_title:
+    title: foo
+- set_title:
     title: foo
     invalid_param: 123
   _raises: true
@@ -225,3 +236,17 @@
         labels: ['first', 'second', 'third']
   _raises: ValueError
   _match: Labels can only be set
+
+
+# .............................................................................
+- despine: {}
+- despine:
+    left: true
+    bottom: true
+- despine:
+    offset: 5
+    trim: true
+- despine:
+    fig: foo
+  _raises: ValueError
+  _match: Got unexpected `fig` argument!

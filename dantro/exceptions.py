@@ -1,6 +1,8 @@
 """Custom dantro exception classes."""
 
+import inspect
 from difflib import get_close_matches as _get_close_matches
+from typing import Tuple
 
 # -----------------------------------------------------------------------------
 
@@ -152,3 +154,126 @@ class InvalidCreator(ValueError, PlottingError):
 
 class PlotCreatorError(PlottingError):
     """Raised when an error occured in a plot creator"""
+
+
+# PlotHelper . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+
+class EnterAnimationMode(DantroError):
+    """An exception that is used to convey to any
+    :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` or derived
+    creator that animation mode is to be entered instead of a regular
+    single-file plot.
+
+    It can and should be invoked via
+    :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.enable_animation`.
+
+    This exception can be raised from within a plot function to dynamically
+    decide whether animation should happen or not. Its counterpart is
+    :py:exc:`~dantro.exceptions.ExitAnimationMode`.
+    """
+
+
+class ExitAnimationMode(DantroError):
+    """An exception that is used to convey to any
+    :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` or derived
+    creator that animation mode is to be exited and a regular single-file plot
+    should be carried out.
+
+    It can and should be invoked via
+    :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.disable_animation`.
+
+    This exception can be raised from within a plot function to dynamically
+    decide whether animation should happen or not. Its counterpart is
+    :py:exc:`~dantro.exceptions.ExitAnimationMode`.
+    """
+
+
+class PlotHelperError(PlotConfigError):
+    """Raised upon failure to invoke a specific plot helper function, this
+    custom exception type stores metadata on the helper invocation in order
+    to generate a useful error message.
+    """
+
+    def __init__(
+        self,
+        upstream_error: Exception,
+        *,
+        name: str,
+        params: dict,
+        ax_coords: Tuple[int, int] = None,
+    ):
+        """Initializes a PlotHelperError"""
+        self.err = upstream_error
+        self.name = name
+        self.ax_coords = ax_coords
+        self.params = params
+
+    def __str__(self):
+        """Generates an error message for this particular helper"""
+        _params = "\n".join(
+            [f"      {k}: {repr(v)}" for k, v in self.params.items()]
+        )
+        _where = (
+            "the figure" if not self.ax_coords else f"axis {self.ax_coords}"
+        )
+        return (
+            f"'{self.name}' failed on {_where}!  "
+            f"{self.err.__class__.__name__}: {self.err}\n"
+            f"    Invocation parameters were:\n{_params}\n"
+        )
+
+    @property
+    def docstring(self) -> str:
+        """Returns the docstring of this helper function"""
+        from .plot_creators import PlotHelper
+
+        func = getattr(PlotHelper, "_hlpr_" + self.name)
+        return f"{self.name}\n{'-'*len(self.name)}\n{inspect.getdoc(func)}\n"
+
+
+class PlotHelperErrors(ValueError):
+    """This custom exception type gathers multiple individual instances of
+    :py:class:`~dantro.exceptions.PlotHelperError`.
+    """
+
+    def __init__(self, *errors, show_docstrings: bool = True):
+        """Bundle multiple PlotHelperErrors together
+
+        Args:
+            *errors: The individual instances of
+                :py:class:`~dantro.exceptions.PlotHelperError`
+            show_docstrings (bool, optional): Whether to show docstrings in the
+                error message.
+        """
+        self._errors = list()
+        self._axes = set()
+        self._num = len(errors)
+        self._docstrings = dict()
+        self.show_docstrings = show_docstrings
+
+        for error in errors:
+            self._errors.append(error)
+            self._axes.add(error.ax_coords)
+            self._docstrings[error.name] = error.docstring
+
+    @property
+    def errors(self):
+        return self._errors
+
+    def __str__(self) -> str:
+        """Generates a combined error message for *all* registered errors"""
+        s = (
+            f"Encountered {self._num} error(s) "
+            f"for {len(self._docstrings)} different plot helper(s) "
+            f"on {len(self._axes)} different axes!\n\n"
+        )
+
+        s += "\n".join([f"-- {e}" for e in self._errors]) + "\n"
+
+        if self.show_docstrings:
+            s += "Relevant Docstrings\n"
+            s += "===================\n\n"
+            s += "\n\n".join(self._docstrings.values())
+
+        return s
