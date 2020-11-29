@@ -28,7 +28,7 @@ _pm_init_kwargs:
       module: .generic
       plot_func: facet_grid
 
-    dag.errorbar:
+    dag.errorbar:  # NOTE DEPRECATED -- will be removed in 1.0
       module: .generic
       plot_func: errorbar
 
@@ -55,7 +55,7 @@ config_based:
   simple_example:
     plot_cfg:
       <<: *shared_plot_cfg
-      based_on: [creator.ext, dag.errorbar]
+      based_on: [creator.ext, dag.errorbars]
 
       # Create some mock data with the DAG framework
       transform:
@@ -67,6 +67,13 @@ config_based:
           tag: y
         - pow: [!dag_tag y, .5]
           tag: yerr
+        - xr.Dataset:
+            - y: !dag_tag y
+              yerr: !dag_tag yerr
+          tag: data
+
+      y: y
+      yerr: yerr
 
   # Example for a failing invocation
   simple_failing:
@@ -80,6 +87,7 @@ config_based:
     plot_cfg: &phres_simple
       <<: *shared_plot_cfg
       based_on: [creator.uni, dag.errorbar, select.randints_3D]
+      # TODO Migrate to dag.errorbars
 
       transform:
         - .mean: [!dag_tag randints, [x, z]]
@@ -131,6 +139,46 @@ config_based:
 
     _raises: PlotCreatorError
     _match: Failed applying operation '.format'
+
+
+  # .. PlotHelper tests .......................................................
+
+  helper/empty_axis:
+    plot_cfg: &empty_axis
+      <<: *shared_plot_cfg
+      based_on: [creator.ext, dag.facet_grid]
+      debug: true
+
+      select:
+        data:
+          path: datasets/mean_and_std_4D
+          transform:
+            - .sel: [!dag_prev , {spam: 0}]
+            - getattr: [!dag_prev , data_vars]
+            - getitem: [!dag_prev , mean]
+
+      kind: line
+      x: foo
+      col: bar
+      col_wrap: 3
+
+      # Despite column wrapping producing an empty plot, this should not fail,
+      # because empty axes are skipped by default
+      helpers:
+        set_limits:
+          x: [min, max]
+
+  helper/empty_axis_fail:
+    plot_cfg:
+      <<: *empty_axis
+
+      helpers:
+        set_limits:
+          skip_empty_axes: false
+          x: [min, max]
+
+    _raises: PlotCreatorError
+    _match: Could not get a finite value
 
 
   # .. facet_grid integration tests ...........................................
@@ -186,25 +234,35 @@ config_based:
       universes: any
 
       module: .generic
-      plot_func: errorbar
+      plot_func: errorbars
 
       select:
         # 3D data with random integers
         some_data: randints
 
       transform:
-        # For the y values, take the mean ...
+        # Compute the mean and standard deviation
         - .mean: [!dag_tag some_data, [x, z]]
-          tag: y
-        # ... and use the standard deviation for the errors
+          tag: mean
         - .std: [!dag_tag some_data, [x, z]]
-          tag: yerr
+          tag: stddev
+
+        # Assemble them into a Dataset for the errorbars plot
+        - xr.Dataset:
+            - mean: !dag_tag mean
+              stddev: !dag_tag stddev
+          tag: data
 
         # Additional transformations for ResultPlaceholders
-        - .mean: [!dag_tag y]
+        - .mean: [!dag_tag mean]
         - .item  # ... otherwise it's still an xr.DataArray
         - .format: ["Some Data (total mean: {:.3g})", !dag_prev ]
           tag: title_str
+
+      # Specify which data variable to plot as line and which as errorbands
+      y: mean
+      yerr: stddev
+      use_bands: true
 
       # Now, use the place holder in the helper configuration
       helpers:

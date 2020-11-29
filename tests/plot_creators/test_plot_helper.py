@@ -356,7 +356,7 @@ def test_select_axis(hlpr):
 
     # -- Error messages
     # bad axes coordinates
-    with pytest.raises(ValueError, match="Could not select.*shape \(2, 3\)"):
+    with pytest.raises(ValueError, match=r"Could not select.*shape \(2, 3\)"):
         hlpr.select_axis(5, 6)
 
     # bad argument combinations
@@ -469,8 +469,9 @@ def test_cfg_manipulation(hlpr):
 
 def test_invocation(hlpr):
     """Test helper invocation"""
-    # Setup the figure
+    # Setup the figure and draw something on it such that it is not empty
     hlpr.setup_figure()
+    hlpr.ax.plot([1, 2, 3], [1, 2, 3], label="foo")
 
     # Invoke a helper directly
     hlpr.invoke_helper("set_title", title="manually enabled")
@@ -622,6 +623,11 @@ def test_axis_specificity(hlpr):
 
     # Need a subplots figure for that, so overwrite the existing one
     hlpr.setup_figure(ncols=4, nrows=3)
+
+    # Draw something on each axis, such that they are not empty
+    for tmp_ax_coords in hlpr.coords_iter(match="all"):
+        with temporarily_changed_axis(hlpr, tmp_ax_coords):
+            hlpr.ax.plot([1, 2, 3], [1, 2, 3], label=str(hlpr.ax_coords))
 
     # Test selecting axes
     hlpr.select_axis(3, 2)
@@ -973,7 +979,7 @@ def test_helper_set_legend(hlpr):
     hlpr.setup_figure(ncols=3, nrows=2)
     assert not get_legends(hlpr.fig)
 
-    # Draw something on a subset of axes
+    # Draw something on a subset of axes: (1, 1) and (2, 0)
     hlpr.select_axis(1, 1)
     hlpr.ax.plot([1, 2, 3], label="one")
     hlpr.ax.plot([2, 3, 4], label="two")
@@ -995,30 +1001,26 @@ def test_helper_set_legend(hlpr):
     # Now invoke it on all axes; should yield two legend objects
     hlpr.invoke_helper("set_legend", axes="all")
     legends = get_legends(hlpr.fig)
-    assert len(legends) == 3 * 2
+    assert len(legends) == 2
 
     # Old legend no longer available
     assert legend not in legends
 
-    assert is_empty(legends[0])  # (0, 0) new ...
-    assert is_empty(legends[1])  # (1, 0)
-    assert not is_empty(legends[2])  # (2, 0)
-    assert is_empty(legends[3])  # (0, 1)
-    assert not is_empty(legends[4])  # (1, 1)
-    assert is_empty(legends[5])  # (2, 1)
+    # The legends are not empty
+    assert not is_empty(legends[0])  # (2, 0)
+    assert not is_empty(legends[1])  # (1, 1)
 
-    assert get_texts(legends[2]) == ["three", "four", "five"]
-    assert get_texts(legends[4]) == ["one", "two"]
+    assert get_texts(legends[0]) == ["three", "four", "five"]
+    assert get_texts(legends[1]) == ["one", "two"]
 
-    # Test gathering handles from the whole figure
+    # Test gathering handles from the whole figure, here drawing them onto a
+    # fully empty axis deliberately.
     hlpr.select_axis(0, 0)
-    assert len(get_legends(hlpr.ax)) == 1
+    assert len(get_legends(hlpr.ax)) == 0
 
-    hlpr.invoke_helper("set_legend")
-    assert len(get_legends(hlpr.ax)) == 1  # old one removed
-    assert is_empty(get_legends(hlpr.ax)[0])
-
-    hlpr.invoke_helper("set_legend", gather_from_fig=True)
+    hlpr.invoke_helper(
+        "set_legend", skip_empty_axes=False, gather_from_fig=True
+    )
     legend = get_legends(hlpr.ax)[0]
     assert get_texts(legend) == ["three", "four", "five", "one", "two"]
 
@@ -1027,20 +1029,33 @@ def test_helper_set_legend(hlpr):
     # by their label and are not included.
     hlpr.select_axis(0, 1)
     hlpr.ax.plot([6, 7, 8], label="six")
-    assert is_empty(get_legends(hlpr.ax)[0])
+    assert not get_legends(hlpr.ax)
 
     hlpr.invoke_helper("set_legend", gather_from_fig=True)
     legend = get_legends(hlpr.ax)[0]
     assert get_texts(legend) == ["six", "three", "four", "five", "one", "two"]
 
     # Axes (0, 0) and (0, 1) should have large legends now
+    print([get_len(lg) for lg in get_legends(hlpr.fig)])
     assert sum([get_len(lg) > 4 for lg in get_legends(hlpr.fig)]) == 2
 
-    # Can hide those now
+    # Can now conditionally hide them
     hlpr.invoke_helper("set_legend", axes="all", hiding_threshold=4)
     legends = get_legends(hlpr.fig)
-    assert len(legends) == 3 * 2
-    assert all([get_len(lg) <= 4 for lg in get_legends(hlpr.fig)])
+    assert len(legends) == 4  # (0, 0) (0, 1) (1, 1) (2, 0)
+
+    # ... but because we have legends on otherwise empty axes, the helper will
+    # skip those axes and not hide the legend on axis (0, 0)
+    assert [get_len(lg) for lg in legends] == [5, 3, 1, 2]
+
+    # Apply it to all axes now, which will lead to (partly invisible) legends
+    # on some axes, but the one at (0, 0) will now be hidden / empty
+    hlpr.invoke_helper(
+        "set_legend", axes="all", hiding_threshold=4, skip_empty_axes=False
+    )
+    legends = get_legends(hlpr.fig)
+    assert len(legends) == 6  # all axes
+    assert [get_len(lg) for lg in legends] == [0, 0, 3, 1, 2, 0]
 
 
 def test_helper_set_figlegend(hlpr):
