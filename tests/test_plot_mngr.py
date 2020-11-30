@@ -443,22 +443,38 @@ def test_plotting_based_on(dm, pm_kwargs):
     assert baz["something"] == "something"
 
     # Check invalid specifications and that they create no plots
-    with pytest.raises(KeyError, match="No base plot config(.*) 'invalid"):
+    with pytest.raises(
+        PlotConfigError, match="No base plot config.* 'invalid"
+    ):
         update_plots_cfg = {"invalid_based_on": {"based_on": "invalid_key"}}
         pm.plot_from_cfg(plot_only=["invalid_based_on"], **update_plots_cfg)
     assert_num_plots(pm, 5)  # No new plots
 
+    # Check close matches, "Did you mean"-feature
+    with pytest.raises(PlotConfigError, match="Did you mean"):
+        update_plots_cfg = {"invalid_based_on": {"based_on": "fooo"}}
+        pm.plot_from_cfg(plot_only=["invalid_based_on"], **update_plots_cfg)
+    assert_num_plots(pm, 5)  # No new plots
+
     # Bad based_on during resolution
-    with pytest.raises(KeyError, match="No base plot config(.*) 'bad_"):
+    with pytest.raises(
+        PlotConfigError, match="No base plot config.* 'bad_based_"
+    ):
         pm.plot(name="foo", based_on="bad_based_on")
     assert_num_plots(pm, 5)  # No new plots
 
     # Should also be an error during initialization
-    with pytest.raises(KeyError, match="No base plot configuration named 'ba"):
+    with pytest.raises(
+        PlotConfigError,
+        match=(
+            "No base plot configuration 'bad'.*during update with `update_"
+            ".*Did you mean"
+        ),
+    ):
         PlotManager(
             dm=dm,
             base_cfg=BASE_EXT,
-            update_base_cfg=dict(bad_based_on=dict(based_on="baaad")),
+            update_base_cfg=dict(bad_based_on=dict(based_on="bad")),
             **pm_kwargs,
         )
 
