@@ -8,6 +8,7 @@ import fnmatch
 import logging
 import os
 import time
+from difflib import get_close_matches as _get_close_matches
 from typing import Any, Dict, List, Tuple, Union
 
 from paramspace import ParamDim, ParamSpace
@@ -17,7 +18,7 @@ from .data_mngr import DataManager
 from .exceptions import *
 from .plot_creators import ALL as ALL_PCRS
 from .plot_creators import BasePlotCreator, SkipPlot
-from .tools import load_yml, recursive_update, write_yml
+from .tools import load_yml, make_columns, recursive_update, write_yml
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -216,11 +217,18 @@ class PlotManager:
                 bcfg = dict()
                 for _based_on in based_on:
                     if _based_on not in self._base_cfg:
-                        _available = ", ".join(self._base_cfg)
-                        raise KeyError(
-                            f"No base plot configuration named '{_based_on}' "
-                            "available to use during resolution of "
-                            f"`update_base_cfg`! Available: {_available}"
+                        _matches = _get_close_matches(
+                            _based_on, self.base_cfg, n=5
+                        )
+                        _dym = ""
+                        if _matches:
+                            _dym = f"Did you mean: {', '.join(_matches)} ?\n"
+
+                        raise PlotConfigError(
+                            f"No base plot configuration '{_based_on}' "
+                            "available during update with `update_base_cfg`! "
+                            f"{_dym}Available base configurations:\n"
+                            f"{make_columns(self._base_cfg)}"
                         )
 
                     # Need to work on a deep copy of the original base config
@@ -450,10 +458,15 @@ class PlotManager:
         base_cfg = dict()
         for _based_on in based_on:
             if _based_on not in self.base_cfg.keys():
-                raise KeyError(
-                    "No base plot configuration named '{}' "
-                    "available! Choose from: {}"
-                    "".format(_based_on, ", ".join(self._base_cfg.keys()))
+                _matches = _get_close_matches(_based_on, self.base_cfg, n=5)
+                _dym = ""
+                if _matches:
+                    _dym = f"Did you mean: {', '.join(_matches)} ?\n"
+
+                raise PlotConfigError(
+                    f"No base plot configuration '{_based_on}' available! "
+                    f"{_dym}Available base configurations:\n"
+                    f"{make_columns(self._base_cfg)}"
                 )
 
             # Do the recursive update. The base_cfg property already returns

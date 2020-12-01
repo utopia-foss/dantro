@@ -249,6 +249,30 @@ Putting the above configuration into words:
     The keys for the ``axis_specific`` configuration are arbitrary; the axes are defined solely by the internal ``axis`` entries.
     While this requires to specify a name for the axis, it also allows convenient recursive updating; thus, it is advisable to choose a somewhat meaningful name.
 
+Remarks
+^^^^^^^
+
+* Plot helpers can also be explicitly disabled via the configuration:
+
+    .. code-block:: yaml
+
+        helpers:
+          set_labels:
+            enabled: false
+            # ...
+
+* By default, an axis-level plot helper is not invoked on an axis that is empty, i.e. an axis that has no artists associated with it.
+  This is to reduce errors that stem from e.g. attempting to extract limit values from an axis without data.
+  If invocation is required nevertheless, it can be explicitly allowed via the ``skip_empty_axes`` configuration key:
+
+    .. code-block:: yaml
+
+        helpers:
+          set_limits:
+            skip_empty_axes: false
+            # ...
+
+
 .. _pcr_ext_plot_helper_spec:
 
 Specializing the helper

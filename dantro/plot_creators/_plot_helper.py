@@ -29,13 +29,16 @@ class temporarily_changed_axis:
     :py:class:`~dantro.plot_creators._plot_helper.PlotHelper`
     """
 
-    def __init__(self, hlpr, *, tmp_ax_coords: Tuple[int] = None):
+    def __init__(
+        self, hlpr: "PlotHelper", tmp_ax_coords: Tuple[int, int] = None
+    ):
         """Initialize the context manager.
 
         Args:
-            hlpr: The plot helper of which to select a temporary axis
-            tmp_ax_coords (Tuple[int]): The coordinates of the temporary axis.
-                If not given, will not change the axis.
+            hlpr (PlotHelper): The plot helper of which to select a temporary
+                axis
+            tmp_ax_coords (Tuple[int], optional): The coordinates of the
+                temporary axis. If not given, will **not** change the axis.
         """
         self._hlpr = hlpr
         self._tmp_ax_coords = tmp_ax_coords
@@ -480,7 +483,7 @@ class PlotHelper:
 
     @property
     def raise_on_error(self) -> bool:
-        """Whether the PlotHelper was configured to raise exceptions on errors."""
+        """Whether the PlotHelper was configured to raise exceptions"""
         return self._raise_on_error
 
     @property
@@ -500,6 +503,13 @@ class PlotHelper:
             labels += hl.get("labels", [])
 
         return handles, labels
+
+    @property
+    def axis_is_empty(self) -> bool:
+        """Returns true if the current axis is empty, i.e. has no artists added
+        to it. This is basically the inverse of ``mpl.axes.Axes.has_data``.
+        """
+        return not self.ax.has_data()
 
     # .........................................................................
     # Figure setup and axis control
@@ -860,6 +870,19 @@ class PlotHelper:
             if not helper_params.pop("enabled", True):
                 log.debug(
                     "Helper '%s' is not enabled for axis %s.",
+                    helper_name,
+                    self.ax_coords,
+                )
+                return
+
+            # Also skip it if it is an axis-level helper and the axis is empty
+            if (
+                not is_figure_helper
+                and helper_params.pop("skip_empty_axes", True)
+                and self.axis_is_empty
+            ):
+                log.debug(
+                    "Helper '%s' skipped for empty axis %s.",
                     helper_name,
                     self.ax_coords,
                 )
