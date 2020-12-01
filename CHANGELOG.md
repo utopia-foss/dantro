@@ -35,6 +35,7 @@
     - The `DataManager.restore` method allows to populate an existing `DataManager` with the content of a stored data tree, either clearing existing data or merging them.
     - !205 adds default file path handling, controlled via the `default_tree_cache_path` argument to the `DataManager` or a class variable.
 - !220 improves error messages upon missing data operations
+- !223 improves the `LabelledDataGroup` selection interface, making it more consistent with xarray.
 - **Minor API additions:**
     - !204 implements `BaseDataGroup.clear` to remove all entries from a group.
     - !204 adds the `overwrite` argument to `BaseDataGroup.recursive_update`.
@@ -59,6 +60,7 @@
 - !214 makes dantro compatible to the latest h5py version, addressing #212, and sets the minimum version to 3.1.
 - !211 fixes a bug that lead to an outdated `logstr` after renaming a group or container.
 - !224 addresses an issue where a custom `style` context was lost upon a switch of animation mode (#173)
+- !223 fixes the handling of non-dimension coordinates and of the ``drop`` argument in the  `LabelledDataGroup` selection interface (#234)
 
 #### Internal
 - !209 addresses #125 by reformatting all code using [black](https://black.readthedocs.io/en/stable/).
