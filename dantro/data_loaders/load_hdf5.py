@@ -1,6 +1,8 @@
 """Implements loading of Hdf5 files into the dantro data tree"""
 
 import logging
+import os
+from typing import Dict, Union
 
 import h5py as h5
 import numpy as np
@@ -70,7 +72,7 @@ class Hdf5LoaderMixin:
         lower_case_keys: bool = False,
         enable_mapping: bool = False,
         map_from_attr: str = None,
-        print_params: dict = None,
+        progress_params: dict = None,
     ) -> OrderedDataGroup:
         """Loads the specified hdf5 file into DataGroup- and DataContainer-like
         objects; this completely recreates the hierarchic structure of the hdf5
@@ -106,18 +108,23 @@ class Hdf5LoaderMixin:
             map_from_attr (str, optional): From which attribute to read the
                 key that is used in the mapping. If nothing is given, the
                 class variable ``_HDF5_MAP_FROM_ATTR`` is used.
-            print_params (dict, optional): parameters for the status report.
-                Available keys:
+            progress_params (dict, optional): parameters for the progress
+                indicator. Possible keys:
 
                 level (int):
-                    how verbose to print loading info; possible values are:
-                    ``0``: None, ``1``: on file level, ``2``: on dataset level
-                fstr1:
-                    format string level 1, receives keys ``name`` and ``file``,
-                    which is the file path.
-                fstr2:
-                    format string level 2, receives keys ``name``, ``file`` and
-                    ``obj``, which is an ``h5py.Dataset``.
+                    how verbose to print progress info; possible values are:
+                    ``0``: None, ``1``: on file level, ``2``: on dataset level.
+                    Note that this option and the ``progress_indicator`` of
+                    the DataManager are independent from each other.
+                fstr:
+                    format string for progress report, receives the following
+                    keys:
+
+                        * ``progress_info`` (total progress indicator),
+                        * ``fname`` (basename of current hdf5 file),
+                        * ``fpath`` (full path of current hdf5 file),
+                        * ``name`` (current dataset name),
+                        * ``path`` (current path within the hdf5 file)
 
         Returns:
             OrderedDataGroup: The populated root-level group, corresponding to
@@ -128,199 +135,6 @@ class Hdf5LoaderMixin:
                 determined from the given argument or the class variable
                 ``_HDF5_MAP_FROM_ATTR``
         """
-
-        def recursively_load_hdf5(
-            src: h5.Group,
-            target: BaseDataGroup,
-            *,
-            load_as_proxy: bool,
-            proxy_kwargs: dict,
-            lower_case_keys: bool,
-            DsetCls: BaseDataContainer,
-            enable_mapping: bool,
-            GroupMap: dict,
-            DsetMap: dict,
-            map_attr: str,
-        ):
-            """Recursively loads the data from the source hdf5 file into the
-            target DataGroup object.
-            If given, each group or dataset is checked whether an attribute
-            `container_type` or `dset_type` exists, which is then used to
-            apply a mapping from that attribute to a certain type of DataGroup
-            or DataContainer, respectively.
-
-            Args:
-                src (h5.Group): The source group to iterate over
-                target (BaseDataGroup): The target group where the content from
-                    the source group is loaded into
-                load_as_proxy (bool): Whether to load as
-                    :py:class:`~dantro.proxy.hdf5.Hdf5DataProxy`
-                proxy_kwargs (dict): Upon proxy initialization, unpacked into
-                    :py:meth:`dantro.proxy.hdf5.Hdf5DataProxy.__init__`
-                lower_case_keys (bool): Whether to make keys lower-case
-                DsetCls (BaseDataContainer): The type that is used to create
-                    the dataset-equivalents in ``target``
-                enable_mapping (bool): Whether type mapping should be used
-                GroupMap (dict): Map of names to BaseDataGroup-derived types
-                DsetMap (dict): Map of names to BaseDataContainer-derived types
-                map_attr (str): The HDF5 attribute to inspect in order to
-                    determine the name of the mapping
-
-            Raises:
-                NotImplementedError: When encountering objects other than
-                    groups or datasets in the HDF5 file
-            """
-
-            def get_map_attr_val(attrs) -> str:
-                """Make sure the map attribute isn't a 1-sized array!"""
-                attr_val = attrs[map_attr]  # map_attr and check in outer scope
-
-                if isinstance(attr_val, np.ndarray):
-                    # Need be single item and already decoded
-                    attr_val = attr_val.item()
-
-                return attr_val
-
-            def decode_attr_val(attr_val) -> str:
-                """Wrapper around decode_bytestrings"""
-                # If feature not activated, return without doing anything
-                if not self._HDF5_DECODE_ATTR_BYTESTRINGS:
-                    return attr_val
-
-                return decode_bytestrings(attr_val)
-
-            # Go through the elements of the source object
-            for key, obj in src.items():
-                if lower_case_keys and isinstance(key, str):
-                    key = key.lower()
-
-                if isinstance(obj, h5.Group):
-                    # Need to continue recursion
-                    # Extract attributes manually
-                    attrs = {
-                        k: decode_attr_val(v) for k, v in obj.attrs.items()
-                    }
-
-                    # Determine the class to use for this group
-                    if enable_mapping and GroupMap and attrs.get(map_attr):
-                        # Try to resolve the mapping
-                        try:
-                            _GroupCls = GroupMap[get_map_attr_val(attrs)]
-
-                        except KeyError:
-                            # Fall back to default
-                            log.warning(
-                                "Could not find a mapping from map "
-                                "attribute %s='%s' (originally %s) "
-                                "to a DataGroup class. Available "
-                                "keys: %s. Falling back to default "
-                                "class ...",
-                                map_attr,
-                                get_map_attr_val(attrs),
-                                attrs[map_attr],
-                                ", ".join([k for k in GroupMap.keys()]),
-                            )
-                            _GroupCls = None
-
-                    else:
-                        # Use the default of the target group
-                        _GroupCls = None
-                        # None value will lead to new_group determining the
-                        # type of this group. Unlike for datasets, this is
-                        # always possible, because the type of the target
-                        # group is used as fallback type.
-
-                    # Create and add the group, passing the attributes
-                    target.new_group(path=key, Cls=_GroupCls, attrs=attrs)
-
-                    # Continue recursion
-                    recursively_load_hdf5(
-                        obj,
-                        target[key],
-                        load_as_proxy=load_as_proxy,
-                        proxy_kwargs=proxy_kwargs,
-                        lower_case_keys=lower_case_keys,
-                        DsetCls=DsetCls,
-                        enable_mapping=enable_mapping,
-                        GroupMap=GroupMap,
-                        DsetMap=DsetMap,
-                        map_attr=map_attr,
-                    )
-
-                elif isinstance(obj, h5.Dataset):
-                    # Reached a leaf -> Import the data and attributes into a
-                    # BaseDataContainer-derived object. This assumes that the
-                    # given DsetCls supports np.ndarray-like data
-
-                    # Progress information on loading this dataset
-                    if plvl >= 2:
-                        line = fstr2.format(name=target.name, key=key, obj=obj)
-                        print(fill_line(line), end="\r")
-
-                    if load_as_proxy:
-                        # Instantiate a proxy object
-                        data = Hdf5DataProxy(
-                            obj, **(proxy_kwargs if proxy_kwargs else {})
-                        )
-                    else:
-                        # Import the data completely
-                        data = np.array(obj)
-
-                    # Extract attributes manually
-                    attrs = {
-                        k: decode_attr_val(v) for k, v in obj.attrs.items()
-                    }
-
-                    # Determine the class to use for this dataset
-                    if enable_mapping and DsetMap and attrs.get(map_attr):
-                        # Try to resolve the mapping
-                        try:
-                            _DsetCls = DsetMap[get_map_attr_val(attrs)]
-
-                        except KeyError:
-                            # Fall back to default
-                            log.warning(
-                                "Could not find a mapping from map "
-                                "attribute %s='%s' (originally %s) to "
-                                "a DataContainer class. Available "
-                                "keys: %s. "
-                                "Falling back to default class %s...",
-                                map_attr,
-                                get_map_attr_val(attrs),
-                                attrs[map_attr],
-                                ", ".join([k for k in DsetMap.keys()]),
-                                DsetCls.__name__,
-                            )
-                            _DsetCls = DsetCls
-
-                    else:
-                        # If the target group supplies a default container
-                        # type, use that one; otherwise fall back to default.
-                        if target._NEW_CONTAINER_CLS is not None:
-                            _DsetCls = None
-                            # Leads to new_container taking care of the type
-
-                        else:
-                            _DsetCls = DsetCls
-
-                    # Now create and add the dataset, passing data and attrs
-                    target.new_container(
-                        path=key, Cls=_DsetCls, data=data, attrs=attrs
-                    )
-
-                else:
-                    raise NotImplementedError(
-                        f"Object {key} is neither a dataset "
-                        f"nor a group, but of type {type(obj)}. "
-                        "Cannot load this!"
-                    )
-
-        # Prepare print format strings
-        print_params = print_params if print_params else {}
-        plvl = print_params.get("level", 0)
-        fstr1 = print_params.get("fstr1", "  Loading {name:} ... ")
-        fstr2 = print_params.get("fstr2", "  Loading {name:} - {key:} ...")
-
         # Initialize the root group
         log.debug(
             "Loading hdf5 file %s into %s ...", filepath, TargetCls.__name__
@@ -340,36 +154,54 @@ class Hdf5LoaderMixin:
                 # Mapping was enabled but it is unclear from which attribute
                 # the map should be read. Need to raise an exception
                 raise ValueError(
-                    "Could not determine from which attribute "
-                    "to read the mapping. Either set the loader "
-                    "argument `map_from_attr`, the class "
-                    "variable _HDF5_MAP_FROM_ATTR, or disable "
-                    "mapping altogether via the `enable_mapping` "
-                    "argument."
+                    "Could not determine from which attribute to read the "
+                    "mapping. Either set the loader argument `map_from_attr`, "
+                    "the class variable _HDF5_MAP_FROM_ATTR, or disable "
+                    "mapping altogether via the `enable_mapping` argument."
                 )
+
+        # Prepare parameters
+        GroupMap = self._HDF5_GROUP_MAP if enable_mapping else {}
+        DsetMap = self._HDF5_DSET_MAP if enable_mapping else {}
+
+        # Prepare progress information
+        progress_params = progress_params if progress_params else {}
+        plvl = progress_params.get("level", 0)
+        pfstr = progress_params.get(
+            "fstr", "  {progress_info:} {fname:} : {path:} ... "
+        )
 
         # Now recursively go through the hdf5 file and add them to the roo
         with h5.File(filepath, "r") as h5file:
             if plvl >= 1:
                 # Print information on the level of this file
-                line = fstr1.format(name=root.name, file=filepath)
-                print(fill_line(line), end="\r")
+                _info = pfstr.format(
+                    progress_info=self._progress_info_str,
+                    fpath=filepath,
+                    fname=os.path.basename(filepath),
+                    key="",
+                    path="",
+                )
+                print(fill_line(_info), end="\r")
 
             # Load the file level attributes, manually re-creating the dict
-            root.attrs = {k: v for k, v in h5file.attrs.items()}
+            root.attrs = {
+                k: self._decode_attr_val(v) for k, v in h5file.attrs.items()
+            }
 
             # Now recursively load the data into the root group
-            recursively_load_hdf5(
+            self._recursively_load_hdf5(
                 h5file,
                 root,
                 load_as_proxy=load_as_proxy,
                 proxy_kwargs=proxy_kwargs,
                 lower_case_keys=lower_case_keys,
                 DsetCls=DsetCls,
-                enable_mapping=enable_mapping,
-                GroupMap=self._HDF5_GROUP_MAP,
-                DsetMap=self._HDF5_DSET_MAP,
+                GroupMap=GroupMap,
+                DsetMap=DsetMap,
                 map_attr=map_from_attr,
+                plvl=plvl,
+                pfstr=pfstr,
             )
 
         return root
@@ -395,3 +227,225 @@ class Hdf5LoaderMixin:
             proxy_kwargs=dict(resolve_as_dask=True),
             **kwargs,
         )
+
+    # .........................................................................
+
+    def _recursively_load_hdf5(
+        self,
+        src: Union[h5.Group, h5.File],
+        target: BaseDataGroup,
+        *,
+        lower_case_keys: bool,
+        **kwargs,
+    ):
+        """Recursively loads the data from a source object (an h5.File or a
+        h5.Group) into the target dantro group.
+
+        Args:
+            src (Union[h5.Group, h5.File]): The HDF5 source object from which
+                to load the data. This object it iterated over.
+            target (BaseDataGroup): The target group to populate with the data
+                from ``src``.
+            lower_case_keys (bool): Whether to make keys lower-case
+            **kwargs: Passed on to the group and container loader methods,
+                :py:meth:`~dantro.data_loaders.load_hdf5.Hdf5LoaderMixin._container_from_h5dataset`
+                and
+                :py:meth:`~dantro.data_loaders.load_hdf5.Hdf5LoaderMixin._group_from_h5group`.
+
+        Raises:
+            NotImplementedError: When encountering objects other than groups
+                or datasets in the HDF5 file
+        """
+        # Go through the elements of the source object
+        for key, obj in src.items():
+            if lower_case_keys and isinstance(key, str):
+                key = key.lower()
+
+            if isinstance(obj, h5.Group):
+                # Create the new group
+                grp = self._group_from_h5group(
+                    obj, target=target, name=key, **kwargs
+                )
+
+                # Continue recursion
+                self._recursively_load_hdf5(
+                    obj, grp, lower_case_keys=lower_case_keys, **kwargs
+                )
+
+            elif isinstance(obj, h5.Dataset):
+                # Reached a leaf -> Import the data and attributes into a
+                # BaseDataContainer-derived object. This assumes that the
+                # given DsetCls supports np.ndarray-like data
+                self._container_from_h5dataset(
+                    obj, target=target, name=key, **kwargs
+                )
+
+            else:
+                raise NotImplementedError(
+                    f"Object {key} is neither a dataset nor a group, but of "
+                    f"type {type(obj)}. Cannot load this!"
+                )
+
+    def _group_from_h5group(
+        self,
+        h5grp: h5.Group,
+        target: BaseDataGroup,
+        *,
+        name: str,
+        map_attr: str,
+        GroupMap: dict,
+        **_,
+    ) -> BaseDataGroup:
+        """Adds a new group from a h5.Group
+
+        The group types may be mapped to different dantro types; this is
+        controlled by the extracted HDF5 attribute with the name specified in
+        the ``_HDF5_MAP_FROM_ATTR`` class attribute.
+
+        Args:
+            h5grp (h5.Group): The HDF5 group to create a dantro group for in
+                the ``target`` group.
+            target (BaseDataGroup): The group in which to create a new group
+                that represents ``h5grp``
+            name (str): the name of the new group
+            GroupMap (dict): Map of names to BaseDataGroup-derived types;
+                always needed, but may be empty
+            map_attr (str): The HDF5 attribute to inspect in order to determine
+                the name of the mapping
+            **_: ignored
+        """
+        # Extract attributes manually
+        attrs = {k: self._decode_attr_val(v) for k, v in h5grp.attrs.items()}
+
+        # Determine the mapping type, falling back to the group default if no
+        # mapping was specified
+        _GroupCls = self._evaluate_type_mapping(
+            map_attr, attrs=attrs, tmap=GroupMap, fallback=None
+        )
+
+        # Create and add the group, passing the attributes
+        return target.new_group(path=name, Cls=_GroupCls, attrs=attrs)
+
+    def _container_from_h5dataset(
+        self,
+        h5dset: h5.Dataset,
+        target: BaseDataGroup,
+        *,
+        name: str,
+        load_as_proxy: bool,
+        proxy_kwargs: dict,
+        DsetCls: type,
+        map_attr: str,
+        DsetMap: dict,
+        plvl: int,
+        pfstr: str,
+        **_,
+    ) -> BaseDataContainer:
+        """Adds a new data container from a h5.Dataset
+
+        The group types may be mapped to different dantro types; this is
+        controlled by the extracted HDF5 attribute with the name specified in
+        the ``_HDF5_MAP_FROM_ATTR`` class attribute.
+
+        Args:
+            h5dset (h5.Dataset): The source dataset to load into ``target`` as
+                a dantro data container.
+            target (BaseDataGroup): The target group where the ``h5dset`` will
+                be represented in as a new dantro data container.
+            name (str): the name of the new container
+            load_as_proxy (bool): Whether to load as
+                :py:class:`~dantro.proxy.hdf5.Hdf5DataProxy`
+            proxy_kwargs (dict): Upon proxy initialization, unpacked into
+                :py:meth:`dantro.proxy.hdf5.Hdf5DataProxy.__init__`
+            DsetCls (BaseDataContainer): The type that is used to create
+                the dataset-equivalents in ``target``. If mapping is enabled,
+                this serves as the fallback type.
+            map_attr (str): The HDF5 attribute to inspect in order to determine
+                the name of the mapping
+            DsetMap (dict): Map of names to BaseDataContainer-derived types;
+                always needed, but may be empty
+            plvl (int): the verbosity of the progress indicator
+            pfstr (str): a format string for the progress indicator
+        """
+        # Progress information on loading this dataset
+        if plvl >= 2:
+            _info = pfstr.format(
+                progress_info=self._progress_info_str,
+                fpath=h5dset.file.filename,
+                fname=os.path.basename(h5dset.file.filename),
+                name=name,
+                path=h5dset.name,
+            )
+            print(fill_line(_info), end="\r")
+
+        # Extract attributes manually
+        attrs = {k: self._decode_attr_val(v) for k, v in h5dset.attrs.items()}
+
+        # Determine the class to use for this dataset.
+        # If the target group supplies a default container type, specify None
+        # as the fallback, delegating the choice to the `new_container` method.
+        # Otherwise use the default specified here.
+        _DsetCls = self._evaluate_type_mapping(
+            map_attr,
+            attrs=attrs,
+            tmap=DsetMap,
+            fallback=DsetCls if target._NEW_CONTAINER_CLS is None else None,
+        )
+
+        # Get the data, potentially as proxy.
+        if load_as_proxy:
+            data = Hdf5DataProxy(
+                h5dset, **(proxy_kwargs if proxy_kwargs else {})
+            )
+        else:
+            data = np.array(h5dset)
+
+        # Now create and add the dataset
+        return target.new_container(
+            path=name, Cls=_DsetCls, data=data, attrs=attrs
+        )
+
+    # .........................................................................
+    # Smaller helper methods
+
+    def _decode_attr_val(self, attr_val) -> str:
+        """Wrapper around decode_bytestrings"""
+        # If feature not activated, return without doing anything
+        if not self._HDF5_DECODE_ATTR_BYTESTRINGS:
+            return attr_val
+
+        return decode_bytestrings(attr_val)
+
+    def _evaluate_type_mapping(
+        self, key: str, *, attrs: dict, tmap: Dict[str, type], fallback: type
+    ) -> type:
+        """Given an attributes dict or group attributes, evaluates which type
+        a target container should use.
+        """
+
+        def parse_map_attr(v) -> str:
+            """Make sure the map attribute isn't a 1-sized array!"""
+            if isinstance(v, np.ndarray):
+                v = v.item()
+            return str(v)
+
+        # Easy cases first: no map or mapping attribute given
+        if not tmap or not attrs.get(key):
+            return fallback
+
+        try:
+            return tmap[parse_map_attr(attrs[key])]
+
+        except KeyError:
+            # Fall back to default
+            log.warning(
+                "Could not find a mapping from map attribute %s='%s' "
+                "(originally %s) to a dantro container or group class. "
+                "Available keys: %s. Using fallback type instead: %s .",
+                key,
+                parse_map_attr(attrs[key]),
+                attrs[key],
+                ", ".join([k for k in tmap]),
+                fallback.__name__ if fallback is not None else "(none)",
+            )
+            return fallback

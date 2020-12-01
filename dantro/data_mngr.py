@@ -1034,11 +1034,13 @@ class DataManager(OrderedDataGroup):
             raise NotImplementedError("Cannot load in parallel yet.")
 
         # Ready for loading files now . . . . . . . . . . . . . . . . . . . . .
+        num_files = len(files)
+
         # Go over the files and load them
         for n, file in enumerate(files):
+            self._progress_info_str = f"  Loading  {n+1}/{num_files}  ..."
             if progress_indicator:
-                line = "  Loading  {}/{}  ...".format(n + 1, len(files))
-                print(fill_line(line), end="\r")
+                print(fill_line(self._progress_info_str), end="\r")
 
             # Prepare the target path (a list of strings)
             _target_path = prepare_target_path(
