@@ -225,6 +225,9 @@ class BaseDataGroup(
 
         Absolute lookups, i.e. from path ``/foo/bar``, are **not** possible!
 
+        Lookup complexity is that of the underlying data structure: for groups
+        based on dict-like storage containers, lookups happen in constant time.
+
         .. note::
 
             This method aims to replicate the behavior of POSIX paths.
@@ -640,7 +643,7 @@ class BaseDataGroup(
         This method should be called from any method that changes which items
         are associated with this group.
         """
-        # Check that it was already associated
+        # Check that it was already associated with the group
         if new_child not in self:
             raise ValueError(
                 f"{new_child.logstr} needs to be a child of {self.logstr} "
@@ -683,6 +686,9 @@ class BaseDataGroup(
         sequence) and tries to access the item at that path, returning ``True``
         if this succeeds and ``False`` if not.
 
+        Lookup complexity is that of item lookup (scalar) for both name and
+        object lookup.
+
         Args:
             cont (Union[str, AbstractDataContainer]): The name of the
                 container, a path, or an object to check via identity
@@ -694,10 +700,12 @@ class BaseDataGroup(
         """
         if isinstance(cont, AbstractDataContainer):
             # Case: look for the specific object instance
-            for obj in self.values():
-                if obj is cont:
-                    return True
-            return False
+            # Don't iterate, as this scales badly; instead retrieve the name
+            # and do the identiy lookup afterwards
+            _cont = self.get(cont.name)
+            if _cont is None:
+                return False
+            return _cont is cont
 
         # Otherwise: look for an object reachable at this path ...
         try:
