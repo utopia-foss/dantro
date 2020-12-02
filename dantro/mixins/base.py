@@ -6,15 +6,10 @@ import sys
 import warnings
 
 from ..abc import PATH_JOIN_CHAR, AbstractDataProxy
+from ..exceptions import UnexpectedTypeWarning
 
 # Local constants
 log = logging.getLogger(__name__)
-
-
-class UnexpectedTypeWarning(UserWarning):
-    """Given when there was an unexpected type passed to a data container."""
-
-    pass
 
 
 # -----------------------------------------------------------------------------
@@ -203,19 +198,21 @@ class MappingAccessMixin(ItemAccessMixin, CollectionMixin):
     """
 
     def keys(self):
-        """Returns an iterator over the attribute names."""
+        """Returns an iterator over the data's keys."""
         return self.data.keys()
 
     def values(self):
-        """Returns an iterator over the attribute values."""
+        """Returns an iterator over the data's values."""
         return self.data.values()
 
     def items(self):
-        """Returns an iterator over the (keys, values) tuple of the attributes."""
+        """Returns an iterator over data's (key, value) tuples"""
         return self.data.items()
 
     def get(self, key, default=None):
-        """Return the value at `key`, or `default` if `key` is not available."""
+        """Return the value at ``key``, or ``default`` if ``key`` is not
+        available.
+        """
         return self.data.get(key, default)
 
 
