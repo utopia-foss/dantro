@@ -26,6 +26,7 @@ from .mixins import (
     BasicComparisonMixin,
     CheckDataMixin,
     CollectionMixin,
+    DirectInsertionModeMixin,
     ItemAccessMixin,
     LockDataMixin,
     MappingAccessMixin,
@@ -147,6 +148,7 @@ class BaseDataGroup(
     AttrsMixin,
     SizeOfMixin,
     BasicComparisonMixin,
+    DirectInsertionModeMixin,
     dantro.abc.AbstractDataGroup,
 ):
     """The BaseDataGroup serves as base group for all data groups.
@@ -432,7 +434,7 @@ class BaseDataGroup(
         """
         pass
 
-    def _add_container_to_data(self, cont) -> None:
+    def _add_container_to_data(self, cont: AbstractDataContainer) -> None:
         """Performs the operation of adding the container to the _data. This
         can be used by subclasses to make more elaborate things while adding
         data, e.g. specify ordering ...

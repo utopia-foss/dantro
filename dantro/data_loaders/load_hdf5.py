@@ -72,6 +72,7 @@ class Hdf5LoaderMixin:
         lower_case_keys: bool = False,
         enable_mapping: bool = False,
         map_from_attr: str = None,
+        direct_insertion: bool = False,
         progress_params: dict = None,
     ) -> OrderedDataGroup:
         """Loads the specified hdf5 file into DataGroup- and DataContainer-like
@@ -108,6 +109,14 @@ class Hdf5LoaderMixin:
             map_from_attr (str, optional): From which attribute to read the
                 key that is used in the mapping. If nothing is given, the
                 class variable ``_HDF5_MAP_FROM_ATTR`` is used.
+            direct_insertion (bool, optional): If True, some non-crucial checks
+                are skipped during insertion and elements are inserted (more
+                or less) directly into the data tree, thus speeding up the data
+                loading process.
+                This option should only be enabled if data is loaded into a yet
+                unpopulated part of the data tree, otherwise existing elements
+                might be overwritten silently.
+                This option only applies to data groups, not to containers.
             progress_params (dict, optional): parameters for the progress
                 indicator. Possible keys:
 
@@ -192,7 +201,7 @@ class Hdf5LoaderMixin:
             # Now recursively load the data into the root group
             self._recursively_load_hdf5(
                 h5file,
-                root,
+                target=root,
                 load_as_proxy=load_as_proxy,
                 proxy_kwargs=proxy_kwargs,
                 lower_case_keys=lower_case_keys,
@@ -200,6 +209,7 @@ class Hdf5LoaderMixin:
                 GroupMap=GroupMap,
                 DsetMap=DsetMap,
                 map_attr=map_from_attr,
+                direct_insertion=direct_insertion,
                 plvl=plvl,
                 pfstr=pfstr,
             )
@@ -233,9 +243,10 @@ class Hdf5LoaderMixin:
     def _recursively_load_hdf5(
         self,
         src: Union[h5.Group, h5.File],
-        target: BaseDataGroup,
         *,
+        target: BaseDataGroup,
         lower_case_keys: bool,
+        direct_insertion: bool,
         **kwargs,
     ):
         """Recursively loads the data from a source object (an h5.File or a
@@ -247,6 +258,8 @@ class Hdf5LoaderMixin:
             target (BaseDataGroup): The target group to populate with the data
                 from ``src``.
             lower_case_keys (bool): Whether to make keys lower-case
+            direct_insertion (bool): Whether to use direct insertion mode on
+                the target group (and all groups below)
             **kwargs: Passed on to the group and container loader methods,
                 :py:meth:`~dantro.data_loaders.load_hdf5.Hdf5LoaderMixin._container_from_h5dataset`
                 and
@@ -261,30 +274,35 @@ class Hdf5LoaderMixin:
             if lower_case_keys and isinstance(key, str):
                 key = key.lower()
 
-            if isinstance(obj, h5.Group):
-                # Create the new group
-                grp = self._group_from_h5group(
-                    obj, target=target, name=key, **kwargs
-                )
+            with target._direct_insertion_mode(enabled=direct_insertion):
+                if isinstance(obj, h5.Group):
+                    # Create the new group
+                    grp = self._group_from_h5group(
+                        obj, target=target, name=key, **kwargs
+                    )
 
-                # Continue recursion
-                self._recursively_load_hdf5(
-                    obj, grp, lower_case_keys=lower_case_keys, **kwargs
-                )
+                    # Continue recursion
+                    self._recursively_load_hdf5(
+                        obj,
+                        target=grp,
+                        lower_case_keys=lower_case_keys,
+                        direct_insertion=direct_insertion,
+                        **kwargs,
+                    )
 
-            elif isinstance(obj, h5.Dataset):
-                # Reached a leaf -> Import the data and attributes into a
-                # BaseDataContainer-derived object. This assumes that the
-                # given DsetCls supports np.ndarray-like data
-                self._container_from_h5dataset(
-                    obj, target=target, name=key, **kwargs
-                )
+                elif isinstance(obj, h5.Dataset):
+                    # Reached a leaf -> Import the data and attributes into a
+                    # BaseDataContainer-derived object. This assumes that the
+                    # given DsetCls supports np.ndarray-like data
+                    self._container_from_h5dataset(
+                        obj, target=target, name=key, **kwargs
+                    )
 
-            else:
-                raise NotImplementedError(
-                    f"Object {key} is neither a dataset nor a group, but of "
-                    f"type {type(obj)}. Cannot load this!"
-                )
+                else:
+                    raise NotImplementedError(
+                        f"Object {key} is neither a dataset nor a group, but "
+                        f"of type {type(obj)}. Cannot load this!"
+                    )
 
     def _group_from_h5group(
         self,

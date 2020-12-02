@@ -6,6 +6,7 @@ import glob
 import logging
 import os
 import re
+import time
 import warnings
 from typing import Callable, Dict, List, Tuple, Union
 
@@ -496,10 +497,13 @@ class DataManager(OrderedDataGroup):
             else:
                 log.debug("Target path will be:  %s", _target_path)
 
+        # Initial checks
         if not enabled:
             log.progress("Skipping loading of data entry '%s' ...", entry_name)
             return
         log.progress("Loading data entry '%s' ...", entry_name)
+
+        t0 = time.time()
 
         # Parse the arguments that result in the target path
         if load_as_attr:
@@ -572,14 +576,17 @@ class DataManager(OrderedDataGroup):
 
         else:
             # Everything loaded as desired
-            log.progress("Loaded all data for entry '%s'.\n", entry_name)
+            log.progress(
+                "Loaded all data for entry '%s' in ~%.1fs.\n",
+                entry_name,
+                time.time() - t0,
+            )
 
         # Done with this entry. Print tree, if desired.
-        if print_tree:
-            if print_tree == "condensed":
-                print(self.tree_condensed)
-            else:
-                print(self.tree)
+        if print_tree == "condensed":
+            print(self.tree_condensed)
+        elif print_tree:
+            print(self.tree)
 
     def _load(
         self,

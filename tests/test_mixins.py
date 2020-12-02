@@ -245,6 +245,76 @@ def test_MappingAccessMixin():
     assert mmc.get("baz", "buz") == "buz"
 
 
+def test_DirectInsertionModeMixin():
+    """Tests the DirectInsertionModeMixin using an OrderedDataGroup"""
+    odg = dtr.groups.OrderedDataGroup(name="root")
+
+    # Basic entering, exiting
+    assert not odg.with_direct_insertion
+    with odg._direct_insertion_mode():
+        assert odg.with_direct_insertion
+    assert not odg.with_direct_insertion
+
+    # Effectively using a nullcontext instead
+    assert not odg.with_direct_insertion
+    with odg._direct_insertion_mode(enabled=False):
+        assert not odg.with_direct_insertion
+    assert not odg.with_direct_insertion
+
+    # Error in context gets passed through and state gets properly restored
+    with pytest.raises(RuntimeError, match="foo"):
+        with odg._direct_insertion_mode():
+            raise RuntimeError("foo")
+    assert not odg.with_direct_insertion
+
+    # Test class for testing the behaviour for callbacks
+    class TestODG(dtr.groups.OrderedDataGroup):
+        _raise_on_enter = False
+        _raise_on_exit = False
+
+        def _enter_direct_insertion_mode(self):
+            if self._raise_on_enter:
+                raise RuntimeError("raise on enter")
+
+        def _exit_direct_insertion_mode(self):
+            if self._raise_on_exit:
+                raise RuntimeError("raise on exit")
+
+    odg = TestODG(name="root")
+
+    # No errors in callbacks
+    with pytest.raises(RuntimeError, match="foo"):
+        with odg._direct_insertion_mode():
+            raise RuntimeError("foo")
+    assert not odg.with_direct_insertion
+
+    # Error upon entering gets meta-data attached
+    odg._raise_on_enter = True
+    with pytest.raises(RuntimeError, match="while entering .* raise on enter"):
+        with odg._direct_insertion_mode():
+            raise ValueError("should not reach this")
+    assert not odg.with_direct_insertion
+
+    # Error upon exiting gets meta-data attached
+    odg._raise_on_enter = False
+    odg._raise_on_exit = True
+    with pytest.raises(
+        RuntimeError, match="Error in callback while exiting .* raise on exit"
+    ):
+        with odg._direct_insertion_mode():
+            pass
+    assert not odg.with_direct_insertion
+
+    # Context-internal errors will not be discarded, however; take precedence:
+    with pytest.raises(ValueError, match="will not be discarded"):
+        with odg._direct_insertion_mode():
+            raise ValueError("will not be discarded")
+    assert not odg.with_direct_insertion
+
+
+# .............................................................................
+
+
 def test_numeric_mixins():
     """Tests UnaryOperationsMixin and NumbersMixin"""
     # Define a test class using the NumbersMixin, which inherits the
