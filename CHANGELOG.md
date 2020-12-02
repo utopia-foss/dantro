@@ -36,6 +36,7 @@
     - !205 adds default file path handling, controlled via the `default_tree_cache_path` argument to the `DataManager` or a class variable.
 - !220 improves error messages upon missing data operations
 - !223 improves the `LabelledDataGroup` selection interface, making it more consistent with xarray.
+- !226 improves the performance of `KeyOrderedDict` and `IndexedDataGroup` by using insertion hints. This reduces the insertion complexity to constant for in-order or hinted insertions.
 - **Minor API additions:**
     - !204 implements `BaseDataGroup.clear` to remove all entries from a group.
     - !204 adds the `overwrite` argument to `BaseDataGroup.recursive_update`.
@@ -44,6 +45,7 @@
 
 #### Breaking changes and deprecations
 - As of !204, the `PickleLoaderMixin` no longer allows choosing which load function to use via a class variable but _always_ uses `dill.load`.
+- !226 removes the `print_params` argument of the `hdf5` data loader, replacing it with a trimmed down `progress_params` argument.
 - With !224, the `errorbar` plot is deprecated in favour of the `errorbars` plot, which supports faceting.
 - With the changes to path handling in !218, there are the following notable changes that depart from the behavior of the previous interface:
     - In addition to the `/` character, names of data containers or group may no longer contain a set of characters (e.g. `*` or `?`) as these may interfere with operations on paths.
