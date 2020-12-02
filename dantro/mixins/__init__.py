@@ -7,6 +7,7 @@ from .base import (
     BasicComparisonMixin,
     CheckDataMixin,
     CollectionMixin,
+    DirectInsertionModeMixin,
     ItemAccessMixin,
     LockDataMixin,
     MappingAccessMixin,

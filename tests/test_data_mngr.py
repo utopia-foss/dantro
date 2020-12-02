@@ -1083,7 +1083,7 @@ def test_hdf5_proxy_loader(hdf5_dm):
         "h5proxy",
         loader="hdf5_proxy",
         glob_str="**/*.h5",
-        print_params=dict(level=2),
+        progress_params=dict(level=2),
     )
 
     h5data = hdf5_dm["h5proxy"]

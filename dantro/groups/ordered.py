@@ -37,11 +37,37 @@ class IndexedDataGroup(IntegerItemAccessMixin, OrderedDataGroup):
     Especially, this group maintains the correct order of members according to
     integer ordering.
 
+    To speed up element insertion, this group keeps track of recently added
+    container names, which are then used as hints for subsequent insertions.
+
     .. note::
 
-      Albeit the members of this group are ordered, item access still refers
-      to the _names_ of the members, not their index within the sequence!
+        Albeit the members of this group being ordered, item access still
+        refers to the *names* of the members, not their index within the
+        sequence!
+
+    .. warning::
+
+        With the underlying ordering mechanism of
+        :py:class:`~dantro.utils.ordereddict.KeyOrderedDict`, the performance
+        of this data structure is sensitive to the insertion order of elements.
+
+        It is fastest for **in-order** insertions, where the complexity per
+        insertion is constant (regardless of whether insertion order is
+        ascending or descending).
+        For **out-of-order** insertions, the whole key map may have to be
+        searched, in which case the complexity scales with the number of
+        elements in this group.
+
+    .. hint::
+
+        If experiencing trouble with the performance of this data structure,
+        **sort elements before adding them to this group**.
     """
+
+    # A dict of (key length -> last key inserted of that length), which is used
+    # as an insertion hint when adding a container to this group
+    __last_keys = None
 
     # Use an orderable dict for storage, i.e. something like OrderedDict, but
     # where it's not sorted by insertion order but by key.
@@ -90,6 +116,26 @@ class IndexedDataGroup(IntegerItemAccessMixin, OrderedDataGroup):
             yield int(k)
 
     # Customizations of parent methods ........................................
+
+    def _add_container_to_data(self, cont) -> None:
+        """Adds a container to the underlying integer-ordered dictionary.
+
+        Unlike the parent method, this uses
+        :py:meth:`~dantro.utils.ordereddict.KeyOrderedDict.insert` in order to
+        provide hints regarding the insertion position. It is optimised for
+        insertion in *ascending* order.
+        """
+        # Keep track of insertion hints
+        if self.__last_keys is None:
+            self.__last_keys = dict()
+
+        # Insert it, using hint information for names of this length
+        self._data.insert(
+            cont.name, cont, hint_after=self.__last_keys.get(len(cont.name))
+        )
+
+        # Update the hints for names of this length
+        self.__last_keys[len(cont.name)] = cont.name
 
     def _ipython_key_completions_(self) -> List[int]:
         """For ipython integration, return a list of available keys.

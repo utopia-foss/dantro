@@ -41,6 +41,10 @@ class IntegerItemAccessMixin:
         #      deduced when the class is assembled, i.e. when mixins and other
         #      inheritances are all combined.
 
+    def __setitem__(self, key: Union[str, int]):
+        """Adjusts the parent method to allow item setting by integer key"""
+        return super().__setitem__(self._parse_key(key))
+
     def __delitem__(self, key: Union[str, int]):
         """Adjusts the parent method to allow item deletion by integer key"""
         return super().__delitem__(self._parse_key(key))

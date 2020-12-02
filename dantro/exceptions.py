@@ -15,6 +15,13 @@ class DantroWarning(UserWarning):
     """Base class for all dantro-related warnings"""
 
 
+# General data tree warnings ..................................................
+
+
+class UnexpectedTypeWarning(DantroWarning):
+    """Given when there was an unexpected type passed to a data container."""
+
+
 # General data tree errors ....................................................
 
 

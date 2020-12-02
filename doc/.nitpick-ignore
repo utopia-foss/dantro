@@ -66,6 +66,7 @@ py:class xr.Dataset
 py:class xr.DataArray
 py:class h5.Dataset
 py:class h5.File
+py:class h5.Group
 
 # matplotlib
 py:class matplotlib.Figure

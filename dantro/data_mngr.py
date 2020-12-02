@@ -6,6 +6,7 @@ import glob
 import logging
 import os
 import re
+import time
 import warnings
 from typing import Callable, Dict, List, Tuple, Union
 
@@ -496,10 +497,13 @@ class DataManager(OrderedDataGroup):
             else:
                 log.debug("Target path will be:  %s", _target_path)
 
+        # Initial checks
         if not enabled:
             log.progress("Skipping loading of data entry '%s' ...", entry_name)
             return
         log.progress("Loading data entry '%s' ...", entry_name)
+
+        t0 = time.time()
 
         # Parse the arguments that result in the target path
         if load_as_attr:
@@ -572,14 +576,17 @@ class DataManager(OrderedDataGroup):
 
         else:
             # Everything loaded as desired
-            log.progress("Loaded all data for entry '%s'.\n", entry_name)
+            log.progress(
+                "Loaded all data for entry '%s' in ~%.1fs.\n",
+                entry_name,
+                time.time() - t0,
+            )
 
         # Done with this entry. Print tree, if desired.
-        if print_tree:
-            if print_tree == "condensed":
-                print(self.tree_condensed)
-            else:
-                print(self.tree)
+        if print_tree == "condensed":
+            print(self.tree_condensed)
+        elif print_tree:
+            print(self.tree)
 
     def _load(
         self,
@@ -1034,11 +1041,13 @@ class DataManager(OrderedDataGroup):
             raise NotImplementedError("Cannot load in parallel yet.")
 
         # Ready for loading files now . . . . . . . . . . . . . . . . . . . . .
+        num_files = len(files)
+
         # Go over the files and load them
         for n, file in enumerate(files):
+            self._progress_info_str = f"  Loading  {n+1}/{num_files}  ..."
             if progress_indicator:
-                line = "  Loading  {}/{}  ...".format(n + 1, len(files))
-                print(fill_line(line), end="\r")
+                print(fill_line(self._progress_info_str), end="\r")
 
             # Prepare the target path (a list of strings)
             _target_path = prepare_target_path(

@@ -1,20 +1,16 @@
 """This sub-module implements the basic mixin classes that are required
 in the dantro.base module"""
 
+import contextlib
 import logging
 import sys
 import warnings
 
 from ..abc import PATH_JOIN_CHAR, AbstractDataProxy
+from ..exceptions import UnexpectedTypeWarning
 
 # Local constants
 log = logging.getLogger(__name__)
-
-
-class UnexpectedTypeWarning(UserWarning):
-    """Given when there was an unexpected type passed to a data container."""
-
-    pass
 
 
 # -----------------------------------------------------------------------------
@@ -203,19 +199,21 @@ class MappingAccessMixin(ItemAccessMixin, CollectionMixin):
     """
 
     def keys(self):
-        """Returns an iterator over the attribute names."""
+        """Returns an iterator over the data's keys."""
         return self.data.keys()
 
     def values(self):
-        """Returns an iterator over the attribute values."""
+        """Returns an iterator over the data's values."""
         return self.data.values()
 
     def items(self):
-        """Returns an iterator over the (keys, values) tuple of the attributes."""
+        """Returns an iterator over data's (key, value) tuples"""
         return self.data.items()
 
     def get(self, key, default=None):
-        """Return the value at `key`, or `default` if `key` is not available."""
+        """Return the value at ``key``, or ``default`` if ``key`` is not
+        available.
+        """
         return self.data.get(key, default)
 
 
@@ -299,3 +297,110 @@ class CheckDataMixin:
                 f"variable DATA_UNEXPECTED_ACTION of {self.classname}. "
                 "Allowed values are: raise, warn, ignore"
             )
+
+
+class DirectInsertionModeMixin:
+    """A mixin class that provides a context manager, within which insertion
+    into the mixed-in class (think: group or container) can happen more
+    directly. This is useful in cases where more assumptions can be made about
+    the to-be-inserted data, thus allowing to make fewer checks during
+    insertion (think: duplicates, key order, etc.).
+
+    .. note::
+
+        This direct insertion mode is not (yet) part of the public interface,
+        as it has to be evaluated how robust and error-prone it is.
+    """
+
+    __in_direct_insertion_mode = False
+
+    @property
+    def with_direct_insertion(self) -> bool:
+        """Whether the class this mixin is mixed into is currently in direct
+        insertion mode.
+        """
+        return self.__in_direct_insertion_mode
+
+    @contextlib.contextmanager
+    def _direct_insertion_mode(self, *, enabled: bool = True):
+        """A context manager that brings the class this mixin is used in into
+        direct insertion mode. While in that mode, the
+        :py:meth:`~dantro.mixins.base.DirectInsertionModeMixin.with_direct_insertion`
+        property will return true.
+
+        This context manager additionally invokes two callback functions, which
+        can be specialized to perform certain operations when entering or
+        exiting direct insertion mode: *Before* entering,
+        :py:meth:`~dantro.mixins.base.DirectInsertionModeMixin._enter_direct_insertion_mode`
+        is called. *After* exiting,
+        :py:meth:`~dantro.mixins.base.DirectInsertionModeMixin._exit_direct_insertion_mode`
+        is called.
+
+        Args:
+            enabled (bool, optional): whether to actually use direct insertion
+                mode. If False, will yield directly without setting the toggle.
+                This is equivalent to a null-context.
+        """
+        if not enabled:
+            self.__in_direct_insertion_mode = False
+            yield
+            return
+
+        log.trace(
+            "Entering direct insertion mode of %s @ %s ...",
+            self.logstr,
+            self.path,
+        )
+
+        # Perform the entering callback
+        try:
+            self._enter_direct_insertion_mode()
+
+        except Exception as exc:
+            raise RuntimeError(
+                "Error in callback while entering direct insertion mode of "
+                f"{self.logstr} @ {self.name}! {type(exc).__name__}: {exc}"
+            ) from exc
+
+        # Now inside direct insertion mode
+        self.__in_direct_insertion_mode = True
+
+        try:
+            # Yield control to the with-context now
+            yield
+
+        finally:
+            # Will end up here if there was an exception within the context.
+            log.trace(
+                "Exiting direct insertion mode of %s @ %s ...",
+                self.logstr,
+                self.path,
+            )
+            self.__in_direct_insertion_mode = False
+
+            # NOTE Important to NOT have a return here or handle any other
+            #      error, otherwise exceptions from the context are discarded.
+
+        # Perform the exiting callback
+        try:
+            self._exit_direct_insertion_mode()
+
+        except Exception as exc:
+            raise RuntimeError(
+                "Error in callback while exiting direct insertion mode of "
+                f"{self.logstr} @ {self.name}! {type(exc).__name__}: {exc}"
+            ) from exc
+
+    def _enter_direct_insertion_mode(self):
+        """Called after entering direct insertion mode; can be overwritten to
+        attach additional behaviour.
+        """
+
+        pass
+
+    def _exit_direct_insertion_mode(self):
+        """Called before exiting direct insertion mode; can be overwritten to
+        attach additional behaviour.
+        """
+
+        pass

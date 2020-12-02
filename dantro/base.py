@@ -26,6 +26,7 @@ from .mixins import (
     BasicComparisonMixin,
     CheckDataMixin,
     CollectionMixin,
+    DirectInsertionModeMixin,
     ItemAccessMixin,
     LockDataMixin,
     MappingAccessMixin,
@@ -147,6 +148,7 @@ class BaseDataGroup(
     AttrsMixin,
     SizeOfMixin,
     BasicComparisonMixin,
+    DirectInsertionModeMixin,
     dantro.abc.AbstractDataGroup,
 ):
     """The BaseDataGroup serves as base group for all data groups.
@@ -222,6 +224,9 @@ class BaseDataGroup(
         use the interface of the corresponding leaf object of the data tree.
 
         Absolute lookups, i.e. from path ``/foo/bar``, are **not** possible!
+
+        Lookup complexity is that of the underlying data structure: for groups
+        based on dict-like storage containers, lookups happen in constant time.
 
         .. note::
 
@@ -432,7 +437,7 @@ class BaseDataGroup(
         """
         pass
 
-    def _add_container_to_data(self, cont) -> None:
+    def _add_container_to_data(self, cont: AbstractDataContainer) -> None:
         """Performs the operation of adding the container to the _data. This
         can be used by subclasses to make more elaborate things while adding
         data, e.g. specify ordering ...
@@ -638,7 +643,7 @@ class BaseDataGroup(
         This method should be called from any method that changes which items
         are associated with this group.
         """
-        # Check that it was already associated
+        # Check that it was already associated with the group
         if new_child not in self:
             raise ValueError(
                 f"{new_child.logstr} needs to be a child of {self.logstr} "
@@ -681,6 +686,9 @@ class BaseDataGroup(
         sequence) and tries to access the item at that path, returning ``True``
         if this succeeds and ``False`` if not.
 
+        Lookup complexity is that of item lookup (scalar) for both name and
+        object lookup.
+
         Args:
             cont (Union[str, AbstractDataContainer]): The name of the
                 container, a path, or an object to check via identity
@@ -692,10 +700,12 @@ class BaseDataGroup(
         """
         if isinstance(cont, AbstractDataContainer):
             # Case: look for the specific object instance
-            for obj in self.values():
-                if obj is cont:
-                    return True
-            return False
+            # Don't iterate, as this scales badly; instead retrieve the name
+            # and do the identiy lookup afterwards
+            _cont = self.get(cont.name)
+            if _cont is None:
+                return False
+            return _cont is cont
 
         # Otherwise: look for an object reachable at this path ...
         try:
