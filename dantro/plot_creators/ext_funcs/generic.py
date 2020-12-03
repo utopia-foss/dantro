@@ -890,6 +890,7 @@ def facet_grid(
     frames: str = None,
     auto_encoding: Union[bool, dict] = False,
     suptitle_kwargs: dict = None,
+    squeeze: bool = True,
     **plot_kwargs,
 ):
     """A generic facet grid plot function for high dimensional data.
@@ -947,6 +948,12 @@ def facet_grid(
         the :ref:`animation mode switching <pcr_ext_animation_mode_switching>`
         feature.
 
+    .. note::
+
+        Internally, this function calls ``.squeeze`` on the selected data, thus
+        being more tolerant with data that has size-1 dimension coordinates.
+        To suppress this behaviour, set the ``squeeze`` argument accordingly.
+
     .. warning::
 
         Depending on ``kind`` and the dimensionality of the data, some plot
@@ -987,6 +994,8 @@ def facet_grid(
             enabled. The ``title`` entry can be a format string with the
             following keys, which are updated for each frame of the animation:
             ``dim``, ``value``. Default: ``{dim:} = {value:.3g}``.
+        squeeze (bool, optional): whether to squeeze the data before plotting,
+            such that size-1 dimensions do not take up encoding dimensions.
         **plot_kwargs: Passed on to ``<data>.plot`` or ``<data>.plot.<kind>``
             These should include the layout encoding specifiers (``x``, ``y``,
             ``hue``, ``col``, and/or ``row``).
@@ -1006,6 +1015,10 @@ def facet_grid(
     # .........................................................................
     def plot_frame(_d, *, kind: str, plot_kwargs: dict):
         """Plot a FacetGrid frame"""
+        # Squeeze size-1 dimension coordinates to non-dimension coordinates
+        if squeeze:
+            _d = _d.squeeze()
+
         # Retrieve the generic or specialized plot function, depending on kind
         if kind is None:
             plot_func = _d.plot
@@ -1057,7 +1070,7 @@ def facet_grid(
                     "For debugging, inspect the chained traceback and the "
                     "information below.\n\n"
                     f"The upstream error was a {type(exc).__name__}: {exc}\n\n"
-                    f"facet_grid arguments:\n  {plot_kwargs}\n\n"
+                    f"xr.plot.FacetGrid arguments:\n  {plot_kwargs}\n\n"
                     f"Data:\n  {_d}\n"
                 ) from exc
         # NOTE rv usually is a xarray.FaceGrid object but not always: `hist`
