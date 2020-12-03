@@ -350,6 +350,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
             # Depending on the chosen combination method, create corresponding
             # additional transformations for combination via merge or via
             # concatenation.
+            # This is also where the tag can be attached to.
             if combination_method in ["merge"]:
                 dag.add_node(
                     operation="dantro.merge",
