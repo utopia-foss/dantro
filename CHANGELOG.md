@@ -2,6 +2,9 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.15.2
+#### Enhancements
+- !233 Speeds up `import dantro` by about 50%; this is achieved by delaying imports of packages that take a long time to load.
 
 ## v0.15.1
 #### Enhancements

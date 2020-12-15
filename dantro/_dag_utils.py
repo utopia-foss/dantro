@@ -5,11 +5,7 @@ NOTE This is imported by dantro.tools to register classes with YAML.
 import logging
 from typing import Any, Tuple, Union
 
-import sympy as sym
 from paramspace.tools import recursive_collect, recursive_replace
-from sympy.parsing.sympy_parser import convert_xor as _convert_xor
-from sympy.parsing.sympy_parser import parse_expr as _parse_expr
-from sympy.parsing.sympy_parser import standard_transformations as _std_trf
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -714,6 +710,9 @@ def op_hook_expression(operation, *args, **kwargs) -> Tuple[str, list, dict]:
 
     For more information on operation hooks, see :ref:`dag_op_hooks`.
     """
+    from sympy import Symbol
+    from sympy.parsing.sympy_parser import parse_expr
+
     # Extract the expression string
     if len(args) == 1:
         expr = args[0]
@@ -726,7 +725,7 @@ def op_hook_expression(operation, *args, **kwargs) -> Tuple[str, list, dict]:
         )
 
     # Try to extract all symbols from the expression
-    all_symbols = _parse_expr(expr, evaluate=False).atoms(sym.Symbol)
+    all_symbols = parse_expr(expr, evaluate=False).atoms(Symbol)
 
     # Some symbols might already be given; only add those that were not given.
     # Also, convert the ``prev`` and ``previous_result`` symbols the

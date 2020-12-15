@@ -8,11 +8,10 @@ import logging
 import warnings
 from typing import List, Union
 
-import networkx as nx
-import networkx.exception
 import numpy as np
 import xarray as xr
 
+from .._import_tools import LazyLoader
 from ..base import BaseDataGroup
 from ..containers import XrDataContainer
 from ..tools import recursive_update
@@ -20,6 +19,9 @@ from .labelled import LabelledDataGroup
 
 # Local constants
 log = logging.getLogger(__name__)
+
+# Lazy imports for packages that take a long time to import
+nx = LazyLoader("networkx")
 
 
 # -----------------------------------------------------------------------------
@@ -333,8 +335,9 @@ class GraphGroup(BaseDataGroup):
         return data
 
     def _check_alignment(self, *, ent, prop):
-        """Checks the alignment of property data and entity (node or edge) data.
-        If ``self._GG_WARN_UPON_BAD_ALIGN`` is True, warn on possible pitfalls.
+        """Checks the alignment of property data and entity (node or edge)
+        data. If ``self._GG_WARN_UPON_BAD_ALIGN`` is True, warn on possible
+        pitfalls.
 
         Args:
             ent: The entity (node or edge) data
@@ -405,7 +408,7 @@ class GraphGroup(BaseDataGroup):
         at_time_idx: int = None,
         keep_dim=None,
         **graph_kwargs,
-    ) -> nx.Graph:
+    ) -> "nx.Graph":
         """Create a networkx graph object from the node and edge data
         associated with the graph group. Optionally, node and edge properties
         can be added from data stored or registered in the graph group. The
