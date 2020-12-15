@@ -10,11 +10,14 @@ from typing import Any, Callable, Dict, Generator, List, Sequence, Tuple, Union
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
 from paramspace.tools import recursive_replace
 
+from .._import_tools import LazyLoader
 from ..exceptions import *
 from ..tools import recursive_update
+
+# Lazy loading modules that take a long time to import
+sns = LazyLoader("seaborn")
 
 # Public constants
 log = logging.getLogger(__name__)

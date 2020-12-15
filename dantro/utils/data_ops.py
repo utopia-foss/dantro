@@ -5,17 +5,16 @@ import math
 import operator
 import re
 from difflib import get_close_matches as _get_close_matches
-from importlib import import_module as _import_module
 from typing import Any, Callable, Iterable, List, Sequence, Tuple, Union
 
-import networkx as nx
 import numpy as np
-import scipy
-import scipy.optimize
 import xarray as xr
-from sympy.parsing.sympy_parser import parse_expr as _parse_expr
-from sympy.parsing.sympy_parser import standard_transformations as _std_trf
 
+from .._import_tools import (
+    LazyLoader,
+    get_from_module,
+    import_module_or_object,
+)
 from ..base import BaseDataContainer, BaseDataGroup
 from ..tools import apply_along_axis, make_columns, recursive_getitem
 from .coords import extract_coords_from_attrs, extract_dim_names
@@ -23,6 +22,10 @@ from .ordereddict import KeyOrderedDict
 
 # Local constants
 log = logging.getLogger(__name__)
+
+# Lazy module imports
+nx = LazyLoader("networkx")
+scipy = LazyLoader("scipy")
 
 
 # -----------------------------------------------------------------------------
@@ -70,58 +73,6 @@ def print_data(data: Any) -> Any:
     return data
 
 
-def get_from_module(mod, *, name: str):
-    """Retrieves an attribute from a module, if necessary traversing along the
-    module string.
-
-    Args:
-        mod: Module to start looking at
-        name (str): The ``.``-separated module string leading to the desired
-            object.
-    """
-    obj = mod
-
-    for attr_name in name.split("."):
-        try:
-            obj = getattr(obj, attr_name)
-
-        except AttributeError as err:
-            raise AttributeError(
-                f"Failed to retrieve attribute or attribute sequence '{name}' "
-                f"from module '{mod.__name__}'! Intermediate "
-                f"{type(obj).__name__} {obj} has no attribute '{attr_name}'!"
-            ) from err
-
-    return obj
-
-
-def import_module_or_object(module: str = None, name: str = None):
-    """Imports a module or an object using the specified module string and the
-    object name.
-
-    Args:
-        module (str, optional): A module string, e.g. numpy.random. If this is
-            not given, it will import from the :py:mod`builtins` module. Also,
-            relative module strings are resolved from :py:mod:`dantro`.
-        name (str, optional): The name of the object to retrieve from the
-            chosen module and return. This may also be a dot-separated sequence
-            of attribute names which can be used to traverse along attributes.
-
-    Returns:
-        The chosen module or object, i.e. the object found at <module>.<name>
-
-    Raises:
-        AttributeError: In cases where part of the ``name`` argument could not
-            be resolved due to a bad attribute name.
-    """
-    module = module if module else "builtins"
-    mod = _import_module(module, package="dantro") if module else __builtin__
-
-    if not name:
-        return mod
-    return get_from_module(mod, name=name)
-
-
 # .............................................................................
 # symbolic math and expression parsing
 
@@ -131,7 +82,7 @@ def expression(
     *,
     symbols: dict = None,
     evaluate: bool = True,
-    transformations: Tuple[Callable] = _std_trf,
+    transformations: Tuple[Callable] = None,
     astype: Union[type, str] = float,
 ):
     """Parses and evaluates a symbolic math expression using SymPy.
@@ -198,10 +149,18 @@ def expression(
     Returns:
         The result of the evaluated expression.
     """
+    from sympy.parsing.sympy_parser import parse_expr as _parse_expr
+    from sympy.parsing.sympy_parser import standard_transformations as _std_trf
+
     log.remark("Evaluating symbolic expression:  %s", expr)
 
     symbols = symbols if symbols else {}
-    parse_kwargs = dict(evaluate=evaluate, transformations=transformations)
+    parse_kwargs = dict(
+        evaluate=evaluate,
+        transformations=(
+            transformations if transformations is not None else _std_trf
+        ),
+    )
 
     # Now, parse the expression
     try:
@@ -894,10 +853,15 @@ _OPERATIONS = KeyOrderedDict({
     'import_and_call':
         lambda m, n, *a, **k: import_module_or_object(m, n)(*a, **k),
 
-    'np.':          lambda ms, *a, **k: get_from_module(np, name=ms)(*a, **k),
-    'xr.':          lambda ms, *a, **k: get_from_module(xr, name=ms)(*a, **k),
-    'scipy.':       lambda ms, *a, **k: get_from_module(scipy, name=ms)(*a, **k),
-    'nx.':          lambda ms, *a, **k: get_from_module(nx, name=ms)(*a, **k),
+    # Import from packages and call directly
+    'np.':
+        lambda ms, *a, **k: get_from_module(np, name=ms)(*a, **k),
+    'xr.':
+        lambda ms, *a, **k: get_from_module(xr, name=ms)(*a, **k),
+    'scipy.':
+        lambda ms, *a, **k: get_from_module(scipy, name=ms)(*a, **k),
+    'nx.':
+        lambda ms, *a, **k: get_from_module(nx, name=ms)(*a, **k),
 
     # Defining lambdas
     'lambda':       generate_lambda,
@@ -1143,7 +1107,9 @@ _OPERATIONS = KeyOrderedDict({
     'xr.combine_by_coords': xr.combine_by_coords,
 
     # scipy
-    'curve_fit':        scipy.optimize.curve_fit,
+    'curve_fit':
+        lambda *a, **k: import_module_or_object("scipy.optimize",
+                                                name="curve_fit")(*a, **k),
     # NOTE: Use the 'lambda' operation to generate the callable
 }) # End of default operation definitions
 # fmt: on

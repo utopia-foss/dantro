@@ -8,8 +8,8 @@ import logging
 from typing import Callable, Union
 
 import matplotlib.pyplot as plt
-import seaborn as sns
 
+from ..._import_tools import LazyLoader
 from ...exceptions import PlottingError
 from ...tools import make_columns, recursive_update
 from ..pcr_ext import PlotHelper, is_plot_func
@@ -17,44 +17,56 @@ from ..pcr_ext import PlotHelper, is_plot_func
 # Local constants
 log = logging.getLogger(__name__)
 
+# Lazy module loading for packages that take a long time to import
+_sns = LazyLoader("seaborn", _depth=1)
+# NOTE This import is specifically for the definition of the seaborn-based
+#      multiplot functions and should not be used for anything else!
+#      Depth 1 means: `_sns.foobar` is still a LazyLoader object and will only
+#      be resolved upon an *attribute* call! Subsequently, these need to be
+#      resolved manually, as done via `_resolve_lazy_imports`.
+
 # fmt: off
 
 # The available plot kinds for the multiplot interface.
 # Details of the seaborn-related plots can be found here in the seaborn API:
 # https://seaborn.pydata.org/api.html
+#
+# NOTE Seaborn plot functions are defined here in a lazy fashion, thus being
+#      actually LazyLoader instances. They are resolved upon a first call to
+#      the multiplot function
 _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
     # Seaborn - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # https://seaborn.pydata.org/api.html
 
     # Relational plots
-    "sns.scatterplot":      sns.scatterplot,
-    "sns.lineplot":         sns.lineplot,
+    "sns.scatterplot":      _sns.scatterplot,
+    "sns.lineplot":         _sns.lineplot,
 
     # Distribution plots
-    "sns.histplot":         sns.histplot,
-    "sns.kdeplot":          sns.kdeplot,
-    "sns.ecdfplot":         sns.ecdfplot,
-    "sns.rugplot":          sns.rugplot,
+    "sns.histplot":         _sns.histplot,
+    "sns.kdeplot":          _sns.kdeplot,
+    "sns.ecdfplot":         _sns.ecdfplot,
+    "sns.rugplot":          _sns.rugplot,
 
     # Categorical plots
-    "sns.stripplot":        sns.stripplot,
-    "sns.swarmplot":        sns.swarmplot,
-    "sns.boxplot":          sns.boxplot,
-    "sns.violinplot":       sns.violinplot,
-    "sns.boxenplot":        sns.boxenplot,
-    "sns.pointplot":        sns.pointplot,
-    "sns.barplot":          sns.barplot,
-    "sns.countplot":        sns.countplot,
+    "sns.stripplot":        _sns.stripplot,
+    "sns.swarmplot":        _sns.swarmplot,
+    "sns.boxplot":          _sns.boxplot,
+    "sns.violinplot":       _sns.violinplot,
+    "sns.boxenplot":        _sns.boxenplot,
+    "sns.pointplot":        _sns.pointplot,
+    "sns.barplot":          _sns.barplot,
+    "sns.countplot":        _sns.countplot,
 
     # Regression plots
-    "sns.regplot":          sns.regplot,
-    "sns.residplot":        sns.residplot,
+    "sns.regplot":          _sns.regplot,
+    "sns.residplot":        _sns.residplot,
 
     # Matrix plots
-    "sns.heatmap":          sns.heatmap,
+    "sns.heatmap":          _sns.heatmap,
 
     # Utility functions
-    "sns.despine":          sns.despine,
+    "sns.despine":          _sns.despine,
 
     # Matplotlib - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # https://matplotlib.org/tutorials/introductory/sample_plots.html
@@ -104,13 +116,20 @@ _MULTIPLOT_CAUTION_FUNC_NAMES = tuple([
 # -- Helper functions ---------------------------------------------------------
 
 
+def _resolve_lazy_imports(d: dict):
+    """In-place resolves lazy imports in the given dict"""
+    for k, v in d.items():
+        if isinstance(v, LazyLoader):
+            d[k] = v.resolve()
+
+
 def _parse_func_kwargs(
     function: Union[str, Callable],
     args: list = None,
     shared_kwargs: dict = None,
     **func_kwargs,
 ):
-    """Parse a multiplot function object and its positional and keyword arguments.
+    """Parse a multiplot callable and its positional and keyword arguments.
     If ``function`` is a string it is looked up and mapped from the following
     dictionary:
 
@@ -135,13 +154,17 @@ def _parse_func_kwargs(
 
     .. note::
 
-        The function kwargs cannot pass on a ``function`` or ``args`` key because
-        both are parsed and translated into the plot function to use and
-        the optional positional function arguments, respectively.
+        The function kwargs cannot pass on a ``function`` or ``args`` key
+        because both are parsed and translated into the plot function to use
+        and the optional positional function arguments, respectively.
 
     Returns:
-        (str, Callable, list, dict):   (function name, function object, function arguments, function kwargs)
+        (str, Callable, list, dict): (function name, function object, function
+            arguments, function kwargs)
     """
+    # First need to resolve all lazy imports in _MULTIPLOT_FUNC_KINDS
+    _resolve_lazy_imports(_MULTIPLOT_FUNC_KINDS)
+
     if shared_kwargs is None:
         shared_kwargs = {}
 
@@ -164,8 +187,8 @@ def _parse_func_kwargs(
                 _mp_funcs = " (none)\n"
 
             raise ValueError(
-                f"The function `{func_name}` is not a valid multiplot function. "
-                f"Available functions: \n {_mp_funcs} \n"
+                f"The function `{func_name}` is not a valid multiplot "
+                f"function. Available functions: \n {_mp_funcs} \n"
                 "Alternatively, pass a callable instead of the name of a plot "
                 "function."
             ) from err
@@ -310,8 +333,9 @@ def multiplot(
         ):
             log.caution(
                 "Oops, you seem to have called '%s' without any function "
-                "arguments. If the plot produces unexpected output, check that "
-                "all required arguments (e.g. `data`, `x`, ...) were given.\n"
+                "arguments. If the plot produces unexpected output, check "
+                "that all required arguments (e.g. `data`, `x`, ...) were "
+                "given.\n"
                 "To silence this warning, set `show_hints` to `False`."
             )
 

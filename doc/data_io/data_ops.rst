@@ -44,7 +44,7 @@ If you are registering multiple custom operations, consider using a common prefi
 
     It is not necessary to register operations that are *importable*!
     For example, you can instead use a combination of the ``import`` and ``call`` operations to achieve this behavior.
-    With the ``from_module`` operation, you can easily retrieve a function from a module; see :py:func:`~dantro.utils.data_ops.get_from_module`.
+    With the ``from_module`` operation, you can easily retrieve a function from a module; see :py:func:`~dantro._import_tools.get_from_module`.
     There are shortcuts for imports from commonly-used modules, e.g. ``np.``, ``xr.`` and ``scipy.``.
 
     Operations should only be registered if you have implemented a custom operation or if the above does not work comfortably.
