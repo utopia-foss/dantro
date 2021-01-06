@@ -18,6 +18,8 @@ from dantro.plot_creators import ExternalPlotCreator, PlotHelper
 from dantro.plot_creators.ext_funcs._utils import plot_errorbar
 from dantro.plot_creators.ext_funcs.generic import (
     _FACET_GRID_FUNCS,
+    _FACET_GRID_KINDS,
+    determine_encoding,
     determine_plot_kind,
     errorbands,
     errorbar,
@@ -377,6 +379,71 @@ def test_determine_plot_kind():
         dpk(DA(123), kind=dict(foo="bar"), default_kind_map=dict())
     with pytest.raises(KeyError, match="dataset"):
         dpk("not_an_array", kind="auto", default_kind_map=dict())
+
+
+def test_determine_encoding():
+    """Test the determine_encoding helper function
+
+    NOTE Most parts are covered by the config-based plot function tests.
+    """
+    # Bind some defaults for the interface tests (and make it shorter for the
+    # purpose of this test)
+    default_kws = dict(
+        kind="line", auto_encoding=True, default_encodings=_FACET_GRID_KINDS
+    )
+    detenc = lambda d, **plot_kwargs: determine_encoding(
+        d, **default_kws, plot_kwargs=plot_kwargs
+    )
+
+    # Input can be a sizes dict or a sequence of dimension names. If size info
+    # is available, will sort it descendingly and use that order
+    kws = detenc(["foo", "bar", "baz", "spam", "fish"])
+    assert kws["x"] == "foo"
+    assert kws["hue"] == "bar"
+    assert kws["col"] == "baz"
+    assert kws["row"] == "spam"
+    assert kws["frames"] == "fish"
+
+    kws = detenc(dict(foo=10, bar=12, baz=15))
+    assert kws["x"] == "baz"
+    assert kws["hue"] == "bar"
+    assert kws["col"] == "foo"
+    assert "row" not in kws
+    assert "frames" not in kws
+
+    # Automatic column wrapping
+    kws = detenc(dict(foo=10, bar=12, baz=15), col_wrap="auto")
+    assert kws["col_wrap"] == 4  # from foo column, ceil(sqrt(10))
+
+    # ... deactivated if no sizes are given
+    kws = detenc(["foo", "bar", "baz"], col_wrap="auto")
+    assert "col_wrap" not in kws
+
+    # ... or if rows are assigned
+    kws = detenc(["foo", "bar", "baz", "spam", "fish"], col_wrap="auto")
+    assert "col_wrap" not in kws
+
+    # Can pre-assign an encoding and that will not be touched
+    kws = detenc(
+        dict(foo=10, bar=12, baz=15, spam=21), frames="bar", col_wrap="auto"
+    )
+    assert kws["x"] == "spam"
+    assert kws["hue"] == "baz"
+    assert kws["col"] == "foo"
+    assert kws["frames"] == "bar"
+    assert kws["col_wrap"] == 4
+
+    # Allow mappings between x and y
+    kws = detenc(
+        dict(foo=10, bar=12, baz=15, spam=21),
+        y="bar",
+        allow_y_for_x=["line"],
+    )
+    assert kws["y"] == "bar"
+    assert "x" not in kws
+    assert kws["hue"] == "spam"
+    assert kws["col"] == "baz"
+    assert kws["row"] == "foo"
 
 
 # .. Errorbar Tests ...........................................................
