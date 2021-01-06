@@ -7,7 +7,7 @@ import copy
 import logging
 import math
 import warnings
-from typing import Callable, List, Tuple, Union
+from typing import Callable, Dict, List, Tuple, Union
 
 import matplotlib.pyplot as plt
 import xarray as xr
@@ -170,15 +170,16 @@ def determine_plot_kind(
 
 
 def determine_encoding(
-    d: Union[xr.DataArray, xr.Dataset],
+    dims: Union[List[str], Dict[str, int]],
     *,
     kind: str,
     auto_encoding: Union[bool, dict],
     default_encodings: dict,
     allow_y_for_x: List[str] = ("line",),
-    **all_plot_kwargs,
+    plot_kwargs: dict,
 ) -> dict:
-    """Determines the plot kind and layout encoding for the given data.
+    """Determines the layout encoding for the given plot kind and the available
+    data dimensions (as specified by the ``dims`` argument).
 
     If ``auto_encoding`` does not evaluate to true or ``kind is None``, this
     function does nothing and simply returns all given plotting arguments.
@@ -190,15 +191,15 @@ def determine_encoding(
 
         - By default, ``default_encodings`` is used as a map from plot kind to
           a sequence of available layout specifiers.
-        - If ``auto_encoding`` is a dictionary, the default map will be updated
-          with that dictionary.
+        - If ``auto_encoding`` is a dictionary, the default map will be
+          *updated* with that dictionary.
 
     The association is done in the following way:
 
-        1. Inspecting ``all_plot_kwargs``, all layout encoding specifiers are
+        1. Inspecting ``plot_kwargs``, all layout encoding specifiers are
            extracted, dropping those that evaluate to False.
         2. The encodings mapping is determined (see above).
-        3. The available dimension names are determined from ``d``.
+        3. The available dimension names are determined from ``dims``.
         4. Depending on ``kind`` and the already fixed specifiers, the *free*
            encoding specifiers and dimension names are extracted.
         5. These free specifiers are associated with free dimension names,
@@ -224,6 +225,7 @@ def determine_encoding(
     produce a more square-like figure with column wrapping. The prerequisites
     are the following:
 
+        * The ``dims`` argument is a dict, containing size information
         * The ``col_wrap`` argument is given and set to ``"auto"``
         * The ``col`` specifier is in use
         * The ``row`` specifier is *not* used, i.e. wrapping is possible
@@ -233,8 +235,11 @@ def determine_encoding(
     Otherwise, the entry will be removed from the plot arguments.
 
     Args:
-        d (Union[xr.DataArray, xr.Dataset]): The data for which to create the
-            layout association.
+        dims (Union[List[str], Dict[str, int]]): The dimension names (and, if
+            given as dict: their sizes) that are to be encoded. If no sizes are
+            provided, the assignment order will be the same as in the given
+            sequence of dimension names. If sizes are given, these will be used
+            to sort the dimension names in descending order of their sizes.
         kind (str): The chosen plot kind. If this was None, will directly
             return, because auto-encoding information is missing.
         auto_encoding (Union[bool, dict]): Whether to perform auto-encoding.
@@ -248,13 +253,13 @@ def determine_encoding(
             available encodings will be replaced by a ``"y"``. This is to
             support plots that allow *either* an ``x`` or a ``y`` specifier,
             like the ``line`` kind.
-        **all_plot_kwargs: All remaining plot function arguments, including any
+        plot_kwargs (dict): The actual plot function arguments, including any
             layout encoding arguments that aim to *fix* a dimension. Everything
             else is ignored.
     """
     if not auto_encoding or kind is None:
         log.debug("Layout auto-encoding was disabled (kind: %s).", kind)
-        return all_plot_kwargs
+        return plot_kwargs
 
     log.note(
         "Automatically determining layout encoding for kind '%s' ...", kind
@@ -269,25 +274,29 @@ def determine_encoding(
 
     # Special case for line-like kinds
     if allow_y_for_x and kind in allow_y_for_x:
-        if all_plot_kwargs.get("y") and not all_plot_kwargs.get("x"):
+        if plot_kwargs.get("y") and not plot_kwargs.get("x"):
             encoding_specs = tuple(
                 [s if s != "x" else "y" for s in encoding_specs]
             )
 
     # Split plotting kwargs into a dict of layout specifiers and one that only
     # includes the remaining plotting kwargs
-    plot_kwargs = copy.deepcopy(all_plot_kwargs)
+    plot_kwargs = copy.deepcopy(plot_kwargs)
     specs = {k: v for k, v in plot_kwargs.items() if k in encoding_specs}
     plot_kwargs = {k: v for k, v in plot_kwargs.items() if k not in specs}
 
     # -- Determine specifiers, depending on kind and dimensionality
-    # Get all available dimension names, sorted by size (descending)
-    dim_names = [
-        name
-        for name, _ in sorted(
-            d.sizes.items(), key=lambda kv: kv[1], reverse=True
-        )
-    ]
+    # Get all available dimension names. If size-information is available,
+    # sort them by size (descending), otherwise just use them as they are.
+    if isinstance(dims, dict):
+        dim_names = [
+            name
+            for name, _ in sorted(
+                dims.items(), key=lambda kv: kv[1], reverse=True
+            )
+        ]
+    else:
+        dim_names = list(dims)
 
     # Some dimensions and specifiers might already have been associated;
     # determine those that have *not* yet been associated:
@@ -321,9 +330,10 @@ def determine_encoding(
         if (
             not specs.get("row")
             and specs.get("col")
-            and d.sizes[specs["col"]] > 3
+            and isinstance(dims, dict)
+            and dims[specs["col"]] > 3
         ):
-            num_cols = d.sizes[specs["col"]]
+            num_cols = dims[specs["col"]]
             plot_kwargs["col_wrap"] = math.ceil(math.sqrt(num_cols))
             log.remark(
                 "   col_wrap:  %d  (length of col dimension: %d)",
@@ -774,13 +784,15 @@ def errorbar(
     # NOTE Need to pop all explicitly given specifiers in order to not have
     #      them appear as part of plot_kwargs further downstream.
     layout_encoding = determine_encoding(
-        y,
+        y.sizes,
         kind="errorbar",
         auto_encoding=auto_encoding,
         default_encodings=dict(errorbar=("x", "hue", "frames")),
-        x=x,
-        hue=hue,
-        frames=frames,
+        plot_kwargs=dict(
+            x=x,
+            hue=hue,
+            frames=frames,
+        ),
     )
     x = layout_encoding.pop("x", None)
     hue = layout_encoding.pop("hue", None)
@@ -1108,12 +1120,14 @@ def facet_grid(
         d, kind=kind, default_kind_map=_AUTO_PLOT_KINDS, **plot_kwargs
     )
     plot_kwargs = determine_encoding(
-        d,
+        d.sizes,
         kind=kind,
         auto_encoding=auto_encoding,
         default_encodings=_FACET_GRID_KINDS,
-        frames=frames,
-        **plot_kwargs,
+        plot_kwargs=dict(
+            frames=frames,
+            **plot_kwargs,
+        ),
     )
     frames = plot_kwargs.pop("frames", None)
 

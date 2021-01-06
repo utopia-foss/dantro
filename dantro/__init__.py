@@ -1,7 +1,7 @@
 """dantro lets you load and manipulate hierarchically organized data"""
 
 # Package version
-__version__ = "0.15.2"
+__version__ = "0.15.3"
 
 # Configure the logging module for the whole package here by importing the
 # dantro-specific logging module
