@@ -330,7 +330,7 @@ def determine_encoding(
         if (
             not specs.get("row")
             and specs.get("col")
-            and isinstance(dims, dict)
+            and hasattr(dims, "items")  # i.e.: dict-like
             and dims[specs["col"]] > 3
         ):
             num_cols = dims[specs["col"]]
