@@ -395,6 +395,10 @@ class GraphGroup(BaseDataGroup):
         # Everything ok, register the new map
         self._property_maps[key] = data
 
+        log.remark(
+            "Registered tag '%s' as property map of %s.", key, self.logstr
+        )
+
     def create_graph(
         self,
         *,
@@ -639,7 +643,7 @@ class GraphGroup(BaseDataGroup):
             self._check_alignment(ent=node_cont, prop=prop_data)
 
         # Check if the data can be added as node property
-        if len(prop_data.values) != len(node_cont.values):
+        if len(prop_data) != len(node_cont):
             # Prepare error message
             _msg_squeezed_dims = ""
             _msg_match_with_node_number = ""
@@ -652,7 +656,7 @@ class GraphGroup(BaseDataGroup):
                     "dimensions not to be squeezed."
                 )
 
-            if len(g.nodes) == len(prop_data.values):
+            if len(g.nodes) == len(prop_data):
                 _msg_match_with_node_number = (
                     "\n"
                     f"The size of '{name}' matches the current number of "
@@ -664,17 +668,23 @@ class GraphGroup(BaseDataGroup):
 
             raise ValueError(
                 f"Mismatch! Failed to add '{name}' data as a node property. "
-                f"Received {len(prop_data.values)} property values for "
-                f"{len(node_cont.values)} nodes in "
-                f"{self.node_container.logstr}! {_msg_match_with_node_number}"
-                f"{_msg_squeezed_dims}"
+                f"Received {len(prop_data)} property values for "
+                f"{len(node_cont)} nodes in {self.node_container.logstr}! "
+                f"{_msg_match_with_node_number}{_msg_squeezed_dims}"
             )
 
-        if len(node_cont.values) != len(g.nodes):
+        n_data = len(node_cont)
+        n_graph = len(g.nodes)
+
+        if n_data != n_graph:
             warnings.warn(
-                "The number of nodes changed since graph creation. Some "
-                "property values will not be added to the graph! Also check "
-                f"for duplicate entries in {self.node_container.logstr}.",
+                "The number of nodes "
+                f"{'decreased' if n_graph < n_data else 'increased'} since "
+                f"graph creation (length of {self.node_container.logstr}: "
+                f"{n_data}, nodes in graph: {n_graph}). Some property values "
+                "will not be added to the graph! Reasons might be previous "
+                "modifications of the graph structure or duplicate entries in "
+                f"{self.node_container.logstr}.",
                 UserWarning,
             )
 
@@ -792,7 +802,7 @@ class GraphGroup(BaseDataGroup):
             self._check_alignment(ent=edge_cont, prop=prop_data)
 
         # Check if the data can be added as edge property
-        if len(prop_data.values) != len(edge_cont.values):
+        if len(prop_data) != len(edge_cont):
             # Prepare error message
             _msg_duplicate_edges = ""
             _msg_match_with_edge_number = ""
@@ -805,7 +815,7 @@ class GraphGroup(BaseDataGroup):
                     f"type: '{type(g)}'"
                 )
 
-            if len(g.edges) == len(prop_data.values):
+            if len(g.edges) == len(prop_data):
                 _msg_match_with_edge_number = (
                     "\n"
                     f"The size of '{name}' matches the current number of "
@@ -817,17 +827,23 @@ class GraphGroup(BaseDataGroup):
 
             raise ValueError(
                 f"Mismatch! Failed to add '{name}' data as an edge property. "
-                f"Received {len(prop_data.values)} property values for "
-                f"{len(edge_cont.values)} edges in "
-                f"{self.edge_container.logstr}! {_msg_duplicate_edges}"
-                f"{_msg_match_with_edge_number}"
+                f"Received {len(prop_data)} property values for "
+                f"{len(edge_cont)} edges in {self.edge_container.logstr}! "
+                f"{_msg_duplicate_edges}{_msg_match_with_edge_number}"
             )
 
-        if len(edge_cont.values) != len(g.edges):
+        n_data = len(edge_cont)
+        n_graph = len(g.edges)
+
+        if n_data != n_graph:
             warnings.warn(
-                "The number of edges changed since graph creation. Some "
-                "property values will not be added to the graph! Also check "
-                f"for duplicate entries in {self.edge_container.logstr}.",
+                "The number of edges "
+                f"{'decreased' if n_graph < n_data else 'increased'} since "
+                f"graph creation (length of {self.edge_container.logstr}: "
+                f"{n_data}, edges in graph: {n_graph}). Some property values "
+                "will not be added to the graph! Reasons might be previous "
+                "modifications of the graph structure or duplicate entries in "
+                f"{self.edge_container.logstr}.",
                 UserWarning,
             )
 
