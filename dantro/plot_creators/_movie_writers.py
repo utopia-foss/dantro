@@ -8,15 +8,20 @@ import matplotlib.pyplot as plt
 
 # -----------------------------------------------------------------------------
 
-@mpl.animation.writers.register('frames')
+
+@mpl.animation.writers.register("frames")
 class FileWriter(mpl.animation.AbstractMovieWriter):
     """A matplotlib file writer
 
     It adheres to the corresponding matplotlib animation interface.
     """
 
-    def __init__(self, *, name_padding: int=7,
-                 fstr: str="{dir:}/{num:0{pad:}d}.{ext:}"):
+    def __init__(
+        self,
+        *,
+        name_padding: int = 7,
+        fstr: str = "{dir:}/{num:0{pad:}d}.{ext:}",
+    ):
         """
         Initialize a FileWriter, which adheres to the matplotlib.animation
         interface and can be used to write individual files.
@@ -33,7 +38,7 @@ class FileWriter(mpl.animation.AbstractMovieWriter):
         self.fig = None
         self.out_dir = None
         self.dpi = None
-        self.file_format = None
+        self.format = None
 
     def setup(self):
         """Called when entering the saving context"""
@@ -48,9 +53,9 @@ class FileWriter(mpl.animation.AbstractMovieWriter):
         """Always available."""
         return True
 
-    def saving(self, fig, base_outfile: str, dpi: int=None, **setup_kwargs):
+    def saving(self, fig, base_outfile: str, dpi: int = None, **setup_kwargs):
         """Create an instance of the context manager
-        
+
         Args:
             fig (matplotlib.Figure): The figure object to save
             base_outfile (str): The path this movie writer would store a movie
@@ -59,13 +64,13 @@ class FileWriter(mpl.animation.AbstractMovieWriter):
                 is retained.
             dpi (int, optional): The desired densiy
             **setup_kwargs: Passed to setup method
-        
+
         Returns:
             FileWriter: this object, which also is a context manager.
         """
         # Parse the given base file path to get a directory and extension
         out_dir, ext = os.path.splitext(base_outfile)
-        self.file_format = ext[1:]  # includes leading dot
+        self.format = ext[1:]  # includes leading dot
 
         # Store all required objects
         self.fig = fig
@@ -81,14 +86,20 @@ class FileWriter(mpl.animation.AbstractMovieWriter):
     def grab_frame(self, **savefig_kwargs):
         """Stores a single frame"""
         # Build the output path from the info of the context manager
-        outfile = self.fstr.format(dir=self.out_dir,
-                                   num=self.cntr,
-                                   pad=self.name_padding,
-                                   ext=self.file_format)
+        outfile = self.fstr.format(
+            dir=self.out_dir,
+            num=self.cntr,
+            pad=self.name_padding,
+            ext=self.format,
+        )
 
         # Save the frame using the context manager, then increment the cntr
-        self.fig.savefig(outfile, dpi=self.dpi, file_format=self.file_format,
-                         **savefig_kwargs)
+        self.fig.savefig(
+            outfile,
+            dpi=self.dpi,
+            format=self.format,
+            **savefig_kwargs,
+        )
         self.cntr += 1
 
     # .. Context manager magic methods ........................................

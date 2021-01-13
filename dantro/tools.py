@@ -1,10 +1,10 @@
 """This module implements tools that are generally useful in dantro"""
 
-import sys
-import subprocess
 import collections
 import logging
-from typing import Tuple, Sequence, Union, Mapping
+import subprocess
+import sys
+from typing import List, Mapping, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 # Terminal, TTY-related
 IS_A_TTY = sys.stdout.isatty()
 try:
-    _, TTY_COLS = subprocess.check_output(['stty', 'size']).split()
+    _, TTY_COLS = subprocess.check_output(["stty", "size"]).split()
 except:
     # Probably not run from terminal --> set value manually
     TTY_COLS = 79
@@ -25,24 +25,25 @@ log.debug("Determined TTY_COLS: %d, IS_A_TTY: %d", TTY_COLS, IS_A_TTY)
 # -----------------------------------------------------------------------------
 # Import private yaml module, where everything is configured
 
-from ._yaml import yaml, load_yml, write_yml
-
+from ._yaml import load_yml, write_yml, yaml
 
 # -----------------------------------------------------------------------------
 # Dictionary operations
 
+
 def recursive_update(d: dict, u: dict) -> dict:
-    """Recursively updates the Mapping-like object `d` with the Mapping-like
-    object `u` and returns it. Note that this does not create a copy of `d`!
+    """Recursively updates the Mapping-like object ``d`` with the Mapping-like
+    object ``u`` and returns it. Note that this does *not* create a copy of
+    ``d``, but changes it mutably!
 
     Based on: http://stackoverflow.com/a/32357112/1827608
 
     Args:
         d (dict): The mapping to update
-        u (dict): The mapping whose values are used to update `d`
+        u (dict): The mapping whose values are used to update ``d``
 
     Returns:
-        dict: The updated dict `d`
+        dict: The updated dict ``d``
     """
     for k, v in u.items():
         if isinstance(d, collections.abc.Mapping):
@@ -53,7 +54,7 @@ def recursive_update(d: dict, u: dict) -> dict:
                 # This already creates a mapping if the key was not available
             else:
                 # Not a mapping -> at leaf -> update value
-                d[k] = v    # ... which is just u[k]
+                d[k] = v  # ... which is just u[k]
 
         else:
             # Not a mapping -> create one
@@ -75,6 +76,7 @@ def recursive_getitem(obj: Union[Mapping, Sequence], keys: Sequence):
     Raises:
         ValueError: If any index or key in the key sequence was not available
     """
+
     def handle_error(exc: Exception, *, key, keys, obj):
         raise ValueError(
             f"Invalid {'key' if isinstance(exc, KeyError) else 'index'} "
@@ -101,6 +103,7 @@ def recursive_getitem(obj: Union[Mapping, Sequence], keys: Sequence):
 # -----------------------------------------------------------------------------
 # Terminal messaging
 
+
 def clear_line(only_in_tty=True, break_if_not_tty=True):
     """Clears the current terminal line and resets the cursor to the first
     position using a POSIX command.
@@ -116,18 +119,23 @@ def clear_line(only_in_tty=True, break_if_not_tty=True):
     # Differentiate cases
     if (only_in_tty and IS_A_TTY) or not only_in_tty:
         # Print the POSIX character
-        print('\x1b[2K\r', end='')
+        print("\x1b[2K\r", end="")
 
     if break_if_not_tty and not IS_A_TTY:
         # print linebreak (no flush)
-        print('\n', end='')
+        print("\n", end="")
 
     # flush manually (there might not have been a linebreak)
     sys.stdout.flush()
 
 
-def fill_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str=" ",
-              align: str="left") -> str:
+def fill_line(
+    s: str,
+    *,
+    num_cols: int = TTY_COLS,
+    fill_char: str = " ",
+    align: str = "left",
+) -> str:
     """Extends the given string such that it fills a whole line of `num_cols`
     columns.
 
@@ -146,8 +154,10 @@ def fill_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str=" ",
         ValueError: For invalid `align` or `fill_char` argument
     """
     if len(fill_char) != 1:
-        raise ValueError("Argument `fill_char` needs to be string of length 1 "
-                         "but was: "+str(fill_char))
+        raise ValueError(
+            "Argument `fill_char` needs to be string of length 1 but was: "
+            + str(fill_char)
+        )
 
     fill_str = fill_char * (num_cols - len(s))
 
@@ -158,13 +168,16 @@ def fill_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str=" ",
         return fill_str + s
 
     elif align in ["center", "centre", "c"]:
-        return fill_str[:len(fill_str)//2] + s + fill_str[len(fill_str)//2:]
+        return (
+            fill_str[: len(fill_str) // 2] + s + fill_str[len(fill_str) // 2 :]
+        )
 
     raise ValueError("align argument '{}' not supported".format(align))
 
 
-def center_in_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str="·",
-                   spacing: int=1) -> str:
+def center_in_line(
+    s: str, *, num_cols: int = TTY_COLS, fill_char: str = "·", spacing: int = 1
+) -> str:
     """Shortcut for a common fill_line use case.
 
     Args:
@@ -177,15 +190,65 @@ def center_in_line(s: str, *, num_cols: int=TTY_COLS, fill_char: str="·",
         str: The string centered in the line
     """
     spacing = " " * spacing
-    return fill_line(spacing + s + spacing, num_cols=num_cols,
-                     fill_char=fill_char, align='centre')
+    return fill_line(
+        spacing + s + spacing,
+        num_cols=num_cols,
+        fill_char=fill_char,
+        align="centre",
+    )
+
+
+def make_columns(
+    items: List[str],
+    *,
+    wrap_width: int = TTY_COLS,
+    fstr: str = "  {item:<{width:}s}  ",
+) -> str:
+    """Given a sequence of string items, returns a string with these items
+    spread out over several columns. Iteration is first within the row and
+    then into the next row.
+
+    The number of columns is determined automatically from the wrap width, the
+    length of the longest item in the items list, and the length of the
+    evaluated format string.
+
+    Args:
+        items (List[str]): The string items to represent in columns.
+        wrap_width (int, optional): The maximum width of each full row
+        fstr (str, optional): The format string to use. Needs to accept the
+            keys ``item`` and ``width``, the latter of which will be used for
+            padding. The format string should lead to strings of equal length,
+            otherwise the column layout will be messed up!
+    """
+    if not items:
+        return ""
+
+    max_item_width = max(len(item) for item in items)
+    item_str_width = len(
+        fstr.format(item=" " * max_item_width, width=max_item_width)
+    )
+    num_cols = wrap_width // item_str_width
+
+    rows = []
+    for i, item in enumerate(items):
+        item_str = fstr.format(item=item, width=max_item_width)
+
+        # New row or new column?
+        if i % num_cols == 0:
+            rows.append(item_str)
+        else:
+            rows[-1] += item_str
+
+    return "\n".join(rows) + "\n"
 
 
 # -----------------------------------------------------------------------------
 # Numerics
 
-def apply_along_axis(func, axis: int, arr: np.ndarray,
-                     *args, **kwargs) -> np.ndarray:
+
+def apply_along_axis(
+    func, axis: int, arr: np.ndarray, *args, **kwargs
+) -> np.ndarray:
     """This is like numpy's function of the same name, but does not try to
     cast the results of func to an np.ndarray but tries to keep them as dtype
     object. Thus, the return value of this function will always have one fewer
@@ -195,11 +258,11 @@ def apply_along_axis(func, axis: int, arr: np.ndarray,
     in their documentation of the function.
     """
     # Get the shapes of the outer and inner iteration; both are tuples!
-    shape_outer, shape_inner = arr.shape[:axis], arr.shape[axis+1:]
+    shape_outer, shape_inner = arr.shape[:axis], arr.shape[axis + 1 :]
     num_outer = len(shape_outer)
 
     # These together give the shape of the output array
-    out = np.zeros(shape_outer + shape_inner, dtype='object')
+    out = np.zeros(shape_outer + shape_inner, dtype="object")
     out.fill(None)
 
     log.debug("Applying function '%s' along axis ...", func.__name__)
@@ -209,7 +272,7 @@ def apply_along_axis(func, axis: int, arr: np.ndarray,
 
     # Now loop over the output array and at each position fill it with the
     # result of the function call.
-    it = np.nditer(out, flags=('refs_ok', 'multi_index'))
+    it = np.nditer(out, flags=("refs_ok", "multi_index"))
     for _ in it:
         midx = it.multi_index
 
@@ -241,14 +304,15 @@ def decode_bytestrings(obj) -> str:
     """
     # Check for data loaded as array of bytestring
     if isinstance(obj, np.ndarray):
-        if obj.dtype.kind in ['S', 'a']:
-            obj = obj.astype('U')
+        if obj.dtype.kind in ["S", "a"]:
+            obj = obj.astype("U")
 
         # If it is of dtype object, decode all bytes objects
-        if obj.dtype == np.dtype('object'):
+        if obj.dtype == np.dtype("object"):
+
             def decode_if_bytes(val):
                 if isinstance(val, bytes):
-                    return val.decode('utf8')
+                    return val.decode("utf8")
                 return val
 
             # Apply element-wise
@@ -257,13 +321,14 @@ def decode_bytestrings(obj) -> str:
     # ... or as bytes
     elif isinstance(obj, bytes):
         # Decode bytestring to unicode
-        obj = obj.decode('utf8')
+        obj = obj.decode("utf8")
 
     return obj
 
 
 # -----------------------------------------------------------------------------
 # Misc
+
 
 def is_iterable(obj) -> bool:
     """Tries whether the given object is iterable."""
@@ -300,6 +365,7 @@ class DoNothingContext:
 
 class adjusted_log_levels:
     """A context manager that temporarily adjusts log levels"""
+
     def __init__(self, *new_levels: Sequence[Tuple[str, int]]):
         self.new_levels = {n: l for n, l in new_levels}
         self.old_levels = dict()
@@ -315,3 +381,49 @@ class adjusted_log_levels:
         """When leaving the context, resets the levels to their old state"""
         for name, old_level in self.old_levels.items():
             logging.getLogger(name).setLevel(old_level)
+
+
+def format_bytesize(num: int, *, precision: int = 1) -> str:
+    """Formats a size in bytes to a human readable (binary) format.
+
+    Stripped down from https://stackoverflow.com/a/63839503/1827608 .
+
+    Args:
+        num (int): Number of bytes
+        precision (int, optional): The decimal precision to use, can be 0..3
+
+    Returns:
+        str: The formatted, human-readable byte size
+    """
+    UNIT_LABELS = ("B", "kiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB")
+    PRECISION_OFFSETS = (0.5, 0.05, 0.005, 0.0005)
+    FSTRS = (
+        "{}{:.0f} {}",
+        "{}{:.1f} {}",
+        "{}{:.2f} {}",
+        "{}{:.3f} {}",
+    )
+
+    last_label = UNIT_LABELS[-1]
+    unit_step = 1024
+    unit_step_thresh = unit_step - PRECISION_OFFSETS[precision]
+    is_negative = num < 0
+
+    if is_negative:
+        num = abs(num)
+
+    # Special case for Bytes, where there should be no decimal point
+    if num < 1024:
+        return FSTRS[0].format("-" if is_negative else "", num, "B")
+
+    for unit in UNIT_LABELS:
+        if num < unit_step_thresh:
+            # Below threshold now, can go to formatting
+            break
+
+        # Unless we reached the highest prefix, shrink the number such that
+        # it represents the value in the next higher unit
+        if unit != last_label:
+            num /= unit_step
+
+    return FSTRS[precision].format("-" if is_negative else "", num, unit)

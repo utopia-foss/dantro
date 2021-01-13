@@ -1,34 +1,38 @@
 """This module implements data processing operations for dantro objects"""
 
-import re
-import math
 import logging
+import math
 import operator
-from importlib import import_module as _import_module
+import re
 from difflib import get_close_matches as _get_close_matches
-from typing import Callable, Any, Sequence, Union, Tuple, Iterable, List
+from typing import Any, Callable, Iterable, List, Sequence, Tuple, Union
 
 import numpy as np
 import xarray as xr
-import scipy
-import scipy.optimize
 
-from sympy.parsing.sympy_parser import (parse_expr as _parse_expr,
-                                        standard_transformations as _std_trf)
-
-from .coords import extract_dim_names, extract_coords_from_attrs
-from .ordereddict import KeyOrderedDict
+from .._import_tools import (
+    LazyLoader,
+    get_from_module,
+    import_module_or_object,
+)
 from ..base import BaseDataContainer, BaseDataGroup
-from ..tools import apply_along_axis, recursive_getitem
+from ..tools import apply_along_axis, make_columns, recursive_getitem
+from .coords import extract_coords_from_attrs, extract_dim_names
+from .ordereddict import KeyOrderedDict
 
 # Local constants
 log = logging.getLogger(__name__)
+
+# Lazy module imports
+nx = LazyLoader("networkx")
+scipy = LazyLoader("scipy")
 
 
 # -----------------------------------------------------------------------------
 # Operation Implementations
 # NOTE Operations should use only logger levels <= REMARK
 
+# fmt: off
 # Define boolean operators separately; registered into _OPERATIONS below
 BOOLEAN_OPERATORS = {
     '==': operator.eq,  'eq': operator.eq,
@@ -45,9 +49,10 @@ BOOLEAN_OPERATORS = {
     'in interval':      (lambda x, y: x >= y[0] & x <= y[1]),
     'not in interval':  (lambda x, y: x < y[0] | x > y[1]),
 } # End of boolean operator definitions
-
+# fmt: on
 
 # .............................................................................
+
 
 def print_data(data: Any) -> Any:
     """Prints and passes on the data.
@@ -67,65 +72,19 @@ def print_data(data: Any) -> Any:
 
     return data
 
-def get_from_module(mod, *, name: str):
-    """Retrieves an attribute from a module, if necessary traversing along the
-    module string.
-
-    Args:
-        mod: Module to start looking at
-        name (str): The ``.``-separated module string leading to the desired
-            object.
-    """
-    obj = mod
-
-    for attr_name in name.split("."):
-        try:
-            obj = getattr(obj, attr_name)
-
-        except AttributeError as err:
-            raise AttributeError(
-                f"Failed to retrieve attribute or attribute sequence '{name}' "
-                f"from module '{mod.__name__}'! Intermediate "
-                f"{type(obj).__name__} {obj} has no attribute '{attr_name}'!"
-            ) from err
-
-    return obj
-
-def import_module_or_object(module: str=None, name: str=None):
-    """Imports a module or an object using the specified module string and the
-    object name.
-
-    Args:
-        module (str, optional): A module string, e.g. numpy.random. If this is
-            not given, it will import from the :py:mod`builtins` module. Also,
-            relative module strings are resolved from :py:mod:`dantro`.
-        name (str, optional): The name of the object to retrieve from the
-            chosen module and return. This may also be a dot-separated sequence
-            of attribute names which can be used to traverse along attributes.
-
-    Returns:
-        The chosen module or object, i.e. the object found at <module>.<name>
-
-    Raises:
-        AttributeError: In cases where part of the ``name`` argument could not
-            be resolved due to a bad attribute name.
-    """
-    module = module if module else 'builtins'
-    mod = _import_module(module, package='dantro') if module else __builtin__
-
-    if not name:
-        return mod
-    return get_from_module(mod, name=name)
-
 
 # .............................................................................
 # symbolic math and expression parsing
 
-def expression(expr: str, *,
-               symbols: dict=None,
-               evaluate: bool=True,
-               transformations: Tuple[Callable]=_std_trf,
-               astype: Union[type, str]=float):
+
+def expression(
+    expr: str,
+    *,
+    symbols: dict = None,
+    evaluate: bool = True,
+    transformations: Tuple[Callable] = None,
+    astype: Union[type, str] = float,
+):
     """Parses and evaluates a symbolic math expression using SymPy.
 
     For parsing, uses sympy's ``parse_expr`` function (see documentation of the
@@ -190,10 +149,18 @@ def expression(expr: str, *,
     Returns:
         The result of the evaluated expression.
     """
+    from sympy.parsing.sympy_parser import parse_expr as _parse_expr
+    from sympy.parsing.sympy_parser import standard_transformations as _std_trf
+
     log.remark("Evaluating symbolic expression:  %s", expr)
 
     symbols = symbols if symbols else {}
-    parse_kwargs = dict(evaluate=evaluate, transformations=transformations)
+    parse_kwargs = dict(
+        evaluate=evaluate,
+        transformations=(
+            transformations if transformations is not None else _std_trf
+        ),
+    )
 
     # Now, parse the expression
     try:
@@ -203,9 +170,9 @@ def expression(expr: str, *,
         raise ValueError(
             f"Failed parsing expression '{expr}'! Got a "
             f"{exc.__class__.__name__}: {exc}. Check that the expression can "
-            f"be evaluated with the available symbols "
+            "be evaluated with the available symbols "
             f"({', '.join(symbols) if symbols else 'none specified'}) "
-            f"and inspect the chained exceptions for more information. Parse "
+            "and inspect the chained exceptions for more information. Parse "
             f"arguments were: {parse_kwargs}"
         ) from exc
 
@@ -226,11 +193,12 @@ def expression(expr: str, *,
         raise TypeError(
             f"Failed casting the result of expression '{expr}' from "
             f"{type(res)} to {dtype}! This can also be due to free symbols "
-            f"remaining in the evaluated expression. Either specify the free "
+            "remaining in the evaluated expression. Either specify the free "
             f"symbols (got: {', '.join(symbols) if symbols else 'none'}) or "
-            f"deactivate casting by specifying None as ``dtype`` argument. "
+            "deactivate casting by specifying None as ``dtype`` argument. "
             f"The expression evaluated to:\n\n    {res}\n"
         ) from exc
+
 
 def generate_lambda(expr: str) -> Callable:
     """Generates a lambda from a string. This is useful when working with
@@ -263,13 +231,55 @@ def generate_lambda(expr: str) -> Callable:
             expression pattern, or disallowed strings in the lambda body.
     """
     ALLOWED_BUILTINS = (
-        "abs", "all", "any", "callable", "chr", "divmod", "format", "hash",
-        "hex", "id", "isinstance", "issubclass", "iter", "len", "max", "min",
-        "next", "oct", "ord", "print", "repr", "round", "sorted", "sum",
-        "None", "Ellipsis", "False", "True", "bool", "bytes", "bytearray",
-        "complex", "dict", "enumerate", "filter", "float", "frozenset", "int",
-        "list", "map", "range", "reversed", "set", "slice", "str", "tuple",
-        "type", "zip", "open"
+        "abs",
+        "all",
+        "any",
+        "callable",
+        "chr",
+        "divmod",
+        "format",
+        "hash",
+        "hex",
+        "id",
+        "isinstance",
+        "issubclass",
+        "iter",
+        "len",
+        "max",
+        "min",
+        "next",
+        "oct",
+        "ord",
+        "print",
+        "repr",
+        "round",
+        "sorted",
+        "sum",
+        "None",
+        "Ellipsis",
+        "False",
+        "True",
+        "bool",
+        "bytes",
+        "bytearray",
+        "complex",
+        "dict",
+        "enumerate",
+        "filter",
+        "float",
+        "frozenset",
+        "int",
+        "list",
+        "map",
+        "range",
+        "reversed",
+        "set",
+        "slice",
+        "str",
+        "tuple",
+        "type",
+        "zip",
+        "open",
     )
     DISALLOWED_STRINGS = ("lambda", ";", "__")
     LAMBDA_PATTERN = r"^\s*lambda\s[\w\s\,\*]+\:(.+)$"
@@ -280,24 +290,33 @@ def generate_lambda(expr: str) -> Callable:
     pattern = re.compile(LAMBDA_PATTERN)
     match = pattern.match(expr)
     if match is None:
-        raise SyntaxError(f"The given expression '{expr}' was not a valid "
-                          "lambda expression!")
+        raise SyntaxError(
+            f"The given expression '{expr}' was not a valid lambda expression!"
+        )
 
     # Check if the lambda body contains disallowed strings
     lambda_body = match[1]
     if any([bad_str in lambda_body for bad_str in DISALLOWED_STRINGS]):
-        raise SyntaxError("Encountered one or more disallowed strings in the "
-                          f"body ('{lambda_body}') of the given lambda "
-                          f"expression ('{expr}'). Make sure none of the "
-                          f"following strings appears there: "
-                          f"{DISALLOWED_STRINGS}")
+        raise SyntaxError(
+            "Encountered one or more disallowed strings in the "
+            f"body ('{lambda_body}') of the given lambda "
+            f"expression ('{expr}'). Make sure none of the "
+            "following strings appears there: "
+            f"{DISALLOWED_STRINGS}"
+        )
 
     # Ok, sanitized enough now. Prepare the globals dict, restricting access to
     # a subset of builtins and only allowing commonly used math functionality
     _g = dict(
-        __builtins__={n: f for n, f in __builtins__.items()
-                      if n in ALLOWED_BUILTINS},
-        math=math, scipy=scipy, numpy=np, xarray=xr, np=np, xr=xr,
+        __builtins__={
+            n: f for n, f in __builtins__.items() if n in ALLOWED_BUILTINS
+        },
+        math=math,
+        scipy=scipy,
+        numpy=np,
+        xarray=xr,
+        np=np,
+        xr=xr,
         **{n: f for n, f in math.__dict__.items() if not n.startswith("_")},
     )
 
@@ -306,18 +325,21 @@ def generate_lambda(expr: str) -> Callable:
         f = eval(expr, _g, {})
 
     except Exception as exc:
-        raise SyntaxError(f"Failed generating lambda object from expression "
-                          f"'{expr}'! Got a {exc.__class__.__name__}: {exc}"
-                          ) from exc
+        raise SyntaxError(
+            "Failed generating lambda object from expression "
+            f"'{expr}'! Got a {exc.__class__.__name__}: {exc}"
+        ) from exc
 
     return f
+
 
 # .............................................................................
 # numpy and xarray operations
 
-def create_mask(data: xr.DataArray,
-                operator_name: str,
-                rhs_value: float) -> xr.DataArray:
+
+def create_mask(
+    data: xr.DataArray, operator_name: str, rhs_value: float
+) -> xr.DataArray:
     """Given the data, returns a binary mask by applying the following
     comparison: ``data <operator> rhs value``.
 
@@ -354,25 +376,26 @@ def create_mask(data: xr.DataArray,
         name = None
 
     # Build a new xr.DataArray from that data, retaining all information
-    return xr.DataArray(data=data,
-                        name=name,
-                        dims=data.dims,
-                        coords=data.coords)
+    return xr.DataArray(
+        data=data, name=name, dims=data.dims, coords=data.coords
+    )
 
-def where(data: xr.DataArray,
-          operator_name: str,
-          rhs_value: float) -> xr.DataArray:
+
+def where(
+    data: xr.DataArray, operator_name: str, rhs_value: float
+) -> xr.DataArray:
     """Filter elements from the given data according to a condition. Only
     those elemens where the condition is fulfilled are not masked.
 
     NOTE This leads to a dtype change to float.
     """
     # Get the mask and apply it
-    return data.where(create_mask(data,
-                                  operator_name=operator_name,
-                                  rhs_value=rhs_value))
+    return data.where(
+        create_mask(data, operator_name=operator_name, rhs_value=rhs_value)
+    )
 
-def count_unique(data, dims: List[str]=None) -> xr.DataArray:
+
+def count_unique(data, dims: List[str] = None) -> xr.DataArray:
     """Applies np.unique to the given data and constructs a xr.DataArray for
     the results.
 
@@ -385,6 +408,7 @@ def count_unique(data, dims: List[str]=None) -> xr.DataArray:
             operation. If not provided it is applied along all dims.
 
     """
+
     def _count_unique(data) -> xr.DataArray:
         unique, counts = np.unique(data, return_counts=True)
 
@@ -400,17 +424,20 @@ def count_unique(data, dims: List[str]=None) -> xr.DataArray:
             name = "unique counts"
 
         # Construct a new data array and return
-        return xr.DataArray(data=counts,
-                            name=name,
-                            dims=('unique',),
-                            coords=dict(unique=unique))
+        return xr.DataArray(
+            data=counts,
+            name=name,
+            dims=("unique",),
+            coords=dict(unique=unique),
+        )
 
     if not dims:
         return _count_unique(data)
 
     if not isinstance(data, xr.DataArray):
-        raise TypeError("Data needs to be of type xr.DataArray, but was "
-                        f"{type(data)}!")
+        raise TypeError(
+            f"Data needs to be of type xr.DataArray, but was {type(data)}!"
+        )
 
     # use split-apply-combine along those dimensions not in dims
     split_dims = [dim for dim in data.dims if dim not in dims]
@@ -418,22 +445,22 @@ def count_unique(data, dims: List[str]=None) -> xr.DataArray:
     if len(split_dims) == 0:
         return _count_unique(data)
 
-    data = data.stack(_stack_cu=split_dims).groupby('_stack_cu')
-    return data.map(_count_unique).unstack('_stack_cu')
-
-
+    data = data.stack(_stack_cu=split_dims).groupby("_stack_cu")
+    return data.map(_count_unique).unstack("_stack_cu")
 
 
 # .............................................................................
 # Working with multidimensional data, mostly xarray-based
 
-def populate_ndarray(objs: Iterable,
-                     shape: Tuple[int]=None,
-                     dtype: Union[str, type, np.dtype]=float,
-                     order: str='C',
-                     out: np.ndarray=None,
-                     ufunc: Callable=None
-                     ) -> np.ndarray:
+
+def populate_ndarray(
+    objs: Iterable,
+    shape: Tuple[int] = None,
+    dtype: Union[str, type, np.dtype] = float,
+    order: str = "C",
+    out: np.ndarray = None,
+    ufunc: Callable = None,
+) -> np.ndarray:
     """Populates an empty np.ndarray of the given dtype with the given objects
     by zipping over a new array of the given ``shape`` and the sequence of
     objects.
@@ -463,8 +490,10 @@ def populate_ndarray(objs: Iterable,
         ValueError: If the number of given objects did not match the array size
     """
     if out is None and shape is None:
-        raise TypeError("Without an output array given, the `shape` argument "
-                        "needs to be specified!")
+        raise TypeError(
+            "Without an output array given, the `shape` argument "
+            "needs to be specified!"
+        )
 
     ufunc = ufunc if ufunc is not None else lambda e: e
     out = out if out is not None else np.empty(shape, dtype=dtype, order=order)
@@ -475,11 +504,12 @@ def populate_ndarray(objs: Iterable,
             f"and number of given objects ({len(objs)})!"
         )
 
-    it = np.nditer(out, flags=('multi_index', 'refs_ok'))
+    it = np.nditer(out, flags=("multi_index", "refs_ok"))
     for obj, _ in zip(objs, it):
         out[it.multi_index] = ufunc(obj)
 
     return out
+
 
 def multi_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> xr.DataArray:
     """Concatenates ``xr.Dataset`` or ``xr.DataArray`` objects using
@@ -523,11 +553,13 @@ def multi_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> xr.DataArray:
 
     # Reverse-iterate over dimensions and concatenate them
     for dim_idx, dim_name in reversed(list(enumerate(dims))):
-        log.debug("Concatenating along axis '%s' (idx: %d) ...",
-                  dim_name, dim_idx)
+        log.debug(
+            "Concatenating along axis '%s' (idx: %d) ...", dim_name, dim_idx
+        )
 
-        arrs = apply_along_axis(xr.concat, axis=dim_idx, arr=arrs,
-                                dim=dim_name)
+        arrs = apply_along_axis(
+            xr.concat, axis=dim_idx, arr=arrs, dim=dim_name
+        )
         # NOTE ``np.apply_along_axis`` would be what is desired here, but that
         #      function unfortunately tries to cast objects to np.arrays which
         #      is not what we want here at all! Thus, this function uses the
@@ -536,9 +568,13 @@ def multi_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> xr.DataArray:
     # Should be scalar now, get the element.
     return arrs.item()
 
-def merge(arrs: Union[Sequence[Union[xr.DataArray, xr.Dataset]], np.ndarray],
-          *, reduce_to_array: bool=False, **merge_kwargs
-          ) -> Union[xr.Dataset, xr.DataArray]:
+
+def merge(
+    arrs: Union[Sequence[Union[xr.DataArray, xr.Dataset]], np.ndarray],
+    *,
+    reduce_to_array: bool = False,
+    **merge_kwargs,
+) -> Union[xr.Dataset, xr.DataArray]:
     """Merges the given sequence of xarray objects into an xr.Dataset.
 
     As a convenience, this also allows passing a numpy object array containing
@@ -569,8 +605,10 @@ def merge(arrs: Union[Sequence[Union[xr.DataArray, xr.Dataset]], np.ndarray],
     #      is not desired, because it is not relevant.
     return darr
 
-def expand_dims(d: Union[np.ndarray, xr.DataArray],
-                *, dim: dict=None, **kwargs) -> xr.DataArray:
+
+def expand_dims(
+    d: Union[np.ndarray, xr.DataArray], *, dim: dict = None, **kwargs
+) -> xr.DataArray:
     """Expands the dimensions of the given object.
 
     If the object does not support the ``expand_dims`` method, it will be
@@ -587,18 +625,22 @@ def expand_dims(d: Union[np.ndarray, xr.DataArray],
     Returns:
         xr.DataArray: The input data with expanded dimensions.
     """
-    if not hasattr(d, 'expand_dims'):
+    if not hasattr(d, "expand_dims"):
         d = xr.DataArray(d)
     return d.expand_dims(dim, **kwargs)
 
-def expand_object_array(d: xr.DataArray, *,
-                        shape: Sequence[int]=None,
-                        astype: Union[str, type, np.dtype]=None,
-                        dims: Sequence[str]=None,
-                        coords: Union[dict, str]='trivial',
-                        combination_method: str='concat',
-                        allow_reshaping_failure: bool=False,
-                        **combination_kwargs) -> xr.DataArray:
+
+def expand_object_array(
+    d: xr.DataArray,
+    *,
+    shape: Sequence[int] = None,
+    astype: Union[str, type, np.dtype] = None,
+    dims: Sequence[str] = None,
+    coords: Union[dict, str] = "trivial",
+    combination_method: str = "concat",
+    allow_reshaping_failure: bool = False,
+    **combination_kwargs,
+) -> xr.DataArray:
     """Expands a labelled object-array that contains array-like objects into a
     higher-dimensional labelled array.
 
@@ -665,12 +707,17 @@ def expand_object_array(d: xr.DataArray, *,
         ValueError: On bad argument values for ``dims``, ``shape``, ``coords``
             or ``combination_method``.
     """
-    def prepare_item(d: xr.DataArray, *,
-                     midx: Sequence[int], shape: Sequence[int],
-                     astype: Union[str, type, np.dtype, None],
-                     name: str, dims: Sequence[str],
-                     generate_coords: Callable
-                     ) -> Union[xr.DataArray, None]:
+
+    def prepare_item(
+        d: xr.DataArray,
+        *,
+        midx: Sequence[int],
+        shape: Sequence[int],
+        astype: Union[str, type, np.dtype, None],
+        name: str,
+        dims: Sequence[str],
+        generate_coords: Callable,
+    ) -> Union[xr.DataArray, None]:
         """Extracts the desired element and reshapes and labels it accordingly.
         If any of this fails, returns ``None``.
         """
@@ -691,8 +738,9 @@ def expand_object_array(d: xr.DataArray, *,
         if astype is not None:
             item = item.astype(astype)
 
-        return xr.DataArray(item, name=name, dims=dims,
-                            coords=generate_coords(elem))
+        return xr.DataArray(
+            item, name=name, dims=dims, coords=generate_coords(elem)
+        )
 
     # Make sure we are operating on labelled data
     d = xr.DataArray(d)
@@ -735,15 +783,18 @@ def expand_object_array(d: xr.DataArray, *,
         )
 
     # Handle trivial coordinates for each coordinate dimension separately
-    coords = {n: (range(l) if isinstance(c, str) and c == "trivial" else c)
-              for (n, c), l in zip(coords.items(), shape)}
+    coords = {
+        n: (range(l) if isinstance(c, str) and c == "trivial" else c)
+        for (n, c), l in zip(coords.items(), shape)
+    }
 
     # Assemble info needed to bring individual array items into proper form
     item_name = d.name if d.name else "data"
     item_shape = tuple([1 for _ in d.shape]) + tuple(shape)
     item_dims = d.dims + tuple(dims)
-    item_coords = lambda e: dict(**{n: [c.item()] for n,c in e.coords.items()},
-                                 **coords)
+    item_coords = lambda e: dict(
+        **{n: [c.item()] for n, c in e.coords.items()}, **coords
+    )
 
     # The array that gathers all to-be-combined object arrays
     arrs = np.empty_like(d, dtype=object)
@@ -753,29 +804,38 @@ def expand_object_array(d: xr.DataArray, *,
     # dimensions and coordinates; the latter is crucial for alignment.
     # Alongside, type coercion can be performed. For failed reshaping, the
     # element may be skipped.
-    it = np.nditer(arrs.data, flags=('multi_index', 'refs_ok'))
+    it = np.nditer(arrs.data, flags=("multi_index", "refs_ok"))
     for _ in it:
-        item = prepare_item(d, midx=it.multi_index, shape=item_shape,
-                            astype=astype, name=item_name, dims=item_dims,
-                            generate_coords=item_coords)
+        item = prepare_item(
+            d,
+            midx=it.multi_index,
+            shape=item_shape,
+            astype=astype,
+            name=item_name,
+            dims=item_dims,
+            generate_coords=item_coords,
+        )
 
         if item is None:
             # Missing value; need to fall back to combination via merge
-            combination_method = 'merge'
+            combination_method = "merge"
             continue
         arrs[it.multi_index] = item
 
     # Now, combine
-    if combination_method == 'concat':
+    if combination_method == "concat":
         return multi_concat(arrs, dims=d.dims, **combination_kwargs)
 
-    elif combination_method == 'merge':
+    elif combination_method == "merge":
         return merge(arrs, reduce_to_array=True, **combination_kwargs)
 
-    raise ValueError(f"Invalid combination method '{combination_method}'! "
-                     "Choose from: 'concat', 'merge'.")
+    raise ValueError(
+        f"Invalid combination method '{combination_method}'! "
+        "Choose from: 'concat', 'merge'."
+    )
 
 
+# fmt: off
 # -----------------------------------------------------------------------------
 # The Operations Database -----------------------------------------------------
 # NOTE If a single "object to act upon" can be reasonably defined for an
@@ -793,9 +853,15 @@ _OPERATIONS = KeyOrderedDict({
     'import_and_call':
         lambda m, n, *a, **k: import_module_or_object(m, n)(*a, **k),
 
-    'np.':          lambda ms, *a, **k: get_from_module(np, name=ms)(*a, **k),
-    'xr.':          lambda ms, *a, **k: get_from_module(xr, name=ms)(*a, **k),
-    'scipy.':       lambda ms, *a, **k: get_from_module(scipy, name=ms)(*a, **k),
+    # Import from packages and call directly
+    'np.':
+        lambda ms, *a, **k: get_from_module(np, name=ms)(*a, **k),
+    'xr.':
+        lambda ms, *a, **k: get_from_module(xr, name=ms)(*a, **k),
+    'scipy.':
+        lambda ms, *a, **k: get_from_module(scipy, name=ms)(*a, **k),
+    'nx.':
+        lambda ms, *a, **k: get_from_module(nx, name=ms)(*a, **k),
 
     # Defining lambdas
     'lambda':       generate_lambda,
@@ -832,6 +898,7 @@ _OPERATIONS = KeyOrderedDict({
     'sum':          sum,
     'map':          map,
     'repr':         repr,
+    'sorted':       sorted,
 
     # Common operations on strings
     '.format':      lambda s, *a, **k: s.format(*a, **k),
@@ -841,6 +908,10 @@ _OPERATIONS = KeyOrderedDict({
 
     # Numerical operations - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Unary ...................................................................
+    'neg':          lambda d: operator.neg(d),
+    'pos':          lambda d: operator.pos(d),
+    'truth':        lambda d: operator.truth(d),
+
     'increment':    lambda d: d + 1,
     'decrement':    lambda d: d - 1,
     'count_unique': count_unique,
@@ -860,6 +931,7 @@ _OPERATIONS = KeyOrderedDict({
     '.real':        lambda d: d.real,
     '.nonzero':     lambda d: d.nonzero,
     '.flat':        lambda d: d.flat,
+    '.item':        lambda d: d.item(),
 
     # xarray
     '.head':        lambda d: d.head(),
@@ -893,6 +965,7 @@ _OPERATIONS = KeyOrderedDict({
     'mod':          lambda d, v: operator.mod(d, v),
     'mul':          lambda d, v: operator.mul(d, v),
     'matmul':       lambda d, v: operator.matmul(d, v),
+    'pow':          lambda d, v: operator.pow(d, v),
     'rshift':       lambda d, v: operator.rshift(d, v),
     'sub':          lambda d, v: operator.sub(d, v),
 
@@ -969,6 +1042,7 @@ _OPERATIONS = KeyOrderedDict({
 
     'np.invert':        np.invert,
     'np.transpose':     np.transpose,
+    'np.flip':          np.flip,
     'np.diff':          np.diff,
     'np.reshape':       np.reshape,
     'np.take':          np.take,
@@ -991,6 +1065,7 @@ _OPERATIONS = KeyOrderedDict({
     # xarray
     '.sel':             lambda d, *a, **k: d.sel(*a, **k),
     '.isel':            lambda d, *a, **k: d.isel(*a, **k),
+    '.drop_sel':        lambda d, *a, **k: d.drop_sel(*a, **k),
     '.median':          lambda d, *a, **k: d.median(*a, **k),
     '.quantile':        lambda d, *a, **k: d.quantile(*a, **k),
     '.argmin':          lambda d, *a, **k: d.argmin(*a, **k),
@@ -998,17 +1073,27 @@ _OPERATIONS = KeyOrderedDict({
     '.count':           lambda d, *a, **k: d.count(*a, **k),
     '.diff':            lambda d, *a, **k: d.diff(*a, **k),
     '.where':           lambda d, c, *a, **k: d.where(c, *a, **k),
+    '.ffill':           lambda d, *a, **k: d.ffill(*a, **k),
+    '.bfill':           lambda d, *a, **k: d.bfill(*a, **k),
+    '.fillna':          lambda d, *a, **k: d.fillna(*a, **k),
+    '.interpolate_na':  lambda d, *a, **k: d.interpolate_na(*a, **k),
+    '.dropna':          lambda d, *a, **k: d.dropna(*a, **k),
+    '.isin':            lambda d, *a, **k: d.isin(*a, **k),
 
     '.groupby':         lambda d, g, **k: d.groupby(g, **k),
     '.groupby_bins':    lambda d, g, **k: d.groupby_bins(g, **k),
     '.map':             lambda ds, func, **k: ds.map(func, **k),
-    '.reduce':          lambda ds, func, **k: ds.reduce(func, **k),
+    '.reduce':          lambda d, func, **k: d.reduce(func, **k),
 
     '.rename':          lambda d, *a, **k: d.rename(*a, **k),
     '.expand_dims':     lambda d, *a, **k: d.expand_dims(*a, **k),
     '.assign_coords':   lambda d, *a, **k: d.assign_coords(*a, **k),
+    '.assign_attrs':    lambda d, *a, **k: d.assign_attrs(*a, **k),
+    '.assign':          lambda d, *a, **k: d.assign(*a, **k),
 
     '.to_array':        lambda ds, *a, **k: ds.to_array(*a, **k),
+
+    '.to_dataframe':    lambda d, *a, **k: d.to_dataframe(*a, **k),
 
     'xr.Dataset':       xr.Dataset,
     'xr.DataArray':     xr.DataArray,
@@ -1022,9 +1107,12 @@ _OPERATIONS = KeyOrderedDict({
     'xr.combine_by_coords': xr.combine_by_coords,
 
     # scipy
-    'curve_fit':        scipy.optimize.curve_fit,
+    'curve_fit':
+        lambda *a, **k: import_module_or_object("scipy.optimize",
+                                                name="curve_fit")(*a, **k),
     # NOTE: Use the 'lambda' operation to generate the callable
 }) # End of default operation definitions
+# fmt: on
 
 # Add the boolean operators
 _OPERATIONS.update(BOOLEAN_OPERATORS)
@@ -1033,9 +1121,14 @@ _OPERATIONS.update(BOOLEAN_OPERATORS)
 # -----------------------------------------------------------------------------
 # Registering and applying operations
 
-def register_operation(*, name: str, func: Callable,
-                       skip_existing: bool=False,
-                       overwrite_existing: bool=False) -> None:
+
+def register_operation(
+    *,
+    name: str,
+    func: Callable,
+    skip_existing: bool = False,
+    overwrite_existing: bool = False,
+) -> None:
     """Adds an entry to the shared operations registry.
 
     Args:
@@ -1055,8 +1148,11 @@ def register_operation(*, name: str, func: Callable,
     """
     if name in _OPERATIONS and not overwrite_existing:
         if skip_existing:
-            log.debug("Operation '%s' is already registered and will not be "
-                      "registered again.", name)
+            log.debug(
+                "Operation '%s' is already registered and will not be "
+                "registered again.",
+                name,
+            )
             return
         raise ValueError(
             f"Operation name '{name}' already exists! Refusing to register a "
@@ -1077,8 +1173,10 @@ def register_operation(*, name: str, func: Callable,
     _OPERATIONS[name] = func
     log.debug("Registered operation '%s'.", name)
 
-def apply_operation(op_name: str, *op_args, _log_level: int=5,
-                    **op_kwargs) -> Any:
+
+def apply_operation(
+    op_name: str, *op_args, _log_level: int = 5, **op_kwargs
+) -> Any:
     """Apply an operation with the given arguments and then return it.
 
     Args:
@@ -1093,25 +1191,27 @@ def apply_operation(op_name: str, *op_args, _log_level: int=5,
         Any: The result of the operation
 
     Raises:
-        KeyError: On invalid operation name. This also suggests possible other
-            names that might match.
-        Exception: On failure to apply the operation, preserving the original
-            exception.
+        ValueError: On invalid operation name. This also suggests possible
+            other names that might match.
+        RuntimeError: On failure to *apply* the operation.
     """
     try:
         op = _OPERATIONS[op_name]
 
     except KeyError as err:
         # Find some close matches to make operation discovery easier
-        close_matches = available_operations(match=op_name)
-        join_str = "\n  - "
+        _close_matches = available_operations(match=op_name, n=8)
+        _did_you_mean = (
+            f" Did you mean: {', '.join(_close_matches)} ?"
+            if _close_matches
+            else ""
+        )
+        _available = make_columns(available_operations())
 
         raise ValueError(
-            f"No operation '{op_name}' registered! Did you mean: "
-            f"{', '.join(close_matches) if close_matches else '(no match)'} ?"
-            f"\nAvailable operations:{join_str}"
-            f"{join_str.join(available_operations())}\nIf you need to "
-            "register a new operation, use dantro.utils.register_operation."
+            f"No operation '{op_name}' registered!{_did_you_mean} "
+            f"\nAvailable operations:\n{_available}If you need to register "
+            "a new operation, use dantro.utils.register_operation."
         ) from err
 
     # Compute and return the results
@@ -1127,7 +1227,8 @@ def apply_operation(op_name: str, *op_args, _log_level: int=5,
             f"  kwargs: {op_kwargs}\n"
         ) from exc
 
-def available_operations(*, match: str=None, n: int=5) -> Sequence[str]:
+
+def available_operations(*, match: str = None, n: int = 5) -> Sequence[str]:
     """Returns all available operation names or a fuzzy-matched subset of them.
 
     Args:

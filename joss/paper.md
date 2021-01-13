@@ -126,7 +126,7 @@ Such a declarative plotting approach would be well-suited for the visualization 
 
 ## Acknowledgments
 
-We would like to thank 
+We would like to thank
 Unai Fischer Abaigar,
 Daniel Lake,
 and Julian Weninger

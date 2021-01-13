@@ -1,0 +1,94 @@
+# Configuration for the DAG multiplot function
+---
+# A brief test of all various available plot configurations
+# The test_multiplot.py file contains a USE_TMPDIR boolean switch that
+# allows you to save the created plots and look at them.
+multiplots:
+  simple_scatter:
+    plot_func: multiplot
+    to_plot:
+      - function: sns.scatterplot
+        data: !dag_result data
+        x: dim_0
+        y: dim_1
+
+  shared_kwargs:
+    plot_func: multiplot
+    marker: o
+    linestyle: --
+    to_plot:
+      - function: sns.scatterplot
+        data: !dag_result data
+        x: dim_0
+        y: dim_1
+        marker: x
+
+  func_without_kwargs:
+    plot_func: multiplot
+    to_plot:
+      - function: sns.scatterplot
+
+  multiple_funcs:
+    plot_func: multiplot
+    to_plot:
+      - function: sns.lineplot
+        data: !dag_result data
+      - function: sns.scatterplot
+        data: !dag_result data
+      - function: sns.despine
+
+  # Try to plot all different plot kinds.
+  # All plot functions should be available, but single plots are allowed
+  # to fail. The plot should succeed.
+  all_succeeding_sns_funcs:
+    plot_func: multiplot
+    to_plot:
+      - function: sns.scatterplot    # Do not fail, but warn, if 'data' missing
+      - function: sns.lineplot
+        data: !dag_result data
+      - function: sns.histplot
+        data: !dag_result data
+      - function: sns.kdeplot
+        data: !dag_result data
+      - function: sns.ecdfplot
+        data: !dag_result data
+      - function: sns.rugplot
+        data: !dag_result data
+      - function: sns.stripplot
+        data: !dag_result data
+      - function: sns.swarmplot
+        data: !dag_result data
+      - function: sns.boxplot
+        data: !dag_result data
+      - function: sns.violinplot
+        data: !dag_result data
+      - function: sns.boxenplot
+        data: !dag_result data
+      - function: sns.pointplot
+        data: !dag_result data
+      - function: sns.barplot
+        data: !dag_result data
+      - function: sns.countplot
+        data: !dag_result data
+      - function: sns.heatmap
+        data: !dag_result data
+      - function: sns.despine
+      - function: sns.regplot
+        data: !dag_result data
+      - function: sns.residplot
+        data: !dag_result data
+
+  pass_func_obj:
+    plot_func: multiplot
+    transform:
+      - import: [seaborn, boxplot]
+        tag: boxplot
+      - import: [matplotlib.pyplot, plot]
+        tag: plot
+    to_plot:
+      - function: !dag_result boxplot
+        data: !dag_result data
+      - function: !dag_result plot
+        args:
+          - !dag_result plot_x_data
+          - !dag_result plot_y_data

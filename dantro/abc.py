@@ -3,8 +3,8 @@
 import abc
 import collections
 import collections.abc
-from typing import Union, Tuple, Any
 import logging
+from typing import Any, Tuple, Union
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -12,14 +12,18 @@ log = logging.getLogger(__name__)
 # The character used for separating hierarchies in the path
 PATH_JOIN_CHAR = "/"
 
+# Substrings that may not appear in names of data containers
+BAD_NAME_CHARS = ("*", "?", "[", "]", "!", ":", "(", ")", PATH_JOIN_CHAR, "\\")
+
 # -----------------------------------------------------------------------------
+
 
 class AbstractDataContainer(metaclass=abc.ABCMeta):
     """The AbstractDataContainer is the class defining the data container
     interface. It holds the bare basics of methods and attributes that _all_
     dantro data tree classes should have in common: a name, some data, and some
     association with others via an optional parent object.
-    
+
     Via the parent and the name, path capabilities are provided. Thereby, each
     object in a data tree has some information about its location relative to
     a root object.
@@ -31,7 +35,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
     def __init__(self, *, name: str, data: Any):
         """Initialize the AbstractDataContainer, which holds the bare
         essentials of what a data container should have.
-        
+
         Args:
             name (str): The name of this container
             data (Any): The data that is to be stored
@@ -60,29 +64,35 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
         # Check if this is a renaming operation; allow only if currently orphan
         if self._name is not None:
             if self.parent is not None:
-                raise ValueError("Cannot rename {} to '{}', because a parent "
-                                 "was already associated with it."
-                                 "".format(self.logstr, new_name))
+                raise ValueError(
+                    f"Cannot rename {self.logstr} to '{new_name}', because a "
+                    "parent was already associated with it."
+                )
+            log.debug("Renaming %s to '%s' ...", self.logstr, new_name)
 
-        # Require strings as name
+        # Require string as name
         if not isinstance(new_name, str):
-            raise TypeError("Name for {} needs to be a string, was of type "
-                            "{} with value '{}'."
-                            "".format(self.classname,
-                                      type(new_name), new_name))
+            raise TypeError(
+                f"Name for {self.classname} needs to be a string, was of type "
+                f"{type(new_name)} with value '{new_name}'."
+            )
 
-        # Ensure name does not contain path join character
-        if PATH_JOIN_CHAR in new_name:
-            raise ValueError("Name for {} cannot contain the path separator "
-                             "'{}'! Got: '{}'"
-                             "".format(self.classname, PATH_JOIN_CHAR,
-                                       new_name))
+        # Ensure name does not contain any bad substrings. Do this here rather
+        # than in _check_name because these checks are crucial.
+        if any([c in new_name for c in BAD_NAME_CHARS]):
+            _bad_name_chars = ", ".join(repr(s) for s in BAD_NAME_CHARS)
+            raise ValueError(
+                f"Invalid name '{new_name}' for new {self.classname}! "
+                "The name may not contain any of the following "
+                f"substrings: {_bad_name_chars}"
+            )
 
         # Allow further checks by an additional method
         self._check_name(new_name)
 
-        # Everything ok, store the attribute
+        # Everything ok, store the attribute and invalidate cached logstring
         self._name = new_name
+        self._logstr = None
 
     @property
     def classname(self) -> str:
@@ -95,7 +105,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
         used in logging..."""
         # Store the cache value, if not already happened
         if self._logstr is None:
-            self._logstr = "{} '{}'".format(self.classname, self.name)
+            self._logstr = f"{self.classname} '{self.name}'"
 
         # Return the cache value
         return self._logstr
@@ -114,14 +124,19 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
     def parent(self, cont):
         """Associate a new parent object with this container or group"""
         if self.parent is not None and cont is not None:
-            raise ValueError("A parent was already associated with {cls:} "
-                             "'{}'! Instead of manually setting the parent, "
-                             "use the functions supplied to manipulate "
-                             "members of this {cls:}."
-                             "".format(self.name, cls=self.classname))
-        
-        log.trace("Setting %s as parent of %s ...",
-                  cont.logstr if cont else None, self.logstr)
+            raise ValueError(
+                "A parent was already associated with {cls:} "
+                "'{}'! Instead of manually setting the parent, "
+                "use the functions supplied to manipulate "
+                "members of this {cls:}."
+                "".format(self.name, cls=self.classname)
+            )
+
+        log.trace(
+            "Setting %s as parent of %s ...",
+            cont.logstr if cont else None,
+            self.logstr,
+        )
         self._parent = cont
 
     @property
@@ -159,7 +174,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
         This method can be subclassed to implement more specific behaviour. To
         propagate the parent classes' behaviour the subclassed method should
         always call its parent method using super().
-        
+
         Args:
             new_name (str): The new name, which is to be checked.
         """
@@ -167,7 +182,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
 
     def _check_data(self, data: Any) -> None:
         """This method can be used to check the data provided to this container
-        
+
         It is called before the data is stored in the __init__ method and
         should raise an exception or create a warning if the data is not as
         desired.
@@ -175,10 +190,10 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
         This method can be subclassed to implement more specific behaviour. To
         propagate the parent classes' behaviour the subclassed method should
         always call its parent method using super().
-        
+
         NOTE The CheckDataMixin provides a generalised implementation of this
              method to perform some type checks and react to unexpected types.
-        
+
         Args:
             data (Any): The data to check
         """
@@ -212,12 +227,13 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
 
         for spec in specs:
             try:
-                format_func = getattr(self, '_format_'+spec)
+                format_func = getattr(self, "_format_" + spec)
             except AttributeError as err:
-                raise ValueError("No format string specification '{}', part "
-                                 "of '{}', is available for {}!"
-                                 "".format(spec, specs,
-                                           self.logstr)) from err
+                raise ValueError(
+                    "No format string specification '{}', part "
+                    "of '{}', is available for {}!"
+                    "".format(spec, specs, self.logstr)
+                ) from err
             else:
                 parts.append(format_func())
 
@@ -226,7 +242,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
     def _format_name(self) -> str:
         """A __format__ helper function: returns the name"""
         return self.name
-    
+
     def _format_cls_name(self) -> str:
         """A __format__ helper function: returns the class name"""
         return self.classname
@@ -249,6 +265,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
 
 # -----------------------------------------------------------------------------
 
+
 class AbstractDataGroup(AbstractDataContainer, collections.abc.MutableMapping):
     """The AbstractDataGroup is the abstract basis of all data groups.
 
@@ -261,7 +278,7 @@ class AbstractDataGroup(AbstractDataContainer, collections.abc.MutableMapping):
         raise AttributeError("Cannot directly access group data!")
 
     @abc.abstractmethod
-    def add(self, *conts, overwrite: bool=False) -> None:
+    def add(self, *conts, overwrite: bool = False) -> None:
         """Adds the given containers to the group."""
 
     @abc.abstractmethod
@@ -301,28 +318,30 @@ class AbstractDataGroup(AbstractDataContainer, collections.abc.MutableMapping):
         """A __format__ helper function: tree representation of this group"""
 
     @abc.abstractmethod
-    def _tree_repr(self, level: int=0) -> str:
+    def _tree_repr(self, level: int = 0) -> str:
         """Recursively creates a multi-line string tree representation of this
         group. This is used by, e.g., the _format_tree method."""
 
+
 # -----------------------------------------------------------------------------
+
 
 class AbstractDataAttrs(collections.abc.Mapping, AbstractDataContainer):
     """The BaseDataAttrs class defines the interface for the `.attrs`
     attribute of a data container.
 
-    This class derives from the abstract class as otherwise there would be 
-    circular inheritance. It stores the attributes as mapping and need not be 
+    This class derives from the abstract class as otherwise there would be
+    circular inheritance. It stores the attributes as mapping and need not be
     subclassed.
     """
-    
+
     # .........................................................................
     # Specify the attrs interface, dict-like
 
     @abc.abstractmethod
     def __contains__(self, key) -> bool:
         """Whether the given key is contained in the attributes."""
-    
+
     @abc.abstractmethod
     def __len__(self) -> int:
         """The number of attributes."""
@@ -337,10 +356,11 @@ class AbstractDataAttrs(collections.abc.Mapping, AbstractDataContainer):
 
     @abc.abstractmethod
     def items(self):
-        """Returns an iterator over the (keys, values) tuple of the attributes.
-        """
+        """Returns an iterator over the (keys, values) tuple of the attributes."""
+
 
 # -----------------------------------------------------------------------------
+
 
 class AbstractDataProxy(metaclass=abc.ABCMeta):
     """A data proxy fills in for the place of a data container, e.g. if data
@@ -348,7 +368,7 @@ class AbstractDataProxy(metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def __init__(self, obj):
+    def __init__(self, obj: Any = None):
         """Initialize the proxy object, being supplied with the object that
         this proxy is to be proxy for.
         """
@@ -359,7 +379,7 @@ class AbstractDataProxy(metaclass=abc.ABCMeta):
         return self.__class__.__name__
 
     @abc.abstractmethod
-    def resolve(self, *, astype: type=None):
+    def resolve(self, *, astype: type = None):
         """Get the data that this proxy is a placeholder for and return it.
 
         Note that this method does not place the resolved data in the
@@ -371,10 +391,10 @@ class AbstractDataProxy(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def tags(self) -> Tuple[str]:
         """The tags describing this proxy object"""
-    
 
 
 # -----------------------------------------------------------------------------
+
 
 class AbstractPlotCreator(metaclass=abc.ABCMeta):
     """This class defines the interface for PlotCreator classes"""
@@ -386,13 +406,13 @@ class AbstractPlotCreator(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def __call__(self, *, out_path: str=None, **update_plot_cfg):
+    def __call__(self, *, out_path: str = None, **update_plot_cfg):
         """Perform the plot, updating the configuration passed to __init__
         with the given values and then calling _plot.
         """
 
     @abc.abstractmethod
-    def plot(self, out_path: str=None, **cfg):
+    def plot(self, out_path: str = None, **cfg):
         """Given a specific configuration, perform a plot.
 
         This method should always be private and only be called from __call__.
@@ -408,25 +428,25 @@ class AbstractPlotCreator(metaclass=abc.ABCMeta):
 
         This function is called by the plot manager before the first plot
         is created.
-        
+
         The base implementation just passes the given arguments through.
         However, it can be re-implemented by derived classes to change the
         behaviour of the plot manager, e.g. by converting a plot configuration
         to a parameter space.
         """
-        
+
     @abc.abstractmethod
     def can_plot(self, creator_name: str, **plot_cfg) -> bool:
         """Whether this plot creator is able to make a plot for the given plot
         configuration.
 
         This function is used by the PlotManager's auto-detect feature.
-        
+
         Args:
             creator_name (str): The name for this creator used within the
                 PlotManager.
             **plot_cfg: The plot configuration with which to decide this.
-        
+
         Returns:
             bool: Whether this creator can be used for the given plot config
         """

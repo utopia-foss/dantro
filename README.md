@@ -60,17 +60,19 @@ _Note_ that if you have both Python 2 and Python 3 installed, you might have to 
 
 | Package Name                  | Minimum Version  | Purpose                  |
 | ----------------------------- | ---------------- | ------------------------ |
-| [numpy][numpy]                | 1.17.4           | 
-| [xarray][xarray]              | 0.16             | For labelled N-dimensional arrays |
+| [numpy][numpy]                | 1.19.4           | |
+| [xarray][xarray]              | 0.16.2           | For labelled N-dimensional arrays |
 | [dask][dask]                  | 2.10.1           | To work with large data |
 | [toolz][toolz]                | 0.10             | For [dask.delayed][dask-delayed]
 | [distributed][distributed]    | 2.10             | For distributed computing |
-| [scipy][scipy]                | 1.4.1            | As engine for NetCDF files |
+| [scipy][scipy]                | 1.5.4            | As engine for NetCDF files |
 | [sympy][sympy]                | 1.6.1            | For symbolic math operations |
-| [h5py][h5py]                  | 2.10             | For reading HDF5 datasets |
+| [h5py][h5py]                  | 3.1              | For reading HDF5 datasets |
 | [matplotlib][matplotlib]      | 3.2.1            | For data visualization |
-| [networkx][networkx]          | 2.2              | For network visualization |
-| [ruamel.yaml][ruamelyaml]     | 0.16.10          | For parsing YAML configuration files |
+| [seaborn][seaborn]            | 0.11             | For advanced data visualization |
+| [networkx][networkx]          | 2.5              | For network visualization |
+| [ruamel.yaml][ruamelyaml]     | 0.16.12          | For parsing YAML configuration files |
+| [dill][dill]                  | 0.3.3            | For advanced pickling |
 | [paramspace][paramspace]      | 2.5              | For dictionary- or YAML-based parameter spaces |
 
 
@@ -112,6 +114,8 @@ For development purposes, the following additional packages are required.
 | [tox][tox]                    | 3.1.2            | Test environments        |
 | [Sphinx][sphinx]              | 2.4 (< 3.0)      | Documentation generator  |
 | [sphinx_rtd_theme][sphinxrtd] | 0.5              | Documentation HTML theme |
+| [pre-commit][pre-commit]      | 2.8.2            | For [commit hooks](#commit-hooks) |
+| [black][black]                | 20.8b1           | For code formatting      |
 
 To install these development-related dependencies, enter the virtual environment, navigate to the cloned repository, and perform the installation using:
 
@@ -120,12 +124,20 @@ To install these development-related dependencies, enter the virtual environment
 (dantro) $ pip install -e .[dev]
 ```
 
+With these dependencies having been installed, make sure to set up the git hook that allows pre-commit to run before making a commit:
+
+```bash
+(dantro) $ pre-commit install
+```
+
+For more information on commit hooks, see [the commit hooks section below](#commit-hooks).
+
 
 ### Testing framework
 To assert correct functionality, tests are written alongside all features.
 The [`pytest`][pytest] and [`tox`][tox] packages are used as testing frameworks.
 
-All tests are carried out for Python 3.6 through 3.8 using the GitLab CI/CD and the newest versions of all [dependencies](#dependencies).
+All tests are carried out for Python 3.6 through 3.9 using the GitLab CI/CD and the newest versions of all [dependencies](#dependencies).
 When merging to the master branch, `dantro` is additionally tested against the specified _minimum_ versions.
 
 Test coverage and pipeline status can be seen on [the project page][dantro-project].
@@ -168,6 +180,30 @@ The result can either be downloaded from the job artifacts or the deployed GitLa
 
 Upon warnings or errors in the build, the job will exit with an orange warning sign.
 You can inspect the `build_errors.log` file via the exposed CI artifacts.
+
+
+### Commit hooks
+To streamline dantro development, a number of automations are used which take care of code formatting and perform some basic checks.
+These automations are managed by [pre-commit][pre-commit] and are run when invoking `git commit` (hence the name).
+
+If these so-called hooks determine a problem, they will display an error and you will not be able to commit just yet.
+Some of the hooks automatically fix the error (e.g.: removing whitespace), others require some manual action on your part.
+_Either way,_ you will have to stage these changes manually (using `git add`, as usual).
+To check which changes were made by the hooks, use `git diff`.
+
+Once you applied the requested changes, invoke `git commit` anew.
+This will again trigger the hooks, but — with all issues resolved — the hooks should now all pass and lead you to the usual commit message prompt.
+
+The most notable hooks are:
+
+* [black][black]: The uncompromising code formatter
+* [isort][isort]: Systematically sorts Python `import` statements
+
+Both [isort][isort] and [black][black] are configured in the [`pyproject.toml`](pyproject.toml) file.
+For the other hooks' configuration, see [`.pre-commit-config.yaml`](.pre-commit-config.yaml).
+All hooks are also being run in the [GitLab CI/CD](.gitlab-ci.yml) `check:hooks` job.
+
+If you have trouble setting up the hooks or if they create erroneous results, please let us know.
 
 
 
@@ -246,6 +282,7 @@ Contact the developers via: [`dantro-dev@iup.uni-heidelberg.de`][devmail]
 [matplotlib]: https://matplotlib.org
 [networkx]: https://networkx.github.io
 [ruamelyaml]: https://yaml.readthedocs.io/en/latest/
+[dill]: https://pypi.org/project/dill/
 [paramspace]: https://pypi.org/project/paramspace/
 
 [pytest]: https://pytest.org/en/latest/
@@ -253,6 +290,9 @@ Contact the developers via: [`dantro-dev@iup.uni-heidelberg.de`][devmail]
 [tox]: https://tox.readthedocs.io/en/latest/
 [sphinx]: https://www.sphinx-doc.org/
 [sphinxrtd]: https://sphinx-rtd-theme.readthedocs.io/en/stable/
+[pre-commit]: https://pre-commit.com
+[black]: https://black.readthedocs.io/en/stable/
+[isort]: https://pycqa.github.io/isort/
 
 [pip-install-docs]: https://pip.pypa.io/en/stable/reference/pip_install/#git
 [venv]: https://docs.python.org/3/library/venv.html

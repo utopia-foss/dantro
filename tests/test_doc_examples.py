@@ -30,19 +30,16 @@ In order to let the tests be independent, even for imports, there should NOT
 be any imports on the global level of this test file!
 """
 
-from pkg_resources import resource_filename
-
-import pytest
-
-import numpy as np
 import h5py as h5
+import numpy as np
+import pytest
+from pkg_resources import resource_filename
 
 from dantro.tools import load_yml
 
-
 # Local Variables -------------------------------------------------------------
 
-DOC_EXAMPLES_CFG = resource_filename('tests', 'cfg/doc_examples.yml')
+DOC_EXAMPLES_CFG = resource_filename("tests", "cfg/doc_examples.yml")
 
 
 # Fixtures --------------------------------------------------------------------
@@ -54,9 +51,9 @@ def data_dir(tmpdir):
     from dantro.tools import write_yml
 
     # Create YAML dummy data and write it out
-    foobar = dict(one=1, two=2,
-                  go_deeper=dict(eleven=11),
-                  a_list=list(range(10)))
+    foobar = dict(
+        one=1, two=2, go_deeper=dict(eleven=11), a_list=list(range(10))
+    )
     barbaz = dict(nothing="to see here")
 
     write_yml(foobar, path=tmpdir.join("foobar.yml"))
@@ -67,8 +64,10 @@ def data_dir(tmpdir):
     cfgdir = tmpdir.mkdir("config")
 
     for cfg_name in ("defaults", "user", "machine", "update", "combined"):
-        write_yml(dict(),  # empty, but irrelevant
-                  path=cfgdir.join(cfg_name+"_cfg.yml"))
+        write_yml(
+            dict(),  # empty, but irrelevant
+            path=cfgdir.join(cfg_name + "_cfg.yml"),
+        )
 
     # Create some dummy HDF5 data
     h5dir = tmpdir.mkdir("measurements")
@@ -79,24 +78,28 @@ def data_dir(tmpdir):
         day = "day{:03d}".format(i)
 
         # Write some yaml file
-        write_yml(dict(day=i),
-                  path=h5dir.join(day + "_params.yml"))
+        write_yml(dict(day=i), path=h5dir.join(day + "_params.yml"))
 
         # Now the HDF5 data
-        f = h5.File(h5dir.join(day + ".hdf5"), 'w')
+        f = h5.File(h5dir.join(day + ".hdf5"), "w")
 
         N = np.random.randint(100, 200)
 
-        f.create_dataset("temperatures",
-                         data=((np.random.random((N,)) - .4) * 70),
-                         chunks=True)
-        f.create_dataset("precipitation",
-                         data=(np.random.random((N,)) * 1000.), dtype=int,
-                         chunks=True)
+        f.create_dataset(
+            "temperatures",
+            data=((np.random.random((N,)) - 0.4) * 70),
+            chunks=True,
+        )
+        f.create_dataset(
+            "precipitation",
+            data=(np.random.random((N,)) * 1000.0),
+            dtype=int,
+            chunks=True,
+        )
         # TODO Consider adding coordinates here?!
 
         g = f.create_group("sensor_data")
-        g.attrs['some_attribute'] = "this is some group level attribute"
+        g.attrs["some_attribute"] = "this is some group level attribute"
 
         for j in range(23):
             _data = np.random.random((3, np.random.randint(80, 100)))
@@ -111,6 +114,13 @@ def data_dir(tmpdir):
 def cfg() -> dict:
     """Loads the documentation examples config file"""
     return load_yml(DOC_EXAMPLES_CFG)
+
+
+# -----------------------------------------------------------------------------
+# -- INCLUDES START BELOW -----------------------------------------------------
+# -----------------------------------------------------------------------------
+# NOTE Important! Turn off black formatting for everything that is included...
+# fmt: off
 
 # -----------------------------------------------------------------------------
 # usage.rst
@@ -244,7 +254,7 @@ def test_specializing_containers():
 
     # Import base container class and the mixins we would like to use
     from dantro.base import BaseDataContainer
-    from dantro.mixins import ItemAccessMixin, CollectionMixin, CheckDataMixin
+    from dantro.mixins import CheckDataMixin, CollectionMixin, ItemAccessMixin
 
     class MutableSequenceContainer(CheckDataMixin,
                                    ItemAccessMixin,
@@ -304,7 +314,7 @@ def test_specializing_containers():
 def test_specializing_data_manager():
     ### Start -- specializing_data_manager
     import dantro
-    from dantro.data_loaders import YamlLoaderMixin, PickleLoaderMixin
+    from dantro.data_loaders import PickleLoaderMixin, YamlLoaderMixin
 
     class MyDataManager(PickleLoaderMixin,
                         YamlLoaderMixin,
@@ -495,8 +505,8 @@ def test_data_io_load_cfg(data_dir, cfg):
 
 def test_data_io_faq():
     ### Start -- data_io_faq_add_any_object
-    from dantro.groups import OrderedDataGroup
     from dantro.containers import ObjectContainer, PassthroughContainer
+    from dantro.groups import OrderedDataGroup
 
     # The object we want to add to the tree
     some_object = ("foo", b"bar", 123, 4.56, None)
@@ -620,7 +630,9 @@ def test_groups_graphgroup():
 # -- plotting -----------------------------------------------------------------
 # -----------------------------------------------------------------------------
 # plotting/plot_cfg_ref.rst
-from .test_plot_mngr import dm as pm_dm, pm_kwargs, pcr_ext_kwargs
+from .test_plot_mngr import dm as pm_dm
+from .test_plot_mngr import pcr_ext_kwargs, pm_kwargs
+
 
 def test_plot_cfg_ref(cfg, tmpdir, pm_dm, pm_kwargs, pcr_ext_kwargs):
     """Tests the examples for the plot configuration reference"""

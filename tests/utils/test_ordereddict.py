@@ -1,23 +1,27 @@
 """Test the utils.ordereddict module"""
 
-import sys
+import logging
 import random
+import sys
 import uuid
 from typing import Callable
 
+import numpy as np
 import pytest
 
-import numpy as np
-
 import dantro
+import dantro.groups
 import dantro.utils
 import dantro.utils.coords
-import dantro.groups
+
+logging.getLogger("dantro.utils.ordereddict").setLevel(dantro.logging.TRACE)
 
 # Fixtures --------------------------------------------------------------------
 
-def random_kv_pairs(max_num: int=100, *, key_kind="int",
-                    key_sort_func: Callable=None) -> tuple:
+
+def random_kv_pairs(
+    max_num: int = 100, *, key_kind="int", key_sort_func: Callable = None
+) -> tuple:
     """Returns a randomly shuffled list of key-value pairs and a sequence
     of the ordered keys.
     """
@@ -41,6 +45,7 @@ def random_kv_pairs(max_num: int=100, *, key_kind="int",
 
 
 # Tests -----------------------------------------------------------------------
+
 
 def test_KeyOrderedDict():
     """Tests the KeyOrderedDict, a subclass of OrderedDict maintaining key
@@ -67,8 +72,9 @@ def test_KeyOrderedDict():
     assert all([k1 == k2 for k1, k2 in zip(kod.keys(), sorted_keys)])
 
     # Reverse iteration should also work
-    assert all([k1 == k2 for k1, k2 in zip(reversed(kod),
-                                           reversed(sorted_keys))])
+    assert all(
+        [k1 == k2 for k1, k2 in zip(reversed(kod), reversed(sorted_keys))]
+    )
 
     # Custom comparator, here: for reverse ordering
     comp_reversed = lambda k: -k
@@ -76,20 +82,58 @@ def test_KeyOrderedDict():
     kod = KOD(kv_pairs, key=comp_reversed)
     assert all([k1 == k2 for k1, k2 in zip(kod.keys(), sorted_keys)])
 
-    # Custom insert method
-    with pytest.raises(NotImplementedError):
-        kod.insert("key", "value")
+    # Custom insert method, with hints
+    kod.insert(123, "foo")
+    kod.insert(124, "bar", hint_after=123)
 
     # With str-cast keys but integer sorting
     comp_reversed = lambda k: int(k)
-    kv_pairs, sorted_keys = random_kv_pairs(key_kind="str",
-                                            key_sort_func=comp_reversed)
+    kv_pairs, sorted_keys = random_kv_pairs(
+        key_kind="str", key_sort_func=comp_reversed
+    )
     kod = KOD(kv_pairs, key=comp_reversed)
     assert all([k1 == k2 for k1, k2 in zip(kod.keys(), sorted_keys)])
 
-    # Custom insert method
-    with pytest.raises(NotImplementedError):
-        kod.insert("key", "value")
+    # Test insertion complexity ...............................................
+    # Comparison: out-of-order
+    kv_pairs, sorted_keys = random_kv_pairs()
+    kod_ooo = KOD(kv_pairs)
+    assert all([k1 == k2 for k1, k2 in zip(kod_ooo.keys(), sorted_keys)])
+
+    # In order, ascending: constant, no search
+    kod_ioa = KOD(sorted(kv_pairs))
+    assert all([k1 == k2 for k1, k2 in zip(kod_ioa.keys(), sorted_keys)])
+    assert kod_ioa._num_comparisons < kod_ooo._num_comparisons
+    assert kod_ioa._num_comparisons <= len(kod_ioa) + 10
+
+    # In order, descending: constant, no search
+    kod_iod = KOD(reversed(sorted(kv_pairs)))
+    assert all([k1 == k2 for k1, k2 in zip(kod_iod.keys(), sorted_keys)])
+    assert kod_iod._num_comparisons < kod_ooo._num_comparisons
+    assert kod_iod._num_comparisons <= 2 * len(kod_iod) + 10
+
+    # Insertion hints reduce number of required iterations
+    # To replicate this, use a contiguous sequence of even numbers
+    kod_cont = KOD((i, i) for i in range(0, 100, 2))
+    assert all([k1 == k2 for k1, k2 in zip(kod_cont, range(0, 100, 2))])
+    n0 = kod_cont._num_comparisons
+    assert n0 == 50 - 1
+
+    # Inserting in the middle is costly without hints
+    kod_cont.insert(51, "foo")
+    n1 = kod_cont._num_comparisons
+    assert n1 == n0 + (51 // 2 + 1) + 2  # +2 is the constant search offset
+
+    # ... but cheap, with hints!
+    kod_cont.insert(49, "foo", hint_after=48)
+    n2 = kod_cont._num_comparisons
+    assert n2 == n1 + 2  # yay :)
+
+    # If the hint is bad, it is discarded
+    kod_cont.insert(79, "foo", hint_after=80)  # sic
+    n3 = kod_cont._num_comparisons
+    assert n3 == n2 + (79 // 2 + 1 + 2) + 2
+    #                                ^-- for additionally added 49 and 51
 
     # Test remaining OrderedDict functionality ................................
     # Do not use a custom comparator for that
@@ -165,5 +209,3 @@ def test_KeyOrderedDict():
     kod._key = lambda k: None
     with pytest.raises(ValueError, match="Failed comparing 'None'"):
         kod["foo"] = "bar"
-
-

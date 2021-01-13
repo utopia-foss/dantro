@@ -1,19 +1,19 @@
 # Configuration for the generic DAG facet grid plotting function
 ---
-# .. Automatic, i.e.: no `kind` specified .....................................
-auto:
+# .. No `kind` specified ......................................................
+no_kind:
   no_hue: &no_hue
     specifiers: [x, 'y', row, col, frames]
     max_dims: 7
     raises:
-      6: &only_1d_and_2d [ValueError, Only 1d and 2d plots are supported]
+      6: &only_1d_and_2d [PlottingError, Only 1d and 2d plots are supported]
       7: *only_1d_and_2d
 
   line_plots: &line_plots
     specifiers: [x, hue]
     max_dims: 4
     raises:
-      3: &line_plots_1d_or_2d [ValueError, Line plots are for 1- or 2-dimensio]
+      3: &line_plots_1d_or_2d [PlottingError, Line plots are for 1- or 2-dimensio]
       4: *only_1d_and_2d
 
   line_plots_anim:
@@ -32,8 +32,51 @@ auto:
     raises:
       5: *only_1d_and_2d
 
+
+# .. Automatic, i.e.: `kind: auto` and auto-encoding feature ..................
+auto:
+  fully_automatic:
+    kinds: [auto]
+    specifiers: []
+    max_dims: 7
+    plot_kwargs:
+      auto_encoding: true
+
+  partly_specified:
+    kinds: [auto]
+    specifiers: [y, x, row]  # x and y given -> forces pcolormesh
+    max_dims: 6
+    plot_kwargs:
+      auto_encoding: true
+    raises:
+      6: [PlottingError, must be a permuted list]
+
+  custom_auto_encoding:
+    kinds: [line, pcolormesh]
+    specifiers: []
+    min_dims: 2
+    max_dims: 5
+    plot_kwargs:
+      auto_encoding:
+        # Use custom order of encoding specifiers
+        pcolormesh: [y, x, frames, row, col]
+        line: [y, frames, row, col, hue]
+
+  auto_col_wrap:
+    kinds: [line]
+    specifiers: []
+    min_dims: 2
+    max_dims: 6
+    plot_kwargs:
+      auto_encoding:
+        line: [x, col, hue, frames, row]  # to provoke early col_wrap
+      col_wrap: auto
+    raises:
+      6: *line_plots_1d_or_2d
+
+
 # .. With `kind` specified ....................................................
-# A brief test of all various kinds.
+# Tests of all various kinds; not in-depth but covering most cases
 kinds:
   line: &line
     kinds: [line]
@@ -70,7 +113,7 @@ kinds:
     plot_kwargs:
       col_wrap: 2
 
-  heatmap:
+  pcolormesh:
     <<: *contour
     kinds: [pcolormesh]
 
@@ -89,6 +132,32 @@ kinds:
     specifiers: [frames]
     min_dims: 4
     max_dims: 4
+
+  errorbars:
+    kinds: [errorbars]
+    specifiers: [x, hue, col]  # rest is auto-encoded
+    min_dims: 1
+    max_dims: 5
+    test_data_path: ds_labelled
+    plot_kwargs:
+      y: foo
+      yerr: bar
+      auto_encoding: true
+      use_bands: true
+
+  scatter:
+    kinds: [scatter]
+    specifiers: [col, frames]
+    min_dims: 2
+    max_dims: 4
+    test_data_path: ds_labelled
+    plot_kwargs:
+      x: foo
+      y: bar
+      markersize: baz
+      hue: spam
+      auto_encoding: true
+
 
 
 # NOTE: All below are extended tests, i.e.: only run if FULL_TEST is set!
@@ -110,6 +179,41 @@ line:
     raises:
       0: *Exception
       5: *Exception
+
+# .. errorbar plots . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+errorbars:
+  ebars_simple: &ebars
+    kinds: [errorbars]
+    specifiers: [x, hue, col]  # rest is auto-encoded
+    min_dims: 1
+    max_dims: 5
+    test_data_path: ds_labelled
+    plot_kwargs: &ebars_kwargs
+      y: foo
+      yerr: bar
+      auto_encoding: true
+      use_bands: true
+
+      helpers:
+        set_suptitle:
+          title: foo
+
+        set_figlegend:
+          gather_from_fig: true
+          hiding_threshold: 5
+
+  # .. failing plots
+  ebars_err_continuous_hue:
+    <<: *ebars
+    min_dims: 2
+    max_dims: 4
+    plot_kwargs:
+      <<: *ebars_kwargs
+      hue_style: continuous
+    raises:
+      2: &bad_hue_style [PlottingError, "May only be:  discrete"]
+      3: *bad_hue_style
+      4: *bad_hue_style
 
 # .. 2D plots . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 2d:
@@ -152,6 +256,6 @@ hist:
     specifiers: [x, frames]
     max_dims: 3
     raises:
-      1: &hist_type_err [TypeError, 'hist\(\) got multiple values for arg']
+      1: &hist_type_err [PlottingError, 'hist\(\) got multiple values for arg']
       2: *hist_type_err
       3: *hist_type_err

@@ -6,7 +6,7 @@
 
 scatter_short:
   # This creates a simple scatter plot of two vectors.
-  
+
   # Which data to use (keys to walk along DataManager)
   data:
     - vectors
@@ -194,7 +194,7 @@ combining_data:
   # Needed data:
   #  - ndarrays.lineplot (2D), named
   #  - vectors.times (1D), same length as `values` dimension of the 2d array
-  
+
   # NOTE: shared data access is needed for the y and color encoding, thus the
   #       top-level data key needs to specify the 2d array
 
@@ -273,7 +273,7 @@ aggregate_ndarray:
 
   encoding:
     y:
-      field: values 
+      field: values
       aggregate: mean
       type: quantitative
     size:
@@ -334,4 +334,3 @@ multi_lineplot_transformed_from_ndarray:
 # TODO repeat -> subplots
 # TODO advanced data access
 # TODO should 'quantitative' be default?
-

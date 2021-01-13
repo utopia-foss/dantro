@@ -5,20 +5,22 @@ from ._tools import add_loader
 
 # -----------------------------------------------------------------------------
 
+
 class TextLoaderMixin:
     """Supplies functionality to load plain text files"""
 
     @add_loader(TargetCls=StringContainer)
-    def _load_plain_text(filepath: str, *, TargetCls: type,
-                         **load_kwargs) -> StringContainer:
+    def _load_plain_text(
+        filepath: str, *, TargetCls: type, **load_kwargs
+    ) -> StringContainer:
         """Loads the content of a plain text file back into a
         :py:class:`~dantro.containers.general.StringContainer`.
-        
+
         Args:
             filepath (str): Where the plain text file is located
             TargetCls (type): The class constructor
             **load_kwargs: Passed on to ``open``, see there for possible kwargs
-        
+
         Returns:
             StringContainer: The reconstructed StringContainer
         """

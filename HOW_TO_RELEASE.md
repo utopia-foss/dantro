@@ -75,7 +75,7 @@ See [important remarks](#bangbang-important-remarks) below for more info.
 1. Done! :tada:
 
 
-## :bangbang: Important Remarks 
+## :bangbang: Important Remarks
 * Patch releases (`vX.Y.Z`) should not have their own milestone but be gathered under the corresponding `vX.Y` milestone!
 * Patch releases should not have their own release branch, but update the corresponding `release/vX.Y` (and potential wildcard release branches)!
 * Wildcard release branches should **NOT** be updated with pre-release versions!

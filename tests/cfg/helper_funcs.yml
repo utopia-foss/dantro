@@ -1,20 +1,31 @@
 # Configuration file to test all helper functions
 ---
+
 # .............................................................................
-- set_title: {}
-- set_title:
+- set_suptitle: {}
+- set_suptitle:
     title: foo
-- set_title:
+    margin: 0.02
+- set_suptitle:
     title: foo
     invalid_param: 123
   _raises: true
   _match: has no property 'invalid_param'
 
 # .............................................................................
-- set_suptitle: {}
-- set_suptitle:
+- set_figlegend: {}
+- set_figlegend:
+    gather_from_fig: true
     title: foo
-- set_suptitle:
+- set_figlegend:
+    hiding_threshold: 10
+
+# .............................................................................
+# .............................................................................
+- set_title: {}
+- set_title:
+    title: foo
+- set_title:
     title: foo
     invalid_param: 123
   _raises: true
@@ -187,3 +198,55 @@
       scale: linear
     y:
       scale: log
+
+# .............................................................................
+- set_ticks: {}
+- set_ticks:
+    x:
+      major: [0, 3, 6]
+    y:
+      minor: [0, 3, 6]
+- set_ticks:
+    x:
+      major:
+        locs: [0, 3, 6]
+      minor:
+        locs: [0.5, 3.5, 6.5]
+    y:
+      major:
+        locs: [0, 3, 6]
+- set_ticks:
+    x:
+      major:
+        locs: [0, 3, 6]
+        labels: ['FIRST', 'SECOND', 'THIRD']
+        color: g
+      minor:
+        locs: [1.5, 4.5, 7.5]
+        labels: ['first', 'second', 'third']
+        rotation: vertical
+- set_ticks:
+    y:
+      minor:
+        locs: [0, 3, 6]
+        labels: ['first', 'second', 'third']
+- set_ticks:
+    x:
+      major:
+        labels: ['first', 'second', 'third']
+  _raises: ValueError
+  _match: Labels can only be set
+
+
+# .............................................................................
+- despine: {}
+- despine:
+    left: true
+    bottom: true
+- despine:
+    offset: 5
+    trim: true
+- despine:
+    fig: foo
+  _raises: ValueError
+  _match: Got unexpected `fig` argument!

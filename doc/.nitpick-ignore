@@ -31,6 +31,7 @@ py:exc RuntimeError
 py:exc NotImplementedError
 py:exc UserWarning
 py:exc FileExistsError
+py:exc FileNotFoundError
 py:exc SyntaxError
 
 py:class Exception
@@ -43,6 +44,7 @@ py:class RuntimeError
 py:class NotImplementedError
 py:class UserWarning
 py:class FileExistsError
+py:class FileNotFoundError
 py:class SyntaxError
 
 # Type-hinting related types
@@ -64,6 +66,7 @@ py:class xr.Dataset
 py:class xr.DataArray
 py:class h5.Dataset
 py:class h5.File
+py:class h5.Group
 
 # matplotlib
 py:class matplotlib.Figure

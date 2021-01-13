@@ -1,62 +1,37 @@
 """This module implements the DataManager class, the root of the data tree."""
 
-import os
 import copy
 import datetime
-import re
 import glob
 import logging
+import os
+import re
+import time
 import warnings
-from typing import Union, Callable, List, Tuple, Dict
+from typing import Callable, Dict, List, Tuple, Union
 
-from .base import PATH_JOIN_CHAR, BaseDataContainer, BaseDataGroup
-from .groups import OrderedDataGroup
-from .tools import fill_line, clear_line, recursive_update, load_yml
+import dill as pkl
+
 from ._hash import _hash
+from .base import PATH_JOIN_CHAR, BaseDataContainer, BaseDataGroup
+from .exceptions import *
+from .groups import OrderedDataGroup
+from .tools import (
+    clear_line,
+    fill_line,
+    format_bytesize,
+    load_yml,
+    recursive_update,
+)
 
 # Local constants
 log = logging.getLogger(__name__)
 
+DATA_TREE_DUMP_EXT = ".d3"
 
-# Exception classes ...........................................................
-
-class DataManagerError(Exception):
-    """All DataManager exceptions derive from this one"""
-    pass
-
-class RequiredDataMissingError(DataManagerError):
-    """Raised if required data was missing."""
-    pass
-
-class MissingDataError(DataManagerError):
-    """Raised if data was missing, but is not required."""
-    pass
-
-class ExistingDataError(DataManagerError):
-    """Raised if data already existed."""
-    pass
-
-class ExistingGroupError(DataManagerError):
-    """Raised if a group already existed."""
-    pass
-
-class LoaderError(DataManagerError):
-    """Raised if a data loader was not available"""
-    pass
-
-class MissingDataWarning(UserWarning):
-    """Used as warning instead of MissingDataError"""
-    pass
-
-class ExistingDataWarning(UserWarning):
-    """If there was data already existing ..."""
-    pass
-
-class NoMatchWarning(UserWarning):
-    """If there was no regex match"""
-    pass
 
 # -----------------------------------------------------------------------------
+
 
 class DataManager(OrderedDataGroup):
     """The DataManager is the root of a data tree, coupled to a specific data
@@ -78,15 +53,24 @@ class DataManager(OrderedDataGroup):
     # For simple lookups, store class names in a dict; not set by default
     _DATA_GROUP_CLASSES = None
 
+    # The default tree file cache path, parsed by _parse_file_path
+    _DEFAULT_TREE_CACHE_PATH = ".tree_cache.d3"
+
     # .........................................................................
     # Initialization
 
-    def __init__(self, data_dir: str, *, name: str=None,
-                 load_cfg: Union[dict, str]=None,
-                 out_dir: Union[str, bool]="_output/{timestamp:}",
-                 out_dir_kwargs: dict=None,
-                 create_groups: List[Union[str, dict]]=None,
-                 condensed_tree_params: dict=None):
+    def __init__(
+        self,
+        data_dir: str,
+        *,
+        name: str = None,
+        load_cfg: Union[dict, str] = None,
+        out_dir: Union[str, bool] = "_output/{timestamp:}",
+        out_dir_kwargs: dict = None,
+        create_groups: List[Union[str, dict]] = None,
+        condensed_tree_params: dict = None,
+        default_tree_cache_path: str = None,
+    ):
         """Initializes a DataManager for the specified data directory.
 
         Args:
@@ -122,6 +106,13 @@ class DataManager(OrderedDataGroup):
                 the latter may be a callable.
                 See :py:meth:`dantro.base.BaseDataGroup._tree_repr` for more
                 information.
+            default_tree_cache_path (str, optional): The path to the default
+                tree cache file. If not given, uses the value from the class
+                variable ``_DEFAULT_TREE_CACHE_PATH``. Whichever value was
+                chosen is then prepared using the
+                :py:meth:`~dantro.data_mngr.DataManager._parse_file_path`
+                method, which regards relative paths as being relative to the
+                associated data directory.
         """
         # Find a name if none was given
         if not name:
@@ -138,9 +129,19 @@ class DataManager(OrderedDataGroup):
             self._set_condensed_tree_params(**condensed_tree_params)
 
         # Initialize directories
-        self.dirs = self._init_dirs(data_dir=data_dir, out_dir=out_dir,
-                                    **(out_dir_kwargs if out_dir_kwargs
-                                       else {}))
+        self.dirs = self._init_dirs(
+            data_dir=data_dir,
+            out_dir=out_dir,
+            **(out_dir_kwargs if out_dir_kwargs else {}),
+        )
+
+        # Parse the default tree cache path
+        _tcp = (
+            default_tree_cache_path
+            if default_tree_cache_path
+            else self._DEFAULT_TREE_CACHE_PATH
+        )
+        self._tree_cache_path = self._parse_file_path(_tcp)
 
         # Start out with the default load configuration or, if not given, with
         # an empty one
@@ -149,8 +150,9 @@ class DataManager(OrderedDataGroup):
         # Resolve string arguments
         if isinstance(load_cfg, str):
             # Assume this is the path to a configuration file and load it
-            log.debug("Loading the default load config from a path:\n  %s",
-                      load_cfg)
+            log.debug(
+                "Loading the default load config from a path:\n  %s", load_cfg
+            )
             load_cfg = load_yml(load_cfg)
 
         # If given, use it to recursively update the base
@@ -165,8 +167,11 @@ class DataManager(OrderedDataGroup):
             if create_groups:
                 specs += create_groups
 
-            log.debug("Creating %d empty groups from defaults and/or given "
-                      "initialization arguments ...", len(specs))
+            log.debug(
+                "Creating %d empty groups from defaults and/or given "
+                "initialization arguments ...",
+                len(specs),
+            )
             for spec in specs:
                 if isinstance(spec, dict):
                     # Got a more elaborate group specification
@@ -181,18 +186,26 @@ class DataManager(OrderedDataGroup):
 
     def _set_condensed_tree_params(self, **params):
         """Helper method to set the ``_COND_TREE_*`` class variables"""
-        available_keys = ('max_level', 'condense_thresh')
+        available_keys = ("max_level", "condense_thresh")
 
         for key, value in params.items():
             if key.lower() not in available_keys:
-                raise KeyError("Invalid condensed tree parameter: '{}'! The "
-                               "available keys are: {}."
-                               "".format(key, ", ".join(available_keys)))
-            setattr(self, '_COND_TREE_'+key.upper(), value)
+                raise KeyError(
+                    "Invalid condensed tree parameter: '{}'! The "
+                    "available keys are: {}."
+                    "".format(key, ", ".join(available_keys))
+                )
+            setattr(self, "_COND_TREE_" + key.upper(), value)
 
-    def _init_dirs(self, *, data_dir: str, out_dir: Union[str, bool],
-                   timestamp: float=None, timefstr: str="%y%m%d-%H%M%S",
-                   exist_ok: bool=False) -> Dict[str, str]:
+    def _init_dirs(
+        self,
+        *,
+        data_dir: str,
+        out_dir: Union[str, bool],
+        timestamp: float = None,
+        timefstr: str = "%y%m%d-%H%M%S",
+        exist_ok: bool = False,
+    ) -> Dict[str, str]:
         """Initializes the directories managed by this DataManager and returns
         a dictionary that stores the absolute paths to these directories.
 
@@ -234,8 +247,11 @@ class DataManager(OrderedDataGroup):
             log.debug("Received `out_dir` argument:\n  %s", out_dir)
 
             # Make current date and time available for formatting operations
-            time = (datetime.datetime.fromtimestamp(timestamp) if timestamp
-                    else datetime.datetime.now())
+            time = (
+                datetime.datetime.fromtimestamp(timestamp)
+                if timestamp
+                else datetime.datetime.now()
+            )
             timestr = time.strftime(timefstr)
 
             # Perform a format operation on the output directory
@@ -247,18 +263,19 @@ class DataManager(OrderedDataGroup):
                 out_dir = os.path.join(data_dir, out_dir)
 
             # Make path absolute and store in dict
-            dirs['out'] = os.path.abspath(out_dir)
+            dirs["out"] = os.path.abspath(out_dir)
 
             # Create the directory
-            os.makedirs(dirs['out'], exist_ok=exist_ok)
+            os.makedirs(dirs["out"], exist_ok=exist_ok)
 
         else:
-            dirs['out'] = False
+            dirs["out"] = False
 
         # Inform about the managed directories, then return
-        log.debug("Managed directories:\n%s",
-                  "\n".join(["  {:>8s} : {}".format(k, v)
-                             for k, v in dirs.items()]))
+        log.debug(
+            "Managed directories:\n%s",
+            "\n".join(["  {:>8s} : {}".format(k, v) for k, v in dirs.items()]),
+        )
 
         return dirs
 
@@ -275,20 +292,35 @@ class DataManager(OrderedDataGroup):
         WARNING Changing how the hash is computed for the DataManager will
                 invalidate all TransformationDAG caches.
         """
-        return _hash("<DataManager '{}' @ {}>".format(self.name,
-                                                      self.dirs['data']))
+        return _hash(
+            "<DataManager '{}' @ {}>".format(self.name, self.dirs["data"])
+        )
 
     def __hash__(self) -> int:
         """The hash of this DataManager, computed from the hashstr property"""
         return hash(self.hashstr)
 
+    @property
+    def tree_cache_path(self) -> str:
+        """Absolute path to the default tree cache file"""
+        return self._tree_cache_path
+
+    @property
+    def tree_cache_exists(self) -> bool:
+        """Whether the tree cache file exists"""
+        return os.path.isfile(self._tree_cache_path)
+
     # .........................................................................
     # Loading data
 
-    def load_from_cfg(self, *, load_cfg: dict=None,
-                      update_load_cfg: dict=None,
-                      exists_action: str='raise',
-                      print_tree: Union[bool, str]=False) -> None:
+    def load_from_cfg(
+        self,
+        *,
+        load_cfg: dict = None,
+        update_load_cfg: dict = None,
+        exists_action: str = "raise",
+        print_tree: Union[bool, str] = False,
+    ) -> None:
         """Load multiple data entries using the specified load configuration.
 
         Args:
@@ -311,8 +343,10 @@ class DataManager(OrderedDataGroup):
         """
         # Determine which load configuration to use
         if not load_cfg:
-            log.debug("No new load configuration given; will use load "
-                      "configuration given at initialization.")
+            log.debug(
+                "No new load configuration given; will use load "
+                "configuration given at initialization."
+            )
             load_cfg = self.load_cfg
 
         # Make sure to work on a copy, be it on the defaults or on the passed
@@ -329,32 +363,45 @@ class DataManager(OrderedDataGroup):
         for entry_name, params in load_cfg.items():
             # Check if this is of valid type
             if not isinstance(params, dict):
-                raise TypeError("Got invalid load specifications for entry "
-                                "'{}'! Expected dict, got {} with value '{}'. "
-                                "Check the correctness of the given load "
-                                "configuration!".format(entry_name,
-                                                        type(params), params))
+                raise TypeError(
+                    "Got invalid load specifications for entry "
+                    f"'{entry_name}'! Expected dict, got {type(params)} with "
+                    f"value '{params}'. Check the correctness of the given "
+                    "load configuration!"
+                )
 
             # Use the public method to load this single entry
-            self.load(entry_name, exists_action=exists_action,
-                      print_tree=False,  # to not have prints during loading
-                      **params)
+            self.load(
+                entry_name,
+                exists_action=exists_action,
+                print_tree=False,  # to not have prints during loading
+                **params,
+            )
 
         # All done
         log.success("Successfully loaded %d data entries.", len(load_cfg))
 
         # Finally, print the tree
         if print_tree:
-            if print_tree == 'condensed':
+            if print_tree == "condensed":
                 print(self.tree_condensed)
             else:
                 print(self.tree)
 
-    def load(self, entry_name: str, *, loader: str, enabled: bool=True,
-             glob_str: Union[str, List[str]], base_path: str=None,
-             target_group: str=None, target_path: str=None,
-             print_tree: Union[bool, str]=False,
-             load_as_attr: bool=False, **load_params) -> None:
+    def load(
+        self,
+        entry_name: str,
+        *,
+        loader: str,
+        enabled: bool = True,
+        glob_str: Union[str, List[str]],
+        base_path: str = None,
+        target_group: str = None,
+        target_path: str = None,
+        print_tree: Union[bool, str] = False,
+        load_as_attr: bool = False,
+        **load_params,
+    ) -> None:
         """Performs a single load operation.
 
         Args:
@@ -431,38 +478,48 @@ class DataManager(OrderedDataGroup):
 
         def glob_match_single(glob_str: Union[str, List[str]]) -> bool:
             """Returns True if the given glob str matches at most one file."""
-            return bool(isinstance(glob_str, str) and glob_str.find('*') < 0)
+            return bool(isinstance(glob_str, str) and glob_str.find("*") < 0)
 
         def check_target_path(target_path: str):
             """Check that the target path evaluates correctly."""
             log.debug("Checking target path '%s' ...", target_path)
             try:
-                _target_path = target_path.format(basename="basename",
-                                                  match="match")
+                _target_path = target_path.format(
+                    basename="basename", match="match"
+                )
 
             except (IndexError, KeyError) as err:
-                raise ValueError("Invalid argument `target_path`. Will not be "
-                                 "able to properly evaluate '{}' later due to "
-                                 "a {}: {}".format(target_path,
-                                                   type(err), err)) from err
+                raise ValueError(
+                    "Invalid argument `target_path`. Will not be able to "
+                    f"properly evaluate '{target_path}' later due to "
+                    f"a {type(err)}: {err}"
+                ) from err
             else:
                 log.debug("Target path will be:  %s", _target_path)
 
+        # Initial checks
         if not enabled:
             log.progress("Skipping loading of data entry '%s' ...", entry_name)
             return
         log.progress("Loading data entry '%s' ...", entry_name)
 
+        t0 = time.time()
+
         # Parse the arguments that result in the target path
         if load_as_attr:
             if not target_path:
-                raise ValueError("With `load_as_attr`, the `target_path` "
-                                 "argument needs to be given.")
+                raise ValueError(
+                    "With `load_as_attr`, the `target_path` "
+                    "argument needs to be given."
+                )
 
             # The target path should not be adjusted, as it points to the
             # object to store the loaded data as attribute in.
-            log.debug("Will load this entry as attribute to the target path "
-                      "'%s' ...", target_path)
+            log.debug(
+                "Will load this entry as attribute to the target path "
+                "'%s' ...",
+                target_path,
+            )
 
             # To communicate the attribute name, store it in the load_as_attr
             # variable; otherwise it would require passing two arguments to
@@ -471,9 +528,11 @@ class DataManager(OrderedDataGroup):
 
         elif target_group:
             if target_path:
-                raise ValueError("Received both arguments `target_group` and "
-                                 "`target_path`; make sure to only pass one "
-                                 "or none of them.")
+                raise ValueError(
+                    "Received both arguments `target_group` and "
+                    "`target_path`; make sure to only pass one "
+                    "or none of them."
+                )
 
             if glob_match_single(glob_str):
                 target_path = target_group + "/" + entry_name
@@ -493,16 +552,23 @@ class DataManager(OrderedDataGroup):
 
         # Try loading the data and handle specific DataManagerErrors
         try:
-            num_files = self._load(target_path=target_path, loader=loader,
-                                   glob_str=glob_str, base_path=base_path,
-                                   load_as_attr=load_as_attr, **load_params)
+            num_files = self._load(
+                target_path=target_path,
+                loader=loader,
+                glob_str=glob_str,
+                base_path=base_path,
+                load_as_attr=load_as_attr,
+                **load_params,
+            )
 
         except RequiredDataMissingError:
             raise
 
         except MissingDataError as err:
-            warnings.warn("No files were found to import!\n"+str(err),
-                          MissingDataWarning)
+            warnings.warn(
+                "No files were found to import!\n" + str(err),
+                MissingDataWarning,
+            )
             return  # Does not raise, but does not save anything either
 
         except LoaderError:
@@ -510,22 +576,35 @@ class DataManager(OrderedDataGroup):
 
         else:
             # Everything loaded as desired
-            log.progress("Loaded all data for entry '%s'.\n", entry_name)
+            log.progress(
+                "Loaded all data for entry '%s' in ~%.1fs.\n",
+                entry_name,
+                time.time() - t0,
+            )
 
         # Done with this entry. Print tree, if desired.
-        if print_tree:
-            if print_tree == 'condensed':
-                print(self.tree_condensed)
-            else:
-                print(self.tree)
+        if print_tree == "condensed":
+            print(self.tree_condensed)
+        elif print_tree:
+            print(self.tree)
 
-    def _load(self, *, target_path: str, loader: str,
-              glob_str: Union[str, List[str]], load_as_attr: Union[str, None],
-              base_path: str=None, ignore: List[str]=None,
-              required: bool=False, path_regex: str=None,
-              exists_action: str='raise', unpack_data: bool=False,
-              progress_indicator: bool=True, parallel: bool=False,
-              **loader_kwargs) -> int:
+    def _load(
+        self,
+        *,
+        target_path: str,
+        loader: str,
+        glob_str: Union[str, List[str]],
+        load_as_attr: Union[str, None],
+        base_path: str = None,
+        ignore: List[str] = None,
+        required: bool = False,
+        path_regex: str = None,
+        exists_action: str = "raise",
+        unpack_data: bool = False,
+        progress_indicator: bool = True,
+        parallel: bool = False,
+        **loader_kwargs,
+    ) -> int:
         """Helper function that loads a data entry to the specified path.
 
         Args:
@@ -576,32 +655,38 @@ class DataManager(OrderedDataGroup):
 
         def resolve_loader(loader: str) -> Tuple[Callable, str, Callable]:
             """Resolves the loader function"""
-            load_func_name = '_load_' + loader.lower()
+            load_func_name = "_load_" + loader.lower()
             try:
                 load_func = getattr(self, load_func_name)
 
             except AttributeError as err:
-                raise LoaderError("Loader '{}' was not available to {}! Make "
-                                  "sure to use a mixin class that supplies "
-                                  "the '{}' loader method."
-                                  "".format(loader, self.logstr,
-                                            load_func_name)) from err
+                raise LoaderError(
+                    f"Loader '{loader}' was not available to {self.logstr}! "
+                    "Make sure to use a mixin class that supplies "
+                    f"the '{load_func_name}' loader method."
+                ) from err
             else:
                 log.debug("Resolved '%s' loader function.", loader)
 
             try:
-                TargetCls = getattr(load_func, 'TargetCls')
+                TargetCls = getattr(load_func, "TargetCls")
 
             except AttributeError as err:
-                raise LoaderError("Load function {} misses required attribute "
-                                  "'TargetCls'. Check your mixin!"
-                                  "".format(load_func)) from err
+                raise LoaderError(
+                    f"Load function {load_func} misses required attribute "
+                    "'TargetCls'. Check your mixin!"
+                ) from err
 
             return load_func, load_func_name, TargetCls
 
-        def create_files_list(*, glob_str: Union[str, List[str]],
-                              ignore: List[str], base_path: str=None,
-                              required: bool=False, sort: bool=False) -> list:
+        def create_files_list(
+            *,
+            glob_str: Union[str, List[str]],
+            ignore: List[str],
+            base_path: str = None,
+            required: bool = False,
+            sort: bool = False,
+        ) -> list:
             """Create the list of file paths to load from.
 
             Internally, this uses a set, thus ensuring that the paths are
@@ -635,19 +720,23 @@ class DataManager(OrderedDataGroup):
                 glob_str = [glob_str]
 
             # Assuming glob_str to be lists of strings now
-            log.debug("Got %d glob string(s) to create set of matching file "
-                      "paths from.", len(glob_str))
+            log.debug(
+                "Got %d glob string(s) to create set of matching file "
+                "paths from.",
+                len(glob_str),
+            )
 
             # Handle base path, defaulting to the data directory
             if base_path is None:
-                base_path = self.dirs['data']
+                base_path = self.dirs["data"]
                 log.debug("Using data directory as base path.")
 
             else:
                 if not os.path.isabs(base_path):
-                    raise ValueError("Given base_path argument needs be an "
-                                     "absolute path, was not: {}"
-                                     "".format(base_path))
+                    raise ValueError(
+                        "Given base_path argument needs be an "
+                        f"absolute path, was not: {base_path}"
+                    )
 
             # Go over the given glob strings and add to the files set
             for gs in glob_str:
@@ -663,8 +752,9 @@ class DataManager(OrderedDataGroup):
                 log.debug("Got list of files to ignore:\n  %s", ignore)
 
                 # Make absolute and generate list of files to exclude
-                ignore = [os.path.join(self.dirs['data'], path)
-                          for path in ignore]
+                ignore = [
+                    os.path.join(self.dirs["data"], path) for path in ignore
+                ]
 
                 log.debug("Removing them one by one now ...")
 
@@ -679,21 +769,25 @@ class DataManager(OrderedDataGroup):
                         log.debug("%s removed from set of files.", rmf)
 
             # Now the file list is final
-            log.note("Found %d file%s to load.",
-                     len(files), "s" if len(files) != 1 else "")
+            log.note(
+                "Found %d file%s to load.",
+                len(files),
+                "s" if len(files) != 1 else "",
+            )
             log.debug("\n  %s", "\n  ".join(files))
 
             if not files:
                 # No files found; exit here, one way or another
                 if not required:
-                    raise MissingDataError("No files found matching "
-                                           "`glob_str` {} (and ignoring {})."
-                                           "".format(glob_str, ignore))
-                raise RequiredDataMissingError("No files found matching "
-                                               "`glob_str` {} (and ignoring "
-                                               "{}) were found, but were "
-                                               "marked as required!"
-                                               "".format(glob_str, ignore))
+                    raise MissingDataError(
+                        "No files found matching "
+                        f"`glob_str` {glob_str} (and ignoring {ignore})."
+                    )
+                raise RequiredDataMissingError(
+                    f"No files found matching `glob_str` {glob_str} "
+                    f"(and ignoring {ignore}) were found, but were "
+                    "marked as required!"
+                )
 
             # Convert to list
             files = list(files)
@@ -704,15 +798,16 @@ class DataManager(OrderedDataGroup):
 
             return files
 
-        def prepare_target_path(target_path: str, *, filepath: str,
-                                path_sre=None) -> List[str]:
+        def prepare_target_path(
+            target_path: str, *, filepath: str, path_sre=None
+        ) -> List[str]:
             """Prepare the target path"""
             # The dict to be filled with formatting parameters
             fps = dict()
 
             # Extract the file basename (without extension)
-            fps['basename'] = os.path.splitext(os.path.basename(filepath))[0]
-            fps['basename'] = fps['basename'].lower()
+            fps["basename"] = os.path.splitext(os.path.basename(filepath))[0]
+            fps["basename"] = fps["basename"].lower()
 
             # Use the specified regex pattern to extract a match
             if path_sre:
@@ -721,22 +816,26 @@ class DataManager(OrderedDataGroup):
 
                 except IndexError:
                     # nothing could be found
-                    warnings.warn("Could not extract a name using the "
-                                  "regex pattern '{}' on the file path:\n"
-                                  "{}\nUsing the path's basename instead."
-                                  "".format(path_sre, filepath),
-                                  NoMatchWarning)
-                    _match = fps['basename']
+                    warnings.warn(
+                        "Could not extract a name using the "
+                        f"regex pattern '{path_sre}' on the file path:\n"
+                        f"{filepath}\nUsing the path's basename instead.",
+                        NoMatchWarning,
+                    )
+                    _match = fps["basename"]
 
                 else:
-                    log.debug("Matched '%s' in file path '%s'.",
-                              _match, filepath)
+                    log.debug(
+                        "Matched '%s' in file path '%s'.", _match, filepath
+                    )
 
-                fps['match'] = _match
+                fps["match"] = _match
 
             # Parse the format string to generate the file path
-            log.debug("Parsing format string '%s' to generate target path ...",
-                      target_path)
+            log.debug(
+                "Parsing format string '%s' to generate target path ...",
+                target_path,
+            )
             log.debug("  kwargs: %s", fps)
             target_path = target_path.format(**fps)
 
@@ -767,37 +866,47 @@ class DataManager(OrderedDataGroup):
             # NOTE that it is not known whether the path points to a group
             # or to a container
 
-            _msg = ("Path '{}' already exists."
-                    "".format(PATH_JOIN_CHAR.join(path)))
+            _msg = "Path '{}' already exists.".format(
+                PATH_JOIN_CHAR.join(path)
+            )
 
             # Distinguish different actions
-            if exists_action == 'raise':
-                raise ExistingDataError(_msg + " Adjust argument "
-                                        "`exists_action` to allow skipping "
-                                        "or overwriting of existing entries.")
+            if exists_action == "raise":
+                raise ExistingDataError(
+                    _msg
+                    + " Adjust argument `exists_action` to allow skipping "
+                    "or overwriting of existing entries."
+                )
 
-            if exists_action in ['skip', 'skip_nowarn']:
-                if exists_action == 'skip':
-                    warnings.warn(_msg
-                                  + " Loading of this entry will be skipped.",
-                                  ExistingDataWarning)
+            if exists_action in ["skip", "skip_nowarn"]:
+                if exists_action == "skip":
+                    warnings.warn(
+                        _msg + " Loading of this entry will be skipped.",
+                        ExistingDataWarning,
+                    )
                 return True  # will lead to the data not being loaded
 
-            elif exists_action in ['overwrite', 'overwrite_nowarn']:
-                if exists_action == 'overwrite':
-                    warnings.warn(_msg + " It will be overwritten!",
-                                  ExistingDataWarning)
+            elif exists_action in ["overwrite", "overwrite_nowarn"]:
+                if exists_action == "overwrite":
+                    warnings.warn(
+                        _msg + " It will be overwritten!", ExistingDataWarning
+                    )
                 return False  # will lead to the data being loaded
 
             else:
-                raise ValueError("Invalid value for `exists_action` "
-                                 "argument '{}'! Can be: raise, skip, "
-                                 "skip_nowarn, overwrite, overwrite_nowarn."
-                                 "".format(exists_action))
+                raise ValueError(
+                    "Invalid value for `exists_action` argument "
+                    f"'{exists_action}'! Can be: raise, skip, "
+                    "skip_nowarn, overwrite, overwrite_nowarn."
+                )
 
-        def store(obj: Union[BaseDataGroup, BaseDataContainer], *,
-                  target_path: List[str], as_attr: Union[str, None],
-                  unpack_data: bool) -> None:
+        def store(
+            obj: Union[BaseDataGroup, BaseDataContainer],
+            *,
+            target_path: List[str],
+            as_attr: Union[str, None],
+            unpack_data: bool,
+        ) -> None:
             """Store the given `obj` at the supplied `path`.
 
             Note that this will automatically overwrite, assuming that all
@@ -823,22 +932,19 @@ class DataManager(OrderedDataGroup):
                     target = self[target_path]
 
                 except KeyError as err:
-                    raise RequiredDataMissingError("In order to store the "
-                                                   "object {} at the target "
-                                                   "path '{}', a group or "
-                                                   "container already needs "
-                                                   "to exist at that location "
-                                                   "within {}."
-                                                   "".format(obj.logstr,
-                                                             target_path,
-                                                             self.logstr)
-                                                   ) from err
+                    raise RequiredDataMissingError(
+                        f"In order to store the object {obj.logstr} at the "
+                        f"target path '{target_path}', a group or container "
+                        "already needs to exist at that location "
+                        f"within {self.logstr}."
+                    ) from err
 
                 # Check whether an attribute with that name already exists
                 if as_attr in target.attrs:
-                    raise ExistingDataError("An attribute with the name '{}' "
-                                            "already exists in {}!"
-                                            "".format(as_attr, target.logstr))
+                    raise ExistingDataError(
+                        f"An attribute with the name '{as_attr}' "
+                        f"already exists in {target.logstr}!"
+                    )
 
                 # All checks passed. Can store it now, either directly or with
                 # unpacking of its data ...
@@ -847,8 +953,12 @@ class DataManager(OrderedDataGroup):
                 else:
                     target.attrs[as_attr] = obj.data
 
-                log.debug("Stored %s as attribute '%s' of %s.",
-                          obj.classname, as_attr, target.logstr)
+                log.debug(
+                    "Stored %s as attribute '%s' of %s.",
+                    obj.classname,
+                    as_attr,
+                    target.logstr,
+                )
 
                 # Done here. Return.
                 return
@@ -876,13 +986,12 @@ class DataManager(OrderedDataGroup):
                     # Already exists, but is no group. Cannot continue
                     group_path = PATH_JOIN_CHAR.join(group_path)
                     target_path = PATH_JOIN_CHAR.join(target_path)
-                    raise ExistingDataError("The object at '{}' in {} is not "
-                                            "a group but a {}. Cannot store "
-                                            "{} there because the target path "
-                                            "'{}' requires it to be a group."
-                                            "".format(group_path, self.logstr,
-                                                      type(self[group_path]),
-                                                      obj.logstr, target_path))
+                    raise ExistingDataError(
+                        f"The object at '{group_path}' in {self.logstr} is "
+                        f"not a group but a {type(self[group_path])}. Cannot "
+                        f"store {obj.logstr} there because the target path "
+                        f"'{target_path}' requires it to be a group."
+                    )
 
                 # Now the group path will point to a group
                 group = self[group_path]
@@ -896,43 +1005,54 @@ class DataManager(OrderedDataGroup):
             group.add(obj)
 
             # Done
-            log.debug("Successfully stored %s at '%s'.",
-                      _data.logstr, PATH_JOIN_CHAR.join(target_path))
+            log.debug(
+                "Successfully stored %s at '%s'.",
+                _data.logstr,
+                PATH_JOIN_CHAR.join(target_path),
+            )
 
         # End of helper functions . . . . . . . . . . . . . . . . . . . . . . .
         # Get the loader function
         load_func, load_func_name, TargetCls = resolve_loader(loader)
 
         # Create the list of file paths to load
-        files = create_files_list(glob_str=glob_str, ignore=ignore,
-                                  required=required, base_path=base_path,
-                                  sort=True)
+        files = create_files_list(
+            glob_str=glob_str,
+            ignore=ignore,
+            required=required,
+            base_path=base_path,
+            sort=True,
+        )
 
         # If a regex pattern was specified, compile it
         path_sre = re.compile(path_regex) if path_regex else None
 
         # Check if the `match` key is being used in the target_path
         if path_sre is not None and target_path.find("{match:") < 0:
-            raise ValueError("Received the `path_regex` argument to match the "
-                             "file path, but the `target_path` argument did "
-                             "not contain the corresponding `{{match:}}` "
-                             "placeholder. `target_path` value: '{}'."
-                             "".format(target_path))
+            raise ValueError(
+                "Received the `path_regex` argument to match the "
+                "file path, but the `target_path` argument did "
+                "not contain the corresponding `{{match:}}` "
+                f"placeholder. `target_path` value: '{target_path}'."
+            )
 
         if parallel:
             # TODO could be implemented by parallelising the below for loop
             raise NotImplementedError("Cannot load in parallel yet.")
 
         # Ready for loading files now . . . . . . . . . . . . . . . . . . . . .
+        num_files = len(files)
+
         # Go over the files and load them
         for n, file in enumerate(files):
+            self._progress_info_str = f"  Loading  {n+1}/{num_files}  ..."
             if progress_indicator:
-                line = "  Loading  {}/{}  ...".format(n+1, len(files))
-                print(fill_line(line), end="\r")
+                print(fill_line(self._progress_info_str), end="\r")
 
             # Prepare the target path (a list of strings)
-            _target_path = prepare_target_path(target_path, filepath=file,
-                                               path_sre=path_sre)
+            _target_path = prepare_target_path(
+                target_path, filepath=file, path_sre=path_sre
+            )
 
             # Distinguish regular loading and loading as attribute
             if not load_as_attr:
@@ -943,8 +1063,9 @@ class DataManager(OrderedDataGroup):
 
                 # Prepare the target class, which will be filled by the load
                 # function; this assures that the name is already correct
-                _TargetCls = lambda **kws: TargetCls(name=_target_path[-1],
-                                                     **kws)
+                _TargetCls = lambda **kws: TargetCls(
+                    name=_target_path[-1], **kws
+                )
 
             else:
                 # For loading as attribute, the exists_action is not valid;
@@ -954,12 +1075,17 @@ class DataManager(OrderedDataGroup):
 
             # Get the data
             _data = load_func(file, TargetCls=_TargetCls, **loader_kwargs)
-            log.debug("Successfully loaded file '%s' into %s.",
-                      file, _data.logstr)
+            log.debug(
+                "Successfully loaded file '%s' into %s.", file, _data.logstr
+            )
 
             # If this succeeded, store the data
-            store(_data, target_path=_target_path,
-                  as_attr=load_as_attr, unpack_data=unpack_data)
+            store(
+                _data,
+                target_path=_target_path,
+                as_attr=load_as_attr,
+                unpack_data=unpack_data,
+            )
 
             # Done with this file. Go to next iteration
 
@@ -971,8 +1097,9 @@ class DataManager(OrderedDataGroup):
         log.debug("Finished loading data from %d file(s).", len(files))
         return len(files)
 
-    def _contains_group(self, path: Union[str, List[str]], *,
-                        base_group: BaseDataGroup=None) -> bool:
+    def _contains_group(
+        self, path: Union[str, List[str]], *, base_group: BaseDataGroup = None
+    ) -> bool:
         """Recursively checks if the given path is available _and_ a group.
 
         Args:
@@ -984,12 +1111,14 @@ class DataManager(OrderedDataGroup):
             bool: Whether the path points to a group
 
         """
+
         def check(path: str, base_group: BaseDataGroup) -> bool:
             """Returns True if the object at path within base_group is
             a group. False otherwise.
             """
-            return (path in base_group
-                    and isinstance(base_group[path], BaseDataGroup))
+            return path in base_group and isinstance(
+                base_group[path], BaseDataGroup
+            )
 
         if not isinstance(path, list):
             path = path.split(PATH_JOIN_CHAR)
@@ -1000,16 +1129,22 @@ class DataManager(OrderedDataGroup):
         if len(path) > 1:
             # Need to continue recursively
             if check(path[0], base_group):
-                return self._contains_group(path[1:],
-                                            base_group=base_group[path[0]])
+                return self._contains_group(
+                    path[1:], base_group=base_group[path[0]]
+                )
             return False
 
         # End of recursion
         return check(path[0], base_group)
 
-    def _create_groups(self, path: Union[str, List[str]], *,
-                       base_group: BaseDataGroup=None,
-                       GroupCls: Union[type, str]=None, exist_ok: bool=True):
+    def _create_groups(
+        self,
+        path: Union[str, List[str]],
+        *,
+        base_group: BaseDataGroup = None,
+        GroupCls: Union[type, str] = None,
+        exist_ok: bool = True,
+    ):
         """Recursively create groups for the given path. Unlike new_group, this
         also creates the groups at the intermediate paths.
 
@@ -1048,23 +1183,26 @@ class DataManager(OrderedDataGroup):
             else:
                 # There is data (that is not a group) existing at the path.
                 # Cannot continue
-                raise ExistingDataError("Tried to create a group '{}' in {}, "
-                                        "but a container was already stored "
-                                        "at that path."
-                                        "".format(path[0], base_group.logstr))
+                raise ExistingDataError(
+                    f"Tried to create a group '{path[0]}' in "
+                    f"{base_group.logstr}, but a container was already stored "
+                    "at that path."
+                )
 
         # Create the group, if it does not yet exist
         if path[0] not in base_group:
-            log.debug("Creating group '%s' in %s ...",
-                      path[0], base_group.logstr)
+            log.debug(
+                "Creating group '%s' in %s ...", path[0], base_group.logstr
+            )
             base_group.new_group(path[0])
 
         # path[0] is now created
         # Check whether to continue recursion
         if len(path) > 1:
             # Continue recursion
-            self._create_groups(path[1:], base_group=base_group[path[0]],
-                                GroupCls=GroupCls)
+            self._create_groups(
+                path[1:], base_group=base_group[path[0]], GroupCls=GroupCls
+            )
 
     def _determine_group_class(self, Cls: Union[type, str]) -> type:
         """Helper function to determine the type of a group from an argument.
@@ -1088,15 +1226,20 @@ class DataManager(OrderedDataGroup):
             cls_name = Cls
 
             if not self._DATA_GROUP_CLASSES:
-                raise ValueError("The class variable _DATA_GROUP_CLASSES is "
-                                 "empty; cannot look up class type by the "
-                                 "given name '{}'.".format(cls_name))
+                raise ValueError(
+                    "The class variable _DATA_GROUP_CLASSES is "
+                    "empty; cannot look up class type by the "
+                    "given name '{}'.".format(cls_name)
+                )
 
             elif cls_name not in self._DATA_GROUP_CLASSES:
-                raise KeyError("The given class name '{}' was not registered "
-                               "with this {}! Available classes: {}"
-                               "".format(cls_name, self.classname,
-                                         self._DATA_GROUP_CLASSES))
+                raise KeyError(
+                    "The given class name '{}' was not registered "
+                    "with this {}! Available classes: {}"
+                    "".format(
+                        cls_name, self.classname, self._DATA_GROUP_CLASSES
+                    )
+                )
 
             # everything ok, retrieve the class type
             return self._DATA_GROUP_CLASSES[cls_name]
@@ -1105,9 +1248,116 @@ class DataManager(OrderedDataGroup):
         return Cls
 
     # .........................................................................
+    # Dumping and restoring the DataManager
+
+    def _parse_file_path(self, path: str, *, default_ext=None) -> str:
+        """Parses a file path: if it is a relative path, makes it relative to
+        the associated data directory. If a default extension is specified and
+        the path does not contain one, that extension is added.
+
+        This helper method is used as part of dumping and storing the data
+        tree, i.e. in the :py:meth:`~dantro.data_mngr.DataManager.dump` and
+        :py:meth:`~dantro.data_mngr.DataManager.restore` methods.
+        """
+        path = os.path.expanduser(path)
+        if not os.path.isabs(path):
+            path = os.path.join(self.dirs["data"], path)
+
+        # Handle file extension, adding a default extension if none was given
+        if default_ext:
+            path, ext = os.path.splitext(path)
+            path += ext if ext else default_ext
+
+        return path
+
+    def dump(self, *, path: str = None, **dump_kwargs) -> str:
+        """Dumps the data tree to a new file at the given path, creating any
+        necessary intermediate data directories.
+
+        For restoring, use :py:meth:`~dantro.data_mngr.DataManager.restore`.
+
+        Args:
+            path (str, optional): The path to store this file at. If this is
+                not given, use the default tree cache path that was set up
+                during initialization.
+                If it is given and a relative path, it is assumed relative to
+                the data directory.
+                If the path does not end with an extension, the ``.d3`` (read:
+                "data tree") extension is automatically added.
+            **dump_kwargs: Passed on to ``pkl.dump``
+
+        Returns:
+            str: The path that was used for dumping the tree file
+        """
+        if path:
+            path = self._parse_file_path(path, default_ext=DATA_TREE_DUMP_EXT)
+        else:
+            path = self.tree_cache_path
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+
+        log.progress("Dumping data tree of %s ...", self.logstr)
+        with open(path, mode="x+b") as file:
+            pkl.dump(self, file, **dump_kwargs)
+
+        log.progress("Successfully stored data tree in cache file.")
+        log.note("  Path:       %s", path)
+        log.note("  File size:  %s", format_bytesize(os.path.getsize(path)))
+        return path
+
+    def restore(
+        self, *, from_path: str = None, merge: bool = False, **load_kwargs
+    ):
+        """Restores the data tree from a dump.
+
+        For dumping, use :py:meth:`~dantro.data_mngr.DataManager.dump`.
+
+        Args:
+            from_path (str, optional): The path to restore this DataManager
+                from. If it is not given, uses the default tree cache path
+                that was set up at initialization.
+                If it is a relative path, it is assumed relative to the data
+                directory. Take care to add the corresponding file extension.
+            merge (bool, optional): If True, uses a recursive update to merge
+                the current tree with the restored tree.
+                If False, uses :py:meth:`~dantro.data_mngr.DataManager.clear`
+                to clear the current tree and then re-populates it with the
+                restored tree.
+            **load_kwargs: Passed on to ``pkl.load``
+
+        Raises:
+            FileNotFoundError: If no file is found at the (expanded) path.
+        """
+        if from_path:
+            path = self._parse_file_path(from_path)
+        else:
+            path = self.tree_cache_path
+
+        if not os.path.isfile(path):
+            raise FileNotFoundError(
+                f"Could not restore {self.logstr} as there was no tree "
+                f"cache file at '{path}'!"
+            )
+
+        log.progress("Restoring %s from data tree file ...", self.logstr)
+        log.note("  Path:       %s", path)
+        log.note("  File size:  %s", format_bytesize(os.path.getsize(path)))
+
+        with open(path, mode="rb") as file:
+            dm = pkl.load(file, **load_kwargs)
+
+        if not merge:
+            log.note("  Mode:       clear and load")
+            self.clear()
+        else:
+            log.note("  Mode:       load and merge")
+
+        self.recursive_update(dm)
+        log.progress("Successfully restored the data tree.")
+
+    # .........................................................................
     # Working with the data in the tree
 
-    def new_group(self, path: str, *, Cls: Union[type, str]=None, **kwargs):
+    def new_group(self, path: str, *, Cls: Union[type, str] = None, **kwargs):
         """Creates a new group at the given path.
 
         This is a slightly advanced version of the new_group method of the

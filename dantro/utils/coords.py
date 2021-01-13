@@ -2,7 +2,7 @@
 
 import logging
 from itertools import product
-from typing import TypeVar, Sequence, Tuple, Union, Dict, List, Hashable
+from typing import Dict, Hashable, List, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
 
@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 TDims = Tuple[str]
 
 # A single coordinate value type
-TCoord = TypeVar('TCoord', int, float, str, Hashable)
+TCoord = TypeVar("TCoord", int, float, str, Hashable)
 
 # A sequence of coordinate values
 TCoords = Sequence[TCoord]
@@ -28,8 +28,10 @@ TCoordsDict = Dict[str, TCoords]
 
 # Dimension name extraction ---------------------------------------------------
 
-def extract_dim_names(attrs: dict, *, ndim: int, attr_name: str,
-                      attr_prefix: str) -> TDims:
+
+def extract_dim_names(
+    attrs: dict, *, ndim: int, attr_name: str, attr_prefix: str
+) -> TDims:
     """Extract dimension names from the given attributes.
 
     This can be done in two ways:
@@ -71,19 +73,22 @@ def extract_dim_names(attrs: dict, *, ndim: int, attr_name: str,
 
         # Make sure it is an iterable of strings and of the right length
         if isinstance(dims_attr, str):
-            raise TypeError("Attribute '{}' needs to be a sequence of "
-                            "strings, but not directly a string! Got: {}"
-                            "".format(attr_name, repr(dims_attr)))
+            raise TypeError(
+                f"Attribute '{attr_name}' needs to be a sequence of "
+                f"strings, but not directly a string! Got: {repr(dims_attr)}"
+            )
 
         elif not is_iterable(dims_attr):
-            raise TypeError("Attribute '{}' needs to be an iterable, but was "
-                            "{} with value '{}'!"
-                            "".format(attr_name, type(dims_attr), dims_attr))
+            raise TypeError(
+                f"Attribute '{attr_name}' needs to be an iterable, but was "
+                f"{type(dims_attr)} with value '{dims_attr}'!"
+            )
 
         elif len(dims_attr) != ndim:
-            raise ValueError("Number of given dimension names does not match "
-                             "the given rank of {}! Names given: {}"
-                             "".format(ndim, dims_attr))
+            raise ValueError(
+                "Number of given dimension names does not match "
+                f"the given rank of {ndim}! Names given: {dims_attr}"
+            )
 
         # Data seems ok.
         # Create the sequence of dimension name, potentially needing to do
@@ -94,9 +99,11 @@ def extract_dim_names(attrs: dict, *, ndim: int, attr_name: str,
                 dim_name = dim_name.item()
 
             if not isinstance(dim_name, str):
-                raise TypeError("Dimension names need to be strings, got {} "
-                                "with value '{}' for dimension {}!"
-                                "".format(type(dim_name), dim_name, dim_num))
+                raise TypeError(
+                    "Dimension names need to be strings, got "
+                    f"{type(dim_name)} with value '{dim_name}' for "
+                    f"dimension {dim_num}!"
+                )
 
             dim_names[dim_num] = dim_name
 
@@ -109,29 +116,33 @@ def extract_dim_names(attrs: dict, *, ndim: int, attr_name: str,
         if attr_name.startswith(attr_prefix):
             # Extract the integer dimension number
             try:
-                dim_num = int(attr_name[len(attr_prefix):])
+                dim_num = int(attr_name[len(attr_prefix) :])
 
             except ValueError as err:
-                raise ValueError("Could not extract the dimension number from "
-                                 "the container/group attribute named '{}'! "
-                                 "Take care that the part after the prefix "
-                                 "('{}') can be converted to an integer."
-                                 "".format(attr_name, attr_prefix)) from err
+                raise ValueError(
+                    "Could not extract the dimension number from "
+                    f"the container/group attribute named '{attr_name}'! "
+                    "Take care that the part after the prefix "
+                    f"('{attr_prefix}') can be converted to an integer."
+                ) from err
 
             # Make sure its valid
             if dim_num < 0 or dim_num >= ndim:
-                raise ValueError("The dimension number {:d} extracted from "
-                                 "attribute '{}' exceeds the given rank {}!"
-                                 "".format(dim_num, attr_name, ndim))
+                raise ValueError(
+                    f"The dimension number {dim_num:d} extracted from "
+                    f"attribute '{attr_name}' exceeds the given rank {ndim}!"
+                )
 
             # Make sure the attribute value is a string
             if isinstance(attr_val, np.ndarray):
                 attr_val = attr_val.item()  # ... assuming already decoded.
 
             if not isinstance(attr_val, str):
-                raise TypeError("Dimension names need be strings, but the "
-                                "attribute '{}' provided {} with value '{}'!"
-                                "".format(attr_name, type(attr_val), attr_val))
+                raise TypeError(
+                    "Dimension names need be strings, but the "
+                    f"attribute '{attr_name}' provided {type(attr_val)} "
+                    f"with value '{attr_val}'!"
+                )
 
             # All good now. Write it to the dim name list
             dim_names[dim_num] = attr_val
@@ -146,8 +157,10 @@ def extract_dim_names(attrs: dict, *, ndim: int, attr_name: str,
 # accept arbitrary keyword-only arguments, of which some may be used to
 # determine the coordinate values
 
-def _coords_start_and_step(cargs, *, data_shape: tuple, dim_num: int,
-                           **__) -> List[int]:
+
+def _coords_start_and_step(
+    cargs, *, data_shape: tuple, dim_num: int, **__
+) -> List[int]:
     """Interpret as integer start and step of range expression and use the
     length of the data dimension as number of steps"""
     start, step = cargs
@@ -155,9 +168,11 @@ def _coords_start_and_step(cargs, *, data_shape: tuple, dim_num: int,
     stop = start + (step * data_shape[dim_num])
     return list(range(int(start), int(stop), int(step)))
 
+
 def _coords_trivial(_, *, data_shape: tuple, dim_num: int, **__) -> List[int]:
     """Returns trivial coordinates for the given dimension"""
     return list(range(data_shape[dim_num]))
+
 
 def _coords_scalar(coord, **__) -> List[TCoord]:
     """Returns a single, scalar coordinate, i.e.: list of length 1"""
@@ -175,6 +190,7 @@ def _coords_scalar(coord, **__) -> List[TCoord]:
     # Make sure it is a list, not a tuple
     return list(coord)
 
+
 def _coords_linked(cargs, *, link_anchor_obj, **__) -> Link:
     """Creates a Link object which is to be used for coordinates"""
     # Need to parse potential numpy array arguments to string
@@ -190,27 +206,33 @@ def _coords_linked(cargs, *, link_anchor_obj, **__) -> Link:
 
 
 # Map of extractors ...........................................................
+# fmt: off
 COORD_EXTRACTORS = {
-    'values':           lambda cargs, **__: cargs,
-    'range':            lambda cargs, **__: list(range(*cargs)),
-    'arange':           lambda cargs, **__: np.arange(*cargs),
-    'linspace':         lambda cargs, **__: np.linspace(*cargs),
-    'logspace':         lambda cargs, **__: np.logspace(*cargs),
-    'start_and_step':   _coords_start_and_step,
-    'trivial':          _coords_trivial,
-    'scalar':           _coords_scalar,
-    'linked':           _coords_linked
+    "values":           lambda cargs, **__: cargs,
+    "range":            lambda cargs, **__: list(range(*cargs)),
+    "arange":           lambda cargs, **__: np.arange(*cargs),
+    "linspace":         lambda cargs, **__: np.linspace(*cargs),
+    "logspace":         lambda cargs, **__: np.logspace(*cargs),
+    "start_and_step":   _coords_start_and_step,
+    "trivial":          _coords_trivial,
+    "scalar":           _coords_scalar,
+    "linked":           _coords_linked,
 }
-
+# fmt: on
 
 # Actual (high-level) extraction functions ....................................
 
-def extract_coords_from_attrs(obj: Union[AbstractDataContainer, np.ndarray], *,
-                              dims: Tuple[Union[str, None]], strict: bool,
-                              coords_attr_prefix: str,
-                              default_mode: str, mode_attr_prefix: str=None,
-                              attrs: dict=None
-                              ) -> TCoordsDict:
+
+def extract_coords_from_attrs(
+    obj: Union[AbstractDataContainer, np.ndarray],
+    *,
+    dims: Tuple[Union[str, None]],
+    strict: bool,
+    coords_attr_prefix: str,
+    default_mode: str,
+    mode_attr_prefix: str = None,
+    attrs: dict = None,
+) -> TCoordsDict:
     """Extract coordinates from the given object's attributes.
 
     This is done by iterating over the given ``dims`` and then looking
@@ -250,15 +272,15 @@ def extract_coords_from_attrs(obj: Union[AbstractDataContainer, np.ndarray], *,
             * ``linspace``: np.linspace arguments
             * ``logspace``: np.logspace arguments
             * ``trivial``: The trivial indices. This does not require a value
-                for the coordinate argument.
+              for the coordinate argument.
             * ``scalar``: makes sure only a single coordinate is provided
             * ``start_and_step``: the start and step values of an integer range
-                expression; the stop value is deduced by looking at the length
-                of the corresponding dimension. This is then passed to the
-                python range function as (start, stop, step)
+              expression; the stop value is deduced by looking at the length of
+              the corresponding dimension. This is then passed to the python
+              range function as (start, stop, step)
             * ``linked``: Load the coordinates from a linked object within the
-                tree; this works only if ``link_anchor_obj`` is part of a data
-                tree at the point of coordinate resolution!
+              tree; this works only if ``link_anchor_obj`` is part of a data
+              tree at the point of coordinate resolution!
 
         mode_attr_prefix (str, optional): The attribute name prefix that can
             be used to specify a non-default extraction mode. If not given, the
@@ -274,6 +296,7 @@ def extract_coords_from_attrs(obj: Union[AbstractDataContainer, np.ndarray], *,
             checking) on superfluous coordinate-setting attributes.
 
     """
+
     def get_coord(attrs: dict, dim_name: str, dim_num: int):
         """Determines coordinate values for a single dimension."""
         # The argument the coordinate will be determined from; may be None.
@@ -292,21 +315,27 @@ def extract_coords_from_attrs(obj: Union[AbstractDataContainer, np.ndarray], *,
         if mode not in COORD_EXTRACTORS:
             _mode_attr_name = mode_attr_prefix + dim_name
             _extraction_modes = ", ".join(COORD_EXTRACTORS.keys())
-            raise ValueError(f"Invalid mode '{mode}' to interpret coordinate "
-                             f"attribute values! Check whether a mode "
-                             f"attribute '{_mode_attr_name}' is set. "
-                             f"Available modes: {_extraction_modes}")
+            raise ValueError(
+                f"Invalid mode '{mode}' to interpret coordinate "
+                "attribute values! Check whether a mode "
+                f"attribute '{_mode_attr_name}' is set. "
+                f"Available modes: {_extraction_modes}"
+            )
 
         # Invoke the method, passing on available arguments
         try:
-            return COORD_EXTRACTORS[mode](cargs, dim_num=dim_num,
-                                          data_shape=obj.shape,
-                                          link_anchor_obj=obj)
+            return COORD_EXTRACTORS[mode](
+                cargs,
+                dim_num=dim_num,
+                data_shape=obj.shape,
+                link_anchor_obj=obj,
+            )
 
         except Exception as exc:
-            raise type(exc)("Failed extracting coordinates for dimension "
-                            f"'{dim_name}' via extraction mode '{mode}'! {exc}"
-                            ) from exc
+            raise type(exc)(
+                "Failed extracting coordinates for dimension "
+                f"'{dim_name}' via extraction mode '{mode}'! {exc}"
+            ) from exc
 
     # If necessary, get the attributes from the given object
     if not attrs:
@@ -341,26 +370,34 @@ def extract_coords_from_attrs(obj: Union[AbstractDataContainer, np.ndarray], *,
     for attr_name, prefix in product(attrs.keys(), prefixes):
         # See whether there are matching attributes that were not already
         # extracted above, i.e. appear as keys in the map
-        if (    attr_name.startswith(prefix)
-            and attr_name[len(prefix):] not in coords_map):
+        if (
+            attr_name.startswith(prefix)
+            and attr_name[len(prefix) :] not in coords_map
+        ):
 
             _dims_avail = ", ".join([d for d in dims if d is not None])
             _prefixes = ", ".join(prefixes)
 
-            raise ValueError(f"Got superfluous attribute '{attr_name}' that "
-                             "does not match any of the available names of "
-                             f"labelled dimensions: {_dims_avail}. Valid "
-                             f"attribute prefixes: {_prefixes}. Either remove "
-                             "the attribute or turn strict attribute checking "
-                             "off.")
+            raise ValueError(
+                f"Got superfluous attribute '{attr_name}' that "
+                "does not match any of the available names of "
+                f"labelled dimensions: {_dims_avail}. Valid "
+                f"attribute prefixes: {_prefixes}. Either remove "
+                "the attribute or turn strict attribute checking "
+                "off."
+            )
 
     # All good. Return the coordinate map.
     return coords_map
 
 
-def extract_coords_from_name(obj: AbstractDataContainer, *,
-                             dims: TDims, separator: str,
-                             attempt_conversion: bool=True) -> TCoordsDict:
+def extract_coords_from_name(
+    obj: AbstractDataContainer,
+    *,
+    dims: TDims,
+    separator: str,
+    attempt_conversion: bool = True,
+) -> TCoordsDict:
     """Given a container or group, extract the coordinates from its name.
 
     The name of the object may be a ``separator``-separated string, where each
@@ -385,28 +422,32 @@ def extract_coords_from_name(obj: AbstractDataContainer, *,
 
     Raises:
         ValueError: Raised upon failure to extract external coordinates:
-
-            * On ``ext_dims`` evaluating to False
-            * If coordinates were missing for any of the external
-              dimensions
-            * If the number of coordinates extracted from the name did not
-              match the number of external dimensions
-            * If any of the strings extracted from the object's name were
-              empty
+            On ``ext_dims`` evaluating to False, f coordinates were missing for
+            any of the external dimensions, if the number of coordinates
+            extracted from the name did not match the number of external
+            dimensions, if any of the strings extracted from the object's name
+            were empty.
     """
+
     def try_conversion(c: str) -> TCoord:
         """Given a string, attempts to convert it to a numerical value"""
         if not attempt_conversion:
             return c
 
-        try: return int(c)
-        except: pass
+        try:
+            return int(c)
+        except:
+            pass
 
-        try: return float(c)
-        except: pass
+        try:
+            return float(c)
+        except:
+            pass
 
-        try: return complex(c)
-        except: pass
+        try:
+            return complex(c)
+        except:
+            pass
 
         return c
 
@@ -414,24 +455,31 @@ def extract_coords_from_name(obj: AbstractDataContainer, *,
     coords = obj.name.split(separator)
 
     if len(coords) != len(dims):
-        raise ValueError("Number of coordinates extracted from the name of "
-                         f"{obj.logstr} does not match the number of expected "
-                         f"dimensions! Parsed coordinates: {coords}. "
-                         f"Dimensions: {dims}")
+        raise ValueError(
+            "Number of coordinates extracted from the name of "
+            f"{obj.logstr} does not match the number of expected "
+            f"dimensions! Parsed coordinates: {coords}. "
+            f"Dimensions: {dims}"
+        )
 
     if not all(coords):
-        raise ValueError(f"One or more of the coordinates extracted from the "
-                         f"name of {obj.logstr} were empty! Got: {coords}")
+        raise ValueError(
+            "One or more of the coordinates extracted from the "
+            f"name of {obj.logstr} were empty! Got: {coords}"
+        )
 
     # Build the dict, attempting conversion of the objects.
-    coords = {dim_name: [try_conversion(c_val)]
-              for dim_name, c_val in zip(dims, coords)}
+    coords = {
+        dim_name: [try_conversion(c_val)]
+        for dim_name, c_val in zip(dims, coords)
+    }
 
     return coords
 
 
-def extract_coords_from_data(obj: AbstractDataContainer, *,
-                             dims: TDims) -> TCoordsDict:
+def extract_coords_from_data(
+    obj: AbstractDataContainer, *, dims: TDims
+) -> TCoordsDict:
     """Tries to extract the coordinates from the data of the given container
     or group. For that purpose, the ``obj`` needs to support the ``coords``
     property.
@@ -444,12 +492,25 @@ def extract_coords_from_data(obj: AbstractDataContainer, *,
     """
     return {dim_name: list(obj.coords[dim_name].values) for dim_name in dims}
 
+
 # .............................................................................
 
-def extract_coords(obj: AbstractDataContainer, *, mode: str, dims: TDims,
-                   use_cache: bool=False, cache_prefix: str='__coords_cache_',
-                   **kwargs) -> TCoordsDict:
+
+def extract_coords(
+    obj: AbstractDataContainer,
+    *,
+    mode: str,
+    dims: TDims,
+    use_cache: bool = False,
+    cache_prefix: str = "__coords_cache_",
+    **kwargs,
+) -> TCoordsDict:
     """Wrapper around the more specific coordinate extraction functions.
+
+    .. note::
+
+        This function does not support the extraction of non-dimension
+        coordinates.
 
     Args:
         obj (AbstractDataContainer): The object from which to extract the
@@ -469,27 +530,33 @@ def extract_coords(obj: AbstractDataContainer, *, mode: str, dims: TDims,
             and ``coords`` and store the respective data there.
         **kwargs: Passed on to the actual coordinates extraction method.
     """
-    EXTRACTORS = dict(name=extract_coords_from_name,
-                      attrs=extract_coords_from_attrs,
-                      data=extract_coords_from_data)
+    EXTRACTORS = dict(
+        name=extract_coords_from_name,
+        attrs=extract_coords_from_attrs,
+        data=extract_coords_from_data,
+    )
 
     if use_cache:
         # TODO Read from cache
-        raise NotImplementedError('use_cache')
+        raise NotImplementedError("use_cache")
 
     # Get the extraction function
     if mode not in EXTRACTORS:
         _extraction_modes = ", ".join(EXTRACTORS.keys())
-        raise ValueError(f"Invalid extraction mode '{mode}'! Valid modes: "
-                         f"{_extraction_modes}")
+        raise ValueError(
+            f"Invalid extraction mode '{mode}'! Valid modes: "
+            f"{_extraction_modes}"
+        )
 
     extraction_func = EXTRACTORS[mode]
     try:
         coords = extraction_func(obj, dims=dims, **kwargs)
 
     except Exception as exc:
-        raise type(exc)(f"Failed extracting coordinates of {obj} using "
-                        f"mode '{mode}': {exc}") from exc
+        raise type(exc)(
+            f"Failed extracting coordinates of {obj} using "
+            f"mode '{mode}': {exc}"
+        ) from exc
 
     # TODO Write to cache
 

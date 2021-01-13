@@ -4,9 +4,9 @@ The ``ruamel.yaml.YAML`` object used here is imported from ``paramspace`` and
 specialized such that it can load and dump dantro classes.
 """
 
-import os
 import io
 import logging
+import os
 from typing import Any, Union
 
 import ruamel.yaml
@@ -18,23 +18,37 @@ log = logging.getLogger(__name__)
 
 # Import yaml from paramspace and configure it
 from paramspace import yaml
+
 yaml.default_flow_style = False
 
 # Register further classes
-from ._dag_utils import DAGReference, DAGTag, DAGNode
+from ._dag_utils import (
+    DAGNode,
+    DAGReference,
+    DAGTag,
+    KeywordArgument,
+    Placeholder,
+    PositionalArgument,
+    ResultPlaceholder,
+)
 
+yaml.register_class(Placeholder)
+yaml.register_class(ResultPlaceholder)
+yaml.register_class(PositionalArgument)
+yaml.register_class(KeywordArgument)
 yaml.register_class(DAGReference)
 yaml.register_class(DAGTag)
 yaml.register_class(DAGNode)
 
 # Special constructors ........................................................
 # For the case of a reference to the previous node
-yaml.constructor.add_constructor(u'!dag_prev', lambda l, n: DAGNode(-1))
+yaml.constructor.add_constructor("!dag_prev", lambda l, n: DAGNode(-1))
 
 
 # -----------------------------------------------------------------------------
 
-def load_yml(path: str, *, mode: str='r') -> Union[dict, Any]:
+
+def load_yml(path: str, *, mode: str = "r") -> Union[dict, Any]:
     """Deserializes a YAML file into an object.
 
     Uses the dantro-internal ``ruamel.yaml.YAML`` object for loading and thus
@@ -56,7 +70,8 @@ def load_yml(path: str, *, mode: str='r') -> Union[dict, Any]:
     with open(path, mode) as yaml_file:
         return yaml.load(yaml_file)
 
-def write_yml(d: Union[dict, Any], *, path: str, mode: str='w'):
+
+def write_yml(d: Union[dict, Any], *, path: str, mode: str = "w"):
     """Serialize an object using YAML and store it in a file.
 
     Uses the dantro-internal ``ruamel.yaml.YAML`` object for dumping and thus
@@ -69,8 +84,12 @@ def write_yml(d: Union[dict, Any], *, path: str, mode: str='w'):
         mode (str, optional): Write mode of the file
     """
     path = os.path.expanduser(path)
-    log.debug("Dumping %s to YAML file... mode: %s, path:\n  %s",
-              type(d).__name__, mode, path)
+    log.debug(
+        "Dumping %s to YAML file... mode: %s, path:\n  %s",
+        type(d).__name__,
+        mode,
+        path,
+    )
 
     # Make sure the directory is present
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -89,7 +108,10 @@ def write_yml(d: Union[dict, Any], *, path: str, mode: str='w'):
 # -----------------------------------------------------------------------------
 # More specific YAML-based functions
 
-def yaml_dumps(obj: Any, *, register_classes: tuple=(), **dump_params) -> str:
+
+def yaml_dumps(
+    obj: Any, *, register_classes: tuple = (), **dump_params
+) -> str:
     """Serializes the given object using a newly created YAML dumper.
 
     The aim of this function is to provide YAML dumping that is not dependent
@@ -127,7 +149,8 @@ def yaml_dumps(obj: Any, *, register_classes: tuple=(), **dump_params) -> str:
         y.dump(obj, stream=s)
 
     except Exception as err:
-        raise ValueError("Could not serialize the given {} object!"
-                         "".format(type(obj))) from err
+        raise ValueError(
+            f"Could not serialize the given {type(obj)} object!"
+        ) from err
 
     return s.getvalue()

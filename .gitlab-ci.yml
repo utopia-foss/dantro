@@ -1,7 +1,7 @@
 ---
 stages:
+  - check
   - test
-  - test_minimal_deps
   - build
   - deploy
   - post_deploy
@@ -69,6 +69,20 @@ variables:
       cobertura: coverage.xml
 
 
+# -- Checks -------------------------------------------------------------------
+
+check:hooks:
+  stage: check
+  image: python:3.8
+  extends:
+    - .default_tags
+  before_script:
+    - pip install pre-commit
+  script:
+    - pre-commit run --all-files --verbose --show-diff-on-failure
+
+
+
 # -- Test Stage ---------------------------------------------------------------
 # ... for testing with different python environments
 
@@ -78,55 +92,64 @@ test:py36:
   extends:
     - .default_tags
     - .cobertura
+  needs: []
   before_script:
     - pip3 install tox
   script:
-    - tox -e py36
+    - tox -v -e py36
 
 test:py37:
   extends: test:py36
   image: python:3.7
   script:
-    - tox -e py37
+    - tox -v -e py37
 
 test:py38:
   extends: test:py36
   image: python:3.8
   script:
-    - tox -e py38
+    - tox -v -e py38
 
-
-# ... and again, this time with minimal versions of all dependencies
-
-test_minimal_deps:py36:
+test:py39:
   extends: test:py36
-  stage: test_minimal_deps
-  only:
-    - master
-    - tags
-    - web
-    - /^prepare-release-/i
+  image: python:3.9
+  script:
+    - tox -v -e py39
+
+
+# Extended test jobs, which are only run upon release-related events.
+
+test:py36_min:
+  extends: test:py36
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master" ||
+           $CI_COMMIT_BRANCH =~ /^release/ ||
+           $CI_COMMIT_TAG'
+    - if: '$CI_COMMIT_BRANCH =~ /^prepare-release/i ||
+           $CI_MERGE_REQUEST_TITLE =~ /.*prepare\srelease.*/i'
+      allow_failure: false
+    - when: never
   allow_failure: true
-  needs:
-    - test:py36
   script:
-    - tox -e py36-minimal_deps
+    - tox -v -e py36-minimal_deps
 
-test_minimal_deps:py37:
-  extends: test_minimal_deps:py36
+test:py37_min:
+  extends: test:py36_min
   image: python:3.7
-  needs:
-    - test:py37
   script:
-    - tox -e py37-minimal_deps
+    - tox -v -e py37-minimal_deps
 
-test_minimal_deps:py38:
-  extends: test_minimal_deps:py36
+test:py38_min:
+  extends: test:py36_min
   image: python:3.8
-  needs:
-    - test:py38
   script:
-    - tox -e py38-minimal_deps
+    - tox -v -e py38-minimal_deps
+
+test:py39_min:
+  extends: test:py36_min
+  image: python:3.9
+  script:
+    - tox -v -e py39-minimal_deps
 
 
 # -- Build Stage --------------------------------------------------------------

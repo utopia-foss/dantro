@@ -1,5 +1,6 @@
 """This module implements mixins that provide proxy support"""
 
+import copy
 import logging
 import warnings
 from typing import Union
@@ -12,6 +13,7 @@ from ..abc import AbstractDataProxy
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
+
 
 class ProxySupportMixin:
     """This Mixin class overwrites the ``data`` property to allow and resolve
@@ -36,23 +38,49 @@ class ProxySupportMixin:
     PROXY_RETAIN = False
 
     # Behaviour upon failure of reinstating a proxy
-    PROXY_REINSTATE_FAIL_ACTION = 'raise'  # or:  warn, log_warning, log_debug
+    PROXY_REINSTATE_FAIL_ACTION = "raise"  # or:  warn, log_warning, log_debug
+
+    # If true, populates the pickling state with the proxy instead of the data
+    PROXY_REINSTATE_FOR_PICKLING = True
 
     # Make sure the attribute where a retained proxy is stored is available
     _retained_proxy = None
+
+    def __getstate__(self) -> dict:
+        """If the data is no longer a proxy, but a proxy was retained, this
+        overload adjusts the pickling state such that the proxy object is
+        returned instead of the data that was resolved from it. This hels to
+        reduce the file size of the pickle.
+        """
+        if (
+            self.data_is_proxy
+            or not self.PROXY_REINSTATE_FOR_PICKLING
+            or (not self.data_is_proxy and self._retained_proxy is None)
+        ):
+            return super().__getstate__()
+
+        # else: retrieve the state and adjust it to contain the retained proxy.
+        # Need a shallow copy here because state might be __dict__ and its
+        # mutability would change the state of self!
+        state = copy.copy(super().__getstate__())
+        log.debug("Using retained proxy for pickling of %s ...", self.logstr)
+        state["_data"] = self._retained_proxy
+        state["_retained_proxy"] = None
+        return state
 
     @property
     def data(self):
         """The container data. If the data is a proxy, this call will lead
         to the resolution of the proxy.
-        
+
         Returns:
             The data stored in this container
         """
         # Have to check whether the data might be a proxy. If so, resolve it.
         if self.data_is_proxy:
-            log.debug("Resolving %s for %s ...",
-                      self._data.classname, self.logstr)
+            log.debug(
+                "Resolving %s for %s ...", self._data.classname, self.logstr
+            )
 
             # Optionally, retain the proxy object. If not doing this, will go
             # out of scope
@@ -64,7 +92,7 @@ class ProxySupportMixin:
             self._data = self.proxy.resolve(astype=self.PROXY_RESOLVE_ASTYPE)
 
             # Postprocess the resolved proxy with optional method
-            if hasattr(self, '_postprocess_proxy_resolution'):
+            if hasattr(self, "_postprocess_proxy_resolution"):
                 log.debug("Calling proxy resolution postprocessing ...")
                 self._postprocess_proxy_resolution()
 
@@ -74,7 +102,7 @@ class ProxySupportMixin:
     @property
     def data_is_proxy(self) -> bool:
         """Returns true, if this is proxy data
-        
+
         Returns:
             bool: Whether the *currently* stored data is a proxy object
         """
@@ -82,10 +110,10 @@ class ProxySupportMixin:
 
     @property
     def proxy(self) -> Union[AbstractDataProxy, None]:
-        """If the data is proxy, returns the proxy data object without using 
-        the .data attribute (which would trigger resolving the proxy); else 
+        """If the data is proxy, returns the proxy data object without using
+        the .data attribute (which would trigger resolving the proxy); else
         returns None.
-        
+
         Returns:
             Union[AbstractDataProxy, None]: If the data is proxy, return the
                 proxy object; else None.
@@ -100,44 +128,53 @@ class ProxySupportMixin:
             return
 
         if self._retained_proxy is None:
-            msg = ("Could not reinstate a proxy for {} because there was no "
-                   "proxy retained. Was there one in the first place? Make "
-                   "sure the `PROXY_RETAIN` class variable is set to True. "
-                   "To control the behaviour of this message, change the "
-                   "PROXY_REINSTATE_FAIL_ACTION class variable."
-                   "".format(self.logstr))
+            msg = (
+                f"Could not reinstate a proxy for {self.logstr} because there "
+                "was no proxy retained. Was there one in the first place? "
+                "Make sure the `PROXY_RETAIN` class variable is set to True. "
+                "To control the behaviour of this message, change the "
+                "PROXY_REINSTATE_FAIL_ACTION class variable."
+            )
             action = self.PROXY_REINSTATE_FAIL_ACTION
-            
-            if action == 'raise':
+
+            if action == "raise":
                 raise ValueError(msg)
 
-            elif action == 'warn':
+            elif action == "warn":
                 warnings.warn(msg, RuntimeWarning)
 
-            elif action in ('log_warning', 'log_warn'):
+            elif action in ("log_warning", "log_warn"):
                 log.warning(msg)
 
-            elif action == 'log_debug':
+            elif action == "log_debug":
                 log.debug(msg)
 
             else:
-                raise ValueError("Invalid PROXY_REINSTATE_FAIL_ACTION value "
-                                 "'{}'! Possible values: raise, warn, "
-                                 "log_warning, log_debug".format(action))
+                raise ValueError(
+                    "Invalid PROXY_REINSTATE_FAIL_ACTION value "
+                    "'{}'! Possible values: raise, warn, "
+                    "log_warning, log_debug".format(action)
+                )
 
         else:
             # All good. Reinstate the proxy
             self._data = self._retained_proxy
-            log.debug("Reinstated %s for data of %s.",
-                      self.proxy.classname, self.logstr)
+            log.debug(
+                "Reinstated %s for data of %s.",
+                self.proxy.classname,
+                self.logstr,
+            )
 
     def _format_info(self) -> str:
         """Adds an indicator to whether data is proxy to the info string.
         Additionally, the proxy tags are appended.
         """
         if self.data_is_proxy:
-            tags = (" ({})".format(", ".join(self.proxy.tags))
-                    if self.proxy.tags else "")
+            tags = (
+                " ({})".format(", ".join(self.proxy.tags))
+                if self.proxy.tags
+                else ""
+            )
             return "proxy{}, {}".format(tags, super()._format_info())
         return super()._format_info()
 
@@ -156,7 +193,7 @@ class Hdf5ProxySupportMixin(ProxySupportMixin):
         if self.data_is_proxy:
             return self.proxy.dtype
         return self.data.dtype
-    
+
     @property
     def shape(self) -> tuple:
         """Returns shape, proxy-aware"""

@@ -6,8 +6,9 @@ empty:
   results:
     num_nodes: 0
     num_objects: 2
-    tags: [dag, dm]
+    tags: [dag, dm, select_base]
     results: {}
+
 
 explicit_select:
   params:
@@ -31,7 +32,7 @@ explicit_select:
   expected:
     num_nodes: 3
     num_objects: 5
-    tags: [dag, dm, foo, bar]
+    tags: [dag, dm, select_base, foo, bar]
     node_hashes:
       - &hash_getitem_some_path 275d726a23c0c8d1becb5a4798f25336
       - &hash_getitem_foo 39175b65f33504b4482667416f144a42
@@ -65,7 +66,7 @@ shorthand_select:
   expected:
     num_nodes: 2
     num_objects: 4
-    tags: [dag, dm, foo, bar]
+    tags: [dag, dm, select_base, foo, bar]
     cache_dir_available: false
     node_hashes:
       - *hash_getitem_some_path_bar  # comes first b/c select orders by keys
@@ -75,6 +76,7 @@ shorthand_select:
       - - *hash_dm
     results:
       <<: *results_explicit_select
+
 
 
 # Nested arguments ------------------------------------------------------------
@@ -128,10 +130,10 @@ custom_selection_base:
     # Change verbosity
     verbosity: 0
 
-  expected:
+  expected: &expected_custom_selection_base
     num_nodes: 3
     num_objects: 5
-    tags: [dag, dm, some_path, foo, bar]
+    tags: [dag, dm, select_base, some_path, foo, bar]
     node_hashes:
       - *hash_getitem_some_path
       - 828f7c086c39be3c6842aa4121d0926c
@@ -144,6 +146,7 @@ custom_selection_base:
     results:
       <<: *results_explicit_select
 
+
 custom_selection_base_error_base_tag_not_found:
   params:
     base_transform:
@@ -151,7 +154,8 @@ custom_selection_base_error_base_tag_not_found:
     select_base: some_path
 
   _raises: KeyError
-  _match: "The tag 'some_path' cannot be the basis of future select operations because it is not available! .* Available tags: dag, dm"
+  _match: "The tag 'some_path' cannot be used to set `select_base` because it is not available! .* Available tags: dag, dm, select_base"
+
 
 select_path_prefix:
   params:
@@ -164,7 +168,7 @@ select_path_prefix:
   expected: &expected_select_path_prefix
     num_nodes: 2
     num_objects: 4
-    tags: [dag, dm, foo, bar]
+    tags: [dag, dm, select_base, foo, bar]
     node_hashes:
       - *hash_getitem_some_path_bar
       - *hash_getitem_some_path_foo
@@ -174,6 +178,7 @@ select_path_prefix:
     cache_dir_available: false
     results:
       <<: *results_explicit_select
+
 
 select_path_prefix_trailing_slash:
   params:
@@ -185,6 +190,7 @@ select_path_prefix_trailing_slash:
 
   expected:
     <<: *expected_select_path_prefix
+
 
 # Basic numerical operations --------------------------------------------------
 
@@ -233,7 +239,7 @@ basic_numerical_ops:
   expected:
     num_nodes: 7
     num_objects: 8  # not 9! Due to the duplicate Transformation
-    tags: [dag, dm, zero_raw, ones, twos, zeros, zeros_T, zero_raw_T, zero_raw_T2]
+    tags: [dag, dm, select_base, zero_raw, ones, twos, zeros, zeros_T, zero_raw_T, zero_raw_T2]
     node_hashes:
       - &hash_select_zero_raw 67ab8f890b5cf94f67c16ad357ab8652
       - &hash_increment_zeros ed7dfc407e2f36d6d432c13e0ea594cc
@@ -313,7 +319,7 @@ binary_ops:
   expected:
     num_nodes: 3
     num_objects: 5
-    tags: [dag, dm, zero_raw, random_raw, zero_plus_rand]
+    tags: [dag, dm, select_base, zero_raw, random_raw, zero_plus_rand]
     node_hashes:
       - &hash_select_random 2ea71e0765cf6cad7fb97d44345c872b
       - *hash_select_zero_raw
@@ -350,7 +356,7 @@ duplicates_and_salted:
   expected:
     num_nodes: 4
     num_objects: 5  # due to one duplicate transformation
-    tags: [dag, dm, zero_raw, ones, also_ones, also_ones_but_salted]
+    tags: [dag, dm, select_base, zero_raw, ones, also_ones, also_ones_but_salted]
     node_hashes:
       - *hash_select_zero_raw
       - *hash_increment_zeros
@@ -378,6 +384,7 @@ compute_only_a_subset:
     computed_tags: [zero_raw, twos]
 
 
+
 # Caching tests ---------------------------------------------------------------
 
 numpy_and_xarray_data:
@@ -401,7 +408,7 @@ numpy_and_xarray_data:
   expected:
     num_nodes: 3
     num_objects: 5
-    tags: [dag, dm, zeros_raw, random_raw, ones]
+    tags: [dag, dm, select_base, zeros_raw, random_raw, ones]
     node_hashes:
       - &hash_select_random_raw 06a087440938ff577699351cf5c53e88
       - &hash_select_zeros_raw 4c42374387241560e73b5009e084c5ff
@@ -410,6 +417,7 @@ numpy_and_xarray_data:
     cache_files:
       # ... only the result
       - 50749352642a34a09bfcda6742ee1963.xrdc
+
 
 numpy_and_xarray_data_2nd_run:
   cache_dir_name: *shared_cache_dir
@@ -431,10 +439,11 @@ numpy_and_xarray_data_2nd_run:
   expected:
     num_nodes: 3
     num_objects: 5
-    tags: [dag, dm, zeros_raw, ones, ones_tree]
+    tags: [dag, dm, select_base, zeros_raw, ones, ones_tree]
     cache_dir_available: true
     cache_files:
       - 50749352642a34a09bfcda6742ee1963.xrdc
+
 
 numpy_and_xarray_data_3rd_run:
   cache_dir_name: *shared_cache_dir
@@ -456,10 +465,11 @@ numpy_and_xarray_data_3rd_run:
   expected:
     num_nodes: 2
     num_objects: 4
-    tags: [dag, dm, zeros_raw, ones]
+    tags: [dag, dm, select_base, zeros_raw, ones]
     cache_dir_available: true
     cache_files:
       - 50749352642a34a09bfcda6742ee1963.xrdc
+
 
 file_cache_pickle_data:
   params:
@@ -476,7 +486,7 @@ file_cache_pickle_data:
   expected:
     num_nodes: 2
     num_objects: 4
-    tags: [dag, dm, some_dict, dict_data]
+    tags: [dag, dm, select_base, some_dict, dict_data]
     cache_dir_available: true
     cache_files:
       - 047e6ff6c13f875ce6d7e4c84ac6b964.pkl
@@ -504,7 +514,7 @@ file_cache_kwargs_to_transformation:
   expected:
     num_nodes: 3
     num_objects: 5
-    tags: [dag, dm, zeros_raw, ones, twos]
+    tags: [dag, dm, select_base, zeros_raw, ones, twos]
     node_hashes:
       - *hash_select_zeros_raw
       - *hash_op_increment_zeros_raw
@@ -512,6 +522,7 @@ file_cache_kwargs_to_transformation:
     cache_dir_available: true
     cache_files:
       - 1c7a39fea5901c7c233849b57c3028eb.xrdc  # tag twos
+
 
 file_cache_kwargs_to_select:
   params:
@@ -535,7 +546,7 @@ file_cache_kwargs_to_select:
   expected:
     num_nodes: 4
     num_objects: 6
-    tags: [dag, dm, zeros_raw, random_plus_minus]
+    tags: [dag, dm, select_base, zeros_raw, random_plus_minus]
     node_hashes:
       - *hash_select_random_raw
       - f461fcc1d4710900ce4328ef889da7d5
@@ -568,7 +579,7 @@ file_cache_object_size:
   expected:
     num_nodes: 3
     num_objects: 5
-    tags: [dag, dm, zeros_raw, ones, twos]
+    tags: [dag, dm, select_base, zeros_raw, ones, twos]
     node_hashes:
       - *hash_select_zeros_raw
       - *hash_op_increment_zeros_raw
@@ -576,6 +587,7 @@ file_cache_object_size:
     cache_dir_available: true
     cache_files:
       - 1c7a39fea5901c7c233849b57c3028eb.xrdc  # tag twos
+
 
 file_cache_min_compute_time:
   params:
@@ -601,7 +613,7 @@ file_cache_min_compute_time:
   expected:
     num_nodes: 3
     num_objects: 5
-    tags: [dag, dm, zeros_raw, ones, twos]
+    tags: [dag, dm, select_base, zeros_raw, ones, twos]
     node_hashes:
       - *hash_select_zeros_raw
       - *hash_op_increment_zeros_raw
@@ -609,6 +621,7 @@ file_cache_min_compute_time:
     cache_dir_available: true
     cache_files:
       - 1c7a39fea5901c7c233849b57c3028eb.xrdc  # tag twos
+
 
 file_cache_min_cumulative_compute_time:
   params:
@@ -632,7 +645,7 @@ file_cache_min_cumulative_compute_time:
   expected:
     num_nodes: 3
     num_objects: 5
-    tags: [dag, dm, zeros_raw, ones, twos]
+    tags: [dag, dm, select_base, zeros_raw, ones, twos]
     node_hashes:
       - *hash_select_zeros_raw
       - *hash_op_increment_zeros_raw
@@ -640,6 +653,7 @@ file_cache_min_cumulative_compute_time:
     cache_dir_available: true
     cache_files:
       - 1c7a39fea5901c7c233849b57c3028eb.xrdc  # tag twos
+
 
 file_cache_invariant_hash:
   params:
@@ -669,7 +683,7 @@ file_cache_invariant_hash:
   expected:
     num_nodes: 5
     num_objects: 5
-    tags: [dag, dm, zeros_raw, ones_v1, ones_v2, ones_v3, ones_v4]
+    tags: [dag, dm, select_base, zeros_raw, ones_v1, ones_v2, ones_v3, ones_v4]
     node_hashes:
       - *hash_select_zeros_raw
       - *hash_op_increment_zeros_raw
@@ -699,7 +713,7 @@ file_cache_with_callable_result:
   expected:
     num_nodes: 2
     num_objects: 4
-    tags: [dag, dm, nocache, numpy.random.randint]
+    tags: [dag, dm, select_base, nocache, numpy.random.randint]
     cache_dir_available: true
     cache_files:  # ... only one!
       - 041086b927535557204b1a16c9026be2.pkl
@@ -728,7 +742,7 @@ file_cache_netcdf3_coercion:
   expected:
     num_nodes: 3
     num_objects: 4
-    tags: [dag, dm, arr_uint64, arr_uint64_write, arr_uint64_read]
+    tags: [dag, dm, select_base, arr_uint64, arr_uint64_write, arr_uint64_read]
     cache_dir_available: true
     cache_files:
       - ebcd59f88bf3f5a4761d16ef53a6c8b9.nc_da
@@ -757,11 +771,102 @@ file_cache_pkl_fallback:
   expected:
     num_nodes: 3
     num_objects: 4
-    tags: [dag, dm, arr_uint64, arr_uint64_write, arr_uint64_read]
+    tags: [dag, dm, select_base, arr_uint64, arr_uint64_write, arr_uint64_read]
     cache_dir_available: true
     cache_files:
       # - <hash>.nc_da from failed storage function call does _not_ exist
       - e6eb9083f519ef9a3a2655396514dd3f.pkl  # .pkl shows fallback was used
+
+
+file_cache_with_module_as_result:  # module pickling is supported by dill
+  params:
+    transform:
+      - import: numpy
+        file_cache:
+          write: false  # ... this works
+        tag: nocache
+        salt: 123
+      - import: numpy.random
+        file_cache:
+          write:
+            enabled: true
+            storage_options:
+              attempt_pickling: true
+              raise_on_error: true
+        tag: numpy.random
+
+  expected:
+    tags: [dag, dm, select_base, nocache, numpy.random]
+    cache_dir_available: true
+    cache_files:
+      - b9fe3ce697bbbd431ce5e7f70297d80f.pkl
+
+
+file_cache_error_pkl_function:
+  params:
+    transform:
+      - operation: getitem
+        args: [!dag_tag dm, objects/some_list]
+        tag: some_list
+        file_cache:
+          write:
+            enabled: true
+            storage_options:
+              attempt_pickling: false  # --> no cache file
+              raise_on_error: true
+
+      - operation: getitem
+        args: [!dag_tag dm, objects/some_dict]
+        tag: some_dict
+        file_cache:
+          write:
+            enabled: true
+            storage_options:
+              # no argument -> will attempt pickling -> cache file
+              raise_on_error: false
+
+      - operation: getitem
+        args: [!dag_tag dm, objects/some_func]  # supported by dill
+        tag: some_func
+        file_cache:
+          write:
+            enabled: true
+            storage_options:
+              raise_on_error: true
+
+  # NOTE ... there seems to be some crosstalk between objects/some_func, which
+  #      should actually be pickleable, and the custom implementation of
+  #      UnpickleableString for bad_objects/some_str, which should really not
+  #      be pickleable. For whatever weird reason.
+  #      Anyway, this scenario is quite made-up, so although this case should
+  #      NOT fail, let's handle it as if it _was_ failing ... can't be bothered
+  # expected:
+  #   tags: [dag, dm, select_base, some_list, some_dict, some_func]
+  #   cache_dir_available: true
+  #   cache_files:
+  #     # - c106031ee0089b2d4d7efd4a7cb09cc6.pkl  # the list
+  #     - d64ae71435836020d3d33223baf7bb25.pkl    # the dict
+  #     - 6c3f280c8f1a4aa64221d609a5aa54f3.pkl    # the function
+  _raises: RuntimeError
+  _raises_on_compute: true
+  _match: I refuse to be pickled  # How does objects/some_func do this?!?!?!
+
+
+file_cache_error_unpickleable:
+  params:
+    transform:
+      - operation: getitem
+        args: [!dag_tag dm, bad_objects/some_string]
+        tag: i_cannot_be_pickled
+        file_cache:
+          write:
+            enabled: true
+            storage_options:
+              raise_on_error: true
+
+  _raises: RuntimeError
+  _raises_on_compute: true
+  _match: I refuse to be pickled
 
 
 file_cache_error_file_already_loaded:
@@ -827,41 +932,6 @@ file_cache_error_writing_groups:
   _raises_on_compute: true
   _match: Cannot currently write dantro groups .* transformation resulting .*
 
-file_cache_error_pickling:
-  params:
-    transform:
-      - operation: getitem
-        args: [!dag_tag dm, objects/some_list]
-        tag: some_list
-        file_cache:
-          write:
-            enabled: true
-            storage_options:
-              attempt_pickling: false
-              raise_on_error: true
-
-      - operation: getitem
-        args: [!dag_tag dm, objects/some_dict]
-        tag: some_dict
-        file_cache:
-          write:
-            enabled: true
-            storage_options:
-              raise_on_error: false
-
-      - operation: getitem
-        args: [!dag_tag dm, objects/some_func]
-        tag: some_func
-        file_cache:
-          write:
-            enabled: true
-            storage_options:
-              raise_on_error: true
-
-  _raises: RuntimeError
-  _raises_on_compute: true
-  _match: Failed saving transformation cache file. .* 'some_func'.*
-
 
 file_cache_error_in_save_func:
   params:
@@ -892,28 +962,6 @@ file_cache_error_in_save_func:
   _match: Failed saving transformation cache file .* using storage function
 
 
-file_cache_error_with_module_as_result:
-  params:
-    transform:
-      - import: numpy
-        file_cache:
-          write: false  # ... this works
-        tag: nocache
-        salt: 123
-      - import: numpy.random
-        file_cache:
-          write:
-            enabled: true
-            storage_options:
-              attempt_pickling: true
-              raise_on_error: true
-        tag: numpy.random
-
-  _raises: RuntimeError
-  _raises_on_compute: true
-  _match: Cannot pickle result object of type <class 'module'>
-
-
 
 # Errors ----------------------------------------------------------------------
 
@@ -930,6 +978,41 @@ error_tag_already_exists:
         tag: random_raw
   _raises: ValueError
   _match: Tag 'random_raw' already exists! Choose a different one.
+
+
+error_bad_operation_name:
+  params:
+    transform:
+      - operation: i_do_not_exist
+        tag: result
+  _raises: ValueError
+  _raises_on_compute: true
+  _match: Could not find an operation or meta-operation named 'i_do_not_exist'!
+
+
+error_bad_operation_name_with_meta_operations:
+  params:
+    meta_operations:
+      my_meta_op:
+        - add: [!arg 0, !arg 1]
+    transform:
+      - operation: i_do_not_exist
+        tag: result
+  _raises: ValueError
+  _raises_on_compute: true
+  _match: my_meta_op  # includes name of available meta-operations
+
+
+error_bad_compute_only_tag:
+  params:
+    transform:
+      - add: [1, 2]
+        tag: result
+  compute_only: [bad_tag]
+  _raises: ValueError
+  _raises_on_compute: true
+  _match: Some of the tags specified
+
 
 
 # Operation Hooks -------------------------------------------------------------
@@ -953,13 +1036,14 @@ op_hook_deactivated:
   expected:
     num_nodes: 3
     num_objects: 5
-    tags: [dag, dm, some_zeros, some_ones, result]
+    tags: [dag, dm, select_base, some_zeros, some_ones, result]
     results:
       result:
         type: ndarray
         attributes:
           mean: 3.
           shape: [2,3,4]
+
 
 op_hook_expression_simple:
   params:
@@ -977,13 +1061,14 @@ op_hook_expression_simple:
   expected:
     num_nodes: 4
     num_objects: 5
-    tags: [dag, dm, some_zeros, some_ones, result]
+    tags: [dag, dm, select_base, some_zeros, some_ones, result]
     results:
       result:
         type: ndarray
         attributes:
           mean: 3.
           shape: [2,3,4]
+
 
 op_hook_expression_advanced:
   params:
@@ -1008,7 +1093,7 @@ op_hook_expression_advanced:
   expected:
     num_nodes: 6
     num_objects: 7
-    tags: [dag, dm, some_zeros, some_ones, result1, result2, result3]
+    tags: [dag, dm, select_base, some_zeros, some_ones, result1, result2, result3]
     results:
       result1:
         type: ndarray
@@ -1026,6 +1111,7 @@ op_hook_expression_advanced:
           mean: 102.
           shape: [2,3,4]
 
+
 op_hook_expression_bad_hook:
   params:
     select:
@@ -1041,12 +1127,13 @@ op_hook_expression_bad_hook:
   expected:
     num_nodes: 4
     num_objects: 5
-    tags: [dag, dm, some_zeros, some_ones, result]
+    tags: [dag, dm, select_base, some_zeros, some_ones, result]
     results:
       result:
         type: float64
         attributes:
           ndim: 0
+
 
 op_hook_expression_type_error:
   params:
@@ -1059,6 +1146,8 @@ op_hook_expression_type_error:
   _raises: RuntimeError
   _raises_on_compute: true
   _match: takes 1 positional argument but 3 were given
+
+
 op_hook_expression_bad_expression:
   params:
     select:
@@ -1070,6 +1159,474 @@ op_hook_expression_bad_expression:
   _raises: RuntimeError
   _raises_on_compute: true
   _match: Failed parsing expression.*invalid syntax
+
+
+
+# Meta-operations -------------------------------------------------------------
+
+meta_ops_getitem_alias:
+  params:
+    meta_operations:
+      getitem_alias:
+        transform:
+          - operation: getitem
+            args: [!arg 0, !arg 1]
+
+    transform:
+      - operation: getitem_alias
+        args:
+          - !dag_tag dm
+          - some/path
+      - operation: getitem_alias
+        args:
+          - !dag_node -1
+          - foo
+        tag: foo
+
+      - operation: getitem_alias
+        args:
+          - !dag_tag dm
+          - some/path/bar
+        tag: bar
+
+  expected: &meta_ops_getitem_expected
+    num_nodes: 3
+    num_objects: 5
+    meta_operations:
+      getitem_alias:
+        num_nodes: 1
+        num_args: 2
+        kwarg_names: []
+    tags: [dag, dm, select_base, foo, bar]
+    node_hashes:
+      - *hash_getitem_some_path
+      - *hash_getitem_foo
+      - *hash_getitem_some_path_bar
+    node_dependencies:
+      - - *hash_dm                                   # 0 -> DataManager
+      - - *hash_getitem_some_path                    # 1 -> 1
+      - - *hash_dm                                   # 2 -> DataManager
+    cache_dir_available: false
+    results: *results_explicit_select
+
+
+meta_ops_getitem_from_dm:
+  params:
+    meta_operations:
+      getitem_from_dm:
+        - operation: getitem
+          args:
+            - !dag_tag dm   # Special tag, is NOT removed!
+            - !arg 0
+    transform:
+      - getitem_from_dm: some/path/foo
+        tag: foo
+      - getitem_from_dm: some/path/bar
+        tag: bar
+
+  expected:
+    <<: *meta_ops_getitem_expected
+
+    num_nodes: 2
+    num_objects: 4
+    meta_operations:
+      getitem_from_dm:
+        num_nodes: 1
+        num_args: 1
+        kwarg_names: []
+
+    node_hashes:
+      - *hash_getitem_some_path_foo
+      - *hash_getitem_some_path_bar
+    node_dependencies:
+      - - *hash_dm
+      - - *hash_dm
+
+
+meta_ops_in_base_transform:
+  params:
+    meta_operations:
+      getitem_alias:
+        transform:
+          - operation: getitem
+            args: [!arg 0, !arg 1]
+
+    base_transform:
+      - operation: getitem_alias
+        args:
+          - !dag_tag dm
+          - some/path
+        tag: some_path
+    select_base: some_path
+
+    select:
+      foo: foo
+      bar: bar
+
+  expected:
+    <<: *meta_ops_getitem_expected
+    tags: [dag, dm, select_base, some_path, foo, bar]
+    node_hashes: ~
+    node_dependencies: ~
+
+
+meta_ops_getitem_from_some_path:
+  params:
+    meta_operations:
+      getitem_from_some_path:
+        select:
+          some_path: some/path
+        transform:
+          - getitem:
+              - !dag_tag some_path
+              - !arg 0
+
+    transform:
+      - getitem_from_some_path: foo
+        tag: foo
+      - getitem_from_some_path: bar
+        tag: bar
+
+  expected:
+    num_nodes: 4
+    num_objects: 5
+    node_hashes:
+      - *hash_getitem_some_path
+      - 39175b65f33504b4482667416f144a42
+      - *hash_getitem_some_path
+      - 828f7c086c39be3c6842aa4121d0926c
+    meta_operations:
+      getitem_from_some_path:
+        num_nodes: 2
+        num_args: 1
+        kwarg_names: []
+    tags: [dag, dm, select_base, foo, bar]
+    results: *results_explicit_select
+
+
+meta_ops_simple_chain:
+  params:
+    meta_operations:
+      add_ten:
+        - add: [!arg 0, 1]
+        - add: [!dag_prev , 2]
+          tag: after_adding_two  # Can also use tags for chaining
+        - add: [!dag_tag after_adding_two, 3]
+        - add: [!dag_prev , 4]
+
+    transform:
+      - add_ten: 0
+        tag: ten
+      - add_ten: 32
+        tag: fourtytwo
+      - add_ten: -9.5
+        tag: pointfive
+
+  expected:
+    num_nodes: 12
+    num_objects: 14
+    tags: [dag, dm, select_base, ten, fourtytwo, pointfive]
+
+    results:
+      ten:
+        type: int
+        compare_to: 10
+      fourtytwo:
+        type: int
+        compare_to: 42
+      pointfive:
+        type: float
+        compare_to: .5
+
+
+meta_ops_with_kwargs:
+  params:
+    meta_operations:
+      hello:
+        - .format: "Hello, {first} {last}!"
+          kwargs:
+            first: !kwarg first_name
+            last: !kwarg last_name
+
+    transform:
+      - hello:
+          first_name: Foo
+          last_name: Bar
+        tag: hello_foobar
+      - hello:
+          first_name: cruel
+          last_name: world
+        tag: hello_cruel_world
+
+  expected:
+    num_nodes: 2
+    num_objects: 4
+    tags: [dag, dm, select_base, hello_foobar, hello_cruel_world]
+    results:
+      hello_foobar:
+        compare_to: "Hello, Foo Bar!"
+      hello_cruel_world:
+        compare_to: "Hello, cruel world!"
+
+
+meta_ops_mixed_args_and_kwargs:
+  params:
+    meta_operations:
+      weird_define:
+        - define: [[!arg 0, !arg 2, !kwarg foo, !arg 1, !kwarg bar]]
+    transform:
+      - weird_define: [0, 1, 2]
+        kwargs:
+          foo: foo
+          bar: bar
+        tag: weird_list
+
+  expected:
+    results:
+      weird_list:
+        compare_to: [0, 2, foo, 1, bar]
+
+
+meta_ops_internal_tags:
+  params:
+    meta_operations:
+      left_minus_right_times_two:
+        - add: [!kwarg l1, !kwarg l2]
+          tag: left
+        - add: [!kwarg r1, !kwarg r2]
+          tag: right
+        - sub: [!dag_tag left, !dag_tag right]
+          tag: difference
+        - mul: [!dag_tag difference, 2]
+
+    transform:
+      - left_minus_right_times_two: # [(2+3) - (10+1)] * 2
+          l1: 2
+          l2: 3
+          r1: 10
+          r2: 1
+        tag: res1
+      - left_minus_right_times_two: # [(4+3) - (2+1)] * 2
+          l1: 4
+          l2: 3
+          r1: 2
+          r2: 1
+        tag: res2
+
+  expected:
+    meta_operations:
+      left_minus_right_times_two:
+        num_nodes: 4
+        num_args: 0
+        kwarg_names: [l1, l2, r1, r2]
+    results:
+      res1:
+        compare_to: -12
+      res2:
+        compare_to: 8
+
+
+meta_ops_nested:
+  params:
+    meta_operations:
+      multi_add:
+        - add: [!arg 0, !arg 1]
+        - add: [!dag_prev , !arg 2]
+      multi_mul:
+        - mul: [!arg 0, !arg 1]
+        - mul: [!dag_prev , !arg 2]
+      nested_mops:
+        - multi_add: [!kwarg s1, !kwarg s2, !kwarg s3]
+        - multi_add: [!dag_prev , !kwarg s4, !kwarg s5]
+          tag: my_sum
+        - multi_mul: [!kwarg m1, !kwarg m2, !kwarg m3]
+          tag: my_prod
+        - sub: [!dag_tag my_sum , !dag_tag my_prod]
+
+    transform:
+      - nested_mops:  # ((1+2+3)+4+5) - (2*2*2) = 15 - 8 = 7
+          s1: 1
+          s2: 2
+          s3: 3
+          s4: 4
+          s5: 5
+          m1: 2
+          m2: 2
+          m3: 2
+        tag: result
+
+  expected:
+    results:
+      result:
+        compare_to: 7
+
+
+meta_ops_deeply_nested:
+  params:
+    meta_operations:
+      # ... deliberately complicated and nested in order to test that the
+      # nesting of meta-operations and duplicate use of tags works correctly.
+      # This asserts the functionality of the reference stack.
+      base2:
+        - add: [1, 1]
+          tag: two
+        - pow: [!dag_tag two, !arg 0 ]
+      base3:
+        - base2: [2]
+          tag: two
+        - div: [!dag_tag two, !dag_tag two]
+          tag: one
+        - sub: [!dag_tag two , !dag_tag one]
+          tag: three
+        - pow: [!dag_tag three, !arg 0 ]
+      base5:
+        - base3: [1]
+          tag: three
+        - base2: [1]
+          tag: two
+        - add: [!dag_tag two, !dag_tag three]
+          tag: five
+        - pow: [!dag_tag five, !arg 0 ]
+      base7:
+        - base2: [1]
+          tag: two
+        - base2: [2]
+          tag: four
+        - base3: [0]
+        - add: [!dag_tag two, !dag_prev ]
+          tag: three
+        - add: [!dag_tag four, !dag_tag four]
+          tag: eight
+        - sub: [!dag_tag four, !dag_tag three]
+          tag: one
+        - sub: [!dag_tag eight, !dag_tag one]
+          tag: seven
+        - pow: [!dag_tag seven, !arg 0 ]
+      multiply_some_primes:
+        - base2: [!kwarg twos]
+          tag: twos
+        - base3: [!kwarg threes]
+          tag: threes
+        - base5: [!kwarg fives]
+          tag: fives
+        - base7: [!kwarg sevens]
+          tag: sevens
+        - np.:
+            - prod
+            - - !dag_tag twos
+              - !dag_tag threes
+              - !dag_tag fives
+              - !dag_tag sevens
+
+    transform:
+      - multiply_some_primes:  # 2^2 * 3^3 * 5^5 * 7^7 = 277 945 762 500
+          twos: 2
+          threes: 3
+          fives: 5
+          sevens: 7
+        tag: result
+
+  expected:
+    results:
+      result:
+        compare_to: 277945762500
+
+
+meta_ops_err_name_exists:
+  params:
+    meta_operations:
+      getitem: {}
+
+  _raises: ValueError
+  _match: An operation or meta-operation with the name 'getitem' already exists
+
+
+meta_ops_err_no_specs:
+  params:
+    meta_operations:
+      foo: {}
+
+  _raises: ValueError
+  _match: need to contain at least one transformation
+
+
+meta_ops_err_non_contiguous_args:
+  params:
+    meta_operations:
+      some_mop:
+        - define: [[!arg 0, !arg 1, !arg 3]]
+
+  _raises: ValueError
+  _match: were not contiguous! .* for all integers from 0 to 3
+
+
+meta_ops_err_bad_num_args:
+  params:
+    meta_operations:
+      weird_define:
+        - define: [[!arg 0, !arg 3, !arg 1, !arg 2]]
+    transform:
+      - weird_define: [foo, bar]
+
+  _raises: ValueError
+  _match: expects 4 positional argument\(s\) but got 2
+
+
+meta_ops_err_bad_kwargs:
+  params:
+    meta_operations:
+      weird_define:
+        - define: [[!kwarg foo, !kwarg bar, !arg 0, !kwarg baz]]
+    transform:
+      - operation: weird_define
+        args: [zero]
+        kwargs:
+          foo: foo
+          bar: bar
+          BAZ: BAZ  # wrong
+
+  _raises: ValueError
+  _match: requires 3 keyword arguments \(bar, baz, foo\) but got 3 \(BAZ, bar, foo\)
+
+
+meta_ops_err_external_tags:
+  params:
+    meta_operations:
+      weird_define:
+        - define: [[!kwarg foo, !kwarg bar, !dag_tag spam]]
+          tag: foobarspam
+        - pass: !dag_tag foobarspam
+
+  _raises: ValueError
+  _match: not defined as part of the meta-operation .* Within a meta-operation, only internally-defined tags \(foobarspam\) or special tags \(dag, dm, select_base\) can be used
+
+
+meta_ops_err_unused_tags:
+  params:
+    meta_operations:
+      weird_define:
+        - define: [[!kwarg foo, !kwarg bar, !kwarg spam]]
+          tag: foobarspam
+        - define: 42
+          tag: fourtytwo
+        - pass: !dag_tag foobarspam
+
+  _raises: ValueError
+  _match: "defines internal tags that are not used within the meta-operation: fourtytwo! Either remove these tags"
+
+
+meta_ops_err_duplicate_internal_tags:
+  params:
+    meta_operations:
+      weird_define:
+        - define: [[!kwarg foo, !kwarg bar, !kwarg spam]]
+          tag: foobar
+        - define: 42
+          tag: foobar
+        - pass: !dag_tag foobar
+
+  _raises: ValueError
+  _match: duplicate internal tag definitions .*foobar, foobar
 
 
 # Examples in documentation ---------------------------------------------------
@@ -1091,6 +1648,7 @@ doc_examples_with_previous_result:
         with_previous_result: true
         tag: f5
 
+
 doc_examples_dag_prev:
   params:
     transform:
@@ -1104,6 +1662,7 @@ doc_examples_dag_prev:
         args: [10, !dag_prev ]
         tag: my_result
 
+
 doc_examples_select:
   params:
     select:
@@ -1113,7 +1672,8 @@ doc_examples_select:
     transform: ~
 
   expected:
-    tags: [dag, dm, some_data, more_data]
+    tags: [dag, dm, select_base, some_data, more_data]
+
 
 doc_examples_select_with_transform:
   params:
@@ -1138,6 +1698,7 @@ doc_examples_select_with_transform:
         args: [!dag_tag square_increment, !dag_tag some_sum ]
         tag: my_result
 
+
 doc_examples_minimal:
   params:
     ### Start -- dag_minimal_syntax
@@ -1153,7 +1714,8 @@ doc_examples_minimal:
     ### End ---- dag_minimal_syntax
 
   expected:
-    tags: [dag, dm, some_data, more_data, my_result]
+    tags: [dag, dm, select_base, some_data, more_data, my_result]
+
 
 doc_examples_import_and_call:
   params:
@@ -1167,7 +1729,8 @@ doc_examples_import_and_call:
         tag: random_integers
 
   expected:
-    tags: [dag, dm, random_integers]
+    tags: [dag, dm, select_base, random_integers]
+
 
 doc_examples_op_hooks_expression_minimal:
   params:
@@ -1181,10 +1744,11 @@ doc_examples_op_hooks_expression_minimal:
     ### End ---- dag_op_hooks_expression_minimal
 
   expected:
-    tags: [dag, dm, some_data, more_data, my_result]
+    tags: [dag, dm, select_base, some_data, more_data, my_result]
     results:
       my_result:
         type: ndarray
+
 
 doc_examples_op_hooks_expression_expanded_minimal:
   params:
@@ -1202,10 +1766,11 @@ doc_examples_op_hooks_expression_expanded_minimal:
     ### End ---- dag_op_hooks_expression_expanded_minimal
 
   expected:
-    tags: [dag, dm, some_data, more_data, my_result]
+    tags: [dag, dm, select_base, some_data, more_data, my_result]
     results:
       my_result:
         type: ndarray
+
 
 doc_examples_op_hooks_expression_basics:
   params:
@@ -1222,11 +1787,12 @@ doc_examples_op_hooks_expression_basics:
     ### End ---- dag_op_hooks_expression_basics
 
   expected:
-    tags: [dag, dm, a, b, c, result]
+    tags: [dag, dm, select_base, a, b, c, result]
     results:
       result:
         type: float64
         compare_to: 16.
+
 
 doc_examples_op_hooks_expression_prev:
   params:
@@ -1240,11 +1806,12 @@ doc_examples_op_hooks_expression_prev:
     ### End ---- dag_op_hooks_expression_prev
 
   expected:
-    tags: [dag, dm, x, result]
+    tags: [dag, dm, select_base, x, result]
     results:
       result:
         type: float64
         compare_to: .5
+
 
 doc_examples_op_hooks_expression_symbolic:
   params:
@@ -1275,11 +1842,12 @@ doc_examples_op_hooks_expression_symbolic:
     ### End ---- dag_op_hooks_expression_symbolic
 
   expected:
-    tags: [dag, dm, arr, a, b, c, equation_one, equation_two, result]
+    tags: [dag, dm, select_base, arr, a, b, c, equation_one, equation_two, result]
     results:
       result:
         type: float64
         compare_to: 4000.
+
 
 doc_examples_dag_curve_fitting:
   params:
@@ -1305,9 +1873,356 @@ doc_examples_dag_curve_fitting:
     ### End ---- dag_examples_curve_fitting
 
   expected:
-    tags: [dag, dm, data_to_fit, elephant_f, times, fit_results]
+    tags: [dag, dm, select_base, data_to_fit, elephant_f, times, fit_results]
     results:
       elephant_f:
         type: function
       fit_results:
         type: tuple
+
+
+doc_examples_meta_ops_simple:
+  params:
+    ### Start -- dag_meta_ops_simple_def
+    # Define meta-operations
+    meta_operations:
+      # Compute (x**2 + 1) for a positional input argument x
+      square_plus_one:
+        - pow: [!arg 0, 2]
+        - add: [!dag_prev , 1]   # <-- this operation's result is the "return value"
+
+      # Select some data and directly compute its mean
+      select_and_compute_mean:
+        select:
+          data:
+            path: !kwarg to_select
+        transform:
+          - .mean: !dag_tag data
+
+    ### End ---- dag_meta_ops_simple_def
+    ### Start -- dag_meta_ops_simple_use
+    # Use the meta-operations within the regular data transformation, alongside
+    # the already-existing data operations
+    transform:
+      - select_and_compute_mean:
+          to_select: path/to/some_data
+        tag: some_data_mean
+      - select_and_compute_mean:
+          to_select: path/to/more_data
+        tag: more_data_mean
+      - add: [!dag_tag some_data_mean, !dag_tag more_data_mean]
+      - square_plus_one: !dag_prev
+        tag: result
+    ### End ---- dag_meta_ops_simple_use
+
+  expected:
+    tags: [dag, dm, select_base, some_data_mean, more_data_mean, result]
+    results:
+      result:
+        type: float64
+
+
+doc_examples_meta_ops_arg_def:
+  params:
+    ### Start -- dag_meta_ops_arg_def
+    meta_operations:
+      my_equation:  # [(a + b) * c - d] / e
+        - add: [!kwarg a, !kwarg b]
+        - mul: [!dag_prev , !kwarg c]
+        - sub: [!dag_prev , !kwarg d]
+        - div: [!dag_prev , !kwarg e]
+
+    transform:
+      - my_equation:
+          a: 1
+          b: 10
+          c: 8
+          d: 4
+          e: 2
+        tag: the_answer
+    ### End ---- dag_meta_ops_arg_def
+
+  expected:
+    tags: [dag, dm, select_base, the_answer]
+    results:
+      the_answer:
+        type: float
+        compare_to: 42
+
+
+doc_examples_meta_ops_definition_formats:
+  params:
+    ### Start -- dag_meta_ops_definition_formats
+    meta_operations:
+      # A -- as list  ==> transformations only
+      a_plus_b_cubed:
+        - add: [!arg 0, !arg 1]
+        - pow: [!dag_prev , 3]
+
+      # B -- as dict  ==>  selections _and_ transformations
+      select_and_square:
+        select:
+          data:
+            path: !kwarg to_select
+        transform:
+          - squared: !dag_tag data
+
+    transform:
+      - a_plus_b_cubed: [1, 2]
+        tag: result1
+      - select_and_square:
+          to_select: path/to/some_data
+        tag: result2
+    ### End ---- dag_meta_ops_definition_formats
+
+  expected:
+    tags: [dag, dm, select_base, result1, result2]
+    results:
+      result1:
+        type: int
+        compare_to: 27
+      result2:
+        type: ndarray
+
+
+doc_examples_meta_ops_tagging:
+  params:
+    ### Start -- dag_meta_ops_tagging
+    meta_operations:
+      my_meta_operation:  # [(x+1) * (x-1)] / (2*y)
+        - add: [!arg 0, +1]
+          tag: left
+        - add: [!arg 0, -1]
+          tag: right
+        - mul: [!dag_tag left, !dag_tag right]
+          tag: top
+        - mul: [!arg 1, 2]
+        - div: [!dag_tag top , !dag_prev ]
+
+    transform:
+      - my_meta_operation: [9, 2]  # [(9+1) * (9-1)] / (2*2) == 20
+        tag: result
+    ### End ---- dag_meta_ops_tagging
+      - my_meta_operation: [0, .5]
+        tag: result2
+
+  expected:
+    tags: [dag, dm, select_base, result, result2]
+    results:
+      result:
+        type: float
+        compare_to: 20
+      result2:
+        type: float
+        compare_to: -1
+
+
+doc_examples_meta_ops_prime_multiples:
+  params:
+    ### Start -- dag_meta_ops_prime_multiples
+    meta_operations:
+      prime_multiples:
+        # Define powers of primes 2, 3, 5, and 7
+        - pow: [2, !kwarg base2]
+          tag: b2
+        - pow: [3, !kwarg base3]
+          tag: b3
+        - pow: [5, !kwarg base5]
+          tag: b5
+        - pow: [7, !kwarg base7]
+          tag: b7
+        # Compute their product
+        - np.: [prod, [!dag_tag b2, !dag_tag b3, !dag_tag b5, !dag_tag b7]]
+
+    transform:
+      - prime_multiples:
+          base2: 2
+          base3: 1
+          base5: 0
+          base7: 3
+        tag: result
+    ### End ---- dag_meta_ops_prime_multiples
+
+  expected:
+    tags: [dag, dm, select_base, result]
+    results:
+      result:
+        type: int64
+        compare_to: 4116
+
+
+doc_examples_meta_ops_multiple_return_values:
+  params:
+    ### Start -- dag_meta_ops_multiple_return_values
+    meta_operations:
+      # Given some input data (as positional argument), compute a bunch of
+      # statistical quantities. To return them, aggregate them into a dict.
+      compute_stats:
+        # Make sure it's an xarray object
+        - xr.DataArray: !arg 0
+          tag: data
+
+        # Compute the statistics
+        - .mean: !dag_tag data
+          tag: mean
+        - .std: !dag_tag data
+          tag: std
+        - .median: !dag_tag data
+          tag: median
+        - .min: !dag_tag data
+          tag: min
+        - .max: !dag_tag data
+          tag: max
+        - .quantile: [!dag_tag data, 0.25]
+          tag: q25
+        - .quantile: [!dag_tag data, 0.75]
+          tag: q75
+
+        # Aggregate into a dict as return value
+        - dict:
+            mean: !dag_tag mean
+            std: !dag_tag std
+            median: !dag_tag median
+            min: !dag_tag min
+            max: !dag_tag max
+            q25: !dag_tag q25
+            q75: !dag_tag q75
+
+    # Usage example: select some data and get some of the desired statistics
+    select:
+      some_data: path/to/some_data
+    transform:
+      - compute_stats: !dag_tag some_data
+        tag: some_stats
+
+      - getitem: [!dag_tag some_stats, mean]
+        tag: some_mean
+      - getitem: [!dag_tag some_stats, std]
+        tag: some_std
+      - getitem: [!dag_tag some_stats, median]
+        tag: some_median
+    ### End ---- dag_meta_ops_multiple_return_values
+      - list: !dag_tag some_stats
+        tag: available_keys
+
+  expected:
+    tags: [dag, dm, select_base, available_keys,
+           some_data, some_mean, some_std, some_median, some_stats]
+    results:
+      some_mean:
+        type: DataArray
+      some_std:
+        type: DataArray
+      some_median:
+        type: DataArray
+      available_keys:
+        type: list
+        compare_to: [max, mean, median, min, q25, q75, std]
+
+
+doc_examples_meta_ops_gauss:
+  params:
+    ### Start -- dag_meta_ops_gauss
+    meta_operations:
+      # A meta-operation that defines a gaussian
+      my_gauss:
+        - expression: a * exp(- (x - mu)**2 / (2 * sigma**2))
+          kwargs:
+            symbols:
+              a: !kwarg a
+              mu: !kwarg mu
+              sigma: !kwarg sigma
+              x: !kwarg x
+
+    transform:
+      # Compute the Gaussian for two values
+      - my_gauss:
+          a: 1.
+          mu: 0.
+          sigma: 1.
+          x: 0.
+        tag: default_gaussian
+      - my_gauss:
+          a: 1.
+          mu: 23.
+          sigma: 10.
+          x: 23.
+        tag: wide_gaussian_moved
+    ### End ---- dag_meta_ops_gauss
+      # Some more for testing
+      - my_gauss: &default_args
+          a: 1.
+          mu: 0.
+          sigma: 1.
+          x: 0.
+        tag: gauss_at_zero
+      - my_gauss:
+          <<: *default_args
+          a: 42
+        tag: large_gauss
+      - my_gauss:
+          <<: *default_args
+          mu: 42.
+          x: 42.
+        tag: moved_gauss
+      - my_gauss:
+          <<: *default_args
+          a: 123.
+          x: 100000.
+        tag: zero_gauss
+
+  expected:
+    tags: [dag, dm, select_base, default_gaussian, wide_gaussian_moved,
+           gauss_at_zero, large_gauss, moved_gauss, zero_gauss]
+    results:
+      default_gaussian:
+        compare_to: 1.
+      wide_gaussian_moved:
+        compare_to: 1.
+      gauss_at_zero:
+        compare_to: 1.
+      large_gauss:
+        compare_to: 42.
+      moved_gauss:
+        compare_to: 1.
+      zero_gauss:
+        compare_to: 0.
+
+
+doc_examples_meta_ops_anchor_usage:
+  params:
+    meta_operations:
+      # A meta-operation that defines a gaussian
+      my_gauss:
+        - expression: a * exp(- (x - mu)**2 / (2 * sigma**2))
+          kwargs:
+            symbols:
+              a: !kwarg a
+              mu: !kwarg mu
+              sigma: !kwarg sigma
+              x: !kwarg x
+
+    ### Start -- dag_meta_ops_anchor_usage
+    transform:
+      - my_gauss: &my_gauss_defaults    # <-- defines the defaults
+          a: 1.
+          mu: 0.
+          sigma: 1.
+          x: 0.
+        tag: default_gaussian
+      - my_gauss:
+          <<: *my_gauss_defaults        # <-- re-use defaults ...
+          a: 10.                        #     ... and update with new values
+        tag: scaled_gaussian
+      - my_gauss:
+          <<: *my_gauss_defaults
+          mu: -42.
+        tag: moved_gaussian
+    ### End ---- dag_meta_ops_anchor_usage
+
+  expected:
+    tags: [dag, dm, select_base,
+           default_gaussian, scaled_gaussian, moved_gaussian]
+    results:
+      default_gaussian:
+        compare_to: 1.

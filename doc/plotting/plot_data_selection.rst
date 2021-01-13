@@ -17,6 +17,8 @@ The uniform interface of the :py:class:`~dantro.data_mngr.DataManager` paired wi
 
 This functionality is embedded at the level of the :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator`, making it available for all plot creators and allowing subclasses to tailor it to their needs.
 
+Additionally, :ref:`result placeholders <dag_result_placeholder>` can be specified inside the plot configuration, thus allowing to use transformation results not only for data selection, but also for programmatically determining other configuration parameters.
+
 
 .. contents::
    :local:
@@ -55,6 +57,10 @@ You then have the following arguments available to control its behaviour:
 .. note::
 
     If DAG usage is enabled, these arguments will be used *exclusively* for the DAG, i.e.: they are not available downstream in the plot creator.
+
+.. hint::
+
+    To use :ref:`meta-operations <dag_meta_ops>` for plot data selection, define them under the ``dag_options.meta_operations`` key of a plot configuration.
 
 The creation of the DAG and its computation is controlled by the chosen plot creator and can be specialized to suit that plot creator's needs.
 
@@ -272,7 +278,7 @@ An associated plot configuration might look like this:
               - mean: [!dag_prev ]
               - increment: [!dag_prev ]
 
-        combination_method: concat  # can be `concat` (default) or `merge`
+        combination_method: concat  # can be ``concat`` (default) or ``merge``
         subspace: ~                 # some subspace selection
 
       transform:
@@ -297,8 +303,8 @@ An example of all options available in the :py:class:`~dantro.plot_creators.pcr_
       select_and_combine:
         fields:
           # Define a tag 'foo' that will use the defaults defined directly on
-          # the `select_and_combine` level
-          foo: foo                       # `base_path` will be prepended here
+          # the ``select_and_combine`` level
+          foo: foo                       # ``base_path`` will be prepended here
                                          # resulting in: some/path/foo
 
           # Define a tag 'bar' that overwrites some of the defaults
@@ -327,19 +333,19 @@ An example of all options available in the :py:class:`~dantro.plot_creators.pcr_
                 args: [!dag_prev ]
                 file_cache: {}      # can configure file cache here
 
-        base_path: some_path        # if given, prepended to `path` in `fields`
+        base_path: some_path        # if given, prepended to ``path`` in ``fields``
 
-        # Default arguments, can be overwritten in each `fields` entry
-        combination_method: concat  # can be `concat` (default) or `merge`
+        # Default arguments, can be overwritten in each ``fields`` entry
+        combination_method: concat  # can be ``concat`` (default) or ``merge``
         subspace: ~                 # some subspace selection
 
-      # Additional selections, now based on `dm` tag
+      # Additional selections, now based on ``dm`` tag
       select: {}
 
       # Additional transformations; all tags from above available here
       transform: []
 
-      # Other DAG-related parameters: `compute_only`, `dag_options`
+      # Other DAG-related parameters: ``compute_only``, ``dag_options``
       # ...
 
 .. note::
@@ -347,3 +353,68 @@ An example of all options available in the :py:class:`~dantro.plot_creators.pcr_
     This does not include *all* possible options for DAG configuration but focusses on those options added by :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator` to work with multiverse data, e.g. ``subspace``, ``combination_kwargs``.
 
     For other arguments, see :ref:`dag_transform_full_syntax_spec`.
+
+
+----
+
+.. _dag_result_placeholder:
+
+Using data transformation results in the plot configuration
+-----------------------------------------------------------
+The :ref:`data transformation framework <dag_framework>` can not only be used for the *selection* of plot data: using so-called "result placeholders", data transformation results can be used as part of the plot *configuration*.
+
+One use case is to include a computation result, e.g. some mean value, into the title of the plot via the :ref:`plot helper <pcr_ext_plot_helper>`.
+In general, this feature allows to automate further parts of the plot configuration by giving access to the capabilities of the transformation framework.
+
+Let's look at an example plot configuration:
+
+.. literalinclude:: ../../tests/cfg/dag_plots.yml
+    :language: yaml
+    :start-after: ### Start -- placeholder_title
+    :end-before:  ### End ---- placeholder_title
+    :dedent: 6
+
+As can be seen here, there are additional operations defined within ``transform``, which lead to the ``title_str`` tag.
+In the helper configuration, that tag is referred to via the ``!dag_result`` YAML tag, thus creating a placeholder at the ``helpers.set_title.title`` key.
+
+This illustrates the basic idea.
+Of course, multiple placeholders can be used and they can be used *almost everywhere* inside the plot configuration; however, make sure to have a look at the :ref:`caveats <dag_result_placeholder_scope>` to learn about current limitations.
+
+.. hint::
+
+    When adding placeholders, you will notice additional log messages which inform about the placeholder names and their computation profile.
+
+
+Caveats
+^^^^^^^
+
+.. _dag_result_placeholder_scope:
+
+Where in the plot configuration can placeholders be used?
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+Placeholders can be used in *wide* parts of the plot configuration, but not everywhere.
+If you encounter errors that refer to an ``unexpected ResultPlaceholder object``, this is probably because they were defined in a part of the plot configuration where they cannot be resolved.
+
+**Where can (✅) placeholders always be used? Where can they never (❌) be used?**
+
+* ✅ They *can* be used in *all* configuration entries that are passed through to the selected plot function of the :ref:`pcr_ext` and derived plot creators.
+* ✅ They *can* be used within the ``helpers`` argument that controls the :ref:`pcr_ext_plot_helper`.
+* ❌ They can *not* be used for entries related to data transformation (``select``, ``transform``, ``dag_options``, ...) because these need to be evaluated in order to set up the :py:class:`~dantro.dag.TransformationDAG`.
+* ❌ They can *not* be used for entries evaluated by the :ref:`plot_manager` (``out_path``, etc) or the plot creator *prior to data selection* (``animation``, ``style``, ``module``, etc).
+
+
+Why is my placeholder not resolved?
+"""""""""""""""""""""""""""""""""""
+The identification and replacement of placeholders happens by recursively iterating through ``list``-like and ``dict``-like objects in the plot configuration ``dict``.
+Typically, this reaches all places where these placeholders could be defined.
+The only *exception* being if the placeholder is in some part of an *object* that does not behave like a ``list`` or a ``dict``.
+
+
+Implementation details
+^^^^^^^^^^^^^^^^^^^^^^
+Under the hood, the ``!dag_result`` YAML tag is read as a :py:class:`~dantro._dag_utils.ResultPlaceholder` object, which simply stores the name of the tag that should come in its place.
+After the plot data was computed, the :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator` inspects the plot configuration and recursively collects all these placeholder objects.
+The :py:meth:`~dantro.dag.TransformationDAG.compute` method is then invoked to retrieve the specified results.
+Subsequently, the placeholder entries in the plot configuration are replaced with the result from the computation.
+
+For the above operations, functions from `the paramspace package <https://gitlab.com/blsqr/paramspace>`_ are used, specifically: ``paramspace.tools.recursive_collect`` and ``paramspace.tools.recursive_replace``.

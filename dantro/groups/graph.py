@@ -4,25 +4,28 @@ between hierarchically stored data and the creation of graph objects.
 See :ref:`data_structures_graph_group` for more information.
 """
 
-import warnings
 import logging
+import warnings
 from typing import List, Union
 
 import numpy as np
 import xarray as xr
-import networkx as nx
-import networkx.exception
 
-from .labelled import LabelledDataGroup
+from .._import_tools import LazyLoader
 from ..base import BaseDataGroup
 from ..containers import XrDataContainer
 from ..tools import recursive_update
+from .labelled import LabelledDataGroup
 
 # Local constants
 log = logging.getLogger(__name__)
 
+# Lazy imports for packages that take a long time to import
+nx = LazyLoader("networkx")
+
 
 # -----------------------------------------------------------------------------
+
 
 class GraphGroup(BaseDataGroup):
     """The GraphGroup class manages groups of graph data containers and
@@ -42,10 +45,10 @@ class GraphGroup(BaseDataGroup):
     _GG_attr_directed = "directed"
     _GG_attr_parallel = "parallel"
     _GG_attr_edge_container_is_transposed = "edge_container_is_transposed"
+    _GG_attr_keep_dim = "keep_dim"
 
     # Define whether warning is raised upon bad alignment of property data
     _GG_WARN_UPON_BAD_ALIGN = True
-
 
     # .........................................................................
 
@@ -59,12 +62,10 @@ class GraphGroup(BaseDataGroup):
         super().__init__(*args, **kwargs)
         self._property_maps = dict()
 
-
     @property
     def property_maps(self) -> dict:
         """The property maps associated with this group, keyed by name."""
         return self._property_maps
-
 
     @property
     def node_container(self):
@@ -79,7 +80,6 @@ class GraphGroup(BaseDataGroup):
                 "_GG_node_container is set to the correct value."
             ) from err
 
-
     @property
     def edge_container(self):
         """Returns the associated edge container of this graph group"""
@@ -93,6 +93,14 @@ class GraphGroup(BaseDataGroup):
                 "_GG_edge_container is set to the correct value."
             ) from err
 
+    @property
+    def default_keep_dim(self):
+        """The default dimensions not to be squeezed during data selection as
+        specified in the respective group attribute.
+        """
+        if self._GG_attr_keep_dim in self.attrs:
+            return tuple(self.attrs[self._GG_attr_keep_dim])
+        return None
 
     # .........................................................................
 
@@ -120,8 +128,8 @@ class GraphGroup(BaseDataGroup):
             return super().__getitem__(key=key)
 
         except KeyError as err:
-            _available_keys = (  [str(k) for k in self.keys()]
-                               + [str(k) for k in self._property_maps.keys()])
+            _available_keys = [str(k) for k in self.keys()]
+            _available_keys += [str(k) for k in self._property_maps.keys()]
             _available_keys = ", ".join(_available_keys)
 
             raise KeyError(
@@ -129,11 +137,16 @@ class GraphGroup(BaseDataGroup):
                 f"Available keys at top level: {_available_keys}"
             ) from err
 
-
-    def _get_data_at(self, *, data: Union[XrDataContainer, LabelledDataGroup],
-                     sel: dict=None, isel: dict=None,
-                     at_time: int=None, at_time_idx: int=None
-                     ) -> Union[xr.DataArray, XrDataContainer]:
+    def _get_data_at(
+        self,
+        *,
+        data: Union[XrDataContainer, LabelledDataGroup],
+        sel: dict = None,
+        isel: dict = None,
+        at_time: int = None,
+        at_time_idx: int = None,
+        keep_dim=None,
+    ) -> Union[xr.DataArray, XrDataContainer]:
         """Returns a ``xarray.DataArray`` containing the data specified via the
         selectors ``sel`` and ``isel``. Any dimension of size 1 is removed
         from the selected data.
@@ -158,6 +171,8 @@ class GraphGroup(BaseDataGroup):
             at_time_idx (int, optional): Select along ``time`` dimension via
                 index. Translated to ``isel = dict(time=at_time_idx)``,
                 potentially overwriting an existing ``time`` entry.
+            keep_dim (optional): Iterable containing names of the dimensions
+                that can not be squeezed.
 
         Returns:
             xr.DataArray: The selected data
@@ -170,8 +185,9 @@ class GraphGroup(BaseDataGroup):
             sel = recursive_update(sel if sel else {}, dict(time=at_time))
 
         if at_time_idx is not None:
-            isel = recursive_update(isel if isel else {},
-                                    dict(time=at_time_idx))
+            isel = recursive_update(
+                isel if isel else {}, dict(time=at_time_idx)
+            )
 
         # Check that no key is in both sel and isel
         if sel and isel:
@@ -183,37 +199,58 @@ class GraphGroup(BaseDataGroup):
                     f"the selection of {data}: {_duplicate_keys}"
                 )
 
-        log.debug("Received the following selectors:\n  sel: %s\n  isel: %s",
-                  sel, isel)
+        log.debug(
+            "Received the following selectors:\n  sel: %s\n  isel: %s",
+            sel,
+            isel,
+        )
         log.debug("Now applying these to the following data ...\n  %s", data)
+
+        # Get the dimensions available for selection
+        dims = {d for d in data.dims}
+        # If `data` is a group, extract the member level dimensions. It is
+        # sufficient to look at a single group member, since dimensions along
+        # which is selected have to be shared among all group members.
+        if isinstance(data, BaseDataGroup):
+            dims |= {d for d in data[next(iter(data))].dims}
 
         # Remove any entries for which no matching dimension exists and apply
         # sel _and_ isel (if given).
         if sel is not None:
-            sel = {k:v for k,v in sel.items() if k in data.sel().dims}
+            sel = {k: v for k, v in sel.items() if k in dims}
             data = data.sel(**sel)
 
         if isel is not None:
-            isel = {k:v for k,v in isel.items() if k in data.sel().dims}
+            isel = {k: v for k, v in isel.items() if k in dims}
             data = data.isel(**isel)
 
-        log.debug("Applied the following selectors:\n  sel: %s\nisel: %s",
-                  sel, isel)
+        log.debug(
+            "Applied the following selectors:\n  sel: %s\nisel: %s", sel, isel
+        )
 
-        # Select everything. This has no effect on `xr.DataArray`s, but for
-        # `LabelledDataGroup`s with deep selection enabled, it selects
-        # coordinates on the member level.
-        data = data.sel()
+        # If `data` is still a group, select everything to get a `xr.DataArray`
+        # with the coordinates also from the member level.
+        if isinstance(data, BaseDataGroup):
+            data = data.sel()
 
-        # `data` is now a `xr.DataArray`. Squeeze out any dimension of size 1.
-        data = data.squeeze()
+        # `data` is now a `xr.DataArray`. Squeeze out any dimension of size 1
+        # that is not in `keep_dim`.
+        if keep_dim is None:
+            keep_dim = (
+                self.default_keep_dim
+                if self.default_keep_dim is not None
+                else []
+            )
+
+        for dim in data.dims:
+            if data.sizes[dim] == 1 and dim not in keep_dim:
+                data = data.squeeze(dim=dim)
 
         if not data.dims:
             # Oops, no dimension left. Add one default dimension.
-            data = data.expand_dims('dim_0')
+            data = data.expand_dims("dim_0")
 
         return data
-
 
     def _prepare_edge_data(self, *, edges, max_tuple_size: int):
         """Prepares the edge data. Depending on the
@@ -233,25 +270,40 @@ class GraphGroup(BaseDataGroup):
         Raises:
             TypeError: Edge data is not 2-dimensional
         """
+        # Check that edga data is 2-dimensional (if not empty)
+        if edges.values.size != 0 and edges.values.ndim != 2:
+            _msg_squeezed_dims = ""
+
+            if edges.values.ndim == 1:
+                _msg_squeezed_dims = (
+                    "\nThe edge dimension might have been squeezed during "
+                    f"data selection. Use the `{self._GG_attr_keep_dim}` "
+                    "group attribute or the `keep_dim` argument to specify "
+                    "dimensions that are not to be squeezed."
+                )
+
+            raise TypeError(
+                "Edge data must be 2-dimensional. Received edge data with "
+                f"{edges.values.ndim} dimension(s). Also note that the "
+                f"edge-tuples must be of equal size.{_msg_squeezed_dims}"
+            )
+
         # If information on edge container shape is given as class attribute,
         # rely on that.
         if self._GG_attr_edge_container_is_transposed in self.attrs:
-
             if self.attrs[self._GG_attr_edge_container_is_transposed]:
                 return edges.T
             return edges
 
-        # Else, if the edge container is 2d, check if transposing is needed
-        elif len(edges.dims) == 2:
-            # Transpose if needed and if the correct shape is unambiguous,
-            # i.e., if the size of one dim lies not in [2, max_tuple_size].
-            if (not 2 <= edges.values.shape[-1] <= max_tuple_size
-                and 2 <= edges.values.shape[0] <= max_tuple_size
-            ):
-                return edges.T
+        # Transpose if needed and if the correct shape is unambiguous,
+        # i.e., if the size of one dimension lies not in [2, max_tuple_size].
+        elif (
+            not 2 <= edges.values.shape[-1] <= max_tuple_size
+            and 2 <= edges.values.shape[0] <= max_tuple_size
+        ):
+            return edges.T
 
         return edges
-
 
     def _prepare_property_data(self, name: str, data):
         """Prepares external property data.
@@ -271,8 +323,9 @@ class GraphGroup(BaseDataGroup):
             try:
                 data = XrDataContainer(name=name, data=data)
             except:
-                _allowed_types = ", ".join([str(t) for t in
-                                            self._ALLOWED_CONT_TYPES])
+                _allowed_types = ", ".join(
+                    [str(t) for t in self._ALLOWED_CONT_TYPES]
+                )
                 raise TypeError(
                     f"Received invalid type for 'data' argument: {type(data)}."
                     f" Expected one of: {_allowed_types} ... or a type that "
@@ -281,10 +334,10 @@ class GraphGroup(BaseDataGroup):
 
         return data
 
-
     def _check_alignment(self, *, ent, prop):
-        """Checks the alignment of property data and entity (node or edge) data.
-        If ``self._GG_WARN_UPON_BAD_ALIGN`` is True, warn on possible pitfalls.
+        """Checks the alignment of property data and entity (node or edge)
+        data. If ``self._GG_WARN_UPON_BAD_ALIGN`` is True, warn on possible
+        pitfalls.
 
         Args:
             ent: The entity (node or edge) data
@@ -296,10 +349,11 @@ class GraphGroup(BaseDataGroup):
         # Check if any matching dimension (of size >1) exists
         if not any([d in prop.squeeze().dims for d in ent.squeeze().dims]):
             warnings.warn(
-                f"No matching dimensions found in property data "
+                "No matching dimensions found in property data "
                 f"('{prop.name}') and entity data ('{ent.name}') for "
                 "dimensions of size >1. No re-ordering was done during "
-                "alinment.", UserWarning
+                "alinment.",
+                UserWarning,
             )
 
         # Check for missing values in the property data after alignment
@@ -308,9 +362,8 @@ class GraphGroup(BaseDataGroup):
                 f"Found missing values in property data ('{prop.name}') after "
                 f"alignment with entity data ('{ent.name}'). Make sure that "
                 "the coordinate values are available in the property data.",
-                UserWarning
+                UserWarning,
             )
-
 
     # .........................................................................
 
@@ -342,15 +395,25 @@ class GraphGroup(BaseDataGroup):
         # Everything ok, register the new map
         self._property_maps[key] = data
 
-
-    def create_graph(self, *, directed: bool=None, parallel_edges: bool=None,
-                     node_props: list=None, edge_props: list=None,
-                     sel: dict=None, isel: dict=None,
-                     at_time: int=None, at_time_idx: int=None,
-                     **graph_kwargs) -> nx.Graph:
+    def create_graph(
+        self,
+        *,
+        directed: bool = None,
+        parallel_edges: bool = None,
+        node_props: list = None,
+        edge_props: list = None,
+        sel: dict = None,
+        isel: dict = None,
+        at_time: int = None,
+        at_time_idx: int = None,
+        keep_dim=None,
+        **graph_kwargs,
+    ) -> "nx.Graph":
         """Create a networkx graph object from the node and edge data
         associated with the graph group. Optionally, node and edge properties
-        can be added from data stored or registered in the graph group.
+        can be added from data stored or registered in the graph group. The
+        coordinates for the selected or squeezed dimensions of the node, edge,
+        and property data are stored as Graph attributes (in ``g.graph``).
 
         .. note::
 
@@ -386,6 +449,9 @@ class GraphGroup(BaseDataGroup):
                 label. Translated to ``sel = dict(time=at_time)``.
             at_time_idx (int, optional): Select along ``time`` dimension via
                 index. Translated to ``isel = dict(time=at_time_idx)``.
+            keep_dim (optional): Iterable containing names of the dimensions
+                that can not be squeezed. Passed on to
+                :py:meth:`~dantro.groups.graph.GraphGroup._get_data_at`.
             **graph_kwargs: Passed to the constructor of the respective
                 networkx graph object.
 
@@ -397,12 +463,22 @@ class GraphGroup(BaseDataGroup):
         # Get the node and edge data stored in the graph group
         log.debug("Checking whether node and edge data is available...")
 
-        node_cont = self._get_data_at(data=self.node_container,
-                                      sel=sel, isel=isel,
-                                      at_time=at_time, at_time_idx=at_time_idx)
-        edge_cont = self._get_data_at(data=self.edge_container,
-                                      sel=sel, isel=isel,
-                                      at_time=at_time, at_time_idx=at_time_idx)
+        node_cont = self._get_data_at(
+            data=self.node_container,
+            sel=sel,
+            isel=isel,
+            at_time=at_time,
+            at_time_idx=at_time_idx,
+            keep_dim=keep_dim,
+        )
+        edge_cont = self._get_data_at(
+            data=self.edge_container,
+            sel=sel,
+            isel=isel,
+            at_time=at_time,
+            at_time_idx=at_time_idx,
+            keep_dim=keep_dim,
+        )
 
         # Get info on directed and parallel edges from attributes, if not
         # explicitly given
@@ -411,8 +487,6 @@ class GraphGroup(BaseDataGroup):
 
         if parallel_edges is None:
             parallel_edges = self.attrs[self._GG_attr_parallel]
-
-        max_edge_tuple_size = 3
 
         # Create a networkx graph corresponding to the graph properties
         log.debug("Creating a networkx graph object...")
@@ -425,15 +499,15 @@ class GraphGroup(BaseDataGroup):
 
         elif not directed and parallel_edges:
             g = nx.MultiGraph(**graph_kwargs)
-            max_edge_tuple_size = 4
 
         else:
             g = nx.MultiDiGraph(**graph_kwargs)
-            max_edge_tuple_size = 4
 
         # Prepare the edge data. If needed, the data is transposed
-        edge_cont = self._prepare_edge_data(edges=edge_cont,
-                                            max_tuple_size=max_edge_tuple_size)
+        edge_cont = self._prepare_edge_data(
+            edges=edge_cont,
+            max_tuple_size=(4 if isinstance(g, nx.MultiGraph) else 3),
+        )
 
         # Add nodes and edges to the graph
         log.debug("Adding nodes to the graph...")
@@ -442,33 +516,75 @@ class GraphGroup(BaseDataGroup):
         log.debug("Adding edges to the graph...")
         g.add_edges_from(edge_cont.values)
 
+        # Store node and edge coordinates as graph attribute for dimensions
+        # of size 1; they are discarded otherwise. Since the networkx graph
+        # does not ensure the same edge-ordering, the edge-idx coordinates
+        # should not be stored. For the sake of consistency, this is not done
+        # for any of the dimensions of size > 1 (node-idx, edge-idx, edge).
+        # If needed, the node-idx coordinates can be added as property.
+        node_coords = {
+            d: node_cont.coords[d].item()
+            for d in node_cont.coords
+            if node_cont.coords[d].size == 1
+        }
+        edge_coords = {
+            d: edge_cont.coords[d].item()
+            for d in edge_cont.coords
+            if edge_cont.coords[d].size == 1
+        }
+        # The order of the dictionary update should not matter
+        g.graph.update(node_coords, **edge_coords)
+
         # Add properties to nodes and edges
         if node_props:
             for prop_name in node_props:
-                self.set_node_property(g=g, name=prop_name,
-                                       sel=sel, isel=isel,
-                                       at_time=at_time,
-                                       at_time_idx=at_time_idx)
+                self.set_node_property(
+                    g=g,
+                    name=prop_name,
+                    sel=sel,
+                    isel=isel,
+                    at_time=at_time,
+                    at_time_idx=at_time_idx,
+                    keep_dim=keep_dim,
+                )
         if edge_props:
             for prop_name in edge_props:
-                self.set_edge_property(g=g, name=prop_name,
-                                       sel=sel, isel=isel,
-                                       at_time=at_time,
-                                       at_time_idx=at_time_idx)
+                self.set_edge_property(
+                    g=g,
+                    name=prop_name,
+                    sel=sel,
+                    isel=isel,
+                    at_time=at_time,
+                    at_time_idx=at_time_idx,
+                    keep_dim=keep_dim,
+                )
 
         # Return the graph
-        log.info("Successfully created graph (%d node%s, %d edge%s) from %s.",
-                 g.number_of_nodes(), "s" if g.number_of_nodes() != 1 else "",
-                 g.number_of_edges(), "s" if g.number_of_edges() != 1 else "",
-                 self.logstr)
+        log.info(
+            "Successfully created graph (%d node%s, %d edge%s) from %s.",
+            g.number_of_nodes(),
+            "s" if g.number_of_nodes() != 1 else "",
+            g.number_of_edges(),
+            "s" if g.number_of_edges() != 1 else "",
+            self.logstr,
+        )
 
         return g
 
-
-    def set_node_property(self, *, g, name: str, data=None, align: bool=False,
-                          **selector):
-        """Sets a property to every node in Graph ``g`` which is also in the
-        ``node_container`` of the graph group.
+    def set_node_property(
+        self,
+        *,
+        g,
+        name: str,
+        data=None,
+        align: bool = False,
+        keep_dim=None,
+        **selector,
+    ):
+        """Sets a property to every node in Graph ``g`` that is also in the
+        ``node_container`` of the graph group. The coordinates for the selected
+        or squeezed dimensions of the property data are stored as Graph
+        attributes (in ``g.graph``).
 
         Args:
             g: The networkx graph object
@@ -490,6 +606,9 @@ class GraphGroup(BaseDataGroup):
                 missing values or if no re-ordering was done. Any dimension of
                 size 1 is squeezed and thus alignment (via ``align=True``) will
                 have no effect on such dimensions.
+            keep_dim (optional): Iterable containing names of the dimensions
+                that can not be squeezed. Passed on to
+                :py:meth:`~dantro.groups.graph.GraphGroup._get_data_at`.
             **selector: Specifies the selection applied to both node data and
                 property data. Passed on to
                 :py:meth:`~dantro.groups.graph.GraphGroup._get_data_at`. Use
@@ -505,23 +624,37 @@ class GraphGroup(BaseDataGroup):
         else:
             prop_data = self._prepare_property_data(name, data)
 
-        prop_data = self._get_data_at(data=prop_data, **selector)
+        prop_data = self._get_data_at(
+            data=prop_data, keep_dim=keep_dim, **selector
+        )
 
         # Get the node data
-        node_cont = self._get_data_at(data=self.node_container, **selector)
+        node_cont = self._get_data_at(
+            data=self.node_container, keep_dim=keep_dim, **selector
+        )
 
         # Optionally, align the property data with the node data.
         if align:
-            node_cont, prop_data = xr.align(node_cont, prop_data, join='left')
+            node_cont, prop_data = xr.align(node_cont, prop_data, join="left")
             self._check_alignment(ent=node_cont, prop=prop_data)
 
         # Check if the data can be added as node property
         if len(prop_data.values) != len(node_cont.values):
             # Prepare error message
+            _msg_squeezed_dims = ""
             _msg_match_with_node_number = ""
 
+            if len(g.nodes) == 1:
+                _msg_squeezed_dims = (
+                    "\n"
+                    "The node dimension in the property data might have been "
+                    "squeezed. Use the `keep_dim` argument to specify "
+                    "dimensions not to be squeezed."
+                )
+
             if len(g.nodes) == len(prop_data.values):
-                _msg_match_with_node_number = ("\n"
+                _msg_match_with_node_number = (
+                    "\n"
                     f"The size of '{name}' matches the current number of "
                     "nodes, which changed since the graph creation. However, "
                     "properties can only be added to those nodes that are in "
@@ -534,6 +667,7 @@ class GraphGroup(BaseDataGroup):
                 f"Received {len(prop_data.values)} property values for "
                 f"{len(node_cont.values)} nodes in "
                 f"{self.node_container.logstr}! {_msg_match_with_node_number}"
+                f"{_msg_squeezed_dims}"
             )
 
         if len(node_cont.values) != len(g.nodes):
@@ -541,7 +675,7 @@ class GraphGroup(BaseDataGroup):
                 "The number of nodes changed since graph creation. Some "
                 "property values will not be added to the graph! Also check "
                 f"for duplicate entries in {self.node_container.logstr}.",
-                UserWarning
+                UserWarning,
             )
 
         # Create dict of properties keyed by node
@@ -550,19 +684,40 @@ class GraphGroup(BaseDataGroup):
         # Add property to graph
         nx.set_node_attributes(g, values=props, name=name)
 
-        log.remark("Successfully added node property data from '%s' in %s.",
-                   name, self.logstr)
+        # Store the coords of the selected property data for dimensions of size
+        # 1 as graph attribute (potentially overwriting existing attributes).
+        prop_coords = {
+            d: prop_data.coords[d].item()
+            for d in prop_data.coords
+            if prop_data.coords[d].size == 1
+        }
+        g.graph.update(prop_coords)
 
+        log.remark(
+            "Successfully added node property data from '%s' in %s.",
+            name,
+            self.logstr,
+        )
 
-    def set_edge_property(self, *, g, name: str, data=None, align: bool=False,
-                          **selector):
-        """Sets a property to every edge in Graph ``g`` which is also in the
-        ``edge_container`` of the graph group.
+    def set_edge_property(
+        self,
+        *,
+        g,
+        name: str,
+        data=None,
+        align: bool = False,
+        keep_dim=None,
+        **selector,
+    ):
+        """Sets a property to every edge in Graph ``g`` that is also in the
+        ``edge_container`` of the graph group. The coordinates for the selected
+        or squeezed dimensions of the property data are stored as Graph
+        attributes (in ``g.graph``).
 
         Args:
             g: The networkx graph object
             name (str): If ``data`` is ``None``, ``name`` must specify the
-                container within the graph group which contains the property
+                container within the graph group that contains the property
                 values, or be valid key in ``property_maps``. ``name`` is used
                 as the name for the property in the graph object, potentially
                 overwriting an existing property.
@@ -579,6 +734,9 @@ class GraphGroup(BaseDataGroup):
                 missing values or if no re-ordering was done. Any dimension of
                 size 1 is squeezed and thus alignment (via ``align=True``) will
                 have no effect on such dimensions.
+            keep_dim (optional): Iterable containing names of the dimensions
+                that can not be squeezed. Passed on to
+                :py:meth:`~dantro.groups.graph.GraphGroup._get_data_at`.
             **selector: Specifies the selection applied to both edge data and
                 property data. Passed on to
                 :py:meth:`~dantro.groups.graph.GraphGroup._get_data_at`. Use
@@ -586,9 +744,9 @@ class GraphGroup(BaseDataGroup):
                 (index).
 
         Raises:
-            TypeError: On non-uniform edge data
             ValueError: Lenght mismatch of the selected property and edge data
         """
+
         def new_edge_key(e, edges, directed: bool):
             """Returns an unused edge key.
 
@@ -615,18 +773,22 @@ class GraphGroup(BaseDataGroup):
         else:
             prop_data = self._prepare_property_data(name, data)
 
-        prop_data = self._get_data_at(data=prop_data, **selector)
-
-        max_edge_tuple_size = 4 if isinstance(g, nx.MultiGraph) else 3
+        prop_data = self._get_data_at(
+            data=prop_data, keep_dim=keep_dim, **selector
+        )
 
         # Get and prepare the edge data
-        edge_cont = self._get_data_at(data=self.edge_container, **selector)
-        edge_cont = self._prepare_edge_data(edges=edge_cont,
-                                            max_tuple_size=max_edge_tuple_size)
+        edge_cont = self._get_data_at(
+            data=self.edge_container, keep_dim=keep_dim, **selector
+        )
+        edge_cont = self._prepare_edge_data(
+            edges=edge_cont,
+            max_tuple_size=(4 if isinstance(g, nx.MultiGraph) else 3),
+        )
 
         # Optionally, align the property data with the node data.
         if align:
-            edge_cont, prop_data = xr.align(edge_cont, prop_data, join='left')
+            edge_cont, prop_data = xr.align(edge_cont, prop_data, join="left")
             self._check_alignment(ent=edge_cont, prop=prop_data)
 
         # Check if the data can be added as edge property
@@ -636,14 +798,16 @@ class GraphGroup(BaseDataGroup):
             _msg_match_with_edge_number = ""
 
             if type(g) is nx.DiGraph or type(g) is nx.Graph:
-                _msg_duplicate_edges = ("\n"
+                _msg_duplicate_edges = (
+                    "\n"
                     f"Multiple entries in {self.edge_container.logstr} might "
                     "be interpreted as a single one, due to the chosen graph "
                     f"type: '{type(g)}'"
                 )
 
             if len(g.edges) == len(prop_data.values):
-                _msg_match_with_edge_number = ("\n"
+                _msg_match_with_edge_number = (
+                    "\n"
                     f"The size of '{name}' matches the current number of "
                     "edges, which changed since the graph creation. However, "
                     "properties can only be added to those edges that are in "
@@ -664,7 +828,7 @@ class GraphGroup(BaseDataGroup):
                 "The number of edges changed since graph creation. Some "
                 "property values will not be added to the graph! Also check "
                 f"for duplicate entries in {self.edge_container.logstr}.",
-                UserWarning
+                UserWarning,
             )
 
         # Now, prepare creation of dict of properties keyed by edge. If the
@@ -674,24 +838,18 @@ class GraphGroup(BaseDataGroup):
         # Thus, in the case of parallel edges: If edge data contains 2-tuples,
         # create the same edge keys as it was done during graph creation.
         if isinstance(g, nx.MultiGraph):
-
-            edge_length = len(edge_cont.values[0])
-
-            # Check that all edges have the same length for convenience.
-            # Otherwise, reproduction of the edge keys would be difficult.
-            if not all([e.size == edge_length for e in edge_cont]):
-                raise TypeError(
-                    f"Failed to add '{name}' data as edge property to graph "
-                    f"of type '{type(g)}'. Make sure that all edges in "
-                    f"{self.edge_container.logstr} are of the same size "
-                    "(2-tuples or 3-tuples)."
-                )
+            edge_length = edge_cont.values.shape[-1]
 
             if edge_length == 2:
                 edges = []
                 for e in edge_cont:
-                    edges.append((int(e[0]), int(e[1]),
-                                  new_edge_key(e, edges, g.is_directed())))
+                    edges.append(
+                        (
+                            int(e[0]),
+                            int(e[1]),
+                            new_edge_key(e, edges, g.is_directed()),
+                        )
+                    )
 
             else:
                 edges = [tuple(e) for e in edge_cont.values]
@@ -705,5 +863,17 @@ class GraphGroup(BaseDataGroup):
         # Add property to graph
         nx.set_edge_attributes(g, values=props, name=name)
 
-        log.remark("Successfully added edge property data from '%s' in %s.",
-                   name, self.logstr)
+        # Store the coords of the selected property data for dimensions of size
+        # 1 as graph attribute (potentially overwriting existing attributes).
+        prop_coords = {
+            d: prop_data.coords[d].item()
+            for d in prop_data.coords
+            if prop_data.coords[d].size == 1
+        }
+        g.graph.update(prop_coords)
+
+        log.remark(
+            "Successfully added edge property data from '%s' in %s.",
+            name,
+            self.logstr,
+        )

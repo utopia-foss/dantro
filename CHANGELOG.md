@@ -2,6 +2,86 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.15.3
+#### Enhancements
+- !232 generalizes the `determine_encoding` interface, no longer requiring xarray data and more easily allowing to use the tool in custom plot functions outside of dantro.
+
+## v0.15.2
+#### Enhancements
+- !233 Speeds up `import dantro` by about 50%; this is achieved by delaying imports of packages that take a long time to load.
+
+## v0.15.1
+#### Enhancements
+- !229 Makes `facet_grid` animation more tolerant by `squeeze`ing out size-1 dimension coordinates.
+
+
+## v0.15.0
+#### Features and Improvements
+- !202 adds [meta-operations](https://dantro.readthedocs.io/en/latest/data_io/transform.html#meta-operations) to the data transformation framework (#174), thereby allowing to define function-like constructs which help with modularization.
+- !218 improves path handling within the data tree:
+    - Item access now allows accessing the parent object (via `../`) or the object itself (`./`), similar to navigating within POSIX paths.
+    - Addressing #220, error messages are improved to more accurately show where item access went wrong, and even provide a hint for the correct key.
+- Features and improvements in the **plotting framework**:
+    - !222 adds the [`multiplot`](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html) function allowing configuration-based consecutive calls of any plot function that does not create a new figure and operates on the current axis. Most [`matplotlib`](https://matplotlib.org) plot functions, as well as many [`seaborn`](http://seaborn.pydata.org/index.html) plot functions, are readily accessible.
+    - !224 adds the `errorbars` plot, which supports faceting and is additionally available via `kind: errorbars` in the general `facet_grid` plot.
+    - !211 makes it possible to [use data transformation results inside other parts of the plot configuration](https://dantro.readthedocs.io/en/latest/plotting/plot_data_selection.html#using-data-transformation-results-in-the-plot-configuration), e.g. to specify plot helper arguments or `multiplot` arguments.
+    - !215 adds the [`auto_encoding` feauture](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html#auto-encoding-of-plot-layout) to the generic plot functions `facet_grid` and `errorbar`, allowing more data-averse plot configurations. (!221 and !224 improve it further.)
+    - !224 adds the [`make_facet_grid_plot` decorator](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html#add-custom-plot-kinds-that-support-faceting) which simplifies defining plots that support faceting.
+      Plot functions that are decorated like this will also become available as a plot `kind` in the general `facet_grid` plot.
+    - !225 improves error messages upon invalid `based_on` argument.
+    - Various `PlotHelper` improvements:
+        - !210 adds the `set_ticks` helper function, enabling setting tick locations and labels.
+        - !224 adds the seaborn-based `despine` helper, working on individual axes
+        - !224 adds distinctions between figure-level helpers and helpers that operate on a single axis.
+        - !224 adds the `track_handles_labels` method, which allows to keep track of artists that should appear in a legend.
+          The `set_legend` helper is extended accordingly and the `set_figlegend` function is added which supplies the same functionality but for a figure legend.
+        - !224 improves `set_suptitle` and `set_figlegend` such that the created artist no longer overlaps with the existing subplots grid.
+        - !224 allows to provide an axis object to `select_axis` to sync the `PlotHelper` to that axis.
+        - !225 lets the `PlotHelper` skip helper invocation if an axis has no artists associated with it; this reduces warnings arising from working on empty axes.
+          This behavior is enabled by default, but can be controlled for each helper via the `skip_empty_axes` argument.
+- !207 improves the computation time for data selection in the `GraphGroup`.
+- !208 addresses #199 by adding the `keep_dim` option in the `GraphGroup` to specify dimensions that are not squeezed during data selection.
+- !217 improves the `GraphGroup`, now storing selection information as graph attribute (in `g.graph`) whenever data is added to the graph object.
+- !204 makes pickling of the data tree possible. If building the data tree takes a long time, storing its structure to a tree cache file and restoring it can bring a speed-up.
+    - Data tree objects can be pickled and unpickled manually. To be more versatile, dantro now uses [dill](https://pypi.org/project/dill/) for pickling.
+    - The `DataManager.dump` method can be used to store the full tree.
+    - The `DataManager.restore` method allows to populate an existing `DataManager` with the content of a stored data tree, either clearing existing data or merging them.
+    - !205 adds default file path handling, controlled via the `default_tree_cache_path` argument to the `DataManager` or a class variable.
+- !220 improves error messages upon missing data operations
+- !223 improves the `LabelledDataGroup` selection interface, making it more consistent with xarray.
+- !226 improves the performance of `KeyOrderedDict` and `IndexedDataGroup` by using insertion hints. This reduces the insertion complexity to constant for in-order or hinted insertions.
+- **Minor API additions:**
+    - !204 implements `BaseDataGroup.clear` to remove all entries from a group.
+    - !204 adds the `overwrite` argument to `BaseDataGroup.recursive_update`.
+    - !204 adds the `BasicComparisonMixin`, which supplies a simple `__eq__` magic method.
+    - !216 extends the operations database with commonly used operations and makes operations on the `nx.` module easier.
+
+#### Breaking changes and deprecations
+- As of !204, the `PickleLoaderMixin` no longer allows choosing which load function to use via a class variable but _always_ uses `dill.load`.
+- !226 removes the `print_params` argument of the `hdf5` data loader, replacing it with a trimmed down `progress_params` argument.
+- With !224, the `errorbar` plot is deprecated in favour of the `errorbars` plot, which supports faceting.
+- With the changes to path handling in !218, there are the following notable changes that depart from the behavior of the previous interface:
+    - In addition to the `/` character, names of data containers or group may no longer contain a set of characters (e.g. `*` or `?`) as these may interfere with operations on paths.
+    - The `BaseDataGroup.__contains__` method now returns true if the given path-like argument (e.g. `foo/bar`) is a valid argument to `__getitem__`
+    and there is an object at that path.
+      Previously, this check was implemented independently, thus behaving slightly differently.
+      For group- or container-like arguments, the behavior remains as it was: a non-recursive check whether the _object_ is part of this group, using `is` comparison.
+    - The `BaseDataGroup.new_group` method used to raise a `KeyError` if an intermediate path segment was not available; now, the intermediate groups will automatically be created and no such error is raised.
+
+#### Bug fixes
+- !205 addresses scipy netcdf warnings by requiring a more recent version.
+- !206 fixes a regression in the [generic `errorbar` and `errorbands` plot functions](https://dantro.readthedocs.io/en/latest/plotting/plot_functions.html) where size-1 dimensions were not always squeezed out.
+- !215 fixes passing on the file format to the `FileWriters`' `savefig` function in cases where it cannot be deduced from the filename.
+- !214 makes dantro compatible to the latest h5py version, addressing #212, and sets the minimum version to 3.1.
+- !211 fixes a bug that lead to an outdated `logstr` after renaming a group or container.
+- !224 addresses an issue where a custom `style` context was lost upon a switch of animation mode (#173)
+- !223 fixes the handling of non-dimension coordinates and of the ``drop`` argument in the  `LabelledDataGroup` selection interface (#234)
+
+#### Internal
+- !209 addresses #125 by reformatting all code using [black](https://black.readthedocs.io/en/stable/).
+- !209 sets up [pre-commit infrastructure](https://pre-commit.com/) to automate code formatting.
+- !218 moves custom dantro exception types into their own module and provides a common base class.
+
 
 ## v0.14.1
 - !199 and !201 update the GitLab CI/CD configuration using latest GitLab features, e.g. to show code coverage inside Merge Request diffs.
@@ -11,7 +91,7 @@
 ## v0.14.0
 #### Features and Improvements
 - `PlotHelper` extensions and improvements (#94)
-    - !181 improves error message handling, now composing a single error message for _all_ encountered errors and providing axis-specific information on the errors. 
+    - !181 improves error message handling, now composing a single error message for _all_ encountered errors and providing axis-specific information on the errors.
     - !181 extends `set_legend` to allow gathering handles and labels from already existing `matplotlib.legend.Legend` objects.
     - !181 improves docstrings of helper methods to convey more clearly which kinds of arguments are expected.
 - The plotting framework now *experimentally* supports skipping of plots.
@@ -166,7 +246,7 @@
 - !104 adds the `set_text` function to the `PlotHelper`
 - !106 changes `PathMixin` such that detached objects now have `/<name>` as their path, which improves path handling. Furthermore, the `Link` object is now adjusted to this change and its tests are extended to a wide range of scenarios.
 - #100 deprecates plot creator auto-detection via the plot function signature of `ExternalPlotCreator`. Instead, the `is_plot_func` decorator should be used.
-- !107 changes the `xarray` version requirement from `0.12.1` to `0.13.0`. 
+- !107 changes the `xarray` version requirement from `0.12.1` to `0.13.0`.
 - !105 adds a transformation framework (#48) that allows caching of data operations (#96). It does so by implementing a directed acyclic graph of data transformations, where each node is uniquely represented by a hash. This hash can then be used reliably to determine cache hits. See the MR description for more information. Other minor changes alongside this MR:
     - Improve `LinkContainer`
     - Add `SizeOfMixin`, allowing to compute the size of a container's data
@@ -290,7 +370,7 @@
 
 ## v0.5.0
 - #33 improves package structure and modularization by creating sub-packages and moving class definitions into separate modules. This changes the import locations from `group` and `container` to `groups` and `containers`; all other import paths should remain valid.
-- #29 implements a `NetworkGroup` that stores network data and enables the direct 
+- #29 implements a `NetworkGroup` that stores network data and enables the direct
 creation of a [`NetworkX`](https://networkx.github.io/documentation/stable/reference/classes/index.html) graph object (`Graph`, `DiGraph`, `MultiGraph`, `MultiDiGraph`)
 with or without vertex properties (edge properties not yet implemented) from the data given in the members of the group.
 

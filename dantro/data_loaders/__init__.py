@@ -25,19 +25,22 @@ If ``self`` is required for some reason, set the ``omit_self`` option of the
 decorator to ``False``, making it a regular (instead of a static) method.
 """
 
-from .load_text import TextLoaderMixin
-from .load_yaml import YamlLoaderMixin
-from .load_pkl import PickleLoaderMixin
 from .load_hdf5 import Hdf5LoaderMixin
-from .load_xarray import XarrayLoaderMixin
 from .load_numpy import NumpyLoaderMixin
+from .load_pkl import PickleLoaderMixin
+from .load_text import TextLoaderMixin
+from .load_xarray import XarrayLoaderMixin
+from .load_yaml import YamlLoaderMixin
 
-class AllAvailableLoadersMixin(TextLoaderMixin,
-                               YamlLoaderMixin,
-                               PickleLoaderMixin,
-                               Hdf5LoaderMixin,
-                               XarrayLoaderMixin,
-                               NumpyLoaderMixin):
+
+class AllAvailableLoadersMixin(
+    TextLoaderMixin,
+    YamlLoaderMixin,
+    PickleLoaderMixin,
+    Hdf5LoaderMixin,
+    XarrayLoaderMixin,
+    NumpyLoaderMixin,
+):
     """A mixin bundling all data loaders that are available in dantro.
 
     This is useful for a more convenient import in a downstream
@@ -45,7 +48,11 @@ class AllAvailableLoadersMixin(TextLoaderMixin,
 
     See the individual mixins for a more detailed documentation.
     """
+
     pass
+
+
+# fmt: off
 
 # A dict of file extensions and preferred loader names for those extensions
 LOADER_BY_FILE_EXT = {

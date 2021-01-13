@@ -4,16 +4,23 @@ Many parts of this test module are literal-included in doc/integrating.rst for
 a step-by-step instructions (similar to the other documentation examples).
 """
 
-from pkg_resources import resource_filename
 from typing import Callable
 
 import pytest
-
+from pkg_resources import resource_filename
 
 # Local Variables and test fixtures -------------------------------------------
 
-INTEGRATION_CFG_PATH = resource_filename('tests', 'cfg/integration.yml')
-PLOTS_CFG_PATH = resource_filename('tests', 'cfg/integration_plots.yml')
+INTEGRATION_CFG_PATH = resource_filename("tests", "cfg/integration.yml")
+PLOTS_CFG_PATH = resource_filename("tests", "cfg/integration_plots.yml")
+
+
+# -----------------------------------------------------------------------------
+# -- INCLUDES START BELOW -----------------------------------------------------
+# -----------------------------------------------------------------------------
+# NOTE Important! Turn off black formatting for everything that is included...
+# fmt: off
+
 
 
 # -----------------------------------------------------------------------------
@@ -23,10 +30,11 @@ PLOTS_CFG_PATH = resource_filename('tests', 'cfg/integration_plots.yml')
 import os
 from functools import reduce
 
-import numpy as np
 import h5py as h5
+import numpy as np
 
 from dantro.tools import write_yml
+
 
 class Agent:
     """A simple agent class, emulating an ABM"""

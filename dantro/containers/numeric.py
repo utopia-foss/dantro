@@ -6,8 +6,13 @@ import logging
 import numpy as np
 
 from ..base import BaseDataContainer
-from ..mixins import ItemAccessMixin, CheckDataMixin
-from ..mixins import ForwardAttrsToDataMixin, NumbersMixin, ComparisonMixin
+from ..mixins import (
+    CheckDataMixin,
+    ComparisonMixin,
+    ForwardAttrsToDataMixin,
+    ItemAccessMixin,
+    NumbersMixin,
+)
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -15,9 +20,14 @@ log = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 
 
-class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin,
-                         ComparisonMixin, CheckDataMixin, ItemAccessMixin,
-                         BaseDataContainer):
+class NumpyDataContainer(
+    ForwardAttrsToDataMixin,
+    NumbersMixin,
+    ComparisonMixin,
+    CheckDataMixin,
+    ItemAccessMixin,
+    BaseDataContainer,
+):
     """The NumpyDataContainer stores numerical array-shaped data.
 
     Specifically: it is made for use with the np.ndarray class.
@@ -26,7 +36,7 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin,
     # Specify expected data types for this container class
     DATA_EXPECTED_TYPES = (np.ndarray,)
     DATA_ALLOW_PROXY = False
-    DATA_UNEXPECTED_ACTION = 'raise'
+    DATA_UNEXPECTED_ACTION = "raise"
 
     def __init__(self, *, name: str, data: np.ndarray, **dc_kwargs):
         """Initialize a NumpyDataContainer, storing data that is ndarray-like.
@@ -39,8 +49,12 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin,
         """
         # To be a bit more tolerant, allow lists as data argument
         if isinstance(data, list):
-            log.debug("Received a list as `data` argument to %s '%s'. "
-                      "Calling np.array on it ...", self.classname, name)
+            log.debug(
+                "Received a list as `data` argument to %s '%s'. "
+                "Calling np.array on it ...",
+                self.classname,
+                name,
+            )
             data = np.array(data)
 
         # Initialize with parent method
@@ -54,8 +68,9 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin,
         In this case, the dtype and shape of the stored data is returned. Note
         that this relies on the ForwardAttrsToDataMixin.
         """
-        return "{}, shape {}, {}".format(self.dtype, self.shape,
-                                         super()._format_info())
+        return "{}, shape {}, {}".format(
+            self.dtype, self.shape, super()._format_info()
+        )
 
     def __len__(self) -> int:
         """Length of the underlying data, i.e. first entry in shape"""
@@ -67,9 +82,11 @@ class NumpyDataContainer(ForwardAttrsToDataMixin, NumbersMixin,
         NOTE that this will create copies of the stored data.
         """
         log.debug("Creating copy of %s ...", self.logstr)
-        return self.__class__(name=self.name + "_copy",
-                              data=self.data.copy(),
-                              attrs={k: v for k, v in self.attrs.items()})
+        return self.__class__(
+            name=self.name + "_copy",
+            data=self.data.copy(),
+            attrs={k: v for k, v in self.attrs.items()},
+        )
 
     def save(self, path: str, **save_kwargs):
         """Saves the NumpyDataContainer to a file by invoking the np.save
