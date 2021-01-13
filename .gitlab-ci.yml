@@ -86,7 +86,7 @@ check:hooks:
 # -- Test Stage ---------------------------------------------------------------
 # ... for testing with different python environments
 
-test:py36: &test_py36
+test:py36:
   stage: test
   image: python:3.6
   extends:
@@ -119,8 +119,8 @@ test:py39:
 
 # Extended test jobs, which are only run upon release-related events.
 
-test:py36_min: &test_py36_min
-  <<: *test_py36
+test:py36_min:
+  extends: test:py36
   rules:
     - if: '$CI_COMMIT_BRANCH == "master" ||
            $CI_COMMIT_BRANCH =~ /^release/ ||
@@ -134,19 +134,19 @@ test:py36_min: &test_py36_min
     - tox -v -e py36-minimal_deps
 
 test:py37_min:
-  <<: *test_py36_min
+  extends: test:py36_min
   image: python:3.7
   script:
     - tox -v -e py37-minimal_deps
 
 test:py38_min:
-  <<: *test_py36_min
+  extends: test:py36_min
   image: python:3.8
   script:
     - tox -v -e py38-minimal_deps
 
 test:py39_min:
-  <<: *test_py36_min
+  extends: test:py36_min
   image: python:3.9
   script:
     - tox -v -e py39-minimal_deps

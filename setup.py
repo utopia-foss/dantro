@@ -6,19 +6,20 @@ from setuptools import find_packages, setup
 # Dependencies for dantro itself
 install_deps = [
     "numpy>=1.19.4",
-    "xarray>=0.16.0",
+    "xarray>=0.16.2",
     "dask>=2.10.1",
     "toolz>=0.10.0",        # For dask.delayed
     "distributed>=2.10.0",  # For dask's distributed scheduler
-    "scipy>=1.5.3",         # Used as a netcdf4 storage engine for xarray
+    "scipy>=1.5.4",         # Used as a netcdf4 storage engine for xarray
+                            # NOTE With scipy 1.6, will lose py36 support
     "sympy>=1.6.1",
     "h5py>=3.1",
     "matplotlib>=3.2.1",
     "seaborn>=0.11",
     "networkx>=2.5",
-    "ruamel.yaml>=0.16.10",
+    "ruamel.yaml>=0.16.12",
     "dill>=0.3.3",          # For faster and more powerful pickling
-    "paramspace>=2.5.1",
+    "paramspace>=2.5.5",
 ]
 # NOTE When changing any of the dependencies, make sure to update the table of
 #      dependencies in README.md.
