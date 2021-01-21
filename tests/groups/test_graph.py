@@ -444,12 +444,12 @@ def test_set_property_functions(graph_grps, graph_data):
     g.add_edge(0, 42)
 
     # warnings should be raised now because the graph was changed
-    with pytest.warns(UserWarning, match="The number of nodes changed"):
+    with pytest.warns(UserWarning, match="The number of nodes increased"):
         grp.set_node_property(
             g=g, name="np", at_time_idx=cfg.get("at_time_idx", None)
         )
 
-    with pytest.warns(UserWarning, match="The number of edges changed"):
+    with pytest.warns(UserWarning, match="The number of edges increased"):
         grp.set_edge_property(
             g=g, name="ep", at_time_idx=cfg.get("at_time_idx", None)
         )

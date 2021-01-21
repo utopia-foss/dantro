@@ -2,6 +2,10 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v1.0.0 (*Work in Progress*)
+#### Features and Improvements
+- !235 improves the ``GraphGroup`` warnings on changed graph size.
+
 ## v0.15.3
 #### Enhancements
 - !232 generalizes the `determine_encoding` interface, no longer requiring xarray data and more easily allowing to use the tool in custom plot functions outside of dantro.
