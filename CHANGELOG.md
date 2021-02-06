@@ -2,6 +2,10 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.15.4
+#### Bug Fixes
+- !237 fixes the `set_suptitle` helper, now allowing to set the suptitle's y-position.
+
 ## v0.15.3
 #### Enhancements
 - !232 generalizes the `determine_encoding` interface, no longer requiring xarray data and more easily allowing to use the tool in custom plot functions outside of dantro.

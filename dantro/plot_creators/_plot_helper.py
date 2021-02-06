@@ -1439,9 +1439,11 @@ class PlotHelper:
     ):
         """Set the figure title, i.e. ``matplotlib.Figure.suptitle``.
 
-        This figure-level helper automatically adjusts the figure size to fit
-        the suptitle into it without overlapping. This is *not* done if there
-        was empty.
+        This figure-level helper automatically vertically adjusts the subplot
+        sizes to fit the suptitle into the figure without overlapping. This is
+        *not* done if the ``title`` string is empty or if the y-position is
+        specified via the ``y`` argument. When repetitively invoking this
+        helper on the same figure, the subplot sizes are re-adjusted each time.
 
         Args:
             title (str, optional): The title to be set
@@ -1451,7 +1453,7 @@ class PlotHelper:
         """
         st = self.fig.suptitle(title, **title_kwargs)
 
-        if title and not title_kwargs.get("ypos"):
+        if title and not "y" in title_kwargs:
             # Make some figure adjustments such that it does not overlap with
             # the already existing parts.
             _, space_needed = calculate_space_needed_hv(self.fig, st)
