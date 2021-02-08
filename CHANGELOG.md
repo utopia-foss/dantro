@@ -2,6 +2,10 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v1.0.0 (*Work in Progress*)
+#### Features and Improvements
+- !235 improves the ``GraphGroup`` warnings on changed graph size.
+
 ## v0.15.4
 #### Bug Fixes
 - !237 fixes the `set_suptitle` helper, now allowing to set the suptitle's y-position.
