@@ -104,7 +104,7 @@ class PlotManager:
                 and second by resolving the ``based_on: a_base_plot`` again by
                 recursive update.
             3. The ``plots_cfg`` holds enabled plot configurations, possibly
-                derived from the base configuration using the `based_on`
+                derived from the base configuration using the ``based_on``
                 feature, e.g. ``based_on: a_base_plot``; this happens by
                 recursive update.
 

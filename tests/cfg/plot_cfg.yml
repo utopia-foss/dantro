@@ -1,0 +1,287 @@
+# Configuration for tests of the plot._cfg module
+---
+resolve_based_on:
+  # Configs that only depend on configs from the base pool
+  simple_independent:
+    plots_cfg: &plots1
+      some_plot:
+        based_on: some_base
+        nested:
+          foo: fish
+      some_other_plot:
+        based_on: [some_base, some_other_base]
+    base_pools:
+      - - base1
+        - &base1
+          some_base:
+            foo: bar
+            nested:
+              foo: bar
+              bar: baz
+          some_other_base:
+            foo: spam
+    expected: &expected_base1
+      some_plot: &some_plot
+        foo: bar
+        nested:
+          foo: fish
+          bar: baz
+      some_other_plot:
+        foo: spam
+        nested:
+          foo: bar
+          bar: baz
+
+
+  # Configs assembled from multiple base pools
+  multi_base:
+    plots_cfg:
+      <<: *plots1
+      some_multi_base_plot:
+        based_on: [from_base0, some_base]
+        nested:
+          bar: BAZ!
+    base_pools:
+      - - base0
+        - from_base0:
+            i_am_from: base0
+          some_base:
+            i_am_ignored: because base2 and base1 take precedence
+      - - base1
+        - *base1
+      - - base2
+        - some_base:
+            based_on: some_base
+            foo: i am from base2
+    expected:
+      <<: *expected_base1
+      some_plot:
+        <<: *some_plot
+        foo: i am from base2
+      some_multi_base_plot:
+        foo: i am from base2
+        nested:
+          foo: bar
+          bar: BAZ!
+        i_am_from: base0
+
+
+  # Configs depending on base pool entries which depend on other entries
+  simple_chained:
+    plots_cfg:
+      some_plot:
+        based_on: plot1
+        bar: from some_plot
+
+      some_other_plot:
+        based_on: [plot1, plot4]
+        bar: from some_other_plot
+
+      repeated_based_on:
+        based_on: [plot1, plot4, plot4, plot2]
+        bar: from repeated_based_on
+
+    base_pools:
+      - - base1
+        - plot5:
+            last_visit: plot5
+            p5: plot5
+      - - base2
+        - plot4:
+            based_on: plot5
+            last_visit: plot4
+            p4: plot4
+      - - base3
+        - plot1:
+            based_on: plot2
+            last_visit: plot1
+            p1: plot1
+          plot2:
+            based_on: plot3
+            last_visit: plot2
+            p2: plot2
+          plot3:
+            based_on: plot4
+            last_visit: plot3
+            p3: plot3
+
+    expected:
+      some_plot: &some_plot_chained
+        bar: from some_plot
+        last_visit: plot1
+        p1: plot1
+        p2: plot2
+        p3: plot3
+        p4: plot4
+        p5: plot5
+      some_other_plot:
+        <<: *some_plot_chained
+        bar: from some_other_plot
+        last_visit: plot4
+      repeated_based_on:
+        <<: *some_plot_chained
+        bar: from repeated_based_on
+        last_visit: plot2
+
+
+  # Configs depending on previous entries of the same name
+  chained_same_name:
+    plots_cfg:
+      some_plot:
+        based_on: some_plot
+        last_visit: highest
+
+    base_pools:
+      - - base1
+        - some_plot:
+            based_on: some_other_plot
+            last_visit: base1
+            visited_base1: true
+          some_other_plot:
+            hey: there
+      - - base2
+        - some_plot:
+            based_on: [some_plot, some_other_plot]
+            last_visit: base2
+            visited_base2: true
+          some_other_plot:
+            hey: welcome to base2
+      - - base3
+        - some_plot:
+            based_on: some_plot
+            last_visit: base3
+            visited_base3: true
+
+    expected:
+      some_plot:
+        last_visit: highest
+        hey: welcome to base2
+        visited_base1: true
+        visited_base2: true
+        visited_base3: true
+
+
+  # Configs assembled from other plots within the same plots configuration
+  based_on_within_same_plots_cfg:
+    plots_cfg:
+      some_defaults:
+        based_on: some_more_defaults
+        defaults:
+          from: plots config
+          foo: bar
+
+      some_plot:
+        based_on: [some_defaults, plot1]
+        bar: from some_plot
+
+      some_other_plot:
+        based_on: [plot2, some_more_defaults, plot1, some_defaults]
+        bar: from some_other_plot
+
+    base_pools:
+      - - base0
+        - some_more_defaults:
+            defaults:
+              from: some_more_defaults
+              foo: nothing
+      - - base1
+        - plot1:
+            based_on: plot2
+          plot2:
+            based_on: plot3
+            foo: from plot2
+          plot3:
+            based_on: plot4
+          plot4:
+            foo: from plot4
+
+    expected:
+      some_defaults:
+        defaults:
+          from: plots config
+          foo: bar
+      some_plot:
+        foo: from plot2
+        bar: from some_plot
+        defaults:
+          from: plots config
+          foo: bar
+      some_other_plot:
+        foo: from plot2
+        bar: from some_other_plot
+        defaults:
+          from: plots config
+          foo: bar
+
+
+  # Empty base pool should also work
+  empty_base_pools:
+    plots_cfg:
+      foo:
+        foo: foo
+        from: foo
+      bar:
+        based_on: foo
+        bar: bar
+        from: bar
+      spam:
+        based_on: bar
+        spam: spam
+        from: spam
+
+    base_pools: []
+
+    expected:
+      foo:
+        foo: foo
+        from: foo
+      bar:
+        foo: foo
+        bar: bar
+        from: bar
+      spam:
+        foo: foo
+        bar: bar
+        spam: spam
+        from: spam
+
+
+  # Bad configuration name
+  bad_name:
+    plots_cfg:
+      foo:
+        based_on: bar
+
+    base_pools:
+      - - base1
+        - BAR: {}
+          baz: {}
+      - - base2
+        - foo: {}
+
+    raises: PlotConfigError
+    match: >-
+      Did not find a base plot configuration named 'bar'.*Did you mean
+
+
+  # Loop detection works
+  loop:
+    plots_cfg:
+      plot1:
+        based_on: plot2
+
+      plot2:
+        based_on: [plot3, some_other_plot]
+
+      plot3:
+        based_on: plot1
+
+      some_other_plot: {}
+
+    base_pools: []
+
+    raises: PlotConfigError
+    match: >-
+      While resolving the plot configuration for plot 'plot1',
+      detected a circular dependency:  loop::plot1 <-
+      loop::plot2 <- loop::plot3 <- loop::plot1

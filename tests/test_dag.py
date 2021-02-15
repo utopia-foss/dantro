@@ -35,7 +35,7 @@ from dantro.tools import load_yml, write_yml
 TRANSFORMATIONS_PATH = resource_filename("tests", "cfg/transformations.yml")
 DAG_SYNTAX_PATH = resource_filename("tests", "cfg/dag_syntax.yml")
 
-# Class Definitios ------------------------------------------------------------
+# Class Definitions -----------------------------------------------------------
 
 from .test_data_mngr import Hdf5DataManager
 
