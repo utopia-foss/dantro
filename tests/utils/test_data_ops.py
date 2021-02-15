@@ -293,6 +293,55 @@ def test_op_populate_ndarray():
     assert (out.flat == [1, 2, 3, 4, 5, 6]).all()
 
 
+def test_op_build_object_array():
+    """Test the build_object_array operation"""
+    boa = dops.build_object_array
+
+    # Works for list-like iterables
+    arr = boa(["some", 1.23, {}, None])
+    assert arr.ndim == 1
+    assert arr.dtype == np.dtype("object")
+    assert list(arr.data.flat) == ["some", 1.23, {}, None]
+    assert (arr.coords["label"] == range(4)).all()
+
+    # And for dicts
+    arr = boa({1: "foo", 2: "bar", 4.5: "baz"})
+    assert arr.ndim == 1
+    assert arr.dtype == np.dtype("object")
+    assert list(arr.data.flat) == ["foo", "bar", "baz"]
+    assert (arr.coords["label"] == [1.0, 2.0, 4.5]).all()
+
+    # Can also go multi-dimensional
+    arr = boa({(0, 0): "foo", (2, 3): "baz", (2, 0): "bar"}, dims=("x", "y"))
+    assert arr.ndim == 2
+    assert arr.shape == (2, 2)
+    assert arr.dtype == np.dtype("object")
+    assert list(arr.data.flat)[0] == "foo"
+    assert np.isnan(list(arr.data.flat)[1])
+    assert list(arr.data.flat)[2:] == ["bar", "baz"]
+
+    # Can also specify the fill value
+    arr = boa(
+        {(0, 0): "foo", (2, 3): "baz", (2, 0): "bar"},
+        dims=("x", "y"),
+        fillna="",
+    )
+    assert list(arr.data.flat) == ["foo", "", "bar", "baz"]
+
+    # Errors
+    # ... bad dimensionality
+    with pytest.raises(ValueError, match="Can only create one-dimensional"):
+        boa(["some", "1d", "iterable"], dims=("x", "y"))
+
+    # ... scalar coordinate for multi-dimensional shape
+    with pytest.raises(ValueError, match="Got scalar coordinate '1' but have"):
+        boa({1: "foo", 2: "bar", 4.5: "baz"}, dims=("x", "y"))
+
+    # ... bad coordinate tuple size
+    with pytest.raises(ValueError, match="could not be matched to the specif"):
+        boa({(0, 0): "foo", (1, 2, 3): "bar", 4.5: "baz"}, dims=("x", "y"))
+
+
 def test_op_multi_concat(darrs):
     """Test dantro specialization of xr.concat"""
     c1 = dops.multi_concat(darrs, dims=("a", "x", "y"))
