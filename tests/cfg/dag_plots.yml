@@ -3,43 +3,44 @@
 # Additional initialization kwargs for the shared PlotManager fixture
 _pm_init_kwargs:
   # The base plots configuration, available in the shared plot manager
-  base_cfg:
-    # .. Creators .............................................................
-    creator.ext:
-      creator: external
+  base_cfg_pools:
+    - - base
+      - # .. Creators .........................................................
+        creator.ext:
+          creator: external
 
-    creator.uni:
-      creator: universe
-      universes: any  # otherwise it's way too many plots ...
+        creator.uni:
+          creator: universe
+          universes: any  # otherwise it's way too many plots ...
 
-      creator_init_kwargs:
-        psgrp_path: psp/regular
+          creator_init_kwargs:
+            psgrp_path: psp/regular
 
-      dag_options:
-        select_path_prefix: ""
+          dag_options:
+            select_path_prefix: ""
 
-    creator.mv:
-      creator: multiverse
-      creator_init_kwargs:
-        psgrp_path: psp/regular
+        creator.mv:
+          creator: multiverse
+          creator_init_kwargs:
+            psgrp_path: psp/regular
 
-    # .. Plot functions .......................................................
-    dag.facet_grid:
-      module: .generic
-      plot_func: facet_grid
+        # .. Plot functions ...................................................
+        dag.facet_grid:
+          module: .generic
+          plot_func: facet_grid
 
-    dag.errorbar:  # NOTE DEPRECATED -- will be removed in 1.0
-      module: .generic
-      plot_func: errorbar
+        dag.errorbar:  # NOTE DEPRECATED -- will be removed in 1.0
+          module: .generic
+          plot_func: errorbar
 
-    dag.errorbars:
-      module: .generic
-      plot_func: errorbars
+        dag.errorbars:
+          module: .generic
+          plot_func: errorbars
 
-    # .. Selection ............................................................
-    select.randints_3D:
-      select:
-        randints: labelled/randints  # these are 3d, dimensions x, y, z
+        # .. Selection ........................................................
+        select.randints_3D:
+          select:
+            randints: labelled/randints  # these are 3d, dimensions x, y, z
 
 
 _shared_plot_cfg: &shared_plot_cfg {}

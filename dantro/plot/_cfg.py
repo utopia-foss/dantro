@@ -7,6 +7,8 @@ from difflib import get_close_matches as _get_close_matches
 from itertools import chain as _chain
 from typing import Dict, List, Sequence, Tuple, Union
 
+from paramspace import ParamSpace
+
 from ..exceptions import PlotConfigError
 from ..tools import make_columns, recursive_update
 
@@ -94,22 +96,34 @@ def _find_in_pool(
 
 
 def _resolve_based_on(
-    pcfg: dict,
+    pcfg: Union[dict, ParamSpace],
     *,
     base_pools: OrderedDict,
     _visited: Sequence[Tuple[str, str]],
-) -> dict:
+) -> Union[dict, ParamSpace]:
     """Assembles a single plot's configuration by recursively resolving its
     ``based_on`` entry from a pool of available base plot configurations.
 
     This function *always* works on a deep copy of ``pcfg`` and will remove any
     potentially existing ``based_on`` entry on the root level of ``pcfg``.
+
+    Furthermore, it accepts ``ParamSpace`` objects for plot configuration
+    entries, recursively updating their dict representation and again creating
+    a ``ParamSpace`` object from them afterwards.
     """
     pcfg = copy.deepcopy(pcfg)
 
+    _from_pspace = isinstance(pcfg, ParamSpace)
+    _generate_return_value = lambda d: d if not _from_pspace else ParamSpace(d)
+
+    if _from_pspace:
+        pcfg = pcfg._dict
+        # FIXME Should not have to use private API!
+
     based_on = pcfg.pop("based_on", None)
+    print(based_on, pcfg)
     if not based_on:
-        return pcfg
+        return _generate_return_value(pcfg)
 
     elif isinstance(based_on, str):
         based_on = (based_on,)
@@ -139,11 +153,11 @@ def _resolve_based_on(
 
     # Finally, apply the given top level configuration
     pcfg = recursive_update(_pcfg, pcfg)
-    return pcfg
+    return _generate_return_value(pcfg)
 
 
 def resolve_based_on(
-    plots_cfg: dict,
+    plots_cfg: Dict[str, Union[dict, ParamSpace]],
     *,
     label: str,
     base_pools: Union[OrderedDict, Sequence[Tuple[str, dict]]],
@@ -163,7 +177,6 @@ def resolve_based_on(
 
     Lookups happen from a pool of plot configurations: the ``base_pools``,
     combined with the given ``plots_cfg`` itself. The ``based_on`` entries are
-
     looked up by name using the following rules:
 
         - Other plot configurations within ``plots_cfg`` have highest
@@ -182,6 +195,8 @@ def resolve_based_on(
     The resolution of plot configurations works on deep copies of the given
     ``plots_cfg`` and all the ``based_on`` entries to avoid mutability issues
     between parts of these highly nested dictionaries.
+
+    For integrated use of this functionality, see :ref:`plot_cfg_inheritance`.
 
     Args:
         plots_cfg (dict): A dict with multiple plot configurations to resolve
@@ -211,3 +226,28 @@ def resolve_based_on(
         )
 
     return plots_cfg
+
+
+def resolve_based_on_single(
+    *,
+    name: str,
+    based_on: Union[str, Sequence[str]],
+    plot_cfg: dict,
+    **resolve_based_on_kwargs,
+) -> dict:
+    """Wrapper for :py:func:`~dantro.plot._cfg.resolve_based_on` for cases of
+    single independent plot configurations.
+
+    Args:
+        name (str): The name of the single plot
+        based_on (Union[str, Sequence[str]]): The *extracted* ``based_on``
+            argument.
+        plot_cfg (dict): The rest of the single plot's configuration. This
+            may not include ``based_on``!
+        **resolve_based_on_kwargs: Passed on
+
+    """
+    return resolve_based_on(
+        {name: dict(based_on=based_on, **plot_cfg)},
+        **resolve_based_on_kwargs,
+    )[name]

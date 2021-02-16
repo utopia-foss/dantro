@@ -8,14 +8,18 @@ import fnmatch
 import logging
 import os
 import time
+import warnings
+from collections import OrderedDict
 from difflib import get_close_matches as _get_close_matches
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Sequence, Tuple, Union
 
 from paramspace import ParamDim, ParamSpace
 
 from .abc import BAD_NAME_CHARS as _BAD_NAME_CHARS
 from .data_mngr import DataManager
 from .exceptions import *
+from .plot._cfg import resolve_based_on as _resolve_based_on
+from .plot._cfg import resolve_based_on_single as _resolve_based_on_single
 from .plot_creators import ALL as ALL_PCRS
 from .plot_creators import BasePlotCreator, SkipPlot
 from .tools import load_yml, make_columns, recursive_update, write_yml
@@ -45,6 +49,8 @@ class PlotManager:
             `dict(**pcr.ALL)` to inherit the default creator mapping.
         DEFAULT_OUT_FSTRS (dict): The default values for the output format
             strings.
+        SPECIAL_BASE_CFG_POOL_LABELS (Tuple[str]): Special keys that may not be
+            used as labels for the base configuration pools.
     """
 
     CREATORS = ALL_PCRS
@@ -63,6 +69,7 @@ class PlotManager:
         sweep="{name:}/{state_no:}__{state:}{ext:}",
         plot_cfg_sweep="{name:}/sweep_cfg.yml",
     )
+    SPECIAL_BASE_CFG_POOL_LABELS = ("plot", "plot_from_cfg", "plot_pspace")
 
     # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -70,9 +77,10 @@ class PlotManager:
         self,
         *,
         dm: DataManager,
-        base_cfg: Union[dict, str] = None,
-        update_base_cfg: Union[dict, str] = None,
-        plots_cfg: Union[dict, str] = None,
+        base_cfg_pools: Sequence[Tuple[str, Union[dict, str]]] = (),
+        default_plots_cfg: Union[dict, str] = None,
+        base_cfg: Union[str, dict] = None,
+        update_base_cfg: Union[str, dict] = None,
         out_dir: Union[str, None] = "{timestamp:}/",
         out_fstrs: dict = None,
         creator_init_kwargs: Dict[str, dict] = None,
@@ -82,44 +90,45 @@ class PlotManager:
         raise_exc: bool = False,
         cfg_exists_action: str = "raise",
     ):
-        """Initialize the PlotManager
+        """Initialize a PlotManager, which provides a uniform configuration
+        interface for creating plots and passes tasks on to the respective
+        plot creators.
 
-        The initialization comes with three (optional) hierarchical levels to
-        make the configuration of plots versatile, flexible, and avoid copy-
-        paste of configurations:
-        The first two result in a so-called "base" configuration, a collection
-        of available, but disabled plot configs.
-        The third specifies the default plots, which can use the `based_on`
-        feature to base their configuration on any of the configurations from
-        the base plot configuration.
+        To avoid copy-paste of plot configurations, the PlotManager comes with
+        versatile capabilities to define default plots and re-use other plots.
 
-        Specifically:
+            - The ``default_plots_cfg`` specifies plot configurations that are
+              to be carried out by default when calling the plotting method
+              :py:meth:`~dantro.plot_mngr.PlotManager.plot_from_cfg`.
+            - When calling any of the plot methods
+              :py:meth:`~dantro.plot_mngr.PlotManager.plot_from_cfg` or
+              :py:meth:`~dantro.plot_mngr.PlotManager.plot`, there is the
+              possibility to update the existing configuration dict with new
+              entries.
+            - At each stage, the ``based_on`` feature allows to make a plot
+              configuration inherit entries from an existing configuration.
+              These are looked up from the ``base_cfg_pools`` following the
+              rules described in :py:func:`~dantro.plot._cfg.resolve_based_on`.
 
-            1. The ``base_cfg`` contains a set of plot configurations that form
-                a repertoire of configurations. These are not performed by
-                default, but can be imported.
-            2. The ``update_base_cfg`` contains plot configurations that are
-                possibly derived from the base repertoire. This happens in the
-                following way: First by recursive update of existing entries,
-                and second by resolving the ``based_on: a_base_plot`` again by
-                recursive update.
-            3. The ``plots_cfg`` holds enabled plot configurations, possibly
-                derived from the base configuration using the ``based_on``
-                feature, e.g. ``based_on: a_base_plot``; this happens by
-                recursive update.
+        For more information on how the plot configuration can be defined, see
+        :ref:`plot_cfg_inheritance`.
 
         Args:
             dm (DataManager): The DataManager-derived object to read the plot
                 data from.
-            base_cfg (Union[dict, str], optional): The default base config or a
-                path to a yaml-file to import. The base config defines a set
-                of plot configuration that other plot configurations can
-                declare themselves ``based_on``.
-            update_base_cfg (Union[dict, str], optional): An update config to
-                the base config or a path to a yaml-file to import which
-                recursively updates the ``base_cfg``.
-            plots_cfg (Union[dict, str], optional): The default plots config or
-                a path to a YAML file to import
+            base_cfg_pools (Sequence[Tuple[str, Union[dict, str]]], optional):
+                The base configuration pools are used to perform the lookups of
+                ``based_on`` entries.
+            default_plots_cfg (Union[dict, str], optional): The default plots
+                config or a path to a YAML file to import. Used as defaults
+                when calling
+                :py:meth:`~dantro.plot_mngr.PlotManager.plot_from_cfg`
+            base_cfg (Union[str, dict], optional): *Deprecated!* Legacy
+                interface for defining base plot configurations. During the
+                deprecation period, these entries are automatically added
+                to ``base_cfg_pools`` under the label ``base``.
+            update_base_cfg (Union[str, dict], optional): *Deprecated!* Used to
+                update the ``base_cfg`` before adding ot to ``base_cfg_pools``.
             out_dir (Union[str, None], optional): If given, will use this
                 output directory as basis for the output path for each plot.
                 The path can be a format-string; it is evaluated upon call to
@@ -161,132 +170,130 @@ class PlotManager:
                 ``append``, ``overwrite``, or ``overwrite_nowarn``.
 
         Raises:
-            InvalidCreator: When an invalid default creator was chosen
-            KeyError: Upon bad ``based_on`` in ``update_base_cfg``
+            InvalidCreator: When trying to set an invalid ``default_creator``
         """
-        # Initialize attributes and store arguments
-        self._plot_info = []
-
         # Public
         self.save_plot_cfg = save_plot_cfg
         self.raise_exc = raise_exc
 
-        # Private or read-only
+        # Private or property-managed
         self._dm = dm
         self._out_dir = out_dir
+        self._plot_info = []
         self._auto_detect_creator = auto_detect_creator
-
-        # Parameters to pass through as defaults to member functions
+        self._cckwargs = creator_init_kwargs if creator_init_kwargs else {}
         self._cfg_exists_action = cfg_exists_action
+        self.default_creator = default_creator
 
-        # Handle base config
-        if isinstance(base_cfg, str):
-            # Interpret as path to yaml file
-            log.debug("Loading base_cfg from file %s ...", base_cfg)
-            self._base_cfg = load_yml(base_cfg)
-        else:
-            self._base_cfg = copy.deepcopy(base_cfg)
+        # Base configuration pools
+        self._base_cfg_pools = OrderedDict()
+        if not isinstance(base_cfg_pools, OrderedDict):
+            base_cfg_pools = OrderedDict(list(base_cfg_pools))
 
-        # Handle the update of base config
-        if isinstance(update_base_cfg, str):
-            # Interpret as path to yaml file
-            log.debug(
-                "Loading update_base_cfg from file %s ...", update_base_cfg
+        for _label, _plots_cfg in base_cfg_pools.items():
+            self._add_base_cfg_pool(label=_label, plots_cfg=_plots_cfg)
+
+        # Legacy base configuration -- DEPRECATED
+        if base_cfg or update_base_cfg:
+            warnings.warn(
+                "The `base_cfg` and `update_base_cfg` arguments are "
+                "deprecated. Use the more-capable `base_cfg_pools` instead.",
+                DeprecationWarning,
             )
-            update_base_cfg = load_yml(update_base_cfg)
+            if update_base_cfg:
+                base_cfg = recursive_update(
+                    self._prepare_cfg(base_cfg if base_cfg else {}),
+                    self._prepare_cfg(update_base_cfg),
+                )
+            self._add_base_cfg_pool(label="base", plots_cfg=base_cfg)
 
-        # Perform update of base config: recursive + resolution of `based_on`
-        if update_base_cfg:
-            # First, make a recursive update of the existing based_on
-            self._base_cfg = recursive_update(self._base_cfg, update_base_cfg)
-            # Now, potentially existing `based_on` entries from either of
-            # these configurations are part of the _base_cfg
-            # Resolve these `based_on` keys ...
-            for pcfg_name, pcfg in self._base_cfg.items():
-                based_on = pcfg.pop("based_on", None)
+        # Default plot configuration
+        self._default_plots_cfg = self._prepare_cfg(default_plots_cfg)
 
-                if not based_on:
-                    continue
-
-                elif isinstance(based_on, str):
-                    based_on = (based_on,)
-
-                # Now a sequence of strings; go over all these and build a dict
-                # that will be the base that is to be recursively updated with
-                # the given update config.
-                bcfg = dict()
-                for _based_on in based_on:
-                    if _based_on not in self._base_cfg:
-                        _matches = _get_close_matches(
-                            _based_on, self.base_cfg, n=5
-                        )
-                        _dym = ""
-                        if _matches:
-                            _dym = f"Did you mean: {', '.join(_matches)} ?\n"
-
-                        raise PlotConfigError(
-                            f"No base plot configuration '{_based_on}' "
-                            "available during update with `update_base_cfg`! "
-                            f"{_dym}Available base configurations:\n"
-                            f"{make_columns(self._base_cfg)}"
-                        )
-
-                    # Need to work on a deep copy of the original base config
-                    # entry in order to not get any mutability issues
-                    _bcfg = copy.deepcopy(self._base_cfg[_based_on])
-                    bcfg = recursive_update(bcfg, _bcfg)
-
-                # Finally, apply the given update and store as attribute
-                self._base_cfg[pcfg_name] = recursive_update(bcfg, pcfg)
-
-        # Handle default plots configuration
-        if isinstance(plots_cfg, str):
-            # Interpret as path to yaml file
-            log.debug("Loading plots_cfg from file %s ...", plots_cfg)
-            plots_cfg = load_yml(plots_cfg)
-        self._plots_cfg = plots_cfg
-
-        # Update the default format strings, if any were given here
+        # Default format strings
         self._out_fstrs = self.DEFAULT_OUT_FSTRS
         if out_fstrs:
             self._out_fstrs = recursive_update(
                 copy.deepcopy(self._out_fstrs), out_fstrs
             )
 
-        # Store creator init kwargs
-        self._cckwargs = creator_init_kwargs if creator_init_kwargs else {}
-
-        # Store default creator name
-        if default_creator and default_creator not in self.CREATORS:
-            raise InvalidCreator(
-                "No such creator '{}' available, only: {}".format(
-                    default_creator, [k for k in self.CREATORS.keys()]
-                )
-            )
-        self._default_creator = default_creator
-
         log.debug("%s initialized.", self.__class__.__name__)
+        log.debug(
+            "Have %d base configuration pools available:  %s",
+            len(self._base_cfg_pools),
+            ", ".join(self._base_cfg_pools),
+        )
 
     # .........................................................................
     # Properties
 
     @property
     def out_fstrs(self) -> dict:
-        """Returns the dict of output format strings"""
+        """The dict of output format strings"""
         return self._out_fstrs
 
     @property
     def plot_info(self) -> List[dict]:
-        """Returns a list of dicts with info on all plots"""
-        return self._plot_info
+        """A list of dicts with info on all plots carried out so far"""
+        return copy.deepcopy(self._plot_info)
 
     @property
-    def base_cfg(self) -> dict:
-        """Returns a deep copy of the base configuration"""
-        return copy.deepcopy(self._base_cfg)
+    def base_cfg_pools(self) -> OrderedDict:
+        """The base plot configuration pools, used for lookup the ``based_on``
+        entry in plot configurations.
+        """
+        return self._base_cfg_pools
+
+    @property
+    def default_creator(self) -> str:
+        """The name of the default creator"""
+        return self._default_creator
+
+    @default_creator.setter
+    def default_creator(self, new_creator: str):
+        """Set the name of the default creator, raising if it is invalid"""
+        if new_creator and new_creator not in self.CREATORS:
+            _avail = ", ".join(self.CREATORS.keys())
+            raise InvalidCreator(
+                f"No such creator '{new_creator}' available, only: {_avail}"
+            )
+        self._default_creator = new_creator
 
     # .........................................................................
     # Helpers
+
+    @staticmethod
+    def _prepare_cfg(s: Union[str, dict]) -> dict:
+        """Prepares a plots configuration by either loading it from a YAML file
+        if the given argument is a string or returning a deep copy of the given
+        dict-like object.
+        """
+        if isinstance(s, str):
+            return load_yml(s)
+        return copy.deepcopy(s)
+
+    def _add_base_cfg_pool(self, *, label: str, plots_cfg: Union[str, dict]):
+        """Adds a base configuration pool entry, allowing for the ``plots_cfg``
+        to be a path to a YAML configuration file which is then loaded.
+
+        Raises:
+            ValueError: If ``label`` already exists or is a special label.
+        """
+        if label in self._base_cfg_pools:
+            raise ValueError(
+                f"A base configuration labelled '{label}' already exists! "
+                "Check if it was already added or choose a different name."
+            )
+
+        elif label in self.SPECIAL_BASE_CFG_POOL_LABELS:
+            _special = ", ".join(self.SPECIAL_BASE_CFG_POOL_LABELS)
+            raise ValueError(
+                f"Invalid base configuration pool label '{label}'! Choosing "
+                f"one of the special labels ({_special}) is not permitted."
+            )
+
+        self._base_cfg_pools[label] = self._prepare_cfg(plots_cfg)
+        log.debug("Added base configuration pool '%s'.", label)
 
     def _parse_out_dir(self, fstr: str, *, name: str) -> str:
         """Evaluates the format string to create an output directory path.
@@ -422,59 +429,15 @@ class PlotManager:
 
         return out_path
 
-    def _resolve_based_on(
-        self,
-        *,
-        cfg: dict,
-        based_on: Union[str, Tuple[str]] = None,
-        work_on_deepcopy: bool = True,
-    ) -> dict:
-        """Resolves the ``based_on`` reference in a plot configuration
-
-        Args:
-            cfg (dict): The plot configuration that will be used to recursively
-                update the specified base configurations.
-            based_on (Union[str, Tuple[str]], optional): The name or names of
-                the base configuration entries to use for updating
-            work_on_deepcopy (bool, optional): Whether to work on a deepcopy
-
-        Returns:
-            dict: The plot configuration derived from the one at ``based_on``
-
-        Raises:
-            KeyError: If ``based_on`` value is not a key in ``self._base_cfg``
-        """
-        if not based_on:
-            return cfg
-
-        elif isinstance(based_on, str):
-            based_on = (based_on,)
-
-        # Copy, if needed
-        if work_on_deepcopy:
-            cfg = copy.deepcopy(cfg)
-
-        # Resolve the list of based_on entries
-        base_cfg = dict()
-        for _based_on in based_on:
-            if _based_on not in self.base_cfg.keys():
-                _matches = _get_close_matches(_based_on, self.base_cfg, n=5)
-                _dym = ""
-                if _matches:
-                    _dym = f"Did you mean: {', '.join(_matches)} ?\n"
-
-                raise PlotConfigError(
-                    f"No base plot configuration '{_based_on}' available! "
-                    f"{_dym}Available base configurations:\n"
-                    f"{make_columns(self._base_cfg)}"
-                )
-
-            # Do the recursive update. The base_cfg property already returns
-            # a deep copy of the base configuration ...
-            base_cfg = recursive_update(base_cfg, self.base_cfg[_based_on])
-
-        # As final step, update the base configuration with everything
-        return recursive_update(base_cfg, cfg)
+    def _check_plot_name(self, name: str) -> None:
+        """Raises if a plot name contains bad characters"""
+        if any([s in name for s in BAD_PLOT_NAME_CHARS]):
+            _bad_name_chars = ", ".join(repr(s) for s in BAD_PLOT_NAME_CHARS)
+            raise ValueError(
+                f"The plot name '{name}' contains unsupported characters! "
+                "Remove any of the following offending substrings from the "
+                f"plot function name: {_bad_name_chars}"
+            )
 
     def _get_plot_creator(
         self,
@@ -522,9 +485,9 @@ class PlotManager:
             )
 
             # Find other ways to determine the name of the creator
-            if self._default_creator:
+            if self.default_creator:
                 # Just use the default
-                creator = self._default_creator
+                creator = self.default_creator
 
             elif auto_detect:
                 # Can try to auto-detect from the arguments, which creator
@@ -549,9 +512,6 @@ class PlotManager:
                             from_pspace=from_pspace,
                             plot_cfg=plot_cfg,
                         )
-                        # NOTE Cannot call a class method here, because some
-                        #      creators might need the actual arguments in
-                        #      order to work properly
 
                     except:
                         # Failed to initialize for whatever reason, thus not
@@ -822,6 +782,7 @@ class PlotManager:
         plots_cfg: Union[dict, str] = None,
         plot_only: List[str] = None,
         out_dir: str = None,
+        resolve_based_on: bool = True,
         **update_plots_cfg,
     ) -> None:
         """Create multiple plots from a configuration, either a given one or
@@ -831,9 +792,10 @@ class PlotManager:
         ways of how to configure and create plots.
 
         Args:
-            plots_cfg (dict, optional): The plots configuration to use. If not
-                given, the one specified during initialization is used. If a
-                string is given, will assume it is a path and load the file.
+            plots_cfg (Union[dict, str], optional): The plots configuration to
+                use. If not given, the ``default_plots_cfg`` specified during
+                initialization is used. If a string is given, will assume it
+                is a path and load the file.
             plot_only (List[str], optional): If given, create only those plots
                 from the resulting configuration that match these names. This
                 will lead to the `enabled` key being ignored, regardless of its
@@ -843,17 +805,27 @@ class PlotManager:
             out_dir (str, optional): A different output directory; will use the
                 one passed at initialization if the given argument evaluates to
                 False.
+            resolve_based_on (bool, optional): Whether to resolve the
+                ``based_on`` entries in ``plots_cfg`` here. If false, will
+                postpone this to :py:meth:`~dantro.plot_mngr.PlotManager.plot`,
+                thus *not* including the rest of the ``plots_cfg`` in the base
+                configuration pool for name resolution.
+                Lookups happen from ``base_cfg_pools`` following the rules
+                described in :py:func:`~dantro.plot._cfg.resolve_based_on`.
             **update_plots_cfg: If given, it is used to update the plots_cfg
                 recursively. Note that on the top level the _names_ of the
                 plots are placed; this cannot be used to make all plots have a
-                common property.
+                common property. Furthermore, this update happens *before* the
+                ``based_on`` entries are resolved.
 
         Raises:
             PlotConfigError: Empty or invalid plot configuration
+            ValueError: Bad ``plot_only`` argument, e.g. not matching any of
+                the available plot names.
         """
-        # Determine which plot configuration to use
+        # Determine which plot configuration to use, ensuring a deep copy
         if not plots_cfg:
-            if not self._plots_cfg and not update_plots_cfg:
+            if not self._default_plots_cfg and not update_plots_cfg:
                 e_msg = (
                     "Got empty `plots_cfg` and `plots_cfg` given at "
                     "initialization was also empty. Nothing to plot."
@@ -865,38 +837,45 @@ class PlotManager:
                 log.error(e_msg)
                 return
 
-            log.debug(
-                "No new plots configuration given; will use plots "
-                "configuration given at initialization."
-            )
-            plots_cfg = self._plots_cfg
+            log.debug("Using default plots configuration.")
+            plots_cfg = copy.deepcopy(self._default_plots_cfg)
 
-        elif isinstance(plots_cfg, str):
-            # Interpret as path to yaml file
-            log.debug("Loading plots_cfg from file %s ...", plots_cfg)
-            plots_cfg = load_yml(plots_cfg)
+        else:
+            plots_cfg = self._prepare_cfg(plots_cfg)
 
-        # Make sure to work on a copy, be it on the defaults or on the passed
-        plots_cfg = copy.deepcopy(plots_cfg)
-
+        # Allow update of plots configuration
         if update_plots_cfg:
-            # Recursively update with the given keywords
-            plots_cfg = recursive_update(plots_cfg, update_plots_cfg)
+            plots_cfg = recursive_update(
+                plots_cfg, copy.deepcopy(update_plots_cfg)
+            )
             log.debug("Updated the plots configuration.")
 
         # Check the plot configuration for invalid types
         for plot_name, cfg in plots_cfg.items():
             if not isinstance(cfg, (dict, ParamSpace)):
                 raise PlotConfigError(
-                    "Got invalid plots specifications for "
-                    f"entry '{plot_name}'! Expected dict, got {type(cfg)} "
-                    f"with value '{cfg}'. Check the correctness of "
-                    "the given plots configuration!"
+                    "Got invalid plots specifications for the plot named "
+                    f"'{plot_name}'! Expected dict or ParamSpace, but got "
+                    f"{type(cfg).__name__} with value '{cfg}'."
                 )
 
-        # Filter the plot selection
-        if plot_only is not None:
-            # Resolve glob-like patterns
+        # Resolve the `based_on` entries already at this point, allowing
+        # lookups across configuration entries.
+        if resolve_based_on:
+            plots_cfg = _resolve_based_on(
+                plots_cfg,
+                label="plot_from_cfg",
+                base_pools=self.base_cfg_pools,
+            )
+
+        # Evaluate `plot_only`
+        if plot_only is None:
+            # Resolve all `enabled` entries, creating a new plots_cfg dict
+            plots_cfg = {
+                k: v for k, v in plots_cfg.items() if v.pop("enabled", True)
+            }
+        else:
+            # Filter the plot selection, resolving glob-like patterns
             to_plot = []
             for name in plot_only:
                 if any([s in name for s in ("*", "?", "[", "]")]):
@@ -912,25 +891,18 @@ class PlotManager:
 
             except KeyError as err:
                 _plot_only = ", ".join(plot_only)
-                _available = ", ".join(plots_cfg.keys())
                 raise ValueError(
                     f"Could not find a configuration for a plot named {err} "
                     "while resolving the plot_only argument! Check that it "
                     "was specified correctly:\n"
                     f"  plot_only:  {_plot_only}\n"
-                    f"  available:  {_available}"
+                    f"  available:\n{make_columns(plots_cfg.keys())}"
                 ) from err
 
             # Remove all `enabled` keys from the remaining entries, thus also
             # enabling those plots that were set `enabled: False`
             for cfg in plots_cfg.values():
                 cfg.pop("enabled", None)
-
-        else:
-            # Resolve all `enabled` entries, creating a new plots_cfg dict
-            plots_cfg = {
-                k: v for k, v in plots_cfg.items() if v.pop("enabled", True)
-            }
 
         # Throw out entries that start with an underscore or dot
         plots_cfg = {
@@ -962,25 +934,20 @@ class PlotManager:
                 log.note(
                     "  - %-40s  (%d plot%s)",
                     plot_name,
-                    cfg.volume,
+                    cfg.volume if cfg.volume else 1,
                     "s" if cfg.volume != 1 else "",
                 )
             else:
                 log.note("  - %-40s  (1 plot)", plot_name)
 
-        # Loop over the configured plots
+        # Loop over the configured plots and invoke the individual plot calls
         for plot_name, cfg in plots_cfg.items():
-            # Use the public methods to perform the plotting call, depending
-            # on the type of the config
             if isinstance(cfg, ParamSpace):
-                # Is a parameter space. Use the corresponding call signature
                 self.plot(plot_name, default_out_dir=out_dir, from_pspace=cfg)
 
             else:
-                # Just a dict. Use the regular call
                 self.plot(plot_name, default_out_dir=out_dir, **cfg)
 
-        # All done
         log.success(
             "Successfully performed plots for %d plot configuration%s.\n",
             len(plots_cfg),
@@ -1011,80 +978,75 @@ class PlotManager:
                 e.g. ``*`` and ``?``, but a ``/`` can be used to store the plot
                 output in a subdirectory.
             based_on (Union[str, Tuple[str]], optional): A key or a sequence
-                of keys of entries in the base config that should be used as
-                the basis of this plot.
-                The given plot configuration is then used to recursively
-                update (a copy of) those base configuration entries.
+                of keys of entries in the base pool that should be used as
+                the basis of this plot. The given plot configuration is then
+                used to recursively update (a copy of) those base
+                configuration entries.
+                Lookups happen from ``base_cfg_pools`` following the rules
+                described in :py:func:`~dantro.plot._cfg.resolve_based_on`.
             from_pspace (Union[dict, ParamSpace], optional): If given, execute
                 a parameter sweep over these parameters, re-using the same
                 creator instance. If this is a dict, a ParamSpace is created
                 from it.
             **plot_cfg: The plot configuration, including some parameters that
                 the plot manager will evaluate (and consequently: does not
-                pass on to the plot creator)
+                pass on to the plot creator).
+                If using ``from_pspace``, parameters given here will
+                recursively update those given in ``from_pspace``.
 
         Returns:
             BasePlotCreator: The PlotCreator used for these plots
         """
-        # Make sure the name does not contain bad characters
-        if any([s in name for s in BAD_PLOT_NAME_CHARS]):
-            _bad_name_chars = ", ".join(repr(s) for s in BAD_PLOT_NAME_CHARS)
-            raise ValueError(
-                f"The plot name '{name}' contains unsupported characters! "
-                "Remove any of the following offending substrings from the "
-                f"plot function name: {_bad_name_chars}"
-            )
+        self._check_plot_name(name)
+        print(name, based_on)
 
-        # Derive the plot_cfg using based_on. Do this first only for the case
-        # of the non-ParamSpace plot configuration, because it's easier.
-        plot_cfg = self._resolve_based_on(cfg=plot_cfg, based_on=based_on)
-
+        # Distinguish cases that are using a ParamSpace and those that do not.
+        # The latter are far simpler to handle ...
         if from_pspace is None:
-            # Can just invoke the helper and be done with it
-            return self._plot(name, from_pspace=from_pspace, **plot_cfg)
+            plot_cfg = _resolve_based_on_single(
+                name=name,
+                based_on=based_on,
+                plot_cfg=plot_cfg,
+                label="plot",
+                base_pools=self._base_cfg_pools,
+            )
+            return self._plot(name, **plot_cfg)
 
         # Else: It's more complicated now, as the config is in from_pspace, and
         # (partly) in plot_cfg. Urgh.
-        # Distinguish between dict and actual ParamSpace objects
+        # To make it easier, get information out of the `ParamSpace` object,
+        # move entries from `plot_cfg` over there, resolve the `based_on`
+        # entries and then build a new `ParamSpace` object (done in `_plot`).
         if isinstance(from_pspace, ParamSpace):
-            # Already is a Paramspace. If so, will need to extract the
-            # underlying dict to be able to do a recursive update
-            pspace_plot_cfg = copy.deepcopy(from_pspace._dict)
+            from_pspace = copy.deepcopy(from_pspace._dict)
             # FIXME Should not have to use private API!
 
-            # Resolve `based_on`
-            based_on = pspace_plot_cfg.pop("based_on", None)
-            pspace_plot_cfg = self._resolve_based_on(
-                cfg=pspace_plot_cfg, based_on=based_on, work_on_deepcopy=False
+        # Combine from_pspace and plot_cfg into one dict
+        from_pspace = recursive_update(from_pspace, copy.deepcopy(plot_cfg))
+
+        # Resolve `based_on`
+        from_pspace = _resolve_based_on_single(
+            name=name,
+            based_on=based_on,
+            plot_cfg=from_pspace,
+            label="plot_pspace",
+            base_pools=self._base_cfg_pools,
+        )
+
+        # Extract keys which `_plot` expects as separate arguments
+        kwargs = {
+            k: from_pspace.pop(k, None)
+            for k in (
+                "creator",
+                "out_dir",
+                "default_out_dir",
+                "save_plot_cfg",
+                "auto_detect_creator",
+                "creator_init_kwargs",
             )
+        }
 
-            # Extract info, then re-create the ParamSpace with the updated cfg
-            creator = pspace_plot_cfg.pop("creator", None)
-            from_pspace = ParamSpace(pspace_plot_cfg)
-
-        else:
-            # Assume it's something dict-like
-            # ... but need a copy in order to safely pop elements.
-            from_pspace = copy.deepcopy(from_pspace)
-            based_on = from_pspace.pop("based_on", None)
-
-            # Do the update; no deepcopy needed in there because done here
-            from_pspace = self._resolve_based_on(
-                cfg=from_pspace, based_on=based_on, work_on_deepcopy=False
-            )
-
-            # Now also extract the creator; might have come in only by the
-            # based_on resolution
-            creator = from_pspace.pop("creator", None)
-
-        # NOTE creator needs to be singled out above because _plot is not able
-        #      to extract it from whatever `from_pspace` is.
-
-        # Now have all the information extracted / removed from from_pspace to
-        # be ready to call _plot. Finally.
-        return self._plot(
-            name, creator=creator, from_pspace=from_pspace, **plot_cfg
-        )  # **plot_cfg is anything remaining ...
+        return self._plot(name, from_pspace=from_pspace, **kwargs)
 
     def _plot(
         self,
@@ -1093,11 +1055,11 @@ class PlotManager:
         creator: str = None,
         out_dir: str = None,
         default_out_dir: str = None,
-        from_pspace: ParamSpace = None,
         file_ext: str = None,
         save_plot_cfg: bool = None,
         auto_detect_creator: bool = None,
         creator_init_kwargs: dict = None,
+        from_pspace: dict = None,
         **plot_cfg,
     ) -> BasePlotCreator:
         """Create plot(s) from a single configuration entry.
@@ -1107,7 +1069,7 @@ class PlotManager:
 
         Note that more than one plot can result from a single configuration
         entry, e.g. when plots were configured that have more dimensions than
-        representable in a single file.
+        representable in a single file or when using ``from_pspace``.
 
         Args:
             name (str): The name of this plot
@@ -1122,8 +1084,6 @@ class PlotManager:
                 default if no ``out_dir`` was given explicitly.
             file_ext (str, optional): The file extension to use, including the
                 leading dot!
-            from_pspace (ParamSpace, optional): If given, execute a parameter
-                sweep over these parameters, re-using the same creator instance
             save_plot_cfg (bool, optional): Whether to save the plot config.
                 If not given, uses the default value from initialization.
             auto_detect_creator (bool, optional): Whether to attempt auto-
@@ -1132,7 +1092,13 @@ class PlotManager:
             creator_init_kwargs (dict, optional): Passed to the plot creator
                 during initialization. Note that the arguments given at
                 initialization of the PlotManager are updated by this.
+            from_pspace (dict, optional): If given, execute a parameter
+                sweep over this parameter space, re-using the same creator
+                instance. Each point in parameter space will end up calling
+                this method with arguments unpacked to the ``plot_cfg``
+                argument.
             **plot_cfg: The plot configuration to pass on to the plot creator.
+                This may be completely empty if ``from_pspace`` is used!
 
         Returns:
             BasePlotCreator: The PlotCreator used for these plots
@@ -1261,9 +1227,7 @@ class PlotManager:
             # ...and loop over all points:
             for n, (cfg, state_no, state_vector, coords) in enumerate(it):
                 log.progress(
-                    "Performing plot {n:{d:}d} / {v:} ...".format(
-                        n=n + 1, d=len(str(psp_vol)), v=psp_vol
-                    )
+                    "Performing plot '%s' (%d / %d) ...", name, n + 1, psp_vol
                 )
                 log.note(
                     "Current coordinates:  %s",
