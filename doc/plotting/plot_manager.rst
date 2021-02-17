@@ -6,10 +6,9 @@ The :py:class:`~dantro.plot_mngr.PlotManager`
 The :py:class:`~dantro.plot_mngr.PlotManager` orchestrates the whole plotting framework.
 This document describes what it is and how it works together with the :doc:`plot_creators` to generate plots.
 
-
 .. contents::
    :local:
-   :depth: 2
+   :depth: 3
 
 ----
 
@@ -151,15 +150,20 @@ Plot Configuration Inheritance
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 New plot configurations can be based on existing ones.
 This makes it very easy to define various plot functions without copy-pasting the plot configurations.
+Instead, a plot configuration can be successively assembled from separate parts.
 
-To do so, add the ``based_on`` key to your plot configuration.
-As arguments, you can provide either a string or a sequence of strings, where the strings have to refer to names of so-called *base plot configuration entries*, or short *base configurations* (in contrast to regular plot configurations).
-These are configuration entries that were passed to the :py:class:`~dantro.plot_mngr.PlotManager` during initialization using the ``base_cfg`` and ``update_base_cfg`` arguments.
+To use this feature, add the ``based_on`` key to your plot configuration and specify the name or names of other plot configurations you want to let this plot be based on.
+We call those plot configurations *base configurations* to distinguish them from the configuration the ``based_on`` key is used in.
 
-For example, let's say there is the following base plot configuration, where you supply the parameters for a lineplot with a certain style:
+These base configurations are then looked up in previously specified plot configurations, so-called *base plot configuration pools*.
+They are passed to :py:class:`~dantro.plot_mngr.PlotManager` during initialization using the ``base_cfg_pools`` argument.
+
+For example, let's say we have a base configuration pool that specifies a lineplot with a certain style:
 
 .. code-block:: yaml
 
+    # Base configuration pool, registered with PlotManager
+    ---
     my_gg_lineplot:
       creator: external
       module: basic
@@ -172,26 +176,49 @@ To avoid repetition in the actual definition of a plot, the ``based_on`` key can
 
 .. code-block:: yaml
 
-  values_over_time:
-    based_on: my_gg_lineplot
+    # Plot configuration, e.g. as passed to PlotManager.plot()
+    ---
+    values_over_time:
+      based_on: my_gg_lineplot
 
-    x: vectors/times
-    y: vectors/values
+      x: vectors/times
+      y: vectors/values
 
-When ``based_on: my_gg_lineplot`` is given, first the configuration for ``my_gg_lineplot`` is loaded.
-It is then recursively updated with the other keys, here ``x`` and ``y``.
+When ``based_on: my_gg_lineplot`` is given, *first* the configuration for ``my_gg_lineplot`` is loaded.
+It is then recursively updated with the other keys, here ``x`` and ``y``, resulting in:
+
+.. code-block:: yaml
+
+    # Plot configuration with ``based_on`` entries fully resolved
+    ---
+    values_over_time:
+      creator: external
+      module: basic
+      plot_func: lineplot
+
+      style:
+        base_style: ggplot
+
+      x: vectors/times
+      y: vectors/values
 
 .. note::
 
     **Reminder:** *Recursively* updating means that all levels of the configuration hierarchy can be updated.
     This happens by traversing along with all mapping-like parts of the configuration and updating their keys.
 
-When providing a sequence, e.g. ``based_on: [foo, bar, baz]``, the first configuration is used as the base and is subsequently recursively updated with those that follow.
+
+Multiple inheritance
+""""""""""""""""""""
+When providing a sequence, e.g. ``based_on: [foo, bar, baz]``, the first configuration is used as the base and is subsequently recursively updated with those that follow, finally applying the updates from the plot configuration where ``based_on`` was defined in.
+If there are conflicting keys, those from a *later* update take precedece over those from a previous base configuration.
+
 This can be used to subsequently build a configuration from several parts.
 With the example above, we could also do the following:
 
 .. code-block:: yaml
 
+    ---
     # Base plot configuration, specifying importable configuration chunks
     .plot.line:
       creator: external
@@ -220,8 +247,110 @@ This multiple inheritance approach has the following advantages:
 
 .. hint::
 
-    When several base plot configurations are specified, we propose to use a naming scheme that describes the purpose of the base configuration entries and broadly categorizes the entry.
+    The names used in the examples for the plot configurations can be chosen arbitrarily (as long as they are valid plot names).
+
+    However, we propose to **use a consistent naming scheme** that describes the purpose of the respective entries and broadly categorizes them.
     In the example above, the ``.plot`` and ``.style`` prefixes denote the effect of the configuration.
+    This not only makes the plot definition more readable, but also helps to avoid conflicts with duplicate base configuration names — something that becomes more relevant with rising size of configuration pools.
+
+
+Lookup rules
+""""""""""""
+In the examples above, only a single base configuration pool was defined.
+However, lookups of base configurations are not restricted to a single pool.
+This section provides more details on how it is determined which base configurations is used to assemble a plot configuration.
+
+First of all: *what would multiple pools be good for*?
+The answer is simple: it allows to include plot configurations into the pool that are spread out over multiple files, e.g. because they are part of different projects or in cases one has no control over them.
+Instead of copying the content into one place, it is safest to make them available as they are.
+
+Let's assume we have the following two base configuration pools registered, with ``---`` seperating the different pools.
+
+.. code-block:: yaml
+
+    ---
+    # Style configuration
+    .style.default:
+      style:
+        base_style: ggplot
+
+    .style.poster:
+      based_on: .style.default
+      style:
+        base_style: seaborn-poster
+        lines.linewidth: 3
+        lines.markersize: 10
+
+    ---
+    # Plot function definitions
+    .plot.defaults:
+      based_on: .style.default
+      creator: external
+      module: generic
+
+    .plot.errorbars:
+      based_on: .plot.defaults
+      plot_func: errorbars
+
+    .plot.facet_grid:
+      based_on: .plot.defaults
+      plot_func: facet_grid
+
+Let's give this a closer look: Already *within* the pool, it is possible to use ``based_on``:
+
+* In ``.style.poster``, the ``.style.default`` from the *same* pool is used.
+* In ``.plot.defaults``, the ``.style.default`` is specified as well.
+* The other ``.plot…`` entries base themselves on ``.plot.defaults``.
+
+In the last case, looking up ``.plot.defaults`` will lead to its *own* ``based_on`` entry needing to be evaluated — and this is exactly what happens:
+the resolver recursively inspects the looked up configurations and, if there are any ``based_on`` entries there, looks them up as well.
+
+.. note::
+
+    Lookups are only possible **within the same or a previous pool**.
+
+    In the example above, the ``.plot…`` entries may look up the ``.style…`` entries but **not the other way around**.
+    For more details on the lookup rules, see :py:func:`~dantro.plot._cfg.resolve_based_on`.
+
+.. hint::
+
+    **Wait, does this not allow to create loops?!**
+
+    Yes, it might! However, the resolver will keep track of the base configurations it already visited and can thus detect when a dependency loop is created.
+    In such a case, it will inform you about it and avoid running into an infinite recursion.
+
+Ok, how would we assemble such a plot configuration now?
+That's easiest to see with an example:
+
+.. code-block:: yaml
+
+    ---
+    # Actual plot configuration
+
+    my_default_plot:
+      based_on: .plot.facet_grid
+
+      select: # ... select some data for plotting ...
+
+      transform: # ... and transform it ...
+
+      # Visualize as heatmap
+      kind: pcolormesh
+      x: time
+      y: temperature
+
+    my_poster_plot:
+      based_on:
+        - my_default_plot
+        - .style.advanced
+
+      # Use a lineplot instead of the heatmap
+      kind: line
+      y: ~
+      hue: temperature
+
+To conclude, this feature allows to assemble plot configurations from different files or configuration hierarchies, always allowing to update recursively (unlike YAML inheritance).
+This reduces the need for copying configurations into multiple places.
 
 
 Features
