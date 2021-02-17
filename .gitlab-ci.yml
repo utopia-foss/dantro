@@ -65,6 +65,7 @@ variables:
     - sed -i "s=<source>.*${SRC_DIR}</source>=<source>./${SRC_DIR}</source>=g" coverage.xml
     - sed -i "s;filename=\";filename=\"${SRC_DIR}/;g" coverage.xml
   artifacts:
+    expire_in: 6 months
     reports:
       cobertura: coverage.xml
 
@@ -174,7 +175,7 @@ build:docs:
   artifacts:
     when: always
     name: "doc-$CI_COMMIT_REF_NAME"
-    expire_in: 3h
+    expire_in: 2 weeks
     expose_as: Documentation Build Results - including error log
     paths:
       - doc/_build/html
