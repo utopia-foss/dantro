@@ -5,7 +5,7 @@ import math
 import operator
 import re
 from difflib import get_close_matches as _get_close_matches
-from typing import Any, Callable, Iterable, List, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Sequence, Tuple, Union
 
 import numpy as np
 import xarray as xr
@@ -25,6 +25,7 @@ log = logging.getLogger(__name__)
 
 # Lazy module imports
 nx = LazyLoader("networkx")
+pd = LazyLoader("pandas")
 scipy = LazyLoader("scipy")
 
 
@@ -43,6 +44,7 @@ BOOLEAN_OPERATORS = {
     '!=': operator.ne,  'ne': operator.ne,
     '^':  operator.xor, 'xor': operator.xor,
     # Expecting an iterable as second argument
+    'contains':         operator.contains,
     'in':               (lambda x, y: x in y),
     'not in':           (lambda x, y: x not in y),
     # Performing bitwise boolean operations to support numpy logic
@@ -508,6 +510,113 @@ def populate_ndarray(
     for obj, _ in zip(objs, it):
         out[it.multi_index] = ufunc(obj)
 
+    return out
+
+
+def build_object_array(
+    objs: Union[Dict, Sequence],
+    *,
+    dims: Tuple[str] = ("label",),
+    fillna: Any = None,
+) -> xr.DataArray:
+    """Creates a *simple* labelled multidimensional object array.
+
+    It accepts simple iterable types like dictionaries or lists and unpacks
+    them into the array, using the key or index (respectively) as coordinate
+    for the entry. For dict-like entries, multi-dimensional coordinates can be
+    specified by using tuples for keys.
+    Subsequently, list-like iterable types (list, tuple etc.) will result in
+    one-dimensional output array.
+
+    .. warning::
+
+        This data operation is built for *flexibility*, not for speed. It will
+        call the :py:func:`~dantro.utils.data_ops.merge` operation for *every*
+        element in the `objs` iterable, thus being slow and potentially
+        creating an array with many empty elements.
+        To efficiently populate an n-dimensional object array, use the
+        :py:func:`~dantro.utils.data_ops.populate_ndarray` operation instead
+        and build a labelled array from that output.
+
+
+    Args:
+        objs (Union[Dict, Sequence]): The objects to populate the object array
+            with. If dict-like, keys are assumed to encode coordinates, which
+            can be of the form ``coord0`` or ``(coord0, coord1, …)``, where the
+            tuple-form requires as many coordinates as there are entries in the
+            ``dims`` argument.
+            If list- or tuple-like (more exactly: if missing the ``items``
+            attribute) trivial indexing is used and ``dims`` needs to be 1D.
+        dims (Tuple[str], optional): The names of the dimensions of the
+            labelled array.
+        fillna (Any, optional): The fill value for entries that are not
+            covered by the dimensions specified by ``objs``. Note that this
+            will replace all *null* values, which includes `NaN` but also
+            ``None``. This operation is only called if ``fillna is not None``.
+
+    Raises:
+        ValueError: If coordinates and/or ``dims`` argument for individual
+            entries did not match.
+    """
+
+    def get_coords(k, dims: Tuple[str]) -> dict:
+        """Turn the iteration key into a valid coordinate dict"""
+        if isinstance(k, tuple):
+            if len(k) != len(dims):
+                raise ValueError(
+                    f"Given coordinates {k} could not be matched to the "
+                    f"specified dimensions, {dims}! Make sure their sizes "
+                    "agree."
+                )
+            return {_k: [_v] for _k, _v in zip(dims, k)}
+
+        elif len(dims) != 1:
+            raise ValueError(
+                f"Got scalar coordinate '{k}' but have {len(dims)} dimensions "
+                f"({dims}) specified. Either provide an appropriately sized "
+                "coordinate tuple or reduce the number of `dims` to one."
+            )
+        return {dims[0]: [k]}
+
+    # Determine the object iterator
+    if not hasattr(objs, "items"):
+        if len(dims) != 1:
+            raise ValueError(
+                "Can only create one-dimensional output data from the given "
+                f"list-like object container, but got `dims`: {dims}. "
+                f"Instead of {type(objs).__name__}, use a dict to specify "
+                "multiple coordinates or adjust the `dims` argument to a "
+                "single dimension name."
+            )
+
+        it = enumerate(objs)
+
+    else:
+        it = objs.items()
+
+    # The (zero-sized) target array
+    ndim = len(dims)
+    out = xr.DataArray(
+        np.zeros((0,) * ndim, dtype="object"),
+        dims=dims,
+        name="tmp",
+        coords=dict(zip(dims, [[]] * ndim)),
+    )
+
+    # Populate it entry by entry, merging every entry into the existing array
+    for k, v in it:
+        coords = get_coords(k, dims)
+        new_item = xr.DataArray(
+            populate_ndarray([v], shape=(1,) * ndim, dtype="object"),
+            dims=dims,
+            coords=coords,
+            name="tmp",
+        )
+        out = merge([out, new_item], reduce_to_array=True)
+
+    out.name = None
+    if fillna is not None:
+        out = out.fillna(fillna)
     return out
 
 
@@ -982,6 +1091,7 @@ _OPERATIONS = KeyOrderedDict({
     'create_mask':                  create_mask,
     'where':                        where,
     'populate_ndarray':             populate_ndarray,
+    'build_object_array':           build_object_array,
     'expand_object_array':          expand_object_array,
 
     # extract labelling info, e.g. for creating higher-dimensional arrays

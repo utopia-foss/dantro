@@ -2,9 +2,10 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
-## v1.0.0 (*Work in Progress*)
+## v0.16.0 (*Work in Progress*)
 #### Features and Improvements
 - !235 improves the ``GraphGroup`` warnings on changed graph size.
+- !240 adds the `build_object_array` operation
 
 ## v0.15.4
 #### Bug Fixes
