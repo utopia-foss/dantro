@@ -4,10 +4,12 @@
 
 ## v0.16.0 (*Work in Progress*)
 #### Features and Improvements
-- !235 improves the ``GraphGroup`` warnings on changed graph size.
+- !241 makes `based_on` allow lookup from the same plots configuration and allows specifying multiple pools of base plot configurations.
 - !240 adds the `build_object_array` operation
-- !242 improves the `GraphGroup`, now dropping missing (NaN) values in the node and edge data.
-- !242 adds the `align` argument for property data alignment to `GraphGroup.create_graph`.
+- `GraphGroup` improvements:
+    - !242 implements dropping missing (NaN) values in the node and edge data.
+    - !242 adds the `align` argument for property data alignment to `GraphGroup.create_graph`.
+    - !235 improves the warnings on changed graph size.
 
 ## v0.15.4
 #### Bug Fixes
