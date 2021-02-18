@@ -211,7 +211,7 @@ It is then recursively updated with the other keys, here ``x`` and ``y``, result
 Multiple inheritance
 """"""""""""""""""""
 When providing a sequence, e.g. ``based_on: [foo, bar, baz]``, the first configuration is used as the base and is subsequently recursively updated with those that follow, finally applying the updates from the plot configuration where ``based_on`` was defined in.
-If there are conflicting keys, those from a *later* update take precedece over those from a previous base configuration.
+If there are conflicting keys, those from a *later* update take precedence over those from a previous base configuration.
 
 This can be used to subsequently build a configuration from several parts.
 With the example above, we could also do the following:

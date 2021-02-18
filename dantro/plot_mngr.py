@@ -69,7 +69,12 @@ class PlotManager:
         sweep="{name:}/{state_no:}__{state:}{ext:}",
         plot_cfg_sweep="{name:}/sweep_cfg.yml",
     )
-    SPECIAL_BASE_CFG_POOL_LABELS = ("plot", "plot_from_cfg", "plot_pspace")
+    SPECIAL_BASE_CFG_POOL_LABELS = (
+        "plot",
+        "plot_from_cfg",
+        "plot_from_cfg_unused",
+        "plot_pspace",
+    )
 
     # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -78,6 +83,7 @@ class PlotManager:
         *,
         dm: DataManager,
         base_cfg_pools: Sequence[Tuple[str, Union[dict, str]]] = (),
+        plots_cfg: Union[dict, str] = None,
         default_plots_cfg: Union[dict, str] = None,
         base_cfg: Union[str, dict] = None,
         update_base_cfg: Union[str, dict] = None,
@@ -118,7 +124,10 @@ class PlotManager:
                 data from.
             base_cfg_pools (Sequence[Tuple[str, Union[dict, str]]], optional):
                 The base configuration pools are used to perform the lookups of
-                ``based_on`` entries.
+                ``based_on`` entries. The tuples in these sequence consist of
+                ``(label, plots_cfg)`` pairs and are fed to
+                :py:meth:`~dantro.plot_mngr.PlotManager.add_base_cfg_pool`.
+                This argument can also be provided as an ``OrderedDict``.
             default_plots_cfg (Union[dict, str], optional): The default plots
                 config or a path to a YAML file to import. Used as defaults
                 when calling
@@ -184,6 +193,7 @@ class PlotManager:
         self._cckwargs = creator_init_kwargs if creator_init_kwargs else {}
         self._cfg_exists_action = cfg_exists_action
         self.default_creator = default_creator
+        self._default_plots_cfg = None
 
         # Base configuration pools
         self._base_cfg_pools = OrderedDict()
@@ -191,24 +201,40 @@ class PlotManager:
             base_cfg_pools = OrderedDict(list(base_cfg_pools))
 
         for _label, _plots_cfg in base_cfg_pools.items():
-            self._add_base_cfg_pool(label=_label, plots_cfg=_plots_cfg)
+            self.add_base_cfg_pool(label=_label, plots_cfg=_plots_cfg)
 
         # Legacy base configuration -- DEPRECATED
         if base_cfg or update_base_cfg:
             warnings.warn(
                 "The `base_cfg` and `update_base_cfg` arguments are "
-                "deprecated. Use the more-capable `base_cfg_pools` instead.",
+                "deprecated and will be removed. Use the more-capable "
+                "`base_cfg_pools` instead.",
                 DeprecationWarning,
             )
             if update_base_cfg:
-                base_cfg = recursive_update(
-                    self._prepare_cfg(base_cfg if base_cfg else {}),
+                # Need to resolve it here already to retain old behaviour
+                base_cfg = self._prepare_cfg(base_cfg if base_cfg else {})
+                update_base_cfg = _resolve_based_on(
                     self._prepare_cfg(update_base_cfg),
+                    label="update_base_cfg",
+                    base_pools=[("base", base_cfg)],
                 )
-            self._add_base_cfg_pool(label="base", plots_cfg=base_cfg)
+
+                base_cfg = recursive_update(base_cfg, update_base_cfg)
+
+            self.add_base_cfg_pool(label="base", plots_cfg=base_cfg)
 
         # Default plot configuration
-        self._default_plots_cfg = self._prepare_cfg(default_plots_cfg)
+        if plots_cfg:
+            warnings.warn(
+                "The `plots_cfg` argument was renamed to `default_plots_cfg`! "
+                "This will become an error in an upcoming release.",
+                DeprecationWarning,
+            )
+            self._default_plots_cfg = self._prepare_cfg(plots_cfg)
+
+        if default_plots_cfg:
+            self._default_plots_cfg = self._prepare_cfg(default_plots_cfg)
 
         # Default format strings
         self._out_fstrs = self.DEFAULT_OUT_FSTRS
@@ -241,6 +267,10 @@ class PlotManager:
     def base_cfg_pools(self) -> OrderedDict:
         """The base plot configuration pools, used for lookup the ``based_on``
         entry in plot configurations.
+
+        The order of the entries in the pool is relevant, with later entries
+        taking precedence over previous ones. See :ref:`plot_cfg_inheritance`
+        for a more detailed description.
         """
         return self._base_cfg_pools
 
@@ -260,24 +290,24 @@ class PlotManager:
         self._default_creator = new_creator
 
     # .........................................................................
-    # Helpers
+    # Configuration
 
-    @staticmethod
-    def _prepare_cfg(s: Union[str, dict]) -> dict:
-        """Prepares a plots configuration by either loading it from a YAML file
-        if the given argument is a string or returning a deep copy of the given
-        dict-like object.
-        """
-        if isinstance(s, str):
-            return load_yml(s)
-        return copy.deepcopy(s)
-
-    def _add_base_cfg_pool(self, *, label: str, plots_cfg: Union[str, dict]):
+    def add_base_cfg_pool(self, *, label: str, plots_cfg: Union[str, dict]):
         """Adds a base configuration pool entry, allowing for the ``plots_cfg``
         to be a path to a YAML configuration file which is then loaded.
 
+        The new pool is used for ``based_on`` lookups and takes precedence over
+        existing entries. For more information on lookup rules, see
+        :py:func:`~dantro.plot._cfg.resolve_based_on` and
+        :ref:`plot_cfg_inheritance`.
+
+        Args:
+            label (str): A label of the pool that is used for identifying it.
+            plots_cfg (Union[str, dict]): Description
+
         Raises:
             ValueError: If ``label`` already exists or is a special label.
+
         """
         if label in self._base_cfg_pools:
             raise ValueError(
@@ -294,6 +324,19 @@ class PlotManager:
 
         self._base_cfg_pools[label] = self._prepare_cfg(plots_cfg)
         log.debug("Added base configuration pool '%s'.", label)
+
+    # .........................................................................
+    # Helpers
+
+    @staticmethod
+    def _prepare_cfg(s: Union[str, dict]) -> dict:
+        """Prepares a plots configuration by either loading it from a YAML file
+        if the given argument is a string or returning a deep copy of the given
+        dict-like object.
+        """
+        if isinstance(s, str):
+            return load_yml(s)
+        return copy.deepcopy(s)
 
     def _parse_out_dir(self, fstr: str, *, name: str) -> str:
         """Evaluates the format string to create an output directory path.
@@ -392,7 +435,7 @@ class PlotManager:
         keys["ext"] = ext
 
         # Change behaviour depending on whether state information was given
-        if state_no is None:
+        if state_no is None or (state_no == state_no_max == 0):
             # Assume the other arguments are also None -> Not part of the sweep
             # Evaluate it
             out_path = fstrs["path"].format(**keys)
@@ -859,16 +902,8 @@ class PlotManager:
                     f"{type(cfg).__name__} with value '{cfg}'."
                 )
 
-        # Resolve the `based_on` entries already at this point, allowing
-        # lookups across configuration entries.
-        if resolve_based_on:
-            plots_cfg = _resolve_based_on(
-                plots_cfg,
-                label="plot_from_cfg",
-                base_pools=self.base_cfg_pools,
-            )
-
-        # Evaluate `plot_only`
+        # Evaluate `plot_only`, but retain a copy of the full configuration
+        full_plots_cfg = copy.deepcopy(plots_cfg)
         if plot_only is None:
             # Resolve all `enabled` entries, creating a new plots_cfg dict
             plots_cfg = {
@@ -904,12 +939,35 @@ class PlotManager:
             for cfg in plots_cfg.values():
                 cfg.pop("enabled", None)
 
-        # Throw out entries that start with an underscore or dot
+        # Also throw out entries that start with an underscore or dot
         plots_cfg = {
             k: v
             for k, v in plots_cfg.items()
             if not (k.startswith("_") or k.startswith("."))
         }
+
+        # Now resolve the `based_on` entries of all remaining plot entries,
+        # but allow lookup from those plots that were not enabled.
+        if resolve_based_on:
+            # Determine only the _unused_ plot configurations such that they
+            # can be added as a separate pool. As these might still contain
+            # the already-evaluated `enabled` key, need to pop that out.
+            # NOTE The full_plots_cfg no longer contains those entries after
+            #      this operation was carried out.
+            unused_plots_cfg = {
+                k: (v, v.pop("enabled", None))[0]
+                for k, v in full_plots_cfg.items()
+                if k not in plots_cfg
+            }
+
+            plots_cfg = _resolve_based_on(
+                plots_cfg,
+                label="plot_from_cfg",
+                base_pools=(
+                    tuple(self.base_cfg_pools.items())
+                    + (("plot_from_cfg_unused", unused_plots_cfg),)
+                ),
+            )
 
         # Determine the output directory path to use; not creating directories!
         if not out_dir:
@@ -998,7 +1056,6 @@ class PlotManager:
             BasePlotCreator: The PlotCreator used for these plots
         """
         self._check_plot_name(name)
-        print(name, based_on)
 
         # Distinguish cases that are using a ParamSpace and those that do not.
         # The latter are far simpler to handle ...
@@ -1145,7 +1202,7 @@ class PlotManager:
 
         # Distinguish single calls and parameter sweeps
         if not from_pspace:
-            log.progress("Performing '%s' plot ...", name)
+            log.progress("Plotting '%s' ...", name)
 
             # Generate the output path
             out_dir = self._parse_out_dir(out_dir, name=name)
@@ -1173,136 +1230,137 @@ class PlotManager:
             if rv is True:
                 log.progress("Performed '%s' plot.\n", name)
 
-        else:
-            # Is a parameter sweep over the plot configuration.
-            # NOTE The parameter space is allowed to have volume 0!
+            return plot_creator
 
-            # If it is not already a ParamSpace, create one; useful if not
-            # calling from plot_from_cfg, but directly ...
-            if not isinstance(from_pspace, ParamSpace):
-                from_pspace = ParamSpace(from_pspace)
+        # else: Is a parameter sweep over the plot configuration.
+        # NOTE The parameter space is allowed to have volume 0!
 
-            # Extract some info
-            psp_vol = from_pspace.volume
-            psp_dims = from_pspace.dims
+        # Make sure it's a ParamSpace
+        if not isinstance(from_pspace, ParamSpace):
+            from_pspace = ParamSpace(from_pspace)
 
-            # ... and provide it to the logger
-            if psp_vol > 0:
-                amap_coords = from_pspace.active_state_map.coords
-                max_dname_len = max(len(n) for n in amap_coords.keys())
+        # Extract some info and communicate it
+        psp_vol = from_pspace.volume
+        psp_dims = from_pspace.dims
 
-                log.progress("Performing %d '%s' plots ...", psp_vol, name)
-                log.note(
-                    "... iterating over parameter space:\n%s",
-                    "\n".join(
-                        [
-                            "  * {0:<{d:}} : {1:}".format(
-                                dim_name,
-                                ", ".join([str(c) for c in coords.values]),
-                                d=max_dname_len,
-                            )
-                            for dim_name, coords in amap_coords.items()
-                        ]
-                    ),
-                )
+        if psp_vol > 0:
+            amap_coords = from_pspace.active_state_map.coords
+            max_dname_len = max(len(n) for n in amap_coords.keys())
+            n_max = psp_vol
 
-            else:
-                log.progress("Performing '%s' plot ...", name)
-                log.note(
-                    "... from default point in zero-volume parameter space."
-                )
-
-            # Parse the output directory, such that all plots are together in
-            # one directory even if the timestamp varies
-            out_dir = self._parse_out_dir(out_dir, name=name)
-
-            # Create the iterator
-            it = from_pspace.iterator(
-                with_info=("state_no", "state_vector", "coords")
+            log.progress("Performing %d '%s' plots ...", n_max, name)
+            log.note(
+                "... iterating over parameter space:\n%s",
+                "\n".join(
+                    [
+                        "  * {0:<{d:}} : {1:}".format(
+                            dim_name,
+                            ", ".join([str(c) for c in coords.values]),
+                            d=max_dname_len,
+                        )
+                        for dim_name, coords in amap_coords.items()
+                    ]
+                ),
             )
 
-            # Keep track of how many plots are skipped
-            num_skipped = 0
+        else:
+            log.progress("Plotting '%s' ...", name)
+            log.note("... from default point in zero-volume parameter space.")
+            n_max = 1
 
-            # ...and loop over all points:
-            for n, (cfg, state_no, state_vector, coords) in enumerate(it):
-                log.progress(
-                    "Performing plot '%s' (%d / %d) ...", name, n + 1, psp_vol
-                )
+        # Parse the output directory, such that all plots are together in
+        # one directory even if the timestamp varies
+        out_dir = self._parse_out_dir(out_dir, name=name)
+
+        # Create the iterator
+        it = from_pspace.iterator(
+            with_info=("state_no", "state_vector", "coords")
+        )
+
+        # Keep track of how many plots are skipped
+        num_skipped = 0
+
+        # ...and loop over all points:
+        for n, (cfg, state_no, state_vector, coords) in enumerate(it):
+            log.progress("Plotting '%s' (%d/%d) ...", name, n + 1, n_max)
+            if coords:
                 log.note(
                     "Current coordinates:  %s",
                     ",  ".join("{}: {}".format(*kv) for kv in coords.items()),
                 )
 
-                # Handle the file extension parameter; it might come from the
-                # given configuration and then needs to be popped such that it
-                # is not propagated to the plot creator.
-                _file_ext = cfg.pop("file_ext", file_ext)
+            # Handle the file extension parameter; it might come from the
+            # given configuration and then needs to be popped such that it
+            # is not propagated to the plot creator.
+            _file_ext = cfg.pop("file_ext", file_ext)
 
-                # Generate the output path
-                out_path = self._parse_out_path(
-                    plot_creator,
-                    name=name,
-                    out_dir=out_dir,
-                    file_ext=_file_ext,
-                    state_no=state_no,
-                    state_no_max=psp_vol - 1,
-                    state_vector=state_vector,
-                    dims=psp_dims,
-                )
+            # Generate the output path
+            out_path = self._parse_out_path(
+                plot_creator,
+                name=name,
+                out_dir=out_dir,
+                file_ext=_file_ext,
+                state_no=state_no,
+                state_no_max=n_max - 1,
+                state_vector=state_vector,
+                dims=psp_dims,
+            )
 
-                # Call the plot creator to perform the plot, using the private
-                # method to perform exception handling
-                rv = self._invoke_creator(
-                    plot_creator, out_path=out_path, **cfg, **plot_cfg
-                )
-                # NOTE The **plot_cfg is passed here in order to not lose any
-                #      arguments that might have been passed to it. While `cfg`
-                #      _should_ hold all the arguments from the parameter space
-                #      iteration, there might be more arguments in `plot_cfg`;
-                #      rather than disallowing this, we pass them on and
-                #      forward responsibility downstream ...
+            # Call the plot creator to perform the plot, using the private
+            # method to perform exception handling
+            rv = self._invoke_creator(
+                plot_creator, out_path=out_path, **cfg, **plot_cfg
+            )
+            # NOTE The **plot_cfg is passed here in order to not lose any
+            #      arguments that might have been passed to it. While `cfg`
+            #      _should_ hold all the arguments from the parameter space
+            #      iteration, there might be more arguments in `plot_cfg`;
+            #      rather than disallowing this, we pass them on and
+            #      forward responsibility downstream ...
 
-                # Count skipped plots
-                if rv == "skipped":
-                    num_skipped += 1
+            # Count skipped plots
+            if rv == "skipped":
+                num_skipped += 1
 
-                # Always store plot information, regardless of skipping
-                # (Saving is disabled here anyway as it will be done below)
-                self._store_plot_info(
-                    name=name,
-                    creator_name=creator,
-                    out_path=out_path,
-                    plot_cfg=plot_cfg,
-                    state_no=state_no,
-                    state_vector=state_vector,
-                    save=False,
-                    target_dir=os.path.dirname(out_path),
-                    creator_rv=rv,
-                )
+            # Always store plot information, regardless of skipping.
+            # Saving is enabled only for zero-volume parameter sweeps in order
+            # to have the backup file right beside the plot; the file will not
+            # be saved again after the for-loop.
+            self._store_plot_info(
+                name=name,
+                creator_name=creator,
+                out_path=out_path,
+                plot_cfg=dict(**cfg, **plot_cfg),
+                state_no=state_no,
+                state_vector=state_vector,
+                save=(save_plot_cfg and psp_vol == 0 and rv != "skipped"),
+                target_dir=os.path.dirname(out_path),
+                creator_rv=rv,
+            )
 
-            # Finished parameter space iteration.
-            # Save the plot configuration alongside, if configured to do so and
-            # if at least one of the plots was *not* skipped.
-            if save_plot_cfg and num_skipped < (n + 1):
-                self._save_plot_cfg(
-                    from_pspace,
-                    name=name,
-                    creator_name=creator,
-                    target_dir=out_dir,
-                    is_sweep=True,
-                )
+        # Finished parameter space iteration.
+        # Save the plot configuration alongside, if configured to do so, and
+        # if at least one of the plots was *not* skipped and the parameter
+        # space was not zero-volume
+        if save_plot_cfg and num_skipped < (n + 1) and psp_vol > 0:
+            self._save_plot_cfg(
+                from_pspace,
+                name=name,
+                creator_name=creator,
+                target_dir=out_dir,
+                is_sweep=True,
+            )
 
-            if not num_skipped:
-                log.progress("Performed all '%s' plots.\n", name)
-            else:
-                log.progress(
-                    "Performed %d / %d '%s' plots, skipped %d.\n",
-                    (n + 1) - num_skipped,
-                    n + 1,
-                    name,
-                    num_skipped,
-                )
+        if not num_skipped:
+            log.progress("Performed all '%s' plots.\n", name)
+        else:
+            log.progress(
+                "Performed %d/%d '%s' plots, skipped %d.\n",
+                (n + 1) - num_skipped,
+                n + 1,
+                name,
+                num_skipped,
+            )
 
         # Done now. Return the plot creator object
         return plot_creator

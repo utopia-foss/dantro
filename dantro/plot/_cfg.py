@@ -23,7 +23,7 @@ def _check_visited(
     """Performs cycle detection on the sequence of visited entries and raises
     an error if there will be a cycle. Otherwise, returns the new visiting
     sequence by appending the ``next_visit`` to the given sequence of
-    ``visited`` entries
+    ``visited`` entries.
     """
     if next_visit in visited:
         _loop = " <- ".join(
@@ -111,17 +111,20 @@ def _resolve_based_on(
     entries, recursively updating their dict representation and again creating
     a ``ParamSpace`` object from them afterwards.
     """
-    pcfg = copy.deepcopy(pcfg)
-
+    # Need a few helper functions to handle ParamSpace objects
+    # ... this COULD be avoided if ParamSpace would behave more dict-like,
+    #     which it currently does not, so we have no choice but to unpack and
+    #     repack it all the time. Should not be a big issue though, compared to
+    #     all the plotting operations.
     _from_pspace = isinstance(pcfg, ParamSpace)
     _generate_return_value = lambda d: d if not _from_pspace else ParamSpace(d)
+    _unpack_pspace = lambda d: d if not isinstance(d, ParamSpace) else d._dict
+    # FIXME Should not have to use private API!
 
-    if _from_pspace:
-        pcfg = pcfg._dict
-        # FIXME Should not have to use private API!
+    # Prepare the given configuration
+    pcfg = _unpack_pspace(copy.deepcopy(pcfg))
 
     based_on = pcfg.pop("based_on", None)
-    print(based_on, pcfg)
     if not based_on:
         return _generate_return_value(pcfg)
 
@@ -147,6 +150,7 @@ def _resolve_based_on(
                 _visited, next_visit=(pool_name, _based_on)
             ),
         )
+        base_cfg = _unpack_pspace(base_cfg)
 
         # ... now apply to existing configuration
         _pcfg = recursive_update(_pcfg, base_cfg)

@@ -1,5 +1,6 @@
 """Tests the PlotManager class"""
 
+import copy
 import os
 from collections import OrderedDict
 
@@ -162,6 +163,16 @@ def test_init(dm, tmpdir):
     with pytest.raises(ValueError, match="No such creator 'invalid'"):
         PlotManager(dm=dm, default_creator="invalid")
 
+    # Deprecation warnings for `base_cfg`, `update_base_cfg` and `plots_cfg`
+    with pytest.warns(DeprecationWarning, match="arguments are deprecated"):
+        PlotManager(dm=dm, base_cfg={"some_dummy_plot_1": {}})
+
+    with pytest.warns(DeprecationWarning, match="arguments are deprecated"):
+        PlotManager(dm=dm, update_base_cfg={"some_dummy_plot_2": {}})
+
+    with pytest.warns(DeprecationWarning, match="argument was renamed"):
+        PlotManager(dm=dm, plots_cfg={"some_dummy_plot_3": {}})
+
 
 def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
     """Test the plotting functionality of the PlotManager with a plots_cfg
@@ -308,7 +319,7 @@ def test_plot_locations(dm, pm_kwargs, pcr_ext_kwargs):
     # The plot files and the config file should always be side by side,
     # regardless of whether the file name has a slash in it or not and also
     # regardless of whether a sweep is configured or not
-    for name in ("foo", "bar/baz/spam"):
+    for name in ("foo", "foo/bar/baz"):
         # Regular plot
         pm.plot(name, **pcr_ext_kwargs)
 
@@ -319,17 +330,33 @@ def test_plot_locations(dm, pm_kwargs, pcr_ext_kwargs):
             info["plot_cfg_path"]
         )
 
-        # Sweep plot
-        pm.plot(name, from_pspace=psp.ParamSpace(pcr_ext_kwargs))
+        # Sweep plot with zero-volume: behaves basically like a regular plot
+        zero_vol_pspace = psp.ParamSpace(pcr_ext_kwargs)
+        assert zero_vol_pspace.volume == 0
+        pm.plot(name + "_0vol", from_pspace=zero_vol_pspace)
 
-        info = pm.plot_info[-1]  # only the last plot
-        assert info["plot_cfg_path"] is None  # not saved for individual plots
+        info = pm.plot_info[-1]
+        assert os.path.isfile(info["plot_cfg_path"])
         assert os.path.isfile(info["out_path"])
         assert os.path.isdir(info["target_dir"])
         assert os.path.dirname(info["out_path"]) == info["target_dir"]
-        assert os.path.isfile(
-            os.path.join(info["target_dir"], "sweep_cfg.yml")
+        assert os.path.dirname(info["out_path"]) == os.path.dirname(
+            info["plot_cfg_path"]
         )
+
+        # Sweep plot with nonzero-volume
+        sweep_kwargs = copy.deepcopy(pcr_ext_kwargs)
+        sweep_kwargs["lw"] = psp.ParamDim(default=1.2, values=[1.0, 2.0, 3.0])
+        pm.plot(name + "_sweep", from_pspace=sweep_kwargs)
+
+        for info in pm.plot_info[-3:]:
+            assert not info["plot_cfg_path"]  # not saved for individual plots
+            assert os.path.isfile(info["out_path"])
+            assert os.path.isdir(info["target_dir"])
+            assert os.path.dirname(info["out_path"]) == info["target_dir"]
+            assert os.path.isfile(
+                os.path.join(info["target_dir"], "sweep_cfg.yml")
+            )
 
 
 def test_plotting_from_file_path(dm, pm_kwargs):
@@ -408,10 +435,10 @@ def test_base_cfg_pool(dm, pm_kwargs):
 
     # Errors when adding already existing or special entries
     with pytest.raises(ValueError, match="already exists"):
-        pm._add_base_cfg_pool(label="base", plots_cfg={})
+        pm.add_base_cfg_pool(label="base", plots_cfg={})
 
     with pytest.raises(ValueError, match="special labels"):
-        pm._add_base_cfg_pool(label="plot", plots_cfg={})
+        pm.add_base_cfg_pool(label="plot", plots_cfg={})
 
     # Old deprecated interface
     with pytest.warns(DeprecationWarning, match="The `base_cfg` and `upd"):
