@@ -708,8 +708,8 @@ class GraphGroup(BaseDataGroup):
                 )
 
             raise ValueError(
-                f"Mismatch! Failed to add '{name}' data as a node property. "
-                f"Received {len(prop_data)} property values for "
+                f"Length mismatch: Failed to add '{name}' data as a node "
+                f"property. Received {len(prop_data)} property values for "
                 f"{len(node_cont)} nodes in {self.node_container.logstr}! "
                 f"{_msg_match_with_node_number}{_msg_squeezed_dims}"
             )
@@ -724,8 +724,10 @@ class GraphGroup(BaseDataGroup):
                 f"graph creation (length of {self.node_container.logstr}: "
                 f"{n_data}, nodes in graph: {n_graph}). Some property values "
                 "will not be added to the graph! Reasons might be previous "
-                "modifications of the graph structure or duplicate entries in "
-                f"{self.node_container.logstr}.",
+                "modifications of the graph structure, duplicate entries in "
+                f"'{self.node_container.logstr}', or nodes in "
+                f"'{self.edge_container.logstr}' that are not in "
+                f"'{self.node_container.logstr}'.",
                 UserWarning,
             )
 
@@ -872,8 +874,8 @@ class GraphGroup(BaseDataGroup):
                 )
 
             raise ValueError(
-                f"Mismatch! Failed to add '{name}' data as an edge property. "
-                f"Received {len(prop_data)} property values for "
+                f"Length mismatch! Failed to add '{name}' data as an edge "
+                f"property. Received {len(prop_data)} property values for "
                 f"{len(edge_cont)} edges in {self.edge_container.logstr}! "
                 f"{_msg_duplicate_edges}{_msg_match_with_edge_number}"
             )
