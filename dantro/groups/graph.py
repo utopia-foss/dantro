@@ -410,6 +410,7 @@ class GraphGroup(BaseDataGroup):
         isel: dict = None,
         at_time: int = None,
         at_time_idx: int = None,
+        align: bool = False,
         keep_dim=None,
         **graph_kwargs,
     ) -> "nx.Graph":
@@ -453,6 +454,14 @@ class GraphGroup(BaseDataGroup):
                 label. Translated to ``sel = dict(time=at_time)``.
             at_time_idx (int, optional): Select along ``time`` dimension via
                 index. Translated to ``isel = dict(time=at_time_idx)``.
+            align (bool, optional): If True, the property data is aligned
+                with the node/edge data using ``xarray.align``
+                (default: False). The indexes of the ``<node/edge>_container``
+                are used for each dimension. If the class variable
+                ``_GG_WARN_UPON_BAD_ALIGN`` is True, warn upon missing values
+                or if no re-ordering was done. Any dimension of size 1 is
+                squeezed and thus alignment (via ``align=True``) will have no
+                effect on such dimensions.
             keep_dim (optional): Iterable containing names of the dimensions
                 that can not be squeezed. Passed on to
                 :py:meth:`~dantro.groups.graph.GraphGroup._get_data_at`.
@@ -513,6 +522,27 @@ class GraphGroup(BaseDataGroup):
             max_tuple_size=(4 if isinstance(g, nx.MultiGraph) else 3),
         )
 
+        # Drop missing values from the node-data and edge-data. After calling
+        # `_prepare_edge_data`, the first edge-data dim should be the edge-dim.
+        # This is also why the dropna kwarg can't be evaluated in _get_data_at.
+        if np.isnan(node_cont).any():
+            node_cont = node_cont.dropna(dim=node_cont.dims[0])
+            log.debug(
+                "Removed entries containg missing (NaN) values along dim '%s' "
+                "from %s.",
+                node_cont.dims[0],
+                self.node_container.logstr,
+            )
+
+        if np.isnan(edge_cont).any():
+            edge_cont = edge_cont.dropna(dim=edge_cont.dims[0])
+            log.debug(
+                "Removed entries containg missing (NaN) values along dim '%s' "
+                "from %s.",
+                edge_cont.dims[0],
+                self.node_container.logstr,
+            )
+
         # Add nodes and edges to the graph
         log.debug("Adding nodes to the graph...")
         g.add_nodes_from(node_cont.values)
@@ -549,6 +579,7 @@ class GraphGroup(BaseDataGroup):
                     isel=isel,
                     at_time=at_time,
                     at_time_idx=at_time_idx,
+                    align=align,
                     keep_dim=keep_dim,
                 )
         if edge_props:
@@ -560,12 +591,13 @@ class GraphGroup(BaseDataGroup):
                     isel=isel,
                     at_time=at_time,
                     at_time_idx=at_time_idx,
+                    align=align,
                     keep_dim=keep_dim,
                 )
 
         # Return the graph
         log.info(
-            "Successfully created graph (%d node%s, %d edge%s) from %s.",
+            "Created graph (%d node%s, %d edge%s) from %s.",
             g.number_of_nodes(),
             "s" if g.number_of_nodes() != 1 else "",
             g.number_of_edges(),
@@ -637,6 +669,15 @@ class GraphGroup(BaseDataGroup):
             data=self.node_container, keep_dim=keep_dim, **selector
         )
 
+        if np.isnan(node_cont).any():
+            node_cont = node_cont.dropna(dim=node_cont.dims[0])
+            log.debug(
+                "Removed entries containg missing (NaN) values along dim '%s' "
+                "from %s",
+                node_cont.dims[0],
+                self.node_container.logstr,
+            )
+
         # Optionally, align the property data with the node data.
         if align:
             node_cont, prop_data = xr.align(node_cont, prop_data, join="left")
@@ -667,8 +708,8 @@ class GraphGroup(BaseDataGroup):
                 )
 
             raise ValueError(
-                f"Mismatch! Failed to add '{name}' data as a node property. "
-                f"Received {len(prop_data)} property values for "
+                f"Length mismatch: Failed to add '{name}' data as a node "
+                f"property. Received {len(prop_data)} property values for "
                 f"{len(node_cont)} nodes in {self.node_container.logstr}! "
                 f"{_msg_match_with_node_number}{_msg_squeezed_dims}"
             )
@@ -683,8 +724,10 @@ class GraphGroup(BaseDataGroup):
                 f"graph creation (length of {self.node_container.logstr}: "
                 f"{n_data}, nodes in graph: {n_graph}). Some property values "
                 "will not be added to the graph! Reasons might be previous "
-                "modifications of the graph structure or duplicate entries in "
-                f"{self.node_container.logstr}.",
+                "modifications of the graph structure, duplicate entries in "
+                f"'{self.node_container.logstr}', or nodes in "
+                f"'{self.edge_container.logstr}' that are not in "
+                f"'{self.node_container.logstr}'.",
                 UserWarning,
             )
 
@@ -703,11 +746,7 @@ class GraphGroup(BaseDataGroup):
         }
         g.graph.update(prop_coords)
 
-        log.remark(
-            "Successfully added node property data from '%s' in %s.",
-            name,
-            self.logstr,
-        )
+        log.remark("Node property '%s' added from %s.", name, self.logstr)
 
     def set_edge_property(
         self,
@@ -796,6 +835,15 @@ class GraphGroup(BaseDataGroup):
             max_tuple_size=(4 if isinstance(g, nx.MultiGraph) else 3),
         )
 
+        if np.isnan(edge_cont).any():
+            edge_cont = edge_cont.dropna(dim=edge_cont.dims[0])
+            log.debug(
+                "Removed entries containg missing (NaN) values along dim '%s' "
+                "from %s",
+                edge_cont.dims[0],
+                self.node_container.logstr,
+            )
+
         # Optionally, align the property data with the node data.
         if align:
             edge_cont, prop_data = xr.align(edge_cont, prop_data, join="left")
@@ -826,8 +874,8 @@ class GraphGroup(BaseDataGroup):
                 )
 
             raise ValueError(
-                f"Mismatch! Failed to add '{name}' data as an edge property. "
-                f"Received {len(prop_data)} property values for "
+                f"Length mismatch! Failed to add '{name}' data as an edge "
+                f"property. Received {len(prop_data)} property values for "
                 f"{len(edge_cont)} edges in {self.edge_container.logstr}! "
                 f"{_msg_duplicate_edges}{_msg_match_with_edge_number}"
             )
@@ -888,8 +936,4 @@ class GraphGroup(BaseDataGroup):
         }
         g.graph.update(prop_coords)
 
-        log.remark(
-            "Successfully added edge property data from '%s' in %s.",
-            name,
-            self.logstr,
-        )
+        log.remark("Edge property '%s' added from %s.", name, self.logstr)

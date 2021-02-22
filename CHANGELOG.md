@@ -6,6 +6,8 @@
 #### Features and Improvements
 - !235 improves the ``GraphGroup`` warnings on changed graph size.
 - !240 adds the `build_object_array` operation
+- !242 improves the `GraphGroup`, now dropping missing (NaN) values in the node and edge data.
+- !242 adds the `align` argument for property data alignment to `GraphGroup.create_graph`.
 
 ## v0.15.4
 #### Bug Fixes
