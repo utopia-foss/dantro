@@ -1629,6 +1629,54 @@ meta_ops_err_duplicate_internal_tags:
   _match: duplicate internal tag definitions .*foobar, foobar
 
 
+# Allowing failure and using fallback -----------------------------------------
+
+allow_failure_no_fallback:
+  params:
+    transform:
+      - mul: [2, 3]
+      - div: [!dag_prev , 0]
+        tag: bad_div
+
+  compute_only: [bad_div]
+  _raises: RuntimeError
+  _raises_on_compute: true
+  _match: ZeroDivisionError
+
+allow_failure:
+  params:
+    transform:
+      - mul: [2, 3]
+      - div: [!dag_prev , 0]
+        allow_failure: silent
+        fallback: some fallback string
+        tag: division
+
+  expected:
+    results:
+      division:
+        compare_to: some fallback string
+
+allow_failure_upstream:
+  params:
+    transform:
+      - define: 42
+      - define: !dag_prev
+        tag: fallback_tag
+      - mul: [2, 3]
+      - div: [!dag_prev , 0]  # error is here
+      - add: [!dag_prev , 1]
+      - sub: [!dag_prev , 1]
+        allow_failure: silent
+        fallback: [foo, bar, {val: !dag_tag fallback_tag}]  # nested!
+        tag: final_result
+
+  expected:
+    results:
+      final_result:
+        compare_to: [foo, bar, {val: 42}]
+
+
 # Examples in documentation ---------------------------------------------------
 # Partly literal-included
 

@@ -16,6 +16,7 @@ from .._import_tools import (
     import_module_or_object,
 )
 from ..base import BaseDataContainer, BaseDataGroup
+from ..exceptions import *
 from ..tools import apply_along_axis, make_columns, recursive_getitem
 from .coords import extract_coords_from_attrs, extract_dim_names
 from .ordereddict import KeyOrderedDict
@@ -1301,9 +1302,8 @@ def apply_operation(
         Any: The result of the operation
 
     Raises:
-        ValueError: On invalid operation name. This also suggests possible
-            other names that might match.
-        RuntimeError: On failure to *apply* the operation.
+        BadOperationName: On invalid operation name
+        DataOperationError: On failure to *apply* the operation
     """
     try:
         op = _OPERATIONS[op_name]
@@ -1318,7 +1318,7 @@ def apply_operation(
         )
         _available = make_columns(available_operations())
 
-        raise ValueError(
+        raise BadOperationName(
             f"No operation '{op_name}' registered!{_did_you_mean} "
             f"\nAvailable operations:\n{_available}If you need to register "
             "a new operation, use dantro.utils.register_operation."
@@ -1330,7 +1330,7 @@ def apply_operation(
         return op(*op_args, **op_kwargs)
 
     except Exception as exc:
-        raise RuntimeError(
+        raise DataOperationFailed(
             f"Failed applying operation '{op_name}'! "
             f"Got a {exc.__class__.__name__}: {exc}\n"
             f"  args:   {op_args}\n"

@@ -105,6 +105,25 @@ class ItemAccessError(KeyError, IndexError):
         )
 
 
+# For data ooperations ........................................................
+
+
+class DataOperationWarning(DantroWarning):
+    """Base class for warnings related to data operations"""
+
+
+class DataOperationError(DantroError):
+    """Base class for errors related to data operations"""
+
+
+class BadOperationName(DataOperationError, ValueError):
+    """Raised upon bad data operation name"""
+
+
+class DataOperationFailed(DataOperationError, RuntimeError):
+    """Raised upon failure to apply a data operation"""
+
+
 # DataManager-related .........................................................
 
 

@@ -535,6 +535,8 @@ def parse_dag_syntax(
     salt: int = None,
     file_cache: dict = None,
     ignore_hooks: bool = False,
+    allow_failure: Union[bool, str] = None,
+    fallback: Any = None,
     **ops,
 ) -> dict:
     """Given the parameters of a transform operation, possibly in a shorthand
@@ -560,13 +562,16 @@ def parse_dag_syntax(
         file_cache (dict, optional): File cache parameters
         ignore_hooks (bool, optional): If True, there will be no lookup in the
             operation hooks.
+        allow_failure (Union[bool, str], optional): Whether this Transformation
+            allows failure during computation.
+        fallback (Any, optional): The fallback value to use in case of failure
         **ops: The operation that is to be carried out. May contain one and
             only one operation.
 
-    Returns:
+    No Longer Returned:
         dict: The normalized dict of transform parameters.
 
-    Raises:
+    No Longer Raises:
         ValueError: For invalid notation, e.g. unambiguous specification of
             arguments or the operation.
     """
@@ -680,6 +685,12 @@ def parse_dag_syntax(
 
     if file_cache is not None:
         d["file_cache"] = file_cache
+
+    if allow_failure is not None:
+        d["allow_failure"] = allow_failure
+
+    if fallback is not None:
+        d["fallback"] = fallback
 
     return d
 

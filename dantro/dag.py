@@ -28,6 +28,7 @@ from .abc import PATH_JOIN_CHAR, AbstractDataContainer
 from .base import BaseDataGroup
 from .containers import NumpyDataContainer, ObjectContainer, XrDataContainer
 from .data_loaders import LOADER_BY_FILE_EXT
+from .exceptions import *
 from .tools import adjusted_log_levels as _adjusted_log_levels
 from .tools import make_columns, recursive_update
 from .utils import (
@@ -99,6 +100,8 @@ class Transformation:
         kwargs: Dict[str, Union[DAGReference, Any]],
         dag: "TransformationDAG" = None,
         salt: int = None,
+        allow_failure: Union[bool, str] = None,
+        fallback: Any = None,
         file_cache: dict = None,
     ):
         """Initialize a Transformation object.
@@ -116,6 +119,20 @@ class Transformation:
             salt (int, optional): A hashing salt that can be used to let this
                 specific Transformation object have a different hash than other
                 objects, thus leading to cache misses.
+            allow_failure (Union[bool, str], optional): Whether the
+                computation of this operation its arguments may fail.
+                In case of failure, the ``fallback`` value is used.
+                If ``True`` or ``'log'``, will emit a log message upon failure.
+                If ``'warn'``, will issue a warning. If ``'silent'``, will use
+                the fallback without *any* notification of failure.
+                Note that the failure may occur not only during computation of
+                this transformation's operation, but also during the recursive
+                computation of the referenced arguments. In other words, if the
+                computation of an upstream dependency failed, the fallback will
+                be used as well.
+            fallback (Any, optional): If ``allow_failure`` was set, specifies
+                the alternative value to use for this operation. This may in
+                turn be a reference to another DAG node.
             file_cache (dict, optional): File cache options. Expected keys are
                 ``write`` (boolean or dict) and ``read`` (boolean or dict).
                 Note that the options given here are NOT reflected in the hash
@@ -182,12 +199,13 @@ class Transformation:
                         further keyword arguments:
                             Passed on to the chosen storage method.
         """
-        # Storage attributes
         self._operation = operation
         self._args = args
         self._kwargs = KeyOrderedDict(**kwargs)
         self._dag = dag
         self._salt = salt
+        self._allow_failure = allow_failure
+        self._fallback = fallback
         self._hashstr = None
         self._profile = dict(
             compute=np.nan,
@@ -197,6 +215,22 @@ class Transformation:
             cache_writing=np.nan,
             effective=np.nan,
         )
+
+        # Fallback may only be given if ``allow_failure`` evaluated to true.
+        if not allow_failure and fallback is not None:
+            raise ValueError(
+                "The `fallback` argument for a Transformation may only be "
+                f"passed with `allow_failure` set! Got: {repr(fallback)}"
+            )
+
+        # allow_failure may only take certain values
+        _allowed = ("log", "warn", "silent")
+        if isinstance(allow_failure, str) and allow_failure not in _allowed:
+            _allowed = ", ".join(_allowed)
+            raise ValueError(
+                f"Invalid `allow_failure` argument '{allow_failure}'. Choose "
+                f"from: True, False, {_allowed}."
+            )
 
         # Parse file cache options, making sure it's a dict with default values
         self._fc_opts = file_cache if file_cache is not None else {}
@@ -219,10 +253,15 @@ class Transformation:
 
     def __str__(self) -> str:
         """A human-readable string characterizing this Transformation"""
+        suffix = ""
+        if self._allow_failure:
+            suffix = ", allows failure"
+
         return (
-            "<{t:}, operation: {op:}, {Na:d} args, {Nkw:d} kwargs>\n"
-            "  args:   {args:}\n"
-            "  kwargs: {kwargs:}\n"
+            "<{t:}, operation: {op:}, {Na:d} args, {Nkw:d} kwargs{suffix:}>\n"
+            "  args:      {args:}\n"
+            "  kwargs:    {kwargs:}\n"
+            "  fallback:  {fallback:}\n"
             "".format(
                 t=type(self).__name__,
                 op=self._operation,
@@ -230,6 +269,8 @@ class Transformation:
                 Nkw=len(self._kwargs),
                 args=self._args,
                 kwargs=self._kwargs,
+                fallback=self._fallback,
+                suffix=suffix,
             )
         )
 
@@ -246,9 +287,13 @@ class Transformation:
 
             Changing this method will lead to cache invalidations!
         """
+        suffix = ""
+        if self._allow_failure:
+            suffix = f", fallback={repr(self._fallback)}"
+
         return (
             "<{mod:}.{t:}, operation={op:}, args={args:}, "
-            "kwargs={kwargs:}, salt={salt:}>"
+            "kwargs={kwargs:}, salt={salt:}{suffix:}>"
             "".format(
                 mod=type(self).__module__,
                 t=type(self).__name__,
@@ -256,6 +301,7 @@ class Transformation:
                 args=repr(self._args),
                 kwargs=repr(dict(self._kwargs)),  # TODO Check sorting!
                 salt=repr(self._salt),
+                suffix=suffix,
             )
         )
 
@@ -303,11 +349,12 @@ class Transformation:
     @property
     def dependencies(self) -> Set[DAGReference]:
         """Recursively collects the references that are found in the positional
-        and keyword arguments of this Transformation.
+        and keyword arguments of this Transformation as well as in the fallback
+        value.
         """
         return set(
             recursive_collect(
-                chain(self._args, self._kwargs.values()),
+                chain(self._args, self._kwargs.values(), (self._fallback,)),
                 select_func=(lambda o: isinstance(o, DAGReference)),
             )
         )
@@ -344,13 +391,6 @@ class Transformation:
             The YAML representation does *not* include the ``file_cache``
             parameters.
 
-        .. warning::
-
-            The YAML representation is used in computing the hashstr that
-            identifies this transformation.
-            Changing the argument order here or adding further keys to the
-            dict will lead to hash changes and thus to cache misses.
-
         """
         # Collect the attributes that are relevant for the transformation.
         d = dict(
@@ -359,9 +399,13 @@ class Transformation:
             kwargs=dict(node._kwargs),
         )
 
-        # If a specific salt was given, add that to the dict as well
+        # Add other arguments only if they differ from the defaults
         if node._salt is not None:
             d["salt"] = node._salt
+
+        if node._allow_failure:
+            d["allow_failure"] = node._allow_failure
+            d["fallback"] = node._fallback
 
         # Let YAML represent this as a mapping with an additional tag
         return representer.represent_mapping(cls.yaml_tag, d)
@@ -380,14 +424,92 @@ class Transformation:
             Any: The result of the operation
         """
 
+        # Try to look up an already computed result from memory or file cache
+        success, res = self._lookup_result()
+
+        if not success:
+            # Did not find a result in memory or file cache -> Compute it.
+            # First, compute the result of the references in the arguments.
+            try:
+                args = self._resolve_refs(self._args)
+                kwargs = self._resolve_refs(self._kwargs)
+
+            except DataOperationFailed as err:
+                # Upstream error; skip computation and use fallback as result
+                res = self._handle_error_and_fallback(
+                    err,
+                    context="resolution of positional and keyword arguments",
+                )
+
+            else:
+                # No error; carry out the operation with the resolved arguments
+                res = self._perform_operation(args=args, kwargs=kwargs)
+
+        # Allow caching the result, even if it comes from the cache
+        self._cache_result(res)
+
+        return res
+
+    def _perform_operation(self, *, args: list, kwargs: dict) -> Any:
+        """Perform the operation, updating the profiling info on the side
+
+        Args:
+            args (list): The positional arguments to the operation
+            kwargs (dict): The keyword arguments to the operation
+
+        Returns:
+            Any: The result of the operation
+
+        Raises:
+            BadOperationName: Upon bad operation or meta-operation name
+            DataOperationFailed: Upon failure to perform the operation
+        """
+        t0 = time.time()
+
+        # Actually perform the operation, separately handling invalid operation
+        # names or the case where failure was actually allowed.
+        try:
+            res = apply_operation(self._operation, *args, **kwargs)
+
+        except BadOperationName as err:
+            _meta_ops = self.dag.meta_operations
+            if _meta_ops:
+                _meta_ops = "\n" + make_columns(self.dag.meta_operations)
+            else:
+                _meta_ops = " (none)\n"
+
+            raise BadOperationName(
+                "Could not find an operation or meta-operation named "
+                f"'{self._operation}'!\n\n"
+                f"{err}\n\n"
+                f"Available meta-operations:{_meta_ops}"
+                "To register a new meta-operation, specify it during "
+                "initialization of the TransformationDAG."
+            )
+
+        except DataOperationFailed as err:
+            # Operation itself failed. Handle error, potentially re-raising.
+            res = self._handle_error_and_fallback(err, context="computation")
+
+        # Parse profiling info and return the result
+        self._update_profile(cumulative_compute=(time.time() - t0))
+
+        return res
+
+    def _resolve_refs(self, cont: Sequence) -> Sequence:
+        """Resolves DAG references within a deepcopy of the given container by
+        iterating over it and computing the referenced nodes.
+
+        Args:
+            cont (Sequence): The container containing the references to resolve
+        """
+
         def is_DAGReference(obj: Any) -> bool:
             return isinstance(obj, DAGReference)
 
         def resolve_and_compute(ref: DAGReference):
             """Resolve references to their objects, if necessary computing the
             results of referenced Transformation objects recursively.
-
-            Makes use of arguments from outer scope.
             """
             if self.dag is None:
                 raise ValueError(
@@ -410,81 +532,46 @@ class Transformation:
             # leads to a traversal up the DAG tree.
             return obj.compute()
 
-        # Try to look up an already computed result from memory or file cache
-        success, res = self._lookup_result()
+        # Work on a deep copy; otherwise objects are resolved in-place, which
+        # is not desirable as it would change the hashstr by populating it with
+        # non-trivial objects. Deep copy is always possible because the given
+        # containers are expected to contain only trivial items or references.
+        cont = copy.deepcopy(cont)
 
-        if not success:
-            # Did not find a result in memory or file cache -> Compute it.
-            # First, compute the result of the references in the arguments.
-            args = recursive_replace(
-                copy.deepcopy(self._args),
-                select_func=is_DAGReference,
-                replace_func=resolve_and_compute,
-            )
-            kwargs = recursive_replace(
-                copy.deepcopy(self._kwargs),
-                select_func=is_DAGReference,
-                replace_func=resolve_and_compute,
-            )
-            # NOTE Important to deepcopy here, because otherwise the recursive
-            #      replacement and the mutability of both args and kwargs will
-            #      lead to DAGReference objects being replaced with the actual
-            #      objects, which would break the .hashstr property of this
-            #      object. The deepcopy is always possible, because even if
-            #      the args and kwargs are nested, they contain only trivial
-            #      objects.
+        return recursive_replace(
+            cont,
+            select_func=is_DAGReference,
+            replace_func=resolve_and_compute,
+        )
 
-            # Carry out the operation
-            res = self._perform_operation(args=args, kwargs=kwargs)
+    def _handle_error_and_fallback(
+        self, err: Exception, *, context: str
+    ) -> Any:
+        """Handles an error that occured during application of the operation
+        or during resolving of arguments (and the recursively invoked
+        computations on dependent nodes).
 
-        # Allow caching the result, even if it comes from the cache
-        self._cache_result(res)
-
-        return res
-
-    def _perform_operation(self, *, args: list, kwargs: dict) -> Any:
-        """Perform the operation, updating the profiling info on the side
-
-        Args:
-            args (list): The positional arguments to the operation
-            kwargs (dict): The keyword arguments to the operation
-
-        Returns:
-            Any: The result of the operation
-
-        Raises:
-            ValueError: Upon bad operation or meta-operation name.
-            RuntimeError: Upon failure to perform the operation
+        Without error handling, this will directly re-raise the active
+        exception. Otherwise, it will generate a log message and will resolve
+        the fallback value.
         """
-        t0 = time.time()
+        if not self._allow_failure:
+            raise
 
-        # Actually perform the operation
-        try:
-            res = apply_operation(self._operation, *args, **kwargs)
+        # Generate the message
+        msg = (
+            f"Operation '{self.operation}' failed during {context}, but was "
+            "allowed to fail; using fallback instead. (To suppress this "
+            f"message, set `allow_failure: silent`.) The error was:\n{err}"
+        )
+        if self._allow_failure in (True, "log"):
+            log.caution(msg)
+        elif self._allow_failure in ("warn",):
+            warnings.warn(msg, DataOperationWarning)
 
-        except ValueError as err:
-            # NOTE apply_operation raises ValueError only in cases the name of
-            #      the operation was not found. If the operation itself fails,
-            #      a RuntimeError is raised, thus not ending up in this block.
-            _meta_ops = self.dag.meta_operations
-            if _meta_ops:
-                _meta_ops = "\n" + make_columns(self.dag.meta_operations)
-            else:
-                _meta_ops = " (none)\n"
-
-            raise ValueError(
-                "Could not find an operation or meta-operation named "
-                f"'{self._operation}'!\n\n"
-                f"{err}\n\n"
-                f"Available meta-operations:{_meta_ops}"
-                "To register a new meta-operation, specify it during "
-                "initialization of the TransformationDAG."
-            )
-
-        # Parse profiling info and return the result
-        self._update_profile(cumulative_compute=(time.time() - t0))
-
-        return res
+        # Use the fallback; wrap it in a 1-list to allow scalars
+        log.debug("Using fallback for operation '%s' ...", self.operation)
+        return self._resolve_refs([self._fallback])[0]
 
     def _update_profile(
         self, *, cumulative_compute: float = None, **times
@@ -1556,6 +1643,8 @@ class TransformationDAG:
                 more_trfs = None
                 salt = None
                 omit_tag = False
+                allow_failure = None
+                fallback = None
 
             elif isinstance(params, dict):
                 path = params["path"]
@@ -1565,6 +1654,8 @@ class TransformationDAG:
                 more_trfs = params.get("transform")
                 salt = params.get("salt")
                 omit_tag = params.get("omit_tag", False)
+                allow_failure = params.get("allow_failure", None)
+                fallback = params.get("fallback", None)
 
                 if "file_cache" in params:
                     raise ValueError(
@@ -1600,9 +1691,15 @@ class TransformationDAG:
                 file_cache=dict(read=False, write=False),
             )
 
-            # Carry additional parameters only if given
+            # Carry additional parameters on only if they were given
             if salt is not None:
                 sel_trf["salt"] = salt
+
+            if allow_failure is not None:
+                sel_trf["allow_failure"] = allow_failure
+
+            if fallback is not None:
+                sel_trf["fallback"] = fallback
 
             # Now finished with the formulation of the select operation.
             trfs.append(sel_trf)
@@ -1655,6 +1752,8 @@ class TransformationDAG:
         kwargs: dict = None,
         tag: str = None,
         file_cache: dict = None,
+        allow_failure: Union[bool, str] = None,
+        fallback: Any = None,
         **trf_kwargs,
     ) -> DAGReference:
         """Adds Transformation nodes for meta-operations
@@ -1667,8 +1766,9 @@ class TransformationDAG:
         .. note::
 
             The last node added by this method is considered the "result" of
-            the selected meta-operation. Subsequently, the ``tag`` and
-            ``file_cache`` arguments are *only* applied to this last node.
+            the selected meta-operation. Subsequently, the arguments ``tag``,
+            ``file_cache``, ``allow_failure`` and ``fallback`` are *only*
+            applied to this last node.
 
             The ``trf_kwargs`` (which include the ``salt``) on the other hand
             are passed to *all* transformations of the meta-operation.
@@ -1677,9 +1777,13 @@ class TransformationDAG:
             operation (str): The meta-operation to add nodes for
             args (list, optional): Positional arguments to the meta-operation
             kwargs (dict, optional): Keyword arguments to the meta-operation
-            tag (str, optional): The tag that is to be attached to the result
+            tag (str, optional): The tag that is to be attached to the *result*
                 of this meta-operation.
-            file_cache (dict, optional): File caching options for the result.
+            file_cache (dict, optional): File caching options for the *result*.
+            allow_failure (Union[bool, str], optional): Specifies the error
+                handling for the *result* node of this meta-operation.
+            fallback (Any, optional): Specifies the fallback for the *result*
+                node of this meta-operation.
             **trf_kwargs: Transformation keyword arguments, passed on to *all*
                 transformations that are to be added.
         """
@@ -1760,13 +1864,20 @@ class TransformationDAG:
 
             return ref
 
-        # Now, add nodes for all transform specification, taking care to add
-        # additional tag and file cache options for the last entry.
-        for spec in specs[:-1]:
+        # Now, add nodes for all transform specifications.
+        for spec in specs:
             fill_placeholders_and_add_node(spec, **trf_kwargs)
 
-        ref = fill_placeholders_and_add_node(
-            specs[-1], **trf_kwargs, tag=tag, file_cache=file_cache
+        # Add the result node separately, passing the singular associations
+        # for tag, file_cache etc. here and thereby allowing the meta-operation
+        # to do internally whatever it wants.
+        ref = self.add_node(
+            operation="pass",
+            args=[DAGNode(-1)],
+            tag=tag,
+            file_cache=file_cache,
+            allow_failure=allow_failure,
+            fallback=fallback,
         )
 
         # With all nodes added now, can pop off all the references for the tags
