@@ -543,7 +543,7 @@ def parse_dag_syntax(
     notation, returns a dict with normalized content by expanding the
     shorthand notation.
 
-    Keys that will be available in the resulting dict:
+    Keys that will always be available in the resulting dict:
         ``operation``, ``args``, ``kwargs``, ``tag``.
 
     Args:
@@ -568,10 +568,10 @@ def parse_dag_syntax(
         **ops: The operation that is to be carried out. May contain one and
             only one operation.
 
-    No Longer Returned:
+    Returns:
         dict: The normalized dict of transform parameters.
 
-    No Longer Raises:
+    Raises:
         ValueError: For invalid notation, e.g. unambiguous specification of
             arguments or the operation.
     """

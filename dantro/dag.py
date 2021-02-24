@@ -551,25 +551,27 @@ class Transformation:
         or during resolving of arguments (and the recursively invoked
         computations on dependent nodes).
 
-        Without error handling, this will directly re-raise the active
+        Without error handling enabled, this will directly re-raise the active
         exception. Otherwise, it will generate a log message and will resolve
         the fallback value.
         """
         if not self._allow_failure:
             raise
 
-        # Generate the message
+        # Generate and communicate the message
         msg = (
             f"Operation '{self.operation}' failed during {context}, but was "
-            "allowed to fail; using fallback instead. (To suppress this "
-            f"message, set `allow_failure: silent`.) The error was:\n{err}"
+            "allowed to fail; using fallback instead. To suppress this "
+            f"message, set `allow_failure: silent`.\nThe error was:  {err}"
         )
         if self._allow_failure in (True, "log"):
             log.caution(msg)
         elif self._allow_failure in ("warn",):
             warnings.warn(msg, DataOperationWarning)
+        else:
+            log.trace(msg)
 
-        # Use the fallback; wrap it in a 1-list to allow scalars
+        # Use the fallback; wrapping it in a 1-list to allow scalars
         log.debug("Using fallback for operation '%s' ...", self.operation)
         return self._resolve_refs([self._fallback])[0]
 
@@ -1310,6 +1312,7 @@ class TransformationDAG:
         kwargs: dict = None,
         tag: str = None,
         file_cache: dict = None,
+        fallback: Any = None,
         **trf_kwargs,
     ) -> DAGReference:
         """Add a new node by creating a new Transformation object and adding it
@@ -1340,6 +1343,7 @@ class TransformationDAG:
                 operation being a meta operation, the return value is a
                 reference to the result node of the meta-operation.
         """
+        # May have to delegate node addition ...
         if operation in self._meta_ops:
             return self._add_meta_operation_nodes(
                 operation,
@@ -1349,9 +1353,6 @@ class TransformationDAG:
                 file_cache=file_cache,
                 **trf_kwargs,
             )
-
-        # Keep track of the time
-        t0 = time.time()
 
         # Some helper methods for the recursive replacement
         def not_proper_ref(obj: Any) -> bool:
@@ -1363,13 +1364,16 @@ class TransformationDAG:
             return obj.convert_to_ref(dag=self)
 
         # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        # Keep track of the time
+        t0 = time.time()
+
         # Handle default values of arguments
         args = copy.deepcopy(args) if args else []
         kwargs = copy.deepcopy(kwargs) if kwargs else {}
+        fallback = copy.deepcopy(fallback) if fallback is not None else None
         # NOTE Deep copy is important here, because the mutability of nested
-        #      args or kwargs may lead to side effects. The deep copy should
-        #      always be possible, because args and kwargs should only contain
-        #      trivial objects.
+        #      objects may lead to side effects. The deep copy should always
+        #      be possible, because these should only contain trivial objects.
 
         # Recursively replace any derived references to proper DAGReferences,
         # which work hash-based. This is to not have multiple options of how
@@ -1383,6 +1387,12 @@ class TransformationDAG:
         kwargs = recursive_replace(
             kwargs, select_func=not_proper_ref, replace_func=convert_to_ref
         )
+
+        # Also need to do this for the fallback, which may include references.
+        # To allow scalars, wrap it in a 1-sized list temporarily.
+        fallback = recursive_replace(
+            [fallback], select_func=not_proper_ref, replace_func=convert_to_ref
+        )[0]
 
         # Parse file cache parameters
         fc_opts = copy.deepcopy(self._fc_opts)  # Always a dict
@@ -1398,6 +1408,7 @@ class TransformationDAG:
             kwargs=kwargs,
             dag=self,
             file_cache=fc_opts,
+            fallback=fallback,
             **trf_kwargs,
         )
         trf_hash = self.objects.add_object(trf)

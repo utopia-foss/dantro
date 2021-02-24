@@ -2,6 +2,7 @@
 
 import copy
 import os
+from builtins import *  # ... to have exception types available in globals
 from typing import Any
 
 import numpy as np
@@ -538,6 +539,15 @@ def test_Transformation_fallback():
     with pytest.warns(DataOperationWarning, match="ZeroDivisionError"):
         t3.compute()
 
+    # YAML serialization includes fallback
+    assert "fallback: 3" in yaml_dumps(t1, register_classes=(Transformation,))
+    assert "allow_failure: true" in yaml_dumps(
+        t1, register_classes=(Transformation,)
+    )
+    assert "allow_failure: warn" in yaml_dumps(
+        t3, register_classes=(Transformation,)
+    )
+
 
 def test_Transformation_dependencies(dm):
     """Tests that the Transformation's are aware of their dependencies"""
@@ -609,9 +619,7 @@ def test_TransformationDAG_syntax(dm):
         # Error checking arguments
         _raises = cfg.get("_raises", False)
         _exp_exc = (
-            Exception
-            if not isinstance(_raises, str)
-            else __builtins__[_raises]
+            Exception if not isinstance(_raises, str) else globals()[_raises]
         )
         _match = cfg.get("_match")
 
@@ -658,9 +666,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
         _raises = cfg.get("_raises", False)
         _raises_on_compute = cfg.get("_raises_on_compute", False)
         _exp_exc = (
-            Exception
-            if not isinstance(_raises, str)
-            else __builtins__[_raises]
+            Exception if not isinstance(_raises, str) else globals()[_raises]
         )
         _match = cfg.get("_match")
 

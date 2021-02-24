@@ -1017,6 +1017,7 @@ _OPERATIONS = KeyOrderedDict({
 
 
     # Numerical operations - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # Broadly categorized in how many arguments they accept ...
     # Unary ...................................................................
     'neg':          lambda d: operator.neg(d),
     'pos':          lambda d: operator.pos(d),
@@ -1173,14 +1174,33 @@ _OPERATIONS = KeyOrderedDict({
     'np.histogram':     np.histogram,
     'np.count_nonzero': np.count_nonzero,
 
+    'np.any':           np.any,
+    'np.all':           np.all,
+    'np.allclose':      np.allclose,
+    'np.isnan':         np.isnan,
+    'np.isclose':       np.isclose,
+    'np.isinf':         np.isinf,
+    'np.isfinite':      np.isfinite,
+    'np.isnat':         np.isnat,
+    'np.isneginf':      np.isneginf,
+    'np.isposinf':      np.isposinf,
+    'np.isreal':        np.isreal,
+    'np.isscalar':      np.isscalar,
+
+    'np.mean':          np.mean,
+    'np.std':           np.std,
+    'np.min':           np.min,
+    'np.max':           np.max,
+    'np.var':           np.var,
+    'np.argmin':        np.argmin,
+    'np.argmax':        np.argmax,
+
     # xarray
     '.sel':             lambda d, *a, **k: d.sel(*a, **k),
     '.isel':            lambda d, *a, **k: d.isel(*a, **k),
     '.drop_sel':        lambda d, *a, **k: d.drop_sel(*a, **k),
     '.median':          lambda d, *a, **k: d.median(*a, **k),
     '.quantile':        lambda d, *a, **k: d.quantile(*a, **k),
-    '.argmin':          lambda d, *a, **k: d.argmin(*a, **k),
-    '.argmax':          lambda d, *a, **k: d.argmax(*a, **k),
     '.count':           lambda d, *a, **k: d.count(*a, **k),
     '.diff':            lambda d, *a, **k: d.diff(*a, **k),
     '.where':           lambda d, c, *a, **k: d.where(c, *a, **k),

@@ -567,12 +567,21 @@ Except for ``operation``, ``args``, ``kwargs`` and ``tag``, all entries are set 
       another_kwarg: foobar
     salt: ~                         # Is included in the hash; set a value here
                                     # if you would like to provoke a cache miss
+    fallback: ~                     # May only be given if ``allow_failure`` is
+                                    # also set, in which case it specifies a
+                                    # fallback value (or reference) to use
+                                    # instead of the operation result.
 
     # All arguments _below_ are NOT taken into account when computing the hash
     # of this transformation. Two transformations that differ _only_ in the
     # arguments given below are considered equal to each other.
 
     tag: my_result                  # The tag of this transformation. Optional.
+    allow_failure: ~                # Whether to allow this transformation to
+                                    # fail during computation or resolution of
+                                    # the arguments (i.e.: upstream error).
+                                    # Special options are: log, warn, silent
+
     file_cache:                     # File cache options
       read:                         # Read-related options
         enabled: false              # Whether to read from the file cache
@@ -830,8 +839,129 @@ Note the following remarks regarding the definition and use of meta-operations:
   * Use them internally by adding a ``define``, ``dict``, or ``list`` operation prior to the operation that uses the hook; then explicitly specify them as arguments there.
   * In the case of the ``expression`` operation hook, use the ``kwargs.symbols`` entry to directly define them as arguments, as done in the ``my_gauss`` example above.
 
-* When using a meta-operation, the ``tag`` and the ``file_cache`` arguments (see :ref:`below <dag_file_cache>`) are added only to the last transformation of a meta-operation.
-  All other nodes have no tag attached and use the :ref:`default values for file caching <dag_file_cache_defaults>`.
+* A meta-operation always adds a so-called "result node", which uses the ``pass`` operation to make the result of the meta-operation available.
+  When using a meta-operation, the arguments ``tag`` and ``file_cache`` (see :ref:`below <dag_file_cache>`) as well as any :ref:`error handling arguments <dag_error_handling>` are added only to this result node.
+  For all other transformation nodes of a meta-operation, the following holds:
+
+  * They may have only *internal* tags attached
+  * They may define their own ``file_cache`` behavior; if they do not, the :ref:`default values for file caching <dag_file_cache_defaults>` are used.
+  * They are free to define their own error handling behavior.
+
+
+
+.. _dag_error_handling:
+
+Error Handling
+--------------
+Operations are not always guaranteed to succeed.
+To define more robust operations, some form of error handling is required, akin to ``try-except`` blocks in Python.
+
+In the data transformation framework, the ``allow_failure`` option handles failing data operations and allows to specify a ``fallback`` value that should be used as result in case the operation failed.
+Let's have a look:
+
+.. literalinclude:: ../../tests/cfg/transformations.yml
+    :language: yaml
+    :start-after: ### Start -- dag_error_handling_example01
+    :end-before:  ### End ---- dag_error_handling_example01
+    :dedent: 4
+
+Here, the ``ZeroDivisionError`` is avoided and, instead, the value of the previous node (which defines a float infinity value) is used.
+Subsequently, the ``result`` will be the Python floating-point ``inf``.
+
+
+.. note::
+
+    The ``allow_failure`` argument also accepts a few string-like values which control the verbosity of the output in case of failure:
+
+        * ``log`` does the same as ``True``: print a prominent log message that informs about the failed operation and the use of the fallback.
+        * ``warn``: emits a Python warning
+        * ``silent``: suppresses the message altogether
+
+    Example:
+
+    .. literalinclude:: ../../tests/cfg/transformations.yml
+        :language: yaml
+        :start-after: ### Start -- dag_error_handling_example02
+        :end-before:  ### End ---- dag_error_handling_example02
+        :dedent: 4
+
+    For debugging, make sure to not use ``silent``.
+
+.. hint::
+
+    The ``fallback`` argument accepts not only scalars, but also sequences or mappings, which in turn may contain ``!dag_tag`` references.
+
+
+Upstream errors
+^^^^^^^^^^^^^^^
+Sometimes, an error only becomes relevant in a later operation and it makes sense to defer error handling to that point.
+The analogy to Python exception handling would be to handle the error not directly where it occurs but in an outside scope.
+
+This is also possible within the error handling framework, because ``allow_failure`` pertains to *both* the computation of the specified operation as well as the resolution of its arguments.
+As the resolution of arguments triggers the computation of dependent nodes (and their dependencies, and so forth), an upstream error may also be caught in a downstream node:
+
+.. literalinclude:: ../../tests/cfg/transformations.yml
+    :language: yaml
+    :start-after: ### Start -- dag_error_handling_example03
+    :end-before:  ### End ---- dag_error_handling_example03
+    :dedent: 4
+
+In this example, the nodes tagged ``log10_value`` and ``pi_over_some_other_value`` are both problematic but do not specify any error handling.
+However, we may only be interested in ``my_result``, which depends on those two transformation results.
+What would happen in such a case?
+
+* After invoking computation of ``my_result`` is invoked, the transformation's arguments are recursively resolved, triggering lookup of the specified tags.
+* The referenced transformations would in turn look up their arguments and finally lead to the application of the problematic operations (``div`` and ``math.log10``), which will fail for the arguments in the example.
+* The error propagates back to the ``my_result`` transformation.
+* With ``allow_failure: true``, it is caught and the fallback value is used instead.
+
+.. note::
+
+    This example is purely for illustration!
+    Typically, one would define these operations using numpy and they would not raise exceptions but issue a ``RuntimeWarning`` and use ``nan`` as result.
+
+.. warning::
+
+    The above example only works with ``compute_only: [my_result]``.
+    If the problematic tags were to be computed directly, they would raise an error because they do not specify any error handling.
+
+
+Error handling within ``select``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``select`` operation may also specify a fallback.
+This fallback will *only* be applied to the ``getitem`` operation which is used to look up the ``path`` from the specified selection base:
+
+.. literalinclude:: ../../tests/cfg/transformations.yml
+    :language: yaml
+    :start-after: ### Start -- dag_error_handling_select_simple_fallback
+    :end-before:  ### End ---- dag_error_handling_select_simple_fallback
+    :dedent: 4
+
+.. hint::
+
+    The ``transform`` elements can of course again specify their own fallbacks.
+
+
+Limitations
+"""""""""""
+There are some **limitations** to using ``allow_failure`` within ``select``.
+Mainly, specifying a fallback may be difficult in practice because other tags may not be available yet at the time where the DAG is populated with the ``select`` arguments.
+
+The tags specified by ``select`` are added in *alphabetical order* and before any transformations from ``transform`` are added to the DAG.
+Subsequently, lookups within one ``select`` field are only possible from within ``select`` and for fields that appeared *sooner* in that alphabetical order.
+(See `this issue <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/-/issues/265>`_ for a potential change to this behavior.)
+
+Using a tagged reference in the ``fallback`` works in the following example because ``'_some_fallback_data' < 'mean_data'``:
+
+.. literalinclude:: ../../tests/cfg/transformations.yml
+    :language: yaml
+    :start-after: ### Start -- dag_error_handling_select_tagged_fallback
+    :end-before:  ### End ---- dag_error_handling_select_tagged_fallback
+    :dedent: 4
+
+.. warning::
+
+    While the above workaround is possible, we advise to not build overly complex fallback structures within ``select``, as this behavior may change.
 
 
 

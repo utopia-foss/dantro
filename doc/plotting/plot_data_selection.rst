@@ -286,6 +286,66 @@ An associated plot configuration might look like this:
           tag: result
 
 
+.. _plot_data_selection_mv_missing_data:
+
+Handling missing data
+"""""""""""""""""""""
+In some cases, the :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` associated with the :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator` might miss some states.
+This can happen, for instance, if the to-be-plotted data is the result of a simulation for each point in parameter space and the simulation was stopped before visiting all these points.
+In such a case, the ``select_and_combine`` will typically fail.
+
+Another reason for errors during this operation may be that the data structures between the different points in parameter space are different, such that a valid path within one :py:class:`~dantro.groups.pspgrp.ParamSpaceStateGroup` (or: "universe") is *not* a valid path in another.
+
+To be able to plot the partial data in both of these cases, this plot creator makes use of :ref:`the error handling feature in the data transformation framework <dag_error_handling>`.
+It's as simple as adding the ``allow_missing_or_failing`` key to ``select_and_combine``:
+
+.. literalinclude:: ../../tests/cfg/dag_plots.yml
+    :language: yaml
+    :start-after: ### Start -- mv_missing_data
+    :end-before:  ### End ---- mv_missing_data
+    :dedent: 6
+
+This option kicks in when any of the following scenarios occur:
+
+- A universe from the selected subspace is missing altogether
+- The ``getitem`` operation for the given ``path`` within a universe fails
+- Any operation within ``transform`` fails
+
+In any of these cases, the data for the whole universe is discarded.
+Instead, an empty ``xr.Dataset`` with the coordinates of that universe is used as fallback, with the following effect:
+The corresponding coordinates will be present in the final ``xr.Dataset``, but they contain no data (or NaNs).
+The latter is also the reason why the ``merge`` combination method is required here.
+
+.. note::
+
+    The rationale behind this behavior is that coordinate information is valuable, as it shows which data *would have been* available; if desired, null-like data can be dropped afterwards using the ``.dropna`` operation.
+
+.. hint::
+
+    The ``allow_missing_or_failing`` argument accepts the same values as the ``allow_failure`` argument of the :ref:`error handling framework <dag_error_handling>`; in fact, it sets exactly that argument internally.
+
+    Thus, the messaging behavior can be influenced as follows:
+
+    .. code-block:: yaml
+
+        select_and_combine:
+          allow_missing_or_failing: silent        # other options: warn, log
+
+.. hint::
+
+    Same as ``combination_method`` and ``subspace``, the ``allow_missing_or_failing`` argument can also be specified separately for each field, overwriting the default value from the ``select_and_combine`` root level:
+
+    .. code-block:: yaml
+
+        select_and_combine:
+          allow_missing_or_failing: silent
+          fields:
+            some_data:
+              allow_missing_or_failing: warn   # overwrites default from above
+              path: path/to/some/data
+
+
+
 Full DAG configuration interface for multiverse selection
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""
 An example of all options available in the :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`.
@@ -322,6 +382,8 @@ An example of all options available in the :py:class:`~dantro.plot_creators.pcr_
                   # Configure the file cache to only be written if this
                   # operation took a large amount of time.
                   min_cumulative_compute_time: 20.
+            allow_missing_or_failing: silent  # transformations or path lookup
+                                              # is allowed to fail
             transform:
               - mean: !dag_prev
               - increment: [!dag_prev ]
@@ -338,6 +400,9 @@ An example of all options available in the :py:class:`~dantro.plot_creators.pcr_
         # Default arguments, can be overwritten in each ``fields`` entry
         combination_method: concat  # can be ``concat`` (default) or ``merge``
         subspace: ~                 # some subspace selection
+        allow_missing_or_failing: ~ # whether to allow missing universes or
+                                    # failing transformations; can be: boolean,
+                                    # ``log``, ``warn``, ``silent``
 
       # Additional selections, now based on ``dm`` tag
       select: {}
