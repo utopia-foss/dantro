@@ -1477,10 +1477,9 @@ class TransformationDAG:
             )
             return results
         log.note(
-            "Now computing %d tag%s (%s) on DAG with %d nodes ...",
+            "Now computing %d tag%s on DAG with %d nodes ...",
             len(compute_only),
             "s" if len(compute_only) != 1 else "",
-            ", ".join(compute_only),
             len(self.nodes),
         )
 
@@ -1508,11 +1507,10 @@ class TransformationDAG:
 
         # Provide some information to the user
         log.note(
-            "Computed %d tag%s in %.2gs:  %s",
+            "Computed %d tag%s in %.2gs.",
             len(compute_only),
             "s" if len(compute_only) != 1 else "",
             t1 - t0,
-            ", ".join(results.keys()),
         )
 
         show_compute_profile_info()

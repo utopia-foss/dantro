@@ -545,8 +545,11 @@ class UniversePlotCreator(ExternalPlotCreator):
         # If a pspace was given, need to extract the dict from there, because
         # the steps below will lead to additional paramspace dimensions
         if pspace is not None:
-            plot_cfg = recursive_update(copy.deepcopy(pspace._dict), plot_cfg)
-            # FIXME internal API usage
+            if isinstance(pspace, ParamSpace):
+                # FIXME internal API usage
+                pspace = copy.deepcopy(pspace._dict)
+
+            plot_cfg = recursive_update(pspace, plot_cfg)
 
         # Now have the plot config
         # Identify those keys that specify which universes to loop over

@@ -989,6 +989,7 @@ class ExternalPlotCreator(BasePlotCreator):
             plot_func.__name__,
             writer_name,
         )
+        frame_no = -1
 
         with style_context, leak_prev:
             hlpr.setup_figure()

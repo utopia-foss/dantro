@@ -14,6 +14,7 @@ py:class object
 py:class type
 py:class Cls
 py:class builtins.dict
+py:class OrderedDict
 py:class collections.OrderedDict
 py:class collections.abc.Mapping
 py:class collections.abc.MutableMapping

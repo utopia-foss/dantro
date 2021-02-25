@@ -1,6 +1,8 @@
 """Tests the PlotManager class"""
 
+import copy
 import os
+from collections import OrderedDict
 
 import numpy as np
 import paramspace as psp
@@ -131,24 +133,23 @@ def test_init(dm, tmpdir):
     PlotManager(dm=dm)
 
     # With a configuration dict
-    PlotManager(dm=dm, plots_cfg={})
+    PlotManager(dm=dm, default_plots_cfg={})
 
     # With a path to a configuration file
-    PlotManager(dm=dm, plots_cfg=PLOTS_EXT_PATH)
+    PlotManager(dm=dm, default_plots_cfg=PLOTS_EXT_PATH)
 
-    # Based on a configuration dict
-    PlotManager(dm=dm, base_cfg={}, plots_cfg={})
-    PlotManager(dm=dm, base_cfg={}, update_base_cfg={}, plots_cfg={})
-
-    # Based on a configuration file
-    PlotManager(dm=dm, base_cfg=BASE_EXT_PATH, plots_cfg=BASED_ON_EXT_PATH)
+    # Different base configuration pools
+    PlotManager(
+        dm=dm,
+        base_cfg_pools=(("base", BASE_EXT_PATH),),
+        default_plots_cfg=BASED_ON_EXT_PATH,
+    )
 
     # Based on a updated configuration file
     PlotManager(
         dm=dm,
-        base_cfg=BASE_EXT_PATH,
-        update_base_cfg=UPDATE_BASE_EXT_PATH,
-        plots_cfg=BASED_ON_EXT_PATH,
+        base_cfg_pools=OrderedDict([("base1", BASE_EXT_PATH)]),
+        default_plots_cfg=BASED_ON_EXT_PATH,
     )
 
     # With a separate output directory
@@ -156,11 +157,21 @@ def test_init(dm, tmpdir):
 
     # With updating out_fstrs
     pm = PlotManager(dm=dm, out_fstrs=dict(state="foo"))
-    assert pm._out_fstrs.get("state") == "foo"
+    assert pm.out_fstrs.get("state") == "foo"
 
     # Giving an invalid default creator
     with pytest.raises(ValueError, match="No such creator 'invalid'"):
         PlotManager(dm=dm, default_creator="invalid")
+
+    # Deprecation warnings for `base_cfg`, `update_base_cfg` and `plots_cfg`
+    with pytest.warns(DeprecationWarning, match="arguments are deprecated"):
+        PlotManager(dm=dm, base_cfg={"some_dummy_plot_1": {}})
+
+    with pytest.warns(DeprecationWarning, match="arguments are deprecated"):
+        PlotManager(dm=dm, update_base_cfg={"some_dummy_plot_2": {}})
+
+    with pytest.warns(DeprecationWarning, match="argument was renamed"):
+        PlotManager(dm=dm, plots_cfg={"some_dummy_plot_3": {}})
 
 
 def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
@@ -173,7 +184,7 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
         assert len(pm.plot_info) == num
 
     # The plot manager to test everything with
-    pm = PlotManager(dm=dm, plots_cfg=PLOTS_EXT, **pm_kwargs)
+    pm = PlotManager(dm=dm, default_plots_cfg=PLOTS_EXT, **pm_kwargs)
 
     # Plot all from the given plots config file
     pm.plot_from_cfg()
@@ -235,7 +246,7 @@ def test_plot_names(dm):
     # Can initialize it with these names
     pm = PlotManager(
         dm=dm,
-        plots_cfg=plots_cfg,
+        default_plots_cfg=plots_cfg,
         default_creator="external",
         save_plot_cfg=False,
     )
@@ -260,7 +271,7 @@ def test_plot_only(dm):
 
     pm = PlotManager(
         dm=dm,
-        plots_cfg=plots_cfg,
+        default_plots_cfg=plots_cfg,
         default_creator="external",
         save_plot_cfg=False,
     )
@@ -308,7 +319,7 @@ def test_plot_locations(dm, pm_kwargs, pcr_ext_kwargs):
     # The plot files and the config file should always be side by side,
     # regardless of whether the file name has a slash in it or not and also
     # regardless of whether a sweep is configured or not
-    for name in ("foo", "bar/baz/spam"):
+    for name in ("foo", "foo/bar/baz"):
         # Regular plot
         pm.plot(name, **pcr_ext_kwargs)
 
@@ -319,22 +330,38 @@ def test_plot_locations(dm, pm_kwargs, pcr_ext_kwargs):
             info["plot_cfg_path"]
         )
 
-        # Sweep plot
-        pm.plot(name, from_pspace=psp.ParamSpace(pcr_ext_kwargs))
+        # Sweep plot with zero-volume: behaves basically like a regular plot
+        zero_vol_pspace = psp.ParamSpace(pcr_ext_kwargs)
+        assert zero_vol_pspace.volume == 0
+        pm.plot(name + "_0vol", from_pspace=zero_vol_pspace)
 
-        info = pm.plot_info[-1]  # only the last plot
-        assert info["plot_cfg_path"] is None  # not saved for individual plots
+        info = pm.plot_info[-1]
+        assert os.path.isfile(info["plot_cfg_path"])
         assert os.path.isfile(info["out_path"])
         assert os.path.isdir(info["target_dir"])
         assert os.path.dirname(info["out_path"]) == info["target_dir"]
-        assert os.path.isfile(
-            os.path.join(info["target_dir"], "sweep_cfg.yml")
+        assert os.path.dirname(info["out_path"]) == os.path.dirname(
+            info["plot_cfg_path"]
         )
+
+        # Sweep plot with nonzero-volume
+        sweep_kwargs = copy.deepcopy(pcr_ext_kwargs)
+        sweep_kwargs["lw"] = psp.ParamDim(default=1.2, values=[1.0, 2.0, 3.0])
+        pm.plot(name + "_sweep", from_pspace=sweep_kwargs)
+
+        for info in pm.plot_info[-3:]:
+            assert not info["plot_cfg_path"]  # not saved for individual plots
+            assert os.path.isfile(info["out_path"])
+            assert os.path.isdir(info["target_dir"])
+            assert os.path.dirname(info["out_path"]) == info["target_dir"]
+            assert os.path.isfile(
+                os.path.join(info["target_dir"], "sweep_cfg.yml")
+            )
 
 
 def test_plotting_from_file_path(dm, pm_kwargs):
     """Test plotting from file path works"""
-    pm = PlotManager(dm=dm, plots_cfg=PLOTS_EXT, **pm_kwargs)
+    pm = PlotManager(dm=dm, default_plots_cfg=PLOTS_EXT, **pm_kwargs)
     pm.plot_from_cfg(plots_cfg=PLOTS_EXT_PATH)
 
 
@@ -395,6 +422,32 @@ def test_plotting_overwrite(
     assert sweep_mtime < sweep_plot.mtime()
 
 
+def test_base_cfg_pool(dm, pm_kwargs):
+    """Tests the setup and interface of the base config pool"""
+    pm_kwargs = dict(dm=dm, **pm_kwargs)
+    pm = PlotManager(
+        base_cfg_pools=(("base", BASE_EXT), ("update", UPDATE_BASE_EXT)),
+        **pm_kwargs,
+    )
+
+    # Were added in the correct order
+    assert ["base", "update"] == list(pm.base_cfg_pools.keys())
+
+    # Errors when adding already existing or special entries
+    with pytest.raises(ValueError, match="already exists"):
+        pm.add_base_cfg_pool(label="base", plots_cfg={})
+
+    with pytest.raises(ValueError, match="special labels"):
+        pm.add_base_cfg_pool(label="plot", plots_cfg={})
+
+    # Old deprecated interface
+    with pytest.warns(DeprecationWarning, match="The `base_cfg` and `upd"):
+        pm = PlotManager(
+            base_cfg=BASE_EXT, update_base_cfg=UPDATE_BASE_EXT, **pm_kwargs
+        )
+        assert "base" in pm.base_cfg_pools
+
+
 def test_plotting_based_on(dm, pm_kwargs):
     """Test plotting from plots_cfg using a base_cfg and a plots_cfg"""
 
@@ -403,7 +456,12 @@ def test_plotting_based_on(dm, pm_kwargs):
         assert len(pm.plot_info) == num
 
     pm = PlotManager(
-        dm=dm, base_cfg=BASE_EXT, update_base_cfg=UPDATE_BASE_EXT, **pm_kwargs
+        dm=dm,
+        base_cfg_pools=(
+            ("base", BASE_EXT),
+            ("update", UPDATE_BASE_EXT),
+        ),
+        **pm_kwargs,
     )
 
     # Plot all from the given default config file
@@ -416,35 +474,9 @@ def test_plotting_based_on(dm, pm_kwargs):
         assert pi["out_path"]
         assert os.path.exists(pi["out_path"])
 
-    # Check sequence of strings
-    d = pm._resolve_based_on(
-        cfg=dict(foo="test", something="something"), based_on=("foo", "bar")
-    )
-    assert d["foo"] == "test"
-    assert d["bar"] == "bar"
-    assert d["spam"] == "bar"
-    assert d["something"] == "something"
-
-    # Also during initialization
-    pm2 = PlotManager(
-        dm=dm,
-        base_cfg=BASE_EXT,
-        update_base_cfg=dict(
-            baz=dict(
-                based_on=("foo", "bar"), foo="test", something="something"
-            )
-        ),
-        **pm_kwargs,
-    )
-    baz = pm2._base_cfg["baz"]
-    assert baz["foo"] == "test"
-    assert baz["bar"] == "bar"
-    assert baz["spam"] == "bar"
-    assert baz["something"] == "something"
-
     # Check invalid specifications and that they create no plots
     with pytest.raises(
-        PlotConfigError, match="No base plot config.* 'invalid"
+        PlotConfigError, match="Did not find a base plot config"
     ):
         update_plots_cfg = {"invalid_based_on": {"based_on": "invalid_key"}}
         pm.plot_from_cfg(plot_only=["invalid_based_on"], **update_plots_cfg)
@@ -456,27 +488,12 @@ def test_plotting_based_on(dm, pm_kwargs):
         pm.plot_from_cfg(plot_only=["invalid_based_on"], **update_plots_cfg)
     assert_num_plots(pm, 5)  # No new plots
 
-    # Bad based_on during resolution
+    # Check directly from plot
     with pytest.raises(
-        PlotConfigError, match="No base plot config.* 'bad_based_"
+        PlotConfigError, match="Did not find a base plot config.*bad_based_on"
     ):
         pm.plot(name="foo", based_on="bad_based_on")
     assert_num_plots(pm, 5)  # No new plots
-
-    # Should also be an error during initialization
-    with pytest.raises(
-        PlotConfigError,
-        match=(
-            "No base plot configuration 'bad'.*during update with `update_"
-            ".*Did you mean"
-        ),
-    ):
-        PlotManager(
-            dm=dm,
-            base_cfg=BASE_EXT,
-            update_base_cfg=dict(bad_based_on=dict(based_on="bad")),
-            **pm_kwargs,
-        )
 
 
 def test_plots_enabled(dm, pm_kwargs, pcr_ext_kwargs):
@@ -484,7 +501,7 @@ def test_plots_enabled(dm, pm_kwargs, pcr_ext_kwargs):
     pm = PlotManager(
         dm=dm,
         **pm_kwargs,
-        plots_cfg=dict(
+        default_plots_cfg=dict(
             foo=dict(enabled=False, **pcr_ext_kwargs),
             bar=dict(enabled=True, **pcr_ext_kwargs),
         ),
@@ -539,29 +556,29 @@ def test_file_ext(dm, pm_kwargs, pcr_ext_kwargs):
     """Check file extension handling"""
     # Without given default extension
     PlotManager(
-        dm=dm, plots_cfg=PLOTS_EXT, out_dir="no1/", **pm_kwargs
+        dm=dm, default_plots_cfg=PLOTS_EXT, out_dir="no1/", **pm_kwargs
     ).plot_from_cfg()
 
     # With extension (with dot)
     pm_kwargs["creator_init_kwargs"]["external"]["default_ext"] = "pdf"
     PlotManager(
-        dm=dm, plots_cfg=PLOTS_EXT, out_dir="no2/", **pm_kwargs
+        dm=dm, default_plots_cfg=PLOTS_EXT, out_dir="no2/", **pm_kwargs
     ).plot_from_cfg()
 
     # ...and without dot
     pm_kwargs["creator_init_kwargs"]["external"]["default_ext"] = ".pdf"
     PlotManager(
-        dm=dm, plots_cfg=PLOTS_EXT, out_dir="no3/", **pm_kwargs
+        dm=dm, default_plots_cfg=PLOTS_EXT, out_dir="no3/", **pm_kwargs
     ).plot_from_cfg()
 
     # ...and with None -> should result in ext == ""
     pm_kwargs["creator_init_kwargs"]["external"]["default_ext"] = None
     PlotManager(
-        dm=dm, plots_cfg=PLOTS_EXT, out_dir="no4/", **pm_kwargs
+        dm=dm, default_plots_cfg=PLOTS_EXT, out_dir="no4/", **pm_kwargs
     ).plot_from_cfg()
 
     # Test sweeping with file_ext parameter set (needs to be popped)
-    pm = PlotManager(dm=dm, plots_cfg=PLOTS_EXT2_PATH, **pm_kwargs)
+    pm = PlotManager(dm=dm, default_plots_cfg=PLOTS_EXT2_PATH, **pm_kwargs)
     pm.plot_from_cfg(plot_only=["with_file_ext"])
 
 

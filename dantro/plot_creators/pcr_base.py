@@ -483,12 +483,15 @@ class BasePlotCreator(AbstractPlotCreator):
 
     def _create_dag(self, **dag_params) -> TransformationDAG:
         """Creates the actual DAG object"""
+        log.note("Setting up data transformation framework ...")
         return TransformationDAG(dm=self.dm, **dag_params)
 
     def _compute_dag(self, dag: TransformationDAG, **compute_kwargs) -> dict:
         """Compute the dag results"""
         log.info("Computing data transformation results ...")
-        return dag.compute(**compute_kwargs)
+        results = dag.compute(**compute_kwargs)
+        log.remark("Finished computing data transformation results.")
+        return results
 
     def _combine_dag_results_and_plot_cfg(
         self,
