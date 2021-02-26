@@ -885,7 +885,7 @@ Subsequently, the ``result`` will be the Python floating-point ``inf``.
         :end-before:  ### End ---- dag_error_handling_example02
         :dedent: 4
 
-    For debugging, make sure to not use ``silent``.
+    For debugging, make sure to **not** use ``silent``.
 
 .. hint::
 
@@ -908,22 +908,25 @@ As the resolution of arguments triggers the computation of dependent nodes (and 
 
 In this example, the nodes tagged ``log10_value`` and ``pi_over_some_other_value`` are both problematic but do not specify any error handling.
 However, we may only be interested in ``my_result``, which depends on those two transformation results.
+Let's say, we specified ``compute_only: [my_result]``.
 What would happen in such a case?
 
-* After invoking computation of ``my_result`` is invoked, the transformation's arguments are recursively resolved, triggering lookup of the specified tags.
-* The referenced transformations would in turn look up their arguments and finally lead to the application of the problematic operations (``div`` and ``math.log10``), which will fail for the arguments in the example.
+* The transformation tagged ``my_result`` is looked up in the DAG.
+* The transformation's arguments are recursively resolved, triggering lookup of the dependencies ``log10_value`` and ``pi_over_some_other_value``.
+* The referenced transformations would in turn look up *their* arguments and finally lead to the application of the problematic operations (``div`` and ``math.log10``), which will fail for the arguments in this example.
+* An error is raised during those operations.
 * The error propagates back to the ``my_result`` transformation.
-* With ``allow_failure: true``, it is caught and the fallback value is used instead.
+* With ``allow_failure: true``, the error is caught and the fallback value is used instead.
+
+.. warning::
+
+    The above example only works with ``compute_only: [my_result]``.
+    If the problematic tags were to be computed *directly*, e.g. via ``compute_only: all``, they would raise an error because they do not specify any error handling themselves.
 
 .. note::
 
     This example is purely for illustration!
     Typically, one would define these operations using numpy and they would not raise exceptions but issue a ``RuntimeWarning`` and use ``nan`` as result.
-
-.. warning::
-
-    The above example only works with ``compute_only: [my_result]``.
-    If the problematic tags were to be computed directly, they would raise an error because they do not specify any error handling.
 
 
 Error handling within ``select``
@@ -949,7 +952,7 @@ Mainly, specifying a fallback may be difficult in practice because other tags ma
 
 The tags specified by ``select`` are added in *alphabetical order* and before any transformations from ``transform`` are added to the DAG.
 Subsequently, lookups within one ``select`` field are only possible from within ``select`` and for fields that appeared *sooner* in that alphabetical order.
-(See `this issue <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/-/issues/265>`_ for a potential change to this behavior.)
+(See `this issue <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/-/issues/265>`_ for a potential improvement to this behavior.)
 
 Using a tagged reference in the ``fallback`` works in the following example because ``'_some_fallback_data' < 'mean_data'``:
 
@@ -959,9 +962,13 @@ Using a tagged reference in the ``fallback`` works in the following example beca
     :end-before:  ### End ---- dag_error_handling_select_tagged_fallback
     :dedent: 4
 
-.. warning::
+.. hint::
 
-    While the above workaround is possible, we advise to not build overly complex fallback structures within ``select``, as this behavior may change.
+    We advise to not build overly complex fallback structures within ``select``, e.g. using tagged fallbacks which in turn have tagged fallbacks and so forth.
+    While possible, it may easily becomes tedious to build or maintain.
+
+    If you require more advanced error handling for certain operations, consider wrapping them into your own data operation.
+    See :ref:`dag_operations` for more information.
 
 
 

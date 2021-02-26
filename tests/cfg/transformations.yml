@@ -1742,7 +1742,7 @@ doc_examples_dag_prev:
         args: [0, !dag_prev ]
       - operation: div
         args: [1, !dag_prev ]
-      - operation: power
+      - operation: pow
         args: [10, !dag_prev ]
         tag: my_result
 
@@ -1793,7 +1793,7 @@ doc_examples_minimal:
       - add: [!dag_tag some_data, !dag_tag more_data]
       - increment
       - print
-      - power: [!dag_prev , 4]
+      - pow: [!dag_prev , 4]
         tag: my_result
     ### End ---- dag_minimal_syntax
 

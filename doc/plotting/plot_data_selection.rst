@@ -292,7 +292,7 @@ Handling missing data
 """""""""""""""""""""
 In some cases, the :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` associated with the :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator` might miss some states.
 This can happen, for instance, if the to-be-plotted data is the result of a simulation for each point in parameter space and the simulation was stopped before visiting all these points.
-In such a case, the ``select_and_combine`` will typically fail.
+In such a case, ``select_and_combine`` will typically fail.
 
 Another reason for errors during this operation may be that the data structures between the different points in parameter space are different, such that a valid path within one :py:class:`~dantro.groups.pspgrp.ParamSpaceStateGroup` (or: "universe") is *not* a valid path in another.
 
@@ -318,7 +318,23 @@ The latter is also the reason why the ``merge`` combination method is required h
 
 .. note::
 
-    The rationale behind this behavior is that coordinate information is valuable, as it shows which data *would have been* available; if desired, null-like data can be dropped afterwards using the ``.dropna`` operation.
+    The rationale behind this behavior is that coordinate information is valuable, as it shows which data *would have been* available.
+    If desired, null-like data can be dropped afterwards using the ``.dropna`` operation.
+
+    In case of missing data, the error message will come from the ``dantro.expand_dims`` operation and contain information on the failure.
+
+..warning::
+
+    If *all* data is missing, ``select_and_combine`` will not be able to succeed, because there will be nothing to combine and insufficient information to create a null-like output instead.
+    This feature is explicitly meant for data *partially* missing.
+
+    The expected error message for such a case will be coming from ``dantro.merge``:
+
+    ::
+
+        The Dataset resulting from the xr.merge operation can only be reduced
+        to a DataArray, if one and only one data variable is present in the
+        Dataset! However, the merged Dataset contains 0 data variables.
 
 .. hint::
 

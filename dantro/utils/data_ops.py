@@ -35,7 +35,7 @@ scipy = LazyLoader("scipy")
 # NOTE Operations should use only logger levels <= REMARK
 
 # fmt: off
-# Define boolean operators separately; registered into _OPERATIONS below
+# Define boolean binary operators separately; registered into _OPERATIONS below
 BOOLEAN_OPERATORS = {
     '==': operator.eq,  'eq': operator.eq,
     '<':  operator.lt,  'lt': operator.lt,
@@ -385,16 +385,25 @@ def create_mask(
 
 
 def where(
-    data: xr.DataArray, operator_name: str, rhs_value: float
+    data: xr.DataArray, operator_name: str, rhs_value: float, **kwargs
 ) -> xr.DataArray:
     """Filter elements from the given data according to a condition. Only
     those elemens where the condition is fulfilled are not masked.
 
-    NOTE This leads to a dtype change to float.
+    NOTE This typically leads to a dtype change to float.
+
+    Args:
+        data (xr.DataArray): The data to mask
+        operator_name (str): The ``operator`` argument used in
+            :py:func:`~dantro.utils.data_ops.create_mask`
+        rhs_value (float): The ``rhs_value`` argument used in
+            :py:func:`~dantro.utils.data_ops.create_mask`
+        **kwargs: Passed on to ``data.where`` attribute call
     """
     # Get the mask and apply it
     return data.where(
-        create_mask(data, operator_name=operator_name, rhs_value=rhs_value)
+        create_mask(data, operator_name=operator_name, rhs_value=rhs_value),
+        **kwargs,
     )
 
 
@@ -700,12 +709,16 @@ def merge(
     if not reduce_to_array:
         return dset
 
-    elif len(dset.data_vars) != 1:
+    if len(dset.data_vars) != 1:
         raise ValueError(
-            "Can only reduce the Dataset resulting from the xr.merge "
-            "operation to a DataArray if one and only one data variable is "
+            "The Dataset resulting from the xr.merge operation can only be "
+            "reduced to a DataArray, if one and only one data variable is "
             "present in the Dataset! "
-            f"Got: {', '.join(dset.data_vars)}. Full data:\n{dset}"
+            f"However, the merged Dataset contains {len(dset.data_vars)} data "
+            f"variables:  {', '.join(dset.data_vars)}\n"
+            f"Full dataset before attempting to reduce to an array:\n{dset}\n"
+            "A typical reason for this is missing data; check that there were "
+            "sufficiently populated xarray objects available for merging.\n"
         )
 
     # Get the name of the single data variable and then get the DataArray
@@ -1022,6 +1035,7 @@ _OPERATIONS = KeyOrderedDict({
     'neg':          lambda d: operator.neg(d),
     'pos':          lambda d: operator.pos(d),
     'truth':        lambda d: operator.truth(d),
+    'invert':       lambda d: operator.invert(d),
 
     'increment':    lambda d: d + 1,
     'decrement':    lambda d: d - 1,
@@ -1047,8 +1061,9 @@ _OPERATIONS = KeyOrderedDict({
     # xarray
     '.head':        lambda d: d.head(),
     '.tail':        lambda d: d.tail(),
+    '.isnull':      lambda d: d.isnull(),
 
-    # logarithms and powers
+    # logarithms and powers, all numpy-based
     'log':          lambda d: np.log(d),
     'log10':        lambda d: np.log10(d),
     'log2':         lambda d: np.log2(d),
@@ -1056,7 +1071,7 @@ _OPERATIONS = KeyOrderedDict({
     'squared':      lambda d: np.square(d),
     'sqrt':         lambda d: np.sqrt(d),
     'cubed':        lambda d: np.power(d, 3),
-    'sqrt3':        lambda d: np.power(d, 1./.3),
+    'sqrt3':        lambda d: np.power(d, 1./3.),
 
     # normalization and cumulation
     'normalize_to_sum':         lambda d: d / np.sum(d),
@@ -1081,7 +1096,7 @@ _OPERATIONS = KeyOrderedDict({
     'sub':          lambda d, v: operator.sub(d, v),
 
     # numpy
-    'power':        lambda d, e: np.power(d, e),
+    'np.power':     np.power,
     'np.dot':       np.dot,
 
     # xarray
@@ -1089,9 +1104,14 @@ _OPERATIONS = KeyOrderedDict({
 
 
     # N-ary ...................................................................
-    # Masking, array generation
+    # Masking; these use the corresponding dantro data operations and work with
+    # xarray.DataArray objects.
     'create_mask':                  create_mask,
     'where':                        where,
+    # NOTE For applying a mask, use the xr.where operation.
+    # xarray.pydata.org/en/stable/indexing.html#assigning-values-with-indexing
+
+    # Array generation
     'populate_ndarray':             populate_ndarray,
     'build_object_array':           build_object_array,
     'expand_object_array':          expand_object_array,
@@ -1111,6 +1131,7 @@ _OPERATIONS = KeyOrderedDict({
     # NOTE: The `^` operator acts as XOR; use `**` for exponentiation!
 
     # numpy
+    # CAUTION Some of these work in-place ...
     '.sum':             lambda d, *a, **k: d.sum(*a, **k),
     '.prod':            lambda d, *a, **k: d.prod(*a, **k),
     '.cumsum':          lambda d, *a, **k: d.cumsum(*a, **k),
@@ -1120,6 +1141,8 @@ _OPERATIONS = KeyOrderedDict({
     '.std':             lambda d, *a, **k: d.std(*a, **k),
     '.min':             lambda d, *a, **k: d.min(*a, **k),
     '.max':             lambda d, *a, **k: d.max(*a, **k),
+    '.min.item':        lambda d, *a, **k: d.min(*a, **k).item(),
+    '.max.item':        lambda d, *a, **k: d.max(*a, **k).item(),
     '.var':             lambda d, *a, **k: d.var(*a, **k),
     '.argmin':          lambda d, *a, **k: d.argmin(*a, **k),
     '.argmax':          lambda d, *a, **k: d.argmax(*a, **k),
@@ -1143,9 +1166,11 @@ _OPERATIONS = KeyOrderedDict({
     'np.empty':         np.empty,
     'np.zeros':         np.zeros,
     'np.ones':          np.ones,
+    'np.full':          np.full,
     'np.empty_like':    np.empty_like,
     'np.zeros_like':    np.zeros_like,
     'np.ones_like':     np.ones_like,
+    'np.full_like':     np.full_like,
 
     'np.eye':           np.eye,
     'np.arange':        np.arange,
@@ -1210,6 +1235,12 @@ _OPERATIONS = KeyOrderedDict({
     '.interpolate_na':  lambda d, *a, **k: d.interpolate_na(*a, **k),
     '.dropna':          lambda d, *a, **k: d.dropna(*a, **k),
     '.isin':            lambda d, *a, **k: d.isin(*a, **k),
+    '.roll':            lambda d, *a, **k: d.roll(*a, **k),
+    '.thin':            lambda d, *a, **k: d.thin(*a, **k),
+    '.weighted':        lambda d, *a, **k: d.weighted(*a, **k),
+
+    '.rolling':         lambda d, *a, **k: d.rolling(*a, **k),
+    '.coarsen':         lambda d, *a, **k: d.coarsen(*a, **k),
 
     '.groupby':         lambda d, g, **k: d.groupby(g, **k),
     '.groupby_bins':    lambda d, g, **k: d.groupby_bins(g, **k),
@@ -1218,6 +1249,7 @@ _OPERATIONS = KeyOrderedDict({
 
     '.rename':          lambda d, *a, **k: d.rename(*a, **k),
     '.expand_dims':     lambda d, *a, **k: d.expand_dims(*a, **k),
+    '.swap_dims':       lambda d, *a, **k: d.swap_dims(*a, **k),
     '.assign_coords':   lambda d, *a, **k: d.assign_coords(*a, **k),
     '.assign_attrs':    lambda d, *a, **k: d.assign_attrs(*a, **k),
     '.assign':          lambda d, *a, **k: d.assign(*a, **k),
@@ -1237,7 +1269,12 @@ _OPERATIONS = KeyOrderedDict({
     'xr.combine_nested':    xr.combine_nested,
     'xr.combine_by_coords': xr.combine_by_coords,
 
-    # scipy
+    # ... method calls with additional dependencies
+    '.rolling_exp':     lambda d, *a, **k: d.rolling_exp(*a, **k),
+    '.rank':            lambda d, *a, **k: d.rank(*a, **k),
+
+    # fitting with xarray.DataArray.polyfit or scipy.optimize
+    '.polyfit':         lambda d, *a, **k: d.polyfit(*a, **k),
     'curve_fit':
         lambda *a, **k: import_module_or_object("scipy.optimize",
                                                 name="curve_fit")(*a, **k),
@@ -1344,10 +1381,13 @@ def apply_operation(
             "a new operation, use dantro.utils.register_operation."
         ) from err
 
-    # Compute and return the results
+    # Compute and return the results, allowing messaging exceptions through ...
     log.log(_log_level, "Performing operation '%s' ...", op_name)
     try:
         return op(*op_args, **op_kwargs)
+
+    except DantroMessagingException:
+        raise
 
     except Exception as exc:
         raise DataOperationFailed(

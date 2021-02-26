@@ -360,7 +360,7 @@ Features
 
 Skipping Plots
 ^^^^^^^^^^^^^^
-To skip a plot, raise a :py:class:`dantro.plot_creators.pcr_base.SkipPlot` exception anywhere in your plot function or the plot creator.
+To skip a plot, raise a :py:class:`dantro.exceptions.SkipPlot` exception anywhere in your plot function or the plot creator.
 
 Additionally, plot creators can supply built-in plot configuration arguments that allow to skip a plot under certain conditions.
 Currently, this is only done by the :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`, see :ref:`mv_plot_skipping`.
@@ -379,7 +379,7 @@ A few remarks regarding side effects (e.g., directories being created for plots 
 
 * Skipping will have fewer side effects if it is triggered as early as possible.
 * If skipping is triggered by a built-in plot creator method, it is taken care that this happens *before* directory creation.
-* If :py:class:`dantro.plot_creators.pcr_base.SkipPlot` is raised at a later point, this *might* lead to intermediate directories having been created.
+* If :py:class:`dantro.exceptions.SkipPlot` is raised at a later point, this *might* lead to intermediate directories having been created.
 
 .. note::
 

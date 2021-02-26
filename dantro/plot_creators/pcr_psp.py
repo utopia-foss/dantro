@@ -281,7 +281,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
             _coords = {k: [v] for k, v in coords.items()}
 
             # Set allow_failure only on the last node of this branch, such
-            # thath all other nodes may still have their separate fallbacks;
+            # that all other nodes may still have their separate fallbacks;
             # the fallback used here is only relevant if everything else failed
             # irrecoverably. By using an empty xr.Dataset, the combination via
             # xr.merge will succeed and propagate the coordinates onward, but
@@ -366,17 +366,13 @@ class MultiversePlotCreator(ExternalPlotCreator):
                     tag,
                 )
 
-            _check_combination_method = missing or allow_missing_or_failing
-            if _check_combination_method and combination_method != "merge":
+            if allow_missing_or_failing and combination_method != "merge":
                 log.caution(
-                    "Encountered %d missing parameter space states and/or "
-                    "have `allow_missing_or_failing` set, but got "
-                    "incompatible combination method '%s'! Using 'merge' "
-                    "instead. To suppress this message, use 'merge' for "
-                    "`combination_method` of field '%s'.",
-                    len(missing),
-                    combination_method,
+                    "With `allow_missing_or_failing` set for field '%s', "
+                    "combination method '%s' is incompatible! "
+                    "Using 'merge' instead.",
                     tag,
+                    combination_method,
                 )
                 combination_method = "merge"
 

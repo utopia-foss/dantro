@@ -120,7 +120,7 @@ class Transformation:
                 specific Transformation object have a different hash than other
                 objects, thus leading to cache misses.
             allow_failure (Union[bool, str], optional): Whether the
-                computation of this operation its arguments may fail.
+                computation of this operation or its arguments may fail.
                 In case of failure, the ``fallback`` value is used.
                 If ``True`` or ``'log'``, will emit a log message upon failure.
                 If ``'warn'``, will issue a warning. If ``'silent'``, will use

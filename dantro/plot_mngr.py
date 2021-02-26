@@ -645,7 +645,7 @@ class PlotManager:
         Returns:
             Union[bool, str]: Whether the plot was carried out successfully.
                 Returns the string ``'skipped'`` if the plot was skipped via a
-                :py:class:`~dantro.plot_creators.pcr_base.SkipPlot` exception.
+                :py:class:`~dantro.exceptions.SkipPlot` exception.
 
         Raises:
             PlotCreatorError: On error within the plot creator. This is only
