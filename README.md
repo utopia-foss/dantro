@@ -60,15 +60,15 @@ _Note_ that if you have both Python 2 and Python 3 installed, you might have to 
 
 | Package Name                  | Minimum Version  | Purpose                  |
 | ----------------------------- | ---------------- | ------------------------ |
-| [numpy][numpy]                | 1.20.1           | |
-| [xarray][xarray]              | 0.16.2           | For labelled N-dimensional arrays |
-| [dask][dask]                  | 2.10.1           | To work with large data |
+| [numpy][numpy]                | 1.20             | |
+| [xarray][xarray]              | 0.16             | For labelled N-dimensional arrays |
+| [dask][dask]                  | 2.10             | To work with large data |
 | [toolz][toolz]                | 0.10             | For [dask.delayed][dask-delayed]
 | [distributed][distributed]    | 2.10             | For distributed computing |
-| [scipy][scipy]                | 1.6.1            | As engine for NetCDF files |
-| [sympy][sympy]                | 1.6.1            | For symbolic math operations |
+| [scipy][scipy]                | 1.6              | As engine for NetCDF files |
+| [sympy][sympy]                | 1.6              | For symbolic math operations |
 | [h5py][h5py]                  | 3.1              | For reading HDF5 datasets |
-| [matplotlib][matplotlib]      | 3.2.1            | For data visualization |
+| [matplotlib][matplotlib]      | 3.2              | For data visualization |
 | [seaborn][seaborn]            | 0.11             | For advanced data visualization |
 | [networkx][networkx]          | 2.5              | For network visualization |
 | [ruamel.yaml][ruamelyaml]     | 0.16.12          | For parsing YAML configuration files |
@@ -110,11 +110,11 @@ For development purposes, the following additional packages are required.
 | Package Name                  | Minimum Version  | Purpose                  |
 | ----------------------------- | ---------------- | ------------------------ |
 | [pytest][pytest]              | 3.4              | Testing framework        |
-| [pytest-cov][pytest-cov]      | 2.5.1            | Coverage report          |
-| [tox][tox]                    | 3.1.2            | Test environments        |
+| [pytest-cov][pytest-cov]      | 2.5              | Coverage report          |
+| [tox][tox]                    | 3.1              | Test environments        |
 | [Sphinx][sphinx]              | 2.4 (< 3.0)      | Documentation generator  |
 | [sphinx_rtd_theme][sphinxrtd] | 0.5              | Documentation HTML theme |
-| [pre-commit][pre-commit]      | 2.8.2            | For [commit hooks](#commit-hooks) |
+| [pre-commit][pre-commit]      | 2.8              | For [commit hooks](#commit-hooks) |
 | [black][black]                | 20.8b1           | For code formatting      |
 
 To install these development-related dependencies, enter the virtual environment, navigate to the cloned repository, and perform the installation using:
