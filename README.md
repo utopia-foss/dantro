@@ -56,16 +56,16 @@ _Note_ that if you have both Python 2 and Python 3 installed, you might have to 
 
 
 ### Dependencies
-`dantro` is implemented for [Python >= 3.6][Python3] and depends on the following Python packages:
+`dantro` is implemented for [Python >= 3.7][Python3] and depends on the following Python packages:
 
 | Package Name                  | Minimum Version  | Purpose                  |
 | ----------------------------- | ---------------- | ------------------------ |
-| [numpy][numpy]                | 1.19.4           | |
+| [numpy][numpy]                | 1.20.1           | |
 | [xarray][xarray]              | 0.16.2           | For labelled N-dimensional arrays |
 | [dask][dask]                  | 2.10.1           | To work with large data |
 | [toolz][toolz]                | 0.10             | For [dask.delayed][dask-delayed]
 | [distributed][distributed]    | 2.10             | For distributed computing |
-| [scipy][scipy]                | 1.5.4            | As engine for NetCDF files |
+| [scipy][scipy]                | 1.6.1            | As engine for NetCDF files |
 | [sympy][sympy]                | 1.6.1            | For symbolic math operations |
 | [h5py][h5py]                  | 3.1              | For reading HDF5 datasets |
 | [matplotlib][matplotlib]      | 3.2.1            | For data visualization |
@@ -137,7 +137,7 @@ For more information on commit hooks, see [the commit hooks section below](#comm
 To assert correct functionality, tests are written alongside all features.
 The [`pytest`][pytest] and [`tox`][tox] packages are used as testing frameworks.
 
-All tests are carried out for Python 3.6 through 3.9 using the GitLab CI/CD and the newest versions of all [dependencies](#dependencies).
+All tests are carried out for Python 3.7 through 3.9 using the GitLab CI/CD and the newest versions of all [dependencies](#dependencies).
 When merging to the master branch, `dantro` is additionally tested against the specified _minimum_ versions.
 
 Test coverage and pipeline status can be seen on [the project page][dantro-project].
@@ -221,7 +221,7 @@ dantro is licensed under the [GNU Lesser General Public License Version 3][LGPLv
 ### Copyright Notice
 
     dantro -- a python package for handling and plotting hierarchical data
-    Copyright (C) 2018 – 2020  dantro developers
+    Copyright (C) 2018 – 2021  dantro developers
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
