@@ -2,6 +2,10 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.16.1 *(Work in Progress)*
+#### Enhancements
+- !247 drops patch versions from dependency specifications (where possible)
+
 ## v0.16.0
 #### Features and Improvements
 - !241 makes `based_on` allow lookup from the same plots configuration and allows specifying multiple pools of base plot configurations.
