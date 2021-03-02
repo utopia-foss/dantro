@@ -2,6 +2,24 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.16.0
+#### Features and Improvements
+- !241 makes `based_on` allow lookup from the same plots configuration and allows specifying multiple pools of base plot configurations.
+- !240 adds the `build_object_array` operation
+- `GraphGroup` improvements:
+    - !242 implements dropping missing (NaN) values in the node and edge data.
+    - !242 adds the `align` argument for property data alignment to `GraphGroup.create_graph`.
+    - !235 improves the warnings on changed graph size.
+
+#### Breaking changes and deprecations
+- With this release, we drop support for Python 3.6.
+- !241 deprecates the `PlotManager` arguments `base_cfg` and `update_base_cfg` and replaces them by `base_cfg_pool`.
+  Furthermore, `plots_cfg` is renamed to `default_plots_cfg`.
+
+## v0.15.4
+#### Bug Fixes
+- !237 fixes the `set_suptitle` helper, now allowing to set the suptitle's y-position.
+
 ## v0.15.3
 #### Enhancements
 - !232 generalizes the `determine_encoding` interface, no longer requiring xarray data and more easily allowing to use the tool in custom plot functions outside of dantro.

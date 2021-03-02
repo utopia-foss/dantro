@@ -444,12 +444,12 @@ def test_set_property_functions(graph_grps, graph_data):
     g.add_edge(0, 42)
 
     # warnings should be raised now because the graph was changed
-    with pytest.warns(UserWarning, match="The number of nodes changed"):
+    with pytest.warns(UserWarning, match="The number of nodes increased"):
         grp.set_node_property(
             g=g, name="np", at_time_idx=cfg.get("at_time_idx", None)
         )
 
-    with pytest.warns(UserWarning, match="The number of edges changed"):
+    with pytest.warns(UserWarning, match="The number of edges increased"):
         grp.set_edge_property(
             g=g, name="ep", at_time_idx=cfg.get("at_time_idx", None)
         )
@@ -586,8 +586,9 @@ def test_set_property_functions(graph_grps, graph_data):
 
 
 def test_loading_external_data():
-    """Test the register_property_map function and the setting of properties
-    from external data"""
+    """Tests the `register_property_map` function and the setting of properties
+    from external data. Also tests extra kwargs such as `align`, `dropna`.
+    """
     # Create a simple graph from a GraphGroup
     gg = GraphGroup(name="gg", attrs=dict(directed=False, parallel=False))
     gg._GG_WARN_UPON_BAD_ALIGN = False
@@ -713,6 +714,18 @@ def test_loading_external_data():
     assert g.edges[(0, 2)]["ep2"] == "foo"
     assert g.edges[(2, 1)]["ep2"] == "baz"
 
+    # Check whether we get the same result when doing it via create_graph
+    g = gg.create_graph(
+        node_props=["np2"], edge_props=["ep2"], at_time_idx=-1, align=True
+    )
+
+    assert g.nodes[0]["np2"] == "foo"
+    assert g.nodes[1]["np2"] == "bar"
+    assert g.nodes[2]["np2"] == "baz"
+    assert g.edges[(1, 0)]["ep2"] == "bar"
+    assert g.edges[(0, 2)]["ep2"] == "foo"
+    assert g.edges[(2, 1)]["ep2"] == "baz"
+
     # -------------------------------------------------------------------------
     # Test for LabelledDataGroup
     np3 = LabelledDataGroup(name="np3", dims=["dim"])
@@ -827,3 +840,49 @@ def test_loading_external_data():
     # key exists already
     with pytest.raises(ValueError, match="Please choose a unique name"):
         gg.register_property_map("np1", np1)
+
+    # -------------------------------------------------------------------------
+    # Test the NaN-removal together with `align`
+    # Create node and edge data that contains Nan's. The missing values should
+    # be dropped. Using `align=True` should drop also the respective property
+    # values.
+    gg = GraphGroup(name="gg", attrs=dict(directed=True, parallel=False))
+    gg.new_container(
+        "nodes",
+        Cls=XrDataContainer,
+        data=[0, np.nan, 2],
+        dims=("node_idx",),
+        coords=dict(node_idx=[0, 1, 2]),
+    )
+    gg.new_container(
+        "edges",
+        Cls=XrDataContainer,
+        data=[[2, 0], [0, np.nan], [0, 2]],
+        dims=("edge_idx", "type"),
+        coords=dict(edge_idx=[0, 1, 2], type=["source", "target"]),
+    )
+    gg.new_container(
+        "np1",
+        Cls=XrDataContainer,
+        data=[2, 1, 0],
+        dims=("node_idx",),
+        coords=dict(node_idx=[2, 1, 0]),
+    )
+    gg.new_container(
+        "ep1",
+        Cls=XrDataContainer,
+        data=[2, 1, 0],
+        dims=("edge_idx",),
+        coords=dict(edge_idx=[2, 1, 0]),
+    )
+
+    g = gg.create_graph(
+        node_props=["np1"], edge_props=["ep1"], align=True, dropna=True
+    )
+
+    assert list(g.nodes) == [0, 2]
+    assert set(g.edges) == {(2, 0), (0, 2)}
+    assert g.nodes[0]["np1"] == 0
+    assert g.nodes[2]["np1"] == 2
+    assert g.edges[(2, 0)]["ep1"] == 0
+    assert g.edges[(0, 2)]["ep1"] == 2

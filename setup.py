@@ -5,13 +5,12 @@ from setuptools import find_packages, setup
 
 # Dependencies for dantro itself
 install_deps = [
-    "numpy>=1.19.4",
+    "numpy>=1.20.1",
     "xarray>=0.16.2",
     "dask>=2.10.1",
     "toolz>=0.10.0",        # For dask.delayed
     "distributed>=2.10.0",  # For dask's distributed scheduler
-    "scipy>=1.5.4",         # Used as a netcdf4 storage engine for xarray
-                            # NOTE With scipy 1.6, will lose py36 support
+    "scipy>=1.6.1",         # Used as a netcdf4 storage engine for xarray
     "sympy>=1.6.1",
     "h5py>=3.1",
     "matplotlib>=3.2.1",
@@ -139,7 +138,6 @@ setup(
     url="https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro",
     classifiers=[
         "Intended Audience :: Science/Research",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
@@ -151,6 +149,7 @@ setup(
     # Distribution details, dependencies, ...
     packages=find_packages(exclude=["tests.*", "tests"]),
     data_files=[("", ["COPYING", "COPYING.LESSER", "README.md"])],
+    python_requires=">=3.7",
     install_requires=install_deps,
     tests_require=test_deps,
     test_suite="py.test",

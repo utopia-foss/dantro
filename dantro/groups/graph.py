@@ -395,6 +395,10 @@ class GraphGroup(BaseDataGroup):
         # Everything ok, register the new map
         self._property_maps[key] = data
 
+        log.remark(
+            "Registered tag '%s' as property map of %s.", key, self.logstr
+        )
+
     def create_graph(
         self,
         *,
@@ -406,6 +410,7 @@ class GraphGroup(BaseDataGroup):
         isel: dict = None,
         at_time: int = None,
         at_time_idx: int = None,
+        align: bool = False,
         keep_dim=None,
         **graph_kwargs,
     ) -> "nx.Graph":
@@ -449,6 +454,14 @@ class GraphGroup(BaseDataGroup):
                 label. Translated to ``sel = dict(time=at_time)``.
             at_time_idx (int, optional): Select along ``time`` dimension via
                 index. Translated to ``isel = dict(time=at_time_idx)``.
+            align (bool, optional): If True, the property data is aligned
+                with the node/edge data using ``xarray.align``
+                (default: False). The indexes of the ``<node/edge>_container``
+                are used for each dimension. If the class variable
+                ``_GG_WARN_UPON_BAD_ALIGN`` is True, warn upon missing values
+                or if no re-ordering was done. Any dimension of size 1 is
+                squeezed and thus alignment (via ``align=True``) will have no
+                effect on such dimensions.
             keep_dim (optional): Iterable containing names of the dimensions
                 that can not be squeezed. Passed on to
                 :py:meth:`~dantro.groups.graph.GraphGroup._get_data_at`.
@@ -509,6 +522,27 @@ class GraphGroup(BaseDataGroup):
             max_tuple_size=(4 if isinstance(g, nx.MultiGraph) else 3),
         )
 
+        # Drop missing values from the node-data and edge-data. After calling
+        # `_prepare_edge_data`, the first edge-data dim should be the edge-dim.
+        # This is also why the dropna kwarg can't be evaluated in _get_data_at.
+        if np.isnan(node_cont).any():
+            node_cont = node_cont.dropna(dim=node_cont.dims[0])
+            log.debug(
+                "Removed entries containg missing (NaN) values along dim '%s' "
+                "from %s.",
+                node_cont.dims[0],
+                self.node_container.logstr,
+            )
+
+        if np.isnan(edge_cont).any():
+            edge_cont = edge_cont.dropna(dim=edge_cont.dims[0])
+            log.debug(
+                "Removed entries containg missing (NaN) values along dim '%s' "
+                "from %s.",
+                edge_cont.dims[0],
+                self.node_container.logstr,
+            )
+
         # Add nodes and edges to the graph
         log.debug("Adding nodes to the graph...")
         g.add_nodes_from(node_cont.values)
@@ -545,6 +579,7 @@ class GraphGroup(BaseDataGroup):
                     isel=isel,
                     at_time=at_time,
                     at_time_idx=at_time_idx,
+                    align=align,
                     keep_dim=keep_dim,
                 )
         if edge_props:
@@ -556,12 +591,13 @@ class GraphGroup(BaseDataGroup):
                     isel=isel,
                     at_time=at_time,
                     at_time_idx=at_time_idx,
+                    align=align,
                     keep_dim=keep_dim,
                 )
 
         # Return the graph
         log.info(
-            "Successfully created graph (%d node%s, %d edge%s) from %s.",
+            "Created graph (%d node%s, %d edge%s) from %s.",
             g.number_of_nodes(),
             "s" if g.number_of_nodes() != 1 else "",
             g.number_of_edges(),
@@ -633,13 +669,22 @@ class GraphGroup(BaseDataGroup):
             data=self.node_container, keep_dim=keep_dim, **selector
         )
 
+        if np.isnan(node_cont).any():
+            node_cont = node_cont.dropna(dim=node_cont.dims[0])
+            log.debug(
+                "Removed entries containg missing (NaN) values along dim '%s' "
+                "from %s",
+                node_cont.dims[0],
+                self.node_container.logstr,
+            )
+
         # Optionally, align the property data with the node data.
         if align:
             node_cont, prop_data = xr.align(node_cont, prop_data, join="left")
             self._check_alignment(ent=node_cont, prop=prop_data)
 
         # Check if the data can be added as node property
-        if len(prop_data.values) != len(node_cont.values):
+        if len(prop_data) != len(node_cont):
             # Prepare error message
             _msg_squeezed_dims = ""
             _msg_match_with_node_number = ""
@@ -652,7 +697,7 @@ class GraphGroup(BaseDataGroup):
                     "dimensions not to be squeezed."
                 )
 
-            if len(g.nodes) == len(prop_data.values):
+            if len(g.nodes) == len(prop_data):
                 _msg_match_with_node_number = (
                     "\n"
                     f"The size of '{name}' matches the current number of "
@@ -663,18 +708,26 @@ class GraphGroup(BaseDataGroup):
                 )
 
             raise ValueError(
-                f"Mismatch! Failed to add '{name}' data as a node property. "
-                f"Received {len(prop_data.values)} property values for "
-                f"{len(node_cont.values)} nodes in "
-                f"{self.node_container.logstr}! {_msg_match_with_node_number}"
-                f"{_msg_squeezed_dims}"
+                f"Length mismatch: Failed to add '{name}' data as a node "
+                f"property. Received {len(prop_data)} property values for "
+                f"{len(node_cont)} nodes in {self.node_container.logstr}! "
+                f"{_msg_match_with_node_number}{_msg_squeezed_dims}"
             )
 
-        if len(node_cont.values) != len(g.nodes):
+        n_data = len(node_cont)
+        n_graph = len(g.nodes)
+
+        if n_data != n_graph:
             warnings.warn(
-                "The number of nodes changed since graph creation. Some "
-                "property values will not be added to the graph! Also check "
-                f"for duplicate entries in {self.node_container.logstr}.",
+                "The number of nodes "
+                f"{'decreased' if n_graph < n_data else 'increased'} since "
+                f"graph creation (length of {self.node_container.logstr}: "
+                f"{n_data}, nodes in graph: {n_graph}). Some property values "
+                "will not be added to the graph! Reasons might be previous "
+                "modifications of the graph structure, duplicate entries in "
+                f"'{self.node_container.logstr}', or nodes in "
+                f"'{self.edge_container.logstr}' that are not in "
+                f"'{self.node_container.logstr}'.",
                 UserWarning,
             )
 
@@ -693,11 +746,7 @@ class GraphGroup(BaseDataGroup):
         }
         g.graph.update(prop_coords)
 
-        log.remark(
-            "Successfully added node property data from '%s' in %s.",
-            name,
-            self.logstr,
-        )
+        log.remark("Node property '%s' added from %s.", name, self.logstr)
 
     def set_edge_property(
         self,
@@ -786,13 +835,22 @@ class GraphGroup(BaseDataGroup):
             max_tuple_size=(4 if isinstance(g, nx.MultiGraph) else 3),
         )
 
+        if np.isnan(edge_cont).any():
+            edge_cont = edge_cont.dropna(dim=edge_cont.dims[0])
+            log.debug(
+                "Removed entries containg missing (NaN) values along dim '%s' "
+                "from %s",
+                edge_cont.dims[0],
+                self.node_container.logstr,
+            )
+
         # Optionally, align the property data with the node data.
         if align:
             edge_cont, prop_data = xr.align(edge_cont, prop_data, join="left")
             self._check_alignment(ent=edge_cont, prop=prop_data)
 
         # Check if the data can be added as edge property
-        if len(prop_data.values) != len(edge_cont.values):
+        if len(prop_data) != len(edge_cont):
             # Prepare error message
             _msg_duplicate_edges = ""
             _msg_match_with_edge_number = ""
@@ -805,7 +863,7 @@ class GraphGroup(BaseDataGroup):
                     f"type: '{type(g)}'"
                 )
 
-            if len(g.edges) == len(prop_data.values):
+            if len(g.edges) == len(prop_data):
                 _msg_match_with_edge_number = (
                     "\n"
                     f"The size of '{name}' matches the current number of "
@@ -816,18 +874,24 @@ class GraphGroup(BaseDataGroup):
                 )
 
             raise ValueError(
-                f"Mismatch! Failed to add '{name}' data as an edge property. "
-                f"Received {len(prop_data.values)} property values for "
-                f"{len(edge_cont.values)} edges in "
-                f"{self.edge_container.logstr}! {_msg_duplicate_edges}"
-                f"{_msg_match_with_edge_number}"
+                f"Length mismatch! Failed to add '{name}' data as an edge "
+                f"property. Received {len(prop_data)} property values for "
+                f"{len(edge_cont)} edges in {self.edge_container.logstr}! "
+                f"{_msg_duplicate_edges}{_msg_match_with_edge_number}"
             )
 
-        if len(edge_cont.values) != len(g.edges):
+        n_data = len(edge_cont)
+        n_graph = len(g.edges)
+
+        if n_data != n_graph:
             warnings.warn(
-                "The number of edges changed since graph creation. Some "
-                "property values will not be added to the graph! Also check "
-                f"for duplicate entries in {self.edge_container.logstr}.",
+                "The number of edges "
+                f"{'decreased' if n_graph < n_data else 'increased'} since "
+                f"graph creation (length of {self.edge_container.logstr}: "
+                f"{n_data}, edges in graph: {n_graph}). Some property values "
+                "will not be added to the graph! Reasons might be previous "
+                "modifications of the graph structure or duplicate entries in "
+                f"{self.edge_container.logstr}.",
                 UserWarning,
             )
 
@@ -872,8 +936,4 @@ class GraphGroup(BaseDataGroup):
         }
         g.graph.update(prop_coords)
 
-        log.remark(
-            "Successfully added edge property data from '%s' in %s.",
-            name,
-            self.logstr,
-        )
+        log.remark("Edge property '%s' added from %s.", name, self.logstr)

@@ -65,6 +65,7 @@ variables:
     - sed -i "s=<source>.*${SRC_DIR}</source>=<source>./${SRC_DIR}</source>=g" coverage.xml
     - sed -i "s;filename=\";filename=\"${SRC_DIR}/;g" coverage.xml
   artifacts:
+    expire_in: 6 months
     reports:
       cobertura: coverage.xml
 
@@ -73,7 +74,7 @@ variables:
 
 check:hooks:
   stage: check
-  image: python:3.8
+  image: python:3.9
   extends:
     - .default_tags
   before_script:
@@ -86,9 +87,9 @@ check:hooks:
 # -- Test Stage ---------------------------------------------------------------
 # ... for testing with different python environments
 
-test:py36:
+test:py37:
   stage: test
-  image: python:3.6
+  image: python:3.7
   extends:
     - .default_tags
     - .cobertura
@@ -96,22 +97,16 @@ test:py36:
   before_script:
     - pip3 install tox
   script:
-    - tox -v -e py36
-
-test:py37:
-  extends: test:py36
-  image: python:3.7
-  script:
     - tox -v -e py37
 
 test:py38:
-  extends: test:py36
+  extends: test:py37
   image: python:3.8
   script:
     - tox -v -e py38
 
 test:py39:
-  extends: test:py36
+  extends: test:py37
   image: python:3.9
   script:
     - tox -v -e py39
@@ -119,8 +114,8 @@ test:py39:
 
 # Extended test jobs, which are only run upon release-related events.
 
-test:py36_min:
-  extends: test:py36
+test:py37_min:
+  extends: test:py37
   rules:
     - if: '$CI_COMMIT_BRANCH == "master" ||
            $CI_COMMIT_BRANCH =~ /^release/ ||
@@ -131,22 +126,16 @@ test:py36_min:
     - when: never
   allow_failure: true
   script:
-    - tox -v -e py36-minimal_deps
-
-test:py37_min:
-  extends: test:py36_min
-  image: python:3.7
-  script:
     - tox -v -e py37-minimal_deps
 
 test:py38_min:
-  extends: test:py36_min
+  extends: test:py37_min
   image: python:3.8
   script:
     - tox -v -e py38-minimal_deps
 
 test:py39_min:
-  extends: test:py36_min
+  extends: test:py37_min
   image: python:3.9
   script:
     - tox -v -e py39-minimal_deps
@@ -157,7 +146,7 @@ test:py39_min:
 
 build:docs:
   stage: build
-  image: python:3.7
+  image: python:3.7    # NOTE Later versions have trouble with typing module
   extends: .default_tags
   allow_failure: true
   needs: []
@@ -174,7 +163,7 @@ build:docs:
   artifacts:
     when: always
     name: "doc-$CI_COMMIT_REF_NAME"
-    expire_in: 3h
+    expire_in: 2 weeks
     expose_as: Documentation Build Results - including error log
     paths:
       - doc/_build/html
@@ -246,7 +235,7 @@ deploy:stop_docs:
 # Deploy dantro to PyPI
 deploy:pypi:
   stage: deploy
-  image: python:3.7
+  image: python:3.9
   extends:
     - .default_tags
     - .ssh_access
@@ -288,7 +277,7 @@ deploy:pypi:
 # Install dantro from the PyPI via pip to test automatic deployment
 post_deploy:install_from_pypi:
   stage: post_deploy
-  image: python:3.7
+  image: python:3.9
   extends: .default_tags
   rules: *pypi_deploy_rules
   needs:
