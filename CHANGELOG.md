@@ -4,7 +4,7 @@
 
 ## v0.16.1 *(Work in Progress)*
 #### Enhancements
-- !247 drops patch versions from dependency specifications (where possible)
+- !247 and !248 make dependency version specifications more compatible
 
 ## v0.16.0
 #### Features and Improvements
@@ -16,7 +16,7 @@
     - !235 improves the warnings on changed graph size.
 
 #### Breaking changes and deprecations
-- With this release, we drop support for Python 3.6.
+- With this release, we **drop support for Python 3.6**.
 - !241 deprecates the `PlotManager` arguments `base_cfg` and `update_base_cfg` and replaces them by `base_cfg_pool`.
   Furthermore, `plots_cfg` is renamed to `default_plots_cfg`.
 
