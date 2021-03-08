@@ -73,7 +73,7 @@ _Note_ that if you have both Python 2 and Python 3 installed, you might have to 
 | [networkx][networkx]          | 2.5              | For network visualization |
 | [ruamel.yaml][ruamelyaml]     | 0.16.12          | For parsing YAML configuration files |
 | [dill][dill]                  | 0.3.3            | For advanced pickling |
-| [paramspace][paramspace]      | 2.5              | For dictionary- or YAML-based parameter spaces |
+| [paramspace][paramspace]      | 2.5.6            | For dictionary- or YAML-based parameter spaces |
 
 
 
