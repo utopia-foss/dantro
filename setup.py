@@ -18,7 +18,7 @@ install_deps = [
     "networkx>=2.5",
     "ruamel.yaml>=0.16.12",
     "dill>=0.3.3",          # For faster and more powerful pickling
-    "paramspace>=2.5.5",
+    "paramspace>=2.5.6",
 ]
 # NOTE When changing any of the dependencies, make sure to update the table of
 #      dependencies in README.md.
