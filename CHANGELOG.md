@@ -4,7 +4,7 @@
 
 ## v0.16.1 *(Work in Progress)*
 #### Enhancements
-- !247 and !248 make dependency version specifications more compatible
+- !247, !248, and !250 make dependency version specifications more compatible and make testing infrastructure more robust
 
 ## v0.16.0
 #### Features and Improvements
