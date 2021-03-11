@@ -72,6 +72,7 @@ py:class h5.Group
 # matplotlib
 py:class matplotlib.Figure
 py:class matplotlib.animation.AbstractMovieWriter
+py:class plt.axis
 
 # other packages
 py:class nx.Graph

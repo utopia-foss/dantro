@@ -3,6 +3,9 @@
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
 ## v0.16.1 *(Work in Progress)*
+#### Features
+- !249 adds the `set_tick_locators` and `set_tick_formatters` methods to the `PlotHelper` to enable advanced tick settings.
+
 #### Enhancements
 - !247, !248, and !250 make dependency version specifications more compatible and make testing infrastructure more robust
 

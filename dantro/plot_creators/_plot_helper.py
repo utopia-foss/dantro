@@ -258,6 +258,122 @@ def calculate_space_needed_hv(
     return space_needed_h, space_needed_v
 
 
+def _set_tick_locators_or_formatters(
+    *,
+    ax: plt.axis,
+    kind: str,
+    x: dict = None,
+    y: dict = None,
+):
+    """Sets the tick locators or formatters
+    Look at the documentation of the _hlpr_set_tick_{locators/formatters}
+    functions below for more information, respectively.
+
+    Args:
+        ax (plt.axis):      The axis
+        kind (str):         The kind. Valid options are: 'locator', 'formatter'
+        x (dict, optional): The configuration of the x-axis tick locator/formatter
+        y (dict, optional): The configuration of the y-axis tick locator/formatter
+    """
+    # Safe guard against calling this with unexpected arguments from
+    # within the actual helper methods; not part of public interface.
+    if kind not in ("locator", "formatter"):
+        raise ValueError(f"Bad kind: {kind}")
+
+    def _set_locator_or_formatter(
+        *,
+        _ax: plt.axis,
+        _axis: str,
+        _major: bool,
+        _kind: str,
+        name: str,
+        args: tuple = (),
+        **kwargs,
+    ):
+        """Set the tick locator or formatter on a specific axis.
+
+        Args:
+            _ax (plt.axis): The matplotlib.axis to work on.
+            _axis (str):    The axis: 'x' or 'y'
+            _major (bool):  Whether to set the major or minor ticks
+            _kind (str):    The kind of function to set: 'locator' or 'formatter'
+            name (str):     The name of the locator or formatter
+            args (tuple):   Args passed on to the respective locator
+                            or formatter setter function.
+            **kwargs:       Kwargs passed on to the respective locator
+                            or formatter setter function.
+        """
+        # Get the ticker from the name.
+        # Customize the error message for (i) no name (ii) wrong name
+        # for locators and formatters.
+        try:
+            ticker = getattr(mpl.ticker, name)
+        except AttributeError as err:
+            _avail = ", ".join(
+                [s for s in dir(mpl.ticker) if _kind.capitalize() in s]
+            )
+            raise AttributeError(
+                f"The given {_kind} name '{name}' is not valid! "
+                f"Choose from: {_avail}"
+            ) from err
+
+        # Get the locator or formatter function for the respective
+        # major or minor axis.
+        ax_obj = getattr(_ax, f"{_axis}axis")
+        setter = getattr(
+            ax_obj, f"set_{'major' if _major else 'minor'}_{_kind}"
+        )
+
+        # Set the tick locator or formatter
+        try:
+            setter(ticker(*args, **kwargs))
+        except Exception as exc:
+            raise ValueError(
+                f"Failed setting {'major' if _major else 'minor'} {_kind} '{name}'"
+                f"for {_axis}-axis! Check the matplotlib documentation for valid "
+                f"arguments. Got:\n  args: {args}\n  kwargs: {kwargs}"
+            ) from exc
+
+    # Decide which tick locator or formatter to set, and set it
+    if x:
+        if x.get("major"):
+            _set_locator_or_formatter(
+                _ax=ax,
+                _kind=kind,
+                _axis="x",
+                _major=True,
+                **x["major"],
+            )
+
+        if x.get("minor"):
+            _set_locator_or_formatter(
+                _ax=ax,
+                _kind=kind,
+                _axis="x",
+                _major=False,
+                **x["minor"],
+            )
+
+    if y:
+        if y.get("major"):
+            _set_locator_or_formatter(
+                _ax=ax,
+                _kind=kind,
+                _axis="y",
+                _major=True,
+                **y["major"],
+            )
+
+        if y.get("minor"):
+            _set_locator_or_formatter(
+                _ax=ax,
+                _kind=kind,
+                _axis="y",
+                _major=False,
+                **y["minor"],
+            )
+
+
 # -----------------------------------------------------------------------------
 
 
@@ -1989,6 +2105,87 @@ class PlotHelper:
 
             if y.get("minor"):
                 set_ticks_and_labels(axis="y", minor=True, axis_cfg=y["minor"])
+
+    def _hlpr_set_tick_locators(self, *, x: dict = None, y: dict = None):
+        """Sets the tick locators for the current axis
+
+        The arguments are used to call ``ax.{x,y}axis.set_{major/minor}_locator``
+        , respectively. The dict-like arguments must contain the keys ``major``
+        and/or ``minor``, referring to major or minor tick locators.
+        These need to specify a name that is looked up in ``matplotlib.ticker``.
+        They can contain a list-like ``args`` kwarg that defines
+        the arguments to pass on as positional args to the called function.
+        Further kwargs are passed on to ``ax.{x,y}axis.set_{major/minor}_locator``.
+
+        Example:
+
+        .. code-block:: yaml
+
+            set_tick_locators:
+              x:
+                major:
+                  name: MaxNLocator    # is looked up from matplotlib.ticker module
+                  nbins: 6
+                  integer: true
+                  min_n_ticks: 3
+              y:
+                major:
+                  name: MultipleLocator
+                  args: [2]
+
+
+        For more information, see:
+
+            - https://matplotlib.org/gallery/ticks_and_spines/tick-locators.html
+            - https://matplotlib.org/api/_as_gen/matplotlib.axis.Axis.set_major_locator.html
+            - https://matplotlib.org/api/_as_gen/matplotlib.axis.Axis.set_minor_locator.html
+
+        Args:
+            x (dict, optional): The configuration of the x-axis tick locator
+            y (dict, optional): The configuration of the y-axis tick locator
+        """
+        _set_tick_locators_or_formatters(ax=self.ax, kind="locator", x=x, y=y)
+
+    def _hlpr_set_tick_formatters(self, *, x: dict = None, y: dict = None):
+        """Sets the tick formatters for the current axis
+
+        The arguments are used to call ``ax.{x,y}axis.set_{major/minor}_formatter``
+        , respectively. The dict-like arguments must contain the keys ``major``
+        and/or ``minor``, referring to major or minor tick formatters.
+        These need to specify a name that is looked up in ``matplotlib.ticker``.
+        They can contain a list-like ``args`` kwarg that defines
+        the arguments to pass on as positional args to the called function.
+        Further kwargs are passed on to ``ax.{x,y}axis.set_{major/minor}_formatter``.
+
+        Example:
+
+        .. code-block:: yaml
+
+            set_tick_formatters:
+              x:
+                major:
+                  name: StrMethodFormatter
+                  args: ['{x:.3g}']
+              y:
+                major:
+                  name: FuncFormatter
+                  args: [!dag_result my_formatter_lambda]
+                  # any kwargs here passed also to FuncFormatter
+
+
+        For more information, see:
+
+            - https://matplotlib.org/gallery/ticks_and_spines/tick-formatters.html
+            - https://matplotlib.org/api/_as_gen/matplotlib.axis.Axis.set_major_formatter.html
+            - https://matplotlib.org/api/_as_gen/matplotlib.axis.Axis.set_minor_formatter.html
+
+        Args:
+            x (dict, optional): The configuration of the x-axis tick formatter
+            y (dict, optional): The configuration of the y-axis tick formatter
+        """
+        _set_tick_locators_or_formatters(
+            ax=self.ax, kind="formatter", x=x, y=y
+        )
 
     # .........................................................................
     # ... using seaborn
