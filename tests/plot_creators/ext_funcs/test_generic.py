@@ -58,11 +58,10 @@ def create_nd_data(
     n: int, *, shape=None, with_coords: bool = False, **data_array_kwargs
 ) -> xr.DataArray:
     """Creates n-dimensional random data of a certain shape. If no shape is
-    given, will use ``(3, 4, 5, ..)``.
-    Can also add coords
+    given, will use ``(2, 3, 4, ..)``. Can also add coords to the data.
     """
     if shape is None:
-        shape = tuple([i + 3 for i in range(n)])
+        shape = tuple([i + 2 for i in range(n)])
 
     coord_kws = dict()
     if with_coords:
