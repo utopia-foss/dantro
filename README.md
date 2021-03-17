@@ -61,12 +61,12 @@ _Note_ that if you have both Python 2 and Python 3 installed, you might have to 
 | Package Name                  | Minimum Version  | Purpose                  |
 | ----------------------------- | ---------------- | ------------------------ |
 | [numpy][numpy]                | 1.20             | |
-| [xarray][xarray]              | 0.16             | For labelled N-dimensional arrays |
+| [xarray][xarray]              | 0.16.2           | For labelled N-dimensional arrays |
 | [dask][dask]                  | 2.10             | To work with large data |
 | [toolz][toolz]                | 0.10             | For [dask.delayed][dask-delayed]
 | [distributed][distributed]    | 2.10             | For distributed computing |
 | [scipy][scipy]                | 1.6              | As engine for NetCDF files |
-| [sympy][sympy]                | 1.6              | For symbolic math operations |
+| [sympy][sympy]                | 1.7              | For symbolic math operations |
 | [h5py][h5py]                  | 3.1              | For reading HDF5 datasets |
 | [matplotlib][matplotlib]      | 3.2              | For data visualization |
 | [seaborn][seaborn]            | 0.11             | For advanced data visualization |

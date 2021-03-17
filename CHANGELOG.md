@@ -2,7 +2,7 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
-## v0.16.1 *(Work in Progress)*
+## v0.16.1
 #### Features
 - !249 adds the `set_tick_locators` and `set_tick_formatters` methods to the `PlotHelper` to enable advanced tick settings.
 - !243 implements [error handling](https://dantro.readthedocs.io/en/latest/data_io/transform.html#error-handling) into the data transformation framework
