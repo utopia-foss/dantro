@@ -39,7 +39,7 @@ explicit_select:
       - &hash_getitem_some_path_bar eeab72a23ead10056436b6bb025d328a
     node_dependencies:
       - - &hash_dm 38518b2446b95e8834372949a8e9dfc2  # 0 -> DataManager
-      - - *hash_getitem_some_path                    # 1 -> 1
+      - - *hash_getitem_some_path                    # 1 -> 0
       - - *hash_dm                                   # 2 -> DataManager
     cache_dir_available: false
     results: &results_explicit_select
@@ -1190,8 +1190,8 @@ meta_ops_getitem_alias:
         tag: bar
 
   expected: &meta_ops_getitem_expected
-    num_nodes: 3
-    num_objects: 5
+    num_nodes: 6
+    num_objects: 8
     meta_operations:
       getitem_alias:
         num_nodes: 1
@@ -1200,12 +1200,18 @@ meta_ops_getitem_alias:
     tags: [dag, dm, select_base, foo, bar]
     node_hashes:
       - *hash_getitem_some_path
-      - *hash_getitem_foo
+      - &hash_pass_after_getitem_some_path  dfdab46460b61e55bf7b7d9755ef020f
+      - &hash_getitem_foo_after_meta_op     ee2f0913bae223d2a9d021515e32c99b
+      - &hash_pass_after_getitem_foo        aea396cb2d3db91a96a0a7ad29493b19
       - *hash_getitem_some_path_bar
+      - &hash_pass_after_getitem_bar        2c46d76d13198b58e7dab6726094aee3
     node_dependencies:
       - - *hash_dm                                   # 0 -> DataManager
-      - - *hash_getitem_some_path                    # 1 -> 1
-      - - *hash_dm                                   # 2 -> DataManager
+      - - *hash_getitem_some_path                    # 1 -> 0
+      - - *hash_pass_after_getitem_some_path         # 2 -> 1
+      - - *hash_getitem_foo_after_meta_op            # 3 -> 2
+      - - *hash_dm                                   # 4 -> DataManager
+      - - *hash_getitem_some_path_bar                # 5 -> 4
     cache_dir_available: false
     results: *results_explicit_select
 
@@ -1227,8 +1233,8 @@ meta_ops_getitem_from_dm:
   expected:
     <<: *meta_ops_getitem_expected
 
-    num_nodes: 2
-    num_objects: 4
+    num_nodes: 4
+    num_objects: 6
     meta_operations:
       getitem_from_dm:
         num_nodes: 1
@@ -1237,10 +1243,14 @@ meta_ops_getitem_from_dm:
 
     node_hashes:
       - *hash_getitem_some_path_foo
+      - 613abd2c260f94a60a76838c58c7c82c  # pass
       - *hash_getitem_some_path_bar
+      - 2c46d76d13198b58e7dab6726094aee3  # pass
     node_dependencies:
       - - *hash_dm
+      - - *hash_getitem_some_path_foo
       - - *hash_dm
+      - - *hash_getitem_some_path_bar
 
 
 meta_ops_in_base_transform:
@@ -1265,6 +1275,8 @@ meta_ops_in_base_transform:
 
   expected:
     <<: *meta_ops_getitem_expected
+    num_nodes: 4
+    num_objects: 6
     tags: [dag, dm, select_base, some_path, foo, bar]
     node_hashes: ~
     node_dependencies: ~
@@ -1288,13 +1300,15 @@ meta_ops_getitem_from_some_path:
         tag: bar
 
   expected:
-    num_nodes: 4
-    num_objects: 5
+    num_nodes: 6
+    num_objects: 7
     node_hashes:
       - *hash_getitem_some_path
       - 39175b65f33504b4482667416f144a42
+      - 17156e383f627bc3cb1202b6835b05cf  # pass
       - *hash_getitem_some_path
       - 828f7c086c39be3c6842aa4121d0926c
+      - c012ee92159bb4e28b9029216a935655  # pass
     meta_operations:
       getitem_from_some_path:
         num_nodes: 2
@@ -1323,8 +1337,8 @@ meta_ops_simple_chain:
         tag: pointfive
 
   expected:
-    num_nodes: 12
-    num_objects: 14
+    num_nodes: 15
+    num_objects: 17
     tags: [dag, dm, select_base, ten, fourtytwo, pointfive]
 
     results:
@@ -1359,8 +1373,8 @@ meta_ops_with_kwargs:
         tag: hello_cruel_world
 
   expected:
-    num_nodes: 2
-    num_objects: 4
+    num_nodes: 4
+    num_objects: 6
     tags: [dag, dm, select_base, hello_foobar, hello_cruel_world]
     results:
       hello_foobar:
@@ -1629,6 +1643,76 @@ meta_ops_err_duplicate_internal_tags:
   _match: duplicate internal tag definitions .*foobar, foobar
 
 
+# Allowing failure and using fallback -----------------------------------------
+
+allow_failure_no_fallback:
+  params:
+    transform:
+      - mul: [2, 3]
+      - div: [!dag_prev , 0]
+        tag: bad_div
+
+  compute_only: [bad_div]
+  _raises: DataOperationError
+  _raises_on_compute: true
+  _match: ZeroDivisionError
+
+allow_failure:
+  params:
+    transform:
+      - mul: [2, 3]
+      - div: [!dag_prev , 0]
+        allow_failure: silent
+        fallback: some fallback string
+        tag: division
+
+  expected:
+    results:
+      division:
+        compare_to: some fallback string
+
+allow_failure_upstream:
+  params:
+    transform:
+      - define: 42
+      - define: !dag_prev
+        tag: fallback_tag
+      - mul: [2, 3]
+      - div: [!dag_prev , 0]  # error is here
+      - add: [!dag_prev , 1]
+      - sub: [!dag_prev , 1]
+        allow_failure: silent
+        fallback: [foo, bar, {val: !dag_tag fallback_tag}]  # nested!
+        tag: final_result
+
+  expected:
+    results:
+      final_result:
+        compare_to: [foo, bar, {val: 42}]
+
+allow_failure_upstream_with_error_in_fallback:
+  params:
+    transform:
+      - define: -42
+      - import_and_call: [math, log10, !dag_prev ]  # error in fallback
+      - add: [!dag_prev , 1]
+      - define: !dag_prev
+        tag: fallback_tag
+
+      - mul: [2, 3]
+      - div: [!dag_prev , 0]  # error
+      - add: [!dag_prev , 1]
+      - sub: [!dag_prev , 1]
+        allow_failure: silent
+        fallback: [foo, bar, {val: !dag_tag fallback_tag}]
+        tag: final_result
+
+  compute_only: [final_result]
+  _raises: DataOperationError
+  _raises_on_compute: true
+  _match: "ValueError: math domain error"
+
+
 # Examples in documentation ---------------------------------------------------
 # Partly literal-included
 
@@ -1658,7 +1742,7 @@ doc_examples_dag_prev:
         args: [0, !dag_prev ]
       - operation: div
         args: [1, !dag_prev ]
-      - operation: power
+      - operation: pow
         args: [10, !dag_prev ]
         tag: my_result
 
@@ -1709,7 +1793,7 @@ doc_examples_minimal:
       - add: [!dag_tag some_data, !dag_tag more_data]
       - increment
       - print
-      - power: [!dag_prev , 4]
+      - pow: [!dag_prev , 4]
         tag: my_result
     ### End ---- dag_minimal_syntax
 
@@ -2226,3 +2310,106 @@ doc_examples_meta_ops_anchor_usage:
     results:
       default_gaussian:
         compare_to: 1.
+
+
+doc_examples_error_handling_first_examples:
+  params:
+    transform:
+    ### Start -- dag_error_handling_example01
+      - float: "inf"
+      - div: [1, 0]               # 1 / 0  -->  raises ZeroDivisionError
+        allow_failure: true
+        fallback: !dag_prev
+        tag: result
+    ### End ---- dag_error_handling_example01
+
+    ### Start -- dag_error_handling_example02
+      - float: "inf"
+      - div: [1, 0]
+        allow_failure: silent     # can also be: True, log, warn, False
+        fallback: !dag_prev
+    ### End ---- dag_error_handling_example02
+        tag: result_silent
+
+    ### Start -- dag_error_handling_example03
+      # Example input: assume that this may also be the output from previous
+      # operations which are used to calculate something else ...
+      - define: -1.23
+        tag: some_value
+      - define: +1
+        tag: some_other_value
+
+      # Perform some potentially problematic operations with these ...
+      - import_and_call: [math, log10, !dag_tag some_value]   # --> ValueError
+        tag: log10_value
+
+      - import: [np, pi]
+        tag: pi
+      - sub: [!dag_tag some_other_value, 1.]
+      - div: [!dag_tag pi, !dag_prev ]                        # --> ZeroDivisionError
+        tag: pi_over_some_other_value
+
+      # ... leading to the result
+      - add: [!dag_tag log10_value, !dag_tag pi_over_some_other_value]
+        allow_failure: true
+        fallback: 42
+        tag: my_result
+    ### End ---- dag_error_handling_example03
+
+  compute_only: [result, result_silent, my_result]
+  expected:
+    tags: [dag, dm, select_base,
+           result, result_silent,
+           some_value, some_other_value, log10_value, pi,
+           pi_over_some_other_value, my_result]
+    results:
+      my_result:
+        compare_to: 42
+
+
+doc_examples_error_handling_select:
+  params:
+    ### Start -- dag_error_handling_select_simple_fallback
+    select:
+      some_data: path/to/some_data
+      mean_data:
+        path: some/invalid/path       # The underlying `getitem` will fail ...
+        allow_failure: true           # ... but is allowed to.
+        fallback: [[1, 2, 3]]         # Instead, this fallback value is used.
+        transform:
+          - np.mean                   # ... which still works for a mean
+
+    transform:
+      - expression: (some_data + mean_data + 1) ** 4
+        tag: my_result
+    ### End ---- dag_error_handling_select_simple_fallback
+
+  expected:
+    tags: [dag, dm, select_base, some_data, mean_data, my_result]
+    results:
+      my_result:
+        type: ndarray
+
+
+doc_examples_error_handling_select_tagged_fallback:
+  params:
+    ### Start -- dag_error_handling_select_tagged_fallback
+    select:
+      _some_fallback_data: path/to/some_data
+      mean_data:
+        path: some/invalid/path
+        allow_failure: true
+        fallback: !dag_tag _some_fallback_data
+        transform:
+          - np.mean
+
+    transform:
+      - expression: (mean_data + 1) ** (-0.5)
+        tag: my_result
+    ### End ---- dag_error_handling_select_tagged_fallback
+
+  expected:
+    tags: [dag, dm, select_base, _some_fallback_data, mean_data, my_result]
+    results:
+      my_result:
+        type: float64

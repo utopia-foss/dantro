@@ -5,7 +5,7 @@ stored in a ParamSpaceGroup.
 
 import copy
 import logging
-from typing import Callable, Sequence, Tuple, Union
+from typing import Callable, List, Sequence, Tuple, Union
 
 import numpy as np
 import xarray as xr
@@ -231,9 +231,11 @@ class MultiversePlotCreator(ExternalPlotCreator):
         def add_uni_transformations(
             dag: TransformationDAG,
             *,
-            uni: ParamSpaceStateGroup,
+            uni_name: str,
             coords: dict,
             path: str,
+            missing: List[str],
+            allow_missing_or_failing: bool,
             transform: Sequence[dict] = None,
             **select_kwargs,
         ) -> DAGReference:
@@ -254,33 +256,50 @@ class MultiversePlotCreator(ExternalPlotCreator):
                 To not crowd the tag space, tags are omitted on these transform
                 operations, unless manually specified.
             """
+            # Keep track of missing parameter space states
+            if uni_name not in self.psgrp:
+                missing.append(uni_name)
+
             # Create the full path that is needed to get from the selection
             # base (the ParamSpaceGroup) to the desired path within the
-            # current universe.
-            field_path = PATH_JOIN_CHAR.join([uni.name, path])
+            # current universe and prepare arguments for the select operation
+            field_path = PATH_JOIN_CHAR.join([uni_name, path])
 
-            # Prepare arguments for the select operation
             select = dict()
-            select[uni.name] = dict(
+            select[uni_name] = dict(
                 path=field_path,
                 transform=transform,
                 omit_tag=True,
                 **select_kwargs,
             )
-
             # Add the nodes that handle the selection and optional transform
             # operations on the selected data. This is all user-determined.
             # The selection base is the DataManager.
             dag.add_nodes(select=select)
 
+            # Prepare coordinates for expanding dimensions
+            _coords = {k: [v] for k, v in coords.items()}
+
+            # Set allow_failure only on the last node of this branch, such
+            # that all other nodes may still have their separate fallbacks;
+            # the fallback used here is only relevant if everything else failed
+            # irrecoverably. By using an empty xr.Dataset, the combination via
+            # xr.merge will succeed and propagate the coordinates onward, but
+            # have null data.
+            extra_kwargs = dict()
+            if allow_missing_or_failing:
+                extra_kwargs["allow_failure"] = allow_missing_or_failing
+                extra_kwargs["fallback"] = xr.Dataset(coords=_coords)
+
             # With the latest-added transformation as input, add the parameter
             # space coordinates to it such that all single universes can be
-            # aligned properly. Don't cache this result.
+            # aligned properly. Best not to cache this result.
             return dag.add_node(
                 operation="dantro.expand_dims",
                 args=[DAGNode(-1)],
                 kwargs=dict(dim={k: [v] for k, v in coords.items()}),
                 file_cache=dict(read=False, write=False),
+                **extra_kwargs,
             )
 
         def add_transformations(
@@ -290,6 +309,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
             tag: str,
             subspace: dict,
             combination_method: str,
+            allow_missing_or_failing: bool,
             combination_kwargs: dict = None,
             **select_kwargs,
         ) -> None:
@@ -297,27 +317,6 @@ class MultiversePlotCreator(ExternalPlotCreator):
             data from a single universe and transform it, i.e.: all the preps
             necessary to arrive at another input argument to the combiation.
             """
-
-            def get_uni(state_no: int) -> ParamSpaceStateGroup:
-                """Given a state number, returns the corresponding universe"""
-                try:
-                    return self.psgrp[state_no]
-
-                except Exception as exc:
-                    if combination_method not in ["merge"]:
-                        raise ValueError(
-                            f"Missing data for universe {state_no}, which "
-                            "is required for concatenation."
-                        )
-                    log.warning(
-                        "Missing data for universe %d; this will lead "
-                        "to NaNs in the combined results."
-                    )
-                    raise NotImplementedError(
-                        "Cannot handle missing data "
-                        "during merge operations yet."
-                    )
-                    return None  # TODO
 
             # Get the parameter space object
             psp = copy.deepcopy(self.psgrp.pspace)
@@ -328,30 +327,60 @@ class MultiversePlotCreator(ExternalPlotCreator):
 
             # Prepare iterators and extract shape information
             psp_it = psp.iterator(
-                with_info=("state_no", "current_coords"), omit_pt=True
+                with_info=("state_no_str", "current_coords"), omit_pt=True
             )
 
             # For each universe in the subspace, add a sequence of transform
             # operations that lead to the data being selected and (optionally)
             # further transformed. Keep track of the reference to the last
             # node of each branch, which is a node that assigns coordinates to
-            # each node of the parameter space
+            # each point of the parameter space.
+            # Also, keep track of missing universes and generate a warning
+            # message that should help circumventing the problem.
+            missing = []
             refs = [
                 add_uni_transformations(
                     dag,
-                    uni=get_uni(state_no),
+                    uni_name=state_no_str,
                     coords=coords,
                     path=path,
+                    missing=missing,
+                    allow_missing_or_failing=allow_missing_or_failing,
                     **select_kwargs,
                 )
-                for state_no, coords in psp_it
+                for state_no_str, coords in psp_it
             ]
+
+            # Handle missing universes and behavior upon transformation failure
+            if missing and not allow_missing_or_failing:
+                log.caution(
+                    "The following %d parameter space states are missing from "
+                    "%s: %s\nThis will probably lead to an error during "
+                    "computation of the data transformation results.\n"
+                    "Consider using the `select_and_combine.subspace` "
+                    "argument for field '%s'; alternatively, use the "
+                    "`allow_missing_or_failing` option.",
+                    len(missing),
+                    self.psgrp.logstr,
+                    ", ".join(missing),
+                    tag,
+                )
+
+            if allow_missing_or_failing and combination_method != "merge":
+                log.caution(
+                    "With `allow_missing_or_failing` set for field '%s', "
+                    "combination method '%s' is incompatible! "
+                    "Using 'merge' instead.",
+                    tag,
+                    combination_method,
+                )
+                combination_method = "merge"
 
             # Depending on the chosen combination method, create corresponding
             # additional transformations for combination via merge or via
             # concatenation.
             # This is also where the tag can be attached to.
-            if combination_method in ["merge"]:
+            if combination_method == "merge":
                 dag.add_node(
                     operation="dantro.merge",
                     args=[refs],
@@ -360,7 +389,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
                     **(combination_kwargs if combination_kwargs else {}),
                 )
 
-            elif combination_method in ["concat"]:
+            elif combination_method == "concat":
                 # For concatenation, it's best to have the data in an ndarray
                 # of xr.DataArray's, such that sequential applications of the
                 # xr.concat method along the array axes can be used for
@@ -391,6 +420,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
             fields: dict,
             subspace: dict = None,
             combination_method: str = "concat",
+            allow_missing_or_failing: bool = None,
             base_path: str = None,
         ) -> None:
             """Adds transformations to the given DAG that select data from the
@@ -405,6 +435,10 @@ class MultiversePlotCreator(ExternalPlotCreator):
                     data from.
                 combination_method (str, optional): The (default) combination
                     method of the multidimensional data.
+                allow_missing_or_failing (bool, optional): If set, will use an
+                    automatic fallback for missing data or failure during
+                    transformations.
+                    This may be overwritten by each field's separate option.
                 base_path (str, optional): If given, ``path`` specifications
                     of each field can be seen as relative to this path.
             """
@@ -439,16 +473,17 @@ class MultiversePlotCreator(ExternalPlotCreator):
                 spec["combination_method"] = spec.get(
                     "combination_method", combination_method
                 )
+                spec["allow_missing_or_failing"] = spec.get(
+                    "allow_missing_or_failing", allow_missing_or_failing
+                )
 
                 # Add the transformations for this specific tag
                 add_transformations(dag, tag=tag, **spec)
 
             # Done. :)
             log.remark(
-                "Added select-and-combine transformations for "
-                "tags: %s. The DAG contains %d nodes now.",
+                "Added select-and-combine transformations for tags: %s",
                 ", ".join(fields.keys()),
-                len(dag.nodes),
             )
             # NOTE Resetting the selection base is not necessary here, because
             #      the user-specified value is set directly after this function

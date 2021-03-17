@@ -2,6 +2,7 @@
 
 import copy
 import os
+from builtins import *  # ... to have exception types available in globals
 from typing import Any
 
 import numpy as np
@@ -28,6 +29,7 @@ from dantro.data_loaders import (
     XarrayLoaderMixin,
     YamlLoaderMixin,
 )
+from dantro.exceptions import *
 from dantro.groups import OrderedDataGroup
 from dantro.tools import load_yml, write_yml
 
@@ -468,6 +470,85 @@ def test_Transformation():
     assert "salt: 42" in yaml_dumps(t0s, register_classes=(Transformation,))
 
 
+def test_Transformation_fallback():
+    """Tests the fallback feature of the Transformation class"""
+    Transformation = dag.Transformation
+
+    # Without fallback
+    t0 = Transformation(operation="add", args=[1, 2], kwargs=dict())
+    assert t0.hashstr == "23cf81f382bd65f15f9e22ab80923a3b"
+    assert hash(t0.hashstr) == hash(t0)
+
+    assert "operation: add, 2 args, 0 kwargs" in str(t0)
+    expected_repr = (
+        "<dantro.dag.Transformation, operation='add', "
+        "args=[1, 2], kwargs={}, salt=None>"
+    )
+    assert repr(t0) == expected_repr
+
+    # With fallback: hash and repr changes
+    t1 = Transformation(
+        operation="add",
+        args=[1, 2],
+        kwargs=dict(),
+        allow_failure=True,
+        fallback=3,
+    )
+    assert t1.hashstr == "2c04f856d659dd1a70d75770e4e11610"
+    assert hash(t1.hashstr) == hash(t1)
+
+    assert "operation: add, 2 args, 0 kwargs, allows failure" in str(t1)
+    expected_repr = (
+        "<dantro.dag.Transformation, operation='add', "
+        "args=[1, 2], kwargs={}, salt=None, fallback=3>"
+    )
+    assert repr(t1) == expected_repr
+
+    # Initialization has requirements
+    with pytest.raises(ValueError, match="may only be passed with"):
+        Transformation(operation="add", args=[1, 2], kwargs=dict(), fallback=3)
+
+    with pytest.raises(ValueError, match="Invalid.*Choose from"):
+        Transformation(
+            operation="add", args=[1, 2], kwargs=dict(), allow_failure="foo"
+        )
+
+    # Can use a trivial fallback
+    t2 = Transformation(
+        operation="div",
+        args=[1, 0],
+        kwargs=dict(),
+        allow_failure=True,
+        fallback=np.inf,
+    )
+    assert t2.compute() == np.inf
+
+    # ... on an operation that would fail without fallback
+    t2_fail = Transformation(operation="div", args=[1, 0], kwargs=dict())
+    with pytest.raises(RuntimeError, match="ZeroDivisionError"):
+        t2_fail.compute()
+
+    # Can get a warning when using the fallback
+    t3 = Transformation(
+        operation="div",
+        args=[1, 0],
+        kwargs=dict(),
+        fallback=3,
+        allow_failure="warn",
+    )
+    with pytest.warns(DataOperationWarning, match="ZeroDivisionError"):
+        t3.compute()
+
+    # YAML serialization includes fallback
+    assert "fallback: 3" in yaml_dumps(t1, register_classes=(Transformation,))
+    assert "allow_failure: true" in yaml_dumps(
+        t1, register_classes=(Transformation,)
+    )
+    assert "allow_failure: warn" in yaml_dumps(
+        t3, register_classes=(Transformation,)
+    )
+
+
 def test_Transformation_dependencies(dm):
     """Tests that the Transformation's are aware of their dependencies"""
     Transformation = dag.Transformation
@@ -538,9 +619,7 @@ def test_TransformationDAG_syntax(dm):
         # Error checking arguments
         _raises = cfg.get("_raises", False)
         _exp_exc = (
-            Exception
-            if not isinstance(_raises, str)
-            else __builtins__[_raises]
+            Exception if not isinstance(_raises, str) else globals()[_raises]
         )
         _match = cfg.get("_match")
 
@@ -587,9 +666,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
         _raises = cfg.get("_raises", False)
         _raises_on_compute = cfg.get("_raises_on_compute", False)
         _exp_exc = (
-            Exception
-            if not isinstance(_raises, str)
-            else __builtins__[_raises]
+            Exception if not isinstance(_raises, str) else globals()[_raises]
         )
         _match = cfg.get("_match")
 

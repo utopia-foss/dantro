@@ -15,6 +15,10 @@ class DantroWarning(UserWarning):
     """Base class for all dantro-related warnings"""
 
 
+class DantroMessagingException(DantroError):
+    """Base class for exceptions that are used for messaging"""
+
+
 # General data tree warnings ..................................................
 
 
@@ -105,6 +109,25 @@ class ItemAccessError(KeyError, IndexError):
         )
 
 
+# For data ooperations ........................................................
+
+
+class DataOperationWarning(DantroWarning):
+    """Base class for warnings related to data operations"""
+
+
+class DataOperationError(DantroError):
+    """Base class for errors related to data operations"""
+
+
+class BadOperationName(DataOperationError, ValueError):
+    """Raised upon bad data operation name"""
+
+
+class DataOperationFailed(DataOperationError, RuntimeError):
+    """Raised upon failure to apply a data operation"""
+
+
 # DataManager-related .........................................................
 
 
@@ -163,10 +186,22 @@ class PlotCreatorError(PlottingError):
     """Raised when an error occured in a plot creator"""
 
 
-# PlotHelper . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+# Messaging . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
 
-class EnterAnimationMode(DantroError):
+class SkipPlot(DantroMessagingException):
+    """A custom exception class that denotes that a plot is to be skipped.
+
+    This is typically handled by the :py:class:`~dantro.plot_mngr.PlotManager`
+    and can thus be raised anywhere below it: in the plot creators, in the
+    user-defined plotting functions, ...
+    """
+
+    def __init__(self, what: str = ""):
+        super().__init__(what)
+
+
+class EnterAnimationMode(DantroMessagingException):
     """An exception that is used to convey to any
     :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` or derived
     creator that animation mode is to be entered instead of a regular
@@ -181,7 +216,7 @@ class EnterAnimationMode(DantroError):
     """
 
 
-class ExitAnimationMode(DantroError):
+class ExitAnimationMode(DantroMessagingException):
     """An exception that is used to convey to any
     :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` or derived
     creator that animation mode is to be exited and a regular single-file plot

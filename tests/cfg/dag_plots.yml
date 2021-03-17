@@ -24,6 +24,11 @@ _pm_init_kwargs:
           creator_init_kwargs:
             psgrp_path: psp/regular
 
+        creator.mv_missing:
+          creator: multiverse
+          creator_init_kwargs:
+            psgrp_path: psp/missing_data
+
         # .. Plot functions ...................................................
         dag.facet_grid:
           module: .generic
@@ -41,7 +46,6 @@ _pm_init_kwargs:
         select.randints_3D:
           select:
             randints: labelled/randints  # these are 3d, dimensions x, y, z
-
 
 _shared_plot_cfg: &shared_plot_cfg {}
 
@@ -81,6 +85,100 @@ config_based:
     plot_cfg: {}
     _raises: ValueError
     _match: No `creator` argument given
+
+
+  # .. Test handling of missing data in MultiversePlotCreator .................
+
+  mv_missing_uni_fails:
+    plot_cfg:
+      <<: *shared_plot_cfg
+      based_on: [creator.mv_missing, dag.facet_grid]
+
+      select_and_combine:
+        fields:
+          data: labelled/randints
+
+    _raises: PlotCreatorError
+    _match: DataOperationFailed.*No item .* available in ParamSpaceGroup
+
+  mv_missing_uni: &mv_warns_fallback
+    plot_cfg:
+      <<: *shared_plot_cfg
+      based_on: [creator.mv_missing, dag.facet_grid]
+
+      select_and_combine:
+        allow_missing_or_failing: warn
+        fields:
+          data: labelled/randints
+
+    _warns: DataOperationWarning
+    _match: failed during resolution of .* using fallback instead.
+
+  mv_missing_uni2:
+    <<: *mv_warns_fallback
+    plot_cfg:
+      <<: *shared_plot_cfg
+      based_on: [creator.mv_missing, dag.facet_grid]
+
+      select_and_combine:
+        allow_missing_or_failing: false  # testing whether override is used
+        combination_method: bad          # ignored
+        fields:
+          data:
+            allow_missing_or_failing: warn
+            combination_method: merge
+            path: labelled/randints
+
+    _warns: DataOperationWarning
+    _match: failed during resolution of .* using fallback instead.
+
+  mv_missing_uni_with_transform:
+    <<: *mv_warns_fallback
+    plot_cfg:
+      <<: *shared_plot_cfg
+      based_on: [creator.mv_missing, dag.facet_grid]
+
+      select_and_combine:
+        allow_missing_or_failing: warn
+        fields:
+          data:
+            path: labelled/randints
+            transform:
+              - .mean: [!dag_prev , [x]]
+
+  mv_missing_uni_with_bad_transform:
+    plot_cfg:
+      <<: *shared_plot_cfg
+      based_on: [creator.mv_missing, dag.facet_grid]
+
+      select_and_combine:
+        allow_missing_or_failing: silent  # ... because catching error
+        fields:
+          data:
+            path: labelled/randints
+            transform:
+              - .mean: [!dag_prev , [bad_argument_leading_to_failure]]
+
+    _raises: PlotCreatorError
+    _match: DataOperationFailed  # ... due to completely empty merged dataset
+
+  mv_missing_uni_bad_transform_recovered:
+    <<: *mv_warns_fallback
+    plot_cfg:
+      <<: *shared_plot_cfg
+      based_on: [creator.mv_missing, dag.facet_grid]
+
+      select_and_combine:
+        fields:
+          data:
+            allow_missing_or_failing: silent  # aiming to catch a different one
+            path: labelled/randints
+            transform:
+              - .mean: [!dag_prev , [bad_argument_leading_to_failure]]
+                allow_failure: warn
+                fallback: !dag_prev
+
+    _match: Failed applying operation '.mean'!.*bad_argument_leading_to_failure
 
 
   # .. Test DAG placeholder resolution ........................................
@@ -270,3 +368,28 @@ config_based:
         set_title:
           title: !dag_result title_str
       ### End ---- placeholder_title
+
+
+  doc_examples_mv_missing_data:
+    plot_cfg:
+      # Keys that need/should not be included
+      creator_init_kwargs:
+        psgrp_path: psp/missing_data
+
+      ### Start -- mv_missing_data
+      # Select the creator and use the generic facet grid plotting function
+      creator: multiverse
+
+      module: .generic
+      plot_func: facet_grid
+
+      # Select data, allowing for missing universes or failing .mean operation
+      select_and_combine:
+        allow_missing_or_failing: true
+        combination_method: merge        # needed with allow_missing_or_failing
+        fields:
+          data:
+            path: labelled/randints
+            transform:
+              - .mean: [!dag_prev , [x]]
+      ### End ---- mv_missing_data
