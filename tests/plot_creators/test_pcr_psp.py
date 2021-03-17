@@ -356,6 +356,9 @@ def test_MultiversePlotCreator_DAG_usage(init_kwargs):
         )
 
 
+# NOTE Handling of missing data is tested via `test_dag_plotting
+
+
 # -----------------------------------------------------------------------------
 # UniversePlotCreator ---------------------------------------------------------
 

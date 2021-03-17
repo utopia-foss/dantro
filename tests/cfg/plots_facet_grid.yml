@@ -51,28 +51,18 @@ auto:
     raises:
       6: [PlottingError, must be a permuted list]
 
-  custom_auto_encoding:
-    kinds: [line, pcolormesh]
+  auto_col_wrap:
+    kinds: [line]
     specifiers: []
     min_dims: 2
     max_dims: 5
     plot_kwargs:
       auto_encoding:
-        # Use custom order of encoding specifiers
-        pcolormesh: [y, x, frames, row, col]
-        line: [y, frames, row, col, hue]
-
-  auto_col_wrap:
-    kinds: [line]
-    specifiers: []
-    min_dims: 2
-    max_dims: 6
-    plot_kwargs:
-      auto_encoding:
-        line: [x, col, hue, frames, row]  # to provoke early col_wrap
+        # to provoke early col_wrap and test custom encoding
+        line: [x, col, hue, row]
       col_wrap: auto
     raises:
-      6: *line_plots_1d_or_2d
+      5: *line_plots_1d_or_2d
 
 
 # .. With `kind` specified ....................................................
@@ -133,17 +123,7 @@ kinds:
     min_dims: 4
     max_dims: 4
 
-  errorbars:
-    kinds: [errorbars]
-    specifiers: [x, hue, col]  # rest is auto-encoded
-    min_dims: 1
-    max_dims: 5
-    test_data_path: ds_labelled
-    plot_kwargs:
-      y: foo
-      yerr: bar
-      auto_encoding: true
-      use_bands: true
+  # NOTE errorbars kind is tested separately below
 
   scatter:
     kinds: [scatter]

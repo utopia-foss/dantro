@@ -8,6 +8,7 @@ full integration...
 
 import logging
 import os
+from builtins import *  # ... to have exception types available in globals
 
 import numpy as np
 import pytest
@@ -17,6 +18,7 @@ from pkg_resources import resource_filename
 from dantro import DataManager, PlotManager
 from dantro._yaml import load_yml
 from dantro.containers import PassthroughContainer
+from dantro.exceptions import *
 from dantro.plot_mngr import (
     InvalidCreator,
     PlotConfigError,
@@ -126,12 +128,6 @@ def pm(dm, out_dir, dag_plots_cfg) -> PlotManager:
 
 def test_config_based(pm, dag_plots_cfg):
     """Carries out fully config-based tests using a PlotManager"""
-    PCR_ERRS = {
-        "PlottingError": PlottingError,
-        "PlotConfigError": PlotConfigError,
-        "PlotCreatorError": PlotCreatorError,
-        "InvalidCreator": InvalidCreator,
-    }
 
     def invoke_plot(pm: PlotManager, *, name: str, plot_cfg: dict):
         return pm.plot(name=name, **plot_cfg)
@@ -143,19 +139,34 @@ def test_config_based(pm, dag_plots_cfg):
         # Find out whether this is expected to succeed or not
         _raises = case_cfg.get("_raises", False)
         _exp_exc = (
-            Exception
-            if not isinstance(_raises, str)
-            else (__builtins__.get(_raises) or PCR_ERRS[_raises])
+            Exception if not isinstance(_raises, str) else globals()[_raises]
+        )
+        _warns = case_cfg.get("_warns", False)
+        _exp_warning = (
+            UserWarning if not isinstance(_warns, str) else globals()[_warns]
         )
         _match = case_cfg.get("_match")
 
-        if not _raises:
+        if not _raises and not _warns:
             invoke_plot(pm, name=case_name, plot_cfg=case_cfg["plot_cfg"])
 
-        else:
+        elif _warns and not _raises:
+            log.info(
+                "Expecting %s (match: %s) ...", _exp_warning.__name__, _match
+            )
+            with pytest.warns(_exp_warning, match=_match):
+                invoke_plot(pm, name=case_name, plot_cfg=case_cfg["plot_cfg"])
+
+        elif _raises and not _warns:
             log.info("Expecting %s (match: %s) ...", _exp_exc.__name__, _match)
 
             with pytest.raises(_exp_exc, match=_match):
                 invoke_plot(pm, name=case_name, plot_cfg=case_cfg["plot_cfg"])
+
+        else:
+            raise ValueError(
+                "Cannot have `_raises` AND `_warns`! "
+                f"Check config of case {case_name}"
+            )
 
         log.info("\n\n\n--- Test case '%s' succeeded ---\n", case_name)

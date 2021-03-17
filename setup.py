@@ -5,20 +5,20 @@ from setuptools import find_packages, setup
 
 # Dependencies for dantro itself
 install_deps = [
-    "numpy>=1.20.1",
+    "numpy>=1.20",
     "xarray>=0.16.2",
-    "dask>=2.10.1",
-    "toolz>=0.10.0",        # For dask.delayed
-    "distributed>=2.10.0",  # For dask's distributed scheduler
-    "scipy>=1.6.1",         # Used as a netcdf4 storage engine for xarray
-    "sympy>=1.6.1",
+    "dask>=2.10",
+    "toolz>=0.10",          # For dask.delayed
+    "distributed>=2.10",    # For dask's distributed scheduler
+    "scipy>=1.6",           # Used as a netcdf4 storage engine for xarray
+    "sympy>=1.7",
     "h5py>=3.1",
-    "matplotlib>=3.2.1",
+    "matplotlib>=3.2",
     "seaborn>=0.11",
     "networkx>=2.5",
     "ruamel.yaml>=0.16.12",
     "dill>=0.3.3",          # For faster and more powerful pickling
-    "paramspace>=2.5.5",
+    "paramspace>=2.5.6",
 ]
 # NOTE When changing any of the dependencies, make sure to update the table of
 #      dependencies in README.md.
@@ -31,10 +31,10 @@ minimal_install_deps = [dep.replace(">=", "==") for dep in install_deps]
 
 # Dependencies for running tests and general development of dantro
 test_deps = [
-    "pytest>=3.4.0",
-    "pytest-cov>=2.5.1",
-    "tox>=3.1.2",
-    "pre-commit>=2.8.2",
+    "pytest>=3.4",
+    "pytest-cov>=2.5",
+    "tox>=3.1",
+    "pre-commit>=2.8",
 ]
 
 # Dependencies for building the dantro documentation

@@ -17,25 +17,11 @@ from .._dag_utils import resolve_placeholders as _resolve_placeholders
 from ..abc import AbstractPlotCreator
 from ..dag import TransformationDAG
 from ..data_mngr import DataManager
+from ..exceptions import SkipPlot
 from ..tools import recursive_update
 
 # Local constants
 log = logging.getLogger(__name__)
-
-
-# -----------------------------------------------------------------------------
-
-
-class SkipPlot(Exception):
-    """A custom exception class that denotes that a plot is to be skipped.
-
-    This is typically handled by the :py:class:`~dantro.plot_mngr.PlotManager`
-    and can thus be raised anywhere below it: in the plot creators, in the
-    user-defined plotting functions, ...
-    """
-
-    def __init__(self, what: str = ""):
-        super().__init__(what)
 
 
 # -----------------------------------------------------------------------------
@@ -343,7 +329,7 @@ class BasePlotCreator(AbstractPlotCreator):
         (such that path creation can be avoided).
 
         In cases where this plot is to be skipped, the custom exception
-        :py:class:`~dantro.plot_creators.pcr_base.SkipPlot` should be raised,
+        :py:class:`~dantro.exceptions.SkipPlot` should be raised,
         the error message allowing to specify a reason for skipping the plot.
 
         .. note::

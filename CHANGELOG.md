@@ -2,6 +2,16 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.16.1
+#### Features
+- !249 adds the `set_tick_locators` and `set_tick_formatters` methods to the `PlotHelper` to enable advanced tick settings.
+- !243 implements [error handling](https://dantro.readthedocs.io/en/latest/data_io/transform.html#error-handling) into the data transformation framework
+- !243 integrates error handling into the `MultiversePlotCreator` to allow selecting plot data from parameter spaces with missing data (#256)
+
+#### Enhancements
+- !247, !248, and !250 make dependency version specifications more compatible and make testing infrastructure more robust
+- !243 slightly extends the available data operations
+
 ## v0.16.0
 #### Features and Improvements
 - !241 makes `based_on` allow lookup from the same plots configuration and allows specifying multiple pools of base plot configurations.
@@ -12,7 +22,7 @@
     - !235 improves the warnings on changed graph size.
 
 #### Breaking changes and deprecations
-- With this release, we drop support for Python 3.6.
+- With this release, we **drop support for Python 3.6**.
 - !241 deprecates the `PlotManager` arguments `base_cfg` and `update_base_cfg` and replaces them by `base_cfg_pool`.
   Furthermore, `plots_cfg` is renamed to `default_plots_cfg`.
 

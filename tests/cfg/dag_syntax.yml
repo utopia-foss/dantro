@@ -529,6 +529,76 @@ salted:
       tag: ~
 
 
+allow_failure:
+  params:
+    select: {}
+    transform:
+      - operation: some_operation
+        allow_failure: False
+        tag: foo
+      - operation: another_operation
+        allow_failure: silent
+        fallback: ~ # ignored below
+        tag: bar
+      - operation: yet_another_operation
+        allow_failure: True
+        fallback: something
+        tag: baz
+
+  expected:
+    - operation: some_operation
+      args: []
+      kwargs: {}
+      tag: foo
+      allow_failure: False
+    - operation: another_operation
+      args: []
+      kwargs: {}
+      tag: bar
+      allow_failure: silent
+    - operation: yet_another_operation
+      args: []
+      kwargs: {}
+      tag: baz
+      allow_failure: True
+      fallback: something
+
+
+allow_failure_select:
+  params:
+    select:
+      spam:
+        path: some/bad/path
+        allow_failure: silent
+        fallback: i am the fallback
+        transform:
+          - some_failing_operation: [!dag_prev , foo]
+            allow_failure: true
+            fallback: some other fallback
+    transform: []
+
+  expected:
+    - operation: getitem
+      args:
+        - *ref_dm
+        - some/bad/path
+      kwargs: {}
+      tag: ~
+      allow_failure: silent
+      fallback: i am the fallback
+      file_cache:
+        read: false
+        write: false
+    - operation: some_failing_operation
+      args:
+        - !dag_prev
+        - foo
+      kwargs: {}
+      allow_failure: true
+      fallback: some other fallback
+      tag: spam
+
+
 # -----------------------------------------------------------------------------
 
 file_cache_defaults:

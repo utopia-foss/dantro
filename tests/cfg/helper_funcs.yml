@@ -239,6 +239,91 @@
 
 
 # .............................................................................
+- set_tick_locators:
+    x:
+      minor:
+        name: LinearLocator
+        numticks: 6
+- set_tick_locators:
+    y:
+      major:
+        name: LinearLocator
+        args: [6]
+- set_tick_locators:
+    y:
+      minor:
+        name: IndexLocator
+        base: 0.5
+        offset: 0.25
+- set_tick_locators:
+    x:
+      major:
+        name: MaxNLocator
+        nbins: 6
+        integer: true
+        min_n_ticks: 3
+    y:
+      major:
+        name: MultipleLocator
+        base: 2.5
+- set_tick_locators:
+    x:
+      major:
+        name: wrong_name
+  _raises: AttributeError
+  _match: The given locator name
+- set_tick_locators:
+    x:
+      minor:
+        name: MaxNLocator
+        args: [bad, argument, list]
+  _raises: ValueError
+  _match: Failed setting minor locator
+
+
+# .............................................................................
+- set_tick_formatters:
+    y:
+      minor:
+        name: ScalarFormatter
+- set_tick_formatters:
+    x:
+      minor:
+        name: PercentFormatter
+        xmax: 5
+- set_tick_formatters:
+    y:
+      minor:
+        name: PercentFormatter
+        args: [5]
+- set_tick_formatters:
+    x:
+      major:
+        name: FormatStrFormatter
+        args: [">%d<"]
+    y:
+      major:
+        name: StrMethodFormatter
+        args: ['{x:.3g}']
+      minor:
+        name: StrMethodFormatter
+        args: ['{x:.3g}']
+- set_tick_formatters:
+    x:
+      major:
+        name: wrong_name
+  _raises: AttributeError
+  _match: The given formatter name
+- set_tick_formatters:
+    x:
+      major:
+        name: ScalarFormatter
+        bad_argument: bad
+  _raises: ValueError
+  _match: Failed setting major formatter
+
+
+# .............................................................................
 - despine: {}
 - despine:
     left: true
