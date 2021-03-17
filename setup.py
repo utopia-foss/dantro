@@ -6,12 +6,12 @@ from setuptools import find_packages, setup
 # Dependencies for dantro itself
 install_deps = [
     "numpy>=1.20",
-    "xarray>=0.16",
+    "xarray>=0.16.2",
     "dask>=2.10",
     "toolz>=0.10",          # For dask.delayed
     "distributed>=2.10",    # For dask's distributed scheduler
     "scipy>=1.6",           # Used as a netcdf4 storage engine for xarray
-    "sympy>=1.6",
+    "sympy>=1.7",
     "h5py>=3.1",
     "matplotlib>=3.2",
     "seaborn>=0.11",
