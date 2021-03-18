@@ -2,9 +2,10 @@
 
 import collections
 import logging
+import os
 import subprocess
 import sys
-from typing import List, Mapping, Sequence, Tuple, Union
+from typing import List, Mapping, Sequence, Set, Tuple, Union
 
 import numpy as np
 
@@ -173,6 +174,15 @@ def fill_line(
         )
 
     raise ValueError("align argument '{}' not supported".format(align))
+
+
+def print_line(s: str, *, end="\r", **kwargs):
+    """Wrapper around :py:func:`~dantro.tools.fill_line` that also prints
+    a line with carriage return (without new line) as end character. This is
+    useful for progress report lines that overwrite the previously printed
+    content repetitively.
+    """
+    print(fill_line(s, **kwargs), end=end)
 
 
 def center_in_line(
@@ -383,6 +393,11 @@ class adjusted_log_levels:
             logging.getLogger(name).setLevel(old_level)
 
 
+def total_bytesize(files: List[str]) -> int:
+    """Returns the total size of a list of files"""
+    return sum([os.path.getsize(fpath) for fpath in files])
+
+
 def format_bytesize(num: int, *, precision: int = 1) -> str:
     """Formats a size in bytes to a human readable (binary) format.
 
@@ -427,3 +442,48 @@ def format_bytesize(num: int, *, precision: int = 1) -> str:
             num /= unit_step
 
     return FSTRS[precision].format("-" if is_negative else "", num, unit)
+
+
+class PoolCallbackHandler:
+    """A simple callback handler for multiprocessing pools"""
+
+    def __init__(
+        self,
+        n_max: int,
+        *,
+        silent: bool = False,
+        fstr: str = "  Loaded  {n}/{n_max} .",
+    ):
+        """
+        Args:
+            n_max (int): Number of tasks
+            silent (bool, optional): If true, will *not* print a message
+            fstr (str, optional): The format string for the status message.
+                May contain keys ``n`` and ``n_max``.
+        """
+        self._n = 0
+        self._n_max = n_max
+        self.silent = silent
+        self._fstr = fstr
+
+    def __call__(self, _):
+        self._n += 1
+        if not self.silent:
+            print_line(self._fstr.format(n=self._n, n_max=self._n_max))
+
+
+class PoolErrorCallbackHandler:
+    """A simple callback handler for errors in multiprocessing pools"""
+
+    def __init__(self):
+        self._errors = set()
+
+    def __call__(self, error: Exception):
+        self.track_error(error)
+
+    def track_error(self, error: Exception):
+        self._errors.update({error})
+
+    @property
+    def errors(self) -> Set[Exception]:
+        return self._errors

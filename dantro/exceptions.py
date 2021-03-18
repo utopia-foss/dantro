@@ -155,6 +155,10 @@ class LoaderError(DataManagerError):
     """Raised if a data loader was not available"""
 
 
+class DataLoadingError(DataManagerError):
+    """Raised if loading data failed for some reason"""
+
+
 class MissingDataWarning(DantroWarning):
     """Used as warning instead of MissingDataError"""
 

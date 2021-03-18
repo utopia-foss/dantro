@@ -183,8 +183,7 @@ def test_Link_and_StrongLink(root):
 def test_Link_pickling(root):
     """Tests pickling of Link objects"""
     link_root2c2 = Link(anchor=root, rel_path="group/subgroup/c2")
-    with pytest.raises(Exception, match="Can't pickle"):
-        pickle_roundtrip(link_root2c2)
+    pickle_roundtrip(link_root2c2) == link_root2c2
 
     stronglink_root2c2 = StrongLink(anchor=root, rel_path="group/subgroup/c2")
     pickle_roundtrip(stronglink_root2c2) == stronglink_root2c2
