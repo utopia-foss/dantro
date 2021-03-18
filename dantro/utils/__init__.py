@@ -8,5 +8,5 @@ from .coords import (
     extract_dim_names,
 )
 from .data_ops import apply_operation, available_operations, register_operation
-from .link import Link
+from .link import Link, StrongLink
 from .ordereddict import IntOrderedDict, KeyOrderedDict
