@@ -8,7 +8,7 @@ import numpy as np
 
 from ..abc import AbstractDataContainer
 from ..tools import is_iterable
-from .link import Link
+from .link import Link, StrongLink
 
 log = logging.getLogger(__name__)
 
@@ -202,7 +202,7 @@ def _coords_linked(cargs, *, link_anchor_obj, **__) -> Link:
     # resolution has to be postponed until it is clear.
     # For that reason, create a link object, which can forward to an
     # actual container once the coordinates are applied...
-    return Link(anchor=link_anchor_obj, rel_path=cargs)
+    return StrongLink(anchor=link_anchor_obj, rel_path=cargs)
 
 
 # Map of extractors ...........................................................
