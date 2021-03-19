@@ -2,7 +2,7 @@
 
 import logging
 import weakref
-from typing import TypeVar
+from typing import Any, Callable
 
 from ..abc import PATH_JOIN_CHAR
 from ..base import BaseDataContainer, BaseDataGroup
@@ -10,11 +10,6 @@ from ..mixins import ForwardAttrsMixin
 
 # Local constants
 log = logging.getLogger(__name__)
-
-# Type definitions
-TGroupOrContainer = TypeVar(
-    "TGroupOrContainer", BaseDataContainer, BaseDataGroup
-)
 
 # -----------------------------------------------------------------------------
 
@@ -29,15 +24,23 @@ class Link(ForwardAttrsMixin):
     Whenever attribute access occurs, an object of this class will resolve the
     linked object (if not already cached) and then forward the attribute call
     to that object.
+
+    The references are internally stored as weak references; this limits the
+    picklability of objects of this class.
     """
 
-    FORWARD_ATTR_TO = "target_object"  # ...but see …_forwarding_target method!
+    # Use weak references for linking
+    _REF_TYPE = weakref.ref
 
-    def __init__(self, *, anchor: TGroupOrContainer, rel_path: str):
+    # Forward attributes to the target object property
+    # (...but see `*_forwarding_target` method for more information)
+    FORWARD_ATTR_TO = "target_object"
+
+    def __init__(self, *, anchor: BaseDataContainer, rel_path: str):
         """Initialize a link from an anchor and a relative path to a target"""
         # Use name-mangling to not take up any attributes that might get in the
         # way of attribute forwarding ...
-        self.__anchor = weakref.ref(anchor)
+        self.__anchor = self._REF_TYPE(anchor)
         self.__rel_path = rel_path
         self.__target_ref_cache = None
 
@@ -74,7 +77,7 @@ class Link(ForwardAttrsMixin):
         return self.__target_ref_cache
 
     @property
-    def target_object(self) -> TGroupOrContainer:
+    def target_object(self) -> BaseDataContainer:
         """Return a (non-weak) reference to the actual target object"""
         return self.target_weakref()  # calling property to resolve the weakref
 
@@ -86,7 +89,7 @@ class Link(ForwardAttrsMixin):
         return self.__anchor
 
     @property
-    def anchor_object(self) -> TGroupOrContainer:
+    def anchor_object(self) -> BaseDataContainer:
         """Return a (non-weak) reference to the anchor object"""
         return self.__anchor()
 
@@ -122,16 +125,9 @@ class Link(ForwardAttrsMixin):
 
             obj = obj.parent
 
-        # Try traversing the path, going to the parent or a child depending on
-        # which kind of segment is encountered.
+        # Try traversing the path
         try:
-            for segment in self.__rel_path.split(PATH_JOIN_CHAR):
-                # Skip empty segments, i.e. `foo//bar` paths. This makes path
-                # traversal more robust and mirrors UNIX behaviour (try it).
-                if not segment:
-                    continue
-
-                obj = obj.parent if segment == ".." else obj[segment]
+            obj = obj[self.__rel_path]
 
         except Exception as err:
             raise ValueError(
@@ -148,7 +144,7 @@ class Link(ForwardAttrsMixin):
             self.__anchor().path,
         )
 
-        self.__target_ref_cache = weakref.ref(obj)
+        self.__target_ref_cache = self._REF_TYPE(obj)
 
     def _forward_attr_get_forwarding_target(self):
         """Get the object that the attribute call is to be forwarded to, i.e.
@@ -157,3 +153,38 @@ class Link(ForwardAttrsMixin):
         will not be cached.
         """
         return self.target_object
+
+
+# -----------------------------------------------------------------------------
+
+
+class _strongref:
+    """Emulates part of the ``weakref.ref`` interface but uses regular
+    references instead of weak references.
+
+    This is used *internally* by :py:class:`~dantro.utils.link.StrongLink` and
+    improves picklability.
+    """
+
+    def __init__(self, obj: Any):
+        self._obj = obj
+
+    def __call__(self) -> Any:
+        return self._obj
+
+    def __eq__(self, other) -> bool:
+        """Two strong references are equal if and only if they point to the
+        identical object.
+        """
+        if type(self) is not type(other):
+            return False
+        return self._obj is other._obj
+
+
+class StrongLink(Link):
+    """Like a :py:class:`~dantro.utils.link.Link`, but not using regular
+    (non-weak) references instead of weak references, which improves the
+    pickleability of these objects.
+    """
+
+    _REF_TYPE = _strongref

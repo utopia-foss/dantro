@@ -20,6 +20,7 @@ py:class collections.abc.Mapping
 py:class collections.abc.MutableMapping
 py:class collections.abc.MutableSequence
 py:class logging.Logger
+py:class builtins.weakref
 
 # Exceptions, both as exception reference and type reference
 py:exc Exception

@@ -302,7 +302,7 @@ class XrDataContainer(
                 if isinstance(coords, Link):
                     # The target object is another DataContainer, which can not
                     # be used for association. Thus, just pass the raw data...
-                    coords = coords.target_object.values  # np.ndarray now
+                    coords = np.array(coords.target_object)
 
                 # Can associate now.
                 try:

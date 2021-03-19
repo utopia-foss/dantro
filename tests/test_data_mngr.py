@@ -1,6 +1,7 @@
 """Test the DataManager class and the loader functions"""
 
 import copy
+import glob
 import os
 
 import dill as pkl
@@ -28,9 +29,10 @@ from dantro.data_loaders import (
     XarrayLoaderMixin,
     YamlLoaderMixin,
 )
+from dantro.exceptions import *
 from dantro.groups import OrderedDataGroup
 from dantro.mixins import Hdf5ProxySupportMixin
-from dantro.tools import write_yml
+from dantro.tools import total_bytesize, write_yml
 
 from .test_base import pickle_roundtrip
 
@@ -54,43 +56,33 @@ class DataManager(YamlLoaderMixin, dantro.data_mngr.DataManager):
 class TextDataManager(TextLoaderMixin, DataManager):
     """A data manager that is able to load text files"""
 
-    pass
-
 
 class PklDataManager(PickleLoaderMixin, DataManager):
     """A data manager that is able to load pickled files"""
-
-    pass
 
 
 class NumpyDataManager(NumpyLoaderMixin, DataManager):
     """A DataManager to load numpy data"""
 
-    pass
-
 
 class XarrayDataManager(XarrayLoaderMixin, DataManager):
     """A DataManager to load xarray data"""
-
-    pass
 
 
 class NumpyTestDC(Hdf5ProxySupportMixin, NumpyDataContainer):
     """A data container class that provides numpy proxy access"""
 
-    pass
+
+class XrTestDC(Hdf5ProxySupportMixin, XrDataContainer):
+    """A data container class that provides xarray proxy access"""
 
 
-class DummyDC(NumpyDataContainer):
+class DummyDC(NumpyTestDC):
     """A data container class for testing the _HDF5_DSET_MAP"""
-
-    pass
 
 
 class DummyGroup(OrderedDataGroup):
     """A data container class for testing the _HDF5_GROUP_MAP"""
-
-    pass
 
 
 class Hdf5DataManager(Hdf5LoaderMixin, DataManager):
@@ -98,7 +90,7 @@ class Hdf5DataManager(Hdf5LoaderMixin, DataManager):
 
     # Define the class to use for loading the datasets and the mappings
     _HDF5_DSET_DEFAULT_CLS = NumpyTestDC
-    _HDF5_DSET_MAP = dict(dummy=DummyDC)
+    _HDF5_DSET_MAP = dict(dummy=DummyDC, labelled=XrTestDC)
     _HDF5_GROUP_MAP = dict(dummy=DummyGroup)
     _HDF5_MAP_FROM_ATTR = "container_type"
 
@@ -136,6 +128,12 @@ def data_dir(tmpdir) -> str:
     write_yml(foobar, path=merged.join("cfg0.yml"))
     write_yml(foobar, path=merged.join("cfg1.yml"))
     write_yml(foobar, path=merged.join("cfg2.yml"))
+
+    # Some files that are unreadable with the YAML loader
+    with open(tmpdir.join("not_loadable.bad_yml"), "x+") as f:
+        f.write("{bad syntax: , ]})!*\n")
+    with open(tmpdir.join("bad_anchor.bad_yml"), "x+") as f:
+        f.write("{foo: *bad_anchor}\n")
 
     return tmpdir
 
@@ -302,14 +300,31 @@ def hdf5_dm(data_dir) -> Hdf5DataManager:
 
     mapping.close()
 
+    # --- Create a file with labelled data as test for a complex scenario ---
+    labelled = h5.File(h5dir.join("labelled.h5"), "w")
+
+    some_dset = labelled.create_dataset("some_dset", data=np.zeros((2, 3, 4)))
+    for k, v in dict(
+        container_type="labelled",
+        dims=["x", "y", "z"],
+        coords__x=[0, 1],
+        coords__y=[0, 10, 20],
+        coords_mode__z="linked",
+        coords__z="./coords/z",
+    ).items():
+        some_dset.attrs[k] = v
+    labelled.create_dataset("coords/z", data=np.array([1, 2, 3, 4]))
+
+    labelled.close()
+
     # Instantiate a data manager for this directory
     return Hdf5DataManager(data_dir, out_dir=None)
 
 
 # End of fixtures -------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# General tests ---------------------------------------------------------------
+
+# =============================================================================
+# General Tests ===============================================================
 
 
 def test_init(data_dir):
@@ -337,6 +352,7 @@ def test_init(data_dir):
 
     # It should create a hashstr
     assert len(dm.hashstr) == 32
+    assert hash(dm.hashstr) == hash(dm)
 
     # There should be a default tree file path
     assert ".d3" in dm.tree_cache_path
@@ -553,12 +569,19 @@ def test_loading_errors(dm):
 
     # Check for invalid loaders ...............................................
     with pytest.raises(dantro.data_mngr.LoaderError):
-        dm.load("nopenopenope", loader="nope", glob_str="*.")
+        dm.load("nopenopenope", loader="nope", glob_str="*")
 
     with pytest.raises(dantro.data_mngr.LoaderError):
         dm.load("nopenopenope", loader="bad_loadfunc", glob_str="*")
 
-    print(dm.tree)
+    # Loading itself may fail .................................................
+    with pytest.raises(DataLoadingError, match="Failed loading file"):
+        dm.load("failing", loader="yaml", glob_str="*.bad_yml", required=True)
+    assert "failing" not in dm
+
+    # ... but it will only warn if the data was not required
+    dm.load("failing", loader="yaml", glob_str="*.bad_yml", required=False)
+    assert "failing" not in dm
 
 
 def test_loading_exists_action(dm):
@@ -960,6 +983,109 @@ def test_parse_file_path(dm):
     assert parse("~/f", default_ext=".oo") == os.path.expanduser("~/f.oo")
 
 
+def test_parallel_loading_options(dm):
+    """Tests the helper function that parses parallel loading options"""
+    parse = dantro.data_mngr._parse_parallel_opts
+
+    # Need a file list and the CPU count
+    cpus = os.cpu_count()
+    assert cpus > 3
+
+    f = glob.glob(os.path.join(dm.dirs["data"], "**/*"), recursive=True)
+    assert len(f) > 2
+
+    fs = total_bytesize(f)
+    assert fs > 1000
+
+    assert parse(f) == cpus
+    assert parse(f, enabled=True) == cpus
+    assert parse(f, enabled=False) == 1
+
+    assert parse(f, processes=1) == 1
+    assert parse(f, processes=3) == 3
+    assert parse(f, processes=-2) == min(cpus - 2, len(f))
+    assert parse(f, processes=cpus + 1) == min(cpus + 1, len(f))
+
+    assert parse(f, min_files=0) == cpus
+    assert parse(f, min_files=len(f) - 1) == cpus
+    assert parse(f, min_files=len(f) + 1) == 1
+
+    assert parse(f, min_total_size=1) == cpus
+    assert parse(f, min_total_size=0.1) == cpus
+    assert parse(f, min_total_size=fs - 1) == cpus
+    assert parse(f, min_total_size=fs + 1) == 1
+
+    # all combined
+    assert (
+        parse(f, processes=-1, min_files=len(f) - 1, min_total_size=fs - 1)
+        == cpus - 1
+    )
+
+    # will never return more cpus than files
+    # can mock files list here, because file size is not checked here
+    assert parse(["foo", "bar"], processes=1000) == 2
+    assert parse(["foo"] * cpus, processes=2 * cpus) == cpus
+    assert parse(["foo"] * 10000, processes=2 * cpus) == 2 * cpus
+    assert parse(["foo"] * 10000, processes=-2) == cpus - 2
+
+
+def test_parallel(dm, hdf5_dm):
+    """Tests basic parallel loading interface"""
+    dm.load(
+        "yml0", loader="yaml", glob_str="*.yml", parallel=True, required=True
+    )
+
+    assert "yml0" in dm
+    assert "yml0/foobar" in dm
+    assert "yml0/lamo" in dm
+    assert "yml0/also_lamo" in dm
+    assert "yml0/looooooooooong_filename" in dm
+
+    # Can also use a shortcut for number of processes
+    dm.load(
+        "yml1",
+        loader="yaml",
+        glob_str="*.yml",
+        parallel=-1,
+        required=True,
+    )
+
+    # ... or provide more options via a dict
+    dm.load(
+        "yml2",
+        loader="yaml",
+        glob_str="*.yml",
+        parallel=dict(processes=2, min_files=3),
+        required=True,
+    )
+
+    # Provoke an error during loading by loading an unparseable file
+    with pytest.raises(
+        DataLoadingError, match="There were 2 errors during parallel loading"
+    ):
+        dm.load(
+            "fail",
+            loader="yaml",
+            glob_str="*.bad_yml",
+            parallel=True,
+            required=True,
+        )
+    assert "fail" not in dm
+
+    # ... which will only warn if its not required
+    dm.load(
+        "fail",
+        loader="yaml",
+        glob_str="*.bad_yml",
+        parallel=True,
+        required=False,
+    )
+    assert "fail" not in dm
+
+
+# =============================================================================
+# Loaders =====================================================================
+
 # TextLoaderMixin tests -------------------------------------------------------
 
 
@@ -1128,9 +1254,13 @@ def test_hdf5_proxy_loader(hdf5_dm):
 
 
 def test_hdf5_mapping(hdf5_dm):
-    """Tests whether container mapping works as desired"""
+    """Tests whether container mapping works as desired, also with proxies"""
     hdf5_dm.load(
-        "h5data", loader="hdf5", glob_str="**/*.h5", enable_mapping=True
+        "h5data",
+        loader="hdf5_proxy",
+        glob_str="**/*.h5",
+        enable_mapping=True,
+        required=True,
     )
 
     # Test that the mapping works
@@ -1147,12 +1277,33 @@ def test_hdf5_mapping(hdf5_dm):
     assert isinstance(mp["badmap_dset"], NumpyTestDC)
     assert isinstance(mp["badmap_group"], OrderedDataGroup)
 
-    # With bad values for which attribute to use, this should fail
+    # Check again for labelled data (the more complex scenario)
+    lab = hdf5_dm["h5data/labelled"]
+    xrdc = lab["some_dset"]
+    assert isinstance(xrdc, XrTestDC)
+    assert xrdc.data_is_proxy
+    xrdc.data
+    assert not xrdc.data_is_proxy
+    assert isinstance(xrdc.data, xr.DataArray)
+
+    # ... linked coordinates were also loaded
+    print(xrdc.coords)
+    assert "z" in xrdc.coords
+    assert (xrdc.coords["z"].values == [1, 2, 3, 4]).all()
+
+    # With bad values for which attribute to use, mapping should fail
     hdf5_dm._HDF5_MAP_FROM_ATTR = None
 
-    with pytest.raises(ValueError, match="Could not determine from which"):
+    with pytest.raises(
+        DataLoadingError, match="Could not determine from which attribute"
+    ):
         hdf5_dm.load(
-            "no_attr", loader="hdf5", glob_str="**/*.h5", enable_mapping=True
+            "no_attr",
+            loader="hdf5",
+            glob_str="**/*.h5",
+            ignore=["hdf5_data/labelled.h5"],
+            enable_mapping=True,
+            required=True,
         )
 
     # Explicitly passing an attribute name should work though
@@ -1160,8 +1311,32 @@ def test_hdf5_mapping(hdf5_dm):
         "with_given_attr",
         loader="hdf5",
         glob_str="**/*.h5",
+        ignore=["hdf5_data/labelled.h5"],  # would need proxy, see issue #273
         enable_mapping=True,
         map_from_attr="container_type",
+        required=True,
+    )
+
+
+def test_hdf5_loader_parallel(hdf5_dm):
+    """Test parallel loading"""
+    # In a basic configuration
+    hdf5_dm.load(
+        "regular",
+        loader="hdf5",
+        glob_str="**/*.h5",
+        required=True,
+        parallel=True,
+    )
+
+    # With mapping and proxies features
+    hdf5_dm.load(
+        "as_proxy",
+        loader="hdf5_proxy",
+        glob_str="**/*.h5",
+        enable_mapping=True,
+        required=True,
+        parallel=True,
     )
 
 
@@ -1263,7 +1438,7 @@ def test_dump_and_restore(hdf5_dm):
     assert os.path.isabs(p1)
     assert p1.endswith(".tree_cache.d3")
     d1_size = os.path.getsize(p1)
-    assert 9 * 1024 < d1_size < 13 * 1024  # ... platform-dependent
+    assert 10 * 1024 < d1_size < 15 * 1024  # ... platform-dependent
 
     # Need a new DataManager in order to retain the one above for comparsion
     dm1 = new_dm()

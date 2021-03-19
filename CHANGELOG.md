@@ -2,6 +2,10 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.16.2
+- !253 implements parallel loading of files via the `DataManager` and is usable for all data loaders.
+  Refer to the [`DataManager.load` docstring](https://dantro.readthedocs.io/en/stable/api/dantro.data_mngr.html#dantro.data_mngr.DataManager.load) for more information.
+
 ## v0.16.1
 #### Features
 - !249 adds the `set_tick_locators` and `set_tick_formatters` methods to the `PlotHelper` to enable advanced tick settings.

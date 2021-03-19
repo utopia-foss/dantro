@@ -11,7 +11,7 @@ from ..base import BaseDataContainer, BaseDataGroup
 from ..containers import NumpyDataContainer
 from ..groups import OrderedDataGroup
 from ..proxy import Hdf5DataProxy
-from ..tools import decode_bytestrings, fill_line
+from ..tools import decode_bytestrings, print_line
 from ._tools import add_loader
 
 # Local constants
@@ -191,7 +191,7 @@ class Hdf5LoaderMixin:
                     key="",
                     path="",
                 )
-                print(fill_line(_info), end="\r")
+                print_line(_info)
 
             # Load the file level attributes, manually re-creating the dict
             root.attrs = {
@@ -394,7 +394,7 @@ class Hdf5LoaderMixin:
                 name=name,
                 path=h5dset.name,
             )
-            print(fill_line(_info), end="\r")
+            print_line(_info)
 
         # Extract attributes manually
         attrs = {k: self._decode_attr_val(v) for k, v in h5dset.attrs.items()}
