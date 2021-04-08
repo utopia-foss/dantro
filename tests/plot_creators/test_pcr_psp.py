@@ -228,9 +228,9 @@ def test_MultiversePlotCreator_DAG_usage(init_kwargs):
     assert (state.coords["y"] == [1, 2, 3, 4]).all()
     assert (state.coords["z"] == [1, 2, 3, 4, 5]).all()
 
-    # Check number of nodes: 2 nodes per universe, plus one for selection of
-    # the ParamSpaceGroup and plus two for concatenation
-    assert len(kwargs["dag"].nodes) == 2 * np.prod(pspace.volume) + 3
+    # Check number of nodes: 2 nodes per universe, +1 for selection of the
+    # ParamSpaceGroup, +3 for concatenation, +0 for transform_after_combine
+    assert len(kwargs["dag"].nodes) == 2 * np.prod(pspace.volume) + 1 + 3 + 0
 
     # Can additionally select some data
     _, kwargs = mpc._prepare_plot_func_args(
@@ -259,17 +259,39 @@ def test_MultiversePlotCreator_DAG_usage(init_kwargs):
 
     # Add transformations to each universe ...
     sac_trf = dict(
+        transform_after_combine=["increment", "increment", "increment"],
         fields=dict(
-            state_plus1=dict(path="labelled/randints", transform=["increment"])
-        )
+            state_plus1=dict(
+                path="labelled/randints",
+                transform=["increment"],
+                transform_after_combine=None,  # overwrite default
+            ),
+        ),
     )
     _, kwargs = mpc._prepare_plot_func_args(
         mock_pfunc, use_dag=True, select_and_combine=sac_trf
     )
 
-    # ... requiring more nodes now
-    assert len(kwargs["dag"].nodes) == (2 + 1) * np.prod(pspace.volume) + 3
+    # ... requiring more nodes now (but +0 for `transform_after_combine`)
+    assert len(kwargs["dag"].nodes) == (2 + 1) * np.prod(pspace.volume) + 4 + 0
     assert (kwargs["data"]["state_plus1"] == state + 1).all()
+
+    # Actually use `transform_after_combine` now
+    sac_trf_pp = dict(
+        transform_after_combine=["decrement", "decrement", "decrement"],
+        fields=dict(
+            state_with_postprocessing=dict(
+                path="labelled/randints",
+                transform=["increment"],
+                # transform_after_combine=None,  # NOT overwriting default
+            ),
+        ),
+    )
+    _, kwargs = mpc._prepare_plot_func_args(
+        mock_pfunc, use_dag=True, select_and_combine=sac_trf_pp
+    )
+    assert len(kwargs["dag"].nodes) == (2 + 1) * np.prod(pspace.volume) + 4 + 3
+    assert (kwargs["data"]["state_with_postprocessing"] == state + 1 - 3).all()
 
     # Select only a subspace
     subspace = dict(p0=[1], p1=[1, 2], p2=[2], a0=[1])
@@ -316,7 +338,7 @@ def test_MultiversePlotCreator_DAG_usage(init_kwargs):
     state = data["state"]
 
     # Merge operation needs one fewer node
-    assert len(kwargs["dag"].nodes) == 2 * np.prod(pspace.volume) + 2
+    assert len(kwargs["dag"].nodes) == 2 * np.prod(pspace.volume) + 3
 
     # ... still resulting in an xr.DataArray
     assert isinstance(state, xr.DataArray)
@@ -356,7 +378,7 @@ def test_MultiversePlotCreator_DAG_usage(init_kwargs):
         )
 
 
-# NOTE Handling of missing data is tested via `test_dag_plotting
+# NOTE Handling of missing data is tested via `test_dag_plotting`
 
 
 # -----------------------------------------------------------------------------
