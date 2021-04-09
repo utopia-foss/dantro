@@ -7,6 +7,7 @@ import pytest
 import xarray as xr
 from paramspace import ParamDim, ParamSpace
 
+from dantro._dag_utils import KeywordArgument, PositionalArgument
 from dantro.data_mngr import DataManager
 from dantro.groups import ParamSpaceGroup
 from dantro.plot_creators import (
@@ -352,18 +353,42 @@ def test_MultiversePlotCreator_DAG_usage(init_kwargs):
     assert (state.coords["y"] == [1, 2, 3, 4]).all()
     assert (state.coords["z"] == [1, 2, 3, 4, 5]).all()
 
-    # Invalid combination method
-    with pytest.raises(
-        ValueError,
-        match=(
-            "Invalid combination method 'invalid'! "
-            "Available methods: merge, concat."
+    # Test combination via a custom combination method
+    _, kwargs = mpc._prepare_plot_func_args(
+        mock_pfunc,
+        use_dag=True,
+        dag_options=dict(
+            meta_operations=dict(
+                custom_merge=[
+                    # Effectively, these will be ignored:
+                    dict(
+                        operation="pass",
+                        kwargs=dict(foo=KeywordArgument("foo")),
+                    ),
+                    # This will be used:
+                    dict(
+                        operation="dantro.merge",
+                        args=[PositionalArgument(0)],
+                        kwargs=dict(reduce_to_array=True),
+                    ),
+                ],
+            ),
         ),
-    ):
+        select_and_combine=dict(
+            **sac, combination_method=dict(operation="custom_merge", foo="bar")
+        ),
+    )
+
+    # ... effectively a merge operation, but due to the meta operation used
+    # in this test, have +2 nodes
+    assert len(kwargs["dag"].nodes) == 2 * np.prod(pspace.volume) + 3 + 2
+
+    # Invalid combination method
+    with pytest.raises(ValueError, match="Invalid combination method 'foo'!"):
         mpc._prepare_plot_func_args(
             mock_pfunc,
             use_dag=True,
-            select_and_combine=dict(**sac, combination_method="invalid"),
+            select_and_combine=dict(**sac, combination_method="foo"),
         )
 
     # Attempting to pass the select_path_prefix argument

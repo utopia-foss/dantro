@@ -385,7 +385,6 @@ class MultiversePlotCreator(ExternalPlotCreator):
                     operation="dantro.merge",
                     args=[refs],
                     kwargs=dict(reduce_to_array=True),
-                    **(combination_kwargs if combination_kwargs else {}),
                 )
 
             elif combination_method == "concat":
@@ -403,21 +402,26 @@ class MultiversePlotCreator(ExternalPlotCreator):
                     operation="dantro.multi_concat",
                     args=[DAGNode(-1)],
                     kwargs=dict(dims=list(psp.dims.keys())),
-                    **(combination_kwargs if combination_kwargs else {}),
                 )
 
-            elif combination_method == "custom":
-                operation = combination_kwargs.pop("operation")
+            elif isinstance(combination_method, dict):
+                op = combination_method.pop("operation")
+                pass_pspace = combination_method.pop("pass_pspace", False)
+                log.remark("Using custom combination operation:  '%s'", op)
                 dag.add_node(
-                    operation=operation,
+                    operation=op,
                     args=[refs],
-                    kwargs=dict(psp=psp, **combination_kwargs),
+                    kwargs=dict(
+                        **combination_method,
+                        **(dict(pspace=psp) if pass_pspace else {}),
+                    ),
                 )
 
             else:
                 raise ValueError(
                     f"Invalid combination method '{combination_method}'! "
-                    "Available methods: merge, concat, custom."
+                    "Available methods: 'merge', 'concat', or a custom "
+                    "combination method (passing a dict with key `operation`)."
                 )
 
             # Now have the data combined into an xr.DataArray
@@ -425,11 +429,12 @@ class MultiversePlotCreator(ExternalPlotCreator):
             if transform_after_combine:
                 dag.add_nodes(transform=transform_after_combine)
 
-            # Finally, attach the tag
+            # Finally, attach the tag and pass combination kwargs
             dag.add_node(
                 operation="pass",
                 args=[DAGNode(-1)],
                 tag=tag,
+                **(combination_kwargs if combination_kwargs else {}),
             )
 
         def add_sac_transformations(
@@ -494,7 +499,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
                     "subspace", copy.deepcopy(subspace)
                 )
                 spec["combination_method"] = spec.get(
-                    "combination_method", combination_method
+                    "combination_method", copy.deepcopy(combination_method)
                 )
                 spec["allow_missing_or_failing"] = spec.get(
                     "allow_missing_or_failing", allow_missing_or_failing
