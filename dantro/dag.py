@@ -789,6 +789,7 @@ class TransformationDAG:
         self,
         *,
         dm: "DataManager",
+        define: Dict[str, Union[List[dict], Any]] = None,
         select: dict = None,
         transform: Sequence[dict] = None,
         cache_dir: str = ".cache",
@@ -804,6 +805,18 @@ class TransformationDAG:
 
         Args:
             dm (DataManager): The associated data manager
+            define (Dict[str, Union[List[dict], Any]], optional): Definitions
+                of tags. This can happen in two ways: If the given entries
+                contain a list or tuple, they are interpreted as sequences of
+                transformations which are subsequently added to the DAG, the
+                tag being attached to the last transformation of each sequence.
+                If the entries contain objects of *any* other type, including
+                ``dict`` (!), they will be added to the DAG via a single node
+                that uses the ``define`` operation.
+                This argument can be helpful to define inputs or variables
+                which may then be used in the transformations added via
+                the ``select`` or ``transform`` arguments.
+                See :ref:`dag_define` for more information and examples.
             select (dict, optional): Selection specifications, which are
                 translated into regular transformations based on ``getitem``
                 operations. The ``base_transform`` and ``select_base``
@@ -821,11 +834,12 @@ class TransformationDAG:
                 specification.
             base_transform (Sequence[Transformation], optional): A sequence of
                 transform specifications that are added to the DAG prior to
-                those added via ``select`` and ``transform``. These can be used
-                to create some other object from the data manager which should
-                be used as the basis of ``select`` operations.
-                These transformations should be kept as simple as possible
-                and ideally be only used to traverse through the data tree.
+                those added via ``define``, ``select`` and ``transform``.
+                These can be used to create some other object from the data
+                manager which should be used as the basis of ``select``
+                operations. These transformations should be kept as simple as
+                possible and ideally be only used to traverse through the data
+                tree.
             select_base (Union[DAGReference, str], optional): Which tag to
                 base the ``select`` operations on. If None, will use the
                 (always-registered) tag for the data manager, ``dm``. This
@@ -900,15 +914,14 @@ class TransformationDAG:
         # Now add nodes via the main arguments; these can now make use of the
         # select interface, because a select base tag is set and base transform
         # operations were already added.
-        self.add_nodes(select=select, transform=transform)
+        self.add_nodes(define=define, select=select, transform=transform)
 
     # .........................................................................
 
     def __str__(self) -> str:
         """A human-readable string characterizing this TransformationDAG"""
         return (
-            "<TransformationDAG, "
-            "{:d} node(s), {:d} tag(s), {:d} object(s)>"
+            "<TransformationDAG, {:d} node(s), {:d} tag(s), {:d} object(s)>"
             "".format(len(self.nodes), len(self.tags), len(self.objects))
         )
 
@@ -1436,10 +1449,14 @@ class TransformationDAG:
         return DAGReference(trf_hash)
 
     def add_nodes(
-        self, *, select: dict = None, transform: Sequence[dict] = None
+        self,
+        *,
+        define: Dict[str, Union[List[dict], Any]] = None,
+        select: dict = None,
+        transform: Sequence[dict] = None,
     ):
         """Adds multiple nodes by parsing the specification given via the
-        ``select`` and ``transform`` arguments.
+        ``define``, ``select``, and ``transform`` arguments (in that order).
 
         .. note::
 
@@ -1447,6 +1464,18 @@ class TransformationDAG:
             property value is used as basis for all ``getitem`` operations.
 
         Args:
+            define (Dict[str, Union[List[dict], Any]], optional): Definitions
+                of tags. This can happen in two ways: If the given entries
+                contain a list or tuple, they are interpreted as sequences of
+                transformations which are subsequently added to the DAG, the
+                tag being attached to the last transformation of each sequence.
+                If the entries contain objects of *any* other type, including
+                ``dict`` (!), they will be added to the DAG via a single node
+                that uses the ``define`` operation.
+                This argument can be helpful to define inputs or variables
+                which may then be used in the transformations added via
+                the ``select`` or ``transform`` arguments.
+                See :ref:`dag_define` for more information and examples.
             select (dict, optional): Selection specifications, which are
                 translated into regular transformations based on ``getitem``
                 operations. The ``base_transform`` and ``select_base``
@@ -1454,7 +1483,9 @@ class TransformationDAG:
                 By default, selection happens from the associated DataManager.
             transform (Sequence[dict], optional): Transform specifications.
         """
-        specs = self._parse_trfs(select=select, transform=transform)
+        specs = self._parse_trfs(
+            define=define, select=select, transform=transform
+        )
         if not specs:
             return
 
@@ -1529,7 +1560,7 @@ class TransformationDAG:
             num_ops = 5 if verbosity < 3 else len(prof["slow_operations"])
             _ops = prof["operations"]
             _fstr2 = (
-                "{name:>25s}   {p[sum]:<7s}    {cnt:>2d} call{s:}   "
+                "{name:>25s}   {p[sum]:<7s}    {cnt:>4d} call{s:}   "
                 "({p[mean]:<7s} ± {p[std]:<7s})"
             )
             _stats2 = [
@@ -1618,16 +1649,24 @@ class TransformationDAG:
     # Helpers
 
     def _parse_trfs(
-        self, *, select: dict, transform: Sequence[dict]
+        self, *, select: dict, transform: Sequence[dict], define: dict = None
     ) -> Sequence[dict]:
         """Parse the given arguments to bring them into a uniform format: a
         sequence of parameters for transformation operations.
+        The arguments are parsed starting with the ``define`` tags, followed by
+        the ``select`` and the ``transform`` argument.
 
         Args:
             select (dict): The shorthand to select certain objects from the
                 DataManager. These may also include transformations.
             transform (Sequence[dict]): Actual transformation operations,
                 carried out afterwards.
+            define (dict, optional): Each entry corresponds either to a
+                transformation sequence (if type is list or tuple) where the
+                key is used as the tag and attached to the last transformation
+                of each sequence.
+                For *any* other type, will add a single transformation directly
+                with the content of each entry.
 
         Returns:
             Sequence[dict]: A sequence of transformation parameters that was
@@ -1641,12 +1680,36 @@ class TransformationDAG:
         trfs = list()
 
         # Prepare arguments: make sure they are dicts and deep copies.
+        define = copy.deepcopy(define) if define else {}
         select = copy.deepcopy(select) if select else {}
         transform = copy.deepcopy(transform) if transform else []
 
-        # First, parse the ``select`` argument. This contains a basic operation
-        # to select data from the selection base (e.g. the DataManager) and
-        # also allows to perform some operations on it.
+        # First, parse the entries in the ``define`` argument
+        for tag, define_spec in sorted(define.items()):
+            # To allow a wider range of syntax, convert non-sequence like
+            # arguments into a single transformation node that is basically
+            # a defintion of the given object. Don't need to do anything else
+            # in that case.
+            if not isinstance(define_spec, (list, tuple)):
+                trfs.append(
+                    dict(operation="define", args=[define_spec], tag=tag)
+                )
+                continue
+
+            # Now parse and add them
+            for i, trf_params in enumerate(define_spec):
+                # Parse minimal and regular syntax
+                trf_params = _parse_dag_minimal_syntax(trf_params)
+                trf_params = _parse_dag_syntax(**trf_params)
+                trfs.append(trf_params)
+
+            # Use an additional passthrough transformation to set the tag
+            trfs.append(dict(operation="pass", args=[DAGNode(-1)], tag=tag))
+
+        # Second, parse the ``select`` argument.
+        # This contains a basic operation to select data from the selection
+        # base (e.g. the DataManager) and also allows to perform some
+        # operations on it.
         for tag, params in sorted(select.items()):
             if isinstance(params, str):
                 path = params
