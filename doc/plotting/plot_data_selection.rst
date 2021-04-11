@@ -52,7 +52,7 @@ You then have the following arguments available to control its behaviour:
 
     - ``select`` and ``transform``: select data and perform transformations on it, see :py:meth:`~dantro.dag.TransformationDAG.add_nodes`.
     - ``compute_only``: controls which tags are to be computed, see :py:meth:`~dantro.dag.TransformationDAG.compute`
-    - ``dag_options``: passed to :py:class:`~dantro.dag.TransformationDAG` initialization, e.g. to control ``file_cache_defaults`` or ``verbosity``
+    - ``dag_options``: passed to :py:class:`~dantro.dag.TransformationDAG` initialization, e.g. to control ``file_cache_defaults``, ``verbosity``, or adding transformations via the ``define`` interface, see :ref:`dag_define`.
 
 .. note::
 
@@ -61,6 +61,8 @@ You then have the following arguments available to control its behaviour:
 .. hint::
 
     To use :ref:`meta-operations <dag_meta_ops>` for plot data selection, define them under the ``dag_options.meta_operations`` key of a plot configuration.
+
+    Same for adding nodes via the ``define`` interface (see :ref:`dag_define`), which is also only available via ``dag_options.define``.
 
 The creation of the DAG and its computation is controlled by the chosen plot creator and can be specialized to suit that plot creator's needs.
 
@@ -93,6 +95,8 @@ Some example plot configuration to select some containers from the data manager,
           tag: result
       compute_only: [result]
       dag_options:
+        define:
+          foo: bar
         verbosity: 3  # to show more profiling statistics (default: 1)
         file_cache_defaults:
           write: true
@@ -361,6 +365,56 @@ The latter is also the reason why the ``merge`` combination method is required h
               path: path/to/some/data
 
 
+Applying transformations after combination of data
+""""""""""""""""""""""""""""""""""""""""""""""""""
+In some cases, it can be useful to define postprocessing transformations on the combined data.
+For that purpose, there is the ``transform_after_combine`` option which can be added for each individual field or as a default on the ``select_and_combine`` level.
+While this postprocessing can of course also be done alongside ``transform``, it is often easier to define this alongside the field.
+
+Some example use cases:
+
+* Perform some postprocessing on all fields, without having to repeat the definitions.
+* Use ``print`` to see the result of the combination directly, without having to touch the ``transform`` definition.
+* Call ``.squeeze`` to reduce the one-sized dimensions of a combination, which can simplify some plotting calls.
+
+
+Custom combination method
+"""""""""""""""""""""""""
+Apart from the ``merge`` and ``concat`` combination methods, a custom combination method can also be used by specifying the name of an operation that is capable of combining the data in a desired way:
+
+.. code-block:: yaml
+
+    select_and_combine:
+      # further kwargs are passed on to the chosen custom operation
+
+      fields:
+        some_data:
+          path: path/to/some_data
+          combination_method:
+            operation: my_combination_operation
+            pass_pspace: false  # default: false. If true, will pass additional
+                                # keyword argument ``pspace``.
+            # further kwargs passed to combination operation
+          combination_kwargs:
+
+Such a combination operation needs to have the following signature:
+
+.. code-block:: python
+
+    def my_combination_function(objs: list, **kwargs) -> xr.DataArray:
+        # ...
+
+Here, ``objs`` is a list of the data from each individual parameter space state ("universe"), ready with attached coordinates.
+
+.. note::
+
+    While the given ``objs`` already have coordinates assigned, you might be interested in some macroscopic information about the shape of the target data.
+    To that end, an additional argument can be passed to the combination function by setting ``combination_method.pass_pspace: true``.
+
+    The ``pspace`` argument is then a ``ParamSpace`` object (from the `paramspace package <https://pypi.org/project/paramspace/>`_) which contains information about the dimensionality of the data and the names and coordinates of the dimensions.
+    The data in ``objs`` is ordered in the same way as the iteration over ``pspace``.
+
+
 
 Full DAG configuration interface for multiverse selection
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -379,7 +433,7 @@ An example of all options available in the :py:class:`~dantro.plot_creators.pcr_
       select_and_combine:
         fields:
           # Define a tag 'foo' that will use the defaults defined directly on
-          # the ``select_and_combine`` level
+          # the ``select_and_combine`` level, see below
           foo: foo                       # ``base_path`` will be prepended here
                                          # resulting in: some/path/foo
 
@@ -390,7 +444,8 @@ An example of all options available in the :py:class:`~dantro.plot_creators.pcr_
               seed: [0, 10]
               my_param: [-42., 42.]
             combination_method: merge    # overwriting default specified below
-            combination_kwargs:          # passed to combine transformation
+            combination_kwargs:          # passed to Transformation.__init__
+                                         # of the *tagged* output node
               file_cache:
                 read: true
                 write:
@@ -409,16 +464,26 @@ An example of all options available in the :py:class:`~dantro.plot_creators.pcr_
                   spam: 42
               - operation: my_operation
                 args: [!dag_prev ]
-                file_cache: {}      # can configure file cache here
+                file_cache: {}           # can configure file cache here
+
+            transform_after_combine:     # applied after combination
+              - increment
+              - print
 
         base_path: some_path        # if given, prepended to ``path`` in ``fields``
 
         # Default arguments, can be overwritten in each ``fields`` entry
-        combination_method: concat  # can be ``concat`` (default) or ``merge``
+        combination_method: concat  # can be ``concat`` (default), ``merge``.
+                                    # If a dict, may contain the key
+                                    # ``operation`` which will then be used as
+                                    # the operation to use for combination; any
+                                    # further arguments are passed on to that
+                                    # operation call.
         subspace: ~                 # some subspace selection
         allow_missing_or_failing: ~ # whether to allow missing universes or
                                     # failing transformations; can be: boolean,
                                     # ``log``, ``warn``, ``silent``
+        transform_after_combine: ~
 
       # Additional selections, now based on ``dm`` tag
       select: {}
