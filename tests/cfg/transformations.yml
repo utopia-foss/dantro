@@ -3,7 +3,7 @@
 # Selecting items -------------------------------------------------------------
 empty:
   params: {}
-  results:
+  expected:
     num_nodes: 0
     num_objects: 2
     tags: [dag, dm, select_base]
@@ -76,6 +76,93 @@ shorthand_select:
       - - *hash_dm
     results:
       <<: *results_explicit_select
+
+
+# Define interface ------------------------------------------------------------
+
+define_simple:
+  params:
+    define:
+      some_tag:
+        - define: foo
+      some_other_tag:
+        - add: [2, 3]
+        - add: [!dag_prev , 4]
+  expected:
+    num_nodes: 5
+    num_objects: 7
+    tags: [dag, dm, select_base, some_tag, some_other_tag]
+    results:
+      some_tag:
+        compare_to: foo
+      some_other_tag:
+        compare_to: 9
+
+
+define_without_transformations:
+  params:
+    define:
+      some_scalar: 5.123
+      some_string: foobar
+      some_dict:
+        foo:
+          bar: baz
+        spam: fish
+
+  expected:
+    num_nodes: 3  # only one tag per definition!
+    num_objects: 5
+    tags: [dag, dm, select_base, some_scalar, some_string, some_dict]
+    results:
+      some_scalar:
+        compare_to: 5.123
+      some_string:
+        compare_to: foobar
+      some_dict:
+        compare_to: {foo: {bar: baz}, spam: fish}
+
+
+define_with_additional_tags:
+  params:
+    define:
+      barfoo:
+        - define: foo
+          tag: foo
+        - add: [bar, !dag_prev ]
+      nine:
+        - add: [2, 3]
+          tag: five
+        - add: [!dag_prev , 4]
+          tag: also_nine  # will NOT be overwritten but added additionally
+  expected:
+    num_nodes: 6
+    num_objects: 8
+    tags: [dag, dm, select_base, foo, barfoo, five, nine, also_nine]
+    results:
+      foo:
+        compare_to: foo
+      barfoo:
+        compare_to: barfoo
+      five:
+        compare_to: 5
+      nine:
+        compare_to: 9
+      also_nine:
+        compare_to: 9
+
+
+define_with_dependencies:
+  params:
+    define:
+      bar: bar
+      foobar:
+        - define: foo
+        - add: [!dag_prev , !dag_tag bar]  # can use tag because bar < foo
+
+  expected:
+    results:
+      foobar:
+        compare_to: foobar
 
 
 
@@ -1799,6 +1886,30 @@ doc_examples_minimal:
 
   expected:
     tags: [dag, dm, select_base, some_data, more_data, my_result]
+
+
+doc_examples_define:
+  params:
+    ### Start -- dag_define
+    define:
+      exponent: 4               # directly define some object
+      days_to_seconds_factor:   # use a sequence of TransformationsDAG
+        - expression: "60 * 60 * 24"
+        - float
+    select:
+      some_data: path/to/some_data
+      more_data: path/to/more_data
+    transform:
+      - add: [!dag_tag some_data, !dag_tag more_data]
+      - mul: [!dag_prev , !dag_tag days_to_seconds_factor]
+      - print
+      - pow: [!dag_prev , !dag_tag exponent]
+        tag: my_result
+    ### End ---- dag_define
+
+  expected:
+    tags: [dag, dm, select_base, some_data, more_data, my_result,
+           exponent, days_to_seconds_factor]
 
 
 doc_examples_import_and_call:

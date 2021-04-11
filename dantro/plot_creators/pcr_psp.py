@@ -311,6 +311,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
             combination_method: str,
             allow_missing_or_failing: bool,
             combination_kwargs: dict = None,
+            transform_after_combine: List[dict] = None,
             **select_kwargs,
         ) -> None:
             """Adds the sequence of transformations that is necessary to select
@@ -379,14 +380,11 @@ class MultiversePlotCreator(ExternalPlotCreator):
             # Depending on the chosen combination method, create corresponding
             # additional transformations for combination via merge or via
             # concatenation.
-            # This is also where the tag can be attached to.
             if combination_method == "merge":
                 dag.add_node(
                     operation="dantro.merge",
                     args=[refs],
                     kwargs=dict(reduce_to_array=True),
-                    tag=tag,
-                    **(combination_kwargs if combination_kwargs else {}),
                 )
 
             elif combination_method == "concat":
@@ -404,15 +402,40 @@ class MultiversePlotCreator(ExternalPlotCreator):
                     operation="dantro.multi_concat",
                     args=[DAGNode(-1)],
                     kwargs=dict(dims=list(psp.dims.keys())),
-                    tag=tag,
-                    **(combination_kwargs if combination_kwargs else {}),
+                )
+
+            elif isinstance(combination_method, dict):
+                op = combination_method.pop("operation")
+                pass_pspace = combination_method.pop("pass_pspace", False)
+                log.remark("Using custom combination operation:  '%s'", op)
+                dag.add_node(
+                    operation=op,
+                    args=[refs],
+                    kwargs=dict(
+                        **combination_method,
+                        **(dict(pspace=psp) if pass_pspace else {}),
+                    ),
                 )
 
             else:
                 raise ValueError(
                     f"Invalid combination method '{combination_method}'! "
-                    "Available methods: merge, concat."
+                    "Available methods: 'merge', 'concat', or a custom "
+                    "combination method (passing a dict with key `operation`)."
                 )
+
+            # Now have the data combined into an xr.DataArray
+            # Might want to add more transformations here
+            if transform_after_combine:
+                dag.add_nodes(transform=transform_after_combine)
+
+            # Finally, attach the tag and pass combination kwargs
+            dag.add_node(
+                operation="pass",
+                args=[DAGNode(-1)],
+                tag=tag,
+                **(combination_kwargs if combination_kwargs else {}),
+            )
 
         def add_sac_transformations(
             dag: TransformationDAG,
@@ -421,6 +444,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
             subspace: dict = None,
             combination_method: str = "concat",
             allow_missing_or_failing: bool = None,
+            transform_after_combine: List[dict] = None,
             base_path: str = None,
         ) -> None:
             """Adds transformations to the given DAG that select data from the
@@ -438,6 +462,10 @@ class MultiversePlotCreator(ExternalPlotCreator):
                 allow_missing_or_failing (bool, optional): If set, will use an
                     automatic fallback for missing data or failure during
                     transformations.
+                    This may be overwritten by each field's separate option.
+                transform_after_combine (List[dict], optional):
+                    Transformations that are applied to each field's output
+                    *after* combination.
                     This may be overwritten by each field's separate option.
                 base_path (str, optional): If given, ``path`` specifications
                     of each field can be seen as relative to this path.
@@ -471,10 +499,14 @@ class MultiversePlotCreator(ExternalPlotCreator):
                     "subspace", copy.deepcopy(subspace)
                 )
                 spec["combination_method"] = spec.get(
-                    "combination_method", combination_method
+                    "combination_method", copy.deepcopy(combination_method)
                 )
                 spec["allow_missing_or_failing"] = spec.get(
                     "allow_missing_or_failing", allow_missing_or_failing
+                )
+                spec["transform_after_combine"] = spec.get(
+                    "transform_after_combine",
+                    copy.deepcopy(transform_after_combine),
                 )
 
                 # Add the transformations for this specific tag

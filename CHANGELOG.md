@@ -2,6 +2,12 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.16.3
+- !254 adds the `define` syntax to the data transformation framework, allowing to specify transformations in a dict-based fashion
+- !254 improves `MultiversePlotCreator`:
+    - The `select_and_combine.transform_after_combine` argument can now be used to apply transformations to the data *after* the combination happened.
+    - The `select_and_combine.combination_method` argument can now also be used to specify a custom combination operation, which can be just any data operation available elsewhere in the data operation framework.
+
 ## v0.16.2
 - !253 implements parallel loading of files via the `DataManager` and is usable for all data loaders.
   Refer to the [`DataManager.load` docstring](https://dantro.readthedocs.io/en/stable/api/dantro.data_mngr.html#dantro.data_mngr.DataManager.load) for more information.

@@ -442,13 +442,50 @@ To widen the possibilities, the :py:class:`~dantro.dag.TransformationDAG` allows
     For :ref:`meta-operations <dag_meta_ops>` this means that the base of selection is not relevant *at definition* of the meta-operations; the base gets evaluated when the meta-operation is *used*.
 
 
+
+.. _dag_define:
+
+The ``define`` interface
+^^^^^^^^^^^^^^^^^^^^^^^^
+So far, we have seen two ways to add transformation nodes to the DAG: via ``transform`` or via ``select``.
+These are based either on directly adding the nodes, giving full control, or adding transformations based on a selection of data.
+
+The ``define`` interface is a combintion of these two approaches: same as ``select``, it revolves around the final tag that's meant to be attached to the definition, but it does not require a data selection like ``select`` does.
+
+Let's look at an example that combines all these ways of adding transformations:
+
+.. literalinclude:: ../../tests/cfg/transformations.yml
+    :language: yaml
+    :start-after: ### Start -- dag_define
+    :end-before:  ### End ---- dag_define
+    :dedent: 4
+
+Here, the ``exponent`` as well as some conversion factor tags are defined not ad-hoc but *separately* via the ``define`` interface.
+As can be seen in the example, there are two ways to do this:
+
+    * If providing a ``list`` or ``tuple`` type, it is interpreted as a sequence of transformations, accepting the same syntax as ``transform``.
+      After the final transformation, another node is added that sets the specified tag, ``days_to_seconds_factor`` in this example.
+    * If prodiving *any* other type, it is interpreted directly as a definition, adding a single transformation node that holds the given argument, the integer ``4`` in the case of the ``exponent`` tag.
+
+.. note::
+
+    The ``define`` argument is evaluated *before* the other two.
+    Subsequently, tags defined via ``define`` *can* be used within ``select`` or ``transform``, but not the other way around.
+
+.. hint::
+
+    In the context of **plotting**, the ``define`` interface has an important benefit over the ``select`` and ``transform`` syntax for adding nodes to the DAG:
+    It is *dictionary-based*, which makes it very easy to recursively update its content, which is very useful for :ref:`plot_cfg_inheritance`.
+
+
+
 Individually adding nodes
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 Nodes can be added to :py:class:`~dantro.dag.TransformationDAG` during initialization; all the examples above are written in that way.
 However, transformation nodes can also be added after initialization using the following two methods:
 
 - :py:meth:`~dantro.dag.TransformationDAG.add_node` adds a single node and returns its reference.
-- :py:meth:`~dantro.dag.TransformationDAG.add_nodes` adds multiple nodes, allowing both the ``select`` and ``transform`` arguments in the same syntax as during initialization.
+- :py:meth:`~dantro.dag.TransformationDAG.add_nodes` adds multiple nodes, allowing the ``define``, ``select``, and ``transform`` arguments in the same syntax as during initialization.
   Internally, this parses the arguments and calls :py:meth:`~dantro.dag.TransformationDAG.add_node`.
 
 
