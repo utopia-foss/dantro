@@ -109,7 +109,7 @@ class ItemAccessError(KeyError, IndexError):
         )
 
 
-# For data ooperations ........................................................
+# For data operations .........................................................
 
 
 class DataOperationWarning(DantroWarning):
@@ -126,6 +126,25 @@ class BadOperationName(DataOperationError, ValueError):
 
 class DataOperationFailed(DataOperationError, RuntimeError):
     """Raised upon failure to apply a data operation"""
+
+
+# Data transformations ........................................................
+
+
+class DAGError(DantroError):
+    """For errors in the data transformation framework"""
+
+
+class MissingDAGReference(DAGError, ValueError):
+    """If there was a missing DAG reference"""
+
+
+class MissingDAGTag(MissingDAGReference, ValueError):
+    """Raised upon bad tag names"""
+
+
+class MissingDAGNode(MissingDAGReference, ValueError):
+    """Raised upon bad node index"""
 
 
 # DataManager-related .........................................................

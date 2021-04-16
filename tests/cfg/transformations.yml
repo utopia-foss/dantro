@@ -1067,12 +1067,32 @@ error_tag_already_exists:
   _match: Tag 'random_raw' already exists! Choose a different one.
 
 
+error_missing_tag:
+  params:
+    transform:
+      - add: [1, !dag_tag foo]  # foo is not *yet* defined
+      - define: 2
+        tag: foo
+  _raises: MissingDAGTag
+  _match: Could not find tag 'foo'! Available
+
+
+error_bad_node_idx:
+  params:
+    transform:
+      - add: [1, 2]  # foo is not *yet* defined
+      - define: [!dag_node -10]
+        tag: foo
+  _raises: MissingDAGNode
+  _match: list index out of range
+
+
 error_bad_operation_name:
   params:
     transform:
       - operation: i_do_not_exist
         tag: result
-  _raises: ValueError
+  _raises: BadOperationName
   _raises_on_compute: true
   _match: Could not find an operation or meta-operation named 'i_do_not_exist'!
 
@@ -1088,6 +1108,21 @@ error_bad_operation_name_with_meta_operations:
   _raises: ValueError
   _raises_on_compute: true
   _match: my_meta_op  # includes name of available meta-operations
+
+
+error_bad_reference_within_meta_operation:
+  params:
+    meta_operations:
+      my_meta_op:
+        - add: [!arg 0, !arg 1]
+        - add: [!dag_prev , !dag_tag foo]  # foo not *yet* defined
+        - define: foo
+          tag: foo
+    transform:
+      - my_meta_op: [spam, fish]
+        tag: result
+  _raises: MissingDAGReference
+  _match: Failed resolving reference .* 'my_meta_op::foo' via reference stack
 
 
 error_bad_compute_only_tag:

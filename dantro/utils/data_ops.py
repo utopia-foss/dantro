@@ -1258,10 +1258,11 @@ _OPERATIONS = KeyOrderedDict({
 
     '.to_dataframe':    lambda d, *a, **k: d.to_dataframe(*a, **k),
 
-    'xr.Dataset':       xr.Dataset,
-    'xr.DataArray':     xr.DataArray,
-    'xr.zeros_like':    xr.zeros_like,
-    'xr.ones_like':     xr.ones_like,
+    'xr.Dataset':           xr.Dataset,
+    'xr.DataArray':         xr.DataArray,
+    'xr.zeros_like':        xr.zeros_like,
+    'xr.ones_like':         xr.ones_like,
+    'xr.full_like':         xr.full_like,
 
     'xr.merge':             xr.merge,
     'xr.concat':            xr.concat,
@@ -1269,11 +1270,11 @@ _OPERATIONS = KeyOrderedDict({
     'xr.combine_nested':    xr.combine_nested,
     'xr.combine_by_coords': xr.combine_by_coords,
 
-    # ... method calls with additional dependencies
+    # ... method calls that require additional Python packages
     '.rolling_exp':     lambda d, *a, **k: d.rolling_exp(*a, **k),
     '.rank':            lambda d, *a, **k: d.rank(*a, **k),
 
-    # fitting with xarray.DataArray.polyfit or scipy.optimize
+    # fitting with xr.DataArray.polyfit or scipy.optimize
     '.polyfit':         lambda d, *a, **k: d.polyfit(*a, **k),
     'curve_fit':
         lambda *a, **k: import_module_or_object("scipy.optimize",
