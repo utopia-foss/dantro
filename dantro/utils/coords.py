@@ -2,7 +2,16 @@
 
 import logging
 from itertools import product
-from typing import Dict, Hashable, List, Sequence, Tuple, TypeVar, Union
+from typing import (
+    Dict,
+    Hashable,
+    Iterable,
+    List,
+    Sequence,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 import numpy as np
 
@@ -160,18 +169,22 @@ def extract_dim_names(
 
 def _coords_start_and_step(
     cargs, *, data_shape: tuple, dim_num: int, **__
-) -> List[int]:
+) -> Iterable[int]:
     """Interpret as integer start and step of range expression and use the
-    length of the data dimension as number of steps"""
+    length of the data dimension as number of steps
+    """
     start, step = cargs
-
     stop = start + (step * data_shape[dim_num])
-    return list(range(int(start), int(stop), int(step)))
+    return range(int(start), int(stop), int(step))
 
 
-def _coords_trivial(_, *, data_shape: tuple, dim_num: int, **__) -> List[int]:
-    """Returns trivial coordinates for the given dimension"""
-    return list(range(data_shape[dim_num]))
+def _coords_trivial(
+    _, *, data_shape: tuple, dim_num: int, **__
+) -> Iterable[int]:
+    """Returns trivial coordinates for the given dimension by creating a
+    range iterator from the selected data shape.
+    """
+    return range(data_shape[dim_num])
 
 
 def _coords_scalar(coord, **__) -> List[TCoord]:
@@ -209,7 +222,7 @@ def _coords_linked(cargs, *, link_anchor_obj, **__) -> Link:
 # fmt: off
 COORD_EXTRACTORS = {
     "values":           lambda cargs, **__: cargs,
-    "range":            lambda cargs, **__: list(range(*cargs)),
+    "range":            lambda cargs, **__: range(*cargs),
     "arange":           lambda cargs, **__: np.arange(*cargs),
     "linspace":         lambda cargs, **__: np.linspace(*cargs),
     "logspace":         lambda cargs, **__: np.logspace(*cargs),

@@ -16,13 +16,13 @@ def test_coord_extractor_functions():
     """Tests the coordinate extractor functions"""
     extr = dantro.utils.coords.COORD_EXTRACTORS
 
-    # Values; just returns the given ones, no type change
+    # values; just returns the given ones, no type change
     assert extr["values"]([1, 2, 3]) == [1, 2, 3]
     assert isinstance(extr["values"]((1, 2, 3)), tuple)
 
-    # Range
-    assert extr["range"]([10]) == list(range(10))
-    assert extr["range"]([2, 10, 2]) == list(range(2, 10, 2))
+    # range
+    assert extr["range"]([10]) == range(10)
+    assert extr["range"]([2, 10, 2]) == range(2, 10, 2)
 
     # np.arange
     assert (extr["arange"]([0, 10]) == np.arange(0, 10)).all()
@@ -37,28 +37,17 @@ def test_coord_extractor_functions():
     assert (extr["logspace"]([2, 10, 2]) == np.logspace(2, 10, 2)).all()
 
     # start and step
-    assert extr["start_and_step"]([0, 1], data_shape=(2, 3, 4), dim_num=2) == [
-        0,
-        1,
-        2,
-        3,
-    ]
-    assert extr["start_and_step"]([10, 2], data_shape=(5,), dim_num=0) == [
-        10,
-        12,
-        14,
-        16,
-        18,
-    ]
+    assert extr["start_and_step"](
+        [0, 1], data_shape=(2, 3, 4), dim_num=2
+    ) == range(0, 4)
+    assert extr["start_and_step"](
+        [10, 2], data_shape=(5,), dim_num=0
+    ) == range(10, 20, 2)
 
-    # trivial
-    assert extr["trivial"](None, data_shape=(2, 3, 4), dim_num=2) == [
-        0,
-        1,
-        2,
-        3,
-    ]
-    assert extr["trivial"](123, data_shape=(40,), dim_num=0) == list(range(40))
+    # trivial, ignoring arguments
+    assert extr["trivial"](None, data_shape=(2, 3, 4), dim_num=2) == range(4)
+    assert extr["trivial"](123, data_shape=(40,), dim_num=0) == range(40)
+    assert extr["trivial"]([1, 2], data_shape=(40,), dim_num=0) == range(40)
 
     # scalar
     assert extr["scalar"](1) == [1]
