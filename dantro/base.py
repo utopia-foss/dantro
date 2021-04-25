@@ -208,7 +208,7 @@ class BaseDataGroup(
     # .........................................................................
     # Item access and manipulation
 
-    def __getitem__(self, key: Union[str, List[str]]) -> Any:
+    def __getitem__(self, key: Union[str, List[str]]) -> AbstractDataContainer:
         """Looks up the given key and returns the corresponding item.
 
         This supports recursive *relative* lookups in two ways:
@@ -241,7 +241,8 @@ class BaseDataGroup(
                 a path via which it can be found in the data tree.
 
         Returns:
-            Any: The object at ``key``.
+            AbstractDataContainer: The object at ``key``, which concurs to the
+                dantro tree interface.
 
         Raises:
             ItemAccessError: If no object could be found at the given ``key``

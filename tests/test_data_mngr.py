@@ -1438,7 +1438,7 @@ def test_dump_and_restore(hdf5_dm):
     assert os.path.isabs(p1)
     assert p1.endswith(".tree_cache.d3")
     d1_size = os.path.getsize(p1)
-    assert 10 * 1024 < d1_size < 15 * 1024  # ... platform-dependent
+    assert 8 * 1024 < d1_size < 12 * 1024  # platform- and version-dependent!
 
     # Need a new DataManager in order to retain the one above for comparsion
     dm1 = new_dm()
