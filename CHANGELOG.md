@@ -4,6 +4,7 @@
 
 ## v0.17.0 (WIP)
 - !231 improves the performance of the ``LabelledDataGroup`` selection methods (when using the ``merge`` or ``auto`` combination method). A new combination method ``auto`` is added and set as default.
+- !257 reduces memory usage (see #251) by postponing coordinate resolution to the time they are actually needed and removing unnecessary cache attributes.
 
 ## v0.16.3
 - !254 adds the `define` syntax to the data transformation framework, allowing to specify transformations in a dict-based fashion
