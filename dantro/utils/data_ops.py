@@ -57,21 +57,37 @@ BOOLEAN_OPERATORS = {
 # .............................................................................
 
 
-def print_data(data: Any) -> Any:
+def print_data(
+    data: Any, *, end: str = "\n", fstr: str = None, **fstr_kwargs
+) -> Any:
     """Prints and passes on the data.
 
     The print operation distinguishes between dantro types (in which case some
-    more information is shown) and  non-dantro types.
-    """
-    # Distinguish between dantro types and others
-    if isinstance(data, BaseDataContainer):
-        print("{}, with data:\n{}\n".format(data, data.data))
+    more information is shown) and non-dantro types. If a custom format string
+    is given, will always use that one.
 
-    elif isinstance(data, BaseDataGroup):
-        print("{}\n".format(data.tree))
+    Args:
+        data (Any): The data to print
+        end (str, optional): The ``end`` argument to the ``print`` call
+        fstr (str, optional): If given, will use this to format the data for
+            printing. The data will be the passed as first *positional*
+            argument to the format string, thus addressable by ``{0:}``.
+            If the format string is not ``None``, will *always* use the format
+            string and not use the custom formatting for dantro objects.
+        **fstr_kwargs: Keyword arguments passed to the format operation.
+
+    Returns:
+        Any: the given ``data``
+    """
+    if fstr is None and isinstance(data, BaseDataContainer):
+        print("{}, with data:\n{}\n".format(data, data.data), end=end)
+
+    elif fstr is None and isinstance(data, BaseDataGroup):
+        print("{}\n".format(data.tree), end=end)
 
     else:
-        print(data)
+        fstr = fstr if fstr is not None else "{0:}"
+        print(fstr.format(data, **fstr_kwargs), end=end)
 
     return data
 
