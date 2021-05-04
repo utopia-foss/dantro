@@ -22,10 +22,14 @@ from .plot._cfg import resolve_based_on as _resolve_based_on
 from .plot._cfg import resolve_based_on_single as _resolve_based_on_single
 from .plot_creators import ALL as ALL_PCRS
 from .plot_creators import BasePlotCreator, SkipPlot
+from .tools import format_time as _format_time
 from .tools import load_yml, make_columns, recursive_update, write_yml
 
 # Local constants
 log = logging.getLogger(__name__)
+
+# Time formatting function
+fmt_time = lambda seconds: _format_time(seconds, ms_precision=1)
 
 # Substrings that may not appear in plot names
 # Unlike the dantro.abc.BAD_NAME_CHARS, these *allow* the ``/`` (such that new
@@ -986,17 +990,25 @@ class PlotManager:
             len(plots_cfg),
             "ies" if len(plots_cfg) != 1 else "y",
         )
+        t0 = time.time()
 
+        _plot_names = []
+        _num_plots = 0
         for plot_name, cfg in plots_cfg.items():
+            _n = 1
             if isinstance(cfg, ParamSpace):
-                log.note(
-                    "  - %-40s  (%d plot%s)",
-                    plot_name,
-                    cfg.volume if cfg.volume else 1,
-                    "s" if cfg.volume != 1 else "",
-                )
-            else:
-                log.note("  - %-40s  (1 plot)", plot_name)
+                _n = cfg.volume if cfg.volume else 1
+
+            _plot_names.append(
+                "  - {:<55s}  ({:d} plot{:s})"
+                "".format(plot_name, _n, "s" if _n != 1 else "")
+            )
+            _num_plots += _n
+        log.note(
+            "Have the following %d plots to perform:\n%s\n",
+            _num_plots,
+            "\n".join(_plot_names),
+        )
 
         # Loop over the configured plots and invoke the individual plot calls
         for plot_name, cfg in plots_cfg.items():
@@ -1007,9 +1019,11 @@ class PlotManager:
                 self.plot(plot_name, default_out_dir=out_dir, **cfg)
 
         log.success(
-            "Successfully performed plots for %d plot configuration%s.\n",
+            "Successfully performed plots from %d plot configuration%s "
+            "in %s.\n",
             len(plots_cfg),
             "s" if len(plots_cfg) != 1 else "",
+            fmt_time(time.time() - t0),
         )
 
     def plot(
@@ -1166,6 +1180,7 @@ class PlotManager:
         """
 
         log.debug("Preparing plot '%s' ...", name)
+        t0 = time.time()
 
         # Decide on the output directory to use ...
         if not out_dir:
@@ -1228,7 +1243,11 @@ class PlotManager:
             )
 
             if rv is True:
-                log.progress("Performed '%s' plot.\n", name)
+                log.progress(
+                    "Performed '%s' plot in %s.\n",
+                    name,
+                    fmt_time(time.time() - t0),
+                )
 
             return plot_creator
 
@@ -1285,8 +1304,10 @@ class PlotManager:
             log.progress("Plotting '%s' (%d/%d) ...", name, n + 1, n_max)
             if coords:
                 log.note(
-                    "Current coordinates:  %s",
-                    ",  ".join("{}: {}".format(*kv) for kv in coords.items()),
+                    "Selected coordinates:\n%s",
+                    "\n".join(
+                        "  {:>23s}:   {}".format(*kv) for kv in coords.items()
+                    ),
                 )
 
             # Handle the file extension parameter; it might come from the
@@ -1318,10 +1339,6 @@ class PlotManager:
             #      rather than disallowing this, we pass them on and
             #      forward responsibility downstream ...
 
-            # Count skipped plots
-            if rv == "skipped":
-                num_skipped += 1
-
             # Always store plot information, regardless of skipping.
             # Saving is enabled only for zero-volume parameter sweeps in order
             # to have the backup file right beside the plot; the file will not
@@ -1338,6 +1355,23 @@ class PlotManager:
                 creator_rv=rv,
             )
 
+            # Count skipped plots
+            if rv == "skipped":
+                num_skipped += 1
+
+            elif rv is True:
+                log.progress("Finished plot %d/%d.", n + 1, n_max)
+
+                # Estimate for time remaining
+                if (n + 1) < n_max:
+                    dt = time.time() - t0
+                    etl = dt / ((n + 1) / n_max) - dt
+                    log.note(
+                        "Estimated time needed for %d remaining plots:  %s\n",
+                        n_max - (n + 1),
+                        fmt_time(etl),
+                    )
+
         # Finished parameter space iteration.
         # Save the plot configuration alongside, if configured to do so, and
         # if at least one of the plots was *not* skipped and the parameter
@@ -1351,14 +1385,18 @@ class PlotManager:
                 is_sweep=True,
             )
 
+        dt = time.time() - t0
         if not num_skipped:
-            log.progress("Performed all '%s' plots.\n", name)
+            log.progress(
+                "Performed all '%s' plots in %s.\n", name, fmt_time(dt)
+            )
         else:
             log.progress(
-                "Performed %d/%d '%s' plots, skipped %d.\n",
+                "Performed %d/%d '%s' plots in %s, skipped %d.\n",
                 (n + 1) - num_skipped,
                 n + 1,
                 name,
+                fmt_time(dt),
                 num_skipped,
             )
 

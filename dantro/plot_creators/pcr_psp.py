@@ -15,12 +15,16 @@ from paramspace import ParamSpace
 from ..abc import PATH_JOIN_CHAR
 from ..dag import DAGNode, DAGReference, DAGTag, TransformationDAG
 from ..groups import ParamSpaceGroup, ParamSpaceStateGroup
+from ..tools import format_time as _format_time
 from ..tools import is_iterable, recursive_update
 from .pcr_base import SkipPlot
 from .pcr_ext import ExternalPlotCreator
 
 # Local constants
 log = logging.getLogger(__name__)
+
+# Time formatting function
+fmt_time = lambda seconds: _format_time(seconds, ms_precision=1)
 
 
 # -----------------------------------------------------------------------------
@@ -547,11 +551,13 @@ class MultiversePlotCreator(ExternalPlotCreator):
         dag.select_base = select_base
         dag.add_nodes(select=select, transform=transform)
 
-        log.remark(
-            "Setting up the TransformationDAG with %d nodes took %3gs.",
-            len(dag.nodes),
-            time.time() - t0,
-        )
+        dt = time.time() - t0
+        if dt > 2:
+            log.remark(
+                "Setting up the TransformationDAG with %d nodes took %s.",
+                len(dag.nodes),
+                fmt_time(dt),
+            )
         return dag
 
 

@@ -31,6 +31,7 @@ from .containers import NumpyDataContainer, ObjectContainer, XrDataContainer
 from .data_loaders import LOADER_BY_FILE_EXT
 from .exceptions import *
 from .tools import adjusted_log_levels as _adjusted_log_levels
+from .tools import format_time as _format_time
 from .tools import make_columns, recursive_update
 from .utils import (
     KeyOrderedDict,
@@ -45,6 +46,9 @@ log = logging.getLogger(__name__)
 
 # The path within the DAG's associated DataManager to which caches are loaded
 DAG_CACHE_DM_PATH = "cache/dag"
+
+# Time formatting function
+fmt_time = lambda seconds: _format_time(seconds, ms_precision=2)
 
 # Functions that can store the DAG computation result objects, distinguishing
 # by their type.
@@ -318,7 +322,7 @@ class Transformation:
                 t=type(self).__name__,
                 op=repr(self._operation),
                 args=repr(self._args),
-                kwargs=repr(dict(self._kwargs)),  # TODO Check sorting!
+                kwargs=repr(dict(self._kwargs)),
                 salt=repr(self._salt),
                 suffix=suffix,
             )
@@ -1560,7 +1564,7 @@ class TransformationDAG:
             )
             _stats = [
                 _fstr.format(
-                    name=k, p={_k: "{:.2g}".format(_v) for _k, _v in v.items()}
+                    name=k, p={_k: f"{_v:.2g}" for _k, _v in v.items()}
                 )
                 for k, v in prof["aggregated"].items()
                 if k not in to_exclude
@@ -1577,20 +1581,20 @@ class TransformationDAG:
             num_ops = 5 if verbosity < 3 else len(prof["slow_operations"])
             _ops = prof["operations"]
             _fstr2 = (
-                "{name:>25s}   {p[sum]:<7s}    {cnt:>4d} call{s:}   "
-                "({p[mean]:<7s} ± {p[std]:<7s})"
+                "{name:>25s}   {p[sum]:<10s} "
+                "{cnt:>8d}x  ({p[mean]:<7s} ± {p[std]:<7s})"
             )
             _stats2 = [
                 _fstr2.format(
                     name=op,
-                    p={_k: "{:.2g}".format(_v) for _k, _v in _ops[op].items()},
+                    p={_k: f"{_v:.2g}" for _k, _v in _ops[op].items()},
                     cnt=_ops[op]["count"],
-                    s="s" if _ops[op]["count"] != 1 else " ",
                 )
                 for op, _ in prof["slow_operations"][:num_ops]
             ]
             log.remark(
-                "Total effective operation computation times:\n%s",
+                "Total effective compute times and #calls (mean ± std) [s]\n"
+                "%s",
                 "\n".join(_stats2),
             )
 
@@ -1623,7 +1627,7 @@ class TransformationDAG:
             )
             return results
         log.note(
-            "Now computing %d tag%s on DAG with %d nodes ...",
+            "Computing result of %d tag%s on DAG with %d nodes ...",
             len(compute_only),
             "s" if len(compute_only) != 1 else "",
             len(self.nodes),
@@ -1645,7 +1649,7 @@ class TransformationDAG:
             res = trf.compute()
             results[tag] = postprocess_result(res, tag=tag)
 
-            log.remark("Finished after %.2gs.", time.time() - _tt)
+            log.remark("Finished in %s.", fmt_time(time.time() - _tt))
 
         # Update profiling information
         t1 = time.time()
@@ -1653,10 +1657,10 @@ class TransformationDAG:
 
         # Provide some information to the user
         log.note(
-            "Computed %d tag%s in %.2gs.",
+            "Computed %d tag%s in %s.",
             len(compute_only),
             "s" if len(compute_only) != 1 else "",
-            t1 - t0,
+            fmt_time(t1 - t0),
         )
 
         show_compute_profile_info()

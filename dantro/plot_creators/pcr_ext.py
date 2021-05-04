@@ -464,14 +464,15 @@ class ExternalPlotCreator(BasePlotCreator):
         with style_context, leak_prev:
             hlpr.setup_figure()
 
-            log.info(
-                "Now calling plotting function '%s' ...",
-                plot_func.__name__,
-            )
+            plot_func_name = plot_func.__name__
+            log.info("Now calling plotting function '%s' ...", plot_func_name)
             plot_func(*args, **kwargs)
+            log.note("Plotting function '%s' returned.", plot_func_name)
 
-            log.note("Plot function finished. Finishing up ...")
+            log.note("Invoking helpers ...")
             hlpr.invoke_enabled(axes="all")
+
+            log.note("Saving figure ...")
             hlpr.save_figure()
 
     # .........................................................................
