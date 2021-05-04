@@ -861,7 +861,6 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
         # Otherwise, values may be NaN or an actual number
         for item in (
             "compute",
-            "hashstr",
             "cache_lookup",
             "cache_writing",
             "effective",

@@ -214,7 +214,6 @@ class Transformation:
         self._profile = dict(
             compute=np.nan,
             cumulative_compute=np.nan,
-            hashstr=np.nan,
             cache_lookup=np.nan,
             cache_writing=np.nan,
             effective=np.nan,
@@ -325,9 +324,7 @@ class Transformation:
             str: The hash string for this transformation
         """
         if self._hashstr is None:
-            t0 = time.time()
             self._hashstr = _hash(repr(self))
-            self._update_profile(hashstr=time.time() - t0)
 
         return self._hashstr
 
@@ -1091,7 +1088,6 @@ class TransformationDAG:
         # Aggregate the profiled times from all transformations (by item)
         to_aggregate = (
             "compute",
-            "hashstr",
             "cache_lookup",
             "cache_writing",
             "effective",
@@ -1101,9 +1097,9 @@ class TransformationDAG:
             std=lambda d: np.nanstd(d),
             min=lambda d: np.nanmin(d),
             max=lambda d: np.nanmax(d),
-            q25=lambda d: np.nanquantile(d, 0.25),
+            # q25=lambda d: np.nanquantile(d, 0.25),
             q50=lambda d: np.nanquantile(d, 0.50),
-            q75=lambda d: np.nanquantile(d, 0.75),
+            # q75=lambda d: np.nanquantile(d, 0.75),
             sum=lambda d: np.nansum(d),
             count=lambda d: np.count_nonzero(~np.isnan(d)),
         )
@@ -1130,8 +1126,9 @@ class TransformationDAG:
                 }
 
         # Also sort the node profiling results, setting NaNs to zeros
-        to_sort_by = to_aggregate + ("cumulative_compute",)
         prof["sorted"] = dict()
+
+        to_sort_by = to_aggregate + ("cumulative_compute",)
         nodes = [self.objects[obj_hash] for obj_hash in self.nodes]
         for sort_by in to_sort_by:
             nct = [
