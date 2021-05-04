@@ -4,6 +4,7 @@ import copy
 import glob
 import logging
 import os
+import pickle as _pickle
 import sys
 import time
 import warnings
@@ -42,10 +43,6 @@ from .utils import (
 
 log = logging.getLogger(__name__)
 
-# Which copying functions to use throughout this module
-_shallowcopy = copy.copy
-_deepcopy = copy.deepcopy
-
 # The path within the DAG's associated DataManager to which caches are loaded
 DAG_CACHE_DM_PATH = "cache/dag"
 
@@ -65,6 +62,25 @@ DAG_CACHE_RESULT_SAVE_FUNCS = {
     (xr.Dataset,):   lambda obj, p, **kws: obj.to_netcdf(p + ".nc_ds", **kws),
 }
 # fmt: on
+
+
+# -----------------------------------------------------------------------------
+# Which copying functions to use throughout this module
+
+_shallowcopy = copy.copy
+
+
+def _deepcopy(obj: Any) -> Any:
+    """A pickle based deep-copy overload, that uses ``copy.deepcopy`` only as a
+    fallback option if serialization was not possible.
+
+    The pickling approach being based on a C implementation, this can easily
+    be many times faster than the pure-Python-based ``copy.deepcopy``.
+    """
+    try:
+        return _pickle.loads(_pickle.dumps(obj))
+    except:
+        return copy.deepcopy(obj)
 
 
 # -----------------------------------------------------------------------------
