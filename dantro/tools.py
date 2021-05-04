@@ -5,6 +5,7 @@ import logging
 import os
 import subprocess
 import sys
+from datetime import timedelta
 from typing import List, Mapping, Sequence, Set, Tuple, Union
 
 import numpy as np
@@ -442,6 +443,101 @@ def format_bytesize(num: int, *, precision: int = 1) -> str:
             num /= unit_step
 
     return FSTRS[precision].format("-" if is_negative else "", num, unit)
+
+
+def format_time(
+    duration: Union[float, timedelta],
+    *,
+    ms_precision: int = 0,
+    max_num_parts: int = None,
+) -> str:
+    """Given a duration (in seconds), formats it into a string.
+
+    The formatting divisors are: days, hours, minutes, seconds
+
+    If ``ms_precision`` > 0 and ``duration`` < 60, decimal places will be shown
+    for the seconds.
+
+    Args:
+        duration (Union[float, timedelta]): The duration in seconds to format
+            into a duration string; it can also be a timedelta object.
+        ms_precision (int, optional): The precision of the seconds slot
+        max_num_parts (int, optional): How many parts to include when creating
+            the formatted time string. For example, if the time consists of
+            the parts seconds, minutes, and hours, and the argument is ``2``,
+            only the hours and minutes parts will be shown, thus reducing the
+            precision of the overall representation of ``duration``.
+            If None, all parts are included.
+
+    Returns:
+        str: The formatted duration string
+    """
+
+    if isinstance(duration, timedelta):
+        duration = duration.total_seconds()
+
+    divisors = (24 * 60 * 60, 60 * 60, 60, 1)
+    letters = ("d", "h", "m", "s")
+    remaining = float(duration)
+    parts = []
+
+    # Also handle negative numbers
+    is_negative = bool(duration < 0)
+    if is_negative:
+        # Calculate with the positive value
+        remaining *= -1
+
+    # Go over divisors and letters and see if there is something to represent
+    for divisor, letter in zip(divisors, letters):
+        time_to_represent = int(remaining / divisor)
+        remaining -= time_to_represent * divisor
+
+        if time_to_represent > 0:
+            # Distinguish between seconds and other divisors for short times
+            if ms_precision <= 0 or duration >= 60:
+                # Regular behaviour: Seconds do not have decimals or duration
+                # is so long that they need not be represented.
+                s = "{:d}{:}".format(time_to_represent, letter)
+
+            else:
+                # There are decimaly to be represented.
+                s = "{val:.{prec:d}f}s".format(
+                    val=(time_to_represent + remaining),
+                    prec=int(ms_precision),
+                )
+
+            parts.append(s)
+
+    # If nothing was added so far, the time was below one second
+    if not parts:
+        if duration == 0:
+            s = "0s"
+
+        elif ms_precision == 0:
+            # Just show an approximation
+            if not is_negative:
+                s = "< 1s"
+            else:
+                s = "> -1s"
+
+        else:
+            # Show with ms_precision decimal places
+            s = "{val:{tot}.{prec}f}s".format(
+                val=remaining,
+                tot=int(ms_precision) + 2,
+                prec=int(ms_precision),
+            )
+            if is_negative:
+                s = "-" + s
+
+        parts.append(s)
+
+    # Prepend a minus for negative values
+    if is_negative:
+        parts = ["-"] + parts
+
+    # Join the parts together, but only the maximum number of parts
+    return " ".join(parts[: (max_num_parts if max_num_parts else len(parts))])
 
 
 class PoolCallbackHandler:
