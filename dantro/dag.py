@@ -42,6 +42,10 @@ from .utils import (
 
 log = logging.getLogger(__name__)
 
+# Which copying functions to use throughout this module
+_shallowcopy = copy.copy
+_deepcopy = copy.deepcopy
+
 # The path within the DAG's associated DataManager to which caches are loaded
 DAG_CACHE_DM_PATH = "cache/dag"
 
@@ -536,7 +540,7 @@ class Transformation:
         # is not desirable as it would change the hashstr by populating it with
         # non-trivial objects. Deep copy is always possible because the given
         # containers are expected to contain only trivial items or references.
-        cont = copy.deepcopy(cont)
+        cont = _deepcopy(cont)
 
         return recursive_replace(
             cont,
@@ -1072,7 +1076,7 @@ class TransformationDAG:
               information on compute time, cache lookup, cache writing
             - ``sorted``: individual profiling times, with NaN values set to 0
         """
-        prof = copy.deepcopy(self.profile)
+        prof = _shallowcopy(self.profile)
 
         # Add tag-specific information
         prof["tags"] = dict()
@@ -1081,7 +1085,7 @@ class TransformationDAG:
             if not isinstance(obj, Transformation):
                 continue
 
-            tprof = copy.deepcopy(obj.profile)
+            tprof = _shallowcopy(obj.profile)
             prof["tags"][tag] = tprof
 
         # Aggregate the profiled times from all transformations (by item)
@@ -1109,7 +1113,7 @@ class TransformationDAG:
             if not isinstance(obj, Transformation):
                 continue
 
-            tprof = copy.deepcopy(obj.profile)
+            tprof = _shallowcopy(obj.profile)
             for item in to_aggregate:
                 tprofs[item].append(tprof[item])
 
@@ -1381,9 +1385,9 @@ class TransformationDAG:
         t0 = time.time()
 
         # Handle default values of arguments
-        args = copy.deepcopy(args) if args else []
-        kwargs = copy.deepcopy(kwargs) if kwargs else {}
-        fallback = copy.deepcopy(fallback) if fallback is not None else None
+        args = _deepcopy(args) if args else []
+        kwargs = _deepcopy(kwargs) if kwargs else {}
+        fallback = _deepcopy(fallback) if fallback is not None else None
         # NOTE Deep copy is important here, because the mutability of nested
         #      objects may lead to side effects. The deep copy should always
         #      be possible, because these should only contain trivial objects.
@@ -1408,10 +1412,10 @@ class TransformationDAG:
         )[0]
 
         # Parse file cache parameters
-        fc_opts = copy.deepcopy(self._fc_opts)  # Always a dict
+        fc_opts = self._fc_opts  # Always a dict
 
         if file_cache is not None:
-            fc_opts = recursive_update(fc_opts, file_cache)
+            fc_opts = recursive_update(_deepcopy(fc_opts), file_cache)
 
         # From these arguments, create the Transformation object and add it to
         # the objects database.
@@ -1680,9 +1684,9 @@ class TransformationDAG:
         trfs = list()
 
         # Prepare arguments: make sure they are dicts and deep copies.
-        define = copy.deepcopy(define) if define else {}
-        select = copy.deepcopy(select) if select else {}
-        transform = copy.deepcopy(transform) if transform else []
+        define = _deepcopy(define) if define else {}
+        select = _deepcopy(select) if select else {}
+        transform = _deepcopy(transform) if transform else []
 
         # First, parse the entries in the ``define`` argument
         for tag, define_spec in sorted(define.items()):
@@ -1861,9 +1865,10 @@ class TransformationDAG:
             **trf_kwargs: Transformation keyword arguments, passed on to *all*
                 transformations that are to be added.
         """
-        # Retrieve the meta-operation information (important: as a copy)
-        meta_op = copy.deepcopy(self._meta_ops[operation])
-        specs = meta_op["specs"]
+        # Retrieve the meta-operation information. The specs need to be a deep
+        # copy, as they are recursively replaced later on.
+        meta_op = self._meta_ops[operation]
+        specs = _deepcopy(meta_op["specs"])
         kwarg_names = meta_op["kwarg_names"]
 
         # Check that all the expected args and kwargs are present
@@ -1890,8 +1895,8 @@ class TransformationDAG:
         # the positional and keyword arguments ...
         is_arg = lambda obj: isinstance(obj, _Arg)
         is_kwarg = lambda obj: isinstance(obj, _Kwarg)
-        replace_arg = lambda ph: copy.deepcopy(args[ph.position])
-        replace_kwarg = lambda ph: copy.deepcopy(kwargs[ph.name])
+        replace_arg = lambda ph: _deepcopy(args[ph.position])
+        replace_kwarg = lambda ph: _deepcopy(kwargs[ph.name])
 
         # ... and for the internally-defined meta-operation tags:
         is_mop_tag = lambda obj: isinstance(obj, _MOpTag)
