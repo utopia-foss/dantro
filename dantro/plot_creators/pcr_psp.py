@@ -5,6 +5,7 @@ stored in a ParamSpaceGroup.
 
 import copy
 import logging
+import time
 from typing import Callable, List, Sequence, Tuple, Union
 
 import numpy as np
@@ -531,6 +532,8 @@ class MultiversePlotCreator(ExternalPlotCreator):
                 "argument instead."
             )
 
+        t0 = time.time()
+
         # Initialize an (empty) DAG, i.e.: without select and transform args
         # and without setting the selection base
         dag = super()._create_dag(_plot_func=_plot_func, **dag_init_params)
@@ -544,6 +547,11 @@ class MultiversePlotCreator(ExternalPlotCreator):
         dag.select_base = select_base
         dag.add_nodes(select=select, transform=transform)
 
+        log.remark(
+            "Setting up the TransformationDAG with %d nodes took %3gs.",
+            len(dag.nodes),
+            time.time() - t0,
+        )
         return dag
 
 
