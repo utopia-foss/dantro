@@ -342,6 +342,36 @@ class PlotManager:
             return load_yml(s)
         return copy.deepcopy(s)
 
+    def _handle_exception(
+        self,
+        exc: Exception,
+        *,
+        pc: BasePlotCreator,
+        debug: bool = None,
+        ExcCls: type = PlottingError,
+    ):
+        """Helper for handling exceptions from the plot creator"""
+        should_raise = debug or (debug is None and self.raise_exc)
+
+        e_dbg = (
+            "For a full error traceback, specify `debug: True` in the "
+            "plot configuration or run the PlotManager in debug mode."
+        )
+        e_no_dbg = (
+            "To ignore the error message and continue plotting with the "
+            "other plots, specify `debug: False` in the plot "
+            "configuration or disable debug mode for the PlotManager."
+        )
+        e_msg = (
+            f"An error occurred during plotting with {pc.logstr}! "
+            f"{e_dbg if not should_raise else e_no_dbg}\n\n"
+            f"{exc.__class__.__name__}: {exc}"
+        )
+
+        if should_raise:
+            raise ExcCls(e_msg) from exc
+        log.error(e_msg)
+
     def _parse_out_dir(self, fstr: str, *, name: str) -> str:
         """Evaluates the format string to create an output directory path.
 
@@ -664,29 +694,10 @@ class PlotManager:
             log.caution("Skipped. %s\n", skip_reason)
             return "skipped"
 
-        except Exception as err:
-            # Conditionally assemble an error message
-            should_raise = debug or (debug is None and self.raise_exc)
-
-            e_dbg = (
-                "For a full error traceback, specify `debug: True` in the "
-                "plot configuration or run the PlotManager in debug mode."
+        except Exception as exc:
+            self._handle_exception(
+                exc, pc=plot_creator, debug=debug, ExcCls=PlotCreatorError
             )
-            e_no_dbg = (
-                "To ignore the error message and continue plotting with the "
-                "other plots, specify `debug: False` in the plot "
-                "configuration or disable debug mode for the PlotManager."
-            )
-            e_msg = (
-                "An error occurred during plotting with "
-                f"{plot_creator.logstr}! "
-                f"{e_dbg if not should_raise else e_no_dbg}\n\n"
-                f"{err.__class__.__name__}: {err}"
-            )
-
-            if should_raise:
-                raise PlotCreatorError(e_msg) from err
-            log.error(e_msg)
             return False
 
         log.debug("Plot creator call returned successfully.")
@@ -996,16 +1007,17 @@ class PlotManager:
         _num_plots = 0
         for plot_name, cfg in plots_cfg.items():
             _n = 1
+            _creator = cfg.get("creator", "auto")
             if isinstance(cfg, ParamSpace):
                 _n = cfg.volume if cfg.volume else 1
 
             _plot_names.append(
-                "  - {:<55s}  ({:d} plot{:s})"
-                "".format(plot_name, _n, "s" if _n != 1 else "")
+                "  - {:<50s}  ({:s}, {:d} plot{:s})"
+                "".format(plot_name, _creator, _n, "s" if _n != 1 else "")
             )
             _num_plots += _n
         log.note(
-            "Have the following %d plots to perform:\n%s\n",
+            "Have (at least) the following %d plots to perform:\n%s\n",
             _num_plots,
             "\n".join(_plot_names),
         )
@@ -1019,8 +1031,7 @@ class PlotManager:
                 self.plot(plot_name, default_out_dir=out_dir, **cfg)
 
         log.success(
-            "Successfully performed plots from %d plot configuration%s "
-            "in %s.\n",
+            "Performed plots from %d plot configuration%s in %s.\n",
             len(plots_cfg),
             "s" if len(plots_cfg) != 1 else "",
             fmt_time(time.time() - t0),
@@ -1172,11 +1183,14 @@ class PlotManager:
                 This may be completely empty if ``from_pspace`` is used!
 
         Returns:
-            BasePlotCreator: The PlotCreator used for these plots
+            BasePlotCreator: The PlotCreator used for these plots. This will
+                also be returned in case the plot failed!
 
         Raises:
             PlotConfigError: If no out directory was specified here or at
                 initialization.
+            PlotCreatorError: In case the preparation or execution of the plot
+                failed for whatever reason. Not raised if not in debug mode.
         """
 
         log.debug("Preparing plot '%s' ...", name)
@@ -1211,9 +1225,16 @@ class PlotManager:
         )
 
         # Let the creator process arguments
-        plot_cfg, from_pspace = plot_creator.prepare_cfg(
-            plot_cfg=plot_cfg, pspace=from_pspace
-        )
+        try:
+            plot_cfg, from_pspace = plot_creator.prepare_cfg(
+                plot_cfg=plot_cfg, pspace=from_pspace
+            )
+        except Exception as exc:
+            _debug = plot_cfg.get("debug")
+            self._handle_exception(
+                exc, pc=plot_creator, debug=_debug, ExcCls=PlotCreatorError
+            )
+            return plot_creator
 
         # Distinguish single calls and parameter sweeps
         if not from_pspace:
@@ -1304,7 +1325,7 @@ class PlotManager:
             log.progress("Plotting '%s' (%d/%d) ...", name, n + 1, n_max)
             if coords:
                 log.note(
-                    "Selected coordinates:\n%s",
+                    "Current coordinates of sweep plot configuration:\n%s",
                     "\n".join(
                         "  {:>23s}:   {}".format(*kv) for kv in coords.items()
                     ),
