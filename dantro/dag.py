@@ -583,7 +583,7 @@ class Transformation:
         msg = (
             f"Operation '{self.operation}' failed during {context}, but was "
             "allowed to fail; using fallback instead. To suppress this "
-            f"message, set `allow_failure: silent`.\nThe error was:  {err}"
+            f"message, set `allow_failure: silent`.\n\nThe error was:  {err}"
         )
         if self._allow_failure in (True, "log"):
             log.caution(msg)

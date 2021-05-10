@@ -1407,11 +1407,28 @@ def apply_operation(
         raise
 
     except Exception as exc:
+        # Provide information about arguments, such that it is easier to
+        # debug the error. Need to parse them nicely to let the output become
+        # garbled up ...
+        _op_args = "[]"
+        if op_args:
+            _op_args = "\n" + "\n".join(
+                f"    {i:>2d}:  {arg}" for i, arg in enumerate(op_args)
+            )
+
+        _op_kwargs = "{}"
+        if op_kwargs:
+            _l = max(len(str(k)) for k in op_kwargs)
+            _op_kwargs = "\n" + "\n".join(
+                f"    {k:>{_l}s}:  {kwarg}" for k, kwarg in op_kwargs.items()
+            )
+
         raise DataOperationFailed(
-            f"Failed applying operation '{op_name}'! "
-            f"Got a {exc.__class__.__name__}: {exc}\n"
-            f"  args:   {op_args}\n"
-            f"  kwargs: {op_kwargs}\n"
+            f"Operation '{op_name}' failed with a {exc.__class__.__name__}, "
+            "see below!\nIt was called with the following arguments:\n"
+            f"  args:    {_op_args}\n"
+            f"  kwargs:  {_op_kwargs}\n\n"
+            f"{exc.__class__.__name__}: {exc}\n"
         ) from exc
 
 
