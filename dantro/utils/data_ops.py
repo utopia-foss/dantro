@@ -1075,6 +1075,9 @@ _OPERATIONS = KeyOrderedDict({
     '.item':        lambda d: d.item(),
 
     # xarray
+    '.data':        lambda d: d.data,
+    '.values':      lambda d: d.values,
+    '.name':        lambda d: d.name,
     '.head':        lambda d: d.head(),
     '.tail':        lambda d: d.tail(),
     '.isnull':      lambda d: d.isnull(),

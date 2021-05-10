@@ -113,7 +113,7 @@ config_based:
           data: labelled/randints
 
     _raises: PlotCreatorError
-    _match: DataOperationFailed.*No item .* available in ParamSpaceGroup
+    _match: No item .* available in ParamSpaceGroup
 
   mv_missing_uni: &mv_warns_fallback
     plot_cfg:
@@ -192,7 +192,7 @@ config_based:
                 allow_failure: warn
                 fallback: !dag_prev
 
-    _match: Failed applying operation '.mean'!.*bad_argument_leading_to_failure
+    _match: bad_argument_leading_to_failure
 
 
   # .. Test DAG placeholder resolution ........................................
@@ -251,7 +251,7 @@ config_based:
       some_other_kwarg: !dag_result i_fail
 
     _raises: PlotCreatorError
-    _match: Failed applying operation '.format'
+    _match: Operation '.format' failed with a ValueError
 
 
   # .. PlotHelper tests .......................................................

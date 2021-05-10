@@ -492,18 +492,34 @@ numpy_and_xarray_data:
       - increment: [!dag_tag zeros_raw]
         tag: ones
 
+      # Add a name
+      - .rename: [!dag_prev , &da_name these_are_all_ones]
+        tag: ones_named
+      - .name: !dag_prev
+        file_cache: false
+        tag: ones_named_name
+
   expected:
-    num_nodes: 3
-    num_objects: 5
-    tags: [dag, dm, select_base, zeros_raw, random_raw, ones]
+    num_nodes: 5
+    num_objects: 7
+    tags: [dag, dm, select_base, zeros_raw, random_raw,
+           ones, ones_named, ones_named_name]
     node_hashes:
       - &hash_select_random_raw 06a087440938ff577699351cf5c53e88
       - &hash_select_zeros_raw 4c42374387241560e73b5009e084c5ff
       - &hash_op_increment_zeros_raw 50749352642a34a09bfcda6742ee1963
+      - b0359804f5e112f16a770a2eac04e45b
+      - 3540fd4fa35bb6109ce5e75260f8ec65
     cache_dir_available: true
     cache_files:
-      # ... only the result
+      # ... only the results, ones and ones_named:
       - 50749352642a34a09bfcda6742ee1963.xrdc
+      - b0359804f5e112f16a770a2eac04e45b.nc_da
+
+    results:
+      ones_named_name:
+        compare_to: *da_name
+
 
 
 numpy_and_xarray_data_2nd_run:
@@ -520,16 +536,33 @@ numpy_and_xarray_data_2nd_run:
     transform:
       - increment: [!dag_tag zeros_raw]
         tag: ones
+      - .rename: [!dag_prev , these_are_all_ones]
+        tag: ones_named
+
+      # Get the name to check that it was preserved
+      - .name: !dag_prev
+        file_cache: false
+        tag: ones_named_name
+
+      # Get from tree directly
       - getitem: [!dag_tag dm, cache/dag/50749352642a34a09bfcda6742ee1963]
         tag: ones_tree
+      - getitem: [!dag_tag dm, cache/dag/b0359804f5e112f16a770a2eac04e45b]
+        tag: ones_named_tree
 
   expected:
-    num_nodes: 3
-    num_objects: 5
-    tags: [dag, dm, select_base, zeros_raw, ones, ones_tree]
+    num_nodes: 6
+    num_objects: 8
+    tags: [dag, dm, select_base, zeros_raw,
+           ones, ones_named, ones_named_name, ones_tree, ones_named_tree]
     cache_dir_available: true
     cache_files:
       - 50749352642a34a09bfcda6742ee1963.xrdc
+      - b0359804f5e112f16a770a2eac04e45b.nc_da
+
+    results:
+      ones_named_name:
+        compare_to: *da_name
 
 
 numpy_and_xarray_data_3rd_run:
@@ -548,14 +581,26 @@ numpy_and_xarray_data_3rd_run:
     transform:
       - increment: [!dag_tag zeros_raw]
         tag: ones
+      - .rename: [!dag_prev , these_are_all_ones]
+        tag: ones_named
+
+      # Get the name to check that it was preserved
+      - .name: !dag_prev
+        file_cache: false
+        tag: ones_named_name
 
   expected:
-    num_nodes: 2
-    num_objects: 4
-    tags: [dag, dm, select_base, zeros_raw, ones]
+    num_nodes: 4
+    num_objects: 6
+    tags: [dag, dm, select_base, zeros_raw, ones, ones_named, ones_named_name]
     cache_dir_available: true
     cache_files:
-      - 50749352642a34a09bfcda6742ee1963.xrdc
+      - 50749352642a34a09bfcda6742ee1963.nc_da
+      - b0359804f5e112f16a770a2eac04e45b.nc_da
+
+    results:
+      ones_named_name:
+        compare_to: *da_name
 
 
 file_cache_pickle_data:

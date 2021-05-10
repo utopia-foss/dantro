@@ -47,6 +47,14 @@ log = logging.getLogger(__name__)
 # The path within the DAG's associated DataManager to which caches are loaded
 DAG_CACHE_DM_PATH = "cache/dag"
 
+# Types of contaienrs that should be unpacked after loading from cache because
+# having them wrapped into a dantro object is not desirable after loading them
+# from cache (e.g. because the name attribute is shadowed by tree objects ...)
+DAG_CACHE_CONTAINER_TYPES_TO_UNPACK = (
+    ObjectContainer,
+    XrDataContainer,
+)
+
 # Time formatting function
 fmt_time = lambda seconds: _format_time(seconds, ms_precision=2)
 
@@ -1432,6 +1440,8 @@ class TransformationDAG:
         fc_opts = self._fc_opts  # Always a dict
 
         if file_cache is not None:
+            if isinstance(file_cache, bool):
+                file_cache = dict(read=file_cache, write=file_cache)
             fc_opts = recursive_update(_deepcopy(fc_opts), file_cache)
 
         # From these arguments, create the Transformation object and add it to
@@ -2035,8 +2045,8 @@ class TransformationDAG:
         # Retrieve from the DataManager
         res = self.dm[DAG_CACHE_DM_PATH][trf_hash]
 
-        # Have to unpack Object containers
-        if isinstance(res, ObjectContainer):
+        # Have to unpack some container types
+        if isinstance(res, DAG_CACHE_CONTAINER_TYPES_TO_UNPACK):
             res = res.data
 
         # Done.
@@ -2098,6 +2108,11 @@ class TransformationDAG:
         # Prepare the file path (still lacks an extension)
         fpath = os.path.join(self.cache_dir, trf_hash)
 
+        # Delete all potentially existing cache files for this hash
+        for to_delete in glob.glob(fpath + ".*"):
+            log.debug("Removing already existing cache file for this hash ...")
+            os.remove(to_delete)
+
         # Go over the saving functions and see if the type agrees. If so, use
         # that function to write the data.
         for types, sfunc in DAG_CACHE_RESULT_SAVE_FUNCS.items():
@@ -2115,7 +2130,7 @@ class TransformationDAG:
                 # because storage functions do not fail upon an existing file,
                 # we can use the hash for deletion; and have to, because we do
                 # not know the file extension ...
-                for bad_fpath in glob.glob(fpath + "*"):
+                for bad_fpath in glob.glob(fpath + ".*"):
                     os.remove(bad_fpath)
                     log.trace(
                         "Removed cache file after storage failure: %s",
