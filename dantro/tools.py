@@ -484,7 +484,7 @@ def format_time(
     # Also handle negative numbers
     is_negative = bool(duration < 0)
     if is_negative:
-        # Calculate with the positive value
+        # Calculate with the positive value, much easier
         remaining *= -1
 
     # Go over divisors and letters and see if there is something to represent
@@ -494,13 +494,13 @@ def format_time(
 
         if time_to_represent > 0:
             # Distinguish between seconds and other divisors for short times
-            if ms_precision <= 0 or duration >= 60:
+            if ms_precision <= 0 or abs(duration) >= 60:
                 # Regular behaviour: Seconds do not have decimals or duration
                 # is so long that they need not be represented.
                 s = "{:d}{:}".format(time_to_represent, letter)
 
             else:
-                # There are decimaly to be represented.
+                # There are decimals to be represented.
                 s = "{val:.{prec:d}f}s".format(
                     val=(time_to_represent + remaining),
                     prec=int(ms_precision),
@@ -511,33 +511,30 @@ def format_time(
     # If nothing was added so far, the time was below one second
     if not parts:
         if duration == 0:
-            s = "0s"
+            return "0s"
 
         elif ms_precision == 0:
             # Just show an approximation
             if not is_negative:
-                s = "< 1s"
-            else:
-                s = "> -1s"
+                return "< 1s"
+            return "> -1s"
 
-        else:
-            # Show with ms_precision decimal places
-            s = "{val:{tot}.{prec}f}s".format(
-                val=remaining,
-                tot=int(ms_precision) + 2,
-                prec=int(ms_precision),
-            )
-            if is_negative:
-                s = "-" + s
-
+        # Show with ms_precision decimal places
+        s = "{val:{tot}.{prec}f}s".format(
+            val=remaining,
+            tot=int(ms_precision) + 2,
+            prec=int(ms_precision),
+        )
         parts.append(s)
 
-    # Prepend a minus for negative values
+    # May need to prepend a minus for negative values
     if is_negative:
         parts = ["-"] + parts
 
     # Join the parts together, but only the maximum number of parts
-    return " ".join(parts[: (max_num_parts if max_num_parts else len(parts))])
+    if not max_num_parts:
+        return " ".join(parts)
+    return " ".join(parts[: max_num_parts + int(is_negative)])
 
 
 class PoolCallbackHandler:

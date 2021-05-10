@@ -676,7 +676,7 @@ class UniversePlotCreator(ExternalPlotCreator):
         # -- Case 2: Explicitly given universe names
         if isinstance(unis, (list, tuple)):
             if any([not isinstance(n, int) for n in unis]):
-                raise ValueError(
+                raise TypeError(
                     "Got at least one non-integer value in universe ID list!\n"
                     "When supplying a list or tuple to the `universes` "
                     "argument, each element needs to be an integer value "

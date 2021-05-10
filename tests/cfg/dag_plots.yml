@@ -86,6 +86,20 @@ config_based:
     _raises: ValueError
     _match: No `creator` argument given
 
+  # .. Tests for UniversePlotCreator ..........................................
+  uni_specific_IDs:
+    plot_cfg:
+      <<: *shared_plot_cfg
+      based_on: [creator.uni, dag.errorbar, select.randints_3D]
+      # TODO Migrate to dag.errorbars
+      universes: [32, 33, 37, 68]
+
+      transform:
+        - .mean: [!dag_tag randints, [x, z]]
+          tag: y
+        - .std: [!dag_tag randints, [x, z]]
+          tag: yerr
+
 
   # .. Test handling of missing data in MultiversePlotCreator .................
 

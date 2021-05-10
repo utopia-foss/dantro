@@ -2,9 +2,11 @@
 
 import copy
 import os
+import time
 from builtins import *  # ... to have exception types available in globals
 from typing import Any
 
+import dill
 import numpy as np
 import pytest
 import xarray as xr
@@ -176,7 +178,68 @@ def yaml_roundtrip(obj: Any, *, path: str) -> Any:
 
 def test_hash():
     """Test that the hash function did not change"""
-    assert _hash("I will not change.") == "cac42c9aeca87793905d257c1b1b89b8"
+    fixed_hash = "cac42c9aeca87793905d257c1b1b89b8"
+    assert _hash("I will not change.") == fixed_hash
+
+    # Also works with byte strings
+    assert _hash("I will not change.".encode("utf-8")) == fixed_hash
+
+
+def test_deepcopy(dm):
+    """Tests the custom deepcopy function, based on pickle"""
+    deepcopy = dag._deepcopy
+    assert deepcopy("foo") == "foo"
+    assert deepcopy(dict(foo=dict(bar="spam"))) == dict(foo=dict(bar="spam"))
+
+    # also works with complex objects
+    assert deepcopy(int)
+    assert deepcopy(("some", "mixed", list, "objects", 123, _hash))
+    assert deepcopy(dag_utils.Placeholder("foo bar"))
+    assert deepcopy(DataManager)
+    assert deepcopy(dag.Transformation)
+    assert deepcopy(lambda x: x ** 2)
+
+    with pytest.raises(RuntimeError):
+        assert deepcopy(dm)
+
+    del dm["bad_objects"]
+    assert "bad_objects" not in dm
+    assert deepcopy(dm)
+
+    # ... and local objects as well as modules, which will trigger the fallback
+    assert copy.deepcopy(lambda x: "foo")
+    assert deepcopy(lambda x: "foo")  # will fall back to copy.deepcopy
+
+    # The function should not work in places where copy.deepcopy also fails
+    with pytest.raises(TypeError):
+        copy.deepcopy(time)  # module
+    with pytest.raises(TypeError):
+        deepcopy(time)
+
+    # The pickle-based function is significantly faster than regular deep copy.
+    # For comparison, also include dill:
+    large_list = list(range(100000))
+
+    dill_deepcopy = lambda obj: dill.loads(dill.dumps(obj))
+
+    t0 = time.time()
+    deepcopy(large_list)
+    t1 = time.time()
+    copy.deepcopy(large_list)
+    t2 = time.time()
+    dill_deepcopy(large_list)
+    t3 = time.time()
+
+    dt = dict()
+    dt["pickle"] = t1 - t0
+    dt["regular"] = t2 - t1
+    dt["dill"] = t3 - t2
+    print("times and speedups (vs regular):")
+    for name, _dt in dt.items():
+        print(f"  {name:>10s}:  {_dt:.3g}s\t({dt['regular'] /  _dt:.3g}x)")
+
+    assert dt["regular"] / dt["pickle"] > 5
+    assert dt["dill"] / dt["pickle"] > 10
 
 
 def test_Placeholder(tmpdir):

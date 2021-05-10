@@ -166,18 +166,27 @@ def test_format_time():
 
     assert fmt(10) == "10s"
     assert fmt(1) == "1s"
+    assert fmt(-1) == "- 1s"
+    assert fmt(-10) == "- 10s"
 
     assert fmt(0.995) == "< 1s"
     assert fmt(0.1) == "< 1s"
     assert fmt(0) == "0s"
+    assert fmt(-0.1) == "> -1s"
 
     assert fmt(10.1) == "10s"
+    assert fmt(-10.1) == "- 10s"
     assert fmt(10.1, ms_precision=2) == "10.10s"
+    assert fmt(-10.1, ms_precision=2) == "- 10.10s"
 
     assert fmt(0.1, ms_precision=2) == "0.10s"
+    assert fmt(-0.1, ms_precision=2) == "- 0.10s"
     assert fmt(59.127, ms_precision=2) == "59.13s"
+    assert fmt(-59.127, ms_precision=2) == "- 59.13s"
+
     assert fmt(60.127, ms_precision=2) == "1m"
     assert fmt(61.127, ms_precision=2) == "1m 1s"
+    assert fmt(-61.127, ms_precision=2) == "- 1m 1s"
 
     assert fmt(123) == "2m 3s"
     assert fmt(123, ms_precision=2) == "2m 3s"
@@ -191,8 +200,15 @@ def test_format_time():
     assert fmt(1 * _d + 2 * _h + 0 * _m + 4) == "1d 2h 4s"
     assert fmt(5 * _d + 2 * _h + 0 * _m + 4) == "5d 2h 4s"
 
+    assert fmt(-(1 * _d + 2 * _h + 3 * _m + 4 + 0.5)) == "- 1d 2h 3m 4s"
+    assert fmt(-(1 * _d + 2 * _h + 3 * _m + 4)) == "- 1d 2h 3m 4s"
+    assert fmt(-(1 * _d + 2 * _h + 3 * _m + 0)) == "- 1d 2h 3m"
+    assert fmt(-(1 * _d + 2 * _h + 0 * _m + 4)) == "- 1d 2h 4s"
+    assert fmt(-(5 * _d + 2 * _h + 0 * _m + 4)) == "- 5d 2h 4s"
+
     assert fmt(1 * _d + 2 * _h + 3 * _m + 4, max_num_parts=3) == "1d 2h 3m"
     assert fmt(1 * _d + 2 * _h + 3 * _m + 4, max_num_parts=2) == "1d 2h"
+    assert fmt(-(1 * _d + 2 * _h + 3 * _m + 4), max_num_parts=2) == "- 1d 2h"
 
 
 # Tests of package-private modules --------------------------------------------
