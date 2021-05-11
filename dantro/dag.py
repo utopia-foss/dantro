@@ -827,6 +827,7 @@ class TransformationDAG:
         select_base: Union[DAGReference, str] = None,
         select_path_prefix: str = None,
         meta_operations: Dict[str, Union[list, dict]] = None,
+        exclude_from_all: List[str] = None,
         verbosity: int = 1,
     ):
         """Initialize a DAG which is associated with a DataManager and load the
@@ -883,10 +884,15 @@ class TransformationDAG:
                 is already in use.
                 If this path ends with a ``/``, it is directly prepended. If
                 not, the ``/`` is added before adjoining it to the other path.
-            meta_operations: Meta-operations are basically *function
-                definitions* using the language of the transformation
+            meta_operations (dict, optional): Meta-operations are basically
+                *function definitions* using the language of the transformation
                 framework; for information on how to define and use them, see
                 :ref:`dag_meta_ops`.
+            exclude_from_all (List[str], optional): Tag names that should not
+                be defined as :py:meth:`~dantro.dag.TransformationDAG.compute`
+                targets if ``compute_only: all`` is set there.
+                Note that, alternatively, tags can be named starting with
+                ``.`` or ``_`` to exclude them from that list.
             verbosity (str, optional): Logging verbosity during computation.
                 This mostly pertains to the extent of statistics being emitted
                 through the logger.
@@ -906,6 +912,7 @@ class TransformationDAG:
         self._select_base = None
         self._profile = dict(add_node=0.0, compute=0.0)
         self._select_path_prefix = select_path_prefix
+        self.exclude_from_all = exclude_from_all if exclude_from_all else []
         self.verbosity = verbosity
 
         # Determine cache directory path; relative path interpreted as relative
@@ -1532,8 +1539,10 @@ class TransformationDAG:
         statistics will be emitted via the logger.
 
         Args:
-            compute_only (Sequence[str], optional): The tags to compute. If not
-                given, will compute all associated tags.
+            compute_only (Sequence[str], optional): The tags to compute.
+                If ``None``, will compute *all* non-private tags: all tags
+                *not* starting with ``.`` or ``_`` that are *not* included
+                in the ``TransformationDAG.exclude_from_all`` list.
 
         Returns:
             Dict[str, Any]: A mapping from tags to fully computed results.
@@ -1608,34 +1617,17 @@ class TransformationDAG:
                 "\n".join(_stats2),
             )
 
-        # Determine which tags to compute
-        compute_only = compute_only if compute_only is not None else "all"
-        if compute_only == "all":
-            compute_only = [
-                t for t in self.tags.keys() if t not in self.SPECIAL_TAGS
-            ]
-        else:
-            # Check that all given tags actually are available
-            invalid_tags = [t for t in compute_only if t not in self.tags]
-            if invalid_tags:
-                _invalid_tags = ", ".join(invalid_tags)
-                _available_tags = ", ".join(self.tags)
-                raise ValueError(
-                    "Some of the tags specified in `compute_only` were not "
-                    "available in the TransformationDAG!\n"
-                    f"  Invalid tags:   {_invalid_tags}\n"
-                    f"  Available tags: {_available_tags}"
-                )
-
-        # The results dict
+        # Determine which tags to compute and prepare the results dict
+        compute_only = self._parse_compute_only(compute_only)
         results = dict()
 
         if not compute_only:
             log.remark(
-                "No tags were selected to be computed. Available tags:\n  %s",
-                ", ".join(self.tags),
+                "No tags were selected to be computed. Available tags:\n%s",
+                make_columns(sorted(self.tags)),
             )
             return results
+
         log.note(
             "Computing result of %d tag%s on DAG with %d nodes ...",
             len(compute_only),
@@ -2001,6 +1993,40 @@ class TransformationDAG:
         """
         for key, t in times.items():
             self._profile[key] = self._profile.get(key, 0.0) + t
+
+    def _parse_compute_only(
+        self, compute_only: Union[str, List[str]]
+    ) -> List[str]:
+        """Prepares the ``compute_only`` argument for use in
+        :py:meth:`~dantro.dag.TransformationDAG.compute`.
+        """
+        compute_only = compute_only if compute_only is not None else "all"
+
+        if compute_only == "all":
+            compute_only = [
+                t
+                for t in self.tags.keys()
+                if (
+                    t not in self.exclude_from_all
+                    and t not in self.SPECIAL_TAGS
+                    and not (t.startswith(".") or t.startswith("_"))
+                )
+            ]
+
+        else:
+            # Check that all given tags actually are available
+            invalid_tags = [t for t in compute_only if t not in self.tags]
+            if invalid_tags:
+                _invalid_tags = ", ".join(invalid_tags)
+                _available_tags = ", ".join(self.tags)
+                raise ValueError(
+                    "Some of the tags specified in `compute_only` were not "
+                    "available in the TransformationDAG!\n"
+                    f"  Invalid tags:   {_invalid_tags}\n"
+                    f"  Available tags: {_available_tags}"
+                )
+
+        return compute_only
 
     # .........................................................................
     # Cache writing and reading

@@ -471,6 +471,23 @@ compute_only_a_subset:
     computed_tags: [zero_raw, twos]
 
 
+compute_all_does_not_include_private_tags:
+  params:
+    select:
+      some_public_tag: data/zeros
+      _some_private_tag: data/ones
+      .another_private_tag:
+        path: data/zeros
+        transform: [increment]
+
+    transform:
+      - define: foo
+        tag: another_public_tag
+
+  compute_only: all
+  expected:
+    computed_tags: [some_public_tag, another_public_tag]
+
 
 # Caching tests ---------------------------------------------------------------
 

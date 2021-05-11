@@ -836,7 +836,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
         # The reference stack should always be empty
         assert sum([len(stack) for stack in tdag.ref_stacks.values()]) == 0
 
-        # Compare with expected result...
+        # Check compute_only argument
         compute_only = cfg.get("compute_only")
         print(
             "\nComputing results (compute_only argument: {}) ...".format(
@@ -844,6 +844,17 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
             )
         )
 
+        if compute_only in (None, "all"):
+            to_compute = tdag._parse_compute_only(compute_only)
+            assert isinstance(to_compute, list)
+            assert all(isinstance(t, str) for t in to_compute)
+
+            # There shouldn't be private tags in there, nor special tags
+            assert not [t for t in to_compute if t.startswith(".")]
+            assert not [t for t in to_compute if t.startswith("_")]
+            assert not [t for t in to_compute if t in tdag.SPECIAL_TAGS]
+
+        # Compute the results
         if not _raises or not _raises_on_compute:
             # Compute normally
             results = tdag.compute(compute_only=compute_only)
