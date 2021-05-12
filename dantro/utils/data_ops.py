@@ -974,7 +974,31 @@ def expand_object_array(
     )
 
 
+# .............................................................................
+# Related to plotting workflow
+
+
+def raise_SkipPlot(
+    cond: bool = True, *, reason: str = "", passthrough: Any = None
+):
+    """Raises :py:exc:`~dantro.exceptions.SkipPlot` to trigger that a plot is
+    skipped without error, see :ref:`plot_mngr_skipping_plots`.
+
+    If ``cond`` is False, this will do nothing but return the passthrough.
+
+    Args:
+        cond (bool, optional): Whether to actually raise the exception
+        reason (str, optional): The reason for skipping, optional
+        passthrough (Any, optional): A passthrough value which is returned if
+            ``cond`` did not evaluate to True.
+    """
+    if cond:
+        raise SkipPlot(reason)
+    return passthrough
+
+
 # fmt: off
+# -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 # The Operations Database -----------------------------------------------------
 # NOTE If a single "object to act upon" can be reasonably defined for an
@@ -1299,6 +1323,13 @@ _OPERATIONS = KeyOrderedDict({
         lambda *a, **k: import_module_or_object("scipy.optimize",
                                                 name="curve_fit")(*a, **k),
     # NOTE: Use the 'lambda' operation to generate the callable
+
+
+    # For use in Plotting Framework - - - - - - - - - - - - - - - - - - - - - -
+    # Can be called to conditionally skip a plot
+    'raise_SkipPlot':       raise_SkipPlot,
+
+
 }) # End of default operation definitions
 # fmt: on
 

@@ -86,7 +86,9 @@ config_based:
     _raises: ValueError
     _match: No `creator` argument given
 
+
   # .. Tests for UniversePlotCreator ..........................................
+  # Plot only specific universe IDs
   uni_specific_IDs:
     plot_cfg:
       <<: *shared_plot_cfg
@@ -194,6 +196,46 @@ config_based:
 
     _match: bad_argument_leading_to_failure
 
+  # .. Test conditional plot skipping .........................................
+  skip_plot_directly:
+    plot_cfg:
+      <<: *shared_plot_cfg
+      based_on: [creator.ext, dag.errorbars]
+
+      transform:
+        - raise_SkipPlot: [true]
+          kwargs:
+            reason: some reason
+          tag: data
+
+  skip_plot_conditionally:
+    plot_cfg:
+      <<: *shared_plot_cfg
+      based_on: [creator.ext, dag.errorbars]
+
+      transform:
+        - xr.DataArray: [[.5,1,2,4,8,16,32]]
+          kwargs:
+            dims: [x]
+            coords:
+              x: [0,1,2,3,4,5,6]
+          tag: y
+        - pow: [!dag_tag y, .5]
+          tag: yerr
+        - xr.Dataset:
+            - y: !dag_tag y
+              yerr: !dag_tag yerr
+          tag: to_plot
+
+        - define: false
+          tag: condition
+        - raise_SkipPlot: [!dag_tag condition ]
+          kwargs:
+            passthrough: !dag_tag to_plot
+          tag: data
+
+      y: y
+      yerr: yerr
 
   # .. Test DAG placeholder resolution ........................................
   phres_simple:
