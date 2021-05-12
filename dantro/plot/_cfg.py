@@ -206,6 +206,8 @@ def resolve_based_on(
         plots_cfg (dict): A dict with multiple plot configurations to resolve
             the ``based_on`` entries of. Root-level keys are assumed to
             correspond to individual plot configurations.
+            If this argument evaluates to False, will silently assume an empty
+            plots configuration.
         label (str): The label to use for the given plots configuration when
             adding it to the base configuration pool.
         base_pools (Union[OrderedDict, Sequence[Tuple[str, dict]]]): The base
@@ -220,6 +222,7 @@ def resolve_based_on(
     if not isinstance(base_pools, OrderedDict):
         base_pools = OrderedDict(list(base_pools))
 
+    plots_cfg = plots_cfg if plots_cfg else {}
     for pcfg_name, pcfg in plots_cfg.items():
         plots_cfg[pcfg_name] = _resolve_based_on(
             pcfg,
@@ -247,11 +250,12 @@ def resolve_based_on_single(
         based_on (Union[str, Sequence[str]]): The *extracted* ``based_on``
             argument.
         plot_cfg (dict): The rest of the single plot's configuration. This
-            may not include ``based_on``!
+            may not include ``based_on``! If this argument evaluates to False,
+            will silently assume an empty plots configuration.
         **resolve_based_on_kwargs: Passed on
 
     """
     return resolve_based_on(
-        {name: dict(based_on=based_on, **plot_cfg)},
+        {name: dict(based_on=based_on, **(plot_cfg if plot_cfg else {}))},
         **resolve_based_on_kwargs,
     )[name]
