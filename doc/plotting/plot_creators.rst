@@ -6,10 +6,6 @@ Plot Creators
 Within the plotting framework, the plot creators are the classes that perform all the actual plotting work.
 This document describes what they are and how they can be used.
 
-.. contents::
-   :local:
-   :depth: 2
-
 For further reading on the individual plot creators, see:
 
 .. toctree::
@@ -17,6 +13,7 @@ For further reading on the individual plot creators, see:
    :glob:
 
    creators/*
+   auto_detection
 
 For specializing plot creators, see :ref:`here <spec_plot_creators>`.
 

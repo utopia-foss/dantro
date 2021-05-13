@@ -74,7 +74,7 @@ def setup(app):
 # -- Project information -----------------------------------------------------
 
 project = "dantro"
-copyright = "2020, dantro developers"
+copyright = "2018 — 2021, dantro developers"
 author = "dantro developers"
 
 # The short X.Y version
@@ -149,18 +149,29 @@ autodoc_default_options = {
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "sphinx_rtd_theme"
+html_theme = "sphinx_book_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-# html_theme_options = {}
+html_theme_options = {
+    "repository_url": "https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro",
+    "use_repository_button": True,
+    "use_issues_button": True,
+    "use_edit_page_button": False,  # NOTE Not working with GitLab repos yet
+    "use_download_button": True,
+    "use_fullscreen_button": False,
+}
+
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = []
+html_static_path = ["_static"]
+
+# Custom CSS files, assumed one of `html_static_path`
+html_css_files = ["css/custom.css"]
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
@@ -171,6 +182,13 @@ html_static_path = []
 # 'searchbox.html']``.
 #
 # html_sidebars = {}
+
+
+# Title, Logo, Favicon
+#
+html_title = ""
+html_logo = "_static/img/logo_blue.svg"
+html_favicon = "_static/img/favicon.png"
 
 
 # -- Options for HTMLHelp output ---------------------------------------------
