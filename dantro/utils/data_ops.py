@@ -1043,13 +1043,16 @@ _OPERATIONS = KeyOrderedDict({
     'str':          str,
 
     # Item access and manipulation
+    '[]':                   lambda d, k:    d[k],
     'getitem':              lambda d, k:    d[k],
     'setitem':              lambda d, k, v: d.__setitem__(k, v),
     'recursive_getitem':    recursive_getitem,
 
     # Attribute-related
+    '.':            getattr,
     'getattr':      getattr,
     'setattr':      setattr,
+    '.()':          lambda d, attr, *a, **k: getattr(d, attr)(*a, **k),
     'callattr':     lambda d, attr, *a, **k: getattr(d, attr)(*a, **k),
 
     # Other common Python builtins
@@ -1143,7 +1146,14 @@ _OPERATIONS = KeyOrderedDict({
     'np.dot':       np.dot,
 
     # xarray
-    '.coords':      lambda d, key: d.coords[key],
+    '.coords':
+        lambda d, k=None: d.coords if k is None else d.coords[k],
+    '.attrs':
+        lambda d, k=None: d.attrs if k is None else d.attrs[k],
+    '.variables':
+        lambda d, k=None: d.variables if k is None else d.variables[k],
+    '.data_vars':
+        lambda d, k=None: d.data_vars if k is None else d.data_vars[k],
 
 
     # N-ary ...................................................................
@@ -1266,12 +1276,18 @@ _OPERATIONS = KeyOrderedDict({
     # xarray
     '.sel':             lambda d, *a, **k: d.sel(*a, **k),
     '.isel':            lambda d, *a, **k: d.isel(*a, **k),
+    '.sel.item':        lambda d, *a, **k: d.sel(*a, **k).item(),
+    '.isel.item':       lambda d, *a, **k: d.isel(*a, **k).item(),
     '.drop_sel':        lambda d, *a, **k: d.drop_sel(*a, **k),
+    '.drop_isel':       lambda d, *a, **k: d.drop_isel(*a, **k),
+    '.drop_dims':       lambda d, *a, **k: d.drop_dims(*a, **k),
+    '.squeeze_with_drop':   lambda d, *a, **k: d.squeeze(*a, **k, drop=True),
     '.median':          lambda d, *a, **k: d.median(*a, **k),
     '.quantile':        lambda d, *a, **k: d.quantile(*a, **k),
     '.count':           lambda d, *a, **k: d.count(*a, **k),
     '.diff':            lambda d, *a, **k: d.diff(*a, **k),
     '.where':           lambda d, c, *a, **k: d.where(c, *a, **k),
+    '.notnull':         lambda d, *a, **k: d.notnull(*a, **k),
     '.ffill':           lambda d, *a, **k: d.ffill(*a, **k),
     '.bfill':           lambda d, *a, **k: d.bfill(*a, **k),
     '.fillna':          lambda d, *a, **k: d.fillna(*a, **k),
@@ -1297,9 +1313,13 @@ _OPERATIONS = KeyOrderedDict({
     '.assign_attrs':    lambda d, *a, **k: d.assign_attrs(*a, **k),
     '.assign':          lambda d, *a, **k: d.assign(*a, **k),
 
-    '.to_array':        lambda ds, *a, **k: ds.to_array(*a, **k),
-
     '.to_dataframe':    lambda d, *a, **k: d.to_dataframe(*a, **k),
+
+    '.to_array':        lambda ds, *a, **k: ds.to_array(*a, **k),
+    '.rename_dims':     lambda ds, *a, **k: ds.rename_dims(*a, **k),
+    '.rename_vars':     lambda ds, *a, **k: ds.rename_vars(*a, **k),
+    '.drop_vars':       lambda ds, *a, **k: ds.drop_vars(*a, **k),
+    '.assign_var':      lambda ds, name, var: ds.assign({name: var}),
 
     'xr.Dataset':           xr.Dataset,
     'xr.DataArray':         xr.DataArray,
@@ -1446,21 +1466,21 @@ def apply_operation(
         # garbled up ...
         _op_args = "[]"
         if op_args:
-            _op_args = "\n" + "\n".join(
+            _op_args = "\n" + "\n\n".join(
                 f"    {i:>2d}:  {arg}" for i, arg in enumerate(op_args)
             )
 
         _op_kwargs = "{}"
         if op_kwargs:
             _l = max(len(str(k)) for k in op_kwargs)
-            _op_kwargs = "\n" + "\n".join(
+            _op_kwargs = "\n" + "\n\n".join(
                 f"    {k:>{_l}s}:  {kwarg}" for k, kwarg in op_kwargs.items()
             )
 
         raise DataOperationFailed(
             f"Operation '{op_name}' failed with a {exc.__class__.__name__}, "
             "see below!\nIt was called with the following arguments:\n"
-            f"  args:    {_op_args}\n"
+            f"  args:    {_op_args}\n\n"
             f"  kwargs:  {_op_kwargs}\n\n"
             f"{exc.__class__.__name__}: {exc}\n"
         ) from exc
