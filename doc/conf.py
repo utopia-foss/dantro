@@ -187,8 +187,8 @@ html_css_files = ["css/custom.css"]
 # Title, Logo, Favicon
 #
 html_title = ""
-html_logo = "_static/img/logo_blue.svg"
-html_favicon = "_static/img/favicon.png"
+html_logo = "_static/img/logo_green.svg"
+html_favicon = "_static/img/icon_green.png"
 
 
 # -- Options for HTMLHelp output ---------------------------------------------
