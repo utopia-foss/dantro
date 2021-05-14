@@ -12,6 +12,12 @@ To assign a specific class to some content, use the following sphinx directive:
         Lorem ipsum dolor sit amet ...
 */
 
+/* Use Fira font */
+@import url(https://fonts.googleapis.com/css?family=Fira+Sans);
+
+html, body, h1, h2, h3, h4, h5, h6 {
+    font-family: "Fira Sans", var(--pst-font-family-base) !important;
+}
 
 /* Markup `contents` diretive in a more appealing way */
 div.contents {
