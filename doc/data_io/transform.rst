@@ -10,6 +10,13 @@ It is sometimes also referred to as *DAG framework* or *data selection and trans
 This page is an introduction to the DAG framework and a description of its inner workings.
 To learn more about its practical usage, make sure to look at the :doc:`examples`.
 
+Related pages:
+
+.. toctree::
+
+    dag_op_hooks
+    examples
+
 .. contents::
    :local:
    :depth: 2

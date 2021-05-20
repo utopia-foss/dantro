@@ -40,7 +40,7 @@ test_deps = [
 # Dependencies for building the dantro documentation
 doc_deps = [
     "sphinx>=2.4,<3.0",
-    "sphinx_rtd_theme>=0.5",
+    "sphinx-book-theme",
     "ipython>=7.0",
 ]
 
@@ -57,7 +57,7 @@ and semantically heterogeneous data. It is built around three main
 features:
 
 -  **data handling:** loading heterogeneous data into a tree-like data
-   structure and providing a uniform interface for it
+   structure, providing a uniform interface to it
 -  **data transformation:** performing arbitrary operations on the data,
    if necessary using lazy evaluation
 -  **data visualization:** creating a visual representation of the
@@ -77,14 +77,15 @@ It is designed to be **easily customizable** to the requirements of the project
 it is integrated in, even if the involved data is hierachically structured or
 semantically heterogeneous.
 Furthermore, it allows a **configuration-based specification** of all
-operations via YAML configuration files; the resulting pipeline can then be
-controlled entirely via these configuration files and without requiring
-code changes.
+operations via `YAML <https://en.wikipedia.org/wiki/YAML>`_ configuration
+files; the resulting pipeline can then be controlled entirely via these
+configuration files and without requiring code changes.
 
 The ``dantro`` package is **open source software** released under the
-`LGPLv3+ <(https://www.gnu.org/licenses/lgpl-3.0.html>`_ license.
-It was developed alongside the `Utopia project <https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia>`_,
-but is an independent package.
+`LGPLv3+ <https://www.gnu.org/licenses/lgpl-3.0.html>`_ license.
+It was developed alongside the `Utopia project <https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia>`_
+(a modelling framework for complex and adaptive systems), but is an
+independent package.
 
 Learn more
 ----------
@@ -93,6 +94,7 @@ Learn more
 * `Project page <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro>`_
 * `README and installation instructions <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro#installing-dantro>`_
 * `Publication in the Journal of Open Source Software <https://doi.org/10.21105/joss.02316>`_
+* `Utopia Project Website <https://utopia-project.org/>`_
 
 """
 
