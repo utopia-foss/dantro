@@ -47,7 +47,7 @@ log = logging.getLogger(__name__)
 # The path within the DAG's associated DataManager to which caches are loaded
 DAG_CACHE_DM_PATH = "cache/dag"
 
-# Types of contaienrs that should be unpacked after loading from cache because
+# Types of containers that should be unpacked after loading from cache because
 # having them wrapped into a dantro object is not desirable after loading them
 # from cache (e.g. because the name attribute is shadowed by tree objects ...)
 DAG_CACHE_CONTAINER_TYPES_TO_UNPACK = (
