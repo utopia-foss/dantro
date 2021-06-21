@@ -192,7 +192,9 @@ def test_data_selection_interface(init_kwargs, tmpdir):
     assert "transform" not in ds4
     assert "compute_only" not in ds4
     assert "file_cache_defaults" not in ds4
-    assert ds4["dag"]._fc_opts == dict(write=False, read=True)
+    assert ds4["dag"]._fc_opts == dict(
+        write=dict(enabled=False), read=dict(enabled=True)
+    )
 
     # It's possible to pass parameters through to TransformationDAG. If they
     # are bad, it will fail

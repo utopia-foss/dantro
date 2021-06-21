@@ -57,21 +57,37 @@ BOOLEAN_OPERATORS = {
 # .............................................................................
 
 
-def print_data(data: Any) -> Any:
+def print_data(
+    data: Any, *, end: str = "\n", fstr: str = None, **fstr_kwargs
+) -> Any:
     """Prints and passes on the data.
 
     The print operation distinguishes between dantro types (in which case some
-    more information is shown) and  non-dantro types.
-    """
-    # Distinguish between dantro types and others
-    if isinstance(data, BaseDataContainer):
-        print("{}, with data:\n{}\n".format(data, data.data))
+    more information is shown) and non-dantro types. If a custom format string
+    is given, will always use that one.
 
-    elif isinstance(data, BaseDataGroup):
-        print("{}\n".format(data.tree))
+    Args:
+        data (Any): The data to print
+        end (str, optional): The ``end`` argument to the ``print`` call
+        fstr (str, optional): If given, will use this to format the data for
+            printing. The data will be the passed as first *positional*
+            argument to the format string, thus addressable by ``{0:}``.
+            If the format string is not ``None``, will *always* use the format
+            string and not use the custom formatting for dantro objects.
+        **fstr_kwargs: Keyword arguments passed to the format operation.
+
+    Returns:
+        Any: the given ``data``
+    """
+    if fstr is None and isinstance(data, BaseDataContainer):
+        print("{}, with data:\n{}\n".format(data, data.data), end=end)
+
+    elif fstr is None and isinstance(data, BaseDataGroup):
+        print("{}\n".format(data.tree), end=end)
 
     else:
-        print(data)
+        fstr = fstr if fstr is not None else "{0:}"
+        print(fstr.format(data, **fstr_kwargs), end=end)
 
     return data
 
@@ -958,7 +974,31 @@ def expand_object_array(
     )
 
 
+# .............................................................................
+# Related to plotting workflow
+
+
+def raise_SkipPlot(
+    cond: bool = True, *, reason: str = "", passthrough: Any = None
+):
+    """Raises :py:exc:`~dantro.exceptions.SkipPlot` to trigger that a plot is
+    skipped without error, see :ref:`plot_mngr_skipping_plots`.
+
+    If ``cond`` is False, this will do nothing but return the passthrough.
+
+    Args:
+        cond (bool, optional): Whether to actually raise the exception
+        reason (str, optional): The reason for skipping, optional
+        passthrough (Any, optional): A passthrough value which is returned if
+            ``cond`` did not evaluate to True.
+    """
+    if cond:
+        raise SkipPlot(reason)
+    return passthrough
+
+
 # fmt: off
+# -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 # The Operations Database -----------------------------------------------------
 # NOTE If a single "object to act upon" can be reasonably defined for an
@@ -1003,13 +1043,16 @@ _OPERATIONS = KeyOrderedDict({
     'str':          str,
 
     # Item access and manipulation
+    '[]':                   lambda d, k:    d[k],
     'getitem':              lambda d, k:    d[k],
     'setitem':              lambda d, k, v: d.__setitem__(k, v),
     'recursive_getitem':    recursive_getitem,
 
     # Attribute-related
+    '.':            getattr,
     'getattr':      getattr,
     'setattr':      setattr,
+    '.()':          lambda d, attr, *a, **k: getattr(d, attr)(*a, **k),
     'callattr':     lambda d, attr, *a, **k: getattr(d, attr)(*a, **k),
 
     # Other common Python builtins
@@ -1059,6 +1102,9 @@ _OPERATIONS = KeyOrderedDict({
     '.item':        lambda d: d.item(),
 
     # xarray
+    '.data':        lambda d: d.data,
+    '.values':      lambda d: d.values,
+    '.name':        lambda d: d.name,
     '.head':        lambda d: d.head(),
     '.tail':        lambda d: d.tail(),
     '.isnull':      lambda d: d.isnull(),
@@ -1100,7 +1146,14 @@ _OPERATIONS = KeyOrderedDict({
     'np.dot':       np.dot,
 
     # xarray
-    '.coords':      lambda d, key: d.coords[key],
+    '.coords':
+        lambda d, k=None: d.coords if k is None else d.coords[k],
+    '.attrs':
+        lambda d, k=None: d.attrs if k is None else d.attrs[k],
+    '.variables':
+        lambda d, k=None: d.variables if k is None else d.variables[k],
+    '.data_vars':
+        lambda d, k=None: d.data_vars if k is None else d.data_vars[k],
 
 
     # N-ary ...................................................................
@@ -1223,12 +1276,18 @@ _OPERATIONS = KeyOrderedDict({
     # xarray
     '.sel':             lambda d, *a, **k: d.sel(*a, **k),
     '.isel':            lambda d, *a, **k: d.isel(*a, **k),
+    '.sel.item':        lambda d, *a, **k: d.sel(*a, **k).item(),
+    '.isel.item':       lambda d, *a, **k: d.isel(*a, **k).item(),
     '.drop_sel':        lambda d, *a, **k: d.drop_sel(*a, **k),
+    '.drop_isel':       lambda d, *a, **k: d.drop_isel(*a, **k),
+    '.drop_dims':       lambda d, *a, **k: d.drop_dims(*a, **k),
+    '.squeeze_with_drop':   lambda d, *a, **k: d.squeeze(*a, **k, drop=True),
     '.median':          lambda d, *a, **k: d.median(*a, **k),
     '.quantile':        lambda d, *a, **k: d.quantile(*a, **k),
     '.count':           lambda d, *a, **k: d.count(*a, **k),
     '.diff':            lambda d, *a, **k: d.diff(*a, **k),
     '.where':           lambda d, c, *a, **k: d.where(c, *a, **k),
+    '.notnull':         lambda d, *a, **k: d.notnull(*a, **k),
     '.ffill':           lambda d, *a, **k: d.ffill(*a, **k),
     '.bfill':           lambda d, *a, **k: d.bfill(*a, **k),
     '.fillna':          lambda d, *a, **k: d.fillna(*a, **k),
@@ -1254,14 +1313,19 @@ _OPERATIONS = KeyOrderedDict({
     '.assign_attrs':    lambda d, *a, **k: d.assign_attrs(*a, **k),
     '.assign':          lambda d, *a, **k: d.assign(*a, **k),
 
-    '.to_array':        lambda ds, *a, **k: ds.to_array(*a, **k),
-
     '.to_dataframe':    lambda d, *a, **k: d.to_dataframe(*a, **k),
 
-    'xr.Dataset':       xr.Dataset,
-    'xr.DataArray':     xr.DataArray,
-    'xr.zeros_like':    xr.zeros_like,
-    'xr.ones_like':     xr.ones_like,
+    '.to_array':        lambda ds, *a, **k: ds.to_array(*a, **k),
+    '.rename_dims':     lambda ds, *a, **k: ds.rename_dims(*a, **k),
+    '.rename_vars':     lambda ds, *a, **k: ds.rename_vars(*a, **k),
+    '.drop_vars':       lambda ds, *a, **k: ds.drop_vars(*a, **k),
+    '.assign_var':      lambda ds, name, var: ds.assign({name: var}),
+
+    'xr.Dataset':           xr.Dataset,
+    'xr.DataArray':         xr.DataArray,
+    'xr.zeros_like':        xr.zeros_like,
+    'xr.ones_like':         xr.ones_like,
+    'xr.full_like':         xr.full_like,
 
     'xr.merge':             xr.merge,
     'xr.concat':            xr.concat,
@@ -1269,16 +1333,23 @@ _OPERATIONS = KeyOrderedDict({
     'xr.combine_nested':    xr.combine_nested,
     'xr.combine_by_coords': xr.combine_by_coords,
 
-    # ... method calls with additional dependencies
+    # ... method calls that require additional Python packages
     '.rolling_exp':     lambda d, *a, **k: d.rolling_exp(*a, **k),
     '.rank':            lambda d, *a, **k: d.rank(*a, **k),
 
-    # fitting with xarray.DataArray.polyfit or scipy.optimize
+    # fitting with xr.DataArray.polyfit or scipy.optimize
     '.polyfit':         lambda d, *a, **k: d.polyfit(*a, **k),
     'curve_fit':
         lambda *a, **k: import_module_or_object("scipy.optimize",
                                                 name="curve_fit")(*a, **k),
     # NOTE: Use the 'lambda' operation to generate the callable
+
+
+    # For use in Plotting Framework - - - - - - - - - - - - - - - - - - - - - -
+    # Can be called to conditionally skip a plot
+    'raise_SkipPlot':       raise_SkipPlot,
+
+
 }) # End of default operation definitions
 # fmt: on
 
@@ -1390,11 +1461,28 @@ def apply_operation(
         raise
 
     except Exception as exc:
+        # Provide information about arguments, such that it is easier to
+        # debug the error. Need to parse them nicely to let the output become
+        # garbled up ...
+        _op_args = "[]"
+        if op_args:
+            _op_args = "\n" + "\n\n".join(
+                f"    {i:>2d}:  {arg}" for i, arg in enumerate(op_args)
+            )
+
+        _op_kwargs = "{}"
+        if op_kwargs:
+            _l = max(len(str(k)) for k in op_kwargs)
+            _op_kwargs = "\n" + "\n\n".join(
+                f"    {k:>{_l}s}:  {kwarg}" for k, kwarg in op_kwargs.items()
+            )
+
         raise DataOperationFailed(
-            f"Failed applying operation '{op_name}'! "
-            f"Got a {exc.__class__.__name__}: {exc}\n"
-            f"  args:   {op_args}\n"
-            f"  kwargs: {op_kwargs}\n"
+            f"Operation '{op_name}' failed with a {exc.__class__.__name__}, "
+            "see below!\nIt was called with the following arguments:\n"
+            f"  args:    {_op_args}\n\n"
+            f"  kwargs:  {_op_kwargs}\n\n"
+            f"{exc.__class__.__name__}: {exc}\n"
         ) from exc
 
 

@@ -21,6 +21,7 @@ py:class collections.abc.MutableMapping
 py:class collections.abc.MutableSequence
 py:class logging.Logger
 py:class builtins.weakref
+py:class timedelta
 
 # Exceptions, both as exception reference and type reference
 py:exc Exception

@@ -7,6 +7,8 @@ from typing import Any, Tuple, Union
 
 from paramspace.tools import recursive_collect, recursive_replace
 
+from .exceptions import *
+
 # Local constants
 log = logging.getLogger(__name__)
 
@@ -61,7 +63,10 @@ class Placeholder:
         return False
 
     def __repr__(self) -> str:
-        return "<{} {}>".format(type(self).__name__, repr(self._data))
+        return f"<{type(self).__name__} {repr(self._data)}>"
+
+    def __str__(self) -> str:
+        return f"<{type(self).__name__}, payload: {repr(self._data)}>"
 
     def __hash__(self) -> int:
         return hash(repr(self))
@@ -191,9 +196,8 @@ class PositionalArgument(Placeholder):
                 pos = int(pos)
             except:
                 raise TypeError(
-                    "PositionalArgument requires an "
-                    f"int-convertible argument, got {type(pos)} "
-                    f"with value {repr(pos)}!"
+                    "PositionalArgument requires an int-convertible argument, "
+                    f"got {type(pos)} with value {repr(pos)}!"
                 )
 
         if pos < 0:
@@ -305,7 +309,16 @@ class DAGTag(DAGReference):
 
     def _resolve_ref(self, *, dag: "TransformationDAG") -> str:
         """Return the hash reference by looking up the tag in the DAG"""
-        return dag.tags[self.name]
+        try:
+            return dag.tags[self.name]
+
+        except KeyError as err:
+            _avail = ", ".join(dag.tags)
+            raise MissingDAGTag(
+                f"Could not find tag '{self.name}'! Available tags: {_avail}\n"
+                "Check if you are using the tag before it was defined or if "
+                "there is a typo in the tag name."
+            ) from err
 
 
 class DAGMetaOperationTag(DAGTag):
@@ -324,9 +337,9 @@ class DAGMetaOperationTag(DAGTag):
         pattern and thereby include information on the name of the
         meta-operation this tag is used in.
         """
-        # Check if valid
         try:
             mop, tag = name.split(self.SPLIT_STR)
+
         except Exception as exc:
             raise ValueError(
                 f"Invalid name '{name}' for DAGMetaOperationTag! "
@@ -341,7 +354,18 @@ class DAGMetaOperationTag(DAGTag):
         of the specified TransformationDAG. The last entry always refers to the
         currently active meta-operation.
         """
-        return dag.ref_stacks[self.name][-1]
+        try:
+            return dag.ref_stacks[self.name][-1]
+
+        except IndexError as err:
+            _avail = ", ".join(dag.ref_stacks)
+            raise MissingDAGReference(
+                "Failed resolving reference from meta-operation tag "
+                f"'{self.name}' via reference stack because the stack was "
+                f"empty! Available reference stacks: {_avail}\n"
+                "Check if you are using the tag in the meta-operation before "
+                "it was defined or if there is a typo in the tag name."
+            ) from err
 
     @classmethod
     def make_name(cls, meta_operation: str, *, tag: str) -> str:
@@ -385,9 +409,8 @@ class DAGNode(DAGReference):
                 idx = int(idx)
             except:
                 raise TypeError(
-                    "DAGNode requires an int-convertible "
-                    f"argument, got {type(idx)} with "
-                    f"value {repr(idx)}!"
+                    "DAGNode requires an int-convertible argument, got "
+                    f"{type(idx)} with value {repr(idx)}!"
                 )
 
         self._data = idx
@@ -399,7 +422,15 @@ class DAGNode(DAGReference):
 
     def _resolve_ref(self, *, dag: "TransformationDAG") -> str:
         """Return the hash reference by looking up the node index in the DAG"""
-        return dag.nodes[self.idx]
+        try:
+            return dag.nodes[self.idx]
+
+        except IndexError as err:
+            raise MissingDAGNode(
+                f"Failed resolving DAG node via node list: {err}\n"
+                f"There are currently {len(dag.nodes)} nodes in the node list "
+                f"and the lookup was attempted with dag.nodes[{self.idx}]."
+            ) from err
 
 
 # -----------------------------------------------------------------------------

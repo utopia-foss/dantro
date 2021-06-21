@@ -226,6 +226,10 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
         PlotManager(dm=dm, auto_detect_creator=False).plot("foo")
         # Same as the above case
 
+    # With some error during config preparation
+    with pytest.raises(PlotCreatorError, match="Missing required keyword-arg"):
+        pm.plot("foo", creator="universe")  # missing arguments
+
     # Assert that config files were created
     pm.plot("bar", **pcr_ext_kwargs)
     assert_num_plots(pm, 4 + 2)

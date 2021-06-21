@@ -22,10 +22,14 @@ from .plot._cfg import resolve_based_on as _resolve_based_on
 from .plot._cfg import resolve_based_on_single as _resolve_based_on_single
 from .plot_creators import ALL as ALL_PCRS
 from .plot_creators import BasePlotCreator, SkipPlot
+from .tools import format_time as _format_time
 from .tools import load_yml, make_columns, recursive_update, write_yml
 
 # Local constants
 log = logging.getLogger(__name__)
+
+# Time formatting function
+fmt_time = lambda seconds: _format_time(seconds, ms_precision=1)
 
 # Substrings that may not appear in plot names
 # Unlike the dantro.abc.BAD_NAME_CHARS, these *allow* the ``/`` (such that new
@@ -337,6 +341,36 @@ class PlotManager:
         if isinstance(s, str):
             return load_yml(s)
         return copy.deepcopy(s)
+
+    def _handle_exception(
+        self,
+        exc: Exception,
+        *,
+        pc: BasePlotCreator,
+        debug: bool = None,
+        ExcCls: type = PlottingError,
+    ):
+        """Helper for handling exceptions from the plot creator"""
+        should_raise = debug or (debug is None and self.raise_exc)
+
+        e_dbg = (
+            "For a full error traceback, specify `debug: True` in the "
+            "plot configuration or run the PlotManager in debug mode."
+        )
+        e_no_dbg = (
+            "To ignore the error message and continue plotting with the "
+            "other plots, specify `debug: False` in the plot "
+            "configuration or disable debug mode for the PlotManager."
+        )
+        e_msg = (
+            f"An error occurred during plotting with {pc.logstr}! "
+            f"{e_dbg if not should_raise else e_no_dbg}\n\n"
+            f"{exc.__class__.__name__}: {exc}"
+        )
+
+        if should_raise:
+            raise ExcCls(e_msg) from exc
+        log.error(e_msg)
 
     def _parse_out_dir(self, fstr: str, *, name: str) -> str:
         """Evaluates the format string to create an output directory path.
@@ -660,29 +694,10 @@ class PlotManager:
             log.caution("Skipped. %s\n", skip_reason)
             return "skipped"
 
-        except Exception as err:
-            # Conditionally assemble an error message
-            should_raise = debug or (debug is None and self.raise_exc)
-
-            e_dbg = (
-                "For a full error traceback, specify `debug: True` in the "
-                "plot configuration or run the PlotManager in debug mode."
+        except Exception as exc:
+            self._handle_exception(
+                exc, pc=plot_creator, debug=debug, ExcCls=PlotCreatorError
             )
-            e_no_dbg = (
-                "To ignore the error message and continue plotting with the "
-                "other plots, specify `debug: False` in the plot "
-                "configuration or disable debug mode for the PlotManager."
-            )
-            e_msg = (
-                "An error occurred during plotting with "
-                f"{plot_creator.logstr}! "
-                f"{e_dbg if not should_raise else e_no_dbg}\n\n"
-                f"{err.__class__.__name__}: {err}"
-            )
-
-            if should_raise:
-                raise PlotCreatorError(e_msg) from err
-            log.error(e_msg)
             return False
 
         log.debug("Plot creator call returned successfully.")
@@ -986,17 +1001,26 @@ class PlotManager:
             len(plots_cfg),
             "ies" if len(plots_cfg) != 1 else "y",
         )
+        t0 = time.time()
 
+        _plot_names = []
+        _num_plots = 0
         for plot_name, cfg in plots_cfg.items():
+            _n = 1
+            _creator = cfg.get("creator", "auto")
             if isinstance(cfg, ParamSpace):
-                log.note(
-                    "  - %-40s  (%d plot%s)",
-                    plot_name,
-                    cfg.volume if cfg.volume else 1,
-                    "s" if cfg.volume != 1 else "",
-                )
-            else:
-                log.note("  - %-40s  (1 plot)", plot_name)
+                _n = cfg.volume if cfg.volume else 1
+
+            _plot_names.append(
+                "  - {:<50s}  ({:s}, {:d} plot{:s})"
+                "".format(plot_name, _creator, _n, "s" if _n != 1 else "")
+            )
+            _num_plots += _n
+        log.note(
+            "Have (at least) the following %d plots to perform:\n%s\n",
+            _num_plots,
+            "\n".join(_plot_names),
+        )
 
         # Loop over the configured plots and invoke the individual plot calls
         for plot_name, cfg in plots_cfg.items():
@@ -1007,9 +1031,10 @@ class PlotManager:
                 self.plot(plot_name, default_out_dir=out_dir, **cfg)
 
         log.success(
-            "Successfully performed plots for %d plot configuration%s.\n",
+            "Performed plots from %d plot configuration%s in %s.\n",
             len(plots_cfg),
             "s" if len(plots_cfg) != 1 else "",
+            fmt_time(time.time() - t0),
         )
 
     def plot(
@@ -1158,14 +1183,18 @@ class PlotManager:
                 This may be completely empty if ``from_pspace`` is used!
 
         Returns:
-            BasePlotCreator: The PlotCreator used for these plots
+            BasePlotCreator: The PlotCreator used for these plots. This will
+                also be returned in case the plot failed!
 
         Raises:
             PlotConfigError: If no out directory was specified here or at
                 initialization.
+            PlotCreatorError: In case the preparation or execution of the plot
+                failed for whatever reason. Not raised if not in debug mode.
         """
 
         log.debug("Preparing plot '%s' ...", name)
+        t0 = time.time()
 
         # Decide on the output directory to use ...
         if not out_dir:
@@ -1196,9 +1225,16 @@ class PlotManager:
         )
 
         # Let the creator process arguments
-        plot_cfg, from_pspace = plot_creator.prepare_cfg(
-            plot_cfg=plot_cfg, pspace=from_pspace
-        )
+        try:
+            plot_cfg, from_pspace = plot_creator.prepare_cfg(
+                plot_cfg=plot_cfg, pspace=from_pspace
+            )
+        except Exception as exc:
+            _debug = plot_cfg.get("debug")
+            self._handle_exception(
+                exc, pc=plot_creator, debug=_debug, ExcCls=PlotCreatorError
+            )
+            return plot_creator
 
         # Distinguish single calls and parameter sweeps
         if not from_pspace:
@@ -1228,7 +1264,11 @@ class PlotManager:
             )
 
             if rv is True:
-                log.progress("Performed '%s' plot.\n", name)
+                log.progress(
+                    "Performed '%s' plot in %s.\n",
+                    name,
+                    fmt_time(time.time() - t0),
+                )
 
             return plot_creator
 
@@ -1285,8 +1325,10 @@ class PlotManager:
             log.progress("Plotting '%s' (%d/%d) ...", name, n + 1, n_max)
             if coords:
                 log.note(
-                    "Current coordinates:  %s",
-                    ",  ".join("{}: {}".format(*kv) for kv in coords.items()),
+                    "Current coordinates of sweep plot configuration:\n%s",
+                    "\n".join(
+                        "  {:>23s}:   {}".format(*kv) for kv in coords.items()
+                    ),
                 )
 
             # Handle the file extension parameter; it might come from the
@@ -1318,10 +1360,6 @@ class PlotManager:
             #      rather than disallowing this, we pass them on and
             #      forward responsibility downstream ...
 
-            # Count skipped plots
-            if rv == "skipped":
-                num_skipped += 1
-
             # Always store plot information, regardless of skipping.
             # Saving is enabled only for zero-volume parameter sweeps in order
             # to have the backup file right beside the plot; the file will not
@@ -1338,6 +1376,23 @@ class PlotManager:
                 creator_rv=rv,
             )
 
+            # Count skipped plots
+            if rv == "skipped":
+                num_skipped += 1
+
+            elif rv is True:
+                log.progress("Finished plot %d/%d.", n + 1, n_max)
+
+                # Estimate for time remaining
+                if (n + 1) < n_max:
+                    dt = time.time() - t0
+                    etl = dt / ((n + 1) / n_max) - dt
+                    log.note(
+                        "Estimated time needed for %d remaining plots:  %s\n",
+                        n_max - (n + 1),
+                        fmt_time(etl),
+                    )
+
         # Finished parameter space iteration.
         # Save the plot configuration alongside, if configured to do so, and
         # if at least one of the plots was *not* skipped and the parameter
@@ -1351,14 +1406,18 @@ class PlotManager:
                 is_sweep=True,
             )
 
+        dt = time.time() - t0
         if not num_skipped:
-            log.progress("Performed all '%s' plots.\n", name)
+            log.progress(
+                "Performed all '%s' plots in %s.\n", name, fmt_time(dt)
+            )
         else:
             log.progress(
-                "Performed %d/%d '%s' plots, skipped %d.\n",
+                "Performed %d/%d '%s' plots in %s, skipped %d.\n",
                 (n + 1) - num_skipped,
                 n + 1,
                 name,
+                fmt_time(dt),
                 num_skipped,
             )
 

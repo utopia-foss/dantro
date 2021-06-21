@@ -24,16 +24,19 @@ from .tools import (
     clear_line,
     fill_line,
     format_bytesize,
-    load_yml,
-    print_line,
-    recursive_update,
-    total_bytesize,
 )
+from .tools import format_time as _format_time
+from .tools import load_yml, print_line, recursive_update, total_bytesize
 
 # Local constants
 log = logging.getLogger(__name__)
 
+# File extension for data cache file
 DATA_TREE_DUMP_EXT = ".d3"
+
+# Time formatting function
+fmt_time = lambda seconds: _format_time(seconds, ms_precision=2)
+
 
 # -----------------------------------------------------------------------------
 
@@ -706,9 +709,9 @@ class DataManager(OrderedDataGroup):
         else:
             # Everything loaded as desired
             log.progress(
-                "Loaded all data for entry '%s' in ~%.1fs.\n",
+                "Loaded all data for entry '%s' in %s.\n",
                 entry_name,
-                time.time() - t0,
+                fmt_time(time.time() - t0),
             )
 
         # Done with this entry. Print tree, if desired.

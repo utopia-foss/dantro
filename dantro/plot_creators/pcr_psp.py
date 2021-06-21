@@ -5,21 +5,26 @@ stored in a ParamSpaceGroup.
 
 import copy
 import logging
+import time
 from typing import Callable, List, Sequence, Tuple, Union
 
 import numpy as np
 import xarray as xr
-from paramspace import ParamSpace
+from paramspace import ParamDim, ParamSpace
 
 from ..abc import PATH_JOIN_CHAR
 from ..dag import DAGNode, DAGReference, DAGTag, TransformationDAG
 from ..groups import ParamSpaceGroup, ParamSpaceStateGroup
+from ..tools import format_time as _format_time
 from ..tools import is_iterable, recursive_update
 from .pcr_base import SkipPlot
 from .pcr_ext import ExternalPlotCreator
 
 # Local constants
 log = logging.getLogger(__name__)
+
+# Time formatting function
+fmt_time = lambda seconds: _format_time(seconds, ms_precision=1)
 
 
 # -----------------------------------------------------------------------------
@@ -531,6 +536,8 @@ class MultiversePlotCreator(ExternalPlotCreator):
                 "argument instead."
             )
 
+        t0 = time.time()
+
         # Initialize an (empty) DAG, i.e.: without select and transform args
         # and without setting the selection base
         dag = super()._create_dag(_plot_func=_plot_func, **dag_init_params)
@@ -544,6 +551,13 @@ class MultiversePlotCreator(ExternalPlotCreator):
         dag.select_base = select_base
         dag.add_nodes(select=select, transform=transform)
 
+        dt = time.time() - t0
+        if dt > 2:
+            log.remark(
+                "Setting up the TransformationDAG with %d nodes took %s.",
+                len(dag.nodes),
+                fmt_time(dt),
+            )
         return dag
 
 
@@ -596,12 +610,13 @@ class UniversePlotCreator(ExternalPlotCreator):
         to iterate over multiple universes via a parameter space.
 
         This is implemented in the following way:
-            1. Extracts the `universes` key from the configuration and parses
+
+            1. Extracts the ``universes`` key from the configuration and parses
                it, ensuring it is a valid dict for subspace specification
             2. Creates a new ParamSpace object that additionally contains the
                parameter dimensions corresponding to the universes. These are
                stored in a _coords dict inside the returned plot configuration.
-            3. Apply the parsed `universes` key to activate a subspace of the
+            3. Apply the parsed ``universes`` key to activate a subspace of the
                newly created parameter space.
             4. As a mapping from coordinates to state numbers is needed, the
                corresponding active state mapping is saved as an attribute to
@@ -633,8 +648,8 @@ class UniversePlotCreator(ExternalPlotCreator):
         # the `universes` argument
         self._psp = copy.deepcopy(self.psgrp.pspace)
 
-        # If there was no parameter space available in the first place, only
-        # the default point is available, which should be handled differently
+        # -- Case 1: No parameter space available in the first place
+        # Only default point is available, which should be handled differently
         if self._psp.num_dims == 0 or self.psgrp.only_default_data_present:
             if unis not in ("all", "single", "first", "random", "any"):
                 raise ValueError(
@@ -658,6 +673,30 @@ class UniversePlotCreator(ExternalPlotCreator):
             # else: Only need to return the plot configuration
             return plot_cfg, None
 
+        # -- Case 2: Explicitly given universe names
+        if isinstance(unis, (list, tuple)):
+            if any([not isinstance(n, int) for n in unis]):
+                raise TypeError(
+                    "Got at least one non-integer value in universe ID list!\n"
+                    "When supplying a list or tuple to the `universes` "
+                    "argument, each element needs to be an integer value "
+                    "denoting the universe IDs to create plots for. Make "
+                    f"sure that this is the case for the given list:\n  {unis}"
+                )
+
+            plot_cfg["_uni_id"] = ParamDim(
+                default=0, values=unis, name="uni_id", order=-np.inf
+            )
+
+            # Convert plot config into "multi plot config", including the
+            # information of the universe IDs to use for plotting; this info
+            # is extracted in `_prepare_plot_func_args` and used for selection.
+            return {}, ParamSpace(plot_cfg)
+            # NOTE Don't need the state map in this approach, so there's no
+            #      point in caching it and/or calling `activate_subspace`, as
+            #      needs to be done in the approach below.
+
+        # -- Case 3: Subspace selector
         # Parse it such that it is a valid subspace selector
         if isinstance(unis, str):
             if unis in ("all",):
@@ -695,9 +734,9 @@ class UniversePlotCreator(ExternalPlotCreator):
 
         elif not isinstance(unis, dict):
             raise TypeError(
-                "Need parameter `universes` to be either a "
-                "string or a dictionary of subspace selectors, "
-                f"but got: {type(unis)} {unis}."
+                "Need parameter `universes` to be either a list of universe "
+                "state numbers, a string or a dictionary of subspace "
+                f"selectors, but got: {type(unis)} {unis}."
             )
 
         # else: was a dict, can be used as a subspace selector
@@ -765,7 +804,7 @@ class UniversePlotCreator(ExternalPlotCreator):
         return {}, mpc
 
     def _prepare_plot_func_args(
-        self, *args, _coords: dict = None, **kwargs
+        self, *args, _coords: dict = None, _uni_id: int = None, **kwargs
     ) -> Tuple[tuple, dict]:
         """Prepares the arguments for the plot function and implements the
         special arguments required for ParamSpaceGroup-like data: selection of
@@ -773,9 +812,11 @@ class UniversePlotCreator(ExternalPlotCreator):
 
         Args:
             *args: Passed along to parent method
-            _coords (dict): The current coordinate descriptor which is then
-                used to retrieve a certain point in parameter space from the
-                state map attribute.
+            _coords (dict, optional): The current coordinate descriptor which
+                is then used to retrieve a certain point in parameter space
+                from the state map attribute.
+            _uni_id (int, optional): If given, use this ID to select a universe
+                from the ParamSpaceGroup (and ignore the ``_coords`` argument)
             **kwargs: Passed along to parent method
 
         Returns:
@@ -787,8 +828,12 @@ class UniversePlotCreator(ExternalPlotCreator):
             # Only the default universe is available, always having ID 0.
             uni_id = 0
 
+        elif _uni_id is not None:
+            # This is a parameter sweep over explicitly given IDs.
+            uni_id = _uni_id
+
         else:
-            # This is a parameter sweep.
+            # This is a parameter sweep over coordinate space.
             # Given the coordinates, retrieve the data for a single universe
             # from the state map. As _coords is created by the _prepare_cfg
             # method, it will unambiguously selects a universe ID.

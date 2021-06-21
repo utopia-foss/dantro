@@ -28,4 +28,9 @@ def _hash(s: str) -> str:
     Returns:
         str: The 32 character hexadecimal md5 hash digest
     """
-    return hashlib.md5(s.encode("utf-8")).hexdigest()
+    try:
+        return hashlib.md5(s.encode("utf-8")).hexdigest()
+
+    except Exception:
+        # Probably was already a byte string
+        return hashlib.md5(s).hexdigest()
