@@ -87,6 +87,22 @@ config_based:
     _match: No `creator` argument given
 
 
+  # .. Tests for UniversePlotCreator ..........................................
+  # Plot only specific universe IDs
+  uni_specific_IDs:
+    plot_cfg:
+      <<: *shared_plot_cfg
+      based_on: [creator.uni, dag.errorbar, select.randints_3D]
+      # TODO Migrate to dag.errorbars
+      universes: [32, 33, 37, 68]
+
+      transform:
+        - .mean: [!dag_tag randints, [x, z]]
+          tag: y
+        - .std: [!dag_tag randints, [x, z]]
+          tag: yerr
+
+
   # .. Test handling of missing data in MultiversePlotCreator .................
 
   mv_missing_uni_fails:
@@ -99,7 +115,7 @@ config_based:
           data: labelled/randints
 
     _raises: PlotCreatorError
-    _match: DataOperationFailed.*No item .* available in ParamSpaceGroup
+    _match: No item .* available in ParamSpaceGroup
 
   mv_missing_uni: &mv_warns_fallback
     plot_cfg:
@@ -178,8 +194,48 @@ config_based:
                 allow_failure: warn
                 fallback: !dag_prev
 
-    _match: Failed applying operation '.mean'!.*bad_argument_leading_to_failure
+    _match: bad_argument_leading_to_failure
 
+  # .. Test conditional plot skipping .........................................
+  skip_plot_directly:
+    plot_cfg:
+      <<: *shared_plot_cfg
+      based_on: [creator.ext, dag.errorbars]
+
+      transform:
+        - raise_SkipPlot: [true]
+          kwargs:
+            reason: some reason
+          tag: data
+
+  skip_plot_conditionally:
+    plot_cfg:
+      <<: *shared_plot_cfg
+      based_on: [creator.ext, dag.errorbars]
+
+      transform:
+        - xr.DataArray: [[.5,1,2,4,8,16,32]]
+          kwargs:
+            dims: [x]
+            coords:
+              x: [0,1,2,3,4,5,6]
+          tag: y
+        - pow: [!dag_tag y, .5]
+          tag: yerr
+        - xr.Dataset:
+            - y: !dag_tag y
+              yerr: !dag_tag yerr
+          tag: to_plot
+
+        - define: false
+          tag: condition
+        - raise_SkipPlot: [!dag_tag condition ]
+          kwargs:
+            passthrough: !dag_tag to_plot
+          tag: data
+
+      y: y
+      yerr: yerr
 
   # .. Test DAG placeholder resolution ........................................
   phres_simple:
@@ -237,7 +293,7 @@ config_based:
       some_other_kwarg: !dag_result i_fail
 
     _raises: PlotCreatorError
-    _match: Failed applying operation '.format'
+    _match: Operation '.format' failed with a ValueError
 
 
   # .. PlotHelper tests .......................................................

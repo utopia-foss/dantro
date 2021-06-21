@@ -278,8 +278,9 @@ class XrDataContainer(
         if not isinstance(self.data, xr.DataArray):
             self._data = xr.DataArray(self.data)
 
-        # Carry over the name
-        self.data.name = self.name
+        # Carry over the name (if the data itself is unnamed)
+        if not self._data.name:
+            self._data.name = self.name
 
         # Set the dimension names
         if self._dim_names:

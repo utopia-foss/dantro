@@ -17,6 +17,7 @@ class XarrayLoaderMixin:
         *,
         TargetCls: type,
         load_completely: bool = False,
+        engine: str = "scipy",
         **load_kwargs,
     ) -> XrDataContainer:
         """Loads an xr.DataArray from a netcdf file into an XrDataContainer.
@@ -26,12 +27,14 @@ class XarrayLoaderMixin:
             TargetCls (type): The class constructor
             load_completely (bool, optional): If true, will call .load() on the
                 loaded DataArray to load it completely into memory
+            engine (str, optional): Which engine to use for loading. Refer to
+                the xarray documentation for available engines.
             **load_kwargs: Passed on to xr.load_dataarray, see there for kwargs
 
         Returns:
             XrDataContainer: The reconstructed XrDataContainer
         """
-        da = xr.load_dataarray(filepath, **load_kwargs)
+        da = xr.load_dataarray(filepath, engine=engine, **load_kwargs)
 
         if load_completely:
             da = da.load()
@@ -45,6 +48,7 @@ class XarrayLoaderMixin:
         *,
         TargetCls: type,
         load_completely: bool = False,
+        engine: str = "scipy",
         **load_kwargs,
     ) -> PassthroughContainer:
         """Loads an xr.Dataset from a netcdf file into a PassthroughContainer.
@@ -60,13 +64,15 @@ class XarrayLoaderMixin:
             TargetCls (type): The class constructor
             load_completely (bool, optional): If true, will call .load() on the
                 loaded xr.Dataset to load it completely into memory.
-            **load_kwargs: Passed on to xr.load_dataarray, see there for kwargs
+            engine (str, optional): Which engine to use for loading. Refer to
+                the xarray documentation for available engines.
+            **load_kwargs: Passed on to xr.load_dataset, see there for kwargs
 
         Returns:
             PassthroughContainer: The reconstructed XrDataset, stored in a
                 passthrough container.
         """
-        ds = xr.load_dataset(filepath, **load_kwargs)
+        ds = xr.load_dataset(filepath, engine=engine, **load_kwargs)
 
         if load_completely:
             ds = ds.load()

@@ -362,11 +362,37 @@ Skipping Plots
 ^^^^^^^^^^^^^^
 To skip a plot, raise a :py:class:`dantro.exceptions.SkipPlot` exception anywhere in your plot function or the plot creator.
 
+.. hint::
+
+    When :ref:`using the data transformation framework for plot data selection <plot_creator_dag>`, you can invoke the ``raise_SkipPlot`` data operation to conditionally skip a plot with whatever logic you desire.
+    See :py:func:`~dantro.utils.data_ops.raise_SkipPlot` for more information.
+
+    The easiest implementation is via the ``fallback`` of a failing operation, see :ref:`dag_error_handling`:
+
+    .. code-block:: yaml
+
+        my_plot:
+          # ...
+          dag_options:
+            # Define a tag which includes a call to the raise_SkipPlot operation
+            # (Use a private tag, such that it is not automatically evaluated)
+            define:
+              _skip_plot:
+                - raise_SkipPlot
+
+          transform:
+            # ...
+            # If the following operation fails, want to skip the current plot
+            - some_operation: [foo, bar]
+              allow_failure: silent
+              fallback: !dag_tag _skip_plot
+
 Additionally, plot creators can supply built-in plot configuration arguments that allow to skip a plot under certain conditions.
 Currently, this is only done by the :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`, see :ref:`mv_plot_skipping`.
 
-.. hint::
+.. note::
 
+    *For developers:*
     The :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator` provides the :py:meth:`~dantro.plot_creators.pcr_base.BasePlotCreator._check_skipping` method, which can be overwritten by plot creators to implement this behaviour.
 
 

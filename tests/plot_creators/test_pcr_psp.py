@@ -431,8 +431,11 @@ def test_UniversePlotCreator(init_kwargs):
         upc.prepare_cfg(plot_cfg=dict(), pspace=None)
 
     # wrong `uni` type
+    class SomeWeirdType:
+        pass
+
     with pytest.raises(TypeError, match="Need parameter `universes` to be "):
-        upc.prepare_cfg(plot_cfg=dict(universes=[1, 2, 3]), pspace=None)
+        upc.prepare_cfg(plot_cfg=dict(universes=SomeWeirdType()), pspace=None)
 
     # wrong `uni` string value
     with pytest.raises(ValueError, match="Invalid value for `universes` arg"):
@@ -502,7 +505,27 @@ def test_UniversePlotCreator(init_kwargs):
         # ID is >= first possible ID and smaller than maximum ID
         assert 151 <= int(kwargs["uni"].name) < (3 * 4 * 5 * 6)
 
+    # Can also specify universe IDs directly
+    unis = [151, 152, 153, 239, 271, 359]  # all existing, but not checked
+    cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes=unis), pspace=None)
+
+    assert psp.num_dims == 1
+    assert psp.volume == len(unis)
+
+    # The universe IDs are actually not checked, lookup just fails later
+    unis_w_bad = [-23, 151, 10, 23, 9999999, 152]
+    upc.prepare_cfg(plot_cfg=dict(universes=unis_w_bad), pspace=None)
+
+    # In combination with some other pspace config
+    cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes=unis), pspace=pspace)
+    assert psp.num_dims == 2
+    assert psp.volume == len(unis) * pspace.volume
+
     # Assert correct error messages
+    # Fails with bad universe ID type
+    with pytest.raises(TypeError, match="at least one non-integer value"):
+        upc.prepare_cfg(plot_cfg=dict(universes=[0, 1, "uni2"]), pspace=None)
+
     # Fails with invalid dimension name
     with pytest.raises(ValueError, match="No parameter dimension 'foo'"):
         upc.prepare_cfg(

@@ -1,3 +1,5 @@
+[![dantro logo](doc/_static/img/logo_green.svg)][dantro-project]
+
 # `dantro`: handle, transform, and visualize hierarchically structured data
 
 `dantro`—from *data* and *dentro* (Greek for *tree*)—is a Python package that provides a uniform interface for hierarchically structured and semantically heterogeneous data.

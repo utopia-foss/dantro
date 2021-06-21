@@ -78,7 +78,6 @@ class SizeOfMixin:
         nbytes = sys.getsizeof(self._data)
         nbytes += sys.getsizeof(self._attrs)
         nbytes += sys.getsizeof(self._name)
-        nbytes += sys.getsizeof(self._logstr)
 
         return nbytes
 

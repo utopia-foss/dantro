@@ -125,15 +125,6 @@ def test_LabelledDataGroup_basics():
     # ... but via merge
     ldga.sel(bar=0, combination_method="merge")
 
-    # Invalid combination method argument
-    with pytest.raises(ValueError, match="Invalid combination_method argumen"):
-        ldga.sel(bar=[0, 2], combination_method="foo")
-
-
-def test_LabelledDataGroup_selection():
-    """Tests the selection interface in detail, i.e., deep selection,
-    scalar selection, overlapping dimensions, drop argument, ...
-    """
     # Deep selection control
     ldg = LabelledDataGroup(name="test", allow_deep_selection=True)
     assert ldg.allow_deep_selection
@@ -144,6 +135,16 @@ def test_LabelledDataGroup_selection():
     with pytest.raises(ValueError, match="Deep indexing is not allowed for"):
         ldg.sel(spam=23)
 
+    # Invalid combination method argument
+    with pytest.raises(ValueError, match="Invalid combination_method argumen"):
+        ldga.sel(bar=[0, 2], combination_method="foo")
+
+
+def test_LabelledDataGroup_selection():
+    """Tests the selection interface in detail, i.e., deep selection,
+    scalar selection, overlapping dimensions, drop argument, ...
+    """
+    # Test selection for LabelledDataGroup with mode="name".
     # Construct some data with subdimensions that partly overlap with the group
     # dimensions, also containing scalar coordinates.
     ldg = LabelledDataGroup(name="test", dims=("foo", "bar"), mode="name")
@@ -160,6 +161,13 @@ def test_LabelledDataGroup_selection():
         data=np.ones((3, 3)) * 2,
         dims=("foo", "baz"),
         coords=dict(foo=[0, 2, 4], bar=12.0 + 1e-16, baz=[10, 11, 12]),
+    )
+
+    ldg.new_container(
+        "4;12",
+        data=np.ones((3, 4)) * 4,
+        dims=("foo", "baz"),
+        coords=dict(foo=[0, 2, 4], bar=12, baz=[10, 11, 12, 13]),
     )
 
     ldg.new_container(
@@ -180,7 +188,7 @@ def test_LabelledDataGroup_selection():
         assert cont.coords["bar"] == 12
         np.testing.assert_equal(cont.values, np.array([2, 2, 2]))
 
-    # Now, with deep selection
+    # # Now, with selection along the deep `baz` dimension
     for cont in [
         ldg.isel(foo=1, bar=1, baz=-1),
         ldg.sel(foo=2, bar=12, baz=12),
@@ -191,12 +199,13 @@ def test_LabelledDataGroup_selection():
         assert cont.coords["baz"] == 12
         np.testing.assert_equal(cont.values, 2)
 
-    # Test a case where concatenation fails, thus falling back to `merge`
+    # Test a case where concatenation fails due to missing entries in the
+    # member map, thus falling back to `merge`.
     ldg.sel(foo=[2, 4], baz=11, combination_method="try_concat")
 
     # Test the selection of single coordinates together with the drop argument.
     # In particular, test selection via `.sel(foo=bar)` vs. `.sel(foo=[bar])`.
-    # The former yields a scalar `foo` coordinate (without dimension),
+    # The former yields a non-dimension `foo` coordinate (without dimension),
     # the latter preserves the `foo` dimension (of size 1 after selection).
     # First, with drop=False...
     drop = dict(drop=False)
@@ -208,31 +217,31 @@ def test_LabelledDataGroup_selection():
     ]:
         assert cont.dims == ("bar",)
         assert cont.coords["foo"] == 4
-        assert cont.coords["bar"] == 14
         assert cont.coords["baz"] == 13
-        np.testing.assert_equal(cont.values, [4])
+        np.testing.assert_equal(cont.coords["bar"].values, [12, 14])
+        np.testing.assert_equal(cont.values, [4, 4])
 
     # ...passing lists of size 1:
     for cont in [
-        ldg.isel(foo=[-1], baz=[-1], **drop),
-        ldg.sel(foo=[4], baz=[13], **drop),
+        ldg.isel(foo=[1], baz=[-1], **drop),
+        ldg.sel(foo=[2], baz=[12], **drop),
     ]:
         assert cont.sizes == dict(foo=1, bar=1, baz=1)
-        assert cont.coords["foo"] == 4
-        assert cont.coords["bar"] == 14
-        assert cont.coords["baz"] == 13
-        np.testing.assert_equal(cont.values, [[[4]]])
+        assert cont.coords["foo"] == 2
+        assert cont.coords["bar"] == 12
+        assert cont.coords["baz"] == 12
+        np.testing.assert_equal(cont.values, [[[2]]])
 
     # ...mixing both:
     for cont in [
-        ldg.isel(foo=-1, baz=[-1], **drop),
-        ldg.sel(foo=4, baz=[13], **drop),
+        ldg.isel(foo=[-1], baz=-1, **drop),
+        ldg.sel(foo=[4], baz=13, **drop),
     ]:
-        assert cont.sizes == dict(bar=1, baz=1)
+        assert cont.sizes == dict(foo=1, bar=2)
         assert cont.coords["foo"] == 4
-        assert cont.coords["bar"] == 14
         assert cont.coords["baz"] == 13
-        np.testing.assert_equal(cont.values, [[4]])
+        np.testing.assert_equal(cont.coords["bar"].values, [12, 14])
+        np.testing.assert_equal(cont.values, [[4, 4]])
 
     # Now, with drop=True...
     drop = dict(drop=True)
@@ -245,30 +254,30 @@ def test_LabelledDataGroup_selection():
         assert cont.dims == ("bar",)
         assert "foo" not in cont.coords
         assert "baz" not in cont.coords
-        assert cont.coords["bar"] == 14
-        np.testing.assert_equal(cont.values, [4])
+        np.testing.assert_equal(cont.coords["bar"].values, [12, 14])
+        np.testing.assert_equal(cont.values, [4, 4])
 
     # ...passing lists of size 1:
     for cont in [
-        ldg.isel(foo=[-1], baz=[-1], **drop),
-        ldg.sel(foo=[4], baz=[13], **drop),
+        ldg.isel(foo=[1], baz=[-1], **drop),
+        ldg.sel(foo=[2], baz=[12], **drop),
     ]:
         assert cont.sizes == dict(foo=1, bar=1, baz=1)
-        assert cont.coords["foo"] == 4
-        assert cont.coords["bar"] == 14
-        assert cont.coords["baz"] == 13
-        np.testing.assert_equal(cont.values, [[[4]]])
+        assert cont.coords["foo"] == 2
+        assert cont.coords["bar"] == 12
+        assert cont.coords["baz"] == 12
+        np.testing.assert_equal(cont.values, [[[2]]])
 
     # ...mixing both:
     for cont in [
-        ldg.isel(foo=-1, baz=[-1], **drop),
-        ldg.sel(foo=4, baz=[13], **drop),
+        ldg.isel(foo=[-1], baz=-1, **drop),
+        ldg.sel(foo=[4], baz=13, **drop),
     ]:
-        assert cont.sizes == dict(bar=1, baz=1)
-        assert "foo" not in cont.coords
-        assert cont.coords["bar"] == 14
-        assert cont.coords["baz"] == 13
-        np.testing.assert_equal(cont.values, [[4]])
+        assert cont.sizes == dict(foo=1, bar=2)
+        assert cont.coords["foo"] == 4
+        assert "baz" not in cont.coords
+        np.testing.assert_equal(cont.coords["bar"].values, [12, 14])
+        np.testing.assert_equal(cont.values, [[4, 4]])
 
     # Test error being raised on conflicting scalar coordinates.
     # The container '0;10' contains a scalar 'bar' coordinate that does not
@@ -296,8 +305,58 @@ def test_LabelledDataGroup_selection():
     np.testing.assert_equal(selctd.values, [["31", "32"]])
     assert "subdim1" not in selctd.coords
 
+    # Test "all"-selection
+    # In this case the *fast* all-selection (via merging all group members)
+    # should work.
+    ldg = LabelledDataGroup(name="test", dims=("foo", "bar"), mode="name")
 
-# -----------------------------------------------------------------------------
+    names_and_data = [
+        ("{};{}".format(f, b), np.ones((2, 2)) * b + f)
+        for f, b in product((0.1, 0.2, 0.5, 0.3), (2, 8, 4))
+    ]
+
+    for name, data in names_and_data:
+        ldg.new_container(
+            name, data=data, attrs=dict(dims=("subfoo", "subbar"))
+        )
+
+    print(ldg.tree)
+
+    sel_all = ldg.sel(combination_method="merge")
+
+    assert sel_all.ndim == 4
+    assert sel_all.size == 48
+    assert sel_all.sizes == dict(foo=4, bar=3, subfoo=2, subbar=2)
+
+    # Here, fall back to the (costly) ALL-selection via the member map. This is
+    # because the containers have overlapping coordinates but different data.
+    # When selecting via the member map only the most recently added container
+    # is taken into account, while merging the containers directly fails.
+    ldg = LabelledDataGroup(name="test", dims=("time", "foo"))
+
+    coord_attrs = dict(
+        dims=("time", "foo", "id"), coords__id=[0, 2, 4, 6], coords__foo=[42]
+    )
+
+    ldg.new_container(
+        "foo",
+        data=np.ones((3, 1, 4)) * 1,
+        attrs=dict(coords__time=[0, 1, 2], **coord_attrs),
+    )
+
+    ldg.new_container(
+        "bar",
+        data=np.ones((3, 1, 4)) * 3,
+        attrs=dict(coords__time=[0, 1, 2], **coord_attrs),
+    )
+
+    print(ldg.tree)
+
+    sel_all = ldg.sel(combination_method="merge")
+
+    assert sel_all.ndim == 3
+    assert sel_all.size == 12
+    assert sel_all.sizes == dict(time=3, id=4, foo=1)
 
 
 def test_TimeSeriesGroup():
@@ -449,7 +508,7 @@ def test_HeterogeneousTimeSeriesGroup_continuous():
     )
 
     # Now, select all data and compare to the selected one
-    all_data = itsg.sel()
+    all_data = itsg.sel(combination_method="auto")
 
     # Should be a large, NaN-including array now
     assert all_data.dims == ("time", "id")

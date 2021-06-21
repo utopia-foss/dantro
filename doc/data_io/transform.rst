@@ -10,6 +10,13 @@ It is sometimes also referred to as *DAG framework* or *data selection and trans
 This page is an introduction to the DAG framework and a description of its inner workings.
 To learn more about its practical usage, make sure to look at the :doc:`examples`.
 
+Related pages:
+
+.. toctree::
+
+    dag_op_hooks
+    examples
+
 .. contents::
    :local:
    :depth: 2
@@ -288,7 +295,14 @@ Computing results works as follows:
     Intermediate results still need to be computed, but it will not be part of the results dict.
     If you want an intermediate result to be available there, add a tag to it.
 
-    This also means: If there are parts of the DAG that are not tagged *at all*, they will not be reached by any recursive computation.
+    This also means: If there are parts of the DAG that are not tagged *at all*, they will not be reached by any recursive argument lookup.
+
+.. hint::
+
+    Use the ``compute_only`` argument of :py:meth:`~dantro.dag.TransformationDAG.compute` to specify which tags are to be computed.
+    If not given, all tags will be computed, *unless* they start with a ``.`` or ``_`` (these are so-called "private" tags).
+
+    To compute private tags directly, include them in ``compute_only``.
 
 .. hint::
 

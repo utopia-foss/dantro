@@ -26,8 +26,12 @@ This is done via the ``universes`` argument:
 
     ---
     my_universe_plot:
-      universes: all        # can also be 'first', 'any', or a dict specifying
-                            # a multiverse subspace to restrict the plots to
+      universes: all        # can also be:
+                            #    1) 'first', 'any'
+                            #    2) a dict specifying a multiverse subspace
+                            #       to restrict the plots to
+                            #    3) a list of (integer) universe IDs
+                            #
       # ... more arguments
 
 

@@ -224,6 +224,7 @@ def multiplot(
     Each list entry specifies one function plot and is parsed via the
     :py:func:`~dantro.plot_creators.ext_funcs.multiplot._parse_func_kwargs`
     function.
+
     The multiplot works with any plot function that either operates on the
     current axis and does _not_ create a new figure or does not require an
     axis at all.

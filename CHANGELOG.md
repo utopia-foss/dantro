@@ -2,6 +2,24 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.17.0
+- !231 improves the performance of the ``LabelledDataGroup`` selection methods (when using the ``merge`` or ``auto`` combination method). A new combination method ``auto`` is added and set as default.
+- !257 reduces memory usage (see #251) by postponing coordinate resolution to the time they are actually needed and removing unnecessary cache attributes.
+- !258 changes the sphinx theme for the documentation (#283) and adds a dantro logo :tada:
+- !259 fixes file cache reading for xarray 0.18
+- !256 adds new features and various improvements for plotting with the data transformation framework:
+    - New features:
+        - Exclude tags starting with `.` or `_` from `compute_only: all` (#272)
+        - In `UniversePlotCreator`, allow to specify individual universes by name (#281)
+    - Improvements:
+        - Make DAG construction faster by using cPickle-based deepcopying (relevant when having many 100k nodes in the DAG)
+        - Improve log and error messages in `PlotManager` and data transformation framework, now including more time information
+        - Improve how error messages from failing data operations show their arguments (#276)
+        - Let xarray objects loaded from file cache not be renamed (#275)
+        - Make it easier to conditionally skip a plot by providing the `raise_SkipPlot` data operation (#165)
+        - The `print_data` data operation now allows specifying the output format using a format string, greatly simplifying debugging of DAGs
+        - New data operations added (see !256 changes for details)
+
 ## v0.16.3
 - !254 adds the `define` syntax to the data transformation framework, allowing to specify transformations in a dict-based fashion
 - !254 improves `MultiversePlotCreator`:

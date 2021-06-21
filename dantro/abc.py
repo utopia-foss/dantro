@@ -27,8 +27,8 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
     Via the parent and the name, path capabilities are provided. Thereby, each
     object in a data tree has some information about its location relative to
     a root object.
-    Objects that have _no_ parent are regarded to be an object that is located
-    "next to" root, i.e. having the path /<container_name>.
+    Objects that have *no* parent are regarded to be an object that is located
+    "next to" root, i.e. having the path ``/<container_name>``.
     """
 
     @abc.abstractmethod
@@ -40,13 +40,11 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
             name (str): The name of this container
             data (Any): The data that is to be stored
         """
-        self._logstr = None
         self._parent = None
 
         self._name = None
         self.name = name
 
-        # Check data (raises if anything is off), then store it
         self._check_data(data)
         self._data = data
 
@@ -92,7 +90,6 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
 
         # Everything ok, store the attribute and invalidate cached logstring
         self._name = new_name
-        self._logstr = None
 
     @property
     def classname(self) -> str:
@@ -101,17 +98,11 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
 
     @property
     def logstr(self) -> str:
-        """Returns the classname and name of this object; a combination often
-        used in logging..."""
-        # Store the cache value, if not already happened
-        if self._logstr is None:
-            self._logstr = f"{self.classname} '{self.name}'"
-
-        # Return the cache value
-        return self._logstr
+        """Returns the classname and name of this object"""
+        return f"{self.classname} '{self.name}'"
 
     @property
-    def data(self):
+    def data(self) -> Any:
         """The stored data."""
         return self._data
 
@@ -183,16 +174,19 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
     def _check_data(self, data: Any) -> None:
         """This method can be used to check the data provided to this container
 
-        It is called before the data is stored in the __init__ method and
+        It is called before the data is stored in the ``__init__`` method and
         should raise an exception or create a warning if the data is not as
         desired.
 
         This method can be subclassed to implement more specific behaviour. To
         propagate the parent classes' behaviour the subclassed method should
-        always call its parent method using super().
+        always call its parent method using ``super()``.
 
-        NOTE The CheckDataMixin provides a generalised implementation of this
-             method to perform some type checks and react to unexpected types.
+        .. note::
+
+            The :py:class:`~dantro.mixins.base.CheckDataMixin` provides a
+            generalised implementation of this method to perform some type
+            checks and react to unexpected types.
 
         Args:
             data (Any): The data to check

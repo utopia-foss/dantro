@@ -4,6 +4,7 @@ import copy
 import glob
 import logging
 import os
+import pickle as _pickle
 import sys
 import time
 import warnings
@@ -30,6 +31,7 @@ from .containers import NumpyDataContainer, ObjectContainer, XrDataContainer
 from .data_loaders import LOADER_BY_FILE_EXT
 from .exceptions import *
 from .tools import adjusted_log_levels as _adjusted_log_levels
+from .tools import format_time as _format_time
 from .tools import make_columns, recursive_update
 from .utils import (
     KeyOrderedDict,
@@ -44,6 +46,17 @@ log = logging.getLogger(__name__)
 
 # The path within the DAG's associated DataManager to which caches are loaded
 DAG_CACHE_DM_PATH = "cache/dag"
+
+# Types of containers that should be unpacked after loading from cache because
+# having them wrapped into a dantro object is not desirable after loading them
+# from cache (e.g. because the name attribute is shadowed by tree objects ...)
+DAG_CACHE_CONTAINER_TYPES_TO_UNPACK = (
+    ObjectContainer,
+    XrDataContainer,
+)
+
+# Time formatting function
+fmt_time = lambda seconds: _format_time(seconds, ms_precision=2)
 
 # Functions that can store the DAG computation result objects, distinguishing
 # by their type.
@@ -61,6 +74,25 @@ DAG_CACHE_RESULT_SAVE_FUNCS = {
     (xr.Dataset,):   lambda obj, p, **kws: obj.to_netcdf(p + ".nc_ds", **kws),
 }
 # fmt: on
+
+
+# -----------------------------------------------------------------------------
+# Which copying functions to use throughout this module
+
+_shallowcopy = copy.copy
+
+
+def _deepcopy(obj: Any) -> Any:
+    """A pickle based deep-copy overload, that uses ``copy.deepcopy`` only as a
+    fallback option if serialization was not possible.
+
+    The pickling approach being based on a C implementation, this can easily
+    be many times faster than the pure-Python-based ``copy.deepcopy``.
+    """
+    try:
+        return _pickle.loads(_pickle.dumps(obj))
+    except:
+        return copy.deepcopy(obj)
 
 
 # -----------------------------------------------------------------------------
@@ -210,7 +242,6 @@ class Transformation:
         self._profile = dict(
             compute=np.nan,
             cumulative_compute=np.nan,
-            hashstr=np.nan,
             cache_lookup=np.nan,
             cache_writing=np.nan,
             effective=np.nan,
@@ -299,7 +330,7 @@ class Transformation:
                 t=type(self).__name__,
                 op=repr(self._operation),
                 args=repr(self._args),
-                kwargs=repr(dict(self._kwargs)),  # TODO Check sorting!
+                kwargs=repr(dict(self._kwargs)),
                 salt=repr(self._salt),
                 suffix=suffix,
             )
@@ -321,9 +352,7 @@ class Transformation:
             str: The hash string for this transformation
         """
         if self._hashstr is None:
-            t0 = time.time()
             self._hashstr = _hash(repr(self))
-            self._update_profile(hashstr=time.time() - t0)
 
         return self._hashstr
 
@@ -536,7 +565,7 @@ class Transformation:
         # is not desirable as it would change the hashstr by populating it with
         # non-trivial objects. Deep copy is always possible because the given
         # containers are expected to contain only trivial items or references.
-        cont = copy.deepcopy(cont)
+        cont = _deepcopy(cont)
 
         return recursive_replace(
             cont,
@@ -562,7 +591,7 @@ class Transformation:
         msg = (
             f"Operation '{self.operation}' failed during {context}, but was "
             "allowed to fail; using fallback instead. To suppress this "
-            f"message, set `allow_failure: silent`.\nThe error was:  {err}"
+            f"message, set `allow_failure: silent`.\n\nThe error was:  {err}"
         )
         if self._allow_failure in (True, "log"):
             log.caution(msg)
@@ -798,6 +827,7 @@ class TransformationDAG:
         select_base: Union[DAGReference, str] = None,
         select_path_prefix: str = None,
         meta_operations: Dict[str, Union[list, dict]] = None,
+        exclude_from_all: List[str] = None,
         verbosity: int = 1,
     ):
         """Initialize a DAG which is associated with a DataManager and load the
@@ -854,10 +884,15 @@ class TransformationDAG:
                 is already in use.
                 If this path ends with a ``/``, it is directly prepended. If
                 not, the ``/`` is added before adjoining it to the other path.
-            meta_operations: Meta-operations are basically *function
-                definitions* using the language of the transformation
+            meta_operations (dict, optional): Meta-operations are basically
+                *function definitions* using the language of the transformation
                 framework; for information on how to define and use them, see
                 :ref:`dag_meta_ops`.
+            exclude_from_all (List[str], optional): Tag names that should not
+                be defined as :py:meth:`~dantro.dag.TransformationDAG.compute`
+                targets if ``compute_only: all`` is set there.
+                Note that, alternatively, tags can be named starting with
+                ``.`` or ``_`` to exclude them from that list.
             verbosity (str, optional): Logging verbosity during computation.
                 This mostly pertains to the extent of statistics being emitted
                 through the logger.
@@ -877,6 +912,7 @@ class TransformationDAG:
         self._select_base = None
         self._profile = dict(add_node=0.0, compute=0.0)
         self._select_path_prefix = select_path_prefix
+        self.exclude_from_all = exclude_from_all if exclude_from_all else []
         self.verbosity = verbosity
 
         # Determine cache directory path; relative path interpreted as relative
@@ -1072,7 +1108,7 @@ class TransformationDAG:
               information on compute time, cache lookup, cache writing
             - ``sorted``: individual profiling times, with NaN values set to 0
         """
-        prof = copy.deepcopy(self.profile)
+        prof = _shallowcopy(self.profile)
 
         # Add tag-specific information
         prof["tags"] = dict()
@@ -1081,13 +1117,12 @@ class TransformationDAG:
             if not isinstance(obj, Transformation):
                 continue
 
-            tprof = copy.deepcopy(obj.profile)
+            tprof = _shallowcopy(obj.profile)
             prof["tags"][tag] = tprof
 
         # Aggregate the profiled times from all transformations (by item)
         to_aggregate = (
             "compute",
-            "hashstr",
             "cache_lookup",
             "cache_writing",
             "effective",
@@ -1097,9 +1132,9 @@ class TransformationDAG:
             std=lambda d: np.nanstd(d),
             min=lambda d: np.nanmin(d),
             max=lambda d: np.nanmax(d),
-            q25=lambda d: np.nanquantile(d, 0.25),
+            # q25=lambda d: np.nanquantile(d, 0.25),
             q50=lambda d: np.nanquantile(d, 0.50),
-            q75=lambda d: np.nanquantile(d, 0.75),
+            # q75=lambda d: np.nanquantile(d, 0.75),
             sum=lambda d: np.nansum(d),
             count=lambda d: np.count_nonzero(~np.isnan(d)),
         )
@@ -1109,7 +1144,7 @@ class TransformationDAG:
             if not isinstance(obj, Transformation):
                 continue
 
-            tprof = copy.deepcopy(obj.profile)
+            tprof = _shallowcopy(obj.profile)
             for item in to_aggregate:
                 tprofs[item].append(tprof[item])
 
@@ -1126,8 +1161,9 @@ class TransformationDAG:
                 }
 
         # Also sort the node profiling results, setting NaNs to zeros
-        to_sort_by = to_aggregate + ("cumulative_compute",)
         prof["sorted"] = dict()
+
+        to_sort_by = to_aggregate + ("cumulative_compute",)
         nodes = [self.objects[obj_hash] for obj_hash in self.nodes]
         for sort_by in to_sort_by:
             nct = [
@@ -1381,9 +1417,9 @@ class TransformationDAG:
         t0 = time.time()
 
         # Handle default values of arguments
-        args = copy.deepcopy(args) if args else []
-        kwargs = copy.deepcopy(kwargs) if kwargs else {}
-        fallback = copy.deepcopy(fallback) if fallback is not None else None
+        args = _deepcopy(args) if args else []
+        kwargs = _deepcopy(kwargs) if kwargs else {}
+        fallback = _deepcopy(fallback) if fallback is not None else None
         # NOTE Deep copy is important here, because the mutability of nested
         #      objects may lead to side effects. The deep copy should always
         #      be possible, because these should only contain trivial objects.
@@ -1408,10 +1444,12 @@ class TransformationDAG:
         )[0]
 
         # Parse file cache parameters
-        fc_opts = copy.deepcopy(self._fc_opts)  # Always a dict
+        fc_opts = self._fc_opts  # Always a dict
 
         if file_cache is not None:
-            fc_opts = recursive_update(fc_opts, file_cache)
+            if isinstance(file_cache, bool):
+                file_cache = dict(read=file_cache, write=file_cache)
+            fc_opts = recursive_update(_deepcopy(fc_opts), file_cache)
 
         # From these arguments, create the Transformation object and add it to
         # the objects database.
@@ -1501,8 +1539,10 @@ class TransformationDAG:
         statistics will be emitted via the logger.
 
         Args:
-            compute_only (Sequence[str], optional): The tags to compute. If not
-                given, will compute all associated tags.
+            compute_only (Sequence[str], optional): The tags to compute.
+                If ``None``, will compute *all* non-private tags: all tags
+                *not* starting with ``.`` or ``_`` that are *not* included
+                in the ``TransformationDAG.exclude_from_all`` list.
 
         Returns:
             Dict[str, Any]: A mapping from tags to fully computed results.
@@ -1543,7 +1583,7 @@ class TransformationDAG:
             )
             _stats = [
                 _fstr.format(
-                    name=k, p={_k: "{:.2g}".format(_v) for _k, _v in v.items()}
+                    name=k, p={_k: f"{_v:.2g}" for _k, _v in v.items()}
                 )
                 for k, v in prof["aggregated"].items()
                 if k not in to_exclude
@@ -1560,53 +1600,36 @@ class TransformationDAG:
             num_ops = 5 if verbosity < 3 else len(prof["slow_operations"])
             _ops = prof["operations"]
             _fstr2 = (
-                "{name:>25s}   {p[sum]:<7s}    {cnt:>4d} call{s:}   "
-                "({p[mean]:<7s} ± {p[std]:<7s})"
+                "{name:>25s}   {p[sum]:<10s} "
+                "{cnt:>8d}x  ({p[mean]:<7s} ± {p[std]:<7s})"
             )
             _stats2 = [
                 _fstr2.format(
                     name=op,
-                    p={_k: "{:.2g}".format(_v) for _k, _v in _ops[op].items()},
+                    p={_k: f"{_v:.2g}" for _k, _v in _ops[op].items()},
                     cnt=_ops[op]["count"],
-                    s="s" if _ops[op]["count"] != 1 else " ",
                 )
                 for op, _ in prof["slow_operations"][:num_ops]
             ]
             log.remark(
-                "Total effective operation computation times:\n%s",
+                "Total effective compute times and #calls (mean ± std) [s]\n"
+                "%s",
                 "\n".join(_stats2),
             )
 
-        # Determine which tags to compute
-        compute_only = compute_only if compute_only is not None else "all"
-        if compute_only == "all":
-            compute_only = [
-                t for t in self.tags.keys() if t not in self.SPECIAL_TAGS
-            ]
-        else:
-            # Check that all given tags actually are available
-            invalid_tags = [t for t in compute_only if t not in self.tags]
-            if invalid_tags:
-                _invalid_tags = ", ".join(invalid_tags)
-                _available_tags = ", ".join(self.tags)
-                raise ValueError(
-                    "Some of the tags specified in `compute_only` were not "
-                    "available in the TransformationDAG!\n"
-                    f"  Invalid tags:   {_invalid_tags}\n"
-                    f"  Available tags: {_available_tags}"
-                )
-
-        # The results dict
+        # Determine which tags to compute and prepare the results dict
+        compute_only = self._parse_compute_only(compute_only)
         results = dict()
 
         if not compute_only:
             log.remark(
-                "No tags were selected to be computed. Available tags:\n  %s",
-                ", ".join(self.tags),
+                "No tags were selected to be computed. Available tags:\n%s",
+                make_columns(sorted(self.tags)),
             )
             return results
+
         log.note(
-            "Now computing %d tag%s on DAG with %d nodes ...",
+            "Computing result of %d tag%s on DAG with %d nodes ...",
             len(compute_only),
             "s" if len(compute_only) != 1 else "",
             len(self.nodes),
@@ -1628,7 +1651,7 @@ class TransformationDAG:
             res = trf.compute()
             results[tag] = postprocess_result(res, tag=tag)
 
-            log.remark("Finished after %.2gs.", time.time() - _tt)
+            log.remark("Finished in %s.", fmt_time(time.time() - _tt))
 
         # Update profiling information
         t1 = time.time()
@@ -1636,10 +1659,10 @@ class TransformationDAG:
 
         # Provide some information to the user
         log.note(
-            "Computed %d tag%s in %.2gs.",
+            "Computed %d tag%s in %s.",
             len(compute_only),
             "s" if len(compute_only) != 1 else "",
-            t1 - t0,
+            fmt_time(t1 - t0),
         )
 
         show_compute_profile_info()
@@ -1680,9 +1703,9 @@ class TransformationDAG:
         trfs = list()
 
         # Prepare arguments: make sure they are dicts and deep copies.
-        define = copy.deepcopy(define) if define else {}
-        select = copy.deepcopy(select) if select else {}
-        transform = copy.deepcopy(transform) if transform else []
+        define = _deepcopy(define) if define else {}
+        select = _deepcopy(select) if select else {}
+        transform = _deepcopy(transform) if transform else []
 
         # First, parse the entries in the ``define`` argument
         for tag, define_spec in sorted(define.items()):
@@ -1861,9 +1884,10 @@ class TransformationDAG:
             **trf_kwargs: Transformation keyword arguments, passed on to *all*
                 transformations that are to be added.
         """
-        # Retrieve the meta-operation information (important: as a copy)
-        meta_op = copy.deepcopy(self._meta_ops[operation])
-        specs = meta_op["specs"]
+        # Retrieve the meta-operation information. The specs need to be a deep
+        # copy, as they are recursively replaced later on.
+        meta_op = self._meta_ops[operation]
+        specs = _deepcopy(meta_op["specs"])
         kwarg_names = meta_op["kwarg_names"]
 
         # Check that all the expected args and kwargs are present
@@ -1890,8 +1914,8 @@ class TransformationDAG:
         # the positional and keyword arguments ...
         is_arg = lambda obj: isinstance(obj, _Arg)
         is_kwarg = lambda obj: isinstance(obj, _Kwarg)
-        replace_arg = lambda ph: copy.deepcopy(args[ph.position])
-        replace_kwarg = lambda ph: copy.deepcopy(kwargs[ph.name])
+        replace_arg = lambda ph: _deepcopy(args[ph.position])
+        replace_kwarg = lambda ph: _deepcopy(kwargs[ph.name])
 
         # ... and for the internally-defined meta-operation tags:
         is_mop_tag = lambda obj: isinstance(obj, _MOpTag)
@@ -1970,6 +1994,40 @@ class TransformationDAG:
         for key, t in times.items():
             self._profile[key] = self._profile.get(key, 0.0) + t
 
+    def _parse_compute_only(
+        self, compute_only: Union[str, List[str]]
+    ) -> List[str]:
+        """Prepares the ``compute_only`` argument for use in
+        :py:meth:`~dantro.dag.TransformationDAG.compute`.
+        """
+        compute_only = compute_only if compute_only is not None else "all"
+
+        if compute_only == "all":
+            compute_only = [
+                t
+                for t in self.tags.keys()
+                if (
+                    t not in self.exclude_from_all
+                    and t not in self.SPECIAL_TAGS
+                    and not (t.startswith(".") or t.startswith("_"))
+                )
+            ]
+
+        else:
+            # Check that all given tags actually are available
+            invalid_tags = [t for t in compute_only if t not in self.tags]
+            if invalid_tags:
+                _invalid_tags = ", ".join(invalid_tags)
+                _available_tags = ", ".join(self.tags)
+                raise ValueError(
+                    "Some of the tags specified in `compute_only` were not "
+                    "available in the TransformationDAG!\n"
+                    f"  Invalid tags:   {_invalid_tags}\n"
+                    f"  Available tags: {_available_tags}"
+                )
+
+        return compute_only
+
     # .........................................................................
     # Cache writing and reading
     # NOTE This is done here rather than in Transformation because this is the
@@ -2013,8 +2071,8 @@ class TransformationDAG:
         # Retrieve from the DataManager
         res = self.dm[DAG_CACHE_DM_PATH][trf_hash]
 
-        # Have to unpack Object containers
-        if isinstance(res, ObjectContainer):
+        # Have to unpack some container types
+        if isinstance(res, DAG_CACHE_CONTAINER_TYPES_TO_UNPACK):
             res = res.data
 
         # Done.
@@ -2076,6 +2134,11 @@ class TransformationDAG:
         # Prepare the file path (still lacks an extension)
         fpath = os.path.join(self.cache_dir, trf_hash)
 
+        # Delete all potentially existing cache files for this hash
+        for to_delete in glob.glob(fpath + ".*"):
+            log.debug("Removing already existing cache file for this hash ...")
+            os.remove(to_delete)
+
         # Go over the saving functions and see if the type agrees. If so, use
         # that function to write the data.
         for types, sfunc in DAG_CACHE_RESULT_SAVE_FUNCS.items():
@@ -2093,7 +2156,7 @@ class TransformationDAG:
                 # because storage functions do not fail upon an existing file,
                 # we can use the hash for deletion; and have to, because we do
                 # not know the file extension ...
-                for bad_fpath in glob.glob(fpath + "*"):
+                for bad_fpath in glob.glob(fpath + ".*"):
                     os.remove(bad_fpath)
                     log.trace(
                         "Removed cache file after storage failure: %s",

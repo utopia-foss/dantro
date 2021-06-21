@@ -10,6 +10,7 @@ import xarray as xr
 import dantro
 import dantro.utils.data_ops as dops
 from dantro.containers import ObjectContainer
+from dantro.exceptions import *
 from dantro.groups import OrderedDataGroup
 from dantro.utils import apply_operation, register_operation
 from dantro.utils.data_ops import _OPERATIONS as OPERATIONS
@@ -107,17 +108,13 @@ def test_apply_operation():
 
     # Test application failure error message
     with pytest.raises(
-        RuntimeError,
-        match=(
-            "Failed applying operation 'add'! Got a "
-            "TypeError: .*unexpected keyword argument"
-        ),
+        DataOperationFailed, match="Operation 'add' failed with a TypeError"
     ):
         apply_operation("add", 1, foo="bar")
 
     # Check again if kwargs are part of the error message
-    with pytest.raises(RuntimeError, match="kwargs: {'foo': 'bar'}"):
-        apply_operation("add", 1, foo="bar")
+    with pytest.raises(RuntimeError, match=r"foo:  \['barbazspam', 123\]"):
+        apply_operation("add", 1, foo=["barbazspam", 123])
 
 
 # Tests of specific operations ------------------------------------------------
