@@ -4,6 +4,7 @@ import pytest
 
 from dantro.dag import TransformationDAG, _ResultPlaceholder
 from dantro.data_mngr import DataManager
+from dantro.exceptions import *
 from dantro.plot_creators import BasePlotCreator
 
 # Test classes ----------------------------------------------------------------
@@ -108,6 +109,10 @@ def test_call(init_kwargs, tmpdir):
     # ... unless the PlotCreator was initialized with the exist_ok argument
     mpc = MockPlotCreator("test", exist_ok=True, **init_kwargs)
     mpc(out_path=tmpdir.join("call1"), foo="bar")
+
+    # ... or skipping is desired
+    with pytest.raises(SkipPlot, match="Plot output already exists"):
+        mpc(out_path=tmpdir.join("call1"), foo="bar", exist_ok="skip")
 
 
 def test_data_selection_interface(init_kwargs, tmpdir):
