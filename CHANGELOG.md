@@ -2,6 +2,9 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.17.1 *(WIP)*
+- !261 allows skipping plots if a file already exists at the desired plot output path; to use this option, set the `exist_ok` argument of a plot or plot creator to `skip`.
+
 ## v0.17.0
 - !231 improves the performance of the ``LabelledDataGroup`` selection methods (when using the ``merge`` or ``auto`` combination method). A new combination method ``auto`` is added and set as default.
 - !257 reduces memory usage (see #251) by postponing coordinate resolution to the time they are actually needed and removing unnecessary cache attributes.
