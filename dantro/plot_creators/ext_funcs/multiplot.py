@@ -5,7 +5,7 @@ creators.
 
 import copy
 import logging
-from typing import Callable, Union
+from typing import Callable, Dict, List, Tuple, Union
 
 import matplotlib.pyplot as plt
 
@@ -269,7 +269,7 @@ def _call_multiplot_func(
 def multiplot(
     *,
     hlpr: PlotHelper,
-    to_plot: Union[list, dict],
+    to_plot: Union[List[dict], Dict[Tuple[int, int], List[dict]]],
     data: dict,
     show_hints: bool = True,
     **shared_kwargs,
@@ -293,8 +293,10 @@ def multiplot(
     Look at the :ref:`multiplot documentation <dag_multiplot>` for further
     information.
 
-    Examples:
-        A simple ``to_plot`` configuration looks like this:
+    Example:
+
+        A simple ``to_plot`` specification for a single axis may look like
+        this:
 
         .. code-block:: yaml
 
@@ -308,7 +310,8 @@ def multiplot(
                 # a warning.
               - function: sns.despine
 
-        A simple ``to_plot`` configuration specifying two axis is:
+        A ``to_plot`` specification for a two-column subplot could look like
+        this:
 
         .. code-block:: yaml
 
@@ -316,13 +319,19 @@ def multiplot(
               [0,0]:
                 - function: sns.lineplot
                   data: !dag_result data
+                - # ... more here ...
               [1,0]:
                 - function: sns.scatterplot
                   data: !dag_result data
 
     Args:
         hlpr (PlotHelper): The PlotHelper instance for this plot
-        to_plot (Union[list, dict]): The data to plot.
+        to_plot (Union[list, dict]): The plot specifications.
+            If list-like, assumes that there is only a single axis and applies
+            all functions to that axis.
+            If dict-like, expects 2-tuples for keys and selects the axis before
+            commencing to plot. Beforehand, the figure needs to have been set
+            up accordingly via the ``setup_figure`` helper.
         data (dict): Data from TransformationDAG selection. These results are
             ignored; data needs to be passed via the result placeholders!
             See above.
@@ -347,23 +356,12 @@ def multiplot(
         still apply other functions on the same axis.
 
     Raises:
-        NotImplementedError: On a dict-like ``to_plot`` argument that would
-            define the ax to plot on in case of multiple axes to select from.
         TypeError: On a non-list-like or non-dict-like ``to_plot`` argument.
     """
-    # dict-like to_plot is not yet implemented
-    if isinstance(to_plot, dict):
-        raise NotImplementedError(
-            "'to_plot' needs to be list-like but was "
-            f"of type {type(to_plot)}. Specifying multi-axis plots through "
-            "a dict-like 'to_plot' argument is not yet implemented."
-        )
-
-    # to_plot needs to be a list
-    elif not isinstance(to_plot, (list, tuple)):
+    if not isinstance(to_plot, (list, tuple, dict)):
         raise TypeError(
-            "'to_plot' needs to be list-like but was "
-            f"of type {type(to_plot)}. Please assure to pass a list."
+            "The `to_plot` argument needs to be list-like or a dict but was "
+            f"of type {type(to_plot)} with value {to_plot}."
         )
 
     if show_hints and data:
@@ -376,11 +374,24 @@ def multiplot(
             "or set `show_hints` to False to suppress this hint."
         )
 
-    for func_num, func_kwargs in enumerate(to_plot):
-        _call_multiplot_func(
-            hlpr=hlpr,
-            shared_kwargs=shared_kwargs,
-            func_kwargs=func_kwargs,
-            show_hints=show_hints,
-            _func_num=func_num,
-        )
+    if isinstance(to_plot, dict):
+        for ax_coords, plot_specs in to_plot.items():
+            hlpr.select_axis(*ax_coords)
+            for func_num, func_kwargs in enumerate(plot_specs):
+                _call_multiplot_func(
+                    hlpr=hlpr,
+                    shared_kwargs=shared_kwargs,
+                    func_kwargs=func_kwargs,
+                    show_hints=show_hints,
+                    _func_num=func_num,
+                )
+
+    else:
+        for func_num, func_kwargs in enumerate(to_plot):
+            _call_multiplot_func(
+                hlpr=hlpr,
+                shared_kwargs=shared_kwargs,
+                func_kwargs=func_kwargs,
+                show_hints=show_hints,
+                _func_num=func_num,
+            )

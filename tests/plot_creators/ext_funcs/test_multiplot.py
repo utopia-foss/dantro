@@ -85,11 +85,27 @@ def test_multiplot(dm, out_dir):
     assert len(plt.get_fignums()) == 0
 
     # Invoke the plotting function with data of different dimensionality.
-    for plots in PLOTS_CFG_MP.values():
-        for key, plot_cfg in plots.items():
+    for case, plot_cfg in PLOTS_CFG_MP["multiplots"].items():
+        if plot_cfg.pop("_raises", False):
+            # Expecting an error to be raised
+            match = plot_cfg.pop("_match", None)
+            with pytest.raises(Exception, match=match):
+                epc(
+                    **out_path("multiplot_" + str(case)),
+                    **plot_cfg,
+                    select=dict(
+                        data="test_data/2D_random",
+                        plot_x_data="test_data/1D_x",
+                        plot_y_data="test_data/1D_y",
+                    ),
+                    module=".multiplot",
+                )
+
+        else:
+            # No error expected
             epc(
-                **out_path("multiplot_" + str(key)),
-                **plots[key],
+                **out_path("multiplot_" + str(case)),
+                **plot_cfg,
                 select=dict(
                     data="test_data/2D_random",
                     plot_x_data="test_data/1D_x",
@@ -109,19 +125,12 @@ def test_multiplot(dm, out_dir):
 
     # Test for correct error handling
     with pytest.raises(
-        NotImplementedError, match="'to_plot' needs to be list-like"
+        TypeError,
+        match="`to_plot` argument needs to be list-like or a dict but",
     ):
         epc(
-            **out_path("multiplot_not_impl"),
-            **dict(plot_func=multiplot, to_plot={}),
-            select={},
-            module=".multiplot",
-        )
-
-    with pytest.raises(TypeError, match="'to_plot' needs to be list-like"):
-        epc(
             **out_path("multiplot_string_func"),
-            **dict(plot_func=multiplot, to_plot="some string"),
+            **dict(plot_func=multiplot, to_plot="some bad type (string)"),
             select={},
             module=".multiplot",
         )
@@ -131,7 +140,7 @@ def test_multiplot(dm, out_dir):
 
     with pytest.raises(PlottingError, match="Plotting with "):
         epc(
-            **out_path("multiplot_" + str(key)),
+            **out_path("multiplot_fail"),
             **dict(
                 plot_func=multiplot, to_plot=[dict(function="sns.regplot")]
             ),

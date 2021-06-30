@@ -37,6 +37,32 @@ multiplots:
         data: !dag_result data
       - function: sns.despine
 
+  dict_specs: &dict_specs
+    plot_func: multiplot
+    helpers:
+      setup_figure:
+        ncols: 3
+        nrows: 2
+    to_plot:
+      [0, 0]:
+        - function: sns.lineplot
+          data: !dag_result data
+      [1, 1]:
+        - function: sns.scatterplot
+          data: !dag_result data
+      [2, 0]:
+        - function: sns.histplot
+          data: !dag_result data
+
+  dict_specs_bad_subplots_shape:
+    <<: *dict_specs
+    helpers:
+      setup_figure:
+        ncols: 2   # too few axis --> axis selection will fail
+        nrows: 10
+    _raises: true
+    _match: Could not select axis \(2, 0\)
+
   # Try to plot all different plot kinds.
   # All plot functions should be available, but single plots are allowed
   # to fail. The plot should succeed.
