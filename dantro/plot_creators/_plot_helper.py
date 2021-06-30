@@ -1916,12 +1916,43 @@ class PlotHelper:
     def _hlpr_set_texts(self, *, texts: Sequence[dict]):
         """Sets multiple text elements for the current axis.
 
+        Example configuration:
+
+        .. code-block:: yaml
+
+            set_texts:
+              texts:
+                - x: 0
+                  y: 1
+                  s: some text
+                  # ... more arguments to plt.text
+
         Args:
-            texts (Sequence[dict]): The sequence of text dicts, that are
+            texts (Sequence[dict]): A sequence of text specifications, that are
                 passed to matplotlib.pyplot.text
         """
-        for text_args in texts:
-            self.ax.text(**text_args)
+        for kwargs in texts:
+            self.ax.text(**kwargs)
+
+    def _hlpr_annotate(self, *, annotations: Sequence[dict]):
+        """Sets multiple annotations for the current axis.
+
+        Example configuration:
+
+        .. code-block:: yaml
+
+            annotate:
+              annotations:
+                - xy: [1, 3.14159]
+                  text: this is π
+                  # ... more arguments to plt.annotate
+
+        Args:
+            annotations (Sequence[dict]): A sequence of annotation parameters
+                which will be passed to matplotlib.pyplot.annotate
+        """
+        for kwargs in annotations:
+            self.ax.annotate(**kwargs)
 
     def _hlpr_set_hv_lines(self, *, hlines: list = None, vlines: list = None):
         """Sets one or multiple horizontal or vertical lines.

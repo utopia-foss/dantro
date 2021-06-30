@@ -167,6 +167,26 @@
   _match: missing
 
 # .............................................................................
+- annotate:
+    annotations:
+      - xy: [0, 1]
+        text: some_text
+      - xy: [10, -20.]
+        text: some_other_text
+- annotate:
+    annotations:
+      - xy: [0, 1]
+        text: some_text
+        invalid_params: 123
+  _raises: AttributeError
+  _match: object has no property 'invalid_params'
+- annotate:
+    annotations:
+      - missing_argument: 123
+  _raises: TypeError
+  _match: missing
+
+# .............................................................................
 - set_hv_lines: {}
 - set_hv_lines:
     hlines: [1,2,3]
