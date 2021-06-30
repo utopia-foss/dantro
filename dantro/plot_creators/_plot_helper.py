@@ -536,7 +536,7 @@ class PlotHelper:
     _SPECIAL_CFG_KEYS = ("setup_figure", "save_figure")
 
     # Helpers that are applied on the figure level
-    _FIGURE_HELPERS = ("set_suptitle", "set_figlegend")
+    _FIGURE_HELPERS = ("set_suptitle", "set_figlegend", "subplots_adjust")
 
     def __init__(
         self,
@@ -1823,6 +1823,10 @@ class PlotHelper:
             # These are necessary to have enough space for the legend.
             space_needed, _ = calculate_space_needed_hv(self.fig, figlegend)
             self.fig.subplots_adjust(right=(1.0 - (space_needed + margin)))
+
+    def _hlpr_subplots_adjust(self, **kwargs):
+        """Invokes subplots_adjust on the whole figure"""
+        self.fig.subplots_adjust(**kwargs)
 
     # .........................................................................
     # ... acting on a single axis

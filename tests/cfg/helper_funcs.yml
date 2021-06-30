@@ -387,3 +387,10 @@
         some_bad_argument: foo
   _raises: Exception
   _match: has no property 'some_bad_argument'  # from plt.plot call
+
+
+# .............................................................................
+- subplots_adjust:
+    left: 0.1
+    right: 0.9
+    hspace: 0.2
