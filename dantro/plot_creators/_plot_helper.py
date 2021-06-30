@@ -510,8 +510,9 @@ def parse_and_invoke_function(
 
     except Exception as exc:
         msg = (
-            f"The call to '{func_name}' (call no. {call_num}) "
-            f"did not succeed!\nGot a {type(exc).__name__}: {exc}"
+            f"The call to '{func_name}' (call no. {call_num} on axis "
+            f"{hlpr.ax_coords}) did not succeed!\n"
+            f"Got a {type(exc).__name__}: {exc}"
         )
         if hlpr.raise_on_error:
             raise PlottingError(msg) from exc
