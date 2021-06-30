@@ -1600,7 +1600,7 @@ class PlotHelper:
             cfg[ax_coords] = copy.deepcopy(self._base_cfg)
 
             # Go over the list of updates and apply them
-            for update_params in self._axis_specific_updates.values():
+            for ax_key, update_params in self._axis_specific_updates.items():
                 if any(k in self._FIGURE_HELPERS for k in update_params):
                     raise PlotConfigError(
                         "Cannot set axis-specific configuration for figure-"
@@ -1612,8 +1612,18 @@ class PlotHelper:
                 # Work on a copy
                 update_params = copy.deepcopy(update_params)
 
-                # Extract the axis to update
-                axis = update_params.pop("axis")
+                # Determine which axis or axes to update
+                if "axis" in update_params:
+                    axis = update_params.pop("axis")
+                elif isinstance(ax_key, tuple) and len(ax_key) == 2:
+                    axis = ax_key
+                else:
+                    raise PlotConfigError(
+                        "No axis could be determined for axis-specific update "
+                        f"'{ax_key}'! Need either a 2-tuple for the update "
+                        "key itself or an explicit `axis` key that specifies "
+                        "which axes to match the update to."
+                    )
 
                 # Check if there is a match
                 if not coords_match(
