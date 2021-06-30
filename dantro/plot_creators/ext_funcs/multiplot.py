@@ -3,16 +3,14 @@
 creators.
 """
 
-import copy
 import logging
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 import matplotlib.pyplot as plt
 
-from ..._import_tools import LazyLoader
-from ...exceptions import PlottingError
-from ...tools import make_columns, recursive_update
-from ..pcr_ext import PlotHelper, is_plot_func
+from ..._import_tools import LazyLoader, import_module_or_object
+from .._plot_helper import PlotHelper, parse_and_invoke_function
+from ..pcr_ext import is_plot_func
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -113,153 +111,6 @@ _MULTIPLOT_CAUTION_FUNC_NAMES = tuple([
 # fmt: on
 
 
-# -- Helper functions ---------------------------------------------------------
-
-
-def _resolve_lazy_imports(d: dict):
-    """In-place resolves lazy imports in the given dict"""
-    for k, v in d.items():
-        if isinstance(v, LazyLoader):
-            d[k] = v.resolve()
-
-
-def _parse_func_kwargs(
-    function: Union[str, Callable],
-    *,
-    args: list = None,
-    shared_kwargs: dict = None,
-    **func_kwargs,
-):
-    """Parse a multiplot callable and its positional and keyword arguments.
-    If ``function`` is a string it is looked up and mapped from the following
-    dictionary:
-
-    .. literalinclude:: ../../dantro/plot_creators/ext_funcs/multiplot.py
-        :language: python
-        :start-after: _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
-        :end-before:  }   # --- end literalinclude
-        :dedent: 4
-
-    Args:
-        function (Union[str, Callable]):  The callable function object or the
-            name of the plot function to look up.
-
-        args (list, optional): The positional arguments for the plot function
-
-        shared_kwargs (dict, optional): Shared kwargs that passed on to
-            all multiplot functions. They are recursively updated with
-            the individual plot functions' func_kwargs.
-
-        **func_kwargs (dict): The function kwargs to be passed on to the
-            function object.
-
-    .. note::
-
-        The function kwargs cannot pass on a ``function`` or ``args`` key
-        because both are parsed and translated into the plot function to use
-        and the optional positional function arguments, respectively.
-
-    Returns:
-        (str, Callable, list, dict): (function name, function object, function
-            arguments, function kwargs)
-    """
-    # First need to resolve all lazy imports in _MULTIPLOT_FUNC_KINDS
-    _resolve_lazy_imports(_MULTIPLOT_FUNC_KINDS)
-
-    if shared_kwargs is None:
-        shared_kwargs = {}
-
-    func_kwargs = recursive_update(copy.deepcopy(shared_kwargs), func_kwargs)
-
-    if callable(function):
-        func_name = function.__name__
-        func = function
-    else:
-        func_name = function
-
-        # Look up the function in the _MULTIPLOT_FUNC_KINDS dict
-        try:
-            func = _MULTIPLOT_FUNC_KINDS[func_name]
-        except KeyError as err:
-            _mp_funcs = _MULTIPLOT_FUNC_KINDS
-            if _mp_funcs:
-                _mp_funcs = "\n" + make_columns(_MULTIPLOT_FUNC_KINDS)
-            else:
-                _mp_funcs = " (none)\n"
-
-            raise ValueError(
-                f"The function `{func_name}` is not a valid multiplot "
-                f"function. Available functions: \n {_mp_funcs} \n"
-                "Alternatively, pass a callable instead of the name of a plot "
-                "function."
-            ) from err
-
-    if args is None:
-        args = []
-
-    return func_name, func, args, func_kwargs
-
-
-def _call_multiplot_func(
-    *,
-    hlpr: PlotHelper,
-    shared_kwargs: dict,
-    func_kwargs: dict,
-    show_hints: bool,
-    _func_num: int,
-):
-    """Parses function arguments and then calls the multiplot function.
-
-    Args:
-        hlpr (PlotHelper): The currently used PlotHelper instance
-        shared_kwargs (dict): Arguments shared between function calls
-        func_kwargs (dict): Arguments for *this* function in particular
-        show_hints (bool): Whether to show hints
-        _func_num (int): The number of this plot, for easier identification
-    """
-    # Get the function name, the function object and all function kwargs
-    # from the configuration entry.
-    func_name, func, func_args, func_kwargs = _parse_func_kwargs(
-        shared_kwargs=shared_kwargs, **func_kwargs
-    )
-
-    # Notify user if plot functions do not get any kwargs passed on.
-    # This is e.g. helpful and relevant for seaborn functions that require
-    # a 'data' kwarg but do not fail or warn if no 'data' is passed on to them.
-    if (
-        show_hints
-        and not func_kwargs
-        and func_name in _MULTIPLOT_CAUTION_FUNC_NAMES
-    ):
-        log.caution(
-            "You seem to have called '%s' without any function arguments. "
-            "If the plot produces unexpected output, check that all required "
-            "arguments (e.g. `data`, `x`, ...) were given.\n"
-            "To silence this warning, set `show_hints` to `False`."
-        )
-
-    # Apply the plot function and allow it to fail to make sure that potential
-    # other plots are still plotted and shown.
-    #
-    rv = None
-    try:
-        rv = func(*func_args, **func_kwargs)
-
-    except Exception as exc:
-        msg = (
-            f"Plotting with '{func_name}', plot number {_func_num}, "
-            f"did not succeed! Got a {type(exc).__name__}: {exc}"
-        )
-        if hlpr.raise_on_error:
-            raise PlottingError(msg) from exc
-        log.warning(
-            f"{msg}\nEnable debug mode to get a full traceback. "
-            "Proceeding with next plot ..."
-        )
-
-    return rv
-
-
 # -----------------------------------------------------------------------------
 # -- The actual plotting functions --------------------------------------------
 # -----------------------------------------------------------------------------
@@ -274,7 +125,7 @@ def multiplot(
     show_hints: bool = True,
     **shared_kwargs,
 ) -> None:
-    """Consecutively plot multiple functions on one or multiple axes.
+    """Consecutively call multiple plot functions on one or multiple axes.
 
     ``to_plot`` contains all relevant information for the functions to plot.
     If ``to_plot`` is list-like the plot functions are plotted on the current
@@ -283,12 +134,20 @@ def multiplot(
     an ax to plot on, e.g. (0,0), while the values specify a list of plot
     function configurations to apply consecutively.
     Each list entry specifies one function plot and is parsed via the
-    :py:func:`~dantro.plot_creators.ext_funcs.multiplot._parse_func_kwargs`
+    :py:func:`~dantro.plot_creators._plot_helper.parse_function_specs`
     function.
 
     The multiplot works with any plot function that either operates on the
-    current axis and does _not_ create a new figure or does not require an
+    current axis and does *not* create a new figure or does not require an
     axis at all.
+
+    .. note::
+
+        While most functions will automatically operate on the current axis,
+        some function calls may require an axis object.
+        If so, use the ``pass_axis_object_as`` argument to specify the name of
+        the keyword argument as which the current axis is to be passed to the
+        function call.
 
     Look at the :ref:`multiplot documentation <dag_multiplot>` for further
     information.
@@ -323,6 +182,18 @@ def multiplot(
               [1,0]:
                 - function: sns.scatterplot
                   data: !dag_result data
+
+    If ``function`` is a string it is looked up from the following dictionary:
+
+    .. literalinclude:: ../../dantro/plot_creators/ext_funcs/multiplot.py
+        :language: python
+        :start-after: _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
+        :end-before:  }   # --- end literalinclude
+        :dedent: 4
+
+    It is also possible to *import* callables on the fly. To do so, pass a
+    2-tuple of ``(module, name)`` to ``function``, which will then be loaded
+    using :py:func:`~dantro._import_tools.import_module_or_object`.
 
     Args:
         hlpr (PlotHelper): The PlotHelper instance for this plot
@@ -375,23 +246,27 @@ def multiplot(
         )
 
     if isinstance(to_plot, dict):
-        for ax_coords, plot_specs in to_plot.items():
+        for ax_coords, specs in to_plot.items():
             hlpr.select_axis(*ax_coords)
-            for func_num, func_kwargs in enumerate(plot_specs):
-                _call_multiplot_func(
+            for call_num, func_kwargs in enumerate(specs):
+                parse_and_invoke_function(
                     hlpr=hlpr,
+                    funcs=_MULTIPLOT_FUNC_KINDS,
                     shared_kwargs=shared_kwargs,
                     func_kwargs=func_kwargs,
                     show_hints=show_hints,
-                    _func_num=func_num,
+                    call_num=call_num,
+                    caution_func_names=_MULTIPLOT_CAUTION_FUNC_NAMES,
                 )
 
     else:
-        for func_num, func_kwargs in enumerate(to_plot):
-            _call_multiplot_func(
+        for call_num, func_kwargs in enumerate(to_plot):
+            parse_and_invoke_function(
                 hlpr=hlpr,
+                funcs=_MULTIPLOT_FUNC_KINDS,
                 shared_kwargs=shared_kwargs,
                 func_kwargs=func_kwargs,
                 show_hints=show_hints,
-                _func_num=func_num,
+                call_num=call_num,
+                caution_func_names=_MULTIPLOT_CAUTION_FUNC_NAMES,
             )

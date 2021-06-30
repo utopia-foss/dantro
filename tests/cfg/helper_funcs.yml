@@ -173,6 +173,14 @@
         text: some_text
       - xy: [10, -20.]
         text: some_other_text
+      - xy: [0, 0]
+        xycoords: data
+        text: this is zero
+        xytext: [0.1, 0.1]
+        textcoords: data
+        arrowprops:
+          facecolor: black
+          shrink: 0.05
 - annotate:
     annotations:
       - xy: [0, 1]
@@ -355,3 +363,27 @@
     fig: foo
   _raises: ValueError
   _match: Got unexpected `fig` argument!
+
+
+# .............................................................................
+- invoke_functions:
+    functions:
+      - function: plt.plot
+        args: [[1,2]]
+      - function: [matplotlib, pyplot.plot]  # imported
+        args: [[2,3,2,3]]
+        linestyle: "--"
+
+- invoke_functions:
+    functions:
+      - function: some_bad_function_name
+  _raises: ValueError
+  _match: could not be found
+
+- invoke_functions:
+    functions:
+      - function: plt.plot
+        args: [[1,2]]
+        some_bad_argument: foo
+  _raises: Exception
+  _match: has no property 'some_bad_argument'  # from plt.plot call

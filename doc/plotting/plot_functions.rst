@@ -150,8 +150,13 @@ Similar to :py:func:`~.facet_grid`, these functions offer the ``hue`` and ``fram
 -----------------------------------------------------------
 The :py:func:`~.multiplot` plotting function enables the consecutive application of multiple plot functions on the current axis generated and provided through the ``PlotHelper``.
 
-Plot functions can either be given as a string that is used to map to the corresponding function or by directly passing a callable function to the multiplot.
-For the former, the following `seaborn plot functions <https://seaborn.pydata.org/api.html>`_ are available:
+Plot functions can be specified in three ways:
+
+- as a string that is used to map to the corresponding function
+- by importing a callable on the fly
+- or by directly passing a callable function
+
+For plot function lookup by string, the following `seaborn plot functions <https://seaborn.pydata.org/api.html>`_ and some matplotlib functions are available:
 
 .. literalinclude:: ../../dantro/plot_creators/ext_funcs/multiplot.py
     :language: python
@@ -159,8 +164,11 @@ For the former, the following `seaborn plot functions <https://seaborn.pydata.or
     :end-before:  }   # --- end literalinclude
     :dedent: 4
 
-However, you can also plot any other function operating on a ``matplotlib.axes`` object.
-Let us look at some example configurations to illustrate features:
+To import a callable, specify a ``(module, name)`` tuple; this will use :py:func:`~dantro._import_tools.import_module_or_object` to carry out the import and traverse any modules.
+
+You can also invoke any other function operating on a ``matplotlib.axes`` object by importing or constructing a callable via the :ref:`data transformation framework <plot_creator_dag>`.
+
+Let us look at some example configurations to illustrate the above features:
 
 .. code-block:: YAML
 
@@ -177,24 +185,27 @@ Let us look at some example configurations to illustrate features:
           # Add further sns.lineplot-specific kwargs below...
           markers: true
 
-      # Add more functions to plot on the same axes below...
+        # Can add more function specifications here to plot on the same axes
 
-    # The same plot as above but with a plt.plot overlaid on the same axes.
-    advanced_example:
+    # An advanced example
+    sns_lineplot_and_more:
       plot_func: multiplot
-      transform:
-        # Import the matplotlib.pyplot.plot function
-        - import: [matplotlib.pyplot, plot]
-          tag: plt_plot
+
+      # Define some custom callable
+      dag_options:
+        define:
+          my_custom_callable:
+            - lambda: "lambda *, ratio, ax: ax.set_aspect(ratio)"
+
       to_plot:
+        # Look up the callable from a dict
         - function: sns.lineplot
           data: !dag_result seaborn_data
           # Add further sns.lineplot-specific kwargs below...
           markers: true
 
-        # Plot the previously imported and DAG-tagged 'plt_plot' function
-        # on the same axis.
-        - function: !dag_result plt_plot
+        # Import a callable on the fly
+        - function: [matplotlib, pyplot.plot]
           # plt.plot requires the x and y values to be passed as positional
           # arguments.
           args:
@@ -202,4 +213,19 @@ Let us look at some example configurations to illustrate features:
             - !dag_result plot_y
           # Add further plot-specific kwargs below...
 
-        # Add more functions to plt_plot on the same axes below...
+        # Call the constructed plot function, passing the axis object along
+        - function: !dag_result my_custom_callable
+          pass_axis_object_as: ax
+          ratio: 0.625
+
+        # Can add more functions here, if desired
+
+.. hint::
+
+    As can be seen in the above example, it is possible to pass an axis object to the function, if needed.
+    To do so, use the ``pass_axis_object_as`` argument to specify the name of the keyword argument the axis object should be passed on as.
+
+.. hint::
+
+    The actual implementation is part of the :py:mod:`~dantro.plot_creators._plot_helper.PlotHelper` interface, which also gives access to arbitrary function invocations on the current axis.
+    The corresponding helper function is :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper._hlpr_invoke_functions`.

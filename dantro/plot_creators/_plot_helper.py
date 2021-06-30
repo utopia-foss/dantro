@@ -12,9 +12,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from paramspace.tools import recursive_replace
 
-from .._import_tools import LazyLoader
+from .._import_tools import LazyLoader, import_module_or_object
 from ..exceptions import *
-from ..tools import recursive_update
+from ..tools import make_columns, recursive_update
 
 # Lazy loading modules that take a long time to import
 sns = LazyLoader("seaborn")
@@ -372,6 +372,155 @@ def _set_tick_locators_or_formatters(
                 _major=False,
                 **y["minor"],
             )
+
+
+def _resolve_lazy_imports(d: dict):
+    """In-place resolves lazy imports in the given dict"""
+    for k, v in d.items():
+        if isinstance(v, LazyLoader):
+            d[k] = v.resolve()
+
+
+def parse_function_specs(
+    *,
+    _hlpr: "PlotHelper",
+    _funcs: Dict[str, Callable] = {},
+    _shared_kwargs: dict = {},
+    function: Union[str, Callable, Tuple[str, str]],
+    args: list = None,
+    pass_axis_object_as: str = None,
+    **func_kwargs,
+) -> Tuple[str, Callable, list, dict]:
+    """Parses a function specification used in the ``invoke_function`` helper.
+    If ``function`` is a string it is looked up from the ``_funcs`` dict.
+
+    Args:
+        _hlpr (PlotHelper): The currently used PlotHelper instance
+        _funcs (Dict[str, Callable]): The lookup dictionary for callables
+        _shared_kwargs (dict, optional): Shared kwargs that passed on to
+            all multiplot functions. They are recursively updated with
+            the individual plot functions' ``func_kwargs``.
+        function (Union[str, Callable, Tuple[str, str]]): The callable
+            function object or the name of the plot function to look up.
+            If given as 2-tuple ``(module, name)``, will attempt an import of
+            that module.
+        args (list, optional): The positional arguments for the plot function
+        pass_axis_object_as (str, optional): If given, will add a keyword
+            argument with this name to pass the current axis object to the
+            to-be-invoked function.
+        **func_kwargs (dict): The function kwargs to be passed on to the
+            function object.
+
+    Returns:
+        Tuple[str, Callable, list, dict]: A tuple of function name, callable,
+            positional arguments, and keyword arguments.
+    """
+    # Parse positional and keyword arguments
+    if args is None:
+        args = []
+
+    func_kwargs = recursive_update(copy.deepcopy(_shared_kwargs), func_kwargs)
+
+    if pass_axis_object_as:
+        func_kwargs[pass_axis_object_as] = _hlpr.ax
+
+    # Get the function object and a readable name
+    if callable(function):
+        func_name = function.__name__
+        func = function
+
+    elif isinstance(function, (list, tuple)):
+        # Import
+        mod, name = function
+        func = import_module_or_object(mod, name)
+        func_name = ".".join(function)
+
+    else:
+        # Look up the function in the `_funcs` dict.
+        # Still need to resolve all lazy imports in the lookup dictionary.
+        _resolve_lazy_imports(_funcs)
+
+        func_name = function
+        try:
+            func = _funcs[func_name]
+
+        except KeyError as err:
+            _avail = " (none)\n"
+            if _funcs:
+                _avail = make_columns(_funcs)
+
+            raise ValueError(
+                f"A function called '{func_name}' could not be found "
+                f"by name!\nAvailable functions:\n{_avail}\n"
+                "Alternatively, pass a callable instead of the function name "
+                "or pass a 2-tuple of (module, name) to import a callable."
+            ) from err
+
+    return func_name, func, args, func_kwargs
+
+
+def parse_and_invoke_function(
+    *,
+    hlpr: "PlotHelper",
+    funcs: Dict[str, Callable],
+    shared_kwargs: dict,
+    func_kwargs: dict,
+    show_hints: bool,
+    call_num: int,
+    caution_func_names: List[str] = (),
+) -> Any:
+    """Parses function arguments and then calls the multiplot function.
+
+    Args:
+        hlpr (PlotHelper): The currently used PlotHelper instance
+        funcs (Dict[str, Callable]): The lookup dictionary for the functions
+        shared_kwargs (dict): Arguments shared between function calls
+        func_kwargs (dict): Arguments for *this* function in particular
+        show_hints (bool): Whether to show hints
+        call_num (int): The number of this plot, for easier identification
+        caution_func_names (List[str], optional): a list of function names that
+            will trigger a log message if no function kwargs were given.
+
+    Returns:
+        Any: return value of plot function call
+    """
+    # Get the function name, the function object and all function kwargs
+    # from the configuration entry.
+    func_name, func, func_args, func_kwargs = parse_function_specs(
+        _hlpr=hlpr, _funcs=funcs, _shared_kwargs=shared_kwargs, **func_kwargs
+    )
+
+    # Notify user if plot functions do not get any kwargs passed on.
+    # This is e.g. helpful and relevant for seaborn functions that require
+    # a 'data' kwarg but do not fail or warn if no 'data' is passed on to them.
+    if show_hints and not func_kwargs and func_name in caution_func_names:
+        log.caution(
+            "You seem to have called '%s' without any function arguments. "
+            "If this produces unexpected output, check that all required "
+            "arguments (e.g. `data`, `x`, ...) were given.\n"
+            "To silence this warning, set `show_hints` to `False`.",
+            func_name,
+        )
+
+    # Apply the plot function and allow it to fail to make sure that potential
+    # other plots are still plotted and shown.
+    rv = None
+    try:
+        rv = func(*func_args, **func_kwargs)
+
+    except Exception as exc:
+        msg = (
+            f"The call to '{func_name}' (call no. {call_num}) "
+            f"did not succeed!\nGot a {type(exc).__name__}: {exc}"
+        )
+        if hlpr.raise_on_error:
+            raise PlottingError(msg) from exc
+        log.warning(
+            f"{msg}\nEnable debug mode to get a full traceback. "
+            "Proceeding with next plot ..."
+        )
+
+    return rv
 
 
 # -----------------------------------------------------------------------------
@@ -1945,7 +2094,15 @@ class PlotHelper:
               annotations:
                 - xy: [1, 3.14159]
                   text: this is π
+                  xycoords: data
                   # ... more arguments to plt.annotate
+                - xy: [0, 0]
+                  xycoords: data
+                  text: this is zero
+                  xytext: [0.1, 0.1]
+                  arrowprops:
+                    facecolor: black
+                    shrink: 0.05
 
         Args:
             annotations (Sequence[dict]): A sequence of annotation parameters
@@ -2217,6 +2374,80 @@ class PlotHelper:
         _set_tick_locators_or_formatters(
             ax=self.ax, kind="formatter", x=x, y=y
         )
+
+    def _hlpr_invoke_functions(
+        self, *, functions: Sequence[dict], **shared_kwargs
+    ):
+        """Invokes multiple functions on the selected axis.
+
+        Functions can be specified in three ways:
+
+            - as string, being looked up from a pre-defined dict
+            - as 2-tuple ``(module, name)`` which will be imported on the fly
+            - as callable, which will be used directly.
+
+        The implementation of this is shared with the plot function
+        :py:func:`~dantro.plot_creators.ext_funcs.multiplot.multiplot`. See
+        there for more information.
+
+        .. hint::
+
+            To pass custom callables, use the data transformation framework and
+            the ``!dag_result`` placeholder, see :ref:`dag_result_placeholder`.
+
+        .. note::
+
+            While most matplotlib-based functions will automatically operate on
+            the current axis, some function calls may require an axis object.
+            If so, use the ``pass_axis_object_as`` argument, which specifies
+            the name of the keyword argument as which the current axis is
+            passed to the function call.
+
+        Example:
+
+        .. code-block:: yaml
+
+            invoke_functions:
+              functions:
+                # Lookup function from dict, containing common seaborn and
+                # pyplot plotting functions (see multiplot for more info)
+                - function: sns.lineplot
+                  data: !dag_result my_custom_data
+
+                # Import function via `(module, name)` specification
+                - function: [matplotlib, pyplot.subplots_adjust]
+                  left: 0.1
+                  right: 0.9
+
+                # Pass a custom callable, selected via DAG framework
+                - function: !dag_result my_callable
+                  args: [foo, bar]
+                  # ... keyword arguments here
+
+                # Pass current axis object as keyword argument
+                - function: !dag_result my_callable_operating_on_ax
+                  pass_axis_object_as: ax
+
+        Args:
+            functions (Sequence[dict]): A sequence of function call
+                specifications. Each dict needs to contain at least the key
+                ``function`` which determines which function to invoke. Further
+                arguments are parsed into the positional and keyword arguments
+                of the to-be-invoked function.
+            **shared_kwargs: Passed on as keyword arguments to *all* function
+                calls in ``functions``.
+        """
+        from .ext_funcs.multiplot import _MULTIPLOT_FUNC_KINDS
+
+        for call_num, func_kwargs in enumerate(functions):
+            parse_and_invoke_function(
+                hlpr=self,
+                funcs=_MULTIPLOT_FUNC_KINDS,
+                shared_kwargs=shared_kwargs,
+                func_kwargs=func_kwargs,
+                show_hints=False,
+                call_num=call_num,
+            )
 
     # .........................................................................
     # ... using seaborn
