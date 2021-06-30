@@ -125,6 +125,7 @@ def _resolve_lazy_imports(d: dict):
 
 def _parse_func_kwargs(
     function: Union[str, Callable],
+    *,
     args: list = None,
     shared_kwargs: dict = None,
     **func_kwargs,
@@ -197,6 +198,66 @@ def _parse_func_kwargs(
         args = []
 
     return func_name, func, args, func_kwargs
+
+
+def _call_multiplot_func(
+    *,
+    hlpr: PlotHelper,
+    shared_kwargs: dict,
+    func_kwargs: dict,
+    show_hints: bool,
+    _func_num: int,
+):
+    """Parses function arguments and then calls the multiplot function.
+
+    Args:
+        hlpr (PlotHelper): The currently used PlotHelper instance
+        shared_kwargs (dict): Arguments shared between function calls
+        func_kwargs (dict): Arguments for *this* function in particular
+        show_hints (bool): Whether to show hints
+        _func_num (int): The number of this plot, for easier identification
+    """
+    # Get the function name, the function object and all function kwargs
+    # from the configuration entry.
+    func_name, func, func_args, func_kwargs = _parse_func_kwargs(
+        shared_kwargs=shared_kwargs, **func_kwargs
+    )
+
+    # Notify user if plot functions do not get any kwargs passed on.
+    # This is e.g. helpful and relevant for seaborn functions that require
+    # a 'data' kwarg but do not fail or warn if no 'data' is passed on to them.
+    if (
+        show_hints
+        and not func_kwargs
+        and func_name in _MULTIPLOT_CAUTION_FUNC_NAMES
+    ):
+        log.caution(
+            "You seem to have called '%s' without any function arguments. "
+            "If the plot produces unexpected output, check that all required "
+            "arguments (e.g. `data`, `x`, ...) were given.\n"
+            "To silence this warning, set `show_hints` to `False`."
+        )
+
+    # Apply the plot function and allow it to fail to make sure that potential
+    # other plots are still plotted and shown.
+    #
+    rv = None
+    try:
+        rv = func(*func_args, **func_kwargs)
+
+    except Exception as exc:
+        msg = (
+            f"Plotting with '{func_name}', plot number {_func_num}, "
+            f"did not succeed! Got a {type(exc).__name__}: {exc}"
+        )
+        if hlpr.raise_on_error:
+            raise PlottingError(msg) from exc
+        log.warning(
+            f"{msg}\nEnable debug mode to get a full traceback. "
+            "Proceeding with next plot ..."
+        )
+
+    return rv
 
 
 # -----------------------------------------------------------------------------
@@ -279,12 +340,11 @@ def multiplot(
         The multiplot function neither expects nor automatically passes a
         ``data`` DAG-node to the individual functions.
 
-
     .. note::
 
-        On a failing plot function call the logger will emit a warning.
-        This allows to still show the plots of other functions applied on the
-        same axis.
+        If a plot fails and the helper is configured to not raise on a failing
+        invocation, the logger will inform about the error. This allows to
+        still apply other functions on the same axis.
 
     Raises:
         NotImplementedError: On a dict-like ``to_plot`` argument that would
@@ -317,42 +377,10 @@ def multiplot(
         )
 
     for func_num, func_kwargs in enumerate(to_plot):
-        # Get the function name, the function object and all function kwargs
-        # from the configuration entry.
-        func_name, func, func_args, func_kwargs = _parse_func_kwargs(
-            shared_kwargs=shared_kwargs, **func_kwargs
+        _call_multiplot_func(
+            hlpr=hlpr,
+            shared_kwargs=shared_kwargs,
+            func_kwargs=func_kwargs,
+            show_hints=show_hints,
+            _func_num=func_num,
         )
-
-        # Notify user if plot functions do not get any kwargs passed on.
-        # This is e.g. helpful and relevant for seaborn functions that require
-        # a 'data' kwarg but do not fail or warn if no 'data' is passed on to
-        # them.
-        if (
-            show_hints
-            and not func_kwargs
-            and func_name in _MULTIPLOT_CAUTION_FUNC_NAMES
-        ):
-            log.caution(
-                "Oops, you seem to have called '%s' without any function "
-                "arguments. If the plot produces unexpected output, check "
-                "that all required arguments (e.g. `data`, `x`, ...) were "
-                "given.\n"
-                "To silence this warning, set `show_hints` to `False`."
-            )
-
-        # Apply the plot function and allow it to fail to make sure that
-        # potential other plots are still plotted and shown.
-        try:
-            func(*func_args, **func_kwargs)
-
-        except Exception as exc:
-            msg = (
-                f"Plotting with '{func_name}', plot number {func_num}, "
-                f"did not succeed! Got a {type(exc).__name__}: {exc}"
-            )
-            if hlpr.raise_on_error:
-                raise PlottingError(msg) from exc
-            log.warning(
-                f"{msg}\nEnable debug mode to get a full traceback. "
-                "Proceeding with next plot ..."
-            )
