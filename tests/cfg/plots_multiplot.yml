@@ -71,9 +71,14 @@ multiplots:
       define:
         set_aspect:
           - lambda: "lambda ratio, *, the_axis: the_axis.set_aspect(ratio)"
+        set_aspect_via_helper:
+          - lambda: "lambda ratio, *, hlpr: hlpr.ax.set_aspect(ratio)"
     to_plot:
       - function: !dag_result set_aspect
         pass_axis_object_as: the_axis
+        ratio: 1.5
+      - function: !dag_result set_aspect_via_helper
+        pass_helper: true
         ratio: 1.5
 
   # Try to plot all different plot kinds.

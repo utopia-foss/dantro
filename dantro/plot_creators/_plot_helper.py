@@ -389,6 +389,7 @@ def parse_function_specs(
     function: Union[str, Callable, Tuple[str, str]],
     args: list = None,
     pass_axis_object_as: str = None,
+    pass_helper: bool = False,
     **func_kwargs,
 ) -> Tuple[str, Callable, list, dict]:
     """Parses a function specification used in the ``invoke_function`` helper.
@@ -408,6 +409,8 @@ def parse_function_specs(
         pass_axis_object_as (str, optional): If given, will add a keyword
             argument with this name to pass the current axis object to the
             to-be-invoked function.
+        pass_helper (bool, optional): If true, passes the helper instance to
+            the function call as keyword argument ``hlpr``.
         **func_kwargs (dict): The function kwargs to be passed on to the
             function object.
 
@@ -423,6 +426,9 @@ def parse_function_specs(
 
     if pass_axis_object_as:
         func_kwargs[pass_axis_object_as] = _hlpr.ax
+
+    if pass_helper:
+        func_kwargs["hlpr"] = _hlpr
 
     # Get the function object and a readable name
     if callable(function):
@@ -2390,16 +2396,14 @@ class PlotHelper:
             ax=self.ax, kind="formatter", x=x, y=y
         )
 
-    def _hlpr_invoke_functions(
-        self, *, functions: Sequence[dict], **shared_kwargs
-    ):
-        """Invokes multiple functions on the selected axis.
+    def _hlpr_call(self, *, functions: Sequence[dict], **shared_kwargs):
+        """Axis-level helper that can be used to call multiple functions.
 
         Functions can be specified in three ways:
 
             - as string, being looked up from a pre-defined dict
             - as 2-tuple ``(module, name)`` which will be imported on the fly
-            - as callable, which will be used directly.
+            - as callable, which will be used directly
 
         The implementation of this is shared with the plot function
         :py:func:`~dantro.plot_creators.ext_funcs.multiplot.multiplot`. See
@@ -2422,9 +2426,9 @@ class PlotHelper:
 
         .. code-block:: yaml
 
-            invoke_functions:
+            call:
               functions:
-                # Lookup function from dict, containing common seaborn and
+                # Look up function from dict, containing common seaborn and
                 # pyplot plotting functions (see multiplot for more info)
                 - function: sns.lineplot
                   data: !dag_result my_custom_data

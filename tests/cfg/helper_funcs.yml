@@ -366,7 +366,7 @@
 
 
 # .............................................................................
-- invoke_functions:
+- call:
     functions:
       - function: plt.plot
         args: [[1,2]]
@@ -374,13 +374,13 @@
         args: [[2,3,2,3]]
         linestyle: "--"
 
-- invoke_functions:
+- call:
     functions:
       - function: some_bad_function_name
   _raises: ValueError
   _match: could not be found
 
-- invoke_functions:
+- call:
     functions:
       - function: plt.plot
         args: [[1,2]]
