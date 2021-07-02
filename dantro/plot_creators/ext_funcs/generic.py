@@ -547,6 +547,9 @@ class make_facet_grid_plot:
             )
             hlpr.attach_figure_and_axes(fig=fg.fig, axes=fg.axes)
 
+            # Make the FacetGrid object available to the helper
+            hlpr._attrs["facet_grid"] = fg
+
             # Prepare mapping keyword arguments and apply the mapping
             kwargs = self.parse_wpf_kwargs(data, **kwargs)
             log.debug("Invoking mapping function with kwargs  %s  ...", kwargs)
@@ -1106,6 +1109,9 @@ def facet_grid(
         # If the figure extracted here is identical to the already-associated
         # figure, nothing happens.
         hlpr.attach_figure_and_axes(fig=fig, axes=axes, skip_if_identical=True)
+
+        # Store the FacetGrid instance for potential later manipulation
+        hlpr._attrs["facet_grid"] = rv
 
         # Done with this frame now.
 

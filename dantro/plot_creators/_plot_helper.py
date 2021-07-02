@@ -618,12 +618,15 @@ class PlotHelper:
         self._axes = None
         self._current_ax_coords = None
 
+        self._animation_update = None
+        self._invoke_before_grab = False
+
+        # Storage of figure-level and axis-level objects or attributes
         self._additional_axes = None
         self._handles_labels = defaultdict(dict)
         self._figlegend = None
-
-        self._animation_update = None
-        self._invoke_before_grab = False
+        self._attrs = dict()
+        self._ax_attrs = dict()
 
         log.debug("PlotHelper initialized.")
 
