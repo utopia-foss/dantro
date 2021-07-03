@@ -2462,6 +2462,10 @@ class PlotHelper:
                 - function: !dag_result my_callable_operating_on_ax
                   pass_axis_object_as: ax
 
+                # Pass helper object itself as keyword argument
+                - function: !dag_result my_callable_operating_on_helper
+                  pass_helper: true
+
         Args:
             functions (Sequence[dict]): A sequence of function call
                 specifications. Each dict needs to contain at least the key

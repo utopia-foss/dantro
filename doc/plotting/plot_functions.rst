@@ -228,14 +228,15 @@ Let us look at some example configurations to illustrate the above features:
 .. hint::
 
     The actual implementation is part of the :py:mod:`~dantro.plot_creators._plot_helper.PlotHelper` interface, which also gives access to arbitrary function invocations on the current axis.
-    The corresponding helper function is :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper._hlpr_invoke_functions`.
+    The corresponding helper function is named ``call`` (:py:meth:`~dantro.plot_creators._plot_helper.PlotHelper._hlpr_call`).
+
 
 Use ``multiplot`` with multiple subplots
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Generating plots with multiple subplots is also possible via the ``multiplot`` function.
 This is a two-step process:
 
-- In the ``PlotHelper`` configuration, specify the desired subplots of the figure.
+- In the ``PlotHelper`` configuration, specify the desired subplots of the figure using ``setup_figure``.
 - In the ``multiplot`` configuration, address each axis separately and specify which function calls should be made on it.
 
 Example:
