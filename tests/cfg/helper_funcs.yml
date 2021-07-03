@@ -394,3 +394,8 @@
     left: 0.1
     right: 0.9
     hspace: 0.2
+
+- align_labels: {}
+- align_labels:
+    x: true
+    y: false

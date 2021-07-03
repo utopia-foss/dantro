@@ -542,7 +542,12 @@ class PlotHelper:
     _SPECIAL_CFG_KEYS = ("setup_figure", "save_figure")
 
     # Helpers that are applied on the figure level
-    _FIGURE_HELPERS = ("set_suptitle", "set_figlegend", "subplots_adjust")
+    _FIGURE_HELPERS = (
+        "align_labels",
+        "set_suptitle",
+        "set_figlegend",
+        "subplots_adjust",
+    )
 
     def __init__(
         self,
@@ -1714,6 +1719,13 @@ class PlotHelper:
     # -------------------------------------------------------------------------
     # .........................................................................
     # ... acting on the figure
+
+    def _hlpr_align_labels(self, *, x: bool = True, y: bool = True):
+        """Aligns axis labels in the whole figure"""
+        if x:
+            self.fig.align_xlabels()
+        if y:
+            self.fig.align_ylabels()
 
     def _hlpr_set_suptitle(
         self,
