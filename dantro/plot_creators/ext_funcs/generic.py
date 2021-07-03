@@ -1205,6 +1205,7 @@ def errorbars(
     hue: str = None,
     hue_fstr: str = "{value:}",
     use_bands: bool = False,
+    add_legend: bool = True,
     **kwargs,
 ):
     """An errorbar plot supporting facet grid.
@@ -1238,6 +1239,8 @@ def errorbars(
         hue_fstr (str, optional): A format string that is used to build the
             label of discrete hue encoding.
         use_bands (bool, optional): Whether to use errorbands instead of bars.
+        add_legend (bool, optional): Whether to add a legend to the individual
+            plot or to the figure
         **kwargs: Passed on to ``hlpr.ax.errorbar`` via
             :py:func:`~dantro.plot_creators.ext_funcs._utils.plot_errorbar`.
     """
@@ -1251,7 +1254,11 @@ def errorbars(
 
     # If this is not a facet grid, still show some labels
     if not _is_facetgrid:
-        hlpr.provide_defaults("set_labels", x=x, y=f"{y} & {yerr}")
+        # FIXME Should do this via helper, but not working (see #82)
+        # hlpr.provide_defaults("set_labels", x=x, y=f"{y} & {yerr}")
+        # Workaround:
+        hlpr.ax.set_xlabel(x)
+        hlpr.ax.set_ylabel(f"{y} & {yerr}")
 
     # Case: No hue dimension -> plot single errorbar line
     if hue is None:
@@ -1292,8 +1299,10 @@ def errorbars(
 
     # Either do a single-axis legend or prepare for figure-level legend
     if not _is_facetgrid:
-        hlpr.ax.legend(_handles, _labels, title=hue)
+        if add_legend:
+            hlpr.ax.legend(_handles, _labels, title=hue)
 
     else:
         hlpr.track_handles_labels(_handles, _labels)
-        hlpr.provide_defaults("set_figlegend", title=hue)
+        if add_legend:
+            hlpr.provide_defaults("set_figlegend", title=hue)
