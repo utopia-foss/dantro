@@ -249,6 +249,33 @@ Putting the above configuration into words:
     The keys for the ``axis_specific`` configuration are arbitrary; the axes are defined solely by the internal ``axis`` entries.
     While this requires to specify a name for the axis, it also allows convenient recursive updating; thus, it is advisable to choose a somewhat meaningful name.
 
+Alternatively, the axes match can be defined via the update key directly, for instance:
+
+.. code-block:: yaml
+
+  my_plot:
+    # ...
+    helpers:
+      setup_figure:
+        ncols: 2
+        sharey: True
+      axis_specific:
+        [0, 0]:
+          set_title:
+            title: This is my left plot
+        [1, 0]:
+          axis: [1, 0]
+          set_title:
+            title: This is my right plot
+
+.. hint::
+
+    This syntax also supports simple pattern matching to apply axis-specific updates to plots from a whole row or column.
+    To span over a row or column, simply replace the entry by ``None`` (in YAML: ``~``).
+
+    For instance, ``[0, ~]`` matches all subplots in the *first* column and ``[~, -1]`` matches the whole bottom row.
+
+
 Remarks
 ^^^^^^^
 

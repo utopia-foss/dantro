@@ -80,7 +80,7 @@ class BasePlotCreator(AbstractPlotCreator):
         *,
         dm: DataManager,
         default_ext: str = None,
-        exist_ok: bool = None,
+        exist_ok: Union[bool, str] = None,
         raise_exc: bool = None,
         **plot_cfg,
     ):
@@ -96,10 +96,12 @@ class BasePlotCreator(AbstractPlotCreator):
                 to be in ``EXTENSIONS``, if that class variable is not set to
                 'all'. The value given here is needed by the PlotManager to
                 build the output path.
-            exist_ok (bool, optional): If True, no error will be raised when
-                a plot already exists at the specified output path. If None,
-                the value specified in the ``OUT_PATH_EXIST_OK`` class variable
-                will be used to determine this behaviour.
+            exist_ok (Union[bool, str], optional): If True, no error will be
+                raised when a plot already exists at the specified output path.
+                If None, the value specified in the ``OUT_PATH_EXIST_OK`` class
+                variable will be used to determine this behaviour.
+                If ``skip``, will skip the plot, allowing other plots to be
+                carried out; see :ref:`plot_mngr_skipping_plots`.
             raise_exc (bool, optional): Whether to raise exceptions during the
                 plot procedure. This does not pertain to *all* exceptions, but
                 only to those that would *unnecessarily* stop plotting.
@@ -287,22 +289,25 @@ class BasePlotCreator(AbstractPlotCreator):
     # .........................................................................
     # Helpers
 
-    def _prepare_path(self, out_path: str, *, exist_ok: bool) -> None:
+    def _prepare_path(
+        self, out_path: str, *, exist_ok: Union[bool, str]
+    ) -> None:
         """Prepares the output path, creating directories if needed, then
         returning the full absolute path.
 
-        This is called from __call__ and is meant to postpone directory
+        This is called from ``__call__`` and is meant to postpone directory
         creation as far as possible.
 
         Args:
             out_path (str): The absolute output path to start with
-            exist_ok (bool): If True, will emit a warning instead of an error
+            exist_ok (Union[bool, str]): If False, will raise if a file of that
+                name already exists; if True, will emit a warning instead.
+                If ``'skip'``, will initiate skipping of this plot.
 
         Raises:
             FileExistsError: Raised on already existing out path and exist_ok
                 being False.
         """
-        # Check that the file path does not already exist:
         if os.path.exists(out_path):
             msg = (
                 "There already exists a file at the specified output path "
@@ -310,12 +315,13 @@ class BasePlotCreator(AbstractPlotCreator):
             )
             if not exist_ok:
                 raise FileExistsError(msg)
-            log.warning(msg)
+            elif exist_ok == "skip":
+                raise SkipPlot(f"Plot output already exists:\n  {out_path}")
+            else:
+                log.warning(msg)
 
         # Ensure that all necessary directories exist
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
-
-        # Nothing more to do here, at least in the base class
 
     def _check_skipping(self, *, plot_kwargs: dict):
         """A method that can be specialized by derived plot creators to check

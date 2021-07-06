@@ -5,7 +5,6 @@
 # allows you to save the created plots and look at them.
 multiplots:
   simple_scatter:
-    plot_func: multiplot
     to_plot:
       - function: sns.scatterplot
         data: !dag_result data
@@ -13,7 +12,6 @@ multiplots:
         y: dim_1
 
   shared_kwargs:
-    plot_func: multiplot
     marker: o
     linestyle: --
     to_plot:
@@ -24,12 +22,10 @@ multiplots:
         marker: x
 
   func_without_kwargs:
-    plot_func: multiplot
     to_plot:
       - function: sns.scatterplot
 
   multiple_funcs:
-    plot_func: multiplot
     to_plot:
       - function: sns.lineplot
         data: !dag_result data
@@ -37,11 +33,58 @@ multiplots:
         data: !dag_result data
       - function: sns.despine
 
+  dict_specs: &dict_specs
+    helpers:
+      setup_figure:
+        ncols: 3
+        nrows: 2
+    to_plot:
+      [0, 0]:
+        - function: sns.lineplot
+          data: !dag_result data
+      [1, 1]:
+        - function: sns.scatterplot
+          data: !dag_result data
+      [2, 0]:
+        - function: sns.histplot
+          data: !dag_result data
+
+  dict_specs_bad_subplots_shape:
+    <<: *dict_specs
+    helpers:
+      setup_figure:
+        ncols: 2   # too few axis --> axis selection will fail
+        nrows: 10
+    _raises: true
+    _match: Could not select axis \(2, 0\)
+
+  importable_function:
+    to_plot:
+      - function: [seaborn, lineplot]
+        data: !dag_result data
+        pass_axis_object_as: ax
+      - function: [matplotlib, pyplot.plot]
+        args: [[2, 4, 8, 16, 32]]
+
+  constructed_function:
+    dag_options:
+      define:
+        set_aspect:
+          - lambda: "lambda ratio, *, the_axis: the_axis.set_aspect(ratio)"
+        set_aspect_via_helper:
+          - lambda: "lambda ratio, *, hlpr: hlpr.ax.set_aspect(ratio)"
+    to_plot:
+      - function: !dag_result set_aspect
+        pass_axis_object_as: the_axis
+        ratio: 1.5
+      - function: !dag_result set_aspect_via_helper
+        pass_helper: true
+        ratio: 1.5
+
   # Try to plot all different plot kinds.
   # All plot functions should be available, but single plots are allowed
   # to fail. The plot should succeed.
   all_succeeding_sns_funcs:
-    plot_func: multiplot
     to_plot:
       - function: sns.scatterplot    # Do not fail, but warn, if 'data' missing
       - function: sns.lineplot
@@ -79,7 +122,6 @@ multiplots:
         data: !dag_result data
 
   pass_func_obj:
-    plot_func: multiplot
     transform:
       - import: [seaborn, boxplot]
         tag: boxplot

@@ -449,3 +449,51 @@ config_based:
             transform:
               - .mean: [!dag_prev , [x]]
       ### End ---- mv_missing_data
+
+
+  doc_examples_multiplot_subplots:
+    plot_cfg:
+      creator: universe
+      universes: single
+      creator_init_kwargs:
+        psgrp_path: psp/regular
+
+      ### Start -- multiplot_subplots
+      module: .multiplot
+      plot_func: multiplot
+
+      # Select some example data
+      select:
+        mean:
+          path: labelled/randints
+          transform:
+            - .mean: [!dag_prev , [x, y]]
+        std:
+          path: labelled/randints
+          transform:
+            - .std: [!dag_prev , [x, y]]
+
+      transform:
+        # Explicitly extract coordinates, needed by plt.plot
+        - .coords: [!dag_tag mean, z]
+          tag: x_coords
+
+      # Use PlotHelper to configure figure to have two subplots
+      helpers:
+        setup_figure:
+          ncols: 1
+          nrows: 2
+
+      # Specify the multiplot calls
+      to_plot:
+        [0, 0]:
+          - function: plt.plot
+            args:
+              - !dag_result x_coords
+              - !dag_result mean
+        [0, 1]:
+          - function: plt.plot
+            args:
+              - !dag_result x_coords
+              - !dag_result std
+      ### End ---- multiplot_subplots

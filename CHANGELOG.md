@@ -2,6 +2,15 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.17.1
+- !261 allows skipping plots if a file already exists at the desired plot output path; to use this option, set the `exist_ok` argument of a plot or plot creator to `skip`.
+- !262 improves and expands the `PlotHelper` and the `multiplot` plot function.
+    - The `multiplot` function now accepts axis-level arguments, allowing to call different function sequences on each subplot.
+      Furthermore, ad-hoc imports of function calls are now possible.
+    - A workaround for a bug in the `errorbars` plot is added (addressing #261)
+    - The `PlotHelper` is extended with new axis-level helpers (`annotate`, `call`) and figure-level helpers (`align_labels`, `subplots_adjust`, and `figcall`).
+
+
 ## v0.17.0
 - !231 improves the performance of the ``LabelledDataGroup`` selection methods (when using the ``merge`` or ``auto`` combination method). A new combination method ``auto`` is added and set as default.
 - !257 reduces memory usage (see #251) by postponing coordinate resolution to the time they are actually needed and removing unnecessary cache attributes.

@@ -679,6 +679,19 @@ def test_axis_specificity(hlpr):
     with pytest.raises(PlotConfigError, match="figure-level helper"):
         hlpr._compile_axis_specific_cfg()
 
+    # Need either `axis` key or a 2-tuple as update key
+    hlpr._axis_specific_updates = {
+        (1, 2, 3): dict(set_title=dict(foo="bar"))  # not a 2-tuple
+    }
+    with pytest.raises(PlotConfigError, match="No axis could be determined"):
+        hlpr._compile_axis_specific_cfg()
+
+    hlpr._axis_specific_updates = {
+        "foo": dict(set_title=dict(foo="bar"))  # `axis` entry missing
+    }
+    with pytest.raises(PlotConfigError, match="No axis could be determined"):
+        hlpr._compile_axis_specific_cfg()
+
 
 def test_animation(epc, tmpdir):
     """Test the animation feature"""
