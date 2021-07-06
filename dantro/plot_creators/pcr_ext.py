@@ -474,6 +474,7 @@ class ExternalPlotCreator(BasePlotCreator):
 
             log.note("Saving figure ...")
             hlpr.save_figure()
+            log.remark("Figure saved.")
 
     # .........................................................................
     # Helpers: Plot function resolution and argument preparation

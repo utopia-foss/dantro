@@ -13,10 +13,8 @@ from pkg_resources import resource_filename
 from dantro.containers import PassthroughContainer, XrDataContainer
 from dantro.exceptions import PlottingError
 from dantro.plot_creators import ExternalPlotCreator, PlotHelper
-from dantro.plot_creators.ext_funcs.multiplot import (
-    _parse_func_kwargs,
-    multiplot,
-)
+from dantro.plot_creators._plot_helper import parse_function_specs
+from dantro.plot_creators.ext_funcs.multiplot import multiplot
 from dantro.tools import load_yml
 
 from .test_generic import create_nd_data, out_dir
@@ -73,6 +71,8 @@ def dm(_dm):
 
 def test_multiplot(dm, out_dir):
     """Tests the basic features and special cases of the multiplot plot"""
+    default_kwargs = dict(module=".multiplot", plot_func="multiplot")
+
     epc = ExternalPlotCreator("test_multiplot", dm=dm)
     epc._exist_ok = True
 
@@ -85,17 +85,33 @@ def test_multiplot(dm, out_dir):
     assert len(plt.get_fignums()) == 0
 
     # Invoke the plotting function with data of different dimensionality.
-    for plots in PLOTS_CFG_MP.values():
-        for key, plot_cfg in plots.items():
+    for case, plot_cfg in PLOTS_CFG_MP["multiplots"].items():
+        if plot_cfg.pop("_raises", False):
+            # Expecting an error to be raised
+            match = plot_cfg.pop("_match", None)
+            with pytest.raises(Exception, match=match):
+                epc(
+                    **out_path("multiplot_" + str(case)),
+                    **plot_cfg,
+                    select=dict(
+                        data="test_data/2D_random",
+                        plot_x_data="test_data/1D_x",
+                        plot_y_data="test_data/1D_y",
+                    ),
+                    **default_kwargs,
+                )
+
+        else:
+            # No error expected
             epc(
-                **out_path("multiplot_" + str(key)),
-                **plots[key],
+                **out_path("multiplot_" + str(case)),
+                **plot_cfg,
                 select=dict(
                     data="test_data/2D_random",
                     plot_x_data="test_data/1D_x",
                     plot_y_data="test_data/1D_y",
                 ),
-                module=".multiplot",
+                **default_kwargs,
             )
 
     # The last figure should survive from this.
@@ -109,47 +125,26 @@ def test_multiplot(dm, out_dir):
 
     # Test for correct error handling
     with pytest.raises(
-        NotImplementedError, match="'to_plot' needs to be list-like"
+        TypeError,
+        match="`to_plot` argument needs to be list-like or a dict but",
     ):
         epc(
-            **out_path("multiplot_not_impl"),
-            **dict(plot_func=multiplot, to_plot={}),
-            select={},
-            module=".multiplot",
-        )
-
-    with pytest.raises(TypeError, match="'to_plot' needs to be list-like"):
-        epc(
             **out_path("multiplot_string_func"),
-            **dict(plot_func=multiplot, to_plot="some string"),
+            to_plot="some bad type (string)",
             select={},
-            module=".multiplot",
+            **default_kwargs,
         )
 
     # Enable raising errors to check whether errors are risen
     epc.raise_exc = True
 
-    with pytest.raises(PlottingError, match="Plotting with "):
+    with pytest.raises(PlottingError, match="sns.regplot.*did not succeed!"):
         epc(
-            **out_path("multiplot_" + str(key)),
-            **dict(
-                plot_func=multiplot, to_plot=[dict(function="sns.regplot")]
-            ),
+            **out_path("multiplot_fail"),
+            to_plot=[dict(function="sns.regplot")],
             select=dict(data="test_data/2D_random"),
-            module=".multiplot",
+            **default_kwargs,
         )
 
     # Reset raising errors
     epc.raise_exc = False
-
-
-def test_parse_func_kwargs():
-    """Tests the basic features of the _parse_func_kwargs"""
-    # Check that it is possible to get a plot function from the
-    # _MULTIPLOT_FUNC_KINDS as well as from directly passing a function
-    _parse_func_kwargs("sns.lineplot")
-    _parse_func_kwargs(plt.scatter)
-
-    # Check that an error is emitted for a wrong key
-    with pytest.raises(ValueError, match="is not a valid multiplot function."):
-        _parse_func_kwargs("wrong_func_name")
