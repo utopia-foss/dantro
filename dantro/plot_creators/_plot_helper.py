@@ -547,6 +547,7 @@ class PlotHelper:
         "set_suptitle",
         "set_figlegend",
         "subplots_adjust",
+        "figcall",
     )
 
     def __init__(
@@ -1849,6 +1850,24 @@ class PlotHelper:
         """Invokes subplots_adjust on the whole figure"""
         self.fig.subplots_adjust(**kwargs)
 
+    def _hlpr_figcall(self, *, functions: Sequence[dict], **shared_kwargs):
+        """Figure-level helper that can be used to call multiple functions.
+        This helper is invoked *before* the axis-level helper.
+
+        See :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper._hlpr_call`
+        for more information and examples.
+
+        Args:
+            functions (Sequence[dict]): A sequence of function call
+                specifications. Each dict needs to contain at least the key
+                ``function`` which determines which function to invoke. Further
+                arguments are parsed into the positional and keyword arguments
+                of the to-be-invoked function.
+            **shared_kwargs: Passed on as keyword arguments to *all* function
+                calls in ``functions``.
+        """
+        self._hlpr_call(functions=functions, **shared_kwargs)
+
     # .........................................................................
     # ... acting on a single axis
 
@@ -2423,6 +2442,9 @@ class PlotHelper:
         The implementation of this is shared with the plot function
         :py:func:`~dantro.plot_creators.ext_funcs.multiplot.multiplot`. See
         there for more information.
+
+        The figure-level helper ``figcall`` is identical to this helper, but is
+        invoked *before* the axis-specific helpers are invoked.
 
         .. hint::
 

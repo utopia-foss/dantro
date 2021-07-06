@@ -366,7 +366,7 @@
 
 
 # .............................................................................
-- call:
+- call: &call_functions
     functions:
       - function: plt.plot
         args: [[1,2]]
@@ -380,13 +380,22 @@
   _raises: ValueError
   _match: could not be found
 
-- call:
+- call: &call_functions_raises
     functions:
       - function: plt.plot
         args: [[1,2]]
         some_bad_argument: foo
   _raises: Exception
   _match: has no property 'some_bad_argument'  # from plt.plot call
+
+- figcall:
+    <<: *call_functions
+
+- figcall:
+    <<: *call_functions_raises
+  _raises: Exception
+  _match: has no property 'some_bad_argument'  # from plt.plot call
+
 
 
 # .............................................................................
