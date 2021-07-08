@@ -1256,9 +1256,10 @@ def errorbars(
     if not _is_facetgrid:
         # FIXME Should do this via helper, but not working (see #82)
         # hlpr.provide_defaults("set_labels", x=x, y=f"{y} & {yerr}")
+
         # Workaround:
         hlpr.ax.set_xlabel(x)
-        hlpr.ax.set_ylabel(f"{y} & {yerr}")
+        hlpr.ax.set_ylabel(f"{y}, {yerr}")
 
     # Case: No hue dimension -> plot single errorbar line
     if hue is None:
