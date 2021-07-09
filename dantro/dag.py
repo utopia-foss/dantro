@@ -17,6 +17,7 @@ import numpy as np
 import xarray as xr
 from paramspace.tools import recursive_collect, recursive_replace
 
+from ._copy import _deepcopy, _shallowcopy
 from ._dag_utils import DAGMetaOperationTag as _MOpTag
 from ._dag_utils import DAGNode, DAGObjects, DAGReference, DAGTag
 from ._dag_utils import KeywordArgument as _Kwarg
@@ -74,25 +75,6 @@ DAG_CACHE_RESULT_SAVE_FUNCS = {
     (xr.Dataset,):   lambda obj, p, **kws: obj.to_netcdf(p + ".nc_ds", **kws),
 }
 # fmt: on
-
-
-# -----------------------------------------------------------------------------
-# Which copying functions to use throughout this module
-
-_shallowcopy = copy.copy
-
-
-def _deepcopy(obj: Any) -> Any:
-    """A pickle based deep-copy overload, that uses ``copy.deepcopy`` only as a
-    fallback option if serialization was not possible.
-
-    The pickling approach being based on a C implementation, this can easily
-    be many times faster than the pure-Python-based ``copy.deepcopy``.
-    """
-    try:
-        return _pickle.loads(_pickle.dumps(obj))
-    except:
-        return copy.deepcopy(obj)
 
 
 # -----------------------------------------------------------------------------

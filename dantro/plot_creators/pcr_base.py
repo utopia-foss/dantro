@@ -13,15 +13,19 @@ from typing import Sequence, Tuple, Union
 
 from paramspace import ParamSpace
 
+from .._copy import _deepcopy
 from .._dag_utils import resolve_placeholders as _resolve_placeholders
+from .._hash import _hash
 from ..abc import AbstractPlotCreator
 from ..dag import TransformationDAG
 from ..data_mngr import DataManager
 from ..exceptions import SkipPlot
 from ..tools import recursive_update
 
-# Local constants
 log = logging.getLogger(__name__)
+
+# The local DAG cache object
+_DAG_OBJECT_CACHE = dict()
 
 
 # -----------------------------------------------------------------------------
@@ -141,6 +145,9 @@ class BasePlotCreator(AbstractPlotCreator):
                 f"the argument ('{default_ext}') nor the DEFAULT_EXT class "
                 f"variable ('{self.DEFAULT_EXT}') evaluated to True."
             )
+
+        # Internal attributes, not exposed
+        self._dag_obj_cache = _DAG_OBJECT_CACHE
 
     # .........................................................................
     # Properties
@@ -410,8 +417,11 @@ class BasePlotCreator(AbstractPlotCreator):
             **plot_kwargs, **shared_kwargs
         )
 
-        # Create and compute it, then make available for re-use elsewhere
-        dag = self._create_dag(**dag_params["init"])
+        # Create the DAG object, optionally performing cache reading or writing
+        log.note("Setting up data transformation framework ...")
+        dag = self._setup_dag(dag_params["init"], **dag_params["cache"])
+
+        # Then compute results, then make available for re-use elsewhere
         dag_results = self._compute_dag(dag, **dag_params["compute"])
         self._dag = dag
 
@@ -435,6 +445,7 @@ class BasePlotCreator(AbstractPlotCreator):
         transform: Sequence[dict] = None,
         compute_only: Sequence[str] = None,
         dag_options: dict = None,
+        dag_object_cache: dict = None,
         **plot_kwargs,
     ) -> Tuple[dict, dict]:
         """Filters out parameters needed for DAG initialization and compute
@@ -444,20 +455,26 @@ class BasePlotCreator(AbstractPlotCreator):
             transform (Sequence[dict], optional): DAG transformation
             compute_only (Sequence[str], optional): DAG tags to be computed
             dag_options (dict, optional): Other DAG options for initialization
+            dag_object_cache (dict, optional): Cache options for the DAG object
+                itself. Expected keys are ``read``, ``write``, ``clear``.
             **plot_kwargs: The full plot configuration
 
         Returns:
-            Tuple[dict, dict]: Tuple of DAG parameters and plot kwargs
+            Tuple[dict, dict]: Tuple of DAG parameter dict and plot kwargs
         """
         # Top-level arguments
         init_kwargs = dict(select=select, transform=transform)
         compute_kwargs = dict(compute_only=compute_only)
+        cache_kwargs = dag_object_cache if dag_object_cache else {}
 
         # Options. Only add those, if available
         if dag_options:
             init_kwargs = dict(**init_kwargs, **dag_options)
 
-        return dict(init=init_kwargs, compute=compute_kwargs), plot_kwargs
+        dag_params = dict(
+            init=init_kwargs, compute=compute_kwargs, cache=cache_kwargs
+        )
+        return dag_params, plot_kwargs
 
     def _use_dag(self, *, use_dag: bool, plot_kwargs: dict, **_kws) -> bool:
         """Whether the data transformation framework should be used.
@@ -473,9 +490,61 @@ class BasePlotCreator(AbstractPlotCreator):
         """
         return use_dag if use_dag is not None else False
 
+    def _setup_dag(
+        self,
+        init_params: dict,
+        *,
+        read: bool = False,
+        write: bool = False,
+        clear: bool = False,
+    ) -> TransformationDAG:
+        """Creates a :py:class:`~dantro.dag.TransformationDAG` object from the
+        given initialization parameters.
+        Optionally, will use a hash of the initialization parameters to reuse
+        a deep copy of a cached object.
+
+        In case no cached version was available or caching was disabled, uses
+        :py:meth:`~dantro.plot_creators.pcr_base.BasePlotCreator._create_dag`
+        to create the object.
+
+        Args:
+            init_params (dict): Initialization parameters, passed on to the
+                ``_create_dag`` method.
+            read (bool, optional): Whether to read from memory cache
+            write (bool, optional): Whether to write to memory cache
+            clear (bool, optional): Whether to clear the whole memory cache,
+                can be useful if many objects were stored and memory runs low.
+        """
+        dag = None
+
+        # Compute the cache key only once and only if needed
+        if read or write:
+            cache_key = _hash(repr(init_params))
+
+        if read:
+            dag = _deepcopy(self._dag_obj_cache.get(cache_key))
+
+        if dag is not None:
+            log.remark(
+                "Loaded TransformationDAG from memory cache. (Cache size: %d)",
+                len(self._dag_obj_cache),
+            )
+
+        else:
+            dag = self._create_dag(**init_params)
+
+            if write and cache_key not in self._dag_obj_cache:
+                self._dag_obj_cache[cache_key] = _deepcopy(dag)
+                log.remark("Stored TransformationDAG in memory cache.")
+
+        if clear:
+            self._dag_obj_cache.clear()
+            log.remark("Cleared TransformationDAG memory cache.")
+
+        return dag
+
     def _create_dag(self, **dag_params) -> TransformationDAG:
         """Creates the actual DAG object"""
-        log.note("Setting up data transformation framework ...")
         return TransformationDAG(dm=self.dm, **dag_params)
 
     def _compute_dag(self, dag: TransformationDAG, **compute_kwargs) -> dict:
