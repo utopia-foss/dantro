@@ -709,7 +709,7 @@ class ExternalPlotCreator(BasePlotCreator):
             and getattr(_plot_func, "compute_only_required_dag_tags", False)
         ):
             log.remark(
-                "Computing only tags required by the plot function:  %s",
+                "Tags that are required by the plot function:  %s",
                 ", ".join(required_tags),
             )
             compute_only = required_tags

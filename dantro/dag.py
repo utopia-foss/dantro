@@ -1622,7 +1622,7 @@ class TransformationDAG:
 
         # Compute and collect the results
         for i, tag in enumerate(compute_only):
-            log.remark("%2d/%2d:  '%s'  ...", i + 1, len(compute_only), tag)
+            log.remark("  %2d/%d:  '%s'  ...", i + 1, len(compute_only), tag)
             _tt = time.time()
 
             # Resolve the transformation, then compute the result, postprocess

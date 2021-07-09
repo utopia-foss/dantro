@@ -15,16 +15,12 @@ from paramspace import ParamDim, ParamSpace
 from ..abc import PATH_JOIN_CHAR
 from ..dag import DAGNode, DAGReference, DAGTag, TransformationDAG
 from ..groups import ParamSpaceGroup, ParamSpaceStateGroup
-from ..tools import format_time as _format_time
 from ..tools import is_iterable, recursive_update
 from .pcr_base import SkipPlot
 from .pcr_ext import ExternalPlotCreator
 
 # Local constants
 log = logging.getLogger(__name__)
-
-# Time formatting function
-fmt_time = lambda seconds: _format_time(seconds, ms_precision=1)
 
 
 # -----------------------------------------------------------------------------
@@ -519,7 +515,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
 
             # Done. :)
             log.remark(
-                "Added select-and-combine transformations for tags: %s",
+                "Added select-and-combine transformations for tags:  %s",
                 ", ".join(fields.keys()),
             )
             # NOTE Resetting the selection base is not necessary here, because
@@ -536,8 +532,6 @@ class MultiversePlotCreator(ExternalPlotCreator):
                 "argument instead."
             )
 
-        t0 = time.time()
-
         # Initialize an (empty) DAG, i.e.: without select and transform args
         # and without setting the selection base
         dag = super()._create_dag(_plot_func=_plot_func, **dag_init_params)
@@ -551,13 +545,6 @@ class MultiversePlotCreator(ExternalPlotCreator):
         dag.select_base = select_base
         dag.add_nodes(select=select, transform=transform)
 
-        dt = time.time() - t0
-        if dt > 2:
-            log.remark(
-                "Setting up the TransformationDAG with %d nodes took %s.",
-                len(dag.nodes),
-                fmt_time(dt),
-            )
         return dag
 
 

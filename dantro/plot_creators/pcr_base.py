@@ -9,6 +9,7 @@ the BasePlotCreator (which still remains abstract).
 import copy
 import logging
 import os
+import time
 from typing import Sequence, Tuple, Union
 
 from paramspace import ParamSpace
@@ -20,9 +21,13 @@ from ..abc import AbstractPlotCreator
 from ..dag import TransformationDAG
 from ..data_mngr import DataManager
 from ..exceptions import SkipPlot
+from ..tools import format_time as _format_time
 from ..tools import recursive_update
 
 log = logging.getLogger(__name__)
+
+# A local time formatting function
+_fmt_time = lambda t: _format_time(t, ms_precision=1)
 
 # The local DAG cache object
 _DAG_OBJECT_CACHE = dict()
@@ -418,7 +423,6 @@ class BasePlotCreator(AbstractPlotCreator):
         )
 
         # Create the DAG object, optionally performing cache reading or writing
-        log.note("Setting up data transformation framework ...")
         dag = self._setup_dag(dag_params["init"], **dag_params["cache"])
 
         # Then compute results, then make available for re-use elsewhere
@@ -497,6 +501,7 @@ class BasePlotCreator(AbstractPlotCreator):
         read: bool = False,
         write: bool = False,
         clear: bool = False,
+        use_copy: bool = True,
     ) -> TransformationDAG:
         """Creates a :py:class:`~dantro.dag.TransformationDAG` object from the
         given initialization parameters.
@@ -514,19 +519,29 @@ class BasePlotCreator(AbstractPlotCreator):
             write (bool, optional): Whether to write to memory cache
             clear (bool, optional): Whether to clear the whole memory cache,
                 can be useful if many objects were stored and memory runs low.
+            use_copy (bool, optional): Whether to work on a (deep) copy of the
+                cached DAG object. This reduces memory footprint, but may not
+                bring a noticeable speedup.
         """
+        t0 = time.time()
+
+        log.note("Setting up data transformation framework ...")
+
         dag = None
+        cp_func = _deepcopy if use_copy else lambda d: d
 
         # Compute the cache key only once and only if needed
         if read or write:
             cache_key = _hash(repr(init_params))
 
         if read:
-            dag = _deepcopy(self._dag_obj_cache.get(cache_key))
+            dag = cp_func(self._dag_obj_cache.get(cache_key))
 
         if dag is not None:
             log.remark(
-                "Loaded TransformationDAG from memory cache. (Cache size: %d)",
+                "Loaded TransformationDAG from memory cache. "
+                "(copy? %s, cache size: %d)",
+                use_copy,
                 len(self._dag_obj_cache),
             )
 
@@ -534,13 +549,16 @@ class BasePlotCreator(AbstractPlotCreator):
             dag = self._create_dag(**init_params)
 
             if write and cache_key not in self._dag_obj_cache:
-                self._dag_obj_cache[cache_key] = _deepcopy(dag)
+                self._dag_obj_cache[cache_key] = cp_func(dag)
                 log.remark("Stored TransformationDAG in memory cache.")
 
         if clear:
             self._dag_obj_cache.clear()
             log.remark("Cleared TransformationDAG memory cache.")
 
+        log.note(
+            "TransformationDAG set up in %s.", _fmt_time(time.time() - t0)
+        )
         return dag
 
     def _create_dag(self, **dag_params) -> TransformationDAG:
