@@ -1622,9 +1622,7 @@ class TransformationDAG:
 
         # Compute and collect the results
         for i, tag in enumerate(compute_only):
-            log.note(
-                "Computing tag '%s' (%d/%d) ...", tag, i + 1, len(compute_only)
-            )
+            log.remark("%2d/%2d:  '%s'  ...", i + 1, len(compute_only), tag)
             _tt = time.time()
 
             # Resolve the transformation, then compute the result, postprocess
@@ -1633,7 +1631,9 @@ class TransformationDAG:
             res = trf.compute()
             results[tag] = postprocess_result(res, tag=tag)
 
-            log.remark("Finished in %s.", fmt_time(time.time() - _tt))
+            _dtt = time.time() - _tt
+            if _dtt > 1.0:
+                log.remark("Finished in %s.", fmt_time(_dtt))
 
         # Update profiling information
         t1 = time.time()
