@@ -502,6 +502,7 @@ class BasePlotCreator(AbstractPlotCreator):
         read: bool = False,
         write: bool = False,
         clear: bool = False,
+        collect_garbage: bool = None,
         use_copy: bool = True,
     ) -> TransformationDAG:
         """Creates a :py:class:`~dantro.dag.TransformationDAG` object from the
@@ -520,7 +521,13 @@ class BasePlotCreator(AbstractPlotCreator):
             write (bool, optional): Whether to write to memory cache
             clear (bool, optional): Whether to clear the whole memory cache,
                 can be useful if many objects were stored and memory runs low.
-                Afterwards, garbage collection is explicitly triggered.
+                Afterwards, garbage collection may be required to actually free
+                the memory; see ``collect_garbage``.
+            collect_garbage (bool, optional): If True, will invoke garbage
+                collection; this may be required after clearing the cache but
+                may also be useful to invoke separately from that.
+                If None, will invoke garbage collection automatically if the
+                cache was set to be cleared.
             use_copy (bool, optional): Whether to work on a (deep) copy of the
                 cached DAG object. This reduces memory footprint, but may not
                 bring a noticeable speedup.
@@ -556,11 +563,17 @@ class BasePlotCreator(AbstractPlotCreator):
 
         if clear:
             self._dag_obj_cache.clear()
-            gc.collect()
+            log.remark("TransformationDAG memory cache cleared.")
+
+        if collect_garbage or (collect_garbage is None and clear):
             log.remark(
-                "Cleared TransformationDAG memory cache and triggered "
-                "garbage collection."
+                "Invoking garbage collection ... (this may take a while)"
             )
+            gc.collect()
+            log.remark("Garbage collected.")
+
+        elif collect_garbage is False:
+            log.remark("NOT invoking garbage collection.")
 
         log.note(
             "TransformationDAG set up in %s.", _fmt_time(time.time() - t0)
