@@ -7,6 +7,7 @@ the BasePlotCreator (which still remains abstract).
 """
 
 import copy
+import gc
 import logging
 import os
 import time
@@ -519,6 +520,7 @@ class BasePlotCreator(AbstractPlotCreator):
             write (bool, optional): Whether to write to memory cache
             clear (bool, optional): Whether to clear the whole memory cache,
                 can be useful if many objects were stored and memory runs low.
+                Afterwards, garbage collection is explicitly triggered.
             use_copy (bool, optional): Whether to work on a (deep) copy of the
                 cached DAG object. This reduces memory footprint, but may not
                 bring a noticeable speedup.
@@ -554,7 +556,11 @@ class BasePlotCreator(AbstractPlotCreator):
 
         if clear:
             self._dag_obj_cache.clear()
-            log.remark("Cleared TransformationDAG memory cache.")
+            gc.collect()
+            log.remark(
+                "Cleared TransformationDAG memory cache and triggered "
+                "garbage collection."
+            )
 
         log.note(
             "TransformationDAG set up in %s.", _fmt_time(time.time() - t0)
