@@ -49,6 +49,8 @@ class Placeholder:
     representation.
     """
 
+    __slots__ = ("_data",)
+
     def __init__(self, data: Any):
         """Initialize a Placeholder by storing its payload"""
         self._data = data
@@ -94,6 +96,7 @@ class Placeholder:
 class ResultPlaceholder(Placeholder):
     """A placeholder class for a data transformation result"""
 
+    __slots__ = ()
     yaml_tag = "!dag_result"
 
     @property
@@ -186,6 +189,7 @@ class PositionalArgument(Placeholder):
     argument's position. This is used, e.g., for meta-operation specification.
     """
 
+    __slots__ = ()
     yaml_tag = "!arg"
 
     def __init__(self, pos: int):
@@ -218,6 +222,7 @@ class KeywordArgument(Placeholder):
     keyword argument. This is used, e.g., for meta-operation specification.
     """
 
+    __slots__ = ()
     yaml_tag = "!kwarg"
 
     def __init__(self, name: str):
@@ -244,6 +249,7 @@ class DAGReference(Placeholder):
     references within a :py:class:`~dantro.dag.TransformationDAG`.
     """
 
+    __slots__ = ()
     yaml_tag = "!dag_ref"
 
     def __init__(self, ref: str):
@@ -288,6 +294,7 @@ class DAGTag(DAGReference):
     reference to some object in the DAG.
     """
 
+    __slots__ = ()
     yaml_tag = "!dag_tag"
 
     def __init__(self, name: str):
@@ -327,6 +334,7 @@ class DAGMetaOperationTag(DAGTag):
     the target is looked up from the stack of the TransformationDAG.
     """
 
+    __slots__ = ()
     yaml_tag = "!mop_tag"
     SPLIT_STR = "::"
 
@@ -390,6 +398,7 @@ class DAGMetaOperationTag(DAGTag):
 class DAGNode(DAGReference):
     """A DAGNode is a reference by the index within the DAG's node list."""
 
+    __slots__ = ()
     yaml_tag = "!dag_node"
 
     def __init__(self, idx: int):

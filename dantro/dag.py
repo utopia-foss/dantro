@@ -106,6 +106,20 @@ class Transformation:
         read-only. This should be respected!
     """
 
+    __slots__ = (
+        "_operation",
+        "_args",
+        "_kwargs",
+        "_dag",
+        "_salt",
+        "_allow_failure",
+        "_fallback",
+        "_hashstr",
+        "_profile",
+        "_fc_opts",
+        "_cache",
+    )
+
     def __init__(
         self,
         *,
