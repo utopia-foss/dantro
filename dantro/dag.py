@@ -2032,47 +2032,64 @@ class TransformationDAG:
     def _retrieve_from_cache_file(
         self, trf_hash: str, **load_kwargs
     ) -> Tuple[bool, Any]:
-        """Retrieves a transformation's result from a cache file."""
+        """Retrieves a transformation's result from a cache file and stores it
+        in the data manager's cache group.
+
+        .. note::
+
+            If a file was already loaded from the cache, it will not be loaded
+            again. Thus, the DataManager acts as a persistent storage for
+            loaded cache files. Consequently, these are shared among all
+            TransformationDAG objects.
+        """
         success, res = False, None
-        cache_files = self.cache_files
 
-        if trf_hash not in cache_files.keys():
-            # Bad luck, no cache file
-            log.trace("No cache file found for %s.", trf_hash)
-            return success, res
+        # Check if the file was already loaded; only go through the trouble of
+        # checking all the hash files and invoking the load method if the
+        # desired cache file was really not loaded
+        try:
+            res = self.dm[DAG_CACHE_DM_PATH][trf_hash]
+        except ItemAccessError:
+            pass
+        else:
+            success = True
 
-        # Parse load options
-        if "exists_action" not in load_kwargs:
-            load_kwargs["exists_action"] = "skip_nowarn"
+        if not success:
+            cache_files = self.cache_files
 
-        # else: There was a file. Let the DataManager load it.
-        file_ext = cache_files[trf_hash]["ext"]
-        log.trace("Loading result %s from cache file ...", trf_hash)
+            if trf_hash not in cache_files.keys():
+                # Bad luck, no cache file
+                log.trace("No cache file found for %s.", trf_hash)
+                return success, res
 
-        with _adjusted_log_levels(("dantro.data_mngr", logging.WARNING)):
-            self.dm.load(
-                "dag_cache",
-                loader=LOADER_BY_FILE_EXT[file_ext[1:]],
-                base_path=self.cache_dir,
-                glob_str=trf_hash + file_ext,
-                target_path=DAG_CACHE_DM_PATH + "/{basename:}",
-                required=True,
-                **load_kwargs,
-            )
-        # NOTE If a file was already loaded from the cache, it will not be
-        #      loaded again. Thus, the DataManager acts as a persistent
-        #      storage for loaded cache files. Consequently, these are shared
-        #      among all TransformationDAG objects.
+            # Parse load options
+            if "exists_action" not in load_kwargs:
+                load_kwargs["exists_action"] = "skip_nowarn"
 
-        # Retrieve from the DataManager
-        res = self.dm[DAG_CACHE_DM_PATH][trf_hash]
+            # else: There was a file. Let the DataManager load it.
+            file_ext = cache_files[trf_hash]["ext"]
+            log.trace("Loading result %s from cache file ...", trf_hash)
+
+            with _adjusted_log_levels(("dantro.data_mngr", logging.WARNING)):
+                self.dm.load(
+                    "dag_cache",
+                    loader=LOADER_BY_FILE_EXT[file_ext[1:]],
+                    base_path=self.cache_dir,
+                    glob_str=trf_hash + file_ext,
+                    target_path=DAG_CACHE_DM_PATH + "/{basename:}",
+                    required=True,
+                    **load_kwargs,
+                )
+
+            # Can now retrieve the loaded data
+            res = self.dm[DAG_CACHE_DM_PATH][trf_hash]
+            success = True
 
         # Have to unpack some container types
         if isinstance(res, DAG_CACHE_CONTAINER_TYPES_TO_UNPACK):
             res = res.data
 
         # Done.
-        success = True
         return success, res
 
     def _write_to_cache_file(
