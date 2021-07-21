@@ -559,7 +559,12 @@ class BasePlotCreator(AbstractPlotCreator):
 
             if write and cache_key not in self._dag_obj_cache:
                 self._dag_obj_cache[cache_key] = cp_func(dag)
-                log.remark("Stored TransformationDAG in memory cache.")
+                log.remark(
+                    "Stored TransformationDAG in memory cache. "
+                    "(copy? %s, cache size: %d)",
+                    use_copy,
+                    len(self._dag_obj_cache),
+                )
 
         if clear:
             self._dag_obj_cache.clear()
@@ -576,7 +581,9 @@ class BasePlotCreator(AbstractPlotCreator):
             log.remark("NOT invoking garbage collection.")
 
         log.note(
-            "TransformationDAG set up in %s.", _fmt_time(time.time() - t0)
+            "TransformationDAG with %d nodes set up in %s.",
+            len(dag.nodes),
+            _fmt_time(time.time() - t0),
         )
         return dag
 
