@@ -1618,10 +1618,7 @@ class TransformationDAG:
         results = dict()
 
         if not compute_only:
-            log.remark(
-                "No tags were selected to be computed. Available tags:\n%s",
-                make_columns(sorted(self.tags)),
-            )
+            log.remark("No tags were selected to be computed.")
             return results
 
         log.note(
