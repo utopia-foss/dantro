@@ -5,6 +5,7 @@
 .tox
 __pycache__
 coverage.xml
+report.xml
 
 # Ignore packaging-related files and directories
 dantro.egg-info
