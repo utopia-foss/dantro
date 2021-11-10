@@ -2,6 +2,9 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.17.2 *(WIP)*
+- !266 Updates versions of pre-commit hooks to improve compatibility
+
 ## v0.17.1
 - !261 allows skipping plots if a file already exists at the desired plot output path; to use this option, set the `exist_ok` argument of a plot or plot creator to `skip`.
 - !262 improves and expands the `PlotHelper` and the `multiplot` plot function.
