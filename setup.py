@@ -34,7 +34,7 @@ test_deps = [
     "pytest>=3.4",
     "pytest-cov>=2.5",
     "tox>=3.1",
-    "pre-commit>=2.8",
+    "pre-commit>=2.15",
 ]
 
 # Dependencies for building the dantro documentation

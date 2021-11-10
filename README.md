@@ -116,8 +116,8 @@ For development purposes, the following additional packages are required.
 | [tox][tox]                    | 3.1              | Test environments        |
 | [Sphinx][sphinx]              | 2.4 (< 3.0)      | Documentation generator  |
 | [sphinx_rtd_theme][sphinxrtd] | 0.5              | Documentation HTML theme |
-| [pre-commit][pre-commit]      | 2.8              | For [commit hooks](#commit-hooks) |
-| [black][black]                | 20.8b1           | For code formatting      |
+| [pre-commit][pre-commit]      | 2.15             | For [commit hooks](#commit-hooks) |
+| [black][black]                | 21.10b0          | For code formatting      |
 
 To install these development-related dependencies, enter the virtual environment, navigate to the cloned repository, and perform the installation using:
 
