@@ -80,10 +80,10 @@ def print_data(
         Any: the given ``data``
     """
     if fstr is None and isinstance(data, BaseDataContainer):
-        print("{}, with data:\n{}\n".format(data, data.data), end=end)
+        print(f"{data}, with data:\n{data.data}\n", end=end)
 
     elif fstr is None and isinstance(data, BaseDataGroup):
-        print("{}\n".format(data.tree), end=end)
+        print(f"{data.tree}\n", end=end)
 
     else:
         fstr = fstr if fstr is not None else "{0:}"
@@ -897,7 +897,7 @@ def expand_object_array(
             ) from exc
 
     if dims is None:
-        dims = tuple([f"inner_dim_{n:d}" for n, _ in enumerate(shape)])
+        dims = tuple(f"inner_dim_{n:d}" for n, _ in enumerate(shape))
 
     if len(dims) != len(shape):
         raise ValueError(
@@ -929,7 +929,7 @@ def expand_object_array(
 
     # Assemble info needed to bring individual array items into proper form
     item_name = d.name if d.name else "data"
-    item_shape = tuple([1 for _ in d.shape]) + tuple(shape)
+    item_shape = tuple(1 for _ in d.shape) + tuple(shape)
     item_dims = d.dims + tuple(dims)
     item_coords = lambda e: dict(
         **{n: [c.item()] for n, c in e.coords.items()}, **coords

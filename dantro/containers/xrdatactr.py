@@ -160,7 +160,7 @@ class XrDataContainer(
             return "({})".format(
                 ", ".join(["{}: {}".format(*kv) for kv in sizes])
             )
-        return "shape {}".format(self.shape)
+        return f"shape {self.shape}"
 
     def __len__(self) -> int:
         """Length of the underlying data, i.e. first entry in shape"""
@@ -342,4 +342,4 @@ class XrDataContainer(
         # ... and use the name from the metadata unless the name was None
         # which is a placeholder for "don't rename this dimension", in which
         # case it should be named via default names
-        return tuple([(n if n else "dim_{}".format(i), l) for i, (n, l) in it])
+        return tuple((n if n else f"dim_{i}", l) for i, (n, l) in it)

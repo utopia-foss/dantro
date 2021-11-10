@@ -61,11 +61,11 @@ def create_nd_data(
     given, will use ``(2, 3, 4, ..)``. Can also add coords to the data.
     """
     if shape is None:
-        shape = tuple([i + 2 for i in range(n)])
+        shape = tuple(i + 2 for i in range(n))
 
     coord_kws = dict()
     if with_coords:
-        dims = tuple([f"dim_{i}" for i, _ in enumerate(shape)])
+        dims = tuple(f"dim_{i}" for i, _ in enumerate(shape))
         coord_kws["dims"] = dims
         coord_kws["coords"] = {
             dim: range((i + 10 * i), (i + 10 * i) + s)
@@ -166,7 +166,7 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
                 # These are expected to fail with a specific type and message
                 raise_spec = raises[ndim]
                 exc_type, match = raise_spec
-                print("    expct. raise: ", exc_type, ": '{}'".format(match))
+                print("    expct. raise: ", exc_type, f": '{match}'")
                 exc_type = globals()[exc_type]
                 context = pytest.raises(exc_type, match=match)
 
@@ -194,7 +194,7 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
             print("    Open figures: ", fignums)
             assert len(fignums) <= max_num_figs
 
-        print("Scenario '{}' succeeded.\n".format(case_name))
+        print(f"Scenario '{case_name}' succeeded.\n")
     print("All scenarios tested successfully.")
 
 
@@ -280,7 +280,7 @@ def dm(_dm):
     grp_ndim_da = _dm.new_group("ndim_da")
     grp_ndim_da.add(
         *[
-            XrDataContainer(name="{:d}D".format(n), data=create_nd_data(n))
+            XrDataContainer(name=f"{n:d}D", data=create_nd_data(n))
             for n in range(7)
         ]
     )
@@ -289,7 +289,7 @@ def dm(_dm):
     grp_labelled.add(
         *[
             XrDataContainer(
-                name="{:d}D".format(n),
+                name=f"{n:d}D",
                 data=create_nd_data(n, with_coords=True),
             )
             for n in range(7)
@@ -300,7 +300,7 @@ def dm(_dm):
     grp_ds_labelled.add(
         *[
             PassthroughContainer(
-                name="{:d}D".format(n),
+                name=f"{n:d}D",
                 data=xr.Dataset(
                     dict(
                         foo=create_nd_data(n, with_coords=True),

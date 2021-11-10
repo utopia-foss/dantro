@@ -175,7 +175,7 @@ class ProxySupportMixin:
                 if self.proxy.tags
                 else ""
             )
-            return "proxy{}, {}".format(tags, super()._format_info())
+            return f"proxy{tags}, {super()._format_info()}"
         return super()._format_info()
 
 

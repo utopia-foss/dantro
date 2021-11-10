@@ -195,7 +195,7 @@ def np_dm(data_dir) -> NumpyDataManager:
 
     # Dump the objects
     for name, obj in to_dump.items():
-        print("Dumping {} '{}' ...\n{}".format(type(obj), name, obj))
+        print(f"Dumping {type(obj)} '{name}' ...\n{obj}")
         np.save(str(npy_dir.join(name + ".npy")), obj)
         print("Dumped.\n")
 

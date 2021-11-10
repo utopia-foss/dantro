@@ -118,7 +118,7 @@ def coords_match(
         )
 
     # Convert any Nones to Ellipsis
-    match = tuple([m if m is not None else Ellipsis for m in match])
+    match = tuple(m if m is not None else Ellipsis for m in match)
 
     # Check length and values, not allowing values exceeding the shape
     if any([len(t) != 2 for t in (coords, match, full_shape)]):

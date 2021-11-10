@@ -196,7 +196,7 @@ def test_create_graph_function(graph_grps, graph_data):
     (grps, cfgs) = graph_grps
 
     for name, grp in grps.items():
-        print("Testing configuration {} ...".format(name))
+        print(f"Testing configuration {name} ...")
 
         # Get the config
         cfg = cfgs[name]

@@ -8,7 +8,7 @@ full integration...
 
 import logging
 import os
-from builtins import *  # ... to have exception types available in globals
+from builtins import *  # to have Exception types available in globals
 
 import numpy as np
 import pytest

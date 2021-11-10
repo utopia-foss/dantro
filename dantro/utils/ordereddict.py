@@ -68,9 +68,7 @@ class KeyOrderedDict(dict):
             TypeError: on len(args) > 1
         """
         if len(args) > 1:
-            raise TypeError(
-                "expected at most 1 arguments, got {}".format(len(args))
-            )
+            raise TypeError(f"expected at most 1 arguments, got {len(args)}")
 
         # Set the key comparison function, passing through if nothing is set
         self._key = key if key is not None else self.DEFAULT_KEY_COMPARATOR
@@ -390,8 +388,8 @@ class KeyOrderedDict(dict):
     def __repr__(self):
         """kod.__repr__() <==> repr(kod)"""
         if not self:
-            return "%s()" % (self.__class__.__name__,)
-        return "%s(%r)" % (self.__class__.__name__, list(self.items()))
+            return f"{self.__class__.__name__}()"
+        return f"{self.__class__.__name__}({list(self.items())!r})"
 
     def __reduce__(self):
         """Return state information for pickling"""

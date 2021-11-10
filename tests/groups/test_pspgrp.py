@@ -236,7 +236,7 @@ def test_ParamSpaceGroup_select(psp_grp, selectors):
     # Test that loading on all scenarios works.
     dsets = dict()
     for name, sel in selectors.items():
-        print("Now selecting data with selector '{}' ...".format(name))
+        print(f"Now selecting data with selector '{name}' ...")
 
         # Get the data
         dset = pgrp.select(**sel)
@@ -359,7 +359,7 @@ def test_ParamSpaceGroup_select_missing_data(selectors, psp_grp_missing_data):
     dsets = dict()
 
     for name, sel in selectors.items():
-        print("Now selecting data with selector '{}' ...".format(name))
+        print(f"Now selecting data with selector '{name}' ...")
         sel.pop("method", None)
 
         # With concat, it should fail
@@ -397,7 +397,7 @@ def test_ParamSpaceGroup_select_default(psp_grp_default, selectors):
     # Test that loading on all scenarios (without subspace) works.
     dsets = dict()
     for name, sel in selectors.items():
-        print("Now selecting data with selector '{}' ...".format(name))
+        print(f"Now selecting data with selector '{name}' ...")
 
         # Get the data. Distinguish depending on whether subspace selection
         # takes place or not; if yes, it will fail.

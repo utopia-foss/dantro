@@ -92,9 +92,7 @@ class IndexedDataGroup(IntegerItemAccessMixin, OrderedDataGroup):
         """
         # Imitate indexing behaviour of lists, tuples, ...
         if not isinstance(idx, int):
-            raise TypeError(
-                "Expected integer, got {} '{}'!".format(type(idx), idx)
-            )
+            raise TypeError(f"Expected integer, got {type(idx)} '{idx}'!")
 
         if idx >= len(self) or idx < -len(self):
             raise IndexError(

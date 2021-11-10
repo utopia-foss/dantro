@@ -322,12 +322,12 @@ def test_BaseDataGroup_tree_repr():
     """
     # Generate test data
     root = dtr.groups.OrderedDataGroup(name="root")
-    grps = [root.new_group("grp_{:d}".format(i)) for i in range(13)]
+    grps = [root.new_group(f"grp_{i:d}") for i in range(13)]
     for n, grp in zip(range(13), grps):
         for i in range(n + 1):
             grp.add(
                 dtr.containers.ObjectContainer(
-                    name="obj_{:d}".format(i), data=dict(foo=i)
+                    name=f"obj_{i:d}", data=dict(foo=i)
                 )
             )
 

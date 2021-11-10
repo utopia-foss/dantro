@@ -23,7 +23,7 @@ def test_LabelledDataGroup_basics():
     """
     # Specify some names and data, intentionally unordered
     names_and_data = [
-        ("{};{}".format(f, b), np.ones((2, 2)) * b + f)
+        (f"{f};{b}", np.ones((2, 2)) * b + f)
         for f, b in product((0.1, 0.2, 0.5, 0.3), (2, 8, 4))
     ]
 
@@ -74,7 +74,7 @@ def test_LabelledDataGroup_basics():
     # Add some members (in 2D space), with names intentionally unordered
     for f, b in product((0.1, 0.2, 0.5, 0.3), (2, 8, 4)):
         ldga.new_container(
-            "{};{}".format(f, b),
+            f"{f};{b}",
             data=np.ones((2, 2)) * b + f,
             attrs=dict(
                 dims=("subfoo", "subbar"),
@@ -99,7 +99,7 @@ def test_LabelledDataGroup_basics():
     # When a new container is added, the member map _can_ be kept
     assert ldga.member_map_available
     ldga.new_container(
-        "new_cont".format(0.1, 2),
+        f"new_cont",
         data=np.zeros((2, 2)),
         attrs=dict(ext_coords__foo=[0.1], ext_coords__bar=[2]),
     )
@@ -111,7 +111,7 @@ def test_LabelledDataGroup_basics():
     # ... but for containers for which no coordinates are available, it cannot:
     assert ldga.member_map_available
     ldga.new_container(
-        "outside".format(0.0, 0),
+        f"outside",
         data=np.zeros((2, 2)),
         attrs=dict(ext_coords__foo=[0.0], ext_coords__bar=[0]),
     )
@@ -311,7 +311,7 @@ def test_LabelledDataGroup_selection():
     ldg = LabelledDataGroup(name="test", dims=("foo", "bar"), mode="name")
 
     names_and_data = [
-        ("{};{}".format(f, b), np.ones((2, 2)) * b + f)
+        (f"{f};{b}", np.ones((2, 2)) * b + f)
         for f, b in product((0.1, 0.2, 0.5, 0.3), (2, 8, 4))
     ]
 

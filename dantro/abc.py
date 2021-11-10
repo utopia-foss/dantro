@@ -201,7 +201,7 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
         formatting helpers to show the log string (type and name) as well as
         the info string of this object.
         """
-        return "<{:logstr,info}>".format(self)
+        return f"<{self:logstr,info}>"
 
     def __repr__(self) -> str:
         """Same as __str__"""

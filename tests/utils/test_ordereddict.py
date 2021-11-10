@@ -41,7 +41,7 @@ def random_kv_pairs(
     random.shuffle(l)
 
     # Also generate a sequence of ordered keys and return it alongside
-    return l, sorted([k for k, _ in l], key=key_sort_func)
+    return l, sorted((k for k, _ in l), key=key_sort_func)
 
 
 # Tests -----------------------------------------------------------------------
@@ -64,7 +64,7 @@ def test_KeyOrderedDict():
         kod[k] = v
 
     print("\n--- Initial test")
-    print("Length: {}, expected {}".format(len(kod), len(sorted_keys)))
+    print(f"Length: {len(kod)}, expected {len(sorted_keys)}")
     print("Keys (expected):", ", ".join([str(k) for k in sorted_keys]))
     print("Keys:           ", ", ".join([str(k) for k in kod]))
 
@@ -141,7 +141,7 @@ def test_KeyOrderedDict():
     kod = KOD(kv_pairs)
 
     print("\n--- Dict functionality")
-    print("Length: {}, expected {}".format(len(kod), len(sorted_keys)))
+    print(f"Length: {len(kod)}, expected {len(sorted_keys)}")
     print("Keys (expected):", ", ".join([str(k) for k in sorted_keys]))
     print("Keys:           ", ", ".join([str(k) for k in kod]))
     print("Items:\n ", "\n  ".join([str(i) for i in kod.items()]))
@@ -186,7 +186,7 @@ def test_KeyOrderedDict():
 
     # Set with default
     print("\n--- setdefault")
-    print("Length: {}, expected {}".format(len(kod), len(sorted_keys)))
+    print(f"Length: {len(kod)}, expected {len(sorted_keys)}")
     print("Keys (expected):", ", ".join([str(k) for k in sorted_keys]))
     print("Keys:           ", ", ".join([str(k) for k in kod]))
     assert sorted_keys[3] in kod

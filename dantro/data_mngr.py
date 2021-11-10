@@ -386,7 +386,7 @@ class DataManager(OrderedDataGroup):
         # Inform about the managed directories, then return
         log.debug(
             "Managed directories:\n%s",
-            "\n".join(["  {:>8s} : {}".format(k, v) for k, v in dirs.items()]),
+            "\n".join([f"  {k:>8s} : {v}" for k, v in dirs.items()]),
         )
 
         return dirs
@@ -1216,7 +1216,7 @@ class DataManager(OrderedDataGroup):
         # NOTE that it is not known whether the path points to a group
         # or to a container
 
-        _msg = "Path '{}' already exists.".format(PATH_JOIN_CHAR.join(path))
+        _msg = f"Path '{PATH_JOIN_CHAR.join(path)}' already exists."
 
         # Distinguish different actions
         if exists_action == "raise":

@@ -387,9 +387,7 @@ class Transformation:
     @property
     def resolved_dependencies(self) -> Set["Transformation"]:
         """Transformation objects that this Transformation depends on"""
-        return set(
-            [ref.resolve_object(dag=self.dag) for ref in self.dependencies]
-        )
+        return {ref.resolve_object(dag=self.dag) for ref in self.dependencies}
 
     @property
     def profile(self) -> Dict[str, float]:
@@ -617,11 +615,9 @@ class Transformation:
 
             # Aggregate the dependencies' cumulative computation times
             deps_cctime = sum(
-                [
-                    dep.profile["cumulative_compute"]
-                    for dep in self.resolved_dependencies
-                    if isinstance(dep, Transformation)
-                ]
+                dep.profile["cumulative_compute"]
+                for dep in self.resolved_dependencies
+                if isinstance(dep, Transformation)
             )
             # NOTE The dependencies might not have this value set because there
             #      might have been a cache lookup
@@ -634,11 +630,9 @@ class Transformation:
 
         # Update effective time
         self._profile["effective"] = sum(
-            [
-                self._profile[k]
-                for k in ("compute", "cache_lookup", "cache_writing")
-                if not np.isnan(self._profile[k])
-            ]
+            self._profile[k]
+            for k in ("compute", "cache_lookup", "cache_writing")
+            if not np.isnan(self._profile[k])
         )
 
     # Cache handling . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -1190,7 +1184,7 @@ class TransformationDAG:
                 }
 
         prof["slow_operations"] = sorted(
-            [(op, prof["operations"][op]["sum"]) for op in prof["operations"]],
+            ((op, prof["operations"][op]["sum"]) for op in prof["operations"]),
             key=lambda tup: tup[1],
             reverse=True,
         )
@@ -1247,7 +1241,7 @@ class TransformationDAG:
 
         _arg_pos = [arg.position for arg in args]
         num_args = 0 if not _arg_pos else (max(_arg_pos) + 1)
-        kwarg_names = set([kwarg.name for kwarg in kwargs])
+        kwarg_names = {kwarg.name for kwarg in kwargs}
 
         # For positional arguments, make sure they are contiguous
         if list(set(_arg_pos)) != list(range(num_args)):
