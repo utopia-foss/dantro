@@ -5,17 +5,17 @@ from setuptools import find_packages, setup
 
 # Dependencies for dantro itself
 install_deps = [
-    "numpy>=1.20",
+    "numpy>=1.21",
     "xarray>=0.16.2",
     "dask>=2.10",
     "toolz>=0.10",          # For dask.delayed
     "distributed>=2.10",    # For dask's distributed scheduler
-    "scipy>=1.6",           # Used as a netcdf4 storage engine for xarray
+    "scipy>=1.7",           # Used as a netcdf4 storage engine for xarray
     "sympy>=1.7",
     "h5py>=3.1",
     "matplotlib>=3.2",
     "seaborn>=0.11",
-    "networkx>=2.5",
+    "networkx>=2.6",
     "ruamel.yaml>=0.16.12",
     "dill>=0.3.3",          # For faster and more powerful pickling
     "paramspace>=2.5.6",
@@ -143,6 +143,7 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "Topic :: Utilities",
         "License :: OSI Approved :: GNU Lesser General Public License v3 or"
         " later (LGPLv3+)",

@@ -115,6 +115,12 @@ test:py39:
   script:
     - tox -v -e py39
 
+test:py310:
+  extends: test:py37
+  image: python:3.10
+  script:
+    - tox -v -e py310
+
 
 # Extended test jobs, which are only run upon release-related events.
 
@@ -142,6 +148,12 @@ test:py39_min:
   image: python:3.9
   script:
     - tox -v -e py39-minimal_deps
+
+test:py310_min:
+  extends: test:py37_min
+  image: python:3.10
+  script:
+    - tox -v -e py310-minimal_deps
 
 
 # -- Build Stage --------------------------------------------------------------
