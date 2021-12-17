@@ -193,6 +193,7 @@ build:docs:
 deploy:docs:
   stage: deploy
   image: &deploy_image ccees/utopia-base:v2.1  # overkill, but sshd installed
+  allow_failure: true
   extends:
     - .default_tags
     - .ssh_access
