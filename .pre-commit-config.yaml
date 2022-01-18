@@ -6,7 +6,7 @@ repos:
 
   # Run if desiring to make use of newer language features
   - repo: https://github.com/asottile/pyupgrade
-    rev: v2.7.3
+    rev: v2.29.0
     hooks:
     - id: pyupgrade
       name: upgrade python syntax
@@ -17,7 +17,7 @@ repos:
 
   # Default pre-commit hooks ..................................................
   - repo: https://github.com/timothycrosley/isort
-    rev: 5.6.4
+    rev: 5.10.1
     hooks:
       - id: isort
         name: sort imports
@@ -26,19 +26,19 @@ repos:
         args: [--project=dantro]
 
   - repo: https://github.com/psf/black
-    rev: 20.8b1
+    rev: 21.10b0
     hooks:
       - id: black
         name: black code formatting
 
   - repo: https://github.com/pre-commit/pygrep-hooks
-    rev: v1.7.0
+    rev: v1.9.0
     hooks:
       - id: rst-backticks
         name: check RST backticks
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.3.0
+    rev: v4.0.1
     hooks:
       - id: end-of-file-fixer
         name: fix end of files
