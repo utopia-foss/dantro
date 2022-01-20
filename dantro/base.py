@@ -100,7 +100,7 @@ class BaseDataAttrs(MappingAccessMixin, dantro.abc.AbstractDataAttrs):
 
     def _format_info(self) -> str:
         """A __format__ helper function: returns info about these attributes"""
-        return "{} attribute(s)".format(len(self))
+        return f"{len(self)} attribute(s)"
 
 
 # -----------------------------------------------------------------------------
@@ -908,7 +908,7 @@ class BaseDataGroup(
         lines = []
         if level == 0:
             lines.append("")
-            lines.append("Tree of {:logstr,info}".format(self))
+            lines.append(f"Tree of {self:logstr,info}")
 
         # Go over the entries on this level and format the lines
         for n, (key, obj) in enumerate(self.items()):
@@ -929,7 +929,7 @@ class BaseDataGroup(
                             mark=base_mark,
                             name_width=name_width,
                             name="...",
-                            info="... ({:d} more) ...".format(num_skipped),
+                            info=f"... ({num_skipped:d} more) ...",
                         )
                     )
 

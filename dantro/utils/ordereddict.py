@@ -68,9 +68,7 @@ class KeyOrderedDict(dict):
             TypeError: on len(args) > 1
         """
         if len(args) > 1:
-            raise TypeError(
-                "expected at most 1 arguments, got {}".format(len(args))
-            )
+            raise TypeError(f"expected at most 1 arguments, got {len(args)}")
 
         # Set the key comparison function, passing through if nothing is set
         self._key = key if key is not None else self.DEFAULT_KEY_COMPARATOR
@@ -102,7 +100,10 @@ class KeyOrderedDict(dict):
             k2: rhs of comparison
 
         Returns:
-            bool: k1 < k2
+            bool: result of ``k1 < k2``
+
+        Raises:
+            ValueError: Upon failed key comparison
         """
         # Create the actual keys to compare
         try:
@@ -188,8 +189,8 @@ class KeyOrderedDict(dict):
         dict_setitem(self, key, value)
 
     def insert(self, key, value, *, hint_after=None):
-        """Inserts a (key, value) pair using hint information to speed up the
-        search for an insertion point.
+        """Inserts a ``(key, value)`` pair using hint information to speed up
+        the search for an insertion point.
 
         If hint information is available, it is highly beneficial to add this
 
@@ -281,7 +282,7 @@ class KeyOrderedDict(dict):
     # Remaining dict interface, oriented at collections.OrderedDict
 
     def __delitem__(self, key, dict_delitem=dict.__delitem__):
-        """kod.__delitem__(y) <==> del kod[y]
+        """``kod.__delitem__(y) <==> del kod[y]``
 
         Deleting an existing item uses self.__map to find the link which gets
         removed by updating the links in the predecessor and successor nodes.
@@ -296,7 +297,7 @@ class KeyOrderedDict(dict):
         link.next = None
 
     def __iter__(self):
-        """kod.__iter__() <==> iter(kod)
+        """``kod.__iter__() <==> iter(kod)``
 
         Traverse the linked list in order.
         """
@@ -307,7 +308,7 @@ class KeyOrderedDict(dict):
             curr = curr.next
 
     def __reversed__(self):
-        """kod.__reversed__() <==> reversed(kod)
+        """``kod.__reversed__() <==> reversed(kod)``
 
         Traverse the linked list in reverse order.
         """
@@ -317,14 +318,14 @@ class KeyOrderedDict(dict):
             yield curr.key
             curr = curr.prev
 
-    def clear(self):
-        """Remove all items"""
+    def clear(self) -> None:
+        """Remove all items from this dict"""
         root = self.__root
         root.prev = root.next = root
         self.__map.clear()
         dict.clear(self)
 
-    def __sizeof__(self):
+    def __sizeof__(self) -> int:
         """Get the size of this object"""
         sizeof = _sys.getsizeof
 
@@ -349,15 +350,15 @@ class KeyOrderedDict(dict):
     update = __update = MutableMapping.update
 
     def keys(self):
-        """D.keys() -> a set-like object providing a view on D's keys"""
+        """Returns a set-like object providing a view on this dict's keys"""
         return _OrderedDictKeysView(self)
 
     def items(self):
-        """D.items() -> a set-like object providing a view on D's items"""
+        """Returns a set-like object providing a view on this dict's items"""
         return _OrderedDictItemsView(self)
 
     def values(self):
-        """D.values() -> an object providing a view on D's values"""
+        """Returns an object providing a view on this dict's values"""
         return _OrderedDictValuesView(self)
 
     __ne__ = MutableMapping.__ne__
@@ -365,9 +366,9 @@ class KeyOrderedDict(dict):
     __marker = object()
 
     def pop(self, key, default=__marker):
-        """kod.pop(k[,d]) -> v, remove specified key and return the
-        corresponding value.  If key is not found, default is returned if
-        given, otherwise KeyError is raised.
+        """Removes the specified key and returns the corresponding value.
+        If ``key`` is not found, ``default`` is returned if given, otherwise a
+        ``KeyError`` is raised.
         """
         if key in self:
             result = self[key]
@@ -378,8 +379,8 @@ class KeyOrderedDict(dict):
         return default
 
     def setdefault(self, key, default=None):
-        """kod.setdefault(k[,d]) -> kod.get(k,d), also set kod[k]=d if k not
-        in kod
+        """Retrieves a value, otherwise sets that value to a default.
+        Calls ``kod.get(k,d)``, setting ``kod[k]=d`` if ``k not in kod``.
         """
         if key in self:
             return self[key]
@@ -387,11 +388,11 @@ class KeyOrderedDict(dict):
         return default
 
     @_recursive_repr()
-    def __repr__(self):
-        """kod.__repr__() <==> repr(kod)"""
+    def __repr__(self) -> str:
+        """Returns a string representation of this dict"""
         if not self:
-            return "%s()" % (self.__class__.__name__,)
-        return "%s(%r)" % (self.__class__.__name__, list(self.items()))
+            return f"{self.__class__.__name__}()"
+        return f"{self.__class__.__name__}({list(self.items())!r})"
 
     def __reduce__(self):
         """Return state information for pickling"""
@@ -401,23 +402,40 @@ class KeyOrderedDict(dict):
         return self.__class__, (), inst_dict or None, None, iter(self.items())
 
     def copy(self):
-        """kod.copy() -> a shallow copy of kod, maintaining the key comparator"""
+        """Returns a shallow copy of kod, maintaining the key comparator"""
         return self.__class__(self, key=self._key)
 
     @classmethod
-    def fromkeys(cls, iterable, value=None, *, key: Callable = None):
-        """KOD.fromkeys(S[, v]) -> New key-ordered dictionary with keys from S.
-        If not specified, the value defaults to None.
+    def fromkeys(
+        cls, iterable, value=None, *, key: Callable = None
+    ) -> "KeyOrderedDict":
+        """A call like ``KOD.fromkeys(S[, v])`` returns a new key-ordered
+        dictionary with keys from ``S``. If not specified, the value defaults
+        to None.
+
+        Args:
+            iterable: The iterable over keys
+            value (None, optional): Default value for the key
+            key (Callable, optional): Passed to the class initializer
+
+        Returns:
+            KeyOrderedDict: The resulting key-ordered dict.
         """
         self = cls(key=key)
         for key in iterable:
             self[key] = value
         return self
 
-    def __eq__(self, other):
-        """kod.__eq__(y) <==> kod==y.
-        Comparison to another KeyOrderedDict or OrderedDict is order-sensitive
-        while comparison to a regular mapping is order-insensitive.
+    def __eq__(self, other) -> bool:
+        """``kod.__eq__(y) <==> kod==y``: Comparison to another
+        KeyOrderedDict or OrderedDict is order-sensitive while comparison to a
+        regular mapping is order-insensitive.
+
+        Args:
+            other: The object to compare to
+
+        Returns:
+            bool: Whether the two objects can be considered equal.
         """
         if isinstance(other, (KeyOrderedDict, collections.OrderedDict)):
             return dict.__eq__(self, other) and all(map(_eq, self, other))

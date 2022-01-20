@@ -75,7 +75,7 @@ def data_dir(tmpdir):
     # Create files of the same structure, containing groups and datasets
     for i in range(42):
         # Which day is this about?
-        day = "day{:03d}".format(i)
+        day = f"day{i:03d}"
 
         # Write some yaml file
         write_yml(dict(day=i), path=h5dir.join(day + "_params.yml"))
@@ -103,7 +103,7 @@ def data_dir(tmpdir):
 
         for j in range(23):
             _data = np.random.random((3, np.random.randint(80, 100)))
-            g.create_dataset("sensor{:03d}".format(j), data=_data)
+            g.create_dataset(f"sensor{j:03d}", data=_data)
 
         f.close()
 

@@ -174,7 +174,7 @@ def fill_line(
             fill_str[: len(fill_str) // 2] + s + fill_str[len(fill_str) // 2 :]
         )
 
-    raise ValueError("align argument '{}' not supported".format(align))
+    raise ValueError(f"align argument '{align}' not supported")
 
 
 def print_line(s: str, *, end="\r", **kwargs):
@@ -396,7 +396,7 @@ class adjusted_log_levels:
 
 def total_bytesize(files: List[str]) -> int:
     """Returns the total size of a list of files"""
-    return sum([os.path.getsize(fpath) for fpath in files])
+    return sum(os.path.getsize(fpath) for fpath in files)
 
 
 def format_bytesize(num: int, *, precision: int = 1) -> str:
@@ -497,7 +497,7 @@ def format_time(
             if ms_precision <= 0 or abs(duration) >= 60:
                 # Regular behaviour: Seconds do not have decimals or duration
                 # is so long that they need not be represented.
-                s = "{:d}{:}".format(time_to_represent, letter)
+                s = f"{time_to_represent:d}{letter}"
 
             else:
                 # There are decimals to be represented.

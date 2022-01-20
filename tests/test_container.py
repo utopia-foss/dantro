@@ -190,11 +190,11 @@ def test_MutableSequenceContainer():
     # strings
     for msc in mscs:
         str(msc)
-        "{:info,cls_name,name}".format(msc)
-        "{}".format(msc)
+        f"{msc:info,cls_name,name}"
+        f"{msc}"
 
         with pytest.raises(ValueError):
-            "{:illegal_formatspec}".format(msc)
+            f"{msc:illegal_formatspec}"
 
     # Pickling ................................................................
     for msc in mscs:

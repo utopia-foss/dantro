@@ -89,7 +89,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
         mv_ndim = self.psgrp.pspace.num_dims
 
         # Make sure its a set of integers
-        ndims = set(ndim) if is_iterable(ndim) else set((ndim,))
+        ndims = set(ndim) if is_iterable(ndim) else {ndim}
         if not all([isinstance(nd, int) for nd in ndims]):
             raise TypeError(
                 "Expected sequence or set of integers for specifying required "

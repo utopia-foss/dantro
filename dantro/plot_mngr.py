@@ -46,19 +46,20 @@ BAD_PLOT_NAME_CHARS = tuple(
 class PlotManager:
     """The PlotManager takes care of configuring plots and calling the
     configured PlotCreator classes that then carry out the plots.
-
-    Attributes:
-        CREATORS (dict): The mapping of creator names to classes. When it is
-            desired to subclass PlotManager and extend the creator mapping, use
-            `dict(**pcr.ALL)` to inherit the default creator mapping.
-        DEFAULT_OUT_FSTRS (dict): The default values for the output format
-            strings.
-        SPECIAL_BASE_CFG_POOL_LABELS (Tuple[str]): Special keys that may not be
-            used as labels for the base configuration pools.
+    It is a high-level class that is aware of a larger plot configuration and
+    aggregates all general capabilities needed to configure and carry out plots
+    using the plotting framework.
     """
 
-    CREATORS = ALL_PCRS
-    DEFAULT_OUT_FSTRS = dict(
+    CREATORS: Dict[str, type] = ALL_PCRS
+    """The mapping of creator names to classes.
+    By default, all available dantro plot creators are registered.
+
+    When subclassing PlotManager and desiring to *extend* the creator mapping,
+    use ``dict(**dantro.plot_creators.ALL, my_new_creator=MyNewCreator)``
+    to include the default creator mapping."""
+
+    DEFAULT_OUT_FSTRS: Dict[str, str] = dict(
         timestamp="%y%m%d-%H%M%S",
         state_no="{no:0{digits:d}d}",
         state="{name:}_{val:}",
@@ -73,12 +74,17 @@ class PlotManager:
         sweep="{name:}/{state_no:}__{state:}{ext:}",
         plot_cfg_sweep="{name:}/sweep_cfg.yml",
     )
-    SPECIAL_BASE_CFG_POOL_LABELS = (
+    """The default values for the output format strings, used when composing
+    the file name of a plot."""
+
+    SPECIAL_BASE_CFG_POOL_LABELS: Tuple[str] = (
         "plot",
         "plot_from_cfg",
         "plot_from_cfg_unused",
         "plot_pspace",
     )
+    """Special keys that may not be used as labels for the base configuration
+    pools."""
 
     # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 

@@ -102,10 +102,10 @@ _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
 # when called.
 # This is helpful for functions that e.g. require a 'data' argument but do
 # not fail or warn if no 'data' is passed on to them.
-_MULTIPLOT_CAUTION_FUNC_NAMES = tuple([
+_MULTIPLOT_CAUTION_FUNC_NAMES = tuple(
     func_name for func_name in _MULTIPLOT_FUNC_KINDS
     if func_name not in ("sns.despine",)
-])
+)
 
 
 # fmt: on

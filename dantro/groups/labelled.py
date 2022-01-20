@@ -187,7 +187,7 @@ class LabelledDataGroup(OrderedDataGroup):
         coords = {dim_name: sorted(list(s)) for dim_name, s in coords.items()}
 
         # Now, derive the shape from the coordinates
-        shape = tuple([len(coords[dim_name]) for dim_name in self._dims])
+        shape = tuple(len(coords[dim_name]) for dim_name in self._dims)
 
         # Create a DataArray containing empty strings, using the existing
         # dimension names (as set during initialization) and coordinates to

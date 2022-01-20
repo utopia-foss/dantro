@@ -3,7 +3,7 @@
 import copy
 import os
 import time
-from builtins import *  # ... to have exception types available in globals
+from builtins import *  # to have Exception types available in globals
 from typing import Any
 
 import dill
@@ -182,7 +182,7 @@ def test_hash():
     assert _hash("I will not change.") == fixed_hash
 
     # Also works with byte strings
-    assert _hash("I will not change.".encode("utf-8")) == fixed_hash
+    assert _hash(b"I will not change.") == fixed_hash
 
 
 def test_deepcopy(dm):
@@ -668,7 +668,7 @@ def test_TransformationDAG_syntax(dm):
 
     for name, cfg in syntax_test_cfgs.items():
         # Extract specification and expected values etc
-        print("Testing transformation syntax case '{}' ...".format(name))
+        print(f"Testing transformation syntax case '{name}' ...")
 
         # Extract arguments
         init_kwargs = cfg.get("init_kwargs", {})
@@ -719,7 +719,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
     for name, cfg in transformation_test_cfgs.items():
         # Extract specification and expected values etc
         print("-" * 80)
-        print("Testing transformation DAG case '{}' ...".format(name))
+        print(f"Testing transformation DAG case '{name}' ...")
 
         # Extract arguments
         params = cfg["params"]
@@ -806,7 +806,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
                     assert len(node.dependencies) == deps
                 else:
                     # Only compare hash references (easier to specify in yaml)
-                    assert set([r.ref for r in node.dependencies]) == set(deps)
+                    assert {r.ref for r in node.dependencies} == set(deps)
 
         # Test meta operations and the extracted arguments
         if expected.get("meta_operations"):
@@ -834,7 +834,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
             print("Meta-operation properties as expected.")
 
         # The reference stack should always be empty
-        assert sum([len(stack) for stack in tdag.ref_stacks.values()]) == 0
+        assert sum(len(stack) for stack in tdag.ref_stacks.values()) == 0
 
         # Check compute_only argument
         compute_only = cfg.get("compute_only")
@@ -860,12 +860,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
             results = tdag.compute(compute_only=compute_only)
 
             print(
-                "\n".join(
-                    [
-                        "  * {:<20s}  {:}".format(k, v)
-                        for k, v in results.items()
-                    ]
-                )
+                "\n".join([f"  * {k:<20s}  {v}" for k, v in results.items()])
             )
 
         else:
@@ -879,7 +874,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
         if not os.path.isdir(cache_dir):
             print("\nCache directory not available.")
         else:
-            print("\nContent of cache directory ({})".format(cache_dir))
+            print(f"\nContent of cache directory ({cache_dir})")
             print("  * " + "\n  * ".join(os.listdir(cache_dir)))
 
         if expected.get("cache_dir_available"):
@@ -958,7 +953,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
 
         # Check more explicitly
         for tag, to_check in expected.get("results", {}).items():
-            print("  Tag:  {}".format(tag))
+            print(f"  Tag:  {tag}")
 
             # Get the result for this tag
             res = results[tag]

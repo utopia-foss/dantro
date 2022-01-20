@@ -1050,7 +1050,7 @@ def test_helper_set_legend(hlpr):
 
     # Axes (0, 0) and (0, 1) should have large legends now
     print([get_len(lg) for lg in get_legends(hlpr.fig)])
-    assert sum([get_len(lg) > 4 for lg in get_legends(hlpr.fig)]) == 2
+    assert sum(get_len(lg) > 4 for lg in get_legends(hlpr.fig)) == 2
 
     # Can now conditionally hide them
     hlpr.invoke_helper("set_legend", axes="all", hiding_threshold=4)

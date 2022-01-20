@@ -1,4 +1,6 @@
 ---
+image: python:3.10
+
 stages:
   - check
   - test
@@ -78,7 +80,6 @@ variables:
 
 check:hooks:
   stage: check
-  image: python:3.9
   extends:
     - .default_tags
   before_script:
@@ -161,7 +162,6 @@ test:py310_min:
 
 build:docs:
   stage: build
-  image: python:3.7    # NOTE Later versions have trouble with typing module
   extends: .default_tags
   allow_failure: true
   needs: []
@@ -251,7 +251,6 @@ deploy:stop_docs:
 # Deploy dantro to PyPI
 deploy:pypi:
   stage: deploy
-  image: python:3.9
   extends:
     - .default_tags
     - .ssh_access
@@ -293,7 +292,6 @@ deploy:pypi:
 # Install dantro from the PyPI via pip to test automatic deployment
 post_deploy:install_from_pypi:
   stage: post_deploy
-  image: python:3.9
   extends: .default_tags
   rules: *pypi_deploy_rules
   needs:

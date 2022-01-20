@@ -429,7 +429,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
 
             # Generate dimension names, if not explicitly given.
             if dims is None:
-                dims = ["dim_{}".format(i) for i in range(len(data.shape))]
+                dims = [f"dim_{i}" for i in range(len(data.shape))]
 
             # Check whether indices are to be added (var from outer scope!)
             if not idx_as_label:

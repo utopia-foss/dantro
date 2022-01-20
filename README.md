@@ -114,8 +114,8 @@ For development purposes, the following additional packages are required.
 | [pytest][pytest]              | 3.4              | Testing framework        |
 | [pytest-cov][pytest-cov]      | 2.5              | Coverage report          |
 | [tox][tox]                    | 3.1              | Test environments        |
-| [Sphinx][sphinx]              | 2.4 (< 3.0)      | Documentation generator  |
-| [sphinx_rtd_theme][sphinxrtd] | 0.5              | Documentation HTML theme |
+| [Sphinx][sphinx]              | 4.*              | Documentation generator  |
+| [sphinx-book-theme][sphinx-book-theme] | 0.2.*   | Modern sphinx theme      |
 | [pre-commit][pre-commit]      | 2.15             | For [commit hooks](#commit-hooks) |
 | [black][black]                | 21.10b0          | For code formatting      |
 
@@ -132,6 +132,7 @@ With these dependencies having been installed, make sure to set up the git hook 
 (dantro) $ pre-commit install
 ```
 
+The corresponding dependencies needed for the hooks will be installed automatically upon a first commit.
 For more information on commit hooks, see [the commit hooks section below](#commit-hooks).
 
 
@@ -223,7 +224,7 @@ dantro is licensed under the [GNU Lesser General Public License Version 3][LGPLv
 ### Copyright Notice
 
     dantro -- a python package for handling and plotting hierarchical data
-    Copyright (C) 2018 – 2021  dantro developers
+    Copyright (C) 2018 – 2022  dantro developers
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
@@ -292,7 +293,7 @@ Contact the developers via: [`dantro-dev@iup.uni-heidelberg.de`][devmail]
 [pytest-cov]: https://pytest-cov.readthedocs.io/en/latest/
 [tox]: https://tox.readthedocs.io/en/latest/
 [sphinx]: https://www.sphinx-doc.org/
-[sphinxrtd]: https://sphinx-rtd-theme.readthedocs.io/en/stable/
+[sphinx-book-theme]: https://sphinx-book-theme.readthedocs.io/en/latest/
 [pre-commit]: https://pre-commit.com
 [black]: https://black.readthedocs.io/en/stable/
 [isort]: https://pycqa.github.io/isort/

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Configuration file for the Sphinx documentation builder.
 #
@@ -74,7 +73,7 @@ def setup(app):
 # -- Project information -----------------------------------------------------
 
 project = "dantro"
-copyright = "2018 — 2021, dantro developers"
+copyright = "2018 — 2022, dantro developers"
 author = "dantro developers"
 
 # The short X.Y version
@@ -88,7 +87,7 @@ release = find_version("..", "dantro", "__init__.py")
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
-needs_sphinx = "2.4"
+needs_sphinx = "4.4"
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
@@ -313,11 +312,18 @@ napoleon_include_special_with_doc = True
 # Be nitpicky about warnings, to show all references where the target could
 # not be found
 nitpicky = True
+nitpick_ignore = []
+nitpick_ignore_regex = []
 
 # ... however, we need to exclude quite a lot, so we load the to-be-ignored
 # references from a file. This is a list of (type, target) tuples, both entries
-# being strings, e.g. `('py:func', 'int')`
-nitpick_ignore = []
+# being strings, e.g. `('py:func', 'int')`.
+#
+# The individual entries can also be regex patterns. To add an entry to the
+# regex list instead of the non-regex list, prefix a line with "re: ", e.g.:
+#
+#       re: py:func ^int$
+#
 # See the following page for more information and syntax:
 #  www.sphinx-doc.org/en/master/usage/configuration.html#confval-nitpick_ignore
 
@@ -326,5 +332,10 @@ for line in open(".nitpick-ignore"):
     if not line or line.startswith("#"):
         continue
 
-    reftype, target = line.split(" ", 1)
-    nitpick_ignore.append((reftype, target.strip()))
+    if line.startswith("re: "):
+        _, reftype, target = line.split(" ", 2)
+        nitpick_ignore_regex.append((reftype, target.strip()))
+
+    else:
+        reftype, target = line.split(" ", 1)
+        nitpick_ignore.append((reftype, target.strip()))

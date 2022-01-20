@@ -276,7 +276,7 @@ def determine_encoding(
     if allow_y_for_x and kind in allow_y_for_x:
         if plot_kwargs.get("y") and not plot_kwargs.get("x"):
             encoding_specs = tuple(
-                [s if s != "x" else "y" for s in encoding_specs]
+                s if s != "x" else "y" for s in encoding_specs
             )
 
     # Split plotting kwargs into a dict of layout specifiers and one that only

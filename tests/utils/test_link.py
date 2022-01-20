@@ -67,7 +67,7 @@ def test_Link_and_StrongLink(root):
 
         assert link_root2c2.anchor_weakref() is root
         assert link_root2c2.anchor_object is root
-        assert link_root2c2.target_rel_path is "group//subgroup/c2"
+        assert link_root2c2.target_rel_path == "group//subgroup/c2"
         assert link_root2c2.target_object is c2
         assert link_root2c2.upper() == "AT_LEVEL2"
 
@@ -120,7 +120,7 @@ def test_Link_and_StrongLink(root):
         # Scenario6: Link with empty segments, i.e. with repeated `/` in the
         # path. This should have the same behaviour as with just a single `/`.
         link_c0c2_mod = _Link(anchor=c0, rel_path="group///subgroup//c2")
-        assert link_c0c2_mod.target_rel_path is "group///subgroup//c2"  # sic
+        assert link_c0c2_mod.target_rel_path == "group///subgroup//c2"  # sic
         assert link_c0c2_mod.target_object is link_c0c2.target_object
 
         # Scenario7: Link to itself

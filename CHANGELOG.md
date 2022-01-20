@@ -11,6 +11,11 @@
     - Use `__slots__` in DAG placeholder classes to reduce memory load
     - In DAG, only load from cache file if the content was *not* already loaded
 
+#### Internal
+- !267 performs some code clean-up and improves the sphinx setup
+    - This may lead to implicit loss of Python 3.6 compatibility (which is no longer supported officially since a few releases ago).
+    - Makes use of newer language features (like consistent use of f-strings)
+
 ## v0.17.2
 - !266 Updates versions of pre-commit hooks to improve compatibility
 - !265 Adds CI test environment for Python 3.10
