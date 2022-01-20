@@ -1,11 +1,15 @@
 """Tests features of the base class."""
 
+import logging
+
 import pytest
 
 from dantro.dag import TransformationDAG, _ResultPlaceholder
 from dantro.data_mngr import DataManager
 from dantro.exceptions import *
 from dantro.plot_creators import BasePlotCreator
+
+logging.getLogger("dantro.plot_creators.pcr_base").setLevel(12)  # remark
 
 # Test classes ----------------------------------------------------------------
 
@@ -116,7 +120,7 @@ def test_call(init_kwargs, tmpdir):
 
 
 def test_data_selection_interface(init_kwargs, tmpdir):
-    """Tests the data selection interface"""
+    """Tests the data selection interface, using TransformationDAG"""
     mpc = MockPlotCreator("test", **init_kwargs)
 
     # Has no DAG
@@ -221,3 +225,93 @@ def test_data_selection_interface(init_kwargs, tmpdir):
     assert not mpc.DAG_SUPPORTED
     mpc.DAG_SUPPORTED = True
     mpc(out_path=tmpdir.join("foo"), use_dag=True, **params0)
+
+
+def test_dag_object_cache(init_kwargs, tmpdir):
+    """Tests the caching of TransformationDAG objects via the plot creator"""
+    from dantro.plot_creators.pcr_base import _DAG_OBJECT_CACHE
+
+    assert len(_DAG_OBJECT_CACHE) == 0
+
+    mpc = MockPlotCreator("test", **init_kwargs)
+
+    params = dict(
+        transform=[
+            dict(operation="add", args=[1, 2], tag="sum"),
+            dict(operation="sub", args=[3, 2], tag="sub"),
+        ],
+    )
+
+    # Initial call: should write to object cache. Suppress copies to allow
+    # testing for identical objects
+    _, ds1 = mpc._perform_data_selection(
+        use_dag=True,
+        plot_kwargs=dict(
+            **params, dag_object_cache=dict(write=True, use_copy=False)
+        ),
+    )
+    assert len(_DAG_OBJECT_CACHE) == 1
+    dag1 = ds1["dag"]
+
+    # Do the same again: this time, the DAG object should be read from cache.
+    # Because copying is disabled, it will be the identical object.
+    _, ds2 = mpc._perform_data_selection(
+        use_dag=True,
+        plot_kwargs=dict(
+            **params, dag_object_cache=dict(read=True, use_copy=False)
+        ),
+    )
+    assert len(_DAG_OBJECT_CACHE) == 1
+    dag2 = ds2["dag"]
+    assert dag1 is dag2
+
+    # If copying is enabled, it will not be identical
+    _, ds3 = mpc._perform_data_selection(
+        use_dag=True,
+        plot_kwargs=dict(**params, dag_object_cache=dict(read=True)),
+    )
+    assert len(_DAG_OBJECT_CACHE) == 1
+    dag3 = ds3["dag"]
+    assert dag3 is not dag1
+
+    # After clearing, the cache will be empty again but the DAG object will
+    # have been read prior to that, so it's still identical to the initial one.
+    # This will also implicitly invoke garbage collection.
+    _, ds4 = mpc._perform_data_selection(
+        use_dag=True,
+        plot_kwargs=dict(
+            **params,
+            dag_object_cache=dict(read=True, clear=True, use_copy=False),
+        ),
+    )
+    assert len(_DAG_OBJECT_CACHE) == 0
+    dag4 = ds4["dag"]
+    assert dag4 is dag1
+
+    # By default, the cached object is a deep copy of the returned one, so they
+    # are not identical
+    _, ds5 = mpc._perform_data_selection(
+        use_dag=True,
+        plot_kwargs=dict(**params, dag_object_cache=dict(write=True)),
+    )
+    assert len(_DAG_OBJECT_CACHE) == 1
+    dag5 = ds5["dag"]
+    assert dag5 is not _DAG_OBJECT_CACHE[list(_DAG_OBJECT_CACHE.keys())[0]]
+
+    # This interface can also be used to invoke (general) garbage collection
+    mpc._perform_data_selection(
+        use_dag=True,
+        plot_kwargs=dict(
+            **params, dag_object_cache=dict(write=True, collect_garbage=True)
+        ),
+    )
+    assert len(_DAG_OBJECT_CACHE) == 1
+
+    # Can also clear without collecting garbage
+    mpc._perform_data_selection(
+        use_dag=True,
+        plot_kwargs=dict(
+            **params, dag_object_cache=dict(clear=True, collect_garbage=False)
+        ),
+    )
+    assert len(_DAG_OBJECT_CACHE) == 0
