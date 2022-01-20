@@ -141,7 +141,6 @@ autodoc_default_options = {
     "private-members": True,
     "inherited-members": True,
 }
-autodoc_inherit_docstrings = False
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -313,11 +312,18 @@ napoleon_include_special_with_doc = True
 # Be nitpicky about warnings, to show all references where the target could
 # not be found
 nitpicky = True
+nitpick_ignore = []
+nitpick_ignore_regex = []
 
 # ... however, we need to exclude quite a lot, so we load the to-be-ignored
 # references from a file. This is a list of (type, target) tuples, both entries
-# being strings, e.g. `('py:func', 'int')`
-nitpick_ignore = []
+# being strings, e.g. `('py:func', 'int')`.
+#
+# The individual entries can also be regex patterns. To add an entry to the
+# regex list instead of the non-regex list, prefix a line with "re: ", e.g.:
+#
+#       re: py:func ^int$
+#
 # See the following page for more information and syntax:
 #  www.sphinx-doc.org/en/master/usage/configuration.html#confval-nitpick_ignore
 
@@ -326,5 +332,10 @@ for line in open(".nitpick-ignore"):
     if not line or line.startswith("#"):
         continue
 
-    reftype, target = line.split(" ", 1)
-    nitpick_ignore.append((reftype, target.strip()))
+    if line.startswith("re: "):
+        _, reftype, target = line.split(" ", 2)
+        nitpick_ignore_regex.append((reftype, target.strip()))
+
+    else:
+        reftype, target = line.split(" ", 1)
+        nitpick_ignore.append((reftype, target.strip()))

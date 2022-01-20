@@ -21,8 +21,10 @@ py:class collections.abc.Mapping
 py:class collections.abc.MutableMapping
 py:class collections.abc.MutableSequence
 py:class logging.Logger
+py:class weakref
 py:class builtins.weakref
 py:class timedelta
+py:class datetime.timedelta
 py:class collections._Link
 
 # Exceptions, both as exception reference and type reference
@@ -86,9 +88,12 @@ py:class h5py._hl.group.Group
 py:class matplotlib.Figure
 py:class matplotlib.animation.AbstractMovieWriter
 py:class plt.axis
+py:class matplotlib.pyplot.axis
 
 # other packages
 py:class nx.Graph
+py:class networkx.classes.graph.Graph
+
 py:class ParamSpace
 py:class paramspace.paramspace.ParamDim
 py:class paramspace.paramspace.ParamSpace
@@ -97,7 +102,36 @@ py:class paramspace.paramspace.ParamSpace
 # NOTE Before adding something here, make sure that these really are to be
 #      ignored! There is a good chance that these entries could actually be
 #      referenced when specified correctly.
+py:class TDims
+py:class TCoord
+py:class TCoords
+py:class TCoordsDict
 py:class dantro.utils.coords.TDims
 py:class dantro.utils.coords.TCoord
 py:class dantro.utils.coords.TCoords
 py:class dantro.utils.coords.TCoordsDict
+
+
+# -- Regex patterns -----------------------------------------------------------
+# These are added to the nitpick_ignore_regex list and allow regex patterns in
+# both the reference type and the target.
+# To add to that list, lines need to start with `re: `.
+#
+# NOTE That the regex pattern needs to match the whole string, as if ^ and $
+#      would be inserted.
+
+# There are a bunch of warnings from inherited code that uses a different way
+# to denote types, thus leading to invalid docstring syntax that we can't
+# address directly.
+# Therefore, we mute those as specifically as possible ...
+#
+re: py:class .*Remove all items from D.*
+re: py:class .*remove and return.*
+re: py:class .*Update D from mapping.*
+re: py:class .*if k in D, else d.*
+re: py:class .*if k not in D.*
+re: py:class .*remove all items from S.*
+re: py:class .*return number of occurrences.*
+re: py:class .*remove specified key and return.*
+re: py:class .*return first index of value.*
+re: py:class .*module 'weakref'.*
