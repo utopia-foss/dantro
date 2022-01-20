@@ -141,6 +141,7 @@ autodoc_default_options = {
     "private-members": True,
     "inherited-members": True,
 }
+autodoc_inherit_docstrings = False
 
 
 # -- Options for HTML output -------------------------------------------------

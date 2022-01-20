@@ -40,49 +40,50 @@ _DAG_OBJECT_CACHE = dict()
 class BasePlotCreator(AbstractPlotCreator):
     """The base class for PlotCreators
 
-    Note that the ``plot`` method remains abstract, thus this class needs to be
-    subclassed and the method implemented!
+    .. note::
 
-    Attributes:
-        DAG_INVOKE_IN_BASE (bool): Whether the DAG should be created and
-            computed here (in the base class). If False, the base class does
-            nothing to create or compute it and the derived classes have to
-            take care of it on their own.
-        DAG_RESOLVE_PLACEHOLDERS (bool): Whether placeholders in the plot
-            config, :py:class:`~dantro._dag_utils.ResultPlaceholder` objects,
-            should be replaced with results from the data transformations.
-        DAG_SUPPORTED (bool): Whether the data selection and transformation
-            interface is supported by this PlotCreator. If False, the related
-            methods will not be called.
-        DEFAULT_EXT (str): The class variable to use for default extension.
-        default_ext (str): The property-managed actual value for the default
-            extension to use. This value is needed by the PlotManager in order
-            to generate an out_path. It can be changed during runtime, but
-            not by passing arguments to __call__, as at that point the out_path
-            already needs to be fixed.
-        DEFAULT_EXT_REQUIRED (bool): Whether a default extension is required
-            or not. If True and the default_ext property evaluates to False,
-            an error will be raised.
-        EXTENSIONS (tuple): The supported extensions. If 'all', no checks for
-            the extensions are performed
-        OUT_PATH_EXIST_OK (bool): Whether a warning should be shown (instead
-            of an error, when a plot file already exists at the specified
-            output path
-        POSTPONE_PATH_PREPARATION (bool): Whether to prepare paths in the base
-            class's __call__ method or not. If the derived class wants to
-            take care of this on their own, this should be set to True and the
-            _prepare_path method, adjusted or not, should be called at another
-            point of the plot execution.
+        The ``plot`` method remains abstract, thus this class needs to be
+        subclassed and the method implemented!
     """
 
-    EXTENSIONS = "all"
+    EXTENSIONS: tuple = "all"
+    """A tuple of supported file extensions.
+    If ``all``, no checks for the extensions are performed."""
+
     DEFAULT_EXT = None
-    DEFAULT_EXT_REQUIRED = True
-    POSTPONE_PATH_PREPARATION = False
-    OUT_PATH_EXIST_OK = False
-    DAG_SUPPORTED = False
-    DAG_INVOKE_IN_BASE = True
-    DAG_RESOLVE_PLACEHOLDERS = True
+    """The default file extension to use; is only used if no default extension
+    is specified during initialization"""
+
+    DEFAULT_EXT_REQUIRED: bool = True
+    """Whether a default extension is required or not. If True and the
+    ``default_ext`` property evaluates to False, an error will be raised."""
+
+    POSTPONE_PATH_PREPARATION: bool = False
+    """Whether to prepare paths in the base class's
+    :py:meth:`~dantro.plot_creators.pcr_base.BasePlotCreator.__call__` method
+    or not. If the derived class wants to take care of this on their own, this
+    should be set to True and the
+    :py:meth:`~dantro.plot_creators.pcr_base.BasePlotCreator._prepare_path`
+    method, adjusted or not, should be called at another point of the plot
+    execution."""
+
+    OUT_PATH_EXIST_OK: bool = False
+    """Whether a warning should be shown (instead of an error), when a plot
+    file already exists at the specified output path"""
+
+    DAG_SUPPORTED: bool = False
+    """Whether the data selection and transformation interface is supported by
+    this plot creator. If False, the related methods will not be called."""
+
+    DAG_INVOKE_IN_BASE: bool = True
+    """Whether the DAG should be created and computed here (in the base
+    class). If False, the base class does nothing to create or compute it and
+    the derived classes have to take care of it on their own."""
+
+    DAG_RESOLVE_PLACEHOLDERS: bool = True
+    """Whether placeholders in the plot config,
+    :py:class:`~dantro._dag_utils.ResultPlaceholder` objects, should be
+    replaced with results from the data transformations."""
 
     def __init__(
         self,

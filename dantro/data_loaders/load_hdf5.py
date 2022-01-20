@@ -22,44 +22,41 @@ log = logging.getLogger(__name__)
 
 
 class Hdf5LoaderMixin:
-    """Supplies functionality to load hdf5 files into the data manager.
+    """Supplies functionality to load HDF5 files into the data manager.
 
-    It resolves the hdf5 groups into corresponding data groups and the datasets
+    It resolves the HDF5 groups into corresponding data groups and the datasets
     into NumpyDataContainers.
 
     If ``enable_mapping`` is set, the class variables ``_HDF5_DSET_MAP`` and
     ``_HDF5_GROUP_MAP`` are used to map from a string to a container type. The
     class variable ``_HDF5_MAP_FROM_ATTR`` determines the default value of the
     attribute to read and use as input string for the mapping.
-
-    Attributes:
-        _HDF5_DSET_DEFAULT_CLS (type): the default class to use for datasets.
-            This should be a dantro :py:class:`~dantro.base.BaseDataContainer`
-            -derived class. Note that certain data groups can overwrite the
-            default class for underlying members.
-        _HDF5_GROUP_MAP (Dict[str, type]): if mapping is enabled, the
-            equivalent dantro types for HDF5 groups are determined from this
-            mapping.
-        _HDF5_DSET_MAP (Dict[str, type]): if mapping is enabled, the
-            equivalent dantro types for HDF5 datasets are determined from this
-            mapping.
-        _HDF5_MAP_FROM_ATTR (str): the name of the HDF5 dataset or group
-            attribute to read in order to determine the type mapping. For
-            example, this could be ``"content"``. This is the fallback value
-            if no ``map_from_attr`` argument is given to
-            :py:meth:`dantro.data_loaders.load_hdf5.Hdf5LoaderMixin._load_hdf5`
-        _HDF5_DECODE_ATTR_BYTESTRINGS (bool): if true (default), will attempt
-            to decode HDF5 attributes that are stored as byte arrays into
-            regular Python strings; this can make attribute handling much
-            easier.
     """
 
-    # Default values for class variables; see above for docstrings
-    _HDF5_DSET_DEFAULT_CLS = NumpyDataContainer
-    _HDF5_GROUP_MAP = None
-    _HDF5_DSET_MAP = None
-    _HDF5_MAP_FROM_ATTR = None
-    _HDF5_DECODE_ATTR_BYTESTRINGS = True
+    _HDF5_DSET_DEFAULT_CLS: type = NumpyDataContainer
+    """the default class to use for datasets. This should be a dantro
+    :py:class:`~dantro.base.BaseDataContainer`-derived class.
+    Note that certain data groups can overwrite the default class for
+    underlying members."""
+
+    _HDF5_GROUP_MAP: Dict[str, type] = None
+    """If mapping is enabled, the equivalent dantro types for HDF5 groups are
+    determined from this mapping."""
+
+    _HDF5_DSET_MAP: Dict[str, type] = None
+    """If mapping is enabled, the equivalent dantro types for HDF5 datasets
+    are determined from this mapping."""
+
+    _HDF5_MAP_FROM_ATTR: str = None
+    """The name of the HDF5 dataset or group attribute to read in order to
+    determine the type mapping. For example, this could be ``"content"``.
+    This is the fallback value if no ``map_from_attr`` argument is given to
+    :py:meth:`dantro.data_loaders.load_hdf5.Hdf5LoaderMixin._load_hdf5`"""
+
+    _HDF5_DECODE_ATTR_BYTESTRINGS: bool = True
+    """If true (default), will attempt to decode HDF5 attributes that are
+    stored as byte arrays into regular Python strings; this can make attribute
+    handling much easier."""
 
     @add_loader(TargetCls=OrderedDataGroup, omit_self=False)
     def _load_hdf5(

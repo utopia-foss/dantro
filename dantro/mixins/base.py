@@ -26,7 +26,7 @@ class AttrsMixin:
     BaseDataAttrs-derived class.
 
     For changing the class that is used for the attributes, an overwrite of the
-    _ATTRS_CLS class variable suffices.
+    ``_ATTRS_CLS`` class variable suffices.
     """
 
     # The class attribute that the attributes will be stored to
@@ -54,8 +54,8 @@ class AttrsMixin:
 
 
 class SizeOfMixin:
-    """Provides the __sizeof__ magic method and attempts to take into account
-    the size of the attributes.
+    """Provides the ``__sizeof__`` magic method and attempts to take into
+    account the size of the attributes.
     """
 
     def __sizeof__(self) -> int:
@@ -227,20 +227,18 @@ class CheckDataMixin:
 
         This is not suitable for checking containers that are added to an
         object of a BaseDataGroup-derived class!
-
-    Attributes:
-        DATA_ALLOW_PROXY (bool): Whether to allow _all_ proxy types, i.e.
-            classes derived from AbstractDataProxy
-        DATA_EXPECTED_TYPES (tuple, None): Which types to allow. If None, all
-            types are allowed.
-        DATA_UNEXPECTED_ACTION (str): The action to take when an unexpected
-            type was supplied. Can be: raise, warn, ignore
     """
 
-    # Specify expected data types for this container class
-    DATA_EXPECTED_TYPES = None  # as tuple or None (allow all)
-    DATA_ALLOW_PROXY = False  # to check for AbstractDataProxy
-    DATA_UNEXPECTED_ACTION = "warn"  # Can be: raise, warn, ignore
+    DATA_EXPECTED_TYPES: tuple = None
+    """Which types to allow. If None, all types are allowed."""
+
+    DATA_ALLOW_PROXY: bool = False
+    """Whether to allow *all* proxy types, i.e. classes derived from
+    :py:class:`~dantro.abc.AbstractDataProxy`."""
+
+    DATA_UNEXPECTED_ACTION = "warn"
+    """The action to take when an unexpected type was supplied.
+    Can be: ``raise``, ``warn``, ``ignore``."""
 
     def _check_data(self, data) -> None:
         """A general method to check the received data for its type
@@ -250,7 +248,8 @@ class CheckDataMixin:
 
         Raises:
             TypeError: If the type was unexpected and the action was 'raise'
-            ValueError: Illegal value for DATA_UNEXPECTED_ACTION class variable
+            ValueError: Illegal value for ``DATA_UNEXPECTED_ACTION`` class
+                variable
 
         Returns:
             None

@@ -3,6 +3,7 @@
 # -----------------------------------------------------------------------------
 # Python builtin types that cannot be referenced
 py:obj None
+py:class None
 py:class str
 py:class int
 py:class float
@@ -22,6 +23,7 @@ py:class collections.abc.MutableSequence
 py:class logging.Logger
 py:class builtins.weakref
 py:class timedelta
+py:class collections._Link
 
 # Exceptions, both as exception reference and type reference
 py:exc Exception
@@ -65,11 +67,20 @@ py:class Mapping
 # numpy, xarray, h5py
 py:class np.ndarray
 py:class np.dtype
+py:class numpy.ndarray
+py:class numpy.dtype
+
 py:class xr.Dataset
 py:class xr.DataArray
+py:class xarray.core.dataarray.DataArray
+py:class xarray.core.dataset.Dataset
+
 py:class h5.Dataset
 py:class h5.File
 py:class h5.Group
+py:class h5py._hl.dataset.Dataset
+py:class h5py._hl.files.File
+py:class h5py._hl.group.Group
 
 # matplotlib
 py:class matplotlib.Figure
@@ -79,12 +90,14 @@ py:class plt.axis
 # other packages
 py:class nx.Graph
 py:class ParamSpace
+py:class paramspace.paramspace.ParamDim
+py:class paramspace.paramspace.ParamSpace
 
 # dantro-internal
 # NOTE Before adding something here, make sure that these really are to be
 #      ignored! There is a good chance that these entries could actually be
 #      referenced when specified correctly.
-py:class TDims
-py:class TCoord
-py:class TCoords
-py:class TCoordsDict
+py:class dantro.utils.coords.TDims
+py:class dantro.utils.coords.TCoord
+py:class dantro.utils.coords.TCoords
+py:class dantro.utils.coords.TCoordsDict
