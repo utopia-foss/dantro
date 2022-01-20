@@ -469,7 +469,7 @@ class ExternalPlotCreator(BasePlotCreator):
             plot_func(*args, **kwargs)
             log.note("Plotting function '%s' returned.", plot_func_name)
 
-            log.note("Invoking helpers ...")
+            log.info("Invoking helpers ...")
             hlpr.invoke_enabled(axes="all")
 
             log.note("Saving figure ...")
@@ -681,7 +681,7 @@ class ExternalPlotCreator(BasePlotCreator):
         required tags are defined and (after computation) whether all required
         tags were computed.
         """
-        # Extract the required tags from the plot function
+        # Extract the required tags from the plot function attributes
         required_tags = getattr(_plot_func, "required_dag_tags", None)
 
         # Make sure that all required tags are actually defined
@@ -709,8 +709,7 @@ class ExternalPlotCreator(BasePlotCreator):
             and getattr(_plot_func, "compute_only_required_dag_tags", False)
         ):
             log.remark(
-                "Computing only tags that were specified as required "
-                "tags by the plot function: %s",
+                "Tags that are required by the plot function:  %s",
                 ", ".join(required_tags),
             )
             compute_only = required_tags
@@ -737,7 +736,6 @@ class ExternalPlotCreator(BasePlotCreator):
                     )
                 )
 
-        # Now, compute, using the parent method
         return super()._compute_dag(
             dag, compute_only=compute_only, **compute_kwargs
         )

@@ -17,6 +17,7 @@ import numpy as np
 import xarray as xr
 from paramspace.tools import recursive_collect, recursive_replace
 
+from ._copy import _deepcopy, _shallowcopy
 from ._dag_utils import DAGMetaOperationTag as _MOpTag
 from ._dag_utils import DAGNode, DAGObjects, DAGReference, DAGTag
 from ._dag_utils import KeywordArgument as _Kwarg
@@ -77,25 +78,6 @@ DAG_CACHE_RESULT_SAVE_FUNCS = {
 
 
 # -----------------------------------------------------------------------------
-# Which copying functions to use throughout this module
-
-_shallowcopy = copy.copy
-
-
-def _deepcopy(obj: Any) -> Any:
-    """A pickle based deep-copy overload, that uses ``copy.deepcopy`` only as a
-    fallback option if serialization was not possible.
-
-    The pickling approach being based on a C implementation, this can easily
-    be many times faster than the pure-Python-based ``copy.deepcopy``.
-    """
-    try:
-        return _pickle.loads(_pickle.dumps(obj))
-    except:
-        return copy.deepcopy(obj)
-
-
-# -----------------------------------------------------------------------------
 
 
 class Transformation:
@@ -123,6 +105,20 @@ class Transformation:
         All relevant attributes (operation, args, kwargs, salt) are thus set
         read-only. This should be respected!
     """
+
+    __slots__ = (
+        "_operation",
+        "_args",
+        "_kwargs",
+        "_dag",
+        "_salt",
+        "_allow_failure",
+        "_fallback",
+        "_hashstr",
+        "_profile",
+        "_fc_opts",
+        "_cache",
+    )
 
     def __init__(
         self,
@@ -1622,10 +1618,7 @@ class TransformationDAG:
         results = dict()
 
         if not compute_only:
-            log.remark(
-                "No tags were selected to be computed. Available tags:\n%s",
-                make_columns(sorted(self.tags)),
-            )
+            log.remark("No tags were selected to be computed.")
             return results
 
         log.note(
@@ -1640,9 +1633,7 @@ class TransformationDAG:
 
         # Compute and collect the results
         for i, tag in enumerate(compute_only):
-            log.note(
-                "Computing tag '%s' (%d/%d) ...", tag, i + 1, len(compute_only)
-            )
+            log.remark("  %2d/%d:  '%s'  ...", i + 1, len(compute_only), tag)
             _tt = time.time()
 
             # Resolve the transformation, then compute the result, postprocess
@@ -1651,7 +1642,9 @@ class TransformationDAG:
             res = trf.compute()
             results[tag] = postprocess_result(res, tag=tag)
 
-            log.remark("Finished in %s.", fmt_time(time.time() - _tt))
+            _dtt = time.time() - _tt
+            if _dtt > 1.0:
+                log.remark("Finished in %s.", fmt_time(_dtt))
 
         # Update profiling information
         t1 = time.time()
@@ -2036,47 +2029,64 @@ class TransformationDAG:
     def _retrieve_from_cache_file(
         self, trf_hash: str, **load_kwargs
     ) -> Tuple[bool, Any]:
-        """Retrieves a transformation's result from a cache file."""
+        """Retrieves a transformation's result from a cache file and stores it
+        in the data manager's cache group.
+
+        .. note::
+
+            If a file was already loaded from the cache, it will not be loaded
+            again. Thus, the DataManager acts as a persistent storage for
+            loaded cache files. Consequently, these are shared among all
+            TransformationDAG objects.
+        """
         success, res = False, None
-        cache_files = self.cache_files
 
-        if trf_hash not in cache_files.keys():
-            # Bad luck, no cache file
-            log.trace("No cache file found for %s.", trf_hash)
-            return success, res
+        # Check if the file was already loaded; only go through the trouble of
+        # checking all the hash files and invoking the load method if the
+        # desired cache file was really not loaded
+        try:
+            res = self.dm[DAG_CACHE_DM_PATH][trf_hash]
+        except ItemAccessError:
+            pass
+        else:
+            success = True
 
-        # Parse load options
-        if "exists_action" not in load_kwargs:
-            load_kwargs["exists_action"] = "skip_nowarn"
+        if not success:
+            cache_files = self.cache_files
 
-        # else: There was a file. Let the DataManager load it.
-        file_ext = cache_files[trf_hash]["ext"]
-        log.trace("Loading result %s from cache file ...", trf_hash)
+            if trf_hash not in cache_files.keys():
+                # Bad luck, no cache file
+                log.trace("No cache file found for %s.", trf_hash)
+                return success, res
 
-        with _adjusted_log_levels(("dantro.data_mngr", logging.WARNING)):
-            self.dm.load(
-                "dag_cache",
-                loader=LOADER_BY_FILE_EXT[file_ext[1:]],
-                base_path=self.cache_dir,
-                glob_str=trf_hash + file_ext,
-                target_path=DAG_CACHE_DM_PATH + "/{basename:}",
-                required=True,
-                **load_kwargs,
-            )
-        # NOTE If a file was already loaded from the cache, it will not be
-        #      loaded again. Thus, the DataManager acts as a persistent
-        #      storage for loaded cache files. Consequently, these are shared
-        #      among all TransformationDAG objects.
+            # Parse load options
+            if "exists_action" not in load_kwargs:
+                load_kwargs["exists_action"] = "skip_nowarn"
 
-        # Retrieve from the DataManager
-        res = self.dm[DAG_CACHE_DM_PATH][trf_hash]
+            # else: There was a file. Let the DataManager load it.
+            file_ext = cache_files[trf_hash]["ext"]
+            log.trace("Loading result %s from cache file ...", trf_hash)
+
+            with _adjusted_log_levels(("dantro.data_mngr", logging.WARNING)):
+                self.dm.load(
+                    "dag_cache",
+                    loader=LOADER_BY_FILE_EXT[file_ext[1:]],
+                    base_path=self.cache_dir,
+                    glob_str=trf_hash + file_ext,
+                    target_path=DAG_CACHE_DM_PATH + "/{basename:}",
+                    required=True,
+                    **load_kwargs,
+                )
+
+            # Can now retrieve the loaded data
+            res = self.dm[DAG_CACHE_DM_PATH][trf_hash]
+            success = True
 
         # Have to unpack some container types
         if isinstance(res, DAG_CACHE_CONTAINER_TYPES_TO_UNPACK):
             res = res.data
 
         # Done.
-        success = True
         return success, res
 
     def _write_to_cache_file(

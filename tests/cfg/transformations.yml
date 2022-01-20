@@ -1019,7 +1019,9 @@ file_cache_error_unpickleable:
 
 
 file_cache_error_file_already_loaded:
-  # Use the shared cache to lead to a
+  # Use the shared cache to lead to a conflict, that would normally raise ...
+  # ... but does not here, because the cache file was already loaded and the
+  # loading mechanism is thus not invoked another time.
   cache_dir_name: *shared_cache_dir
   params:
     file_cache_defaults:
@@ -1038,10 +1040,6 @@ file_cache_error_file_already_loaded:
     transform:
       - increment: [!dag_tag zeros_raw]
         tag: ones
-
-  _raises: Exception
-  _raises_on_compute: true
-  _match: Path 'cache/dag/50749352642a34a09bfcda6742ee1963' already exists.
 
 
 file_cache_error_attempting_dm_select_cache:

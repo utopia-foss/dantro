@@ -2,6 +2,15 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.18.0 *(WIP)*
+- !263 implements various improvements to the plotting and data transformation framework, improving performance, communication and overall usability:
+    - Allow caching whole `TransformationDAG` trees in order to avoid re-building them (which can be very time-consuming if there are many nodes)
+    - Improve logging (formulation of messages, choice of level, removal)
+    - Improve communication of run times, now only shown if beyond a threshold
+    - Implement a significantly faster `cPickle`-based deep copy function which is used when building `TransformationDAG` and speeds up creation of large DAGs
+    - Use `__slots__` in DAG placeholder classes to reduce memory load
+    - In DAG, only load from cache file if the content was *not* already loaded
+
 ## v0.17.2
 - !266 Updates versions of pre-commit hooks to improve compatibility
 - !265 Adds CI test environment for Python 3.10
