@@ -105,6 +105,79 @@ Some example plot configuration to select some containers from the data manager,
         # ... other parameters here are passed on to TransformationDAG.__init__
 
 
+
+.. _plot_creator_dag_object_cache:
+
+DAG object caching
+^^^^^^^^^^^^^^^^^^
+For very complex data transformation sequences, DAGs can have many hundreds of thousands of nodes.
+In those cases, parsing the DAG configuration and creating the corresponding objects can be time-consuming and begin to noticeably prolong the plotting procedure.
+
+To remedy this, the plotting framework implements memory-caching of ``TransformationDAG`` objects such that they can be re-used across multiple plots or repeated invocation of the same plot.
+The cache is used if the DAG-related configuration parameters (``transform``, ``select``, ...) are equal, i.e. have equal results when serialized using ``repr``.
+In other words: if plots use the same data selection arguments, thus creating identical DAGs, the cache can be used.
+
+Multiple aspects of caching can be controlled using the ``dag_object_cache`` parameter, passed via ``dag_options`` (see below):
+
+* ``read``: whether to read from the cache (default: false)
+* ``write``: whether to write from the cache (default: false)
+* ``use_copy``: whether to read and write a deep copy of the ``TransformationDAG`` object to the cache (default: true).
+* ``clear``: if set, will remove all objects from the cache (after reading from it) and trigger garbage collection (default: false)
+* ``collect_garbage``: can be used to separately control garbage collection, e.g. to suppress it despite ``clear`` having been passed.
+
+.. warning::
+
+    Only use ``use_copy: false`` if you can be certain that plot functions do not change the object; this would create side effects that may be very hard to track down.
+
+.. note::
+
+    The ``clear`` option will also invoke general garbage collection (if not explicitly disabled).
+    This will free up memory ... but it may also take some time.
+
+Example
+"""""""
+
+.. code-block:: yaml
+
+    # Some plot configuration file
+    ---
+    my_plot:
+      # ... some plot arguments here ...
+
+      # Data selection via DAG framework
+      use_dag: true
+      select:
+        foo: some/path/foo
+        bar:
+          path: some/path/bar
+          transform:
+            - mean: [!dag_prev ]
+            - increment: [!dag_prev ]
+      transform:
+        - add: [!dag_tag foo, !dag_tag bar]
+          tag: result
+      compute_only: [result]
+
+      # Enable DAG object caching
+      dag_options:
+        dag_object_cache:
+          read: true
+          write: true
+
+          # Other parameters (and their default values)
+          # use_copy: true       # true:  cache a deep copy of the object
+          # clear: false         # true:  clears the object cache and invokes
+                                 #        garbage collection
+          # collect_garbage: ~   # true:  invokes garbage collection
+                                 # false: suppresses garbage collection even
+                                 #        if `clear` was set
+
+    my_other_plot_using_the_cache:
+      based_on: my_plot          # --> identical DAG arguments (if not overwritten below)
+
+      # ... some plot arguments ...
+
+
 DAG usage with :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator`
 ----------------------------------------------------------------------------
 The :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` works exactly the same as in the general case.
