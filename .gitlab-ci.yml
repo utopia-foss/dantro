@@ -92,9 +92,9 @@ check:hooks:
 # -- Test Stage ---------------------------------------------------------------
 # ... for testing with different python environments
 
-test:py37:
+test:py38:
   stage: test
-  image: python:3.7
+  image: python:3.8
   extends:
     - .default_tags
     - .reports
@@ -102,22 +102,16 @@ test:py37:
   before_script:
     - pip3 install tox
   script:
-    - tox -v -e py37
-
-test:py38:
-  extends: test:py37
-  image: python:3.8
-  script:
     - tox -v -e py38
 
 test:py39:
-  extends: test:py37
+  extends: test:py38
   image: python:3.9
   script:
     - tox -v -e py39
 
 test:py310:
-  extends: test:py37
+  extends: test:py38
   image: python:3.10
   script:
     - tox -v -e py310
@@ -125,8 +119,8 @@ test:py310:
 
 # Extended test jobs, which are only run upon release-related events.
 
-test:py37_min:
-  extends: test:py37
+test:py38_min:
+  extends: test:py38
   rules:
     - if: '$CI_COMMIT_BRANCH =~ /^release/ ||
            $CI_COMMIT_TAG'
@@ -136,22 +130,16 @@ test:py37_min:
     - when: never
   allow_failure: true
   script:
-    - tox -v -e py37-minimal_deps
-
-test:py38_min:
-  extends: test:py37_min
-  image: python:3.8
-  script:
     - tox -v -e py38-minimal_deps
 
 test:py39_min:
-  extends: test:py37_min
+  extends: test:py38_min
   image: python:3.9
   script:
     - tox -v -e py39-minimal_deps
 
 test:py310_min:
-  extends: test:py37_min
+  extends: test:py38_min
   image: python:3.10
   script:
     - tox -v -e py310-minimal_deps
