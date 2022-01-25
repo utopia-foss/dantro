@@ -146,7 +146,6 @@ setup(
     url="https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro",
     classifiers=[
         "Intended Audience :: Science/Research",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
@@ -158,7 +157,7 @@ setup(
     # Distribution details, dependencies, ...
     packages=find_packages(exclude=["tests.*", "tests"]),
     data_files=[("", ["COPYING", "COPYING.LESSER", "README.md"])],
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     install_requires=install_deps,
     tests_require=test_deps,
     test_suite="py.test",

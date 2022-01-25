@@ -10,6 +10,7 @@
     - Implement a significantly faster `cPickle`-based deep copy function which is used when building `TransformationDAG` and speeds up creation of large DAGs
     - Use `__slots__` in DAG placeholder classes to reduce memory load
     - In DAG, only load from cache file if the content was *not* already loaded
+- !270 drops official support and testing for Python 3.7
 
 #### Internal
 - !267 performs some code clean-up and improves the sphinx setup

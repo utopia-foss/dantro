@@ -58,11 +58,11 @@ _Note_ that if you have both Python 2 and Python 3 installed, you might have to 
 
 
 ### Dependencies
-`dantro` is implemented for [Python >= 3.7][Python3] and depends on the following Python packages:
+`dantro` is implemented and tested for [Python >= 3.8][Python3] and depends on the following packages:
 
 | Package Name                  | Minimum Version  | Purpose                  |
 | ----------------------------- | ---------------- | ------------------------ |
-| [numpy][numpy]                | 1.22             | |
+| [numpy][numpy]                | 1.21             | |
 | [xarray][xarray]              | 0.16.2           | For labelled N-dimensional arrays |
 | [dask][dask]                  | 2.10             | To work with large data |
 | [toolz][toolz]                | 0.10             | For [dask.delayed][dask-delayed]
