@@ -149,6 +149,7 @@ test:py310_min:
 # ... for building the documentation (and potentially more jobs)
 
 build:docs:
+  image: python:3.8   # to be identical to ReadTheDocs build
   stage: build
   extends: .default_tags
   allow_failure: true
