@@ -80,6 +80,9 @@ py:class xarray.core.dataset.Dataset
 py:class h5.Dataset
 py:class h5.File
 py:class h5.Group
+py:class h5py.Dataset
+py:class h5py.File
+py:class h5py.Group
 py:class h5py._hl.dataset.Dataset
 py:class h5py._hl.files.File
 py:class h5py._hl.group.Group
@@ -89,6 +92,7 @@ py:class matplotlib.Figure
 py:class matplotlib.animation.AbstractMovieWriter
 py:class plt.axis
 py:class matplotlib.pyplot.axis
+py:class matplotlib.axis.Axis
 
 # other packages
 py:class nx.Graph

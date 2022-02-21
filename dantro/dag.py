@@ -12,9 +12,7 @@ from collections import defaultdict as _defaultdict
 from itertools import chain
 from typing import Any, Dict, List, Sequence, Set, Tuple, Union
 
-import dill as pkl
 import numpy as np
-import xarray as xr
 from paramspace.tools import recursive_collect, recursive_replace
 
 from ._copy import _deepcopy, _shallowcopy
@@ -26,6 +24,7 @@ from ._dag_utils import ResultPlaceholder as _ResultPlaceholder
 from ._dag_utils import parse_dag_minimal_syntax as _parse_dag_minimal_syntax
 from ._dag_utils import parse_dag_syntax as _parse_dag_syntax
 from ._hash import FULL_HASH_LENGTH, SHORT_HASH_LENGTH, _hash
+from ._import_tools import LazyLoader, resolve_types
 from .abc import PATH_JOIN_CHAR, AbstractDataContainer
 from .base import BaseDataGroup
 from .containers import NumpyDataContainer, ObjectContainer, XrDataContainer
@@ -44,6 +43,10 @@ from .utils import (
 # Local constants .............................................................
 
 log = logging.getLogger(__name__)
+
+# Lazy module imports
+xr = LazyLoader("xarray")
+pkl = LazyLoader("dill")
 
 # The path within the DAG's associated DataManager to which caches are loaded
 DAG_CACHE_DM_PATH = "cache/dag"
@@ -65,14 +68,24 @@ fmt_time = lambda seconds: _format_time(seconds, ms_precision=2)
 #      file at the given location _by default_!
 # fmt: off
 DAG_CACHE_RESULT_SAVE_FUNCS = {
-    # Saving functions of specific dantro objects
-    (NumpyDataContainer,): lambda obj, p, **kws: obj.save(p + ".npy", **kws),
-    (XrDataContainer,):    lambda obj, p, **kws: obj.save(p + ".xrdc", **kws),
+    # Specific dantro types
+    (NumpyDataContainer,): (
+        lambda obj, p, **kws: obj.save(p + ".npy", **kws)
+    ),
+    (XrDataContainer,): (
+        lambda obj, p, **kws: obj.save(p + ".xrdc", **kws)
+    ),
 
-    # Saving functions of external packages
-    (np.ndarray,):   lambda obj, p, **kws: np.save(p + ".npy", obj, **kws),
-    (xr.DataArray,): lambda obj, p, **kws: obj.to_netcdf(p + ".nc_da", **kws),
-    (xr.Dataset,):   lambda obj, p, **kws: obj.to_netcdf(p + ".nc_ds", **kws),
+    # External package types; use module strings for delayed import
+    (np.ndarray,): (
+        lambda obj, p, **kws: np.save(p + ".npy", obj, **kws)
+    ),
+    ("xarray.DataArray",): (
+        lambda obj, p, **kws: obj.to_netcdf(p + ".nc_da", **kws)
+    ),
+    ("xarray.Dataset",): (
+        lambda obj, p, **kws: obj.to_netcdf(p + ".nc_ds", **kws)
+    ),
 }
 # fmt: on
 
@@ -2146,7 +2159,7 @@ class TransformationDAG:
         # Go over the saving functions and see if the type agrees. If so, use
         # that function to write the data.
         for types, sfunc in DAG_CACHE_RESULT_SAVE_FUNCS.items():
-            if not isinstance(result, types):
+            if not isinstance(result, resolve_types(types)):
                 continue
 
             # else: type matched, invoke saving function

@@ -7,8 +7,6 @@ from collections import defaultdict
 from itertools import product
 from typing import Any, Callable, Dict, Generator, List, Sequence, Tuple, Union
 
-import matplotlib as mpl
-import matplotlib.pyplot as plt
 import numpy as np
 from paramspace.tools import recursive_replace
 
@@ -16,15 +14,15 @@ from .._import_tools import LazyLoader, import_module_or_object
 from ..exceptions import *
 from ..tools import make_columns, recursive_update
 
-# Lazy loading modules that take a long time to import
-sns = LazyLoader("seaborn")
-
-# Public constants
+# Local constants and lazy loading modules that take a long time to import
 log = logging.getLogger(__name__)
+
+mpl = LazyLoader("matplotlib")
+plt = LazyLoader("matplotlib.pyplot")
+sns = LazyLoader("seaborn")
 
 
 # -----------------------------------------------------------------------------
-# Tools
 
 
 class temporarily_changed_axis:
@@ -260,7 +258,7 @@ def calculate_space_needed_hv(
 
 def _set_tick_locators_or_formatters(
     *,
-    ax: plt.axis,
+    ax: "matplotlib.axis.Axis",
     kind: str,
     x: dict = None,
     y: dict = None,

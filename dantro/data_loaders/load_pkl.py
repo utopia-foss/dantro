@@ -1,9 +1,10 @@
 """Defines a data loader for Python pickles."""
 
-import dill
-
+from .._import_tools import LazyLoader
 from ..containers import ObjectContainer
 from ._tools import add_loader
+
+pkl = LazyLoader("dill")
 
 # -----------------------------------------------------------------------------
 
@@ -30,7 +31,7 @@ class PickleLoaderMixin:
         """
         # Open file in binary mode and unpickle with the given load function
         with open(filepath, mode="rb") as f:
-            obj = dill.load(f, **pkl_kwargs)
+            obj = pkl.load(f, **pkl_kwargs)
 
         # Populate the target container with the object
         return TargetCls(data=obj, attrs=dict(filepath=filepath))

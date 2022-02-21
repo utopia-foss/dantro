@@ -12,9 +12,8 @@ import time
 import warnings
 from typing import Callable, Dict, List, Tuple, Union
 
-import dill as pkl
-
 from ._hash import _hash
+from ._import_tools import LazyLoader
 from .base import PATH_JOIN_CHAR, BaseDataContainer, BaseDataGroup
 from .exceptions import *
 from .groups import OrderedDataGroup
@@ -28,14 +27,15 @@ from .tools import (
 from .tools import format_time as _format_time
 from .tools import load_yml, print_line, recursive_update, total_bytesize
 
-# Local constants
 log = logging.getLogger(__name__)
 
-# File extension for data cache file
-DATA_TREE_DUMP_EXT = ".d3"
+pkl = LazyLoader("dill")
 
-# Time formatting function
-fmt_time = lambda seconds: _format_time(seconds, ms_precision=2)
+DATA_TREE_DUMP_EXT = ".d3"
+"""File extension for data cache file"""
+
+_fmt_time = lambda seconds: _format_time(seconds, ms_precision=2)
+"""Locally used time formatting function"""
 
 
 # -----------------------------------------------------------------------------
@@ -711,7 +711,7 @@ class DataManager(OrderedDataGroup):
             log.progress(
                 "Loaded all data for entry '%s' in %s.\n",
                 entry_name,
-                fmt_time(time.time() - t0),
+                _fmt_time(time.time() - t0),
             )
 
         # Done with this entry. Print tree, if desired.
