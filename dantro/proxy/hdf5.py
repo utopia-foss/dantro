@@ -4,14 +4,15 @@ specialization for HDF5 data.
 
 import logging
 
-import dask.array as da
-import h5py as h5
 import numpy as np
 
+from .._import_tools import LazyLoader
 from ..base import BaseDataProxy
 
-# Local variables
 log = logging.getLogger(__name__)
+
+da = LazyLoader("dask.array")
+h5 = LazyLoader("h5py")
 
 # -----------------------------------------------------------------------------
 
@@ -29,11 +30,11 @@ class Hdf5DataProxy(BaseDataProxy):
     closed upon garbage-collection of this object.
     """
 
-    def __init__(self, obj: h5.Dataset, *, resolve_as_dask: bool = False):
+    def __init__(self, obj: "h5py.Dataset", *, resolve_as_dask: bool = False):
         """Initializes a proxy object for Hdf5 datasets.
 
         Args:
-            obj (h5.Dataset): The dataset object to be proxy for
+            obj (h5py.Dataset): The dataset object to be proxy for
             resolve_as_dask (bool, optional): Whether to resolve the dataset
                 object as a delayed ``dask.array.core.Array`` object, using an
                 ``h5py.Dataset`` to initialize it and passing over chunk
@@ -130,13 +131,13 @@ class Hdf5DataProxy(BaseDataProxy):
 
     # Handling of HDF5 files ..................................................
 
-    def _open_h5file(self) -> h5.File:
+    def _open_h5file(self) -> "h5py.File":
         """Opens the associated HDF5 file and stores it in _h5files in order
         to keep it in scope. These file objects are only closed upon deletion
         of this proxy object!
 
         Returns:
-            h5.File: The newly opened HDF5 file
+            h5py.File: The newly opened HDF5 file
         """
         h5file = h5.File(self._fname, "r")
         self._h5files.append(h5file)

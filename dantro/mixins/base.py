@@ -5,11 +5,11 @@ import contextlib
 import logging
 import sys
 import warnings
+from typing import Union
 
 from ..abc import PATH_JOIN_CHAR, AbstractDataProxy
 from ..exceptions import UnexpectedTypeWarning
 
-# Local constants
 log = logging.getLogger(__name__)
 
 
@@ -254,12 +254,15 @@ class CheckDataMixin:
         Returns:
             None
         """
+        from .._import_tools import resolve_types
+
         if self.DATA_EXPECTED_TYPES is None:
             # All types allowed
             return
 
-        # Compile tuple of allowed types
-        expected_types = self.DATA_EXPECTED_TYPES
+        # Compile tuple of allowed types, importing those that were supplied
+        # as module strings
+        expected_types = resolve_types(self.DATA_EXPECTED_TYPES)
 
         if self.DATA_ALLOW_PROXY:
             expected_types += (AbstractDataProxy,)

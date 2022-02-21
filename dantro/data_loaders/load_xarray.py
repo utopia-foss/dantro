@@ -1,9 +1,10 @@
 """Defines a loader mixin to load xarray objects"""
 
-import xarray as xr
-
+from .._import_tools import LazyLoader
 from ..containers import PassthroughContainer, XrDataContainer
 from ._tools import add_loader
+
+xr = LazyLoader("xarray")
 
 # -----------------------------------------------------------------------------
 

@@ -4,9 +4,9 @@ import logging
 import os
 from typing import Dict, Union
 
-import h5py as h5
 import numpy as np
 
+from .._import_tools import LazyLoader
 from ..base import BaseDataContainer, BaseDataGroup
 from ..containers import NumpyDataContainer
 from ..groups import OrderedDataGroup
@@ -14,9 +14,9 @@ from ..proxy import Hdf5DataProxy
 from ..tools import decode_bytestrings, print_line
 from ._tools import add_loader
 
-# Local constants
 log = logging.getLogger(__name__)
 
+h5 = LazyLoader("h5py")
 
 # -----------------------------------------------------------------------------
 
@@ -239,19 +239,19 @@ class Hdf5LoaderMixin:
 
     def _recursively_load_hdf5(
         self,
-        src: Union[h5.Group, h5.File],
+        src: Union["h5py.Group", "h5py.File"],
         *,
         target: BaseDataGroup,
         lower_case_keys: bool,
         direct_insertion: bool,
         **kwargs,
     ):
-        """Recursively loads the data from a source object (an h5.File or a
-        h5.Group) into the target dantro group.
+        """Recursively loads the data from a source object (an h5py.File or a
+        h5py.Group) into the target dantro group.
 
         Args:
-            src (Union[h5.Group, h5.File]): The HDF5 source object from which
-                to load the data. This object it iterated over.
+            src (Union[h5py.Group, h5py.File]): The HDF5 source object from
+                which to load the data. This object it iterated over.
             target (BaseDataGroup): The target group to populate with the data
                 from ``src``.
             lower_case_keys (bool): Whether to make keys lower-case
@@ -303,7 +303,7 @@ class Hdf5LoaderMixin:
 
     def _group_from_h5group(
         self,
-        h5grp: h5.Group,
+        h5grp: "h5py.Group",
         target: BaseDataGroup,
         *,
         name: str,
@@ -318,7 +318,7 @@ class Hdf5LoaderMixin:
         the ``_HDF5_MAP_FROM_ATTR`` class attribute.
 
         Args:
-            h5grp (h5.Group): The HDF5 group to create a dantro group for in
+            h5grp (h5py.Group): The HDF5 group to create a dantro group for in
                 the ``target`` group.
             target (BaseDataGroup): The group in which to create a new group
                 that represents ``h5grp``
@@ -343,7 +343,7 @@ class Hdf5LoaderMixin:
 
     def _container_from_h5dataset(
         self,
-        h5dset: h5.Dataset,
+        h5dset: "h5py.Dataset",
         target: BaseDataGroup,
         *,
         name: str,

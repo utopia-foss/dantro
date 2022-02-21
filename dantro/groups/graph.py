@@ -9,7 +9,6 @@ import warnings
 from typing import List, Union
 
 import numpy as np
-import xarray as xr
 
 from .._import_tools import LazyLoader
 from ..base import BaseDataGroup
@@ -22,6 +21,7 @@ log = logging.getLogger(__name__)
 
 # Lazy imports for packages that take a long time to import
 nx = LazyLoader("networkx")
+xr = LazyLoader("xarray")
 
 
 # -----------------------------------------------------------------------------
@@ -146,7 +146,7 @@ class GraphGroup(BaseDataGroup):
         at_time: int = None,
         at_time_idx: int = None,
         keep_dim=None,
-    ) -> Union[xr.DataArray, XrDataContainer]:
+    ) -> Union["xr.DataArray", XrDataContainer]:
         """Returns a ``xarray.DataArray`` containing the data specified via the
         selectors ``sel`` and ``isel``. Any dimension of size 1 is removed
         from the selected data.

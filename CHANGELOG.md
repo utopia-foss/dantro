@@ -11,6 +11,7 @@
     - Use `__slots__` in DAG placeholder classes to reduce memory load
     - In DAG, only load from cache file if the content was *not* already loaded
 - !270 drops official support and testing for Python 3.7
+- !271 strongly reduces the time it takes to `import dantro` by delaying imports of dependencies
 
 #### Internal
 - !267 performs some code clean-up and improves the sphinx setup

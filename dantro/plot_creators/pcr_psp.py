@@ -9,9 +9,9 @@ import time
 from typing import Callable, List, Sequence, Tuple, Union
 
 import numpy as np
-import xarray as xr
 from paramspace import ParamDim, ParamSpace
 
+from .._import_tools import LazyLoader
 from ..abc import PATH_JOIN_CHAR
 from ..dag import DAGNode, DAGReference, DAGTag, TransformationDAG
 from ..groups import ParamSpaceGroup, ParamSpaceStateGroup
@@ -19,8 +19,10 @@ from ..tools import is_iterable, recursive_update
 from .pcr_base import SkipPlot
 from .pcr_ext import ExternalPlotCreator
 
-# Local constants
+# Local constants and lazy module imports
 log = logging.getLogger(__name__)
+
+xr = LazyLoader("xarray")
 
 
 # -----------------------------------------------------------------------------

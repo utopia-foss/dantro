@@ -33,7 +33,6 @@ from .mixins import (
     SizeOfMixin,
 )
 
-# Local constants
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------

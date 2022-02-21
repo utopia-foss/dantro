@@ -10,15 +10,9 @@ import logging
 import os
 from typing import Callable, List, Sequence, Tuple, Union
 
-import matplotlib as mpl
-
-mpl.use("Agg")  # TODO Remove this. Should not be necessary!
-import matplotlib.animation
-import matplotlib.pyplot as plt
-
+from .._import_tools import LazyLoader
 from ..dag import TransformationDAG
 from ..tools import DoNothingContext, load_yml, recursive_update
-from ._movie_writers import FileWriter
 from ._plot_helper import (
     EnterAnimationMode,
     ExitAnimationMode,
@@ -28,8 +22,10 @@ from ._plot_helper import (
 )
 from .pcr_base import BasePlotCreator, _resolve_placeholders
 
-# Local constants
 log = logging.getLogger(__name__)
+
+mpl = LazyLoader("matplotlib")
+plt = LazyLoader("matplotlib.pyplot")
 
 # -----------------------------------------------------------------------------
 # Tools
@@ -945,7 +941,6 @@ class ExternalPlotCreator(BasePlotCreator):
             ValueError: if the animation is not supported by the ``plot_func``
                 or if the writer is not available
         """
-        # Check that the plot function actually supports animation
         if not getattr(plot_func, "supports_animation", False):
             raise ValueError(
                 f"Plotting function '{plot_func.__name__}' was not marked as "
@@ -964,7 +959,10 @@ class ExternalPlotCreator(BasePlotCreator):
         # positional argument. Damn you, matplotlib.
         dpi = writer_cfg.get("saving", {}).pop("dpi", 96)
 
-        # Retrieve the writer: Either from matplotlib or dantro's FileWriter
+        # Retrieve the writer; to trigger writer registration with matplotlib,
+        # make sure that the movie writers module is actually imported
+        from ._movie_writers import FileWriter
+
         if mpl.animation.writers.is_available(writer_name):
             wCls = mpl.animation.writers[writer_name]
             writer = wCls(**writer_cfg.get("init", {}))

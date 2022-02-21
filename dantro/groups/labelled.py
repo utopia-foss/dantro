@@ -12,8 +12,8 @@ import warnings
 from typing import Dict, List, Tuple, Union
 
 import numpy as np
-import xarray as xr
 
+from .._import_tools import LazyLoader
 from ..abc import AbstractDataContainer
 from ..containers import XrDataContainer
 from ..exceptions import *
@@ -22,8 +22,9 @@ from ..utils import extract_coords
 from ..utils.coords import TCoord, TCoordsDict, TDims
 from . import OrderedDataGroup
 
-# Local constants
 log = logging.getLogger(__name__)
+
+xr = LazyLoader("xarray")
 
 # -----------------------------------------------------------------------------
 
@@ -151,7 +152,7 @@ class LabelledDataGroup(OrderedDataGroup):
         self._allow_deep_selection = val
 
     @property
-    def member_map(self) -> xr.DataArray:
+    def member_map(self) -> "xr.DataArray":
         """Returns an array that represents the space that the members of this
         group span, where each value (i.e. a specific coordinate combination)
         is the name of the corresponding member of this group.
@@ -169,6 +170,8 @@ class LabelledDataGroup(OrderedDataGroup):
             The member map is invalidated when new members are added that can
             not be accomodated in it. It will be recalculated when needed.
         """
+        import xarray as xr
+
         if self.member_map_available:
             return self.__member_map
 
@@ -228,7 +231,7 @@ class LabelledDataGroup(OrderedDataGroup):
         combination_method: str = "auto",
         deep: bool = None,
         **indexers_kwargs,
-    ) -> xr.DataArray:
+    ) -> "xr.DataArray":
         """Return a new labelled `xr.DataArray` with an index-selected subset
         of members of this group.
 
@@ -308,7 +311,7 @@ class LabelledDataGroup(OrderedDataGroup):
         combination_method: str = "auto",
         deep: bool = None,
         **indexers_kwargs,
-    ) -> xr.DataArray:
+    ) -> "xr.DataArray":
         """Return a new labelled `xr.DataArray` with a coordinate-selected
         subset of members of this group.
 
@@ -531,7 +534,7 @@ class LabelledDataGroup(OrderedDataGroup):
         by_index: bool,
         drop: bool,
         **sel_kwargs,
-    ) -> xr.DataArray:
+    ) -> "xr.DataArray":
         """Process the given container and coordinates into a data array;
         this applies selection along container dimensions that overlap with
         the group dimensions as well as deep selection.
@@ -661,7 +664,7 @@ class LabelledDataGroup(OrderedDataGroup):
         by_index: bool,
         drop: bool,
         **sel_kwargs,
-    ) -> xr.DataArray:
+    ) -> "xr.DataArray":
         """Preselect the member map (if needed) and designate a suitable method
         for further processing and selection based on the given combination
         method and indexers.
@@ -749,13 +752,13 @@ class LabelledDataGroup(OrderedDataGroup):
 
     def _select_single(
         self,
-        cont_names: xr.DataArray,
+        cont_names: "xr.DataArray",
         shallow_indexers: dict,
         deep_indexers: dict,
         by_index: bool,
         drop: bool,
         **sel_kwargs,
-    ) -> xr.DataArray:
+    ) -> "xr.DataArray":
         """Select data from a single group member. Expects the preselected
         member map to contain only a single valid container name.
         """
@@ -803,7 +806,7 @@ class LabelledDataGroup(OrderedDataGroup):
 
         return darr
 
-    def _select_all_merge(self) -> xr.DataArray:
+    def _select_all_merge(self) -> "xr.DataArray":
         """Select all group data by directly merging all containers. This
         circumvents building the member map. This might fail, e.g. if there are
         conflicting or duplicate coordinates.
@@ -817,9 +820,9 @@ class LabelledDataGroup(OrderedDataGroup):
             # In 'name' mode, expand the containers by the group dimension(s).
             # By applying `.expand_dims` with the group-level coordinates, no
             # additional checks for conflicting coordinates are required here,
-            # because if any of the group-level dims already exists in the container,
-            # `.expand_dims` throws and the whole selection will fall back to the
-            # generic (`member_map`-based) selection ...
+            # because if any of the group-level dims already exists in the
+            # container, `.expand_dims` throws and the whole selection will
+            # fall back to the generic (`member_map`-based) selection ...
             if self._mode == "name":
                 cont = cont.expand_dims(self._get_coords_of(cont))
 
@@ -832,7 +835,7 @@ class LabelledDataGroup(OrderedDataGroup):
 
     def _select_generic(
         self,
-        cont_names: xr.DataArray,
+        cont_names: "xr.DataArray",
         *,
         combination_method: str,
         shallow_indexers: dict,
@@ -840,7 +843,7 @@ class LabelledDataGroup(OrderedDataGroup):
         by_index: bool,
         drop: bool,
         **sel_kwargs,
-    ) -> xr.DataArray:
+    ) -> "xr.DataArray":
         """Select data from group members using the given indexers and combine
         it via the specified method. If deep indexers are given, apply the deep
         indexing on each of the members.
@@ -1069,7 +1072,7 @@ class LabelledDataGroup(OrderedDataGroup):
         return darr
 
     @classmethod
-    def _combine_by_merge(cls, dsets: np.ndarray) -> xr.Dataset:
+    def _combine_by_merge(cls, dsets: np.ndarray) -> "xr.Dataset":
         """Combine the given datasets by merging using ``xarray.merge``.
 
         Args:
@@ -1089,7 +1092,7 @@ class LabelledDataGroup(OrderedDataGroup):
     @classmethod
     def _combine_by_concatenation(
         cls, dsets: np.ndarray, *, dims: TDims
-    ) -> xr.Dataset:
+    ) -> "xr.Dataset":
         """Combine the given datasets by concatenation using ``xarray.concat``
         and subsequent application along all dimensions specified in ``dims``.
 

@@ -2,6 +2,7 @@
 
 import logging
 from importlib import import_module as _import_module
+from typing import Sequence, Tuple, Union
 
 log = logging.getLogger(__name__)
 
@@ -58,11 +59,36 @@ def import_module_or_object(module: str = None, name: str = None):
     return get_from_module(mod, name=name)
 
 
+def import_name(modstr: str):
+    """Given a module string, import a name, treating the last segment of the
+    module string as the name.
+
+    Args:
+        modstr (str): A module string, e.g. ``numpy.random.randint``, where
+            ``randint`` will be the name to import.
+    """
+    ms = modstr.split(".")
+    return import_module_or_object(module=".".join(ms[:-1]), name=ms[-1])
+
+
+def resolve_types(types: Sequence[Union[type, str]]) -> Tuple[type]:
+    """Resolves multiple types, that may be given as module strings, into a
+    tuple of types (such that it can be used within ``isinstance``).
+
+    Args:
+        types (Sequence[Union[type, str]]): The types to potentially resolve
+
+    Returns:
+        Tuple[type]: The resolved types tuple
+    """
+    return tuple(t if isinstance(t, type) else import_name(t) for t in types)
+
+
 class LazyLoader:
     """Delays import until the module's attributes are accessed.
 
     This is inspired by the implementation by Dboy Liao:
-        https://levelup.gitconnected.com/python-trick-lazy-module-loading-df9b9dc111af
+        levelup.gitconnected.com/python-trick-lazy-module-loading-df9b9dc111af
 
     It extends on it by allowing a ``depth`` until which loading will be lazy.
     """

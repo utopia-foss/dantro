@@ -8,7 +8,6 @@ from difflib import get_close_matches as _get_close_matches
 from typing import Any, Callable, Dict, Iterable, List, Sequence, Tuple, Union
 
 import numpy as np
-import xarray as xr
 
 from .._import_tools import (
     LazyLoader,
@@ -21,10 +20,10 @@ from ..tools import apply_along_axis, make_columns, recursive_getitem
 from .coords import extract_coords_from_attrs, extract_dim_names
 from .ordereddict import KeyOrderedDict
 
-# Local constants
+# Local constants and lazy module imports
 log = logging.getLogger(__name__)
 
-# Lazy module imports
+xr = LazyLoader("xarray")
 nx = LazyLoader("networkx")
 pd = LazyLoader("pandas")
 scipy = LazyLoader("scipy")
@@ -357,8 +356,8 @@ def generate_lambda(expr: str) -> Callable:
 
 
 def create_mask(
-    data: xr.DataArray, operator_name: str, rhs_value: float
-) -> xr.DataArray:
+    data: "xr.DataArray", operator_name: str, rhs_value: float
+) -> "xr.DataArray":
     """Given the data, returns a binary mask by applying the following
     comparison: ``data <operator> rhs value``.
 
@@ -401,8 +400,8 @@ def create_mask(
 
 
 def where(
-    data: xr.DataArray, operator_name: str, rhs_value: float, **kwargs
-) -> xr.DataArray:
+    data: "xr.DataArray", operator_name: str, rhs_value: float, **kwargs
+) -> "xr.DataArray":
     """Filter elements from the given data according to a condition. Only
     those elemens where the condition is fulfilled are not masked.
 
@@ -423,7 +422,7 @@ def where(
     )
 
 
-def count_unique(data, dims: List[str] = None) -> xr.DataArray:
+def count_unique(data, dims: List[str] = None) -> "xr.DataArray":
     """Applies np.unique to the given data and constructs a xr.DataArray for
     the results.
 
@@ -437,7 +436,7 @@ def count_unique(data, dims: List[str] = None) -> xr.DataArray:
 
     """
 
-    def _count_unique(data) -> xr.DataArray:
+    def _count_unique(data) -> "xr.DataArray":
         unique, counts = np.unique(data, return_counts=True)
 
         # remove np.nan values
@@ -544,7 +543,7 @@ def build_object_array(
     *,
     dims: Tuple[str] = ("label",),
     fillna: Any = None,
-) -> xr.DataArray:
+) -> "xr.DataArray":
     """Creates a *simple* labelled multidimensional object array.
 
     It accepts simple iterable types like dictionaries or lists and unpacks
@@ -646,7 +645,7 @@ def build_object_array(
     return out
 
 
-def multi_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> xr.DataArray:
+def multi_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> "xr.DataArray":
     """Concatenates ``xr.Dataset`` or ``xr.DataArray`` objects using
     ``xr.concat``. This function expects the xarray objects to be pre-aligned
     inside the numpy *object* array ``arrs``, with the number of dimensions
@@ -705,11 +704,11 @@ def multi_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> xr.DataArray:
 
 
 def merge(
-    arrs: Union[Sequence[Union[xr.DataArray, xr.Dataset]], np.ndarray],
+    arrs: Union[Sequence[Union["xr.DataArray", "xr.Dataset"]], np.ndarray],
     *,
     reduce_to_array: bool = False,
     **merge_kwargs,
-) -> Union[xr.Dataset, xr.DataArray]:
+) -> Union["xr.Dataset", "xr.DataArray"]:
     """Merges the given sequence of xarray objects into an xr.Dataset.
 
     As a convenience, this also allows passing a numpy object array containing
@@ -746,8 +745,8 @@ def merge(
 
 
 def expand_dims(
-    d: Union[np.ndarray, xr.DataArray], *, dim: dict = None, **kwargs
-) -> xr.DataArray:
+    d: Union[np.ndarray, "xr.DataArray"], *, dim: dict = None, **kwargs
+) -> "xr.DataArray":
     """Expands the dimensions of the given object.
 
     If the object does not support the ``expand_dims`` method, it will be
@@ -770,7 +769,7 @@ def expand_dims(
 
 
 def expand_object_array(
-    d: xr.DataArray,
+    d: "xr.DataArray",
     *,
     shape: Sequence[int] = None,
     astype: Union[str, type, np.dtype] = None,
@@ -779,7 +778,7 @@ def expand_object_array(
     combination_method: str = "concat",
     allow_reshaping_failure: bool = False,
     **combination_kwargs,
-) -> xr.DataArray:
+) -> "xr.DataArray":
     """Expands a labelled object-array that contains array-like objects into a
     higher-dimensional labelled array.
 
@@ -848,7 +847,7 @@ def expand_object_array(
     """
 
     def prepare_item(
-        d: xr.DataArray,
+        d: "xr.DataArray",
         *,
         midx: Sequence[int],
         shape: Sequence[int],
@@ -856,7 +855,7 @@ def expand_object_array(
         name: str,
         dims: Sequence[str],
         generate_coords: Callable,
-    ) -> Union[xr.DataArray, None]:
+    ) -> Union["xr.DataArray", None]:
         """Extracts the desired element and reshapes and labels it accordingly.
         If any of this fails, returns ``None``.
         """
@@ -1321,17 +1320,17 @@ _OPERATIONS = KeyOrderedDict({
     '.drop_vars':       lambda ds, *a, **k: ds.drop_vars(*a, **k),
     '.assign_var':      lambda ds, name, var: ds.assign({name: var}),
 
-    'xr.Dataset':           xr.Dataset,
-    'xr.DataArray':         xr.DataArray,
-    'xr.zeros_like':        xr.zeros_like,
-    'xr.ones_like':         xr.ones_like,
-    'xr.full_like':         xr.full_like,
+    'xr.Dataset':           lambda *a, **k: xr.Dataset(*a, **k),
+    'xr.DataArray':         lambda *a, **k: xr.DataArray(*a, **k),
+    'xr.zeros_like':        lambda *a, **k: xr.zeros_like(*a, **k),
+    'xr.ones_like':         lambda *a, **k: xr.ones_like(*a, **k),
+    'xr.full_like':         lambda *a, **k: xr.full_like(*a, **k),
 
-    'xr.merge':             xr.merge,
-    'xr.concat':            xr.concat,
-    'xr.align':             xr.align,
-    'xr.combine_nested':    xr.combine_nested,
-    'xr.combine_by_coords': xr.combine_by_coords,
+    'xr.merge':             lambda *a, **k: xr.merge(*a, **k),
+    'xr.concat':            lambda *a, **k: xr.concat(*a, **k),
+    'xr.align':             lambda *a, **k: xr.align(*a, **k),
+    'xr.combine_nested':    lambda *a, **k: xr.combine_nested(*a, **k),
+    'xr.combine_by_coords': lambda *a, **k: xr.combine_by_coords(*a, **k),
 
     # ... method calls that require additional Python packages
     '.rolling_exp':     lambda d, *a, **k: d.rolling_exp(*a, **k),

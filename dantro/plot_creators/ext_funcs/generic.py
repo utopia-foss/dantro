@@ -9,16 +9,17 @@ import math
 import warnings
 from typing import Callable, Dict, List, Tuple, Union
 
-import matplotlib.pyplot as plt
-import xarray as xr
-
+from ..._import_tools import LazyLoader
 from ...exceptions import PlottingError
 from ...tools import recursive_update
 from ..pcr_ext import PlotHelper, figure_leak_prevention, is_plot_func
 from ._utils import plot_errorbar as _plot_errorbar
 
-# Local constants
+# Local constants and lazy module imports
 log = logging.getLogger(__name__)
+
+plt = LazyLoader("matplotlib.pyplot")
+xr = LazyLoader("xarray")
 
 # fmt: off
 
@@ -78,7 +79,7 @@ _FACET_GRID_FUNCS = {}
 
 
 def determine_plot_kind(
-    d: Union[xr.DataArray, xr.Dataset],
+    d: Union["xr.DataArray", "xr.Dataset"],
     *,
     kind: Union[str, dict],
     default_kind_map: dict = _AUTO_PLOT_KINDS,
@@ -464,7 +465,7 @@ class make_facet_grid_plot:
             hlpr: PlotHelper,
             _is_facetgrid: bool,
             ax=None,
-            _fg: xr.plot.FacetGrid = None,
+            _fg: "xr.plot.FacetGrid" = None,
             **kwargs,
         ):
             """Wraps the single-axis plotting function and performs the
@@ -713,8 +714,8 @@ def errorbar(
 
     def plot_frame(
         *,
-        y: xr.DataArray,
-        yerr: xr.DataArray,
+        y: "xr.DataArray",
+        yerr: "xr.DataArray",
         x: str,
         hue: str = None,
         **kwargs,
@@ -1195,7 +1196,7 @@ def facet_grid(
     add_guide=False,
 )
 def errorbars(
-    ds: xr.Dataset,
+    ds: "xr.Dataset",
     *,
     _is_facetgrid: bool,
     hlpr: PlotHelper,

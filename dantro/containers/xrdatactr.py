@@ -5,15 +5,17 @@ import logging
 from typing import Sequence, Tuple, Union
 
 import numpy as np
-import xarray as xr
 
+from .._import_tools import LazyLoader
 from ..abc import AbstractDataProxy
 from ..base import BaseDataContainer, CheckDataMixin, ItemAccessMixin
 from ..mixins import ComparisonMixin, ForwardAttrsToDataMixin, NumbersMixin
 from ..utils import Link, extract_coords, extract_dim_names
 
-# Local constants
+# Local constants and lazy module imports
 log = logging.getLogger(__name__)
+
+xr = LazyLoader("xarray")
 
 # -----------------------------------------------------------------------------
 
@@ -32,7 +34,7 @@ class XrDataContainer(
 
     # Specify expected data types for this container class
     DATA_EXPECTED_TYPES = (
-        xr.DataArray,
+        "xarray.DataArray",
         np.ndarray,
     )
     DATA_ALLOW_PROXY = False
@@ -74,7 +76,7 @@ class XrDataContainer(
         self,
         *,
         name: str,
-        data: Union[np.ndarray, xr.DataArray],
+        data: Union[np.ndarray, "xr.DataArray"],
         dims: Sequence[str] = None,
         coords: dict = None,
         extract_metadata: bool = True,

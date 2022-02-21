@@ -8,17 +8,18 @@ from typing import Dict, List, Sequence, Union
 
 import numpy as np
 import numpy.ma
-import xarray as xr
 from paramspace import ParamSpace
 
+from .._import_tools import LazyLoader
 from ..base import PATH_JOIN_CHAR
 from ..containers import XrDataContainer
 from ..mixins import PaddedIntegerItemAccessMixin
 from ..utils.data_ops import multi_concat as _multi_concat
 from .ordered import IndexedDataGroup, OrderedDataGroup
 
-# Local constants
 log = logging.getLogger(__name__)
+
+xr = LazyLoader("xarray")
 
 # -----------------------------------------------------------------------------
 
@@ -177,7 +178,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
         idx_as_label: bool = False,
         base_path: str = None,
         **kwargs,
-    ) -> xr.Dataset:
+    ) -> "xr.Dataset":
         """Selects a multi-dimensional slab of this ParamSpaceGroup and the
         specified fields and returns them bundled into an ``xarray.Dataset``
         with labelled dimensions and coordinates.
@@ -321,7 +322,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
             dims: List[str] = None,
             transform: Sequence[dict] = None,
             **transform_kwargs,
-        ) -> Union[xr.Variable, xr.DataArray]:
+        ) -> Union["xr.Variable", "xr.DataArray"]:
             """Extracts the field specified by the given path and returns it as
             either an xr.Variable or (for supported containers) directly as an
             xr.DataArray.
@@ -444,7 +445,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
 
         def combine(
             *, method: str, dsets: np.ndarray, psp: ParamSpace
-        ) -> xr.Dataset:
+        ) -> "xr.Dataset":
             """Tries to combine the given datasets either by concatenation or
             by merging and returns a combined xr.Dataset
             """
