@@ -121,7 +121,7 @@ class PaddedIntegerItemAccessMixin(IntegerItemAccessMixin):
         self._PADDED_INT_FSTR = "{:0" + str(self._PADDED_INT_KEY_WIDTH) + "d}"
 
         # Compute the maximum value that is fully representable by the string
-        self._PADDED_INT_MAX_VAL = 10 ** self._PADDED_INT_KEY_WIDTH - 1
+        self._PADDED_INT_MAX_VAL = 10**self._PADDED_INT_KEY_WIDTH - 1
 
     # .........................................................................
 

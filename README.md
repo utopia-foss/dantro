@@ -117,7 +117,7 @@ For development purposes, the following additional packages are required.
 | [Sphinx][sphinx]              | 4.*              | Documentation generator  |
 | [sphinx-book-theme][sphinx-book-theme] | 0.2.*   | Modern sphinx theme      |
 | [pre-commit][pre-commit]      | 2.15             | For [commit hooks](#commit-hooks) |
-| [black][black]                | 21.10b0          | For code formatting      |
+| [black][black]                | 22.3.0           | For code formatting      |
 
 To install these development-related dependencies, enter the virtual environment, navigate to the cloned repository, and perform the installation using:
 

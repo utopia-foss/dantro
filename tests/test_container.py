@@ -292,7 +292,7 @@ def test_NumpyDataContainer():
     floordiv = ndc1 // ndc2
     mod = ndc1 % ndc2
     div_mod = divmod(ndc1, ndc2)
-    power = ndc1 ** ndc2
+    power = ndc1**ndc2
 
     # Test NumbersMixin function for operations on two numpy arrays
     l1 = [1, 2, 3]
@@ -308,7 +308,7 @@ def test_NumpyDataContainer():
     div_npa = npa1 / npa2
     floordiv_npa = npa1 // npa2
     mod_npa = npa1 % npa2
-    power_npa = npa1 ** npa2
+    power_npa = npa1**npa2
 
     assert add.data.all() == add_npa.all()
     assert sub.data.all() == sub_npa.all()
@@ -330,7 +330,7 @@ def test_NumpyDataContainer():
     floordiv_number = ndc1 // 4.2
     divmod_number = divmod(ndc1, 4.2)
     mod_number = ndc1 % 4.2
-    power_number = ndc1 ** 4.2
+    power_number = ndc1**4.2
 
     add_npa_number = npa1 + 4.2
     sub_npa_number = npa1 - 4.2
@@ -339,7 +339,7 @@ def test_NumpyDataContainer():
     floordiv_npa_number = npa1 // 4.2
     divmod_npa_number = divmod(npa1, 4.2)
     mod_npa_number = npa1 % 4.2
-    power_npa_number = npa1 ** 4.2
+    power_npa_number = npa1**4.2
 
     assert add_number.data.all() == add_npa_number.all()
     assert sub_number.data.all() == sub_npa_number.all()
