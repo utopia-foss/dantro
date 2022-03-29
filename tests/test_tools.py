@@ -153,11 +153,11 @@ def test_format_bytesize():
     assert fmt(1024) == "1.0 kiB"
     assert fmt(1024, precision=3) == "1.000 kiB"
 
-    assert fmt(1024 ** 2 - 1) == "1.0 MiB"
-    assert fmt(1024 ** 2 - 1, precision=3) == "1023.999 kiB"
+    assert fmt(1024**2 - 1) == "1.0 MiB"
+    assert fmt(1024**2 - 1, precision=3) == "1023.999 kiB"
 
-    assert fmt(1024 ** 8) == "1.0 YiB"
-    assert fmt(1024 ** 9) == "1024.0 YiB"
+    assert fmt(1024**8) == "1.0 YiB"
+    assert fmt(1024**9) == "1024.0 YiB"
 
 
 def test_format_time():

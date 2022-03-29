@@ -105,7 +105,7 @@ def dm() -> FullDataManager:
     )
 
     elephant_t = np.linspace(0, 1000, 1001)
-    elephant_f = lambda t: 1.6 + 0.01 * t - 0.001 * t ** 2 + 2.3e-5 * t ** 3
+    elephant_f = lambda t: 1.6 + 0.01 * t - 0.001 * t**2 + 2.3e-5 * t**3
     elephant_ts = xr.DataArray(
         data=(elephant_f(elephant_t) + np.random.random((1001,))),
         dims=("time",),
@@ -197,7 +197,7 @@ def test_deepcopy(dm):
     assert deepcopy(dag_utils.Placeholder("foo bar"))
     assert deepcopy(DataManager)
     assert deepcopy(dag.Transformation)
-    assert deepcopy(lambda x: x ** 2)
+    assert deepcopy(lambda x: x**2)
 
     with pytest.raises(RuntimeError):
         assert deepcopy(dm)
