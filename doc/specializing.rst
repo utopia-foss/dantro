@@ -7,7 +7,7 @@ This step is an important aspect of adapting dantro to work with the data struct
 .. note::
 
     The code snippets shown on this page are implemented as test cases to assert that they function as intended.
-    To have a look at the full source code used in the examples below, you can :download:`download the relevant file <../tests/test_doc_examples.py>` or `view it online <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/-/blob/master/tests/test_doc_examples.py>`_.
+    To have a look at the full source code used in the examples below, you can :download:`download the relevant file <../tests/test_doc_examples.py>` or `view it online <https://gitlab.com/utopia-project/dantro/-/blob/master/tests/test_doc_examples.py>`_.
 
     Note that the integration into the test framework requires some additional code in those files, e.g. to generate dummy data.
 
@@ -120,7 +120,7 @@ For more information, see :doc:`data_io/data_mngr`.
 
 .. note::
 
-    For an integration example, you can have a look at `the data manager used in utopya <https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia/blob/master/python/utopya/utopya/datamanager.py>`_.
+    For an integration example, you can have a look at `the data manager used in utopya <https://gitlab.com/utopia-project/utopia/blob/master/python/utopya/utopya/datamanager.py>`_.
 
 
 .. _spec_plot_creators:
@@ -137,7 +137,7 @@ Specialization thus can be of two kinds:
 
 For the former, we suggest to refer to the individual creator's documentation, e.g. :ref:`pcr_ext_specializing`.
 
-For the latter, we recommend to use the existing :py:mod:`dantro.plot_creators` as examples for how this can be achieved; we are happy to support the implementation of new plot creators, so feel free to post an issue to `the project page <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro>`_.
+For the latter, we recommend to use the existing :py:mod:`dantro.plot_creators` as examples for how this can be achieved; we are happy to support the implementation of new plot creators, so feel free to post an issue to `the project page <https://gitlab.com/utopia-project/dantro>`_.
 
 .. note::
 

@@ -18,7 +18,7 @@ It is designed to be **easily customizable** to the requirements of the project 
 Furthermore, it allows a **configuration-based specification** of all operations via `YAML <https://en.wikipedia.org/wiki/YAML>`_ configuration files; the resulting pipeline can then be controlled entirely via these configuration files and without requiring code changes.
 
 The :py:mod:`dantro` package is **open source software** released under the `LGPLv3+ <https://www.gnu.org/licenses/lgpl-3.0.html>`_ license.
-It was developed alongside the `Utopia project <https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia>`_ (a modelling framework for complex and adaptive systems), but is an independent package.
+It was developed alongside the `Utopia project <https://gitlab.com/utopia-project/utopia>`_ (a modelling framework for complex and adaptive systems), but is an independent package.
 
 .. hint::
 
@@ -28,7 +28,7 @@ It was developed alongside the `Utopia project <https://ts-gitlab.iup.uni-heidel
 
 .. note::
 
-    If you find any errors in this documentation or would like to contribute to the project, we are happy about your visit to the `project page <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro>`_.
+    If you find any errors in this documentation or would like to contribute to the project, we are happy about your visit to the `project page <https://gitlab.com/utopia-project/dantro>`_.
 
 
 .. toctree::
@@ -42,7 +42,7 @@ It was developed alongside the `Utopia project <https://ts-gitlab.iup.uni-heidel
 .. toctree::
     :hidden:
 
-    Repository <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro>
+    Repository <https://gitlab.com/utopia-project/dantro>
     JOSS Publication <https://doi.org/10.21105/joss.02316>
     how-to-cite
     Utopia Project <https://utopia-project.org/>

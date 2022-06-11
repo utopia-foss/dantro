@@ -155,7 +155,7 @@ html_theme = "sphinx_book_theme"
 # documentation.
 #
 html_theme_options = {
-    "repository_url": "https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro",
+    "repository_url": "https://gitlab.com/utopia-project/dantro",
     "use_repository_button": True,
     "use_issues_button": True,
     "use_edit_page_button": False,  # NOTE Not working with GitLab repos yet

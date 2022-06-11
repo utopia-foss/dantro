@@ -30,17 +30,6 @@ In our opinion, this is best achieved by adhering to some common best-practices,
 If you have questions about contributing, please do not hesitate to [contact us](#direct-contact).
 
 
-### GitLab Account
-
-The dantro repository is hosted on the private GitLab instance of the [TS-CCEES][ts_hp] research group at the [Institute of Environmental Physics (IUP) Heidelberg][iup_hp].
-
-You can get an account via [the **registration page**](https://ts-gitlab.iup.uni-heidelberg.de/users/sign_in).
-Your account will be an ["external" user account][ext_user], which gives you access to all public projects, including dantro, and allows to open issues there.
-
-If you would like to contribute with code development, [request access to the dantro project by clicking this link][request_access], or by visiting the project page.
-If you have questions regarding your account, feel free to [drop us an e-mail][devmail].
-
-
 ### Issues
 
 To ask questions, report a bug, or suggest a new feature or enhancement for dantro, we encourage you to [open an issue][new_issue] in the dantro GitLab project.
@@ -124,9 +113,9 @@ Of course, you can always contact the developer team [directly via e-mail][devma
 [ts_hp]: https://ts.iup.uni-heidelberg.de/
 [iup_hp]: https://www.iup.uni-heidelberg.de/
 [ext_user]: https://docs.gitlab.com/ee/user/permissions.html#external-users-core-only
-[dantro_project]: https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro
-[request_access]: https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/-/project_members/request_access
-[new_issue]: https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/issues/new?issue
+[dantro_project]: https://gitlab.com/utopia-project/dantro
+[request_access]: https://gitlab.com/utopia-project/dantro/-/project_members/request_access
+[new_issue]: https://gitlab.com/utopia-project/dantro/issues/new?issue
 [pep8]: https://www.python.org/dev/peps/pep-0008/
 [black]: https://black.readthedocs.io/en/stable/
 [zen]: https://www.python.org/dev/peps/pep-0020/

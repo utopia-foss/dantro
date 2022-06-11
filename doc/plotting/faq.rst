@@ -15,7 +15,7 @@ Aside from these FAQs, make sure to have a look :doc:`at other plotting-related 
 .. note::
 
     If you would like to add a question here, we are happy about contributions!
-    Please visit the `project page <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro>`_ to open an issue or get more information about contributing.
+    Please visit the `project page <https://gitlab.com/utopia-project/dantro>`_ to open an issue or get more information about contributing.
 
 ----
 
