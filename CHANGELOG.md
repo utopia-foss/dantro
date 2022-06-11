@@ -353,7 +353,7 @@
 - Other improvements:
     - #98 addresses an h5py deprecation warning regarding the default file mode
     - #106 adds the `AllAvailableLoadersMixin` to provide all available data loaders, making downstream import easier
-    - #102 makes the documentation available [online](https://hermes.iup.uni-heidelberg.de/dantro_doc/master/html/)
+    - #102 makes the documentation available [online](https://dantro.readthedocs.io/)
     - #107 extends and improves the documentation
 
 
@@ -466,7 +466,7 @@ with or without vertex properties (edge properties not yet implemented) from the
 
 ## v0.4.0
 - #24 adds a major new feature, the `ParamSpaceGroup`, which provides easy access to multidimensional datasets, represented by [`xarray.Dataset`](http://xarray.pydata.org/en/stable/data-structures.html#dataset)s.
-   - It can be used in place of the group that holds the results of, e.g. simulations, carried out via a [`paramspace`](https://ts-gitlab.iup.uni-heidelberg.de/yunus/paramspace) parameter sweep.
+   - It can be used in place of the group that holds the results of, e.g. simulations, carried out via a [`paramspace`](https://gitlab.com/blsqr/paramspace) parameter sweep.
    - Via the `select` function, a hyperslab of the underlying multidimensional data can be selected. The interface of this method is build with yaml configurations in mind, such that it can be used, e.g. in plot creators.
 - !17 implements some changes necessary for allowing a smooth transition of `deeevoLab` from `deval` to `dantro`, as implemented in yunus/deeevoLab!52. The changes involve:
    - Adding an `ObjectContainer` class that can hold arbitrary objects.

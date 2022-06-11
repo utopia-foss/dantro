@@ -113,12 +113,12 @@ In the following example, the ``ggplot`` style is used and subsequently adjusted
         ytick.labelsize : 16
 
 
-For the ``base_style`` entry, choose the name of a `matplotlib stylesheet <https://matplotlib.org/3.3.3/gallery/style_sheets/style_sheets_reference.html>`_.
-For valid RC parameters, see the `matplotlib customization documentation <https://matplotlib.org/3.3.3/tutorials/introductory/customizing.html>`_.
+For the ``base_style`` entry, choose the name of a `matplotlib stylesheet <https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html>`_.
+For valid RC parameters, see the `matplotlib customization documentation <https://matplotlib.org/stable/tutorials/introductory/customizing.html>`_.
 
 .. hint::
 
-    Even the `axes property cycle <https://matplotlib.org/3.3.3/tutorials/intermediate/color_cycle.html>`_, i.e. the ``axes.prop_cycle`` RC parameter, can be adjusted in this way.
+    Even the `axes property cycle <https://matplotlib.org/stable/tutorials/intermediate/color_cycle.html>`_, i.e. the ``axes.prop_cycle`` RC parameter, can be adjusted in this way.
     For example, to use a Tab20-based color cycle, specify:
 
     .. code-block:: yaml
@@ -173,7 +173,7 @@ To ensure that helpers stay disabled, regardless of configuration, you can call 
 
 .. hint::
 
-    The syntax for each individual helper is in large parts equivalent to matplotlib's `pyplot interface <https://matplotlib.org/3.3.3/api/_as_gen/matplotlib.pyplot.html#module-matplotlib.pyplot>`_.
+    The syntax for each individual helper is in large parts equivalent to matplotlib's `pyplot interface <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.html#module-matplotlib.pyplot>`_.
     It is however wrapped and simplified in some cases, e.g. by using just ``x`` and ``y`` as arguments and gathering such functionality under one helper.
 
     If you get it wrong, the error message aims to be helpful: it provides the full signature and docstring of the invoked helper such that you can adjust the parameters to the required format.
@@ -606,7 +606,7 @@ There are a few things to look out for:
     * While whatever happens before the registration of the animation function is also executed, the animation update function should be build such as to also include the initial frame of the animation.
       This is to allow the plot function itself to be more flexible and the animation update not requiring to distinguish between initial frame and other frames.
     * In the example above, the ``set_labels`` helper has to be invoked for each frame as ``hlpr.ax.clear`` removes it.
-      To avoid this, one could use the ``set_data`` method of the `Line2d <https://matplotlib.org/3.1.3/api/_as_gen/matplotlib.lines.Line2D.html>`_ object, which is returned by `matplotlib.pyplot.plot <https://matplotlib.org/3.1.3/api/_as_gen/matplotlib.pyplot.plot.html>`_, to update the data.
+      To avoid this, one could use the ``set_data`` method of the `Line2d <https://matplotlib.org/stable/api/_as_gen/matplotlib.lines.Line2D.html>`_ object, which is returned by `matplotlib.pyplot.plot <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.plot.html>`_, to update the data.
       Depending on the objects used in your plot functions, there might exist a similar solution.
 
 .. warning::
@@ -750,4 +750,4 @@ By overwriting it, import behaviour can be customized:
 
 .. note::
 
-    For an operational example in a more complex framework setting, see `the specialization used in the Utopia project <https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia/-/blob/master/python/utopya/utopya/plotting.py#L97>`_.
+    For an operational example in a more complex framework setting, see `the specialization used in the Utopia project <https://gitlab.com/utopia-project/utopia/-/blob/master/python/utopya/utopya/plotting.py#L97>`_.

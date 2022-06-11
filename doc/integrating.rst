@@ -46,7 +46,7 @@ Overall, we think that the up-front time investment of setting up the pipeline w
 
 .. hint::
 
-    If you encounter any questions or issues with the integration, please raise an issue `on the project page <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro>`_.
+    If you encounter any questions or issues with the integration, please raise an issue `on the project page <https://gitlab.com/utopia-project/dantro>`_.
     We are happy to assist and smooth out the pipeline integration process.
 
 .. note::
@@ -63,8 +63,8 @@ Overall, we think that the up-front time investment of setting up the pipeline w
 
     While all *relevant* parts of the code examples are already included on this page, you can inspect the **full source code** used for these examples:
 
-        * Python Code: :download:`download <../tests/test_integration.py>` or `view online <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/-/blob/master/tests/test_integration.py>`__
-        * YAML Configuration: :download:`download <../tests/cfg/integration.yml>` or `view online <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/-/blob/master/tests/cfg/integration.yml>`__
+        * Python Code: :download:`download <../tests/test_integration.py>` or `view online <https://gitlab.com/utopia-project/dantro/-/blob/master/tests/test_integration.py>`__
+        * YAML Configuration: :download:`download <../tests/cfg/integration.yml>` or `view online <https://gitlab.com/utopia-project/dantro/-/blob/master/tests/cfg/integration.yml>`__
 
     Note that these files are part of the automated tests and thus include a small number of additional definitions, e.g. to write output to a temporary directory instead of a local path.
 
@@ -507,7 +507,7 @@ We hope that this guide helps in integrating dantro into your project!
 
 .. note::
 
-    If you encounter any difficulties with this process, have a question or suggestion, or need support of any other kind, feel free to `open an issue <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/issues/new>`_ on the project page.
+    If you encounter any difficulties with this process, have a question or suggestion, or need support of any other kind, feel free to `open an issue <https://gitlab.com/utopia-project/dantro/issues/new>`_ on the project page.
     We are looking forward to your feedback!
 
 
@@ -606,16 +606,16 @@ Remarks
 * The dantro manager structures usually allow to pass strings instead of nested dicts for defining configurations, e.g. the ``plots_cfg``.
   Such a string is interpreted as a path to a YAML configuration file.
   This can alleviate loading the YAML files in the outer scope, e.g. the ``run_my_pipeline.py``.
-* We are `considering <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/-/issues/163>`_ to add a CLI interface directly to dantro to alleviate the need to define a ``run_my_pipeline.py`` file manually.
+* We are `considering <https://gitlab.com/utopia-project/dantro/-/issues/163>`_ to add a CLI interface directly to dantro to alleviate the need to define a ``run_my_pipeline.py`` file manually.
 
 
 .. _integrate_example_full_pipeline:
 
 Example of a full pipeline
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
-For an example of a fully integrated data processing pipeline that makes use of most dantro features, have a look at `the Utopia project <https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia/blob/master/python/utopya/utopya>`_.
+For an example of a fully integrated data processing pipeline that makes use of most dantro features, have a look at `the Utopia project <https://gitlab.com/utopia-project/utopia/blob/master/python/utopya/utopya>`_.
 The specializations described above are implemented in the ``datacontainer``, ``datagroup``, ``plotting`` and ``datamngr`` modules shown above.
-User-defined plotting functions for the customized plot creators can be found in `a separate plotting module <https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia/-/tree/master/python/model_plots>`_.
+User-defined plotting functions for the customized plot creators can be found in `a separate plotting module <https://gitlab.com/utopia-project/utopia/-/tree/master/python/model_plots>`_.
 
 
 .. _integrate_data_gen_and_store_source_code:

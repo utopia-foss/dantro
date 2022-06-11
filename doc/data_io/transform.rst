@@ -1003,7 +1003,7 @@ Mainly, specifying a fallback may be difficult in practice because other tags ma
 
 The tags specified by ``select`` are added in *alphabetical order* and before any transformations from ``transform`` are added to the DAG.
 Subsequently, lookups within one ``select`` field are only possible from within ``select`` and for fields that appeared *sooner* in that alphabetical order.
-(See `this issue <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/-/issues/265>`_ for a potential improvement to this behavior.)
+(See `this issue <https://gitlab.com/utopia-project/dantro/-/issues/265>`_ for a potential improvement to this behavior.)
 
 Using a tagged reference in the ``fallback`` works in the following example because ``'_some_fallback_data' < 'mean_data'``:
 

@@ -19,7 +19,7 @@ For installation instructions, have a look at the README.
 .. hint::
 
     The code snippets shown on this page are implemented as **test cases** to assert that they function as intended.
-    To have a look at the full source code used in the examples below, you can :download:`download the relevant file <../tests/test_doc_examples.py>` or `view it online <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro/-/blob/master/tests/test_doc_examples.py>`_.
+    To have a look at the full source code used in the examples below, you can :download:`download the relevant file <../tests/test_doc_examples.py>` or `view it online <https://gitlab.com/utopia-project/dantro/-/blob/master/tests/test_doc_examples.py>`_.
 
     Note that the integration into the test framework requires some additional code in those files, e.g. to generate dummy data.
 

@@ -153,4 +153,4 @@ Subsequently, when handling data that is structured this way, parts of dantro (m
     At the end of the day, these are still metaphors.
     However, in the context of simulation-based research, we hope that they simplify the vocabulary with which researchers talk about computer models and their output.
 
-    These thoughts also inspired parts of the frontend of the `Utopia project <https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia>`_, where a ``Multiverse`` object coordinates the simulation of individual *universes* using the dantro and paramspace objects showcased above.
+    These thoughts also inspired parts of the frontend of the `Utopia project <https://gitlab.com/utopia-project/utopia>`_, where a ``Multiverse`` object coordinates the simulation of individual *universes* using the dantro and paramspace objects showcased above.

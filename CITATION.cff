@@ -27,7 +27,7 @@ authors:
 # Other package-related metadata
 version: v0.14
 license: LGPL-3.0+
-repository-code: https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro
+repository-code: https://gitlab.com/utopia-project/dantro
 keywords:
   - Python
   - YAML

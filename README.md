@@ -257,12 +257,12 @@ dantro has been developed by (in alphabetical order):
 
 Contact the developers via: [`dantro-dev@iup.uni-heidelberg.de`][devmail]
 
-[dantro-project]: https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro
+[dantro-project]: https://gitlab.com/utopia-project/dantro
 [dantro-docs]: https://dantro.readthedocs.io/
 [pypi-dantro]: https://pypi.org/project/dantro/
 [conda-forge-dantro]: https://anaconda.org/conda-forge/dantro
 
-[utopia-project]: https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia
+[utopia-project]: https://gitlab.com/utopia-project/utopia
 
 [dantro-joss-doi]: https://doi.org/10.21105/joss.02316
 

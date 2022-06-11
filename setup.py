@@ -89,7 +89,7 @@ configuration files and without requiring code changes.
 
 The ``dantro`` package is **open source software** released under the
 `LGPLv3+ <https://www.gnu.org/licenses/lgpl-3.0.html>`_ license.
-It was developed alongside the `Utopia project <https://ts-gitlab.iup.uni-heidelberg.de/utopia/utopia>`_
+It was developed alongside the `Utopia project <https://gitlab.com/utopia-project/utopia>`_
 (a modelling framework for complex and adaptive systems), but is an
 independent package.
 
@@ -97,8 +97,8 @@ Learn more
 ----------
 
 * `Documentation <https://dantro.readthedocs.io/>`_
-* `Project page <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro>`_
-* `README and installation instructions <https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro#installing-dantro>`_
+* `Project page <https://gitlab.com/utopia-project/dantro>`_
+* `README and installation instructions <https://gitlab.com/utopia-project/dantro#installing-dantro>`_
 * `Publication in the Journal of Open Source Software <https://doi.org/10.21105/joss.02316>`_
 * `Utopia Project Website <https://utopia-project.org/>`_
 
@@ -143,7 +143,7 @@ setup(
     author="dantro developers",
     author_email="dantro-dev@iup.uni.heidelberg.de",
     license="LGPL-3.0-or-later",
-    url="https://ts-gitlab.iup.uni-heidelberg.de/utopia/dantro",
+    url="https://gitlab.com/utopia-project/dantro",
     classifiers=[
         "Intended Audience :: Science/Research",
         "Programming Language :: Python :: 3.8",
