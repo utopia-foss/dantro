@@ -893,6 +893,8 @@ class ExternalPlotCreator(BasePlotCreator):
         """Constructs the matplotlib style context manager, if parameters were
         given, otherwise returns the DoNothingContext
         """
+        import matplotlib.pyplot as plt  # FIXME Should not be necessary
+
         if rc_params:
             log.remark(
                 "Using custom style context with %d entries ...",
@@ -993,6 +995,9 @@ class ExternalPlotCreator(BasePlotCreator):
             hlpr.setup_figure()
 
             # Call the plot function
+            plot_func_name = plot_func.__name__
+            log.info("Now calling plotting function '%s' ...", plot_func_name)
+
             plot_func(*plot_args, **plot_kwargs)
             # NOTE This plot is NOT saved as the first frame in order to allow
             #      the animation update generator be a more general method.
@@ -1009,7 +1014,7 @@ class ExternalPlotCreator(BasePlotCreator):
             ):
 
                 # Create the iterator for the animation
-                log.debug("Invoking animation update generator ...")
+                log.info("Invoking animation update generator ...")
                 anim_it = hlpr.animation_update(
                     **(
                         animation_update_kwargs
@@ -1045,7 +1050,7 @@ class ExternalPlotCreator(BasePlotCreator):
 
         # Exited externally given style context and figure_leak_prevention.
         # Done now.
-        log.debug("Animation finished after %s frames.", frame_no + 1)
+        log.note("Animation finished after %s frames.", frame_no + 1)
 
     # .........................................................................
     # Helpers: PlotManager's auto-detection feature

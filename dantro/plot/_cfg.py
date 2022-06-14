@@ -55,9 +55,10 @@ def _find_in_pool(
     the current ``based_on`` is resolved from.
     """
     for i, (pool_name, pool_cfgs) in enumerate(reversed(base_pools.items())):
-        if (pool_name, name) in skip:
+        if (pool_name, name) in skip or pool_cfgs is None:
             log.debug("Skipping '%s::%s'...", pool_name, name)
             continue
+
         try:
             pcfg = pool_cfgs[name]
             log.debug("Found '%s' in pool '%s'.", name, pool_name)
@@ -67,7 +68,11 @@ def _find_in_pool(
 
     else:
         # Failed to find one. Generate a useful error message
-        all_names = set(_chain(*[pc.keys() for _, pc in base_pools.items()]))
+        all_names = set(
+            _chain(
+                *[pc.keys() for _, pc in base_pools.items() if pc is not None]
+            )
+        )
         matches = _get_close_matches(name, all_names, n=5)
         _dym = ""
         if matches:
@@ -77,6 +82,7 @@ def _find_in_pool(
             [
                 f"--- Pool '{name}'\n{make_columns(pc.keys())}"
                 for name, pc in reversed(base_pools.items())
+                if pc is not None
             ]
         )
         raise PlotConfigError(
