@@ -1024,6 +1024,8 @@ _OPERATIONS = KeyOrderedDict({
         lambda ms, *a, **k: get_from_module(scipy, name=ms)(*a, **k),
     'nx.':
         lambda ms, *a, **k: get_from_module(nx, name=ms)(*a, **k),
+    'pd.':
+        lambda ms, *a, **k: get_from_module(pd, name=ms)(*a, **k),
 
     # Defining lambdas
     'lambda':       generate_lambda,
@@ -1245,6 +1247,7 @@ _OPERATIONS = KeyOrderedDict({
     'np.ceil':          np.ceil,
     'np.floor':         np.floor,
     'np.round':         np.round,
+    'np.fmod':          np.fmod,
 
     'np.where':         np.where,
     'np.digitize':      np.digitize,

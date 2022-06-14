@@ -1185,7 +1185,7 @@ def facet_grid(
 
 # -- Additional facet-grid supporting plots -----------------------------------
 
-
+# TODO Should support errors along x as well!
 @make_facet_grid_plot(
     map_as="dataset",
     encodings=("x", "hue"),
