@@ -6,7 +6,6 @@ from typing import Union
 from ..abc import AbstractDataContainer, AbstractDataGroup
 from .base import ItemAccessMixin
 
-# Local constants
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
@@ -57,7 +56,7 @@ class IntegerItemAccessMixin:
 class PaddedIntegerItemAccessMixin(IntegerItemAccessMixin):
     """This mixin allows accessing items via integer keys that map to members
     that have a zero-padded integer name. It can only be used as mixin for
-    AbstractDataGroup-derived classes!
+    :py:class:`~dantro.abc.AbstractDataGroup`-derived classes!
 
     The ``__contains__`` magic method is also supported in this mixin.
 
@@ -67,20 +66,22 @@ class PaddedIntegerItemAccessMixin(IntegerItemAccessMixin):
         the ``__contains__`` magic method independently from this mixin!
     """
 
-    # The number of digits of the padded string representing the integer
     _PADDED_INT_KEY_WIDTH = None
+    """The number of digits of the padded string representing the integer"""
 
-    # The format string to generate a padded integer; deduced upon first call
     _PADDED_INT_FSTR = None
+    """The format string to generate a padded integer; deduced upon first call
+    """
 
-    # Whether to use strict checking when parsing keys, i.e.: check that the
-    # range of keys is valid and an error is thrown when an integer key was
-    # given that cannot be represented consistently by a padded string of the
-    # determined key width.
     _PADDED_INT_STRICT_CHECKING = True
+    """Whether to use strict checking when parsing keys, i.e.: check that the
+    range of keys is valid and an error is thrown when an integer key was
+    given that cannot be represented consistently by a padded string of the
+    determined key width."""
 
-    # The allowed maximum value of an integer key; checked only in strict mode
     _PADDED_INT_MAX_VAL = None
+    """The allowed maximum value of an integer key; checked only in strict mode
+    """
 
     # .........................................................................
 
@@ -103,15 +104,14 @@ class PaddedIntegerItemAccessMixin(IntegerItemAccessMixin):
         """
         if self._PADDED_INT_FSTR:
             raise ValueError(
-                "Padded integer key width is already set for {}; "
-                "cannot set it again!".format(self.logstr)
+                f"Padded integer key width is already set for {self.logstr}; "
+                "cannot set it again!"
             )
 
         elif key_width <= 0:
             raise ValueError(
-                "Argument `key_width` to padded_int_key_width "
-                "setter property of {} needs to be positive, was "
-                "'{}'!".format(self.logstr, key_width)
+                "Argument `key_width` to padded_int_key_width setter property "
+                f"of {self.logstr} needs to be positive, was '{key_width}'!"
             )
 
         # Deduce the key width by going over all member names

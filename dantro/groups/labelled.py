@@ -152,7 +152,7 @@ class LabelledDataGroup(OrderedDataGroup):
         self._allow_deep_selection = val
 
     @property
-    def member_map(self) -> "xr.DataArray":
+    def member_map(self) -> "xarray.DataArray":
         """Returns an array that represents the space that the members of this
         group span, where each value (i.e. a specific coordinate combination)
         is the name of the corresponding member of this group.
@@ -231,9 +231,9 @@ class LabelledDataGroup(OrderedDataGroup):
         combination_method: str = "auto",
         deep: bool = None,
         **indexers_kwargs,
-    ) -> "xr.DataArray":
-        """Return a new labelled `xr.DataArray` with an index-selected subset
-        of members of this group.
+    ) -> "xarray.DataArray":
+        """Return a new labelled :py:class:`xarray.DataArray` with an
+        index-selected subset of members of this group.
 
         If deep selection is activated, those indexers that are not available
         in the group-managed dimensions are looked up in the members of this
@@ -243,17 +243,17 @@ class LabelledDataGroup(OrderedDataGroup):
 
             For data combination (via *any* ``combination_method``)
             dimensions that differ in size across group members have to be
-            labelled, such that arrays can be
-            `aligned <http://xarray.pydata.org/en/stable/generated/xarray.align.html>`_
-            using the respective coordinates.
+            labelled, such that arrays can be aligned using xarray's
+            :py:func:`xarray.align` function and the respective coordinates.
             See `the xarray documentation <https://xarray.pydata.org/en/stable/user-guide/data-structures.html#coordinates>`__
             for more information about coordinates.
+
 
         Args:
             indexers (dict, optional): A dict with keys matching dimensions and
                 values given by scalars, slices or arrays of tick indices.
-                As `xr.DataArray.isel`, uses pandas-like indexing, i.e.: slices
-                do not include the terminal value.
+                As :py:meth:`xarray.DataArray.isel`, uses pandas-like
+                indexing, i.e.: slices do not include the terminal value.
             drop (bool, optional): Whether to drop coordinate variables instead
                 of making them scalar.
             combination_method (str, optional): How to combine group-level data
@@ -262,10 +262,10 @@ class LabelledDataGroup(OrderedDataGroup):
 
                     * ``concat``: Concatenate. This can preserve the dtype, but
                       requires that no data is missing.
-                    * ``merge``: Merge, using ``xarray.merge``. This leads to a
-                      type conversion to ``float64``, but allows members being
-                      missing or coordinates not fully filling the available
-                      space.
+                    * ``merge``: Merge, using :py:func:`xarray.merge`. This
+                      leads to a type conversion to ``float64``, but allows
+                      members being missing or coordinates not fully filling
+                      the available space.
                     * ``try_concat``: Try concatenation, fall back to merging
                       if that was unsuccessful.
                     * ``auto``: Automatically deduce suitably combination
@@ -286,8 +286,8 @@ class LabelledDataGroup(OrderedDataGroup):
             **indexers_kwargs: Additional indexers
 
         Returns:
-            xr.DataArray: The selected data, potentially a combination of data
-                on group level and member-level data.
+            xarray.DataArray: The selected data, potentially a combination of
+                data on group level and member-level data.
         """
         idxrs, deep_idxrs = self._parse_indexers(
             indexers, allow_deep=deep, **indexers_kwargs
@@ -311,9 +311,9 @@ class LabelledDataGroup(OrderedDataGroup):
         combination_method: str = "auto",
         deep: bool = None,
         **indexers_kwargs,
-    ) -> "xr.DataArray":
-        """Return a new labelled `xr.DataArray` with a coordinate-selected
-        subset of members of this group.
+    ) -> "xarray.DataArray":
+        """Return a new labelled :py:class:`xarray.DataArray` with a
+        coordinate-selected subset of members of this group.
 
         If deep selection is activated, those indexers that are not available
         in the group-managed dimensions are looked up in the members of this
@@ -323,9 +323,8 @@ class LabelledDataGroup(OrderedDataGroup):
 
             For data combination (via *any* ``combination_method``)
             dimensions that differ in size across group members have to be
-            labelled, such that arrays can be
-            `aligned <http://xarray.pydata.org/en/stable/generated/xarray.align.html>`_
-            using the respective coordinates.
+            labelled, such that arrays can be aligned using xarray's
+            :py:func:`xarray.align` function and the respective coordinates.
             See `the xarray documentation <https://xarray.pydata.org/en/stable/user-guide/data-structures.html#coordinates>`__
             for more information about coordinates.
 
@@ -333,8 +332,8 @@ class LabelledDataGroup(OrderedDataGroup):
         Args:
             indexers (dict, optional): A dict with keys matching dimensions and
                 values given by scalars, slices or arrays of tick labels.
-                As `xr.DataArray.sel`, uses pandas-like indexing, i.e.: slices
-                include the terminal value.
+                As :py:meth:`xarray.DataArray.sel`, uses pandas-like indexing,
+                i.e.: slices include the terminal value.
             method (str, optional): Method to use for inexact matches
             tolerance (float, optional): Maximum (absolute) distance between
                 original and given label for inexact matches.
@@ -346,10 +345,10 @@ class LabelledDataGroup(OrderedDataGroup):
 
                     * ``concat``: Concatenate. This can preserve the dtype, but
                       requires that no data is missing.
-                    * ``merge``: Merge, using ``xarray.merge``. This leads to a
-                      type conversion to ``float64``, but allows members being
-                      missing or coordinates not fully filling the available
-                      space.
+                    * ``merge``: Merge, using :py:func:`xarray.merge`. This
+                      leads to a type conversion to ``float64``, but allows
+                      members being missing or coordinates not fully filling
+                      the available space.
                     * ``try_concat``: Try concatenation, fall back to merging
                       if that was unsuccessful.
                     * ``auto``: Automatically deduce suitably combination
@@ -534,7 +533,7 @@ class LabelledDataGroup(OrderedDataGroup):
         by_index: bool,
         drop: bool,
         **sel_kwargs,
-    ) -> "xr.DataArray":
+    ) -> "xarray.DataArray":
         """Process the given container and coordinates into a data array;
         this applies selection along container dimensions that overlap with
         the group dimensions as well as deep selection.
@@ -549,10 +548,10 @@ class LabelledDataGroup(OrderedDataGroup):
             by_index (bool): Whether to select by index
             drop (bool): Whether to drop coordinate variables instead
                 of making them scalar.
-            **sel_kwargs: Passed to ``.sel``.
+            **sel_kwargs: Passed to :py:meth:`.sel`.
 
         Returns:
-            xr.DataArray: The processed container data
+            xarray.DataArray: The processed container data
 
         Raises:
             ValueError: In ``name`` mode, on conflicting non-dimension
@@ -664,7 +663,7 @@ class LabelledDataGroup(OrderedDataGroup):
         by_index: bool,
         drop: bool,
         **sel_kwargs,
-    ) -> "xr.DataArray":
+    ) -> "xarray.DataArray":
         """Preselect the member map (if needed) and designate a suitable method
         for further processing and selection based on the given combination
         method and indexers.
@@ -680,10 +679,10 @@ class LabelledDataGroup(OrderedDataGroup):
             by_index (bool): Whether to select by index.
             drop (bool): Whether to drop coordinate variables instead
                 of making them scalar.
-            **sel_kwargs: Passed to ``.sel``.
+            **sel_kwargs: Passed to :py:meth:`.sel`.
 
         Returns:
-            xr.DataArray: The selected data.
+            xarray.DataArray: The selected data.
 
         Raises:
             ValueError: On invalid ``combination_method``.
@@ -752,13 +751,13 @@ class LabelledDataGroup(OrderedDataGroup):
 
     def _select_single(
         self,
-        cont_names: "xr.DataArray",
+        cont_names: "xarray.DataArray",
         shallow_indexers: dict,
         deep_indexers: dict,
         by_index: bool,
         drop: bool,
         **sel_kwargs,
-    ) -> "xr.DataArray":
+    ) -> "xarray.DataArray":
         """Select data from a single group member. Expects the preselected
         member map to contain only a single valid container name.
         """
@@ -806,7 +805,7 @@ class LabelledDataGroup(OrderedDataGroup):
 
         return darr
 
-    def _select_all_merge(self) -> "xr.DataArray":
+    def _select_all_merge(self) -> "xarray.DataArray":
         """Select all group data by directly merging all containers. This
         circumvents building the member map. This might fail, e.g. if there are
         conflicting or duplicate coordinates.
@@ -835,7 +834,7 @@ class LabelledDataGroup(OrderedDataGroup):
 
     def _select_generic(
         self,
-        cont_names: "xr.DataArray",
+        cont_names: "xarray.DataArray",
         *,
         combination_method: str,
         shallow_indexers: dict,
@@ -843,7 +842,7 @@ class LabelledDataGroup(OrderedDataGroup):
         by_index: bool,
         drop: bool,
         **sel_kwargs,
-    ) -> "xr.DataArray":
+    ) -> "xarray.DataArray":
         """Select data from group members using the given indexers and combine
         it via the specified method. If deep indexers are given, apply the deep
         indexing on each of the members.
@@ -854,17 +853,19 @@ class LabelledDataGroup(OrderedDataGroup):
         array that contains both the dimensions given by the ``cont_names``
         array and each members' data dimensions.
 
-        Available combination methods are based either on ``xarray.merge``
-        operations or ``xarray.concat`` along each dimension. For both these
-        combination methods, the members of this group need to be prepared such
-        that the operation can be applied, i.e.: they need to already be in an
-        array capable of that operation and they need to directly or indirectly
-        preserve coordinate information.
+        Available combination methods are based either on
+        :py:func:`xarray.merge` operations or :py:func:`xarray.concat` along
+        each dimension.
+        For both these combination methods, the members of this group need to
+        be prepared such that the operation can be applied, i.e.: they need to
+        already be in an array capable of that operation and they need to
+        directly or indirectly preserve coordinate information.
 
         For that purpose, an object-array is constructed holding the processed
-        member data. As the ``xarray.Dataset`` and ``xarray.DataArray`` types
-        have issues with handling array-like objects in object arrays, this is
-        done via a ``numpy.ndarray``.
+        member data. As the :py:class:`xarray.Dataset` and
+        :py:class:`xarray.DataArray` types have issues with handling
+        array-like objects in object arrays, this is done via a
+        :py:class:`numpy.ndarray`.
 
         Args:
             cont_names (xr.DataArray): The pre-selected member map object, i.e.
@@ -879,11 +880,11 @@ class LabelledDataGroup(OrderedDataGroup):
                 done before combination.
             by_index (bool): Whether the deep indexing should take place by
                 index; if False, will use label-based selection.
-            **sel_kwargs: Passed on to ``.sel``.
+            **sel_kwargs: Passed on to :py:meth:`.sel`.
 
         Returns:
-            xr.Dataset: The selected data of the members from ``cont_names``,
-                combined using the given combination method.
+            xarray.Dataset: The selected data of the members from
+                ``cont_names``, combined using the given combination method.
 
         Raises:
             ValueError: On conflicting coordinate information on group-level
@@ -1072,15 +1073,17 @@ class LabelledDataGroup(OrderedDataGroup):
         return darr
 
     @classmethod
-    def _combine_by_merge(cls, dsets: np.ndarray) -> "xr.Dataset":
-        """Combine the given datasets by merging using ``xarray.merge``.
+    def _combine_by_merge(cls, dsets: np.ndarray) -> "xarray.Dataset":
+        """Combine the given datasets by merging using xarray's
+        :py:func:`xarray.merge`.
 
         Args:
-            dsets (np.ndarray): The object-dtype array of xr.Datasets that are
-                to be combined.
+            dsets (np.ndarray): The ``object``-dtype array of
+                :py:class:`xarray.Dataset` objects that are to be combined.
 
         Returns:
-            xr.Dataset: All datasets, aligned and combined via ``xarray.merge``
+            xarray.Dataset: All datasets, aligned and combined via
+                :py:func:`xarray.merge`
         """
         log.debug("Combining %d datasets by merging ...", dsets.size)
 
@@ -1092,18 +1095,20 @@ class LabelledDataGroup(OrderedDataGroup):
     @classmethod
     def _combine_by_concatenation(
         cls, dsets: np.ndarray, *, dims: TDims
-    ) -> "xr.Dataset":
-        """Combine the given datasets by concatenation using ``xarray.concat``
-        and subsequent application along all dimensions specified in ``dims``.
+    ) -> "xarray.Dataset":
+        """Combine the given datasets by concatenation using xarray's
+        :py:func:`xarray.concat` and subsequent application along all
+        dimensions specified in ``dims``.
 
         Args:
-            dsets (np.ndarray): The object-dtype array of xr.Dataset objects
-                that are to be combined by concatenation.
-            dims (TDims): The dimension names corresponding to _all_ the
+            dsets (np.ndarray): The object-dtype array of
+                :py:class:`xr.Dataset` objects that are to be combined by
+                concatenation.
+            dims (TDims): The dimension names corresponding to *all* the
                 dimensions of the ``dsets`` array.
 
         Returns:
-            xr.Dataset: The dataset resulting from the concatenation
+            xarray.Dataset: The dataset resulting from the concatenation
         """
         log.debug(
             "Combining %d datasets by concatenation along %d dimension%s ...",

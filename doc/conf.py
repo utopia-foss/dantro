@@ -340,6 +340,7 @@ intersphinx_mapping = {
     "pandas":       ("https://pandas.pydata.org/docs/", None),
     "scipy":        ("https://docs.scipy.org/doc/scipy/", None),
     "xarray":       ("https://docs.xarray.dev/en/stable/", None),
+    "networkx":     ("https://networkx.org/documentation/stable/", None),
     # "ruamel.yaml":  ("https://yaml.readthedocs.io/en/latest/", None),# broken
     "paramspace":   ("https://paramspace.readthedocs.io/en/latest/", None),
 }

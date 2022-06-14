@@ -1,8 +1,8 @@
 """This module implements general mixin classes for containers and groups"""
 
 import logging
+from typing import Sequence
 
-# Local variables
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
@@ -16,15 +16,16 @@ class ForwardAttrsMixin:
     that include this mixin remain pickleable.
     """
 
-    # The name of the existing attribute to forward to. For None, this behaves
-    # as if no forwarding would occur, i.e. as if __getattr__ was not called.
-    FORWARD_ATTR_TO = None
+    FORWARD_ATTR_TO: str = None
+    """The name of the existing attribute to forward to. For None, this behaves
+    as if no forwarding would occur, i.e. as if ``__getattr__`` was not called.
+    """
 
-    # If set, the only attributes to be forwarded
-    FORWARD_ATTR_ONLY = None
+    FORWARD_ATTR_ONLY: Sequence[str] = None
+    """If set, the only attributes to be forwarded"""
 
-    # Attributes to _not_ forward. Evaluated after ``FORWARD_ATTR_ONLY``
-    FORWARD_ATTR_EXCLUDE = ()
+    FORWARD_ATTR_EXCLUDE: Sequence[str] = ()
+    """Attributes to *not* forward. Evaluated after ``FORWARD_ATTR_ONLY``"""
 
     def __getstate__(self) -> dict:
         """Returns the object's ``__dict__``"""
@@ -43,7 +44,8 @@ class ForwardAttrsMixin:
                 accessed but was not available in ``self``.
 
         Returns:
-            The attribute ``attr_name`` of getattr(self, self.FORWARD_ATTR_TO)
+            The attribute ``attr_name`` of
+            ``getattr(self, self.FORWARD_ATTR_TO)``
         """
         if self.FORWARD_ATTR_TO is None:
             raise AttributeError(attr_name)
@@ -80,7 +82,7 @@ class ForwardAttrsMixin:
 
 
 class ForwardAttrsToDataMixin(ForwardAttrsMixin):
-    """This Mixin class forwards all calls to unavailable attributes to the
+    """This mixin class forwards all calls to unavailable attributes to the
     ``data`` attribute (a property) and thus allows to replace all behaviour
     that is not implemented in the group or container with that of the stored
     data.

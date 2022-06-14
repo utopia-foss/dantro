@@ -1,5 +1,7 @@
-"""In this module, BaseDataContainer specializations that make use of features
-from the paramspace package are implemented.
+"""This module implements :py:class:`~dantro.base.BaseDataContainer`
+specializations that make use of features from the
+`paramspace <https://gitlab.com/blsqr/paramspace>`_ package, in particular the
+:py:class:`~paramspace.paramspace.ParamSpace` class.
 """
 
 import copy
@@ -25,7 +27,7 @@ xr = LazyLoader("xarray")
 
 
 class ParamSpaceStateGroup(OrderedDataGroup):
-    """A ParamSpaceStateGroup is a member group of the
+    """A ParamSpaceStateGroup is meant to be used as a member group of the
     :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`.
 
     While its *own* name need be interpretable as a positive integer (enforced
@@ -73,7 +75,8 @@ class ParamSpaceStateGroup(OrderedDataGroup):
 
 
 class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
-    """The ParamSpaceGroup is associated with a ParamSpace object and the
+    """The ParamSpaceGroup is associated with a
+    :py:class:`paramspace.paramspace.ParamSpace` object and the
     loaded results of an iteration over this parameter space.
 
     Thus, the groups that are stored in the ParamSpaceGroup need all relate to
@@ -142,7 +145,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
     @pspace.setter
     def pspace(self, val: ParamSpace):
         """If not already set, sets the entry in the attributes that is
-        accessed by the .pspace property
+        accessed by the ``.pspace`` property
         """
         if self.pspace is not None:
             raise RuntimeError(
@@ -180,10 +183,10 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
         idx_as_label: bool = False,
         base_path: str = None,
         **kwargs,
-    ) -> "xr.Dataset":
+    ) -> "xarray.Dataset":
         """Selects a multi-dimensional slab of this ParamSpaceGroup and the
-        specified fields and returns them bundled into an ``xarray.Dataset``
-        with labelled dimensions and coordinates.
+        specified fields and returns them bundled into an
+        :py:class:`xarray.Dataset` with labelled dimensions and coordinates.
 
         Args:
             field (Union[str, List[str]], optional): The field of data to
@@ -220,14 +223,15 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
 
         Raises:
             KeyError: On invalid state key.
-            ValueError: Raised in multiple scenarios: If no ParamSpace was
+            ValueError: Raised in multiple scenarios: If no
+                :py:class:`~paramspace.paramspace.ParamSpace` was
                 associated with this group, for wrong argument values, if the
                 data to select cannot be extracted with the given argument
                 values, exceptions passed on from xarray.
 
         Returns:
-            xr.Dataset: The selected hyperslab of the parameter space, holding
-                the desired fields.
+            xarray.Dataset: The selected hyperslab of the parameter space,
+                holding the desired fields.
         """
 
         def parse_fields(*, field, fields) -> dict:

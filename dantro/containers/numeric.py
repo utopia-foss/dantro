@@ -1,5 +1,7 @@
-"""This module implements specializations of the BaseDataContainer class
-that focus on holding numerical, array-like data"""
+"""This module implements specializations of the
+:py:class:`~dantro.base.BaseDataContainer` class that focus on holding
+numerical, array-like data.
+"""
 
 import logging
 
@@ -14,7 +16,6 @@ from ..mixins import (
     NumbersMixin,
 )
 
-# Local constants
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
@@ -30,7 +31,7 @@ class NumpyDataContainer(
 ):
     """The NumpyDataContainer stores numerical array-shaped data.
 
-    Specifically: it is made for use with the np.ndarray class.
+    Specifically: it is made for use with the :py:class:`numpy.ndarray` class.
     """
 
     # Specify expected data types for this container class
@@ -39,7 +40,8 @@ class NumpyDataContainer(
     DATA_UNEXPECTED_ACTION = "raise"
 
     def __init__(self, *, name: str, data: np.ndarray, **dc_kwargs):
-        """Initialize a NumpyDataContainer, storing data that is ndarray-like.
+        """Initialize a NumpyDataContainer, storing data that behaves mostly
+        like a :py:class:`numpy.ndarray`.
 
         Arguments:
             name (str): The name of this container
@@ -89,8 +91,8 @@ class NumpyDataContainer(
         )
 
     def save(self, path: str, **save_kwargs):
-        """Saves the NumpyDataContainer to a file by invoking the np.save
-        function on the underlying data.
+        """Saves the NumpyDataContainer to a file by invoking the
+        :py:func:`numpy.save` function on the underlying data.
 
         The file extension should be ``.npy``, which is compatible with the
         numpy-based data loader. If another file extension is given, the numpy
@@ -102,6 +104,6 @@ class NumpyDataContainer(
 
         Args:
             path (str): The path to save the file at
-            **save_kwargs: Passed to the np.save method
+            **save_kwargs: Passed to the :py:func:`numpy.save` function
         """
         np.save(path, self.data, **save_kwargs)
