@@ -44,28 +44,27 @@ from .utils import (
 
 log = logging.getLogger(__name__)
 
+# A locally used time formatting function
+_fmt_time = lambda seconds: _format_time(seconds, ms_precision=2)
+
 # Lazy module imports
 xr = LazyLoader("xarray")
 pkl = LazyLoader("dill")
 
-# The path within the DAG's associated DataManager to which caches are loaded
 DAG_CACHE_DM_PATH = "cache/dag"
+"""The path within the :py:class:`~dantro.dag.TransformationDAG` associated
+:py:class:`~dantro.data_mngr.DataManager` to which caches are loaded
+"""
 
-# Types of containers that should be unpacked after loading from cache because
-# having them wrapped into a dantro object is not desirable after loading them
-# from cache (e.g. because the name attribute is shadowed by tree objects ...)
 DAG_CACHE_CONTAINER_TYPES_TO_UNPACK = (
     ObjectContainer,
     XrDataContainer,
 )
+"""Types of containers that should be unpacked after loading from cache because
+having them wrapped into a dantro object is not desirable after loading them
+from cache (e.g. because the name attribute is shadowed by tree objects ...)
+"""
 
-# Time formatting function
-fmt_time = lambda seconds: _format_time(seconds, ms_precision=2)
-
-# Functions that can store the DAG computation result objects, distinguishing
-# by their type.
-# NOTE It is important that these methods all _overwrite_ an already existing
-#      file at the given location _by default_!
 # fmt: off
 DAG_CACHE_RESULT_SAVE_FUNCS = {
     # Specific dantro types
@@ -87,6 +86,11 @@ DAG_CACHE_RESULT_SAVE_FUNCS = {
         lambda obj, p, **kws: obj.to_netcdf(p + ".nc_ds", **kws)
     ),
 }
+"""Functions that can store the DAG computation result objects, distinguishing
+by their type.
+"""
+# NOTE It is important that these methods all _overwrite_ an already existing
+#      file at the given location _by default_!
 # fmt: on
 
 
@@ -99,7 +103,7 @@ class Transformation:
     Transformation objects store the name of the operation that is to be
     carried out and the arguments that are to be fed to that operation. After
     a Transformation is defined, the only interaction with them is via the
-    ``compute`` method.
+    :py:meth:`.compute` method.
 
     For computation, the arguments are recursively inspected for whether there
     are any DAGReference-derived objects; these need to be resolved first,
@@ -113,10 +117,10 @@ class Transformation:
         they were created! For performance reasons, the
         :py:attr:`~dantro.dag.Transformation.hashstr` property is cached; thus,
         changing attributes that are included into the hash computation will
-        not lead to a new hash, thus silently creating wrong behaviour.
+        not lead to a new hash, hence silently creating wrong behaviour.
 
-        All relevant attributes (operation, args, kwargs, salt) are thus set
-        read-only. This should be respected!
+        All relevant attributes (``operation``, ``args``, ``kwargs``, ``salt``)
+        are thus set read-only. This should be respected!
     """
 
     __slots__ = (
@@ -222,7 +226,7 @@ class Transformation:
                         is not computed but looked up from the cache.
                     storage_options (dict, optional):
                         Passed on to the cache storage method,
-                        :py:meth:`dantro.dag.TransformationDAG._write_to_cache_file`.
+                        :py:meth:`._write_to_cache_file`.
                         The following arguments are available:
 
                         ignore_groups (bool, optional):
@@ -892,7 +896,7 @@ class TransformationDAG:
                 framework; for information on how to define and use them, see
                 :ref:`dag_meta_ops`.
             exclude_from_all (List[str], optional): Tag names that should not
-                be defined as :py:meth:`~dantro.dag.TransformationDAG.compute`
+                be defined as :py:meth:`.compute`
                 targets if ``compute_only: all`` is set there.
                 Note that, alternatively, tags can be named starting with
                 ``.`` or ``_`` to exclude them from that list.
@@ -1010,7 +1014,7 @@ class TransformationDAG:
         """The names of all registered meta-operations.
 
         To register new meta-operations, use the dedicated registration method,
-        :py:meth:`~dantro.dag.TransformationDAG.register_meta_operation`.
+        :py:meth:`.register_meta_operation`.
         """
         return list(self._meta_ops)
 
@@ -1501,7 +1505,7 @@ class TransformationDAG:
 
         .. note::
 
-            The current :py:attr:`~dantro.dag.TransformationDAG.select_base`
+            The current :py:attr:`.select_base`
             property value is used as basis for all ``getitem`` operations.
 
         Args:
@@ -1651,7 +1655,7 @@ class TransformationDAG:
 
             _dtt = time.time() - _tt
             if _dtt > 1.0:
-                log.remark("Finished in %s.", fmt_time(_dtt))
+                log.remark("Finished in %s.", _fmt_time(_dtt))
 
         # Update profiling information
         t1 = time.time()
@@ -1662,7 +1666,7 @@ class TransformationDAG:
             "Computed %d tag%s in %s.",
             len(compute_only),
             "s" if len(compute_only) != 1 else "",
-            fmt_time(t1 - t0),
+            _fmt_time(t1 - t0),
         )
 
         show_compute_profile_info()
@@ -1857,7 +1861,7 @@ class TransformationDAG:
 
         This method resolves the placeholder references in the specified meta-
         operation such that they point to the ``args`` and ``kwargs``.
-        It then calls :py:meth:`~dantro.dag.TransformationDAG.add_node`
+        It then calls :py:meth:`.add_node`
         repeatedly to add the actual nodes.
 
         .. note::
@@ -1998,7 +2002,7 @@ class TransformationDAG:
         self, compute_only: Union[str, List[str]]
     ) -> List[str]:
         """Prepares the ``compute_only`` argument for use in
-        :py:meth:`~dantro.dag.TransformationDAG.compute`.
+        :py:meth:`.compute`.
         """
         compute_only = compute_only if compute_only is not None else "all"
 

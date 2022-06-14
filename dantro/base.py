@@ -7,8 +7,11 @@ of the AbstractDataGroup and the BaseDataContainer.
 In turn, the BaseDataContainer uses the BaseDataAttrs class as an attribute and
 thereby extends the AbstractDataContainer class.
 
-NOTE: These classes are not meant to be instantiated but used as a basis to
-implement more specialized BaseDataGroup- or BaseDataContainer-derived classes.
+.. note::
+
+    These classes are not meant to be instantiated but used as a basis to
+    implement more specialized :py:class:`.BaseDataGroup`- or
+    :py:class:`.BaseDataContainer`-derived classes.
 """
 
 import abc

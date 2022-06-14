@@ -109,7 +109,7 @@ For this example, let's assume that you have ``base_out_path`` defined as the di
     :dedent: 4
 
 Now, let's load the configuration and extract the simulation parameters.
-Here, they will be a ``ParamSpace`` object (see `paramspace API reference <https://paramspace.readthedocs.io/en/latest/api/paramspace.paramspace.html>`_) which allows to easily define a set of different parameters to sweep over.
+Here, they will be a :py:class:`~paramspace.paramspace.ParamSpace` object which allows to easily define a set of different parameters to sweep over.
 (For the actual values of the parameter space, see :ref:`below <integrate_data_gen_sim_params>`.)
 
 .. literalinclude:: ../tests/test_integration.py
@@ -151,7 +151,7 @@ In your project, this might be done in *any* other way.
 
     If the above procedure is similar in your project, you may want to consider to *also* use `the paramspace package <https://pypi.org/project/paramspace/>`_ in your project to manage the parameters of your data generation procedure.
 
-    To handle hyper-parameters, dantro makes use of ``ParamSpace`` objects in some other parts as well, e.g. for creating plots from simulations that were created in the above manner.
+    To handle hyper-parameters, dantro makes use of :py:class:`~paramspace.paramspace.ParamSpace` objects in some other parts as well, e.g. for creating plots from simulations that were created in the above manner.
     Using paramspace for the generation routine can thus simplify the automation of data loading and visualization later on.
 
 So far, so good: We now have some simulation output that we can use to feed the data processing pipeline.
@@ -407,7 +407,7 @@ The ``pm_cfg`` is used to specify some default behaviour of the manager, e.g. th
 
 As part of this initialization process, default arguments for the plot creators are also supplied via ``creator_init_kwargs``.
 In this case, we configure these creators to use ``pdf`` as the default file extension.
-For the ``ParamSpace``-supporting plot creators (see :doc:`plotting/creators/psp`), we specify the path to the :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` inside the data tree.
+For the :py:class:`~paramspace.paramspace.ParamSpace`-supporting plot creators (see :doc:`plotting/creators/psp`), we specify the path to the :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` inside the data tree.
 
 Creating plots
 ^^^^^^^^^^^^^^

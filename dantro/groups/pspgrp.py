@@ -111,11 +111,12 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
 
         Args:
             name (str): The name of this group.
-            pspace (ParamSpace, optional): Can already pass a ParamSpace object
-                here.
+            pspace (paramspace.paramspace.ParamSpace, optional): Can already
+                pass a ParamSpace object here.
             containers (list, optional): A list of containers to add, which
-                need to be ParamSpaceStateGroup objects.
-            **kwargs: Further initialisation kwargs, e.g. `attrs` ...
+                need to be
+                :py:class:`~dantro.groups.pspgrp.ParamSpaceStateGroup` objects.
+            **kwargs: Further initialisation kwargs, e.g. ``attrs`` ...
         """
         # Initialize with parent method, which will call .add(*containers)
         super().__init__(name=name, containers=containers, **kwargs)
@@ -128,12 +129,13 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
 
     @property
     def pspace(self) -> Union[ParamSpace, None]:
-        """Reads the entry named _PSPGRP_PSPACE_ATTR_NAME in .attrs and
-        returns a ParamSpace object, if available there.
+        """Reads the entry named ``_PSPGRP_PSPACE_ATTR_NAME`` in ``.attrs`` and
+        returns a :py:class:`~paramspace.paramspace.ParamSpace` object, if
+        available there.
 
         Returns:
-            Union[ParamSpace, None]: The associated parameter space, or None,
-                if there is none associated yet.
+            Union[paramspace.paramspace.ParamSpace, None]: The associated
+                parameter space, or None, if there is none associated yet.
         """
         return self.attrs.get(self._PSPGRP_PSPACE_ATTR_NAME, None)
 
@@ -196,7 +198,8 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 present. In the latter case, a dtype can be specified via the
                 `dtype` key in the dict.
             subspace (dict, optional): Selector for a subspace of the
-                parameter space. Adheres to the ParamSpace.activate_subspace
+                parameter space. Adheres to the parameter space's
+                :py:meth:`~paramspace.paramspace.ParamSpace.activate_subspace`
                 signature.
             method (str, optional): How to combine the selected datasets.
 

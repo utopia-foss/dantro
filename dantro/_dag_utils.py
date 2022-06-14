@@ -1,15 +1,13 @@
-"""Private low-level helper classes and functions for the DAG framework
+"""Private low-level helper classes and functions for the DAG framework"""
 
-NOTE This is imported by dantro.tools to register classes with YAML.
-"""
 import logging
 from typing import Any, Tuple, Union
 
 from paramspace.tools import recursive_collect, recursive_replace
 
+# NOTE This is imported by dantro.tools to register classes with YAML.
 from .exceptions import *
 
-# Local constants
 log = logging.getLogger(__name__)
 
 
@@ -45,8 +43,8 @@ class Placeholder:
 
     Objects of this class or derived classes are yaml-representable and thus
     hashable after a parent object created a YAML representation. In addition,
-    the __hash__ method can be used to generate a hash from the string
-    representation.
+    the ``__hash__`` method can be used to generate a "hash" that is
+    implemented simply via the string representation of this object.
     """
 
     __slots__ = ("_data",)
@@ -84,11 +82,11 @@ class Placeholder:
     @classmethod
     def to_yaml(cls, representer, node):
         """Create a YAML representation of a Placeholder, carrying only the
-        _data attribute over...
+        ``_data`` attribute over...
 
         As YAML expects scalar data to be str-like, a type cast is done. The
         subclasses that rely on certain argument types should take care that
-        their __init__ method can parse arguments that are str-like.
+        their ``__init__`` method can parse arguments that are str-like.
         """
         return representer.represent_scalar(cls.yaml_tag, str(node._data))
 
@@ -129,8 +127,8 @@ def resolve_placeholders(
     Args:
         d (dict): The object to replace placeholders in. Will recursively walk
             through all dict- and list-like objects to find placeholders.
-        dag (TransformationDAG): The data transformation tree to resolve the
-            placeholders' results from.
+        dag (dantro.dag.TransformationDAG): The data transformation tree to
+            resolve the placeholders' results from.
         Cls (type, optional): The expected type of the placeholders.
         **compute_kwargs: Passed on to
             :py:meth:`~dantro.dag.TransformationDAG.compute`.
@@ -455,8 +453,8 @@ class DAGObjects:
     Objects are added to the database via the ``add_object`` method. They need
     to have a ``hashstr`` property, which returns a hash string
     deterministically representing the object; note that this is not
-    equivalent to the Python builtin hash() function which invokes the __hash__
-    magic method.
+    equivalent to the Python builtin :py:func:`hash` function which invokes the
+    magic ``__hash__`` method of an object.
     """
 
     def __init__(self):

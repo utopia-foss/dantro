@@ -20,7 +20,10 @@ doc:
 	make html
 	@echo "Built HTML documentation."
 	@echo "-------------------------"
-	@echo "Carrying out link check ..."
+	@echo ""
+	@echo ""
+	@echo "Now carrying out link check ..."
+	@echo ""
 	make -b linkcheck
 	@echo "Finished building and linkcheck."
 

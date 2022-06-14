@@ -115,10 +115,10 @@ class PlotManager:
 
             - The ``default_plots_cfg`` specifies plot configurations that are
               to be carried out by default when calling the plotting method
-              :py:meth:`~dantro.plot_mngr.PlotManager.plot_from_cfg`.
+              :py:meth:`.plot_from_cfg`.
             - When calling any of the plot methods
-              :py:meth:`~dantro.plot_mngr.PlotManager.plot_from_cfg` or
-              :py:meth:`~dantro.plot_mngr.PlotManager.plot`, there is the
+              :py:meth:`.plot_from_cfg` or
+              :py:meth:`.plot`, there is the
               possibility to update the existing configuration dict with new
               entries.
             - At each stage, the ``based_on`` feature allows to make a plot
@@ -136,12 +136,12 @@ class PlotManager:
                 The base configuration pools are used to perform the lookups of
                 ``based_on`` entries. The tuples in these sequence consist of
                 ``(label, plots_cfg)`` pairs and are fed to
-                :py:meth:`~dantro.plot_mngr.PlotManager.add_base_cfg_pool`.
+                :py:meth:`.add_base_cfg_pool`.
                 This argument can also be provided as an ``OrderedDict``.
             default_plots_cfg (Union[dict, str], optional): The default plots
                 config or a path to a YAML file to import. Used as defaults
                 when calling
-                :py:meth:`~dantro.plot_mngr.PlotManager.plot_from_cfg`
+                :py:meth:`.plot_from_cfg`
             base_cfg (Union[str, dict], optional): *Deprecated!* Legacy
                 interface for defining base plot configurations. During the
                 deprecation period, these entries are automatically added
@@ -545,8 +545,9 @@ class PlotManager:
                 Can be None, if no argument was given to the plot method.
             name (str): The name of the plot
             init_kwargs (dict): Additional creator initialization parameters
-            from_pspace (ParamSpace, optional): If the plot is to be creatd
-                from a parameter space, that parameter space.
+            from_pspace (paramspace.paramspace.ParamSpace, optional): If the
+                plot is to be creatd from a parameter space, that parameter
+                space.
             plot_cfg (dict): The plot configuration
             auto_detect (bool, optional): Whether to auto-detect the creator.
                 If none, the value given at initialization is used.
@@ -871,7 +872,7 @@ class PlotManager:
                 False.
             resolve_based_on (bool, optional): Whether to resolve the
                 ``based_on`` entries in ``plots_cfg`` here. If false, will
-                postpone this to :py:meth:`~dantro.plot_mngr.PlotManager.plot`,
+                postpone this to :py:meth:`.plot`,
                 thus *not* including the rest of the ``plots_cfg`` in the base
                 configuration pool for name resolution.
                 Lookups happen from ``base_cfg_pools`` following the rules
@@ -1073,10 +1074,10 @@ class PlotManager:
                 configuration entries.
                 Lookups happen from ``base_cfg_pools`` following the rules
                 described in :py:func:`~dantro.plot._cfg.resolve_based_on`.
-            from_pspace (Union[dict, ParamSpace], optional): If given, execute
-                a parameter sweep over these parameters, re-using the same
-                creator instance. If this is a dict, a ParamSpace is created
-                from it.
+            from_pspace (Union[dict, paramspace.paramspace.ParamSpace], optional):
+                If given, execute a parameter sweep over these parameters,
+                re-using the same creator instance. If this is a dict, a
+                ParamSpace is created from it.
             **plot_cfg: The plot configuration, including some parameters that
                 the plot manager will evaluate (and consequently: does not
                 pass on to the plot creator).

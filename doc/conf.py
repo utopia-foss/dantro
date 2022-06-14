@@ -37,7 +37,7 @@ def find_version(*file_paths) -> str:
     match = re.search(r"^__version__\s?=\s?['\"]([^'\"]*)['\"]", file, re.M)
     if match:
         return match.group(1)
-    raise RuntimeError("Unable to find version string in " + str(file_paths))
+    raise RuntimeError(f"Unable to find version string in {file_paths}")
 
 
 def run_apidoc(_):
@@ -87,12 +87,13 @@ release = find_version("..", "dantro", "__init__.py")
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
-needs_sphinx = "4.4"
+needs_sphinx = "4.5"
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.autodoc.typehints",
     "sphinx.ext.intersphinx",
     "sphinx.ext.todo",
     "sphinx.ext.coverage",
@@ -134,7 +135,16 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = None
 
-# Configure autodoc
+# Whether module names are prepended to all object names (for object types
+# where a “module” of some kind is defined). Default: True
+add_module_names = False
+
+# Suppress the module name of the python reference if it can be resolved
+python_use_unqualified_type_names = True
+
+
+# -- Configure autodoc --------------------------------------------------------
+
 autodoc_default_options = {
     "members": True,
     "member-order": "bysource",
@@ -306,6 +316,34 @@ napoleon_include_special_with_doc = True
 # See https://ipython.readthedocs.io/en/stable/sphinxext.html
 
 # NOTE Using default values.
+
+
+# -- Intersphinx --------------------------------------------------------------
+
+# Mappings can be looked up from the following GitHub gist:
+#   https://gist.github.com/bskinn/0e164963428d4b51017cebdb6cda5209
+#
+# Further documentation:
+#   https://docs.readthedocs.io/en/stable/guides/intersphinx.html
+#   https://www.sphinx-doc.org/en/master/usage/extensions/intersphinx.html
+#
+# In case reference targeting fails, consider using the sphobjinv package
+#   https://github.com/bskinn/sphobjinv
+
+# fmt: off
+intersphinx_mapping = {
+    "sphinx":       ("https://www.sphinx-doc.org/en/master/", None),
+    "python":       ("https://docs.python.org/3/", None),
+    "h5py":         ("https://docs.h5py.org/en/latest/", None),
+    "matplotlib":   ("https://matplotlib.org/stable/", None),
+    "numpy":        ("https://numpy.org/doc/stable/", None),
+    "pandas":       ("https://pandas.pydata.org/docs/", None),
+    "scipy":        ("https://docs.scipy.org/doc/scipy/", None),
+    "xarray":       ("https://docs.xarray.dev/en/stable/", None),
+    # "ruamel.yaml":  ("https://yaml.readthedocs.io/en/latest/", None),# broken
+    "paramspace":   ("https://paramspace.readthedocs.io/en/latest/", None),
+}
+# fmt: on
 
 
 # -- Nitpicky Configuration ---------------------------------------------------
