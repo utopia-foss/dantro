@@ -222,8 +222,8 @@ def generate_lambda(expr: str) -> Callable:
     """Generates a lambda from a string. This is useful when working with
     callables in other operations.
 
-    The ``expr`` argument needs to be a valid Python ``lambda`` expression, see
-    `here <docs.python.org/3/tutorial/controlflow.html#lambda-expressions>`_.
+    The ``expr`` argument needs to be a valid Python
+    `lambda expression <https://docs.python.org/3/reference/expressions.html#lambda>`_.
 
     Inside the lambda body, the following names are available for use:
 

@@ -246,7 +246,7 @@ class LabelledDataGroup(OrderedDataGroup):
             labelled, such that arrays can be
             `aligned <http://xarray.pydata.org/en/stable/generated/xarray.align.html>`_
             using the respective coordinates.
-            See `the xarray documentation <http://xarray.pydata.org/en/stable/data-structures.html#coordinates>`_
+            See `the xarray documentation <https://xarray.pydata.org/en/stable/user-guide/data-structures.html#coordinates>`__
             for more information about coordinates.
 
         Args:
@@ -326,7 +326,7 @@ class LabelledDataGroup(OrderedDataGroup):
             labelled, such that arrays can be
             `aligned <http://xarray.pydata.org/en/stable/generated/xarray.align.html>`_
             using the respective coordinates.
-            See `the xarray documentation <http://xarray.pydata.org/en/stable/data-structures.html#coordinates>`_
+            See `the xarray documentation <https://xarray.pydata.org/en/stable/user-guide/data-structures.html#coordinates>`__
             for more information about coordinates.
 
 

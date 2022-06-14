@@ -37,7 +37,7 @@ Handling, transforming, and plotting high-dimensional data is difficult and ofte
 
 The idea is that high-dimensional raw data first is transformed using the :ref:`dag_framework`.
 The :py:func:`~.facet_grid` function then gets the ready-to-plot data as input and visualizes it by automatically choosing an appropriate kind of plot – if possible and not explicitly given – in a declarative way through the specification of layout keywords such as ``col``\ ums, ``row``\ s, or ``hue``.
-This approach is called `faceting <http://xarray.pydata.org/en/stable/plotting.html#faceting>`_; dantro makes use of the `excellent plotting functionality of xarray <http://xarray.pydata.org/en/stable/plotting.html>`_ for this feature.
+This approach is called `faceting <https://xarray.pydata.org/en/stable/user-guide/plotting.html#faceting>`_; dantro makes use of the `excellent plotting functionality of xarray <https://xarray.pydata.org/en/stable/plotting.html>`_ for this feature.
 The :py:func:`~.facet_grid` plot function further extends the xarray plotting functionality by adding the possibility to create :ref:`animations <pcr_ext_animations>`, simply by using the ``frames`` argument to specify the data dimension to represent as individual frames of an animation.
 
 The :py:class:`~dantro.plot_creators._plot_helper.PlotHelper` interface then copes with the plot :ref:`style <pcr_ext_style>` and further layout.

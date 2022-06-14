@@ -914,21 +914,21 @@ def facet_grid(
     This function calls the ``data['data'].plot`` function if no plot ``kind``
     is given, otherwise ``data['data'].plot.<kind>``. It is designed for
     `plotting with xarray objects <http://xarray.pydata.org/en/stable/plotting.html>`_, i.e.
-    `xr.DataArray <http://xarray.pydata.org/en/stable/plotting.html#dataarrays>`_
+    `xr.DataArray <https://xarray.pydata.org/en/stable/user-guide/plotting.html#dataarrays>`_
     and
-    `xr.Dataset <http://xarray.pydata.org/en/stable/plotting.html#datasets>`_.
+    `xr.Dataset <https://xarray.pydata.org/en/stable/user-guide/plotting.html#dataarrays>`_.
     Specifying the kind of plot requires the data to be of one of those types
     and have a dimensionality that can be represented in these plots. See
-    `the correponding API documentation <http://xarray.pydata.org/en/stable/api.html#plotting>`_ for more information.
+    `the correponding API documentation <https://xarray.pydata.org/en/stable/api.html#plotting>`_ for more information.
 
     In most cases, this function creates a so-called
-    `FacetGrid <http://xarray.pydata.org/en/stable/generated/xarray.plot.FacetGrid.html>`_
+    `FacetGrid <https://xarray.pydata.org/en/stable/generated/xarray.plot.FacetGrid.html>`_
     object that automatically layouts and chooses a visual representation that
     fits the dimensionality of the data. To specify which data dimension
     should be represented in which way, it supports a declarative syntax: via
     the optional keyword arguments ``x``, ``y``, ``row``, ``col``, and/or
     ``hue`` (available options are listed in the corresponding
-    `plot function documentation <http://xarray.pydata.org/en/stable/api.html#plotting>`_),
+    `plot function documentation <https://xarray.pydata.org/en/stable/api.html#plotting>`_),
     the representation of the data dimensions can be selected. This is
     referred to as "layout encoding".
 
