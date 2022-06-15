@@ -886,9 +886,11 @@ class BaseDataGroup(
                 max_lines = None
 
         # Calculations that make the output line fit into one terminal line
-        from .tools import TTY_COLS
+        from .tools import TERMINAL_INFO, update_terminal_info
 
-        num_cols = TTY_COLS
+        update_terminal_info()
+
+        num_cols = TERMINAL_INFO["columns"]
         info_width = int(num_cols * info_ratio)
         name_width = (num_cols - info_width) - (len(offset) + 3 + 1 + 2)
 
