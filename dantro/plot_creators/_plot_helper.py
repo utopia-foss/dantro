@@ -2027,6 +2027,58 @@ class PlotHelper:
         if y is not None:
             self.ax.set_ylim(*parse_args(y, ax=self.ax.yaxis))
 
+    def _hlpr_set_margins(
+        self,
+        *,
+        margins: Union[float, Tuple[float, float]] = None,
+        x: float = None,
+        y: float = None,
+        tight: bool = True,
+    ):
+        """Sets the axes' margins via :py:meth:`matplotlib.axes.Axes.margins`.
+
+        The padding added to each limit of the Axes is the margin times the
+        data interval.
+        All input parameters must be floats within the range [0, 1].
+
+        Specifying any margin changes only the autoscaling; for example, if
+        ``xmargin`` is not None, then ``xmargin`` times the X data interval
+        will be added to each end of that interval before it is used in
+        autoscaling.
+
+        Args:
+            margins (Union[float, Tuple[float, float]], optional): If a scalar
+                argument is provided, it specifies both margins of the x-axis
+                and y-axis limits. If a list- or tuple-like positional
+                argument is provided, they will be interpreted as ``xmargin``,
+                and ``ymargin``. If setting the margin on a single axis is
+                desired, use the keyword arguments described below.
+            x, y (float, optional): Specific margin values for the x-axis and
+                y-axis, respectively. These cannot be used in combination with
+                the ``margins`` argument, but can be used individually to
+                alter on e.g., only the y-axis.
+            tight (bool, optional): The tight parameter is passed to
+                :py:meth:`matplotlib.axes.Axes.autoscale_view`, which is
+                executed after a margin is changed; the default here is True,
+                on the assumption that when margins are specified, no
+                additional padding to match tick marks is usually desired. Set
+                tight to None will preserve the previous setting.
+        """
+        kwargs = dict(x=x, y=y, tight=tight)
+
+        if margins is not None:
+            if x is not None or y is not None:
+                raise TypeError(
+                    "Cannot pass both `margins` and `x`/`y` arguments!"
+                )
+
+            if isinstance(margins, (float, int)):
+                self.ax.margins(margins, **kwargs)
+            else:
+                self.ax.margins(*margins, **kwargs)
+        else:
+            self.ax.margins(**kwargs)
+
     def _hlpr_set_legend(
         self,
         *,

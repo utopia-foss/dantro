@@ -109,6 +109,49 @@
   _match: Got an invalid str-type argument 'foo' to the set_limits helper
 
 # .............................................................................
+- set_margins: {}
+- set_margins:
+    margins: 0
+- set_margins:
+    margins: 1
+- set_margins:
+    margins: 0.
+- set_margins:
+    margins: 0.2
+- set_margins:
+    margins: [0.1, 0.2]
+- set_margins:
+    x: 0.2
+- set_margins:
+    x: 0.2
+    y: 0.3
+- set_margins:
+    margins: 1.23  # possible, but makes no sense
+
+- set_margins:
+    x: -1.23
+  _raises: ValueError
+  _match: margin must be greater
+# - set_margins:
+#     margins: [-0.1, 0.5]  # does NOT raise in matplotlib but should!
+#   # _raises: ValueError
+#   # _match: margin must be greater
+- set_margins:
+    margins: not a numeric type
+  _raises: TypeError
+  _match: Must pass a single positional
+- set_margins:
+    margins: !pspace {foo: bar}  # something not unpackable with `*margins`
+  _raises: TypeError
+  _match: not supported between
+- set_margins:
+    margins: 0.1
+    x: 0.2
+  _raises: TypeError
+  _match: Cannot pass both
+
+
+# .............................................................................
 - &set_legend_defaults
   set_legend: {}
   _plot_values: [1, 2, 3]

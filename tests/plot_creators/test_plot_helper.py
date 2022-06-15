@@ -23,7 +23,6 @@ from dantro.plot_creators._plot_helper import (
 )
 from dantro.tools import load_yml
 
-# Local constants
 # Paths
 CFG_HELPER_PATH = resource_filename("tests", "cfg/helper_cfg.yml")
 CFG_HELPER_FUNCS_PATH = resource_filename("tests", "cfg/helper_funcs.yml")
