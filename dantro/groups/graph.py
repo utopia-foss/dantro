@@ -1,5 +1,7 @@
-"""In this module, the GraphGroup is implemented, which provides an interface
-between hierarchically stored data and the creation of graph objects.
+"""In this module, the :py:class:`~dantro.groups.graph.GraphGroup` is
+implemented, which provides an interface between hierarchically stored data
+and the creation of graph objects using the networkx package and the therein
+implemented :py:class:`networkx.Graph` classes.
 
 See :ref:`data_structures_graph_group` for more information.
 """
@@ -146,10 +148,10 @@ class GraphGroup(BaseDataGroup):
         at_time: int = None,
         at_time_idx: int = None,
         keep_dim=None,
-    ) -> Union["xr.DataArray", XrDataContainer]:
-        """Returns a ``xarray.DataArray`` containing the data specified via the
-        selectors ``sel`` and ``isel``. Any dimension of size 1 is removed
-        from the selected data.
+    ) -> Union["xarray.DataArray", XrDataContainer]:
+        """Returns a :py:class:`xarray.DataArray` containing the data
+        specified via the selectors ``sel`` and ``isel``. Any dimension of
+        size 1 is removed from the selected data.
 
         .. warning::
 
@@ -175,7 +177,7 @@ class GraphGroup(BaseDataGroup):
                 that can not be squeezed.
 
         Returns:
-            xr.DataArray: The selected data
+            xarray.DataArray: The selected data
 
         Raises:
             ValueError: On keys that exist in both ``sel`` and ``isel``
@@ -261,8 +263,8 @@ class GraphGroup(BaseDataGroup):
         Args:
             edges: The edge data stored in a 2-dimensional container
             max_tuple_size (int): The maximum allowed edge tuple size (4 for
-                ``nx.Multigraph``, else 3). Used if the correct shape is tried
-                to be deduced automatically.
+                :py:class:`networkx.MultiGraph`, else 3). Used if the correct
+                shape is tried to be deduced automatically.
 
         Returns:
             The edge data, possibly transposed
@@ -413,12 +415,13 @@ class GraphGroup(BaseDataGroup):
         align: bool = False,
         keep_dim=None,
         **graph_kwargs,
-    ) -> "nx.Graph":
-        """Create a networkx graph object from the node and edge data
-        associated with the graph group. Optionally, node and edge properties
-        can be added from data stored or registered in the graph group. The
-        coordinates for the selected or squeezed dimensions of the node, edge,
-        and property data are stored as Graph attributes (in ``g.graph``).
+    ) -> "networkx.Graph":
+        """Create a networkx :py:class:`networkx.Graph` (or a more specialized
+        graph type) object from the node and edge data associated with this
+        graph group. Optionally, node and edge properties can be added from
+        data stored or registered in the graph group.
+        The coordinates for the selected or squeezed dimensions of the node,
+        edge, and property data are stored as graph attributes in ``g.graph``.
 
         .. note::
 
@@ -610,7 +613,7 @@ class GraphGroup(BaseDataGroup):
     def set_node_property(
         self,
         *,
-        g,
+        g: "networkx.Graph",
         name: str,
         data=None,
         align: bool = False,
@@ -623,7 +626,7 @@ class GraphGroup(BaseDataGroup):
         attributes (in ``g.graph``).
 
         Args:
-            g: The networkx graph object
+            g (networkx.Graph): The networkx graph object
             name (str): If ``data`` is ``None``, ``name`` must specify the
                 container within the graph group that contains the property
                 values, or be valid key in ``property_maps``. ``name`` is used
@@ -751,7 +754,7 @@ class GraphGroup(BaseDataGroup):
     def set_edge_property(
         self,
         *,
-        g,
+        g: "networkx.Graph",
         name: str,
         data=None,
         align: bool = False,
@@ -764,7 +767,7 @@ class GraphGroup(BaseDataGroup):
         attributes (in ``g.graph``).
 
         Args:
-            g: The networkx graph object
+            g (networkx.Graph): The networkx graph object
             name (str): If ``data`` is ``None``, ``name`` must specify the
                 container within the graph group that contains the property
                 values, or be valid key in ``property_maps``. ``name`` is used

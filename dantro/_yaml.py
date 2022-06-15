@@ -1,7 +1,7 @@
 """Takes care of all YAML-related imports and configuration
 
-The ``ruamel.yaml.YAML`` object used here is imported from ``paramspace`` and
-specialized such that it can load and dump dantro classes.
+The ``ruamel.yaml.YAML`` object used here is imported from :py:mod:`paramspace`
+and specialized such that it can load and dump dantro classes.
 """
 
 import io

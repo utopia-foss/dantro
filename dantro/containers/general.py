@@ -1,4 +1,6 @@
-"""This module implements general specialisations of the BaseDataContainer"""
+"""This module implements general specialisations of the
+:py:class:`~dantro.base.BaseDataContainer`
+"""
 
 import logging
 from collections.abc import MutableMapping, MutableSequence
@@ -12,7 +14,6 @@ from ..mixins import (
     MappingAccessMixin,
 )
 
-# Local constants
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------

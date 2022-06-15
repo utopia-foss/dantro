@@ -1,5 +1,7 @@
-"""In this module, BaseDataContainer specializations that make use of features
-from the paramspace package are implemented.
+"""This module implements :py:class:`~dantro.base.BaseDataContainer`
+specializations that make use of features from the
+`paramspace <https://gitlab.com/blsqr/paramspace>`_ package, in particular the
+:py:class:`~paramspace.paramspace.ParamSpace` class.
 """
 
 import copy
@@ -25,7 +27,7 @@ xr = LazyLoader("xarray")
 
 
 class ParamSpaceStateGroup(OrderedDataGroup):
-    """A ParamSpaceStateGroup is a member group of the
+    """A ParamSpaceStateGroup is meant to be used as a member group of the
     :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`.
 
     While its *own* name need be interpretable as a positive integer (enforced
@@ -73,7 +75,8 @@ class ParamSpaceStateGroup(OrderedDataGroup):
 
 
 class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
-    """The ParamSpaceGroup is associated with a ParamSpace object and the
+    """The ParamSpaceGroup is associated with a
+    :py:class:`paramspace.paramspace.ParamSpace` object and the
     loaded results of an iteration over this parameter space.
 
     Thus, the groups that are stored in the ParamSpaceGroup need all relate to
@@ -84,7 +87,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
     its state number as integer.
     """
 
-    # Class variables that define some of the behaviour
+    # Configure the class variables that define some of the behaviour
     # Define which .attrs entry to return from the `pspace` property
     _PSPGRP_PSPACE_ATTR_NAME = "pspace"
 
@@ -111,11 +114,12 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
 
         Args:
             name (str): The name of this group.
-            pspace (ParamSpace, optional): Can already pass a ParamSpace object
-                here.
+            pspace (paramspace.paramspace.ParamSpace, optional): Can already
+                pass a ParamSpace object here.
             containers (list, optional): A list of containers to add, which
-                need to be ParamSpaceStateGroup objects.
-            **kwargs: Further initialisation kwargs, e.g. `attrs` ...
+                need to be
+                :py:class:`~dantro.groups.pspgrp.ParamSpaceStateGroup` objects.
+            **kwargs: Further initialisation kwargs, e.g. ``attrs`` ...
         """
         # Initialize with parent method, which will call .add(*containers)
         super().__init__(name=name, containers=containers, **kwargs)
@@ -128,19 +132,20 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
 
     @property
     def pspace(self) -> Union[ParamSpace, None]:
-        """Reads the entry named _PSPGRP_PSPACE_ATTR_NAME in .attrs and
-        returns a ParamSpace object, if available there.
+        """Reads the entry named ``_PSPGRP_PSPACE_ATTR_NAME`` in ``.attrs`` and
+        returns a :py:class:`~paramspace.paramspace.ParamSpace` object, if
+        available there.
 
         Returns:
-            Union[ParamSpace, None]: The associated parameter space, or None,
-                if there is none associated yet.
+            Union[paramspace.paramspace.ParamSpace, None]: The associated
+                parameter space, or None, if there is none associated yet.
         """
         return self.attrs.get(self._PSPGRP_PSPACE_ATTR_NAME, None)
 
     @pspace.setter
     def pspace(self, val: ParamSpace):
         """If not already set, sets the entry in the attributes that is
-        accessed by the .pspace property
+        accessed by the ``.pspace`` property
         """
         if self.pspace is not None:
             raise RuntimeError(
@@ -178,10 +183,10 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
         idx_as_label: bool = False,
         base_path: str = None,
         **kwargs,
-    ) -> "xr.Dataset":
+    ) -> "xarray.Dataset":
         """Selects a multi-dimensional slab of this ParamSpaceGroup and the
-        specified fields and returns them bundled into an ``xarray.Dataset``
-        with labelled dimensions and coordinates.
+        specified fields and returns them bundled into an
+        :py:class:`xarray.Dataset` with labelled dimensions and coordinates.
 
         Args:
             field (Union[str, List[str]], optional): The field of data to
@@ -196,7 +201,8 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 present. In the latter case, a dtype can be specified via the
                 `dtype` key in the dict.
             subspace (dict, optional): Selector for a subspace of the
-                parameter space. Adheres to the ParamSpace.activate_subspace
+                parameter space. Adheres to the parameter space's
+                :py:meth:`~paramspace.paramspace.ParamSpace.activate_subspace`
                 signature.
             method (str, optional): How to combine the selected datasets.
 
@@ -217,14 +223,15 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
 
         Raises:
             KeyError: On invalid state key.
-            ValueError: Raised in multiple scenarios: If no ParamSpace was
+            ValueError: Raised in multiple scenarios: If no
+                :py:class:`~paramspace.paramspace.ParamSpace` was
                 associated with this group, for wrong argument values, if the
                 data to select cannot be extracted with the given argument
                 values, exceptions passed on from xarray.
 
         Returns:
-            xr.Dataset: The selected hyperslab of the parameter space, holding
-                the desired fields.
+            xarray.Dataset: The selected hyperslab of the parameter space,
+                holding the desired fields.
         """
 
         def parse_fields(*, field, fields) -> dict:
@@ -351,7 +358,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                     (if not).
 
             Raises:
-                ValueError: Description
+                ValueError: Missing transformator
             """
 
             def convert_dtype(data, dtype, *, path):

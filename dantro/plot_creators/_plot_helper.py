@@ -1,4 +1,6 @@
-"""This module implements the PlotHelper class"""
+"""This module implements the dantro PlotHelper class, which aims to abstract
+matplotlib plot operations such that they can be made accessible for a
+configuration-based declaration."""
 
 import copy
 import logging
@@ -23,6 +25,13 @@ sns = LazyLoader("seaborn")
 
 
 # -----------------------------------------------------------------------------
+
+
+def _resolve_lazy_imports(d: dict):
+    """In-place resolves lazy imports in the given dict"""
+    for k, v in d.items():
+        if isinstance(v, LazyLoader):
+            d[k] = v.resolve()
 
 
 class temporarily_changed_axis:
@@ -183,7 +192,7 @@ def gather_handles_labels(mpo) -> Tuple[list, list]:
 
 
 def prepare_legend_args(
-    h, l, *, custom_labels: list, hiding_threshold: int
+    h, l, *, custom_labels: List[str], hiding_threshold: int
 ) -> Tuple[list, list, bool]:
 
     # Might want to use custom labels
@@ -213,12 +222,19 @@ def prepare_legend_args(
 
 
 def calculate_space_needed_hv(
-    fig, obj, *, spacing_h: float = 0.02, spacing_v: float = 0.02
+    fig: "matplotlib.figure.Figure",
+    obj,
+    *,
+    spacing_h: float = 0.02,
+    spacing_v: float = 0.02,
 ) -> Tuple[float, float]:
     """Calculates the horizontal and vertical space needed for an object in
     this figure.
 
-    .. note:: This will invoke ``fig.draw`` two times and resize the figure!
+    .. note::
+
+        This will invoke :py:meth:`matplotlib.figure.Figure.draw` two times
+        and cause resizing of the figure!
 
     Args:
         fig: The figure
@@ -264,14 +280,14 @@ def _set_tick_locators_or_formatters(
     y: dict = None,
 ):
     """Sets the tick locators or formatters
-    Look at the documentation of the _hlpr_set_tick_{locators/formatters}
+    Look at the documentation of the ``_hlpr_set_tick_{locators/formatters}``
     functions below for more information, respectively.
 
     Args:
-        ax (plt.axis):      The axis
-        kind (str):         The kind. Valid options are: 'locator', 'formatter'
-        x (dict, optional): The configuration of the x-axis tick locator/formatter
-        y (dict, optional): The configuration of the y-axis tick locator/formatter
+        ax (matplotlib.axis.Axis): The axis object
+        kind (str): Whether to set a ``locator`` or a ``formatter``.
+        x (dict, optional): The config for the x-axis tick locator/formatter
+        y (dict, optional): The config for the y-axis tick locator/formatter
     """
     # Safe guard against calling this with unexpected arguments from
     # within the actual helper methods; not part of public interface.
@@ -292,9 +308,10 @@ def _set_tick_locators_or_formatters(
 
         Args:
             _ax (plt.axis): The matplotlib.axis to work on.
-            _axis (str):    The axis: 'x' or 'y'
+            _axis (str):    The axis: ``x`` or ``y``
             _major (bool):  Whether to set the major or minor ticks
-            _kind (str):    The kind of function to set: 'locator' or 'formatter'
+            _kind (str):    The kind of function to set: ``locator`` or
+                ``formatter``
             name (str):     The name of the locator or formatter
             args (tuple):   Args passed on to the respective locator
                             or formatter setter function.
@@ -322,14 +339,14 @@ def _set_tick_locators_or_formatters(
             ax_obj, f"set_{'major' if _major else 'minor'}_{_kind}"
         )
 
-        # Set the tick locator or formatter
         try:
             setter(ticker(*args, **kwargs))
         except Exception as exc:
             raise ValueError(
-                f"Failed setting {'major' if _major else 'minor'} {_kind} '{name}'"
-                f"for {_axis}-axis! Check the matplotlib documentation for valid "
-                f"arguments. Got:\n  args: {args}\n  kwargs: {kwargs}"
+                f"Failed setting {'major' if _major else 'minor'} {_kind} "
+                f"'{name}' for {_axis}-axis! Check the matplotlib "
+                "documentation for valid arguments. "
+                f"Got:\n  args: {args}\n  kwargs: {kwargs}"
             ) from exc
 
     # Decide which tick locator or formatter to set, and set it
@@ -371,12 +388,7 @@ def _set_tick_locators_or_formatters(
                 **y["minor"],
             )
 
-
-def _resolve_lazy_imports(d: dict):
-    """In-place resolves lazy imports in the given dict"""
-    for k, v in d.items():
-        if isinstance(v, LazyLoader):
-            d[k] = v.resolve()
+    # TODO z-axis support
 
 
 def parse_function_specs(
@@ -393,8 +405,12 @@ def parse_function_specs(
     """Parses a function specification used in the ``invoke_function`` helper.
     If ``function`` is a string it is looked up from the ``_funcs`` dict.
 
+    See :py:func:`~dantro.plot_creators._plot_helper.parse_and_invoke_function`
+    and :py:func:`~dantro.plot_creators.ext_funcs.multiplot.multiplot`.
+
     Args:
-        _hlpr (PlotHelper): The currently used PlotHelper instance
+        _hlpr (dantro.plot_creators._plot_helper.PlotHelper): The currently
+            used PlotHelper instance
         _funcs (Dict[str, Callable]): The lookup dictionary for callables
         _shared_kwargs (dict, optional): Shared kwargs that passed on to
             all multiplot functions. They are recursively updated with
@@ -473,7 +489,8 @@ def parse_and_invoke_function(
     call_num: int,
     caution_func_names: List[str] = (),
 ) -> Any:
-    """Parses function arguments and then calls the multiplot function.
+    """Parses function arguments and then calls
+    :py:func:`~dantro.plot_creators.ext_funcs.multiplot.multiplot`.
 
     Args:
         hlpr (PlotHelper): The currently used PlotHelper instance
@@ -536,17 +553,17 @@ class PlotHelper:
     accessing matplotlib utilities through the plot configuration.
     """
 
-    # Configuration keys with special meaning
-    _SPECIAL_CFG_KEYS = ("setup_figure", "save_figure")
+    _SPECIAL_CFG_KEYS: Tuple[str] = ("setup_figure", "save_figure")
+    """Configuration keys with special meaning"""
 
-    # Helpers that are applied on the figure level
-    _FIGURE_HELPERS = (
+    _FIGURE_HELPERS: Tuple[str] = (
         "align_labels",
         "set_suptitle",
         "set_figlegend",
         "subplots_adjust",
         "figcall",
     )
+    """Names of those helpers that are applied on the figure level"""
 
     def __init__(
         self,
@@ -557,14 +574,14 @@ class PlotHelper:
         raise_on_error: bool = True,
         animation_enabled: bool = False,
     ):
-        """Initialize a Plot Helper with a certain configuration.
+        """Initialize a PlotHelper with a certain configuration.
 
         This configuration is the so-called "base" configuration and is not
         axis-specific. There is the possibility to specify axis-specific
         configuration entries.
 
         All entries in the helper configuration are deemed 'enabled' unless
-        they explicitly specify `enabled: false` in their configuration.
+        they explicitly specify ``enabled: false`` in their configuration.
 
         Args:
             out_path (str): path to store the created figure. This may be an
@@ -634,8 +651,7 @@ class PlotHelper:
 
         log.debug("PlotHelper initialized.")
 
-    # .........................................................................
-    # Properties
+    # .. Properties ...........................................................
 
     @property
     def _axis_cfg(self) -> dict:
@@ -657,12 +673,12 @@ class PlotHelper:
     @property
     def base_cfg(self) -> dict:
         """Returns a deepcopy of the base configuration, i.e. the configuration
-        that is not axis-specific.
+        that is *not* axis-specific.
         """
         return copy.deepcopy(self._base_cfg)
 
     @property
-    def fig(self):
+    def fig(self) -> "matplotlib.figure.Figure":
         """Returns the current figure"""
         if self._fig is None:
             raise ValueError(
@@ -673,7 +689,7 @@ class PlotHelper:
         return self._fig
 
     @property
-    def ax(self):
+    def ax(self) -> "matplotlib.axis.Axis":
         """Returns the current axis of the associated figure"""
         return self.fig.gca()
 
@@ -703,7 +719,7 @@ class PlotHelper:
 
     @property
     def axes(self) -> np.ndarray:
-        """Returns the axes array, which is of shape (#cols, #rows).
+        """Returns the axes array, which is of shape ``(#cols, #rows)``.
 
         The (0, 0) axis refers to the top left subplot of the figure.
         """
@@ -789,12 +805,11 @@ class PlotHelper:
     @property
     def axis_is_empty(self) -> bool:
         """Returns true if the current axis is empty, i.e. has no artists added
-        to it. This is basically the inverse of ``mpl.axes.Axes.has_data``.
+        to it: Basically, negation of :py:meth:`matplotlib.axes.Axes.has_data`.
         """
         return not self.ax.has_data()
 
-    # .........................................................................
-    # Figure setup and axis control
+    # .. Figure setup and axis control ........................................
 
     def attach_figure_and_axes(
         self, *, fig, axes, skip_if_identical: bool = False
@@ -809,8 +824,8 @@ class PlotHelper:
 
         Note that by closing the old figure the existing axis-specific config
         and all existing axes are destroyed. In other words: All information
-        previously provided via the provide_defaults and the mark_* methods is
-        lost. Therefore, if needed, it is recommended to call this method at
+        previously provided via the provide_defaults and the ``mark_*`` methods
+        is lost. Therefore, if needed, it is recommended to call this method at
         the beginning of the plotting function.
 
         .. note::
@@ -886,15 +901,15 @@ class PlotHelper:
 
     def setup_figure(self, **update_fig_kwargs):
         """Sets up a matplotlib figure instance and axes with the given
-        configuration (by calling matplotlib.pyplot.subplots) and attaches
-        both to the PlotHelper.
+        configuration (by calling :py:func:`matplotlib.pyplot.subplots`) and
+        attaches both to the PlotHelper.
 
         If the ``scale_figsize_with_subplots_shape`` option is enabled here,
         this method will also take care of scaling the figure accordingly.
 
         Args:
             **update_fig_kwargs: Parameters that are used to update the
-                figure setup parameters stored in `setup_figure`.
+                figure setup parameters stored in ``setup_figure``.
         """
         # Prepare arguments
         fig_kwargs = self.base_cfg.get("setup_figure", {})
@@ -950,7 +965,7 @@ class PlotHelper:
 
         This also removes the axes objects and deletes the axis-specific
         configuration. All information provided via provide_defaults and the
-        mark_* methods is lost.
+        ``mark_*`` methods is lost.
         """
         if self._fig is None:
             log.debug("No figure currently associated; nothing to close.")
@@ -1005,13 +1020,12 @@ class PlotHelper:
 
         Raises:
             ValueError: On failing to set the current axis or if the given axis
-                object or the result of ``plt.gca()`` was not part of the
-                associated axes array. To associate the correct figure and
-                axes, use
-                :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.attach_figure_and_axes`.
+                object or the result of :py:func:`matplotlib.pyplot.gca` was
+                not part of the associated axes array.
+                To associate the correct figure and axes, use the
+                :py:meth:`.attach_figure_and_axes` method.
 
         """
-        # Check arguments
         # Column and row need either both be given or both NOT be given. (XOR)
         if (col is None) != (row is None):
             raise ValueError(
@@ -1071,11 +1085,12 @@ class PlotHelper:
         match: Union[tuple, str] = None,
     ) -> Generator[Tuple[int], None, None]:
         """Returns a generator to iterate over all coordinates that match
-        `match`.
+        ``match``.
 
         Args:
             match (Union[tuple, str]): The coordinates to match; those that do
-                not match this pattern (evaluated by `coords_match` function)
+                not match this pattern (evaluated by
+                :py:func:`~dantro.plot_creators._plot_helper.coords_match`)
                 will not be yielded. If not given, will iterate only over the
                 currently selected axis.
 
@@ -1720,7 +1735,10 @@ class PlotHelper:
     # ... acting on the figure
 
     def _hlpr_align_labels(self, *, x: bool = True, y: bool = True):
-        """Aligns axis labels in the whole figure"""
+        """Aligns axis labels in the whole figure by calling
+        :py:meth:`matplotlib.figure.Figure.align_xlabels` and/or
+        :py:meth:`matplotlib.figure.Figure.align_ylabels`.
+        """
         if x:
             self.fig.align_xlabels()
         if y:
@@ -1733,7 +1751,8 @@ class PlotHelper:
         margin: float = 0.025,
         **title_kwargs,
     ):
-        """Set the figure title, i.e. ``matplotlib.Figure.suptitle``.
+        """Set the figure title using
+        :py:meth:`matplotlib.figure.Figure.suptitle`.
 
         This figure-level helper automatically vertically adjusts the subplot
         sizes to fit the suptitle into the figure without overlapping. This is
@@ -1768,7 +1787,7 @@ class PlotHelper:
         """Sets a figure legend.
 
         As a source of handles and labels, uses all those tracked via
-        :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.track_handles_labels`.
+        :py:meth:`.track_handles_labels`.
         Furthermore, ``gather_from_fig`` controls whether to additionally
         retrieve already existing handles and labels from any legend used
         within the figure, e.g. on all of the axes.
@@ -1795,7 +1814,8 @@ class PlotHelper:
                 axes.
             margin (float, optional): An additional horizontal margin between
                 the figure legend and the axes.
-            **legend_kwargs: Passed on to ``fig.legend``.
+            **legend_kwargs: Passed on to
+                :py:meth:`matplotlib.figure.Figure.legend`.
 
         Raises:
             RuntimeError: If a figure legend was already set via the helper.
@@ -1845,15 +1865,16 @@ class PlotHelper:
             self.fig.subplots_adjust(right=(1.0 - (space_needed + margin)))
 
     def _hlpr_subplots_adjust(self, **kwargs):
-        """Invokes subplots_adjust on the whole figure"""
+        """Invokes :py:meth:`matplotlib.figure.Figure.subplots_adjust` on the
+        whole figure.
+        """
         self.fig.subplots_adjust(**kwargs)
 
     def _hlpr_figcall(self, *, functions: Sequence[dict], **shared_kwargs):
         """Figure-level helper that can be used to call multiple functions.
         This helper is invoked *before* the axis-level helper.
 
-        See :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper._hlpr_call`
-        for more information and examples.
+        See :py:meth:`._hlpr_call` for more information and examples.
 
         Args:
             functions (Sequence[dict]): A sequence of function call
@@ -1870,11 +1891,12 @@ class PlotHelper:
     # ... acting on a single axis
 
     def _hlpr_set_title(self, *, title: str = None, **title_kwargs):
-        """Sets the title of the current axis.
+        """Sets the title of the current axes.
 
         Args:
             title (str, optional): The title to be set
-            **title_kwargs: Passed on to ``ax.set_title``
+            **title_kwargs: Passed on to
+                :py:meth:`matplotlib.axes.Axes.set_title`
         """
         self.ax.set_title(title, **title_kwargs)
 
@@ -1890,12 +1912,13 @@ class PlotHelper:
         Args:
             x (Union[str, dict], optional): Either the label as a string or
                 a dict with key ``label``, where all further keys are passed on
-                to plt.set_xlabel
+                to :py:meth:`matplotlib.axes.Axes.set_xlabel`
             y (Union[str, dict], optional): Either the label as a string or
                 a dict with key ``label``, where all further keys are passed on
-                to plt.set_ylabel
-            only_label_outer (bool, optional): If true, call ``ax.label_outer``
-                such that only tick labels on "outer" axes are visible:
+                to :py:meth:`matplotlib.axes.Axes.set_ylabel`
+            only_label_outer (bool, optional): If True, call
+                :py:meth:`matplotlib.axes.SubplotBase.label_outer` such that
+                only tick labels on "outer" axes are visible:
                 x-labels are only kept for subplots on the last row; y-labels
                 only for subplots on the first column. Note that this applies
                 to both axes and may lead to existing axes being hidden.
@@ -1921,7 +1944,10 @@ class PlotHelper:
         x: Union[Sequence[Union[float, str]], dict] = None,
         y: Union[Sequence[Union[float, str]], dict] = None,
     ):
-        """Sets the x and y limit for the current axis.
+        """Sets the x and y limit for the current axis. Allows some convenience
+        definitions for the arguments and then calls
+        :py:meth:`matplotlib.axes.Axes.set_xlim` and/or
+        :py:meth:`matplotlib.axes.Axes.set_ylim`.
 
         The ``x`` and ``y`` arguments can have the following form:
 
@@ -2016,14 +2042,13 @@ class PlotHelper:
         handles and labels. If a legend was set previously and *no* handles and
         labels could be extracted in the typical way (i.e., using the
         ``ax.get_legend_handles_labels`` method) it will be attempted to
-        retrieve them from existing ``matplotlib.legend.Legend`` objects on the
-        current axis.
+        retrieve them from existing :py:class:`matplotlib.legend.Legend`
+        objects on the current axis.
         If ``gather_from_fig`` is given, the *whole* figure will be inspected,
         regardless of whether handles were found previously.
 
         Additionally, all axis-specific handles and labels tracked via
-        :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.track_handles_labels`
-        will always be added.
+        :py:meth:`.track_handles_labels` will always be added.
 
         .. note::
 
@@ -2131,7 +2156,7 @@ class PlotHelper:
 
         Args:
             texts (Sequence[dict]): A sequence of text specifications, that are
-                passed to matplotlib.pyplot.text
+                passed to :py:func:`matplotlib.pyplot.text`
         """
         for kwargs in texts:
             self.ax.text(**kwargs)
@@ -2159,13 +2184,15 @@ class PlotHelper:
 
         Args:
             annotations (Sequence[dict]): A sequence of annotation parameters
-                which will be passed to matplotlib.pyplot.annotate
+                which will be passed to :py:func:`matplotlib.pyplot.annotate`
         """
         for kwargs in annotations:
             self.ax.annotate(**kwargs)
 
     def _hlpr_set_hv_lines(self, *, hlines: list = None, vlines: list = None):
-        """Sets one or multiple horizontal or vertical lines.
+        """Sets one or multiple horizontal or vertical lines using
+        :py:meth:`matplotlib.axes.Axes.axhline` and / or
+        :py:meth:`matplotlib.axes.Axes.axvline`.
 
         Args:
             hlines (list, optional): list of numeric positions of the lines or
@@ -2217,17 +2244,15 @@ class PlotHelper:
     ):
         """Sets the scales for the current axis
 
-        The arguments are used to call ``ax.set_xscale`` or ``ax.set_yscale``,
-        respectively.
+        The arguments are used to call
+        :py:meth:`matplotlib.axes.Axes.set_xscale` and/or
+        :py:meth:`matplotlib.axes.Axes.set_yscale`, respectively.
         For string-like arguments, the value is directly used to set the scale
         for that axis, e.g. ``linear``, ``log``, ``symlog``.
         Otherwise, dict-like arguments are expected where a ``scale`` key is
         present and defines which type of scale to use. All further arguments
         are passed on; these are relevant for the symmetrical logarithmic
         scale, for example.
-
-        For more information, see
-        https://matplotlib.org/api/_as_gen/matplotlib.axes.Axes.set_xscale.html
 
         Args:
             x (Union[str, dict], optional): The scales to use on the x-axis
@@ -2248,16 +2273,20 @@ class PlotHelper:
     def _hlpr_set_ticks(self, *, x: dict = None, y: dict = None):
         """Sets the ticks for the current axis
 
-        The arguments are used to call ``ax.set_xticks`` or ``ax.set_yticks``,
-        and ``ax.set_xticklabels`` or ``ax.set_yticklabels``, respectively.
+        The arguments are used to call
+        :py:meth:`matplotlib.axes.Axes.set_xticks` or
+        :py:meth:`matplotlib.axes.Axes.set_yticks`,
+        and :py:meth:`matplotlib.axes.Axes.set_xticklabels` or
+        :py:meth:`matplotlib.axes.Axes.set_yticklabels`, respectively.
+
         The dict-like arguments may contain the keys ``major`` and/or
         ``minor``, referring to major or minor tick locations and labels,
         respectively.
         They should either be list-like, directly specifying the ticks'
         locations, or dict-like requiring a ``locs`` key that contains the
-        ticks' locations and is passed on to matplotlib.axes.Axes.set_xticks
+        ticks' locations and is passed on to the ``set_<x/y>ticks`` call.
         as ``ticks`` argument. Further kwargs such as ``labels`` can be given
-        and are passed on to matplotlib.axes.Axes.set_xticklabels.
+        and are passed on to the ``set_<x/y>ticklabels`` call.
 
         Example:
 
@@ -2273,12 +2302,6 @@ class PlotHelper:
                   locs: [0, 1000, 2000, 3000]
                   labels: [0, 1k, 2k, 3k]
                   # ... further kwargs here specify label aesthetics
-
-
-        For more information, see:
-
-            - https://matplotlib.org/api/_as_gen/matplotlib.axes.Axes.set_xticks.html
-            - https://matplotlib.org/api/_as_gen/matplotlib.axes.Axes.set_xticklabels.html
 
         Args:
             x (Union[list, dict], optional): The ticks and optionally their
@@ -2350,11 +2373,12 @@ class PlotHelper:
     def _hlpr_set_tick_locators(self, *, x: dict = None, y: dict = None):
         """Sets the tick locators for the current axis
 
-        The arguments are used to call ``ax.{x,y}axis.set_{major/minor}_locator``
-        , respectively. The dict-like arguments must contain the keys ``major``
-        and/or ``minor``, referring to major or minor tick locators.
-        These need to specify a name that is looked up in ``matplotlib.ticker``.
-        They can contain a list-like ``args`` kwarg that defines
+        The arguments are used to call
+        ``ax.{x,y}axis.set_{major/minor}_locator``, respectively.
+        The dict-like arguments must contain the keys ``major`` and/or
+        ``minor``, referring to major or minor tick locators. These need to
+        specify a name that is looked up in :py:mod:`matplotlib.ticker`.
+        They can contain a list-like ``args`` keyword argument that defines
         the arguments to pass on as positional args to the called function.
         Further kwargs are passed on to ``ax.{x,y}axis.set_{major/minor}_locator``.
 
@@ -2390,13 +2414,15 @@ class PlotHelper:
     def _hlpr_set_tick_formatters(self, *, x: dict = None, y: dict = None):
         """Sets the tick formatters for the current axis
 
-        The arguments are used to call ``ax.{x,y}axis.set_{major/minor}_formatter``
-        , respectively. The dict-like arguments must contain the keys ``major``
-        and/or ``minor``, referring to major or minor tick formatters.
-        These need to specify a name that is looked up in ``matplotlib.ticker``.
-        They can contain a list-like ``args`` kwarg that defines
+        The arguments are used to call
+        ``ax.{x,y}axis.set_{major/minor}_formatter``, respectively. The
+        dict-like arguments must contain the keys ``major`` and/or ``minor``,
+        referring to major or minor tick formatters. These need to specify a
+        name that is looked up in :py:mod:`matplotlib.ticker`.
+        They can contain a list-like ``args`` keyword argument that defines
         the arguments to pass on as positional args to the called function.
-        Further kwargs are passed on to ``ax.{x,y}axis.set_{major/minor}_formatter``.
+        Further kwargs are passed on to
+        ``ax.{x,y}axis.set_{major/minor}_formatter``.
 
         Example:
 
@@ -2511,7 +2537,7 @@ class PlotHelper:
     # ... using seaborn
 
     def _hlpr_despine(self, **kwargs):
-        """Despines the current *axis* using ``seaborn.despine``.
+        """Despines the current *axis* using :py:func:`seaborn.despine`.
 
         To despine the whole *figure*, apply this helper to all axes.
         Refer to the seaborn documentation for available arguments:

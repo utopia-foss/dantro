@@ -54,25 +54,25 @@ class AllAvailableLoadersMixin(
 
 # fmt: off
 
-# A dict of file extensions and preferred loader names for those extensions
 LOADER_BY_FILE_EXT = {
-    'txt':      'text',
-    'log':      'text',
+    "txt":      "text",
+    "log":      "text",
 
-    'yml':      'yml',
-    'yaml':     'yaml',
+    "yml":      "yml",
+    "yaml":     "yaml",
 
-    'pickle':   'pickle',
-    'pkl':      'pkl',
+    "pickle":   "pickle",
+    "pkl":      "pkl",
 
-    'hdf5':     'hdf5',
-    'h5':       'hdf5',
+    "hdf5":     "hdf5",
+    "h5":       "hdf5",
 
-    'nc':       'xr_dataarray',
-    'netcdf':   'xr_dataarray',
-    'nc_da':    'xr_dataarray',
-    'xrdc':     'xr_dataarray',
-    'nc_ds':    'xr_dataset',
+    "nc":       "xr_dataarray",
+    "netcdf":   "xr_dataarray",
+    "nc_da":    "xr_dataarray",
+    "xrdc":     "xr_dataarray",
+    "nc_ds":    "xr_dataset",
 
-    'npy':      'numpy_binary'
+    "npy":      "numpy_binary",
 }
+"""A map of file extensions to preferred loader names"""

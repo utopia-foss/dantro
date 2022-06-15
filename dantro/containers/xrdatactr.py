@@ -1,4 +1,7 @@
-"""This module implements specialisations of the BaseDataContainer class."""
+"""This module implements specializations of the
+:py:class:`~dantro.base.BaseDataContainer` class that make use of the xarray
+package to represent the underlying data.
+"""
 
 import copy
 import logging
@@ -12,7 +15,6 @@ from ..base import BaseDataContainer, CheckDataMixin, ItemAccessMixin
 from ..mixins import ComparisonMixin, ForwardAttrsToDataMixin, NumbersMixin
 from ..utils import Link, extract_coords, extract_dim_names
 
-# Local constants and lazy module imports
 log = logging.getLogger(__name__)
 
 xr = LazyLoader("xarray")
@@ -28,8 +30,8 @@ class XrDataContainer(
     ItemAccessMixin,
     BaseDataContainer,
 ):
-    """The XrDataContainer stores numerical xarray.DataArray data associated
-    with dimensions, coordinates, and attributes.
+    """The XrDataContainer stores numerical :py:class:`xarray.DataArray` data
+    associated with dimensions, coordinates, and attributes.
     """
 
     # Specify expected data types for this container class
@@ -41,34 +43,36 @@ class XrDataContainer(
     DATA_UNEXPECTED_ACTION = "raise"
 
     # Custom class variables for customizing XrDataContainer ..................
-    # Define as class variable the name of the attribute that determines the
-    # dimensions of the xarray.DataArray
     _XRC_DIMS_ATTR = "dims"
+    """Define as class variable the name of the attribute that determines the
+    dimensions of the :py:class:`xarray.DataArray`"""
 
-    # Attributes prefixed with this string can be used to set names for
-    # specific dimensions. The prefix should be followed by an integer-parsable
-    # string, e.g. `dim_name__0` would be the dimension name for the 0th dim.
     _XRC_DIM_NAME_PREFIX = "dim_name__"
+    """Attributes prefixed with this string can be used to set names for
+    specific dimensions. The prefix should be followed by an integer-parsable
+    string, e.g. ``dim_name__0`` would be the dimension name for the 0th dim.
+    """
 
-    # Attributes prefixed with this string determine the coordinate values for
-    # a specific dimension. The prefix should be followed by the _name_ of the
-    # dimension, e.g. `coord__time`. The values are interpreted according to
-    # the default coordinate mode or, if given, the coord_mode__* attribute
     _XRC_COORDS_ATTR_PREFIX = "coords__"
+    """Attributes prefixed with this string determine the coordinate values for
+    a specific dimension. The prefix should be followed by the *name* of the
+    dimension, e.g. ``coord__time``. The values are interpreted according to
+    the default coordinate mode or, if given, the ``coord_mode__*`` attribute.
+    """
 
-    # The default mode by which coordinates are interpreted
     _XRC_COORDS_MODE_DEFAULT = "values"
+    """The default mode by which coordinates are interpreted"""
 
-    # Prefix for the coordinate mode if a custom mode is to be used
     _XRC_COORDS_MODE_ATTR_PREFIX = "coords_mode__"
+    """Prefix for the coordinate mode if a custom mode is to be used"""
 
-    # Whether to inherit the other container attributes
     _XRC_INHERIT_CONTAINER_ATTRIBUTES = True
+    """Whether to inherit the other container attributes"""
 
-    # Whether to use strict attribute checking; throws errors if there are
-    # container attributes available that match the prefix but don't match a
-    # valid dimension name. Can be disabled for speed improvements
     _XRC_STRICT_ATTR_CHECKING = True
+    """Whether to use strict attribute checking; throws errors if there are
+    container attributes available that match the prefix but don't match a
+    valid dimension name. Can be disabled for speed improvements."""
 
     # .........................................................................
 
@@ -76,7 +80,7 @@ class XrDataContainer(
         self,
         *,
         name: str,
-        data: Union[np.ndarray, "xr.DataArray"],
+        data: Union[np.ndarray, "xarray.DataArray"],
         dims: Sequence[str] = None,
         coords: dict = None,
         extract_metadata: bool = True,
@@ -88,8 +92,8 @@ class XrDataContainer(
 
         Args:
             name (str): which name to give to the XrDataContainer
-            data (Union[np.ndarray, xr.DataArray]): The data to store; anything
-                that an xr.DataArray can take
+            data (Union[numpy.ndarray, xarray.DataArray]): The data to store;
+                anything that an :py:class:`xarray.DataArray` can take.
             dims (Sequence[str], optional): The dimension names.
             coords (dict, optional): The coordinates. The keys of this dict
                 have to correspond to the dimension names.
@@ -99,8 +103,8 @@ class XrDataContainer(
             apply_metadata (bool, optional): Whether to apply the extracted
                 or passed ``dims`` and ``coords`` to the underlying data.
                 This might not be desired in cases where the given ``data``
-                already is a labelled ``xr.DataArray`` or where the data is a
-                proxy and the labelling should be postponed.
+                already is a labelled :py:class:`xarray.DataArray` or where
+                the data is a proxy and the labelling should be postponed.
             **dc_kwargs: passed to parent
         """
 
@@ -197,7 +201,7 @@ class XrDataContainer(
         )
 
     def save(self, path: str, **save_kwargs):
-        """Saves the XrDataContainer to a file by invoking the .to_netcdf
+        """Saves the XrDataContainer to a file by invoking the ``.to_netcdf``
         method of the underlying data.
 
         The recommended file extension is ``.xrdc`` or ``.nc_da``, which are
@@ -209,7 +213,7 @@ class XrDataContainer(
 
         Args:
             path (str): The path to save the file at
-            **save_kwargs: Passed to the .to_netcdf method
+            **save_kwargs: Passed to ``.no_netcdf`` method call
         """
         self.to_netcdf(path, **save_kwargs)
 
@@ -255,11 +259,11 @@ class XrDataContainer(
             self._dim_to_coords_map = coords
 
     def _inherit_attrs(self):
-        """Carry over container attributes to the xr.DataArray attributes
+        """Carry over container attributes to the data array attributes.
 
         This does not include container attributes that are used for extracting
         metadata; it makes no sense to have them in the attributes of the
-        already labelled xr.DataArray
+        already labelled :py:class:`xarray.DataArray`.
         """
 
         def skip(attr_name: str) -> bool:
@@ -275,7 +279,9 @@ class XrDataContainer(
                 self.data.attrs[attr_name] = attr_val
 
     def _apply_metadata(self):
-        """Applies the cached metadata to the underlying xr.DataArray"""
+        """Applies the cached metadata to the underlying
+        :py:class:`xarray.DataArray`
+        """
         # Make sure that data is an xarray
         if not isinstance(self.data, xr.DataArray):
             self._data = xr.DataArray(self.data)
@@ -336,7 +342,7 @@ class XrDataContainer(
     def _parse_sizes_from_metadata(self) -> Sequence[Tuple[str, int]]:
         """Invoked from _format_shape when no metadata was applied but the
         dimension names are available. Should return data in the same form as
-        xr.DataArray.sizes.items() does.
+        ``xr.DataArray.sizes.items()`` does.
         """
         # Iterate over dimension names and shapes ...
         it = enumerate(zip(self._dim_names, self.shape))

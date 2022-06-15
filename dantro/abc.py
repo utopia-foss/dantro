@@ -6,14 +6,13 @@ import collections.abc
 import logging
 from typing import Any, Tuple, Union
 
-# Local constants
 log = logging.getLogger(__name__)
 
-# The character used for separating hierarchies in the path
 PATH_JOIN_CHAR = "/"
+"""The character used for separating hierarchies in the path"""
 
-# Substrings that may not appear in names of data containers
 BAD_NAME_CHARS = ("*", "?", "[", "]", "!", ":", "(", ")", PATH_JOIN_CHAR, "\\")
+"""Substrings that may not appear in names of data containers"""
 
 # -----------------------------------------------------------------------------
 

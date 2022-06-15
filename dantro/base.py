@@ -7,8 +7,11 @@ of the AbstractDataGroup and the BaseDataContainer.
 In turn, the BaseDataContainer uses the BaseDataAttrs class as an attribute and
 thereby extends the AbstractDataContainer class.
 
-NOTE: These classes are not meant to be instantiated but used as a basis to
-implement more specialized BaseDataGroup- or BaseDataContainer-derived classes.
+.. note::
+
+    These classes are not meant to be instantiated but used as a basis to
+    implement more specialized :py:class:`.BaseDataGroup`- or
+    :py:class:`.BaseDataContainer`-derived classes.
 """
 
 import abc
@@ -156,29 +159,31 @@ class BaseDataGroup(
     than what is expected of a general container.
     """
 
-    # Define which class to use for storing attributes
-    _ATTRS_CLS = BaseDataAttrs
+    _ATTRS_CLS: type = BaseDataAttrs
+    """Which class to use for storing attributes"""
 
-    # The mapping type that is used to store the members of this group.
-    _STORAGE_CLS = dict
+    _STORAGE_CLS: type = dict
+    """The mapping type that is used to store the members of this group."""
 
-    # Define which class to use in the new_group method. If None, the type of
-    # this instance is used
-    _NEW_GROUP_CLS = None
+    _NEW_GROUP_CLS: type = None
+    """Which class to use when creating a new group via :py:meth:`.new_group`.
+    If None, the type of the current instance is used for the new group."""
 
-    # Define which class to use in the new_container method. If None, the type
-    # needs to be specified explicitly in the call to new_container
-    _NEW_CONTAINER_CLS = None
+    _NEW_CONTAINER_CLS: type = None
+    """Which class to use for creating a new container via call to the
+    :py:meth:`.new_container` method. If None, the type needs to be specified
+    explicitly in the method call.
+    """
 
-    # Define the types that are allowed to be stored in this group. If None,
-    # the dantro base classes are allowed
     _ALLOWED_CONT_TYPES = None
+    """The types that are allowed to be stored in this group. If None,
+    the dantro base classes are allowed"""
 
-    # Condensed tree representation: maximum level
     _COND_TREE_MAX_LEVEL = 10
+    """Condensed tree representation maximum level"""
 
-    # Condensed tree representation: threshold parameter
     _COND_TREE_CONDENSE_THRESH = 10
+    """Condensed tree representation threshold parameter"""
 
     # .........................................................................
 
@@ -461,7 +466,7 @@ class BaseDataGroup(
     def new_container(
         self, path: Union[str, List[str]], *, Cls: type = None, **kwargs
     ):
-        """Creates a new container of class ``Cls`` and adds it at the given
+        """Creates a new container of type ``Cls`` and adds it at the given
         path relative to this group.
 
         If needed, intermediate groups are automatically created.
@@ -473,7 +478,7 @@ class BaseDataGroup(
             **kwargs: passed on to ``Cls.__init__``
 
         Returns:
-            Cls: the created container
+            The created container of type ``Cls``
 
         Raises:
             ValueError: If neither the ``Cls`` argument nor the class variable
@@ -544,10 +549,10 @@ class BaseDataGroup(
                 group. If not given, uses the class specified in the
                 _NEW_GROUP_CLS class variable or, as last resort, the type of
                 this instance.
-            **kwargs: Passed on to Cls.__init__
+            **kwargs: Passed on to ``Cls.__init__``
 
         Returns:
-            Cls: the created group
+            The created group of type ``Cls``
 
         Raises:
             TypeError: For the given class not being derived from BaseDataGroup

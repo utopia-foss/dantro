@@ -9,14 +9,13 @@ import numpy as np
 
 from ..abc import AbstractDataProxy
 
-# Local variables
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
 
 class ProxySupportMixin:
-    """This Mixin class overwrites the ``data`` property to allow and resolve
+    """This mixin class overwrites the ``data`` property to allow and resolve
     proxy objects.
 
     It should be used to add support for certain proxy types to a container.
@@ -31,19 +30,23 @@ class ProxySupportMixin:
     # not have an effect. Make sure the proxy mixin is loaded after the
     # CheckDataMixin or the container class that uses the CheckDataMixin
 
-    # Which type to resolve the proxy to
     PROXY_RESOLVE_ASTYPE = None
+    """Which type to resolve the proxy to"""
 
-    # Whether to retain the proxy object after resolving
     PROXY_RETAIN = False
+    """Whether to retain the proxy object after resolving"""
 
-    # Behaviour upon failure of reinstating a proxy
-    PROXY_REINSTATE_FAIL_ACTION = "raise"  # or:  warn, log_warning, log_debug
+    PROXY_REINSTATE_FAIL_ACTION = "raise"
+    """Behaviour upon failure of reinstating a proxy.
 
-    # If true, populates the pickling state with the proxy instead of the data
+    Can be: ``raise``, ``warn``, ``log_warning``, ``log_debug``"""
+
     PROXY_REINSTATE_FOR_PICKLING = True
+    """If true, populates the pickling state with the proxy instead of the data
+    """
 
-    # Make sure the attribute where a retained proxy is stored is available
+    # The attribute where a retained proxy is stored (individually for each
+    # object, of course).
     _retained_proxy = None
 
     def __getstate__(self) -> dict:
@@ -123,7 +126,7 @@ class ProxySupportMixin:
         return self._retained_proxy
 
     def reinstate_proxy(self):
-        """Re-instate a previously retained proxy object, discarding _data."""
+        """Re-instate a previously retained proxy object, discarding ``_data``."""
         if self.data_is_proxy:
             return
 

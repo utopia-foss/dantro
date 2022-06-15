@@ -459,8 +459,9 @@ def format_time(
     for the seconds.
 
     Args:
-        duration (Union[float, timedelta]): The duration in seconds to format
-            into a duration string; it can also be a timedelta object.
+        duration (Union[float, datetime.timedelta]): The duration in seconds
+            to format into a duration string; it can also be a timedelta
+            object.
         ms_precision (int, optional): The precision of the seconds slot
         max_num_parts (int, optional): How many parts to include when creating
             the formatted time string. For example, if the time consists of

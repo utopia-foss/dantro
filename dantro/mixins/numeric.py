@@ -10,14 +10,13 @@ import numpy as np
 
 from ..abc import AbstractDataContainer
 
-# Local variables
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
 
 class UnaryOperationsMixin:
-    """This Mixin class implements the methods needed for unary operations.
+    """This mixin class implements the methods needed for unary operations.
 
     It leaves out those that expect that return values are of a certain type,
     e.g. ``__complex__``, ``__int__``, ...
@@ -251,14 +250,15 @@ class ComparisonMixin:
 
 
 def get_data(obj):
-    """Get the data of `obj` depending on whether it is part of dantro or not.
+    """Get the data of ``obj`` depending on whether it is part of dantro or
+    not.
 
     Args:
         obj: The object to check
 
     Returns:
-        Either the `.data` attribute of a dantro-based object or otherwise the
-            object itself.
+        Either the ``.data`` attribute of a dantro-based object or otherwise
+            the object itself.
     """
     if isinstance(obj, AbstractDataContainer):
         return obj.data
@@ -288,7 +288,7 @@ def apply_func_to_copy(obj, func, other=None):
 
 
 def apply_func_inplace(obj, func, other=None):
-    """Apply a given function inplace for all datatypes
+    """Apply a given function inplace for all data types.
 
     Returns:
         An object with the data on which the function was applied

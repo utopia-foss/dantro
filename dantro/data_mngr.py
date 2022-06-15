@@ -1644,7 +1644,7 @@ class DataManager(OrderedDataGroup):
             **kwargs: Passed on to Cls.__init__
 
         Returns:
-            Cls: the created group
+            The created group of type ``Cls``
         """
         # Use helper function to parse the group class correctly
         Cls = self._determine_group_class(Cls)

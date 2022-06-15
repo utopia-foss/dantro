@@ -12,24 +12,23 @@ pkl = LazyLoader("dill")
 class PickleLoaderMixin:
     """Supplies a load function for pickled python objects.
 
-    For unpickling, the dill package is used.
+    For unpickling, the ``dill`` package is used.
     """
 
     @add_loader(TargetCls=ObjectContainer, omit_self=False)
     def _load_pickle(
         self, filepath: str, *, TargetCls: type, **pkl_kwargs
     ) -> ObjectContainer:
-        """Load a pickled object using ``dill.load``.
+        """Load a pickled object using :py:func:`dill._dill.load`.
 
         Args:
             filepath (str): Where the pickle-dumped file is located
             TargetCls (type): The class constructor
-            **pkl_kwargs: Passed on to the load function
+            **pkl_kwargs: Passed on to :py:func:`dill._dill.load`
 
         Returns:
             ObjectContainer: The unpickled object, stored in a dantro container
         """
-        # Open file in binary mode and unpickle with the given load function
         with open(filepath, mode="rb") as f:
             obj = pkl.load(f, **pkl_kwargs)
 

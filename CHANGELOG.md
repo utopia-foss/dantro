@@ -12,6 +12,7 @@
     - In DAG, only load from cache file if the content was *not* already loaded
 - !270 drops official support and testing for Python 3.7
 - !271 strongly reduces the time it takes to `import dantro` by delaying imports of dependencies
+- !277 improves the dantro documentation by adding cross-referencing to other sphinx-based docs and tweaking many minor aspects of the dantro docs.
 
 #### Internal
 - !267 performs some code clean-up and improves the sphinx setup

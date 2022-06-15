@@ -1,5 +1,5 @@
 """This sub-module implements the basic mixin classes that are required
-in the dantro.base module"""
+in the :py:mod:`dantro.base` module"""
 
 import contextlib
 import logging
@@ -17,23 +17,23 @@ log = logging.getLogger(__name__)
 
 
 class AttrsMixin:
-    """This Mixin class supplies the `attrs` property getter and setter and
-    the private `_attrs` attribute.
+    """This Mixin class supplies the ``attrs`` property getter and setter and
+    the private ``_attrs`` attribute.
 
-    Hereby, the setter function will initialize a BaseDataAttrs-derived object
-    and store it as an attribute.
-    This relays the checking of the correct attribute format to the actual
-    BaseDataAttrs-derived class.
+    Hereby, the setter function will initialize a
+    :py:class:`~dantro.base.BaseDataAttrs` -derived object and store it as an
+    attribute. This relays the checking of the correct attribute format to the
+    actual :py:class:`~dantro.base.BaseDataAttrs`-derived class.
 
     For changing the class that is used for the attributes, an overwrite of the
     ``_ATTRS_CLS`` class variable suffices.
     """
 
-    # The class attribute that the attributes will be stored to
     _attrs = None
+    """The class attribute that the attributes will be stored to"""
 
-    # Define the class to use for storing attributes
     _ATTRS_CLS = None
+    """The class to use for storing attributes"""
 
     @property
     def attrs(self):
@@ -49,7 +49,6 @@ class AttrsMixin:
                 "in order to use the AttrsMixin!"
             )
 
-        # Perform the initialisation
         self._attrs = self._ATTRS_CLS(name="attrs", attrs=new_attrs)
 
 
@@ -63,17 +62,13 @@ class SizeOfMixin:
         data and its attributes.
 
         Note that this value is approximate. It is computed by calling the
-        ``sys.getsizeof`` function on the data, the attributes, the name and
-        some caching attributes that each dantro data tree class contains.
-        Importantly, this is not a recursive algorithm.
+        :py:func:`sys.getsizeof` function on the data, the attributes, the
+        name and some caching attributes that each dantro data tree class
+        contains. *Importantly,* this is *not* a recursive algorithm.
 
         Also, derived classes might implement further attributes that are not
         taken into account either. To be more precise in a subclass, create a
         specific __sizeof__ method and invoke this parent method additionally.
-
-        For more information, see the documentation of ``sys.getsizeof``:
-
-            https://docs.python.org/3/library/sys.html#sys.getsizeof
         """
         nbytes = sys.getsizeof(self._data)
         nbytes += sys.getsizeof(self._attrs)
@@ -83,12 +78,12 @@ class SizeOfMixin:
 
 
 class LockDataMixin:
-    """This Mixin class provides a flag for marking the data of a group or
+    """This mixin class provides a flag for marking the data of a group or
     container as locked.
     """
 
-    # Whether the data is regarded as locked. Note name-mangling here.
     __locked = False
+    """Whether the data is regarded as locked. Note name-mangling here."""
 
     @property
     def locked(self) -> bool:
@@ -167,7 +162,7 @@ class CollectionMixin:
 class ItemAccessMixin:
     """This Mixin class implements the methods needed for getting, setting,
     and deleting items. It relays all calls forward to the data attribute, but
-    if given a list (passed down from above), it extracts it
+    if given a list (passed down from above), it extracts it.
     """
 
     def __getitem__(self, key):
@@ -206,7 +201,7 @@ class MappingAccessMixin(ItemAccessMixin, CollectionMixin):
         return self.data.values()
 
     def items(self):
-        """Returns an iterator over data's (key, value) tuples"""
+        """Returns an iterator over data's ``(key, value)`` tuples"""
         return self.data.items()
 
     def get(self, key, default=None):
@@ -220,13 +215,14 @@ class CheckDataMixin:
     """This mixin class extends a BaseDataContainer-derived class to check the
     provided data before storing it in the container.
 
-    It implements a general _check_data method, overwriting the placeholder
-    method in the BaseDataContainer, and can be controlled via class variables.
+    It implements a general :py:meth:`._check_data` method, overwriting the
+    placeholder method in the :py:class:`~dantro.base.BaseDataContainer`, and
+    can be controlled via class variables.
 
     .. note::
 
         This is not suitable for checking containers that are added to an
-        object of a BaseDataGroup-derived class!
+        object of a :py:class:`~dantro.base.BaseDataGroup`-derived class!
     """
 
     DATA_EXPECTED_TYPES: tuple = None
@@ -314,6 +310,7 @@ class DirectInsertionModeMixin:
     """
 
     __in_direct_insertion_mode = False
+    """A name-mangled state flag that determines the state of the object."""
 
     @property
     def with_direct_insertion(self) -> bool:
@@ -326,16 +323,13 @@ class DirectInsertionModeMixin:
     def _direct_insertion_mode(self, *, enabled: bool = True):
         """A context manager that brings the class this mixin is used in into
         direct insertion mode. While in that mode, the
-        :py:meth:`~dantro.mixins.base.DirectInsertionModeMixin.with_direct_insertion`
-        property will return true.
+        :py:meth:`.with_direct_insertion` property will return true.
 
         This context manager additionally invokes two callback functions, which
         can be specialized to perform certain operations when entering or
         exiting direct insertion mode: *Before* entering,
-        :py:meth:`~dantro.mixins.base.DirectInsertionModeMixin._enter_direct_insertion_mode`
-        is called. *After* exiting,
-        :py:meth:`~dantro.mixins.base.DirectInsertionModeMixin._exit_direct_insertion_mode`
-        is called.
+        :py:meth:`._enter_direct_insertion_mode` is called. *After* exiting,
+        :py:meth:`_exit_direct_insertion_mode` is called.
 
         Args:
             enabled (bool, optional): whether to actually use direct insertion

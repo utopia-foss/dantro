@@ -1,4 +1,6 @@
-"""Implements LabelledDataGroup specializations for time series"""
+"""Implements :py:class:`~dantro.groups.labelled.LabelledDataGroup`
+specializations for time series data.
+"""
 
 from .labelled import LabelledDataGroup
 from .ordered import IndexedDataGroup
@@ -16,11 +18,13 @@ class TimeSeriesGroup(LabelledDataGroup, IndexedDataGroup):
         * :py:meth:`~dantro.groups.labelled.LabelledDataGroup.isel`
     """
 
-    # There is only one dimension in a TimeSeriesGroup: time
     LDG_DIMS = ("time",)
+    """Expected dimension names. There is only one dimension in a
+    TimeSeriesGroup: ``time``"""
 
-    # Names are expected to be the time coordinates of each container
     LDG_EXTRACT_COORDS_FROM = "name"
+    """Where to extract time coordinates from. Here, the container name is
+    expected to be the time coordinate."""
 
 
 class HeterogeneousTimeSeriesGroup(TimeSeriesGroup):
@@ -49,6 +53,7 @@ class HeterogeneousTimeSeriesGroup(TimeSeriesGroup):
     only upon a change in coordinates.
     """
 
-    # Coordinates are extracted from the data directly, inspecting only the
-    # group-level dimensions (here: ``time``)
     LDG_EXTRACT_COORDS_FROM = "data"
+    """Where to extract coordinates from. Here, coordinates are extracted from
+    the data directly, inspecting only the group-level dimensions (``time``).
+    """

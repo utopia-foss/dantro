@@ -20,7 +20,8 @@ class OrderedDataGroup(BaseDataGroup, collections.abc.MutableMapping):
     """The OrderedDataGroup class manages groups of data containers, preserving
     the order in which they were added to this group.
 
-    It uses an OrderedDict to associate containers with this group.
+    It uses an :py:class:`collections.OrderedDict` to associate containers
+    with this group.
     """
 
     # Use OrderedDict for storage in insertion order

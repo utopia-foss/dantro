@@ -59,11 +59,17 @@ BOOLEAN_OPERATORS = {
 def print_data(
     data: Any, *, end: str = "\n", fstr: str = None, **fstr_kwargs
 ) -> Any:
-    """Prints and passes on the data.
+    """Prints and passes on the data using :py:func:`print`.
 
     The print operation distinguishes between dantro types (in which case some
     more information is shown) and non-dantro types. If a custom format string
     is given, will always use that one.
+
+    .. note::
+
+        This is a passthrough-function: ``data`` is always returned without any
+        changes. However, the print operation may lead to resolution of
+        :py:mod:`~dantro.proxy` objects.
 
     Args:
         data (Any): The data to print
@@ -73,7 +79,8 @@ def print_data(
             argument to the format string, thus addressable by ``{0:}``.
             If the format string is not ``None``, will *always* use the format
             string and not use the custom formatting for dantro objects.
-        **fstr_kwargs: Keyword arguments passed to the format operation.
+        **fstr_kwargs: Keyword arguments passed to the :py:func:`format`
+            call.
 
     Returns:
         Any: the given ``data``
@@ -105,8 +112,7 @@ def expression(
 ):
     """Parses and evaluates a symbolic math expression using SymPy.
 
-    For parsing, uses sympy's ``parse_expr`` function (see documentation of the
-    `parsing module <https://docs.sympy.org/latest/modules/parsing.html>`_).
+    For parsing, uses sympy's :py:func:`sympy.parsing.sympy_parser.parse_expr`.
     The ``symbols`` are provided as ``local_dict``; the ``global_dict`` is not
     explicitly set and subsequently uses the sympy default value, containing
     all basic sympy symbols and notations.
@@ -127,16 +133,9 @@ def expression(
     .. warning::
 
         While the expression is symbolic math, be aware that smypy by default
-        interprets the ``^`` operator as XOR.
-        For exponentiation, use the``**`` operator or adjust the
+        interprets the ``^`` operator as XOR, not an exponentiation!
+        For exponentiation, use the ``**`` operator or adjust the
         ``transformations`` argument as specified in the sympy documentation.
-
-    .. warning::
-
-        While the expression is symbolic math, it uses the ``**`` operator for
-        exponentiation, unless a custom ``transformations`` argument is given.
-
-        Thus, the ``^`` operator will lead to an XOR operation being performed!
 
     .. warning::
 
@@ -153,11 +152,12 @@ def expression(
             that no sympy objects are contained in the result. For ensuring
             a fully numerical result, see the ``astype`` argument.
         transformations (Tuple[Callable], optional): The ``transformations``
-            argument for sympy's ``parse_expr``. By default, the sympy
-            standard transformations are performed.
+            argument for sympy's
+            :py:func:`sympy.parsing.sympy_parser.parse_expr`. By default, the
+            sympy standard transformations are performed.
         astype (Union[type, str], optional): If given, performs a cast to this
             data type, fully evaluating all symbolic expressions.
-            Default: Python ``float``.
+            Default: Python :py:class:`float`.
 
     Raises:
         TypeError: Upon failing ``astype`` cast, e.g. due to free symbols
@@ -222,8 +222,8 @@ def generate_lambda(expr: str) -> Callable:
     """Generates a lambda from a string. This is useful when working with
     callables in other operations.
 
-    The ``expr`` argument needs to be a valid Python ``lambda`` expression, see
-    `here <docs.python.org/3/tutorial/controlflow.html#lambda-expressions>`_.
+    The ``expr`` argument needs to be a valid Python
+    `lambda expression <https://docs.python.org/3/reference/expressions.html#lambda>`_.
 
     Inside the lambda body, the following names are available for use:
 
@@ -356,23 +356,23 @@ def generate_lambda(expr: str) -> Callable:
 
 
 def create_mask(
-    data: "xr.DataArray", operator_name: str, rhs_value: float
-) -> "xr.DataArray":
+    data: "xarray.DataArray", operator_name: str, rhs_value: float
+) -> "xarray.DataArray":
     """Given the data, returns a binary mask by applying the following
     comparison: ``data <operator> rhs value``.
 
     Args:
-        data (xr.DataArray): The data to apply the comparison to. This is the
-            lhs of the comparison.
+        data (xarray.DataArray): The data to apply the comparison to. This is
+            the left-hand-side of the comparison.
         operator_name (str): The name of the binary operator function as
-            registered in the ``BOOLEAN_OPERATORS`` constant.
+            registered in the ``BOOLEAN_OPERATORS`` database.
         rhs_value (float): The right-hand-side value
 
     Raises:
         KeyError: On invalid operator name
 
     Returns:
-        xr.DataArray: Boolean mask
+        xarray.DataArray: Boolean mask
     """
     # Get the operator function
     try:
@@ -400,31 +400,32 @@ def create_mask(
 
 
 def where(
-    data: "xr.DataArray", operator_name: str, rhs_value: float, **kwargs
-) -> "xr.DataArray":
+    data: "xarray.DataArray", operator_name: str, rhs_value: float, **kwargs
+) -> "xarray.DataArray":
     """Filter elements from the given data according to a condition. Only
     those elemens where the condition is fulfilled are not masked.
 
-    NOTE This typically leads to a dtype change to float.
+    .. note::
+
+        This typically leads to a dtype change to :py:attr:`numpy.float64`.
 
     Args:
-        data (xr.DataArray): The data to mask
+        data (xarray.DataArray): The data to mask
         operator_name (str): The ``operator`` argument used in
             :py:func:`~dantro.utils.data_ops.create_mask`
         rhs_value (float): The ``rhs_value`` argument used in
             :py:func:`~dantro.utils.data_ops.create_mask`
-        **kwargs: Passed on to ``data.where`` attribute call
+        **kwargs: Passed on to ``.where()`` method call
     """
-    # Get the mask and apply it
     return data.where(
         create_mask(data, operator_name=operator_name, rhs_value=rhs_value),
         **kwargs,
     )
 
 
-def count_unique(data, dims: List[str] = None) -> "xr.DataArray":
-    """Applies np.unique to the given data and constructs a xr.DataArray for
-    the results.
+def count_unique(data, dims: List[str] = None) -> "xarray.DataArray":
+    """Applies :py:func:`numpy.unique` to the given data and constructs a
+    :py:class:`xarray.DataArray` for the results.
 
     NaN values are filtered out.
 
@@ -436,7 +437,7 @@ def count_unique(data, dims: List[str] = None) -> "xr.DataArray":
 
     """
 
-    def _count_unique(data) -> "xr.DataArray":
+    def _count_unique(data) -> "xarray.DataArray":
         unique, counts = np.unique(data, return_counts=True)
 
         # remove np.nan values
@@ -488,32 +489,32 @@ def populate_ndarray(
     out: np.ndarray = None,
     ufunc: Callable = None,
 ) -> np.ndarray:
-    """Populates an empty np.ndarray of the given dtype with the given objects
-    by zipping over a new array of the given ``shape`` and the sequence of
-    objects.
+    """Populates an empty :py:class:`numpy.ndarray` of the given ``dtype`` with
+    the given objects by zipping over a new array of the given ``shape`` and
+    the sequence of objects.
 
     Args:
-        objs (Iterable): The objects to add to the np.ndarray. These objects
-            are added in the order they are given here. Note that their final
-            position inside the resulting array is furthermore determined by
-            the ``order`` argument.
+        objs (Iterable): The objects to add to the :py:class:`numpy.ndarray`.
+            These objects are added in the order they are given here. Note
+            that their final position inside the resulting array is
+            furthermore determined by the ``order`` argument.
         shape (Tuple[int], optional): The shape of the new array. **Required**
             if no ``out`` array is given.
-        dtype (Union[str, type, np.dtype], optional): dtype of the new array.
-            Ignored if ``out`` is given.
+        dtype (Union[str, type, numpy.dtype], optional): dtype of the new
+            array. Ignored if ``out`` is given.
         order (str, optional): Order of the new array, determines iteration
             order. Ignored if ``out`` is given.
-        out (np.ndarray, optional): If given, populates this array rather than
-            an empty array.
+        out (numpy.ndarray, optional): If given, populates this array rather
+            than an empty array.
         ufunc (Callable, optional): If given, applies this unary function to
             each element before storing it in the to-be-returned ndarray.
 
     Returns:
-        np.ndarray: The populated ``out`` array or the newly created one (if
+        numpy.ndarray: The populated ``out`` array or the newly created one (if
             ``out`` was not given)
 
     Raises:
-        TypeError: On missing
+        TypeError: On missing ``shape`` argument if ``out`` is not given
         ValueError: If the number of given objects did not match the array size
     """
     if out is None and shape is None:
@@ -543,7 +544,7 @@ def build_object_array(
     *,
     dims: Tuple[str] = ("label",),
     fillna: Any = None,
-) -> "xr.DataArray":
+) -> "xarray.DataArray":
     """Creates a *simple* labelled multidimensional object array.
 
     It accepts simple iterable types like dictionaries or lists and unpacks
@@ -557,12 +558,11 @@ def build_object_array(
 
         This data operation is built for *flexibility*, not for speed. It will
         call the :py:func:`~dantro.utils.data_ops.merge` operation for *every*
-        element in the `objs` iterable, thus being slow and potentially
+        element in the ``objs`` iterable, thus being slow and potentially
         creating an array with many empty elements.
         To efficiently populate an n-dimensional object array, use the
         :py:func:`~dantro.utils.data_ops.populate_ndarray` operation instead
         and build a labelled array from that output.
-
 
     Args:
         objs (Union[Dict, Sequence]): The objects to populate the object array
@@ -645,11 +645,14 @@ def build_object_array(
     return out
 
 
-def multi_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> "xr.DataArray":
-    """Concatenates ``xr.Dataset`` or ``xr.DataArray`` objects using
-    ``xr.concat``. This function expects the xarray objects to be pre-aligned
-    inside the numpy *object* array ``arrs``, with the number of dimensions
-    matching the number of concatenation operations desired.
+def multi_concat(
+    arrs: np.ndarray, *, dims: Sequence[str]
+) -> "xarray.DataArray":
+    """Concatenates :py:class:`xarray.Dataset` or :py:class:`xarray.DataArray`
+    objects using :py:func:`xarray.concat`. This function expects the xarray
+    objects to be pre-aligned inside the numpy *object* array ``arrs``, with
+    the number of dimensions matching the number of concatenation operations
+    desired.
     The position inside the array carries information on where the objects that
     are to be concatenated are placed inside the higher dimensional coordinate
     system.
@@ -657,28 +660,29 @@ def multi_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> "xr.DataArray":
     Through multiple concatenation, the dimensionality of the contained objects
     is increased by ``dims``, while their dtype can be maintained.
 
-    For the sequential application of ``xr.concat`` along the outer dimensions,
-    the custom :py:func:`dantro.tools.apply_along_axis` is used.
+    For the sequential application of :py:func:`xarray.concat` along the outer
+    dimensions, the custom :py:func:`~dantro.tools.apply_along_axis` function
+    is used.
 
     Args:
-        arrs (np.ndarray): The array containing xarray objects which are to be
+        arrs (numpy.ndarray): The array containing xarray objects which are to be
             concatenated. Each array dimension should correspond to one of the
-            given ``dims``. For each of the dimensions, the ``xr.concat``
-            operation is applied along the axis, effectively reducing the
-            dimensionality of ``arrs`` to a scalar and increasing the
-            dimensionality of the contained xarray objects until they
-            additionally contain the dimensions specified in ``dims``.
+            given ``dims``. For each of the dimensions, the
+            :py:func:`xarray.concat` operation is applied along the axis,
+            effectively reducing the dimensionality of ``arrs`` to a scalar
+            and increasing the dimensionality of the contained xarray objects
+            until they additionally contain the dimensions specified in
+            the ``dims`` argument.
         dims (Sequence[str]): A sequence of dimension names that is assumed to
             match the dimension names of the array. During each concatenation
-            operation, the name is passed along to ``xr.concat`` where it is
-            used to select the dimension of the *content* of ``arrs`` along
-            which concatenation should occur.
+            operation, the name is passed along to :py:func:`xarray.concat`
+            where it is used to select the dimension of the *content* of
+            ``arrs`` along which concatenation should occur.
 
     Raises:
         ValueError: If number of dimension names does not match the number of
             data dimensions.
     """
-    # Check dimensionality
     if len(dims) != arrs.ndim:
         raise ValueError(
             f"The given sequence of dimension names, {dims}, did not match "
@@ -704,17 +708,22 @@ def multi_concat(arrs: np.ndarray, *, dims: Sequence[str]) -> "xr.DataArray":
 
 
 def merge(
-    arrs: Union[Sequence[Union["xr.DataArray", "xr.Dataset"]], np.ndarray],
+    arrs: Union[
+        Sequence[Union["xarray.DataArray", "xarray.Dataset"]], np.ndarray
+    ],
     *,
     reduce_to_array: bool = False,
     **merge_kwargs,
-) -> Union["xr.Dataset", "xr.DataArray"]:
-    """Merges the given sequence of xarray objects into an xr.Dataset.
+) -> Union["xarray.Dataset", "xarray.DataArray"]:
+    """Merges the given sequence of xarray objects into an
+    :py:class:`xarray.Dataset`.
 
-    As a convenience, this also allows passing a numpy object array containing
-    the xarray objects. Furthermore, if the resulting Dataset contains only a
-    single data variable, that variable can be extracted as a DataArray which
-    is then the return value of this operation.
+    As a convenience, this also allows passing a :py:class:`numpy.ndarray` of
+    dtype ``object`` containing the xarray objects.
+    Furthermore, if the resulting :py:class:`xarray.Dataset` contains only a
+    single data variable, that variable can be extracted as a
+    :py:class:`xarray.DataArray` by setting the ``reduce_to_array`` flag,
+    making that array the return value of this operation.
     """
     if isinstance(arrs, np.ndarray):
         arrs = arrs.flat
@@ -745,23 +754,24 @@ def merge(
 
 
 def expand_dims(
-    d: Union[np.ndarray, "xr.DataArray"], *, dim: dict = None, **kwargs
-) -> "xr.DataArray":
+    d: Union[np.ndarray, "xarray.DataArray"], *, dim: dict = None, **kwargs
+) -> "xarray.DataArray":
     """Expands the dimensions of the given object.
 
-    If the object does not support the ``expand_dims`` method, it will be
-    attempted to convert it to an xr.DataArray.
+    If the object does not support a ``expand_dims`` method call, it will be
+    attempted to convert it to an :py:class:`xarray.DataArray` first.
 
     Args:
-        d (Union[np.ndarray, xr.DataArray]): The object to expand the
+        d (Union[numpy.ndarray, xarray.DataArray]): The object to expand the
             dimensions of
         dim (dict, optional): Keys specify the dimensions to expand, values can
             either be an integer specifying the length of the dimension, or a
             sequence of coordinates.
-        **kwargs: Passed on to ``expand_dims`` method
+        **kwargs: Passed on to the ``expand_dims`` method call. For an xarray
+            objects that would be :py:meth:`xarray.DataArray.expand_dims`.
 
     Returns:
-        xr.DataArray: The input data with expanded dimensions.
+        xarray.DataArray: The input data with expanded dimensions.
     """
     if not hasattr(d, "expand_dims"):
         d = xr.DataArray(d)
@@ -769,7 +779,7 @@ def expand_dims(
 
 
 def expand_object_array(
-    d: "xr.DataArray",
+    d: "xarray.DataArray",
     *,
     shape: Sequence[int] = None,
     astype: Union[str, type, np.dtype] = None,
@@ -778,7 +788,7 @@ def expand_object_array(
     combination_method: str = "concat",
     allow_reshaping_failure: bool = False,
     **combination_kwargs,
-) -> "xr.DataArray":
+) -> "xarray.DataArray":
     """Expands a labelled object-array that contains array-like objects into a
     higher-dimensional labelled array.
 
@@ -803,15 +813,16 @@ def expand_object_array(
         done and all information for combination is already available.
 
     Args:
-        d (xr.DataArray): The labelled object-array containing further arrays
+        d (xarray.DataArray): The labelled object-array containing further arrays
             as elements (which are assumed to be unlabelled).
         shape (Sequence[int], optional): Shape of the inner arrays. If not
             given, the first element is used to determine the shape.
-        astype (Union[str, type, np.dtype], optional): All inner arrays need to
-            have the same dtype. If this argument is given, the arrays will be
-            coerced to this dtype. For numeric data, ``float`` is typically a
-            good fallback. Note that with ``combination_method == "merge"``,
-            the choice here might not be respected.
+        astype (Union[str, type, numpy.dtype], optional): All inner arrays
+            need to have the same dtype. If this argument is given, the arrays
+            will be coerced to this dtype. For numeric data, ``float`` is
+            typically a good fallback.
+            Note that with ``combination_method == "merge"``, the choice here
+            might not be respected.
         dims (Sequence[str], optional): Dimension names for labelling the
             inner arrays. This is necessary for proper alignment. The number of
             dimensions need to match the ``shape``. If not given, will use
@@ -837,7 +848,7 @@ def expand_object_array(
             :py:func:`~dantro.utils.data_ops.merge`.
 
     Returns:
-        xr.DataArray: A new, higher-dimensional labelled array.
+        xarray.DataArray: A new, higher-dimensional labelled array.
 
     Raises:
         TypeError: If no ``shape`` can be extracted from the first element in
@@ -847,7 +858,7 @@ def expand_object_array(
     """
 
     def prepare_item(
-        d: "xr.DataArray",
+        d: "xarray.DataArray",
         *,
         midx: Sequence[int],
         shape: Sequence[int],
@@ -855,7 +866,7 @@ def expand_object_array(
         name: str,
         dims: Sequence[str],
         generate_coords: Callable,
-    ) -> Union["xr.DataArray", None]:
+    ) -> Union["xarray.DataArray", None]:
         """Extracts the desired element and reshapes and labels it accordingly.
         If any of this fails, returns ``None``.
         """
@@ -1422,7 +1433,7 @@ def apply_operation(
 
     Args:
         op_name (str): The name of the operation to carry out; need to be part
-            of the OPERATIONS database.
+            of the ``OPERATIONS`` database.
         *op_args: The positional arguments to the operation
         _log_level (int, optional): Log level of the log messages created by
             this function.

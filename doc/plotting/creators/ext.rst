@@ -750,4 +750,5 @@ By overwriting it, import behaviour can be customized:
 
 .. note::
 
-    For an operational example in a more complex framework setting, see `the specialization used in the Utopia project <https://gitlab.com/utopia-project/utopia/-/blob/master/python/utopya/utopya/plotting.py#L97>`_.
+    For an operational example in a more complex framework setting, see `the specialization used in the utopya project <https://gitlab.com/utopia-project/utopya/-/blob/main/utopya/eval/plotcreators.py>`_.
+    Here, the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` is extended such that a number of custom module paths are made available for import.

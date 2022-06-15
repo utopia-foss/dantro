@@ -79,7 +79,7 @@ _FACET_GRID_FUNCS = {}
 
 
 def determine_plot_kind(
-    d: Union["xr.DataArray", "xr.Dataset"],
+    d: Union["xarray.DataArray", "xarray.Dataset"],
     *,
     kind: Union[str, dict],
     default_kind_map: dict = _AUTO_PLOT_KINDS,
@@ -111,8 +111,8 @@ def determine_plot_kind(
         :dedent: 4
 
     Args:
-        d (Union[xr.DataArray, xr.Dataset]): The data for which to determine
-            the plot kind.
+        d (Union[xarray.DataArray, xarray.Dataset]): The data for which to
+            determine the plot kind.
         kind (Union[str, dict]): The given kind argument. If it is ``auto``,
             the ``kind_map`` is used to determine the ``kind`` from the
             dimensionality of ``d``.
@@ -356,20 +356,21 @@ class make_facet_grid_plot:
     the callable to ``_FACET_GRID_FUNCS``.
     """
 
-    # The available mapping functions: those of ``xr.plot.FacetGrid``
     MAP_FUNCS = {
         "dataset": lambda fg, f, **kws: fg.map_dataset(f, **kws),
         "dataarray": lambda fg, f, **kws: fg.map_dataarray(f, **kws),
         "dataarray_line": lambda fg, f, **kws: fg.map_dataarray_line(f, **kws),
     }
+    """The available mapping functions in :py:class:`xarray.plot.FacetGrid`"""
 
-    # The default encodings the facet grid supplies; these are those supported
-    # by the generic facet grid function
     DEFAULT_ENCODINGS = ("col", "row", "frames")
+    """The default encodings the facet grid supplies; these are those supported
+    by the generic facet grid function"""
 
-    # The default kwargs that are to be dropped rather than passed on to the
-    # wrapped plotting function. Can be customized via ``drop_kwargs`` argument
     DEFAULT_DROP_KWARGS = ("_fg", "meta_data", "hue_style", "add_guide")
+    """The default kwargs that are to be dropped rather than passed on to the
+    wrapped plotting function.
+    Can be customized via ``drop_kwargs`` argument."""
 
     def __init__(
         self,
@@ -651,7 +652,8 @@ def errorbar(
         :py:func:`~dantro.plot_creators.ext_funcs.generic.errorbars` function
         or :py:func:`~dantro.plot_creators.ext_funcs.generic.facet_grid` with
         ``kind: errorbars`` can be used. The interface is mostly the same, but
-        data is expected as ``xr.Dataset`` instead of as two separate arrays.
+        data is expected as :py:class:`xarray.Dataset` instead of as two
+        separate arrays.
 
     This plot expects data to be provided via :ref:`plot_creator_dag`.
     Expected tags are ``y`` and ``yerr`` and both should be labelled
@@ -664,7 +666,7 @@ def errorbar(
 
     Args:
         data (dict): The DAG results dict which should contain entries ``y``
-            and ``yerr``, both labelled xr.DataArray objects.
+            and ``yerr``, both labelled :py:class:`xarray.DataArray` objects.
         hlpr (PlotHelper): The PlotHelper
         x (str, optional): The dimension to represent on the x-axis. If not
             given, it will be inferred. If no coordinates are associated with
@@ -714,8 +716,8 @@ def errorbar(
 
     def plot_frame(
         *,
-        y: "xr.DataArray",
-        yerr: "xr.DataArray",
+        y: "xarray.DataArray",
+        yerr: "xarray.DataArray",
         x: str,
         hue: str = None,
         **kwargs,
@@ -912,23 +914,20 @@ def facet_grid(
     """A generic facet grid plot function for high dimensional data.
 
     This function calls the ``data['data'].plot`` function if no plot ``kind``
-    is given, otherwise ``data['data'].plot.<kind>``. It is designed for
-    `plotting with xarray objects <http://xarray.pydata.org/en/stable/plotting.html>`_, i.e.
-    `xr.DataArray <http://xarray.pydata.org/en/stable/plotting.html#dataarrays>`_
-    and
-    `xr.Dataset <http://xarray.pydata.org/en/stable/plotting.html#datasets>`_.
+    is given, otherwise ``data['data'].plot.<kind>``.
+    It is designed for `plotting with xarray objects <http://xarray.pydata.org/en/stable/plotting.html>`_,
+    i.e. :py:class:`xarray.DataArray` and :py:class:`xarray.Dataset`.
     Specifying the kind of plot requires the data to be of one of those types
     and have a dimensionality that can be represented in these plots. See
-    `the correponding API documentation <http://xarray.pydata.org/en/stable/api.html#plotting>`_ for more information.
+    `the correponding API documentation <https://xarray.pydata.org/en/stable/api.html#plotting>`_ for more information.
 
     In most cases, this function creates a so-called
-    `FacetGrid <http://xarray.pydata.org/en/stable/generated/xarray.plot.FacetGrid.html>`_
-    object that automatically layouts and chooses a visual representation that
-    fits the dimensionality of the data. To specify which data dimension
-    should be represented in which way, it supports a declarative syntax: via
-    the optional keyword arguments ``x``, ``y``, ``row``, ``col``, and/or
-    ``hue`` (available options are listed in the corresponding
-    `plot function documentation <http://xarray.pydata.org/en/stable/api.html#plotting>`_),
+    :py:class:`xarray.plot.FacetGrid` object that automatically layouts and
+    chooses a visual representation that fits the dimensionality of the data.
+    To specify which data dimension should be represented in which way, it
+    supports a declarative syntax: via the optional keyword arguments ``x``,
+    ``y``, ``row``, ``col``, and/or ``hue`` (available options are listed in
+    the corresponding `plot function documentation <https://xarray.pydata.org/en/stable/api.html#plotting>`_),
     the representation of the data dimensions can be selected. This is
     referred to as "layout encoding".
 
@@ -1196,7 +1195,7 @@ def facet_grid(
     add_guide=False,
 )
 def errorbars(
-    ds: "xr.Dataset",
+    ds: "xarray.Dataset",
     *,
     _is_facetgrid: bool,
     hlpr: PlotHelper,
@@ -1226,7 +1225,7 @@ def errorbars(
     plotting individual lines.
 
     Args:
-        ds (xr.Dataset): The dataset containing the errorbar data
+        ds (xarray.Dataset): The dataset containing the errorbar data
         _is_facetgrid (bool): Indicates whether this plot is called as part of
             a facet grid or whether no faceting takes place (i.e. when neither
             columns nor rows are available for faceting). In such a case, this

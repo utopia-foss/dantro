@@ -22,10 +22,12 @@ h5 = LazyLoader("h5py")
 
 
 class Hdf5LoaderMixin:
-    """Supplies functionality to load HDF5 files into the data manager.
+    """Supplies functionality to load HDF5 files into the
+    :py:class:`~dantro.data_mngr.DataManager`.
 
     It resolves the HDF5 groups into corresponding data groups and the datasets
-    into NumpyDataContainers.
+    (by default) into
+    :py:class:`~dantro.containers.numeric.NumpyDataContainer` s.
 
     If ``enable_mapping`` is set, the class variables ``_HDF5_DSET_MAP`` and
     ``_HDF5_GROUP_MAP`` are used to map from a string to a container type. The
@@ -77,9 +79,11 @@ class Hdf5LoaderMixin:
         file. The data can be loaded into memory completely, or be loaded as
         a proxy object.
 
-        The h5py File and Group objects will be converted to the specified
-        DataGroup-derived objects; the Dataset objects to the specified
-        DataContainer-derived object.
+        The :py:class:`h5py.File` and :py:class:`h5py.Group` objects will be
+        converted to the specified
+        :py:class:`~dantro.base.BaseDataGroup`-derived objects and the
+        :py:class:`h5py.Dataset` objects to the specified
+        :py:class:`~dantro.base.BaseDataContainer`-derived object.
 
         All HDF5 group or dataset attributes are carried over and are
         accessible under the ``attrs`` attribute of the respective dantro
@@ -363,8 +367,8 @@ class Hdf5LoaderMixin:
         the ``_HDF5_MAP_FROM_ATTR`` class attribute.
 
         Args:
-            h5dset (h5.Dataset): The source dataset to load into ``target`` as
-                a dantro data container.
+            h5dset (h5py.Dataset): The source dataset to load into ``target``
+                as a dantro data container.
             target (BaseDataGroup): The target group where the ``h5dset`` will
                 be represented in as a new dantro data container.
             name (str): the name of the new container

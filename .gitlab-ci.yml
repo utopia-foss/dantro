@@ -147,7 +147,7 @@ build:docs:
   environment:
     name: review/docs/$CI_COMMIT_REF_NAME
     auto_stop_in: 2 months
-    url: $PAGES_URL/-/jobs/$CI_JOB_ID/artifacts/build/doc/html/index.html
+    url: $PAGES_URL/-/jobs/$CI_JOB_ID/artifacts/doc/_build/html/index.html
 
 
 # -- Deploy Stage -------------------------------------------------------------

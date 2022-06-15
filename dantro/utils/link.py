@@ -1,4 +1,5 @@
-"""Implements the Link class"""
+"""Implements the :py:class:`~dantro.utils.link.Link` class and specializations
+for it."""
 
 import logging
 import weakref
@@ -8,7 +9,6 @@ from ..abc import PATH_JOIN_CHAR
 from ..base import BaseDataContainer, BaseDataGroup
 from ..mixins import ForwardAttrsMixin
 
-# Local constants
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
@@ -25,16 +25,24 @@ class Link(ForwardAttrsMixin):
     linked object (if not already cached) and then forward the attribute call
     to that object.
 
-    The references are internally stored as weak references; this limits the
-    picklability of objects of this class.
+    .. note::
+
+        The references are internally stored as weak references
+        :py:class:`weakref.ref`; note that this limits the picklability of
+        objects of this class.
+
+        See `the weakref docs <https://docs.python.org/3/library/weakref.html#weakref.ref>`_
+        for more information.
     """
 
-    # Use weak references for linking
-    _REF_TYPE = weakref.ref
+    _REF_TYPE: type = weakref.ref
+    """The referencing type for linking, here using weak references"""
 
-    # Forward attributes to the target object property
-    # (...but see `*_forwarding_target` method for more information)
-    FORWARD_ATTR_TO = "target_object"
+    FORWARD_ATTR_TO: str = "target_object"
+    """Forward attributes to the target object property (...but see
+    :py:meth:`._forward_attr_get_forwarding_target` method for more information
+    on why this is done.
+    """
 
     def __init__(self, *, anchor: BaseDataContainer, rel_path: str):
         """Initialize a link from an anchor and a relative path to a target"""
@@ -52,11 +60,11 @@ class Link(ForwardAttrsMixin):
 
     def __eq__(self, other) -> bool:
         """Evaluates equality by making the following comparisons: identity,
-        strict type equality, and finally: equality of the ``anchor_weakref``
-        and ``target_rel_path`` properties.
+        strict type equality, and finally: equality of the
+        :py:attr:`.anchor_weakref` and :py:attr:`.target_rel_path` properties.
 
-        If types do not match exactly, ``NotImplemented`` is returned, thus
-        referring the comparison to the other side of the ``==``.
+        If types do not match exactly, ``NotImplemented`` is *returned*,
+        thus referring the comparison to the other side of the ``==``.
         """
         if other is self:
             return True
@@ -70,8 +78,12 @@ class Link(ForwardAttrsMixin):
         )
 
     @property
-    def target_weakref(self) -> weakref:
-        """Resolve the target and return the weak reference to it"""
+    def target_weakref(self) -> "weakref.ref":
+        """Resolve the target and return the weak reference to it
+
+        Returns:
+            weakref.ref: A weak reference to the target object
+        """
         if self.__target_ref_cache is None:
             self.__resolve_target_ref()
         return self.__target_ref_cache
@@ -82,9 +94,12 @@ class Link(ForwardAttrsMixin):
         return self.target_weakref()  # calling property to resolve the weakref
 
     @property
-    def anchor_weakref(self) -> weakref:
-        """Resolve the weak reference to the anchor and return it, i.e.:
-        return a reference to the actual object.
+    def anchor_weakref(self) -> "weakref.ref":
+        """Resolve the weak reference to the anchor and return it, i.e.
+        return a reference to the actual anchor object.
+
+        Returns:
+            weakref.ref: The weak reference to the anchor object
         """
         return self.__anchor
 
@@ -149,8 +164,8 @@ class Link(ForwardAttrsMixin):
     def _forward_attr_get_forwarding_target(self):
         """Get the object that the attribute call is to be forwarded to, i.e.
         the resolved target object. This invokes resolution of the target and
-        caching of the corresponding weakref, but the returned (strong) ref
-        will not be cached.
+        caching of the corresponding :py:class:`weakref.ref`, but the returned
+        (strong) reference will not be cached.
         """
         return self.target_object
 
@@ -159,7 +174,7 @@ class Link(ForwardAttrsMixin):
 
 
 class _strongref:
-    """Emulates part of the ``weakref.ref`` interface but uses regular
+    """Emulates part of the :py:class:`weakref.ref` interface but uses regular
     references instead of weak references.
 
     This is used *internally* by :py:class:`~dantro.utils.link.StrongLink` and
