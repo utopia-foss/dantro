@@ -29,16 +29,13 @@ from .abc import PATH_JOIN_CHAR, AbstractDataContainer
 from .base import BaseDataGroup
 from .containers import NumpyDataContainer, ObjectContainer, XrDataContainer
 from .data_loaders import LOADER_BY_FILE_EXT
+from .data_ops import apply_operation, available_operations, register_operation
 from .exceptions import *
 from .tools import adjusted_log_levels as _adjusted_log_levels
 from .tools import format_time as _format_time
-from .tools import make_columns, recursive_update
-from .utils import (
-    KeyOrderedDict,
-    apply_operation,
-    available_operations,
-    register_operation,
-)
+from .tools import make_columns as _make_columns
+from .tools import recursive_update as _recursive_update
+from .utils import KeyOrderedDict
 
 # Local constants .............................................................
 
@@ -514,7 +511,7 @@ class Transformation:
         except BadOperationName as err:
             _meta_ops = self.dag.meta_operations
             if _meta_ops:
-                _meta_ops = "\n" + make_columns(self.dag.meta_operations)
+                _meta_ops = "\n" + _make_columns(self.dag.meta_operations)
             else:
                 _meta_ops = " (none)\n"
 
@@ -1456,7 +1453,7 @@ class TransformationDAG:
         if file_cache is not None:
             if isinstance(file_cache, bool):
                 file_cache = dict(read=file_cache, write=file_cache)
-            fc_opts = recursive_update(_deepcopy(fc_opts), file_cache)
+            fc_opts = _recursive_update(_deepcopy(fc_opts), file_cache)
 
         # From these arguments, create the Transformation object and add it to
         # the objects database.

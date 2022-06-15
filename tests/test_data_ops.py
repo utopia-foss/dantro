@@ -8,12 +8,12 @@ import sympy as sym
 import xarray as xr
 
 import dantro
-import dantro.utils.data_ops as dops
+import dantro.data_ops.db as dops
 from dantro.containers import ObjectContainer
+from dantro.data_ops import _OPERATIONS as OPERATIONS
+from dantro.data_ops import apply_operation, register_operation
 from dantro.exceptions import *
 from dantro.groups import OrderedDataGroup
-from dantro.utils import apply_operation, register_operation
-from dantro.utils.data_ops import _OPERATIONS as OPERATIONS
 
 # -----------------------------------------------------------------------------
 
@@ -140,7 +140,8 @@ def test_op_import_module_or_object():
 
     # Module import
     assert _import() is builtins
-    assert _import(".utils.data_ops") is dantro.utils.data_ops
+    assert _import(".data_ops") is dantro.data_ops
+    assert _import(".data_ops.db") is dantro.data_ops.db
     assert _import("numpy.random") is np.random
     assert _import("numpy.random") is _import(module="numpy.random")
 
@@ -148,8 +149,8 @@ def test_op_import_module_or_object():
     assert _import(name="abs") is builtins.abs is abs
     assert _import(name="abs.__name__") == "abs"
     assert (
-        _import(".utils", "register_operation")
-        is dantro.utils.register_operation
+        _import(".data_ops", "register_operation")
+        is dantro.data_ops.register_operation
     )
     assert _import("numpy", "pi") is np.pi
     assert _import("numpy.random", "randint.__name__") == "randint"

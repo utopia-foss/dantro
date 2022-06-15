@@ -322,7 +322,7 @@ def test_integration(tmpdir):
     ### Start -- data_transformation_01
     # -- Step 8: Add a module where additional data operations can be defined
     """This module can be used to register project-specific data operations"""
-    from dantro.utils import register_operation
+    from dantro.data_ops import register_operation
 
     def do_something(data):
         """Given some data, does something."""

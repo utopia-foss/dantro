@@ -15,8 +15,8 @@ from paramspace import ParamSpace
 from .._import_tools import LazyLoader
 from ..base import PATH_JOIN_CHAR
 from ..containers import XrDataContainer
+from ..data_ops.arr_ops import multi_concat as _multi_concat
 from ..mixins import PaddedIntegerItemAccessMixin
-from ..utils.data_ops import multi_concat as _multi_concat
 from .ordered import IndexedDataGroup, OrderedDataGroup
 
 log = logging.getLogger(__name__)
