@@ -10,7 +10,7 @@ Together, these stages constitute a **data processing pipeline**:
 an automated sequence of predefined, configurable operations.
 """
 
-__version__ = "0.18.0a4"
+__version__ = "0.18.0a5"
 """Package version"""
 
 from .logging import getLogger

@@ -3,26 +3,67 @@
 import collections
 import logging
 import os
-import subprocess
+import shutil
 import sys
 from datetime import timedelta
 from typing import List, Mapping, Sequence, Set, Tuple, Union
 
 import numpy as np
 
-# Get a logger instance
 log = logging.getLogger(__name__)
 
+# -----------------------------------------------------------------------------
 # Terminal, TTY-related
-IS_A_TTY = sys.stdout.isatty()
-try:
-    _, TTY_COLS = subprocess.check_output(["stty", "size"]).split()
-except:
-    # Probably not run from terminal --> set value manually
-    TTY_COLS = 79
-else:
-    TTY_COLS = int(TTY_COLS)
-log.debug("Determined TTY_COLS: %d, IS_A_TTY: %d", TTY_COLS, IS_A_TTY)
+
+TERMINAL_INFO = dict(columns=79, lines=20, is_a_tty=False)
+"""Holds information about the size and properties of the used terminal.
+
+.. warning::
+
+    Do not update this manually, call :py:func:`.update_terminal_info` instead.
+"""
+
+
+def update_terminal_info() -> None:
+    """Updates the ``TERMINAL_INFO`` constant with information about the
+    number of columns, lines, and whether the terminal is a TTY terminal.
+
+    If retrieving the properties via :py:func:`shutil.get_terminal_size` fails
+    for whatever reason, will not apply any changes.
+    """
+    try:
+        terminal_size = shutil.get_terminal_size()
+        cols, lines = terminal_size.columns, terminal_size.lines
+    except Exception as exc:
+        log.debug(
+            "Did not update terminal info!  %s: %s", type(exc).__name__, exc
+        )
+        return
+
+    TERMINAL_INFO["columns"] = cols
+    TERMINAL_INFO["lines"] = lines
+    TERMINAL_INFO["is_a_tty"] = sys.stdout.isatty()
+    log.debug("Updated terminal info:  %s", TERMINAL_INFO)
+
+
+# Set the content and the (not updateable constants)
+update_terminal_info()
+
+IS_A_TTY = TERMINAL_INFO["is_a_tty"]
+"""Whether the used terminal is a TTY terminal
+
+.. deprecated:: v0.18
+
+    Use the ``dantro.tools.TERMINAL_INFO["is_a_tty"]`` entry instead.
+"""
+
+TTY_COLS = TERMINAL_INFO["columns"]
+"""Number of columns in a TTY terminal
+
+.. deprecated:: v0.18
+
+    Use the ``dantro.tools.TERMINAL_INFO["columns"]`` entry instead.
+"""
 
 # -----------------------------------------------------------------------------
 # Import private yaml module, where everything is configured
@@ -119,11 +160,11 @@ def clear_line(only_in_tty=True, break_if_not_tty=True):
             line break if the script is not executed in a TTY
     """
     # Differentiate cases
-    if (only_in_tty and IS_A_TTY) or not only_in_tty:
+    if (only_in_tty and TERMINAL_INFO["is_a_tty"]) or not only_in_tty:
         # Print the POSIX character
         print("\x1b[2K\r", end="")
 
-    if break_if_not_tty and not IS_A_TTY:
+    if break_if_not_tty and not TERMINAL_INFO["is_a_tty"]:
         # print linebreak (no flush)
         print("\n", end="")
 
@@ -134,7 +175,7 @@ def clear_line(only_in_tty=True, break_if_not_tty=True):
 def fill_line(
     s: str,
     *,
-    num_cols: int = TTY_COLS,
+    num_cols: int = None,
     fill_char: str = " ",
     align: str = "left",
 ) -> str:
@@ -144,7 +185,7 @@ def fill_line(
     Args:
         s (str): The string to extend to a whole line
         num_cols (int, optional): The number of colums of the line; defaults to
-            the number of TTY columns or – if those are not available – 79
+            the number of terminal columns.
         fill_char (str, optional): The fill character
         align (str, optional): The alignment. Can be: 'left', 'right', 'center'
             or the one-letter equivalents.
@@ -155,6 +196,9 @@ def fill_line(
     Raises:
         ValueError: For invalid `align` or `fill_char` argument
     """
+    if num_cols is None:
+        num_cols = TERMINAL_INFO["columns"]
+
     if len(fill_char) != 1:
         raise ValueError(
             "Argument `fill_char` needs to be string of length 1 but was: "
@@ -187,13 +231,14 @@ def print_line(s: str, *, end="\r", **kwargs):
 
 
 def center_in_line(
-    s: str, *, num_cols: int = TTY_COLS, fill_char: str = "·", spacing: int = 1
+    s: str, *, num_cols: int = None, fill_char: str = "·", spacing: int = 1
 ) -> str:
     """Shortcut for a common fill_line use case.
 
     Args:
         s (str): The string to center in the line
-        num_cols (int, optional): The number of columns in the line
+        num_cols (int, optional): The number of columns in the line,
+            automatically determined if not given
         fill_char (str, optional): The fill character
         spacing (int, optional): The spacing around the string `s`
 
@@ -212,7 +257,7 @@ def center_in_line(
 def make_columns(
     items: List[str],
     *,
-    wrap_width: int = TTY_COLS,
+    wrap_width: int = None,
     fstr: str = "  {item:<{width:}s}  ",
 ) -> str:
     """Given a sequence of string items, returns a string with these items
@@ -225,7 +270,8 @@ def make_columns(
 
     Args:
         items (List[str]): The string items to represent in columns.
-        wrap_width (int, optional): The maximum width of each full row
+        wrap_width (int, optional): The maximum width of each full row. If not
+            given will determine it automatically
         fstr (str, optional): The format string to use. Needs to accept the
             keys ``item`` and ``width``, the latter of which will be used for
             padding. The format string should lead to strings of equal length,
@@ -233,6 +279,9 @@ def make_columns(
     """
     if not items:
         return ""
+
+    if not wrap_width:
+        wrap_width = TERMINAL_INFO["columns"]
 
     max_item_width = max(len(item) for item in items)
     item_str_width = len(
