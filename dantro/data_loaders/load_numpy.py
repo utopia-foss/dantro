@@ -15,13 +15,14 @@ class NumpyLoaderMixin:
     def _load_numpy_binary(
         filepath: str, *, TargetCls: type, **load_kwargs
     ) -> NumpyDataContainer:
-        """Loads the output of ``numpy.save`` back into a
+        """Loads the output of :py:func:`numpy.save` back into a
         :py:class:`~dantro.containers.numeric.NumpyDataContainer`.
 
         Args:
             filepath (str): Where the ``*.npy`` file is located
             TargetCls (type): The class constructor
-            **load_kwargs: Passed on to ``numpy.load``, see there for kwargs
+            **load_kwargs: Passed on to :py:func:`numpy.load`, see there for
+                supported keyword arguments.
 
         Returns:
             NumpyDataContainer: The reconstructed NumpyDataContainer
@@ -31,5 +32,5 @@ class NumpyLoaderMixin:
             attrs=dict(filepath=filepath),
         )
 
-    # Also make it available under plain 'numpy'
+    # Also make the loader available under plain ``numpy``
     _load_numpy = _load_numpy_binary

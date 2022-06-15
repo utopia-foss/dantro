@@ -1,9 +1,10 @@
-"""This module implements the base PlotCreator class.
-
+"""This module implements the base class for plot creators,
+:py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator`.
 Classes derived from this class create plots for single files.
 
 The interface is defined as an abstract base class and partly implemented by
-the BasePlotCreator (which still remains abstract).
+the :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator` (which still
+remains *abstract*).
 """
 
 import copy
@@ -38,7 +39,7 @@ _DAG_OBJECT_CACHE = dict()
 
 
 class BasePlotCreator(AbstractPlotCreator):
-    """The base class for PlotCreators
+    """The base class for plot creators.
 
     .. note::
 
@@ -95,7 +96,7 @@ class BasePlotCreator(AbstractPlotCreator):
         raise_exc: bool = None,
         **plot_cfg,
     ):
-        """Create a PlotCreator instance for a plot with the given ``name``.
+        """Create a plot creator instance for a plot with the given ``name``.
 
         Typically, a creator has not be instantiated separately, but the
         :py:class:`~dantro.plot_mngr.PlotManager` takes care of it.
@@ -156,8 +157,7 @@ class BasePlotCreator(AbstractPlotCreator):
         # Internal attributes, not exposed
         self._dag_obj_cache = _DAG_OBJECT_CACHE
 
-    # .........................................................................
-    # Properties
+    # .. Properties ...........................................................
 
     @property
     def name(self) -> str:
@@ -214,8 +214,7 @@ class BasePlotCreator(AbstractPlotCreator):
             f"{self.logstr} has no TransformationDAG associated (yet)!"
         )
 
-    # .........................................................................
-    # Main API functions, required by PlotManager
+    # .. Main API functions, required by PlotManager ..........................
 
     def __call__(self, *, out_path: str, **update_plot_cfg):
         """Perform the plot, updating the configuration passed to __init__
@@ -227,13 +226,10 @@ class BasePlotCreator(AbstractPlotCreator):
                 configuration
 
         Returns:
-            The return value of the
-            :py:meth:`~dantro.plot_creators.pcr_base.BasePlotCreator.plot`
-            method, which is an abstract method in
+            The return value of the :py:meth:`.plot` method, which is an
+            abstract method in
             :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator`.
         """
-        # TODO add logging messages
-
         # Get (a deep copy of) the initial plot config, update it with new args
         cfg = self.plot_cfg
         if update_plot_cfg:
@@ -274,10 +270,9 @@ class BasePlotCreator(AbstractPlotCreator):
     def prepare_cfg(
         self, *, plot_cfg: dict, pspace: Union[ParamSpace, dict]
     ) -> Tuple[dict, ParamSpace]:
-        """Prepares the plot configuration for the PlotManager.
-
-        This function is called by the plot manager before the first plot
-        is created.
+        """Prepares the plot configuration for the
+        :py:class:`~dantro.plot_mngr.PlotManager`. This function is called by
+        the manager before the first plot is to be created.
 
         The base implementation just passes the given arguments through.
         However, it can be re-implemented by derived classes to change the
@@ -287,8 +282,11 @@ class BasePlotCreator(AbstractPlotCreator):
         return plot_cfg, pspace
 
     def can_plot(self, creator_name: str, **plot_cfg) -> bool:
-        """Whether this plot creator is able to make a plot for the given plot
-        configuration. By default, this always returns false.
+        """Whether this creator is able to make a plot for the given plot
+        configuration.
+
+        By default, this always returns false. It can be subclassed and a
+        checking logic can be implemented to allow creator auto-detection.
 
         Args:
             creator_name (str): The name for this creator used within the
@@ -340,12 +338,9 @@ class BasePlotCreator(AbstractPlotCreator):
     def _check_skipping(self, *, plot_kwargs: dict):
         """A method that can be specialized by derived plot creators to check
         whether a plot should be skipped.
-        Is invoked from the
-        :py:meth:`~dantro.plot_creators.pcr_base.BasePlotCreator.__call__`
-        method, *after*
-        :py:meth:`~dantro.plot_creators.pcr_base.BasePlotCreator._perform_data_selection`
-        (for plots with activated data selection via DAG), and *prior to*
-        :py:meth:`~dantro.plot_creators.pcr_base.BasePlotCreator._prepare_path`
+        Is invoked from the :py:meth:`.__call__` method, *after*
+        :py:meth:`._perform_data_selection` (for plots with activated data
+        selection via DAG), and *prior to* :py:meth:`._prepare_path`
         (such that path creation can be avoided).
 
         In cases where this plot is to be skipped, the custom exception
@@ -512,8 +507,7 @@ class BasePlotCreator(AbstractPlotCreator):
         a deep copy of a cached object.
 
         In case no cached version was available or caching was disabled, uses
-        :py:meth:`~dantro.plot_creators.pcr_base.BasePlotCreator._create_dag`
-        to create the object.
+        :py:meth:`._create_dag` to create the object.
 
         Args:
             init_params (dict): Initialization parameters, passed on to the

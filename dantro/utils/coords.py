@@ -1,4 +1,4 @@
-"""This module provides coordinate parsing abilities."""
+"""This module provides coordinate parsing capabilities."""
 
 import logging
 from itertools import product
@@ -22,17 +22,17 @@ from .link import Link, StrongLink
 log = logging.getLogger(__name__)
 
 # Some type definitions .......................................................
-# A dimension sequence type
 TDims = Tuple[str]
+"""A dimension sequence type"""
 
-# A single coordinate value type
 TCoord = TypeVar("TCoord", int, float, str, Hashable)
+"""A single coordinate value type"""
 
-# A sequence of coordinate values
 TCoords = Sequence[TCoord]
+"""A sequence of coordinate values"""
 
-# Several coordinates are bundled into a map from dimension name to coordinates
 TCoordsDict = Dict[str, TCoords]
+"""Several coordinates, bundled into a map of dimension name to coordinates"""
 
 
 # Dimension name extraction ---------------------------------------------------
@@ -48,7 +48,7 @@ def extract_dim_names(
            name specified by the ``attr_name`` argument
         2. One by one via attributes that start with the string prefix defined
            in ``attr_prefix``. This can be used if not all dimension names are
-           available. Note that this will also _not_ be used if option 1 is
+           available. Note that this will also *not* be used if option 1 is
            used!
 
     Args:
@@ -302,7 +302,7 @@ def extract_coords_from_attrs(
             of attempting to extract attributes from ``obj``.
 
     Returns:
-        TCoordsDict: The (dim_name -> coords) mapping
+        TCoordsDict: The ``(dim_name -> coords)`` mapping
 
     Raises:
         ValueError: On invalid coordinates mode or (with strict attribute
@@ -542,6 +542,9 @@ def extract_coords(
             entries to the object attributes. Will suffix this with ``dims``
             and ``coords`` and store the respective data there.
         **kwargs: Passed on to the actual coordinates extraction method.
+
+    Raises:
+        NotImplementedError: If ``use_cache`` is set
     """
     EXTRACTORS = dict(
         name=extract_coords_from_name,

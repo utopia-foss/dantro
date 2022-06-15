@@ -19,7 +19,7 @@ class TextLoaderMixin:
         Args:
             filepath (str): Where the plain text file is located
             TargetCls (type): The class constructor
-            **load_kwargs: Passed on to ``open``, see there for possible kwargs
+            **load_kwargs: Passed on to :py:func:`open`
 
         Returns:
             StringContainer: The reconstructed StringContainer
@@ -29,5 +29,5 @@ class TextLoaderMixin:
 
         return TargetCls(data=data, attrs=dict(filepath=filepath))
 
-    # Also make it available under plain 'text'
+    # Also make the loader available under the ``text`` label
     _load_text = _load_plain_text

@@ -1,4 +1,5 @@
-"""This module implements Movie Writer utilities"""
+"""This module implements custom matplotlib movie writers; basically, these
+are specializations of :py:class:`matplotlib.animation.AbstractMovieWriter`."""
 
 import os
 
@@ -11,9 +12,10 @@ import matplotlib.pyplot as plt
 
 @mpl.animation.writers.register("frames")
 class FileWriter(mpl.animation.AbstractMovieWriter):
-    """A matplotlib file writer
+    """A specialization of :py:class:`matplotlib.animation.AbstractMovieWriter`
+    that writes each frame to a file.
 
-    It adheres to the corresponding matplotlib animation interface.
+    It is registered as the ``frames`` writer.
     """
 
     def __init__(
@@ -23,8 +25,9 @@ class FileWriter(mpl.animation.AbstractMovieWriter):
         fstr: str = "{dir:}/{num:0{pad:}d}.{ext:}",
     ):
         """
-        Initialize a FileWriter, which adheres to the matplotlib.animation
-        interface and can be used to write individual files.
+        Initialize the FileWriter, which adheres to the
+        :py:mod:`matplotlib.animation` interface and can be used to write
+        each frame of an animation to individual files.
 
         Args:
             name_padding (int, optional): How wide the numbering should be
@@ -53,11 +56,17 @@ class FileWriter(mpl.animation.AbstractMovieWriter):
         """Always available."""
         return True
 
-    def saving(self, fig, base_outfile: str, dpi: int = None, **setup_kwargs):
+    def saving(
+        self,
+        fig: mpl.figure.Figure,
+        base_outfile: str,
+        dpi: int = None,
+        **setup_kwargs,
+    ):
         """Create an instance of the context manager
 
         Args:
-            fig (matplotlib.Figure): The figure object to save
+            fig (matplotlib.figure.Figure): The figure object to save
             base_outfile (str): The path this movie writer would store a movie
                 file at; the file name will be interpreted as the name of the
                 directory that the frames are saved to; the file extension

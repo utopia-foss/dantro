@@ -66,20 +66,20 @@ class PaddedIntegerItemAccessMixin(IntegerItemAccessMixin):
         the ``__contains__`` magic method independently from this mixin!
     """
 
-    _PADDED_INT_KEY_WIDTH = None
+    _PADDED_INT_KEY_WIDTH: int = None
     """The number of digits of the padded string representing the integer"""
 
-    _PADDED_INT_FSTR = None
+    _PADDED_INT_FSTR: str = None
     """The format string to generate a padded integer; deduced upon first call
     """
 
-    _PADDED_INT_STRICT_CHECKING = True
-    """Whether to use strict checking when parsing keys, i.e.: check that the
+    _PADDED_INT_STRICT_CHECKING: bool = True
+    """Whether to use strict checking when parsing keys, i.e. check that the
     range of keys is valid and an error is thrown when an integer key was
     given that cannot be represented consistently by a padded string of the
     determined key width."""
 
-    _PADDED_INT_MAX_VAL = None
+    _PADDED_INT_MAX_VAL: int = None
     """The allowed maximum value of an integer key; checked only in strict mode
     """
 

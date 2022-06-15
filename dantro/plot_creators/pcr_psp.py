@@ -1,6 +1,7 @@
 """This implements the ParamSpaceGroup plot creators, based on the
-ExternalPlotCreator and providing additional functionality for data that is
-stored in a ParamSpaceGroup.
+:py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` and providing
+additional functionality for data that is stored in a
+:py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`.
 """
 
 import copy
@@ -33,8 +34,9 @@ class MultiversePlotCreator(ExternalPlotCreator):
     selected before being passed to the plot function.
     """
 
-    # Where the ``ParamSpaceGroup`` object is expected within the data manager
-    PSGRP_PATH = None
+    PSGRP_PATH: ParamSpaceGroup = None
+    """Where the :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` object is
+    expected within the :py:class:`~dantro.data_mngr.DataManager`"""
 
     # .........................................................................
 
@@ -42,7 +44,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
         """Initialize a MultiversePlotCreator
 
         Args:
-            *args: Passed on to parent
+            *args: Passed on to parent class.
             psgrp_path (str, optional): The path to the associated
                 :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` that is to
                 be used for these multiverse plots.
@@ -558,13 +560,22 @@ class UniversePlotCreator(ExternalPlotCreator):
     all or a selected subspace of universes.
     """
 
-    # Where the `ParamSpaceGroup` object is expected within the data manager
-    PSGRP_PATH = None
+    PSGRP_PATH: ParamSpaceGroup = None
+    """Where the :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` object is
+    expected within the :py:class:`~dantro.data_mngr.DataManager`"""
 
     # .........................................................................
 
     def __init__(self, *args, psgrp_path: str = None, **kwargs):
-        """Initialize a UniversePlotCreator"""
+        """Initialize a UniversePlotCreator
+
+        Args:
+            *args: Passed on to parent class
+            psgrp_path (str, optional): Specifies the location of the
+                :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` within the
+                data tree. If given, overwrites the class variable default.
+            **kwargs: Passed on to parent class
+        """
         super().__init__(*args, **kwargs)
 
         if psgrp_path:

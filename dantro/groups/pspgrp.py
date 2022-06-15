@@ -87,7 +87,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
     its state number as integer.
     """
 
-    # Class variables that define some of the behaviour
+    # Configure the class variables that define some of the behaviour
     # Define which .attrs entry to return from the `pspace` property
     _PSPGRP_PSPACE_ATTR_NAME = "pspace"
 
@@ -358,7 +358,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                     (if not).
 
             Raises:
-                ValueError: Description
+                ValueError: Missing transformator
             """
 
             def convert_dtype(data, dtype, *, path):

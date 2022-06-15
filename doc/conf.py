@@ -332,16 +332,24 @@ napoleon_include_special_with_doc = True
 
 # fmt: off
 intersphinx_mapping = {
-    "sphinx":       ("https://www.sphinx-doc.org/en/master/", None),
+    # Third-party docs
     "python":       ("https://docs.python.org/3/", None),
+    "sphinx":       ("https://www.sphinx-doc.org/en/master/", None),
     "h5py":         ("https://docs.h5py.org/en/latest/", None),
     "matplotlib":   ("https://matplotlib.org/stable/", None),
+    "seaborn":      ("https://seaborn.pydata.org", None),
     "numpy":        ("https://numpy.org/doc/stable/", None),
     "pandas":       ("https://pandas.pydata.org/docs/", None),
     "scipy":        ("https://docs.scipy.org/doc/scipy/", None),
     "xarray":       ("https://docs.xarray.dev/en/stable/", None),
+    "dask":         ("https://docs.dask.org/en/stable/", None),
     "networkx":     ("https://networkx.org/documentation/stable/", None),
+    "sympy":        ("https://docs.sympy.org/latest/", None),
+    "dill":         ("https://dill.readthedocs.io/en/latest/", None),
+    "pytest":       ("https://pytest.org/en/stable/", None),
     # "ruamel.yaml":  ("https://yaml.readthedocs.io/en/latest/", None),# broken
+    #
+    # First-party docs:
     "paramspace":   ("https://paramspace.readthedocs.io/en/latest/", None),
 }
 # fmt: on

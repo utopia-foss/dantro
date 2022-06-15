@@ -54,7 +54,6 @@ class AllAvailableLoadersMixin(
 
 # fmt: off
 
-# A dict of file extensions and preferred loader names for those extensions
 LOADER_BY_FILE_EXT = {
     "txt":      "text",
     "log":      "text",
@@ -76,3 +75,4 @@ LOADER_BY_FILE_EXT = {
 
     "npy":      "numpy_binary",
 }
+"""A map of file extensions to preferred loader names"""
