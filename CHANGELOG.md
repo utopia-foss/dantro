@@ -12,14 +12,22 @@
     - In DAG, only load from cache file if the content was *not* already loaded
 - !270 drops official support and testing for Python 3.7
 - !271 strongly reduces the time it takes to `import dantro` by delaying imports of dependencies
-- !277 improves the dantro documentation by adding cross-referencing to other sphinx-based docs and tweaking many minor aspects of the dantro docs.
+- !277 improves the [dantro documentation][dantro-docs] by adding cross-referencing to other sphinx-based docs and tweaking many minor aspects of the dantro docs.
 - !278 implements the `TERMINAL_INFO` dict which holds information about the terminal size and can be updated using `dantro.tools.update_terminal_info()`.
 - !279 adds the `set_margins` function to the `PlotHelper`, giving access to the [`ax.margins`](https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.margins.html) method.
+- !280 reworks the structure of the `dantro.utils.data_ops` module, now available directly via `dantro.data_ops`.
+  Furthermore, this implements the `is_operation` decorator which can be used to register functions as operations directly where they are defined.
 
 #### Internal
 - !267 performs some code clean-up and improves the sphinx setup
     - This may lead to implicit loss of Python 3.6 compatibility (which is no longer supported officially since a few releases ago).
     - Makes use of newer language features (like consistent use of f-strings)
+- !280 separates the `dantro.utils.data_ops` module into a `dantro.data_ops` subpackage
+
+#### Deprecations
+- !278 deprecates use of `dantro.tools.IS_A_TTY` and `dantro.tools.TTY_COLS` constants. This information should be retrieved from the `dantro.tools.TERMINAL_INFO` dict instead.
+- !280 deprecates imports from `dantro.utils.data_ops`; use `dantro.data_ops` instead.
+
 
 ## v0.17.2
 - !266 Updates versions of pre-commit hooks to improve compatibility
@@ -328,7 +336,7 @@
 
 ## v0.10.1
 - !118 fixes an issue with the `MultiversePlotCreator` where the `select_and_combine` argument was erroneously passed-through to the plot function.
-- #111 updates the documentation to reflect that the `paramspace` dependency is [now available on PyPI](https://pypi.org/project/paramspace/) and can be installed from there.
+- #111 updates the documentation to reflect that the `paramspace` dependency is [now available on PyPI][paramspace-pypi] and can be installed from there.
 
 
 ## v0.10.0
@@ -469,7 +477,7 @@ with or without vertex properties (edge properties not yet implemented) from the
 
 ## v0.4.0
 - #24 adds a major new feature, the `ParamSpaceGroup`, which provides easy access to multidimensional datasets, represented by [`xarray.Dataset`](http://xarray.pydata.org/en/stable/data-structures.html#dataset)s.
-   - It can be used in place of the group that holds the results of, e.g. simulations, carried out via a [`paramspace`](https://gitlab.com/blsqr/paramspace) parameter sweep.
+   - It can be used in place of the group that holds the results of, e.g. simulations, carried out via a [`paramspace`][paramspace] parameter sweep.
    - Via the `select` function, a hyperslab of the underlying multidimensional data can be selected. The interface of this method is build with yaml configurations in mind, such that it can be used, e.g. in plot creators.
 - !17 implements some changes necessary for allowing a smooth transition of `deeevoLab` from `deval` to `dantro`, as implemented in yunus/deeevoLab!52. The changes involve:
    - Adding an `ObjectContainer` class that can hold arbitrary objects.
@@ -485,10 +493,10 @@ with or without vertex properties (edge properties not yet implemented) from the
 - #31/!28 implement two new plot creators, based on `ExternalPlotCreator` that make it more convenient to plot data from `ParamSpaceGroup`s.
 
 ## v0.3.3
-- !19 Restrict `paramspace` version to <2.0 in order to transition to a higher version in a more controlled manner.
+- !19 Restrict [`paramspace`][paramspace] version to <2.0 in order to transition to a higher version in a more controlled manner.
 
 ## v0.3.2
-- !18 With the `paramspace` yaml constructors having changed, it became necessary to change their usage in dantro. This should result in no changes to the behaviour of dantro.
+- !18 With the [`paramspace`][paramspace] YAML constructors having changed, it became necessary to change their usage in dantro. This should result in no changes to the behaviour of dantro.
 
 ## v0.3.1
 - !16 Restrict matplotlib dependency to use version 2.2.3 until potential downstream issues (reg. dependencies of matplotlib) are resolved.
@@ -511,3 +519,10 @@ First minor release. Contains basic features. API is mostly established, but not
 - #3, #8, #9, #11: Implement the `DataManager`
 - #2: Implement abstract base classes
 - #1, #6, #16: Basic packaging, Readme, Changelog and GitLab CI/CD
+
+
+[dantro-docs]: https://dantro.readthedocs.io/
+[dantro-repo]: https://gitlab.com/utopia-project/dantro
+[utopia-project]: https://utopia-project.org/
+[paramspace]: https://gitlab.com/blsqr/paramspace
+[paramspace-pypi]: https://pypi.org/project/paramspace/
