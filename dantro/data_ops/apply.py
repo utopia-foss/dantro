@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 def apply_operation(
     op_name: str,
     *op_args,
-    _ops: dict = _OPERATIONS,
+    _ops: dict = None,
     _log_level: int = 5,
     **op_kwargs,
 ) -> Any:
@@ -27,7 +27,8 @@ def apply_operation(
         op_name (str): The name of the operation to carry out; need to be part
             of the ``OPERATIONS`` database.
         *op_args: The positional arguments to the operation
-        _ops (dict, optional): The operations database object to use
+        _ops (dict, optional): The operations database object to use; if None,
+            uses the dantro operations database
         _log_level (int, optional): Log level of the log messages created by
             this function.
         **op_kwargs: The keyword arguments to the operation
@@ -39,6 +40,9 @@ def apply_operation(
         BadOperationName: On invalid operation name
         DataOperationError: On failure to *apply* the operation
     """
+    if _ops is None:
+        _ops = _OPERATIONS
+
     try:
         op = _ops[op_name]
 

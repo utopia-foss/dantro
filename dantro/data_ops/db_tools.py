@@ -17,7 +17,7 @@ def register_operation(
     func: Callable,
     skip_existing: bool = False,
     overwrite_existing: bool = False,
-    _ops: dict = _OPERATIONS,
+    _ops: dict = None,
 ) -> None:
     """Adds an entry to the shared operations registry.
 
@@ -30,13 +30,17 @@ def register_operation(
         overwrite_existing (bool, optional): Whether to overwrite a potentially
             already existing operation of the same name. If given, this takes
             precedence over ``skip_existing``.
-        _ops (dict, optional): The operations database object to use
+        _ops (dict, optional): The operations database object to use; if None,
+            uses the dantro operations database
 
     Raises:
         TypeError: On invalid name or non-callable for the func argument
         ValueError: On already existing operation name and no skipping or
             overwriting enabled.
     """
+    if _ops is None:
+        _ops = _OPERATIONS
+
     if name in _ops and not overwrite_existing:
         if skip_existing:
             log.debug(
@@ -66,7 +70,7 @@ def register_operation(
 
 
 def available_operations(
-    *, match: str = None, n: int = 5, _ops: dict = _OPERATIONS
+    *, match: str = None, n: int = 5, _ops: dict = None
 ) -> Sequence[str]:
     """Returns all available operation names or a fuzzy-matched subset of them.
 
@@ -75,12 +79,16 @@ def available_operations(
             returns close matches to this name.
         n (int, optional): Number of close matches to return. Passed on to
             :py:func:`difflib.get_close_matches`
-        _ops (dict, optional): The operations database object to use
+        _ops (dict, optional): The operations database object to use; if None,
+            uses the dantro operations database
 
     Returns:
         Sequence[str]: All available operation names or the matched subset.
             The sequence is sorted alphabetically.
     """
+    if _ops is None:
+        _ops = _OPERATIONS
+
     if match is None:
         return _ops.keys()
 
