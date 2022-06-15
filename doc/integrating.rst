@@ -331,7 +331,7 @@ Stage 2: Data Transformation
 To couple to the :ref:`data transformation framework <dag_framework>`, the second stage of the processing pipeline, no special steps need to be taken.
 As part of the data visualization stage, the plot creators take care of setting up everything and :ref:`passing the relevant configuration options <plot_creator_dag_usage>` directly to the data transformation framework.
 
-However, to be able to conveniently :ref:`register additional data operations <register_data_ops>`, we suggest to add a dedicated module (e.g. ``data_ops.py``) to your project in which data operations can be defined and registered using the :py:func:`~dantro.utils.data_ops.register_operation` function.
+However, to be able to conveniently :ref:`register additional data operations <register_data_ops>`, we suggest to add a dedicated module (e.g. ``data_ops.py``) to your project in which data operations can be defined and registered using the :py:func:`~dantro.data_ops.db_tools.register_operation` function.
 It can look as simple as the following:
 
 .. literalinclude:: ../tests/test_integration.py
@@ -345,7 +345,7 @@ Even if you do not have the need for custom operations at the point of building 
 .. note::
 
     Make sure that this additional module is loaded when the rest of your project is loaded.
-    If the :py:func:`~dantro.utils.data_ops.register_operation` calls are not interpreted, the operations will not be available.
+    If the :py:func:`~dantro.data_ops.db_tools.register_operation` calls are not interpreted, the operations will not be available.
 
 
 Summary
@@ -546,7 +546,7 @@ So... which code examples from above should be implemented in which module?
 
 * Class definitions and specializations should all go into the modules inside ``my_project``
 * Variable definitions (e.g. via CLI), instantiations of managers, and method calls should go into ``run_my_pipeline.py`` (for good measure: inside an ``if __name__ == "__main__"`` block)
-* ... the only exception being calls to :py:func:`~dantro.utils.data_ops.register_operation`, which should be made in the ``data_ops`` module directly
+* ... the only exception being calls to :py:func:`~dantro.data_ops.db_tools.register_operation`, which should be made in the ``data_ops`` module directly
 
 Regarding configuration files, we suggest the following:
 

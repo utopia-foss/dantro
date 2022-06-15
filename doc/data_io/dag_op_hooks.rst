@@ -27,7 +27,7 @@ For a list of all available operations, see :ref:`data_ops_available`.
 
 ``expression``
 ^^^^^^^^^^^^^^
-The :py:func:`~dantro._dag_utils.op_hook_expression` prepares arguments for the :py:func:`~dantro.utils.data_ops.expression` operation, making it more convenient to perform symbolic math operations with entities defined in the DAG.
+The :py:func:`~dantro.data_ops.hooks.op_hook_expression` prepares arguments for the :py:func:`~dantro.data_ops.expr_ops.expression` operation, making it more convenient to perform symbolic math operations with entities defined in the DAG.
 
 It tries to extract the free symbols from the expression string and turns them into :py:class:`~dantro._dag_utils.DAGTag` objects of the same name.
 For example, with the tags ``a``, ``b``, and ``c``:
@@ -74,9 +74,9 @@ Furthermore, if any of the symbols are called ``prev`` or ``previous_result``, t
 .. hint::
 
     The hook also makes the ``expression`` operation more robust in cases where ``with_previous_result`` is set.
-    As the previous result is inserted as first positional argument, this would normally produce invalid syntax for the :py:func:`~dantro.utils.data_ops.expression` operation.
+    As the previous result is inserted as first positional argument, this would normally produce invalid syntax for the :py:func:`~dantro.data_ops.expr_ops.expression` operation.
 
-By default, the :py:func:`~dantro.utils.data_ops.expression` operation will attempt to cast the result to a floating point value, which is more compatible with other operations.
+By default, the :py:func:`~dantro.data_ops.expr_ops.expression` operation will attempt to cast the result to a floating point value, which is more compatible with other operations.
 However, this default prohibits to work with the symbolic math features of `sympy <https://sympy.org>`_.
 If you would like to keep symbolic expressions, specify the ``astype`` argument accordingly.
 

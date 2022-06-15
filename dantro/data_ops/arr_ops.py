@@ -20,7 +20,7 @@ def apply_along_axis(
     func: Callable, axis: int, arr: np.ndarray, *args, **kwargs
 ) -> np.ndarray:
     """This is like numpy's function of the same name, but does not try to
-    cast the results of func to an :py:class:`np.ndarray` but tries to keep
+    cast the results of func to an :py:class:`numpy.ndarray` but tries to keep
     them as dtype object. Thus, the return value of this function will always
     have one fewer dimension then the input array.
 
@@ -31,7 +31,7 @@ def apply_along_axis(
     Args:
         func (Callable): The function to apply along the axis
         axis (int): Which axis to apply it to
-        arr (np.ndarray): The array-like data to apply the function to
+        arr (numpy.ndarray): The array-like data to apply the function to
         *args: Passed to ``func``
         **kwargs: Passed to ``func``
 
@@ -127,9 +127,9 @@ def where(
     Args:
         data (xarray.DataArray): The data to mask
         operator_name (str): The ``operator`` argument used in
-            :py:func:`~dantro.utils.data_ops.create_mask`
+            :py:func:`.arr_ops.create_mask`
         rhs_value (float): The ``rhs_value`` argument used in
-            :py:func:`~dantro.utils.data_ops.create_mask`
+            :py:func:`.arr_ops.create_mask`
         **kwargs: Passed on to ``.where()`` method call
     """
     return data.where(
@@ -272,11 +272,11 @@ def build_object_array(
     .. warning::
 
         This data operation is built for *flexibility*, not for speed. It will
-        call the :py:func:`~dantro.utils.data_ops.merge` operation for *every*
+        call the :py:func:`.merge` operation for *every*
         element in the ``objs`` iterable, thus being slow and potentially
         creating an array with many empty elements.
         To efficiently populate an n-dimensional object array, use the
-        :py:func:`~dantro.utils.data_ops.populate_ndarray` operation instead
+        :py:func:`.populate_ndarray` operation instead
         and build a labelled array from that output.
 
     Args:
@@ -376,8 +376,7 @@ def multi_concat(
     is increased by ``dims``, while their dtype can be maintained.
 
     For the sequential application of :py:func:`xarray.concat` along the outer
-    dimensions, the custom :py:func:`~dantro.tools.apply_along_axis` function
-    is used.
+    dimensions, the custom :py:func:`.apply_along_axis` function is used.
 
     Args:
         arrs (numpy.ndarray): The array containing xarray objects which are to
@@ -508,16 +507,17 @@ def expand_object_array(
     higher-dimensional labelled array.
 
     ``d`` is expected to be an array *of arrays*, i.e. each element of the
-    outer array is an object that itself is an ``np.ndarray``-like object.
-    The ``shape`` is the expected shape of each of these *inner* arrays.
-    Importantly, all these arrays need to have the exact same shape.
+    outer array is an object that itself is an :py:class:`numpy.ndarray`-like
+    object. The ``shape`` is the expected shape of each of these *inner*
+    arrays. *Importantly*, all these arrays need to have the exact same shape!
 
     Typically, e.g. when loading data from HDF5 files, the inner array will
-    not be labelled but will consist of simple np.ndarrays.
+    not be labelled but will consist of simple :py:class:`numpy.ndarray`
+    objects.
     The arguments ``dims`` and ``coords`` are used to label the *inner* arrays.
 
-    This uses :py:func:`~dantro.utils.data_ops.multi_concat` for concatenating
-    or :py:func:`~dantro.utils.data_ops.merge` for merging the object arrays
+    This uses :py:func:`.multi_concat` for concatenating
+    or :py:func:`.merge` for merging the object arrays
     into a higher-dimensional array, where the latter option allows for missing
     values.
 
@@ -549,9 +549,9 @@ def expand_object_array(
             that dimension will be assigned trivial coordinates.
         combination_method (str, optional): The combination method to use to
             combine the object array. For ``concat``, will use dantro's
-            :py:func:`~dantro.utils.data_ops.multi_concat`, which preserves
+            :py:func:`.multi_concat`, which preserves
             dtype but does not allow missing values. For ``merge``, will use
-            :py:func:`~dantro.utils.data_ops.merge`, which allows missing
+            :py:func:`.merge`, which allows missing
             values (masked using ``np.nan``) but leads to the dtype decaying
             to float.
         allow_reshaping_failure (bool, optional): If true, the expansion is not
@@ -559,8 +559,8 @@ def expand_object_array(
             lead to missing values at the respective coordinates and the
             ``combination_method`` will automatically be changed to ``merge``.
         **combination_kwargs: Passed on to the selected combination function,
-            :py:func:`~dantro.utils.data_ops.multi_concat` or
-            :py:func:`~dantro.utils.data_ops.merge`.
+            :py:func:`.multi_concat` or
+            :py:func:`.merge`.
 
     Returns:
         xarray.DataArray: A new, higher-dimensional labelled array.

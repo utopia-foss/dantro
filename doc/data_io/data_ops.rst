@@ -2,10 +2,10 @@
 
 Data Processing
 ===============
-Through the :py:mod:`~dantro.utils.data_ops` module, dantro supplies some useful functionality to generically work with function calls.
+Through the :py:mod:`~dantro.data_ops` module, dantro supplies some useful functionality to generically work with function calls.
 This is especially useful for numerical operations.
 
-The :py:mod:`~dantro.utils.data_ops` module can be used on its own, but it is certainly worth to have a look at :doc:`transform`, which wraps the application and combination of modules to further generalize the processing of dantro data.
+The :py:mod:`~dantro.data_ops` module can be used on its own, but it is certainly worth to have a look at :doc:`transform`, which wraps the application and combination of modules to further generalize the processing of dantro data.
 For practical examples, of combining data processing operations with the data transformation framework, have a look at :doc:`examples`.
 
 .. contents::
@@ -18,7 +18,7 @@ Overview
 --------
 The operations database
 ^^^^^^^^^^^^^^^^^^^^^^^
-The core of :py:mod:`~dantro.utils.data_ops` is the operations database.
+The core of :py:mod:`~dantro.data_ops` is the operations database.
 It is defined simply as a mapping from an operation name to a callable.
 This makes it very easy to access a certain callable.
 
@@ -27,7 +27,7 @@ A basic set of python functions and numerical operations is defined per default,
 
 Applying operations
 ^^^^^^^^^^^^^^^^^^^
-The task of resolving the callable from the database, passing arguments to it, and returning the result falls to the :py:func:`~dantro.utils.data_ops.apply_operation` function.
+The task of resolving the callable from the database, passing arguments to it, and returning the result falls to the :py:func:`~dantro.data_ops.apply.apply_operation` function.
 It also provides useful feedback in cases where the operation failed, e.g. by including the given arguments into the error message.
 
 
@@ -35,7 +35,7 @@ It also provides useful feedback in cases where the operation failed, e.g. by in
 
 Registering operations
 ^^^^^^^^^^^^^^^^^^^^^^
-To register additional operations, use the :py:func:`~dantro.utils.data_ops.register_operation` function.
+To register additional operations, use the :py:func:`~dantro.data_ops.db_tools.register_operation` function.
 
 For new operations, a name should be chosen that is not already in use.
 If you are registering multiple custom operations, consider using a common prefix for them.
@@ -56,20 +56,20 @@ Available operations
 --------------------
 Below, you will find a full list of operations that are available by default.
 
-For some entries, functions defined in the :py:mod:`~dantro.utils.data_ops` module are used as callables; see there for more information.
+For some entries, functions defined in the :py:mod:`~dantro.data_ops` module are used as callables; see there for more information.
 Also, the callables are frequently defined as lambdas to concur with the requirement that all operations need to be callable via positional and keyword arguments.
 For example, an attribute call needs to be wrapped to a regular function call where — by convention — the first positional argument is regarded as the object whose attribute is to be called.
 
-To dynamically find out which operations are available, use the :py:func:`~dantro.utils.data_ops.available_operations` (importable from :py:mod:`dantro.utils`) function, which also includes the names of additionally registered operations.
+To dynamically find out which operations are available, use the :py:func:`~dantro.data_ops.db_tools.available_operations` (importable from :py:mod:`dantro.data_ops`) function, which also includes the names of additionally registered operations.
 
-.. literalinclude:: ../../dantro/utils/data_ops.py
+.. literalinclude:: ../../dantro/data_ops/db.py
    :start-after: _OPERATIONS = KeyOrderedDict({
    :end-before: }) # End of default operation definitions
    :dedent: 4
 
 Additionally, the following boolean operations are available.
 
-.. literalinclude:: ../../dantro/utils/data_ops.py
+.. literalinclude:: ../../dantro/data_ops/_base_ops.py
    :start-after: BOOLEAN_OPERATORS = {
    :end-before: } # End of boolean operator definitions
    :dedent: 4
@@ -77,11 +77,13 @@ Additionally, the following boolean operations are available.
 .. hint::
 
     If you can't find a desired operation, e.g. from ``numpy`` or ``xarray``, use the ``np.`` and ``xr.`` operations to easily import a callable from those modules.
-    With ``from_module``, you can achieve the same for every other module.
+    This is also possible for ``pd.``, ``scipy.`` and ``nx.``.
 
-    See :py:mod:`dantro.utils.data_ops` for function signatures.
+    With ``from_module`` (:py:func:`~dantro._import_tools.get_from_module`), you can achieve the same for every other module.
+
+    See :py:mod:`dantro.data_ops` for more information on function signatures.
 
 .. warning::
 
-    While the operations database should be regarded as an append-only database and changing it is highly discouraged, it *can* be changed, e.g. via the ``overwrite_existing`` argument to :py:func:`~dantro.utils.data_ops.register_operation`, importable from :py:mod:`dantro.utils`.
+    While the operations database should be regarded as an append-only database and changing it is highly discouraged, it *can* be changed, e.g. via the ``overwrite_existing`` argument to :py:func:`~dantro.data_ops.db_tools.register_operation`, importable from :py:mod:`dantro.data_ops`.
     Therefore, the list above *might* not reflect the current status of the database.

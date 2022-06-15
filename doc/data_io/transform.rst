@@ -318,7 +318,7 @@ Resolving and applying operations
 """""""""""""""""""""""""""""""""
 Let's have a brief look into how the ``operation`` argument is actually resolved and how the operation is then applied.
 
-This feature is not specific to the DAG, but the DAG uses the :py:mod:`~dantro.utils.data_ops` module, which implements a database of available operations and the :py:func:`~dantro.utils.data_ops.apply_operation` function to apply an operation.
+This feature is not specific to the DAG, but the DAG uses the :py:mod:`~dantro.data_ops` module, which implements a database of available operations and the :py:func:`~dantro.data_ops.apply.apply_operation` function to apply an operation.
 Basically, this is a thin wrapper around a function lookup and its invocation.
 
 For a full list of available data operations, see :ref:`here <data_ops_available>`.
@@ -338,7 +338,7 @@ For a full list of available data operations, see :ref:`here <data_ops_available
               high: 10
               size: [2, 3, 4]
 
-    To specifically register additional operations, use the :py:func:`~dantro.utils.data_ops.register_operation` function.
+    To specifically register additional operations, use the :py:func:`~dantro.data_ops.db_tools.register_operation` function.
     This should only be done for operations that are not easily usable via the ``import`` and ``call`` operations.
 
 
