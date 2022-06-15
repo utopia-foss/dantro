@@ -284,8 +284,8 @@ def _set_tick_locators_or_formatters(
     functions below for more information, respectively.
 
     Args:
-        ax (plt.axis):      The axis
-        kind (str):         The kind. Options are: ``locator``, ``formatter``
+        ax (matplotlib.axis.Axis): The axis object
+        kind (str): Whether to set a ``locator`` or a ``formatter``.
         x (dict, optional): The config for the x-axis tick locator/formatter
         y (dict, optional): The config for the y-axis tick locator/formatter
     """

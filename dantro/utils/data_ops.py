@@ -362,8 +362,8 @@ def create_mask(
     comparison: ``data <operator> rhs value``.
 
     Args:
-        data (xr.DataArray): The data to apply the comparison to. This is the
-            lhs of the comparison.
+        data (xarray.DataArray): The data to apply the comparison to. This is
+            the left-hand-side of the comparison.
         operator_name (str): The name of the binary operator function as
             registered in the ``BOOLEAN_OPERATORS`` database.
         rhs_value (float): The right-hand-side value
@@ -410,7 +410,7 @@ def where(
         This typically leads to a dtype change to :py:attr:`numpy.float64`.
 
     Args:
-        data (xr.DataArray): The data to mask
+        data (xarray.DataArray): The data to mask
         operator_name (str): The ``operator`` argument used in
             :py:func:`~dantro.utils.data_ops.create_mask`
         rhs_value (float): The ``rhs_value`` argument used in
@@ -425,7 +425,7 @@ def where(
 
 def count_unique(data, dims: List[str] = None) -> "xarray.DataArray":
     """Applies :py:func:`numpy.unique` to the given data and constructs a
-    xr.DataArray for the results.
+    :py:class:`xarray.DataArray` for the results.
 
     NaN values are filtered out.
 
@@ -489,28 +489,28 @@ def populate_ndarray(
     out: np.ndarray = None,
     ufunc: Callable = None,
 ) -> np.ndarray:
-    """Populates an empty :py:class:`np.ndarray` of the given ``dtype`` with
+    """Populates an empty :py:class:`numpy.ndarray` of the given ``dtype`` with
     the given objects by zipping over a new array of the given ``shape`` and
     the sequence of objects.
 
     Args:
-        objs (Iterable): The objects to add to the np.ndarray. These objects
-            are added in the order they are given here. Note that their final
-            position inside the resulting array is furthermore determined by
-            the ``order`` argument.
+        objs (Iterable): The objects to add to the :py:class:`numpy.ndarray`.
+            These objects are added in the order they are given here. Note
+            that their final position inside the resulting array is
+            furthermore determined by the ``order`` argument.
         shape (Tuple[int], optional): The shape of the new array. **Required**
             if no ``out`` array is given.
-        dtype (Union[str, type, np.dtype], optional): dtype of the new array.
-            Ignored if ``out`` is given.
+        dtype (Union[str, type, numpy.dtype], optional): dtype of the new
+            array. Ignored if ``out`` is given.
         order (str, optional): Order of the new array, determines iteration
             order. Ignored if ``out`` is given.
-        out (np.ndarray, optional): If given, populates this array rather than
-            an empty array.
+        out (numpy.ndarray, optional): If given, populates this array rather
+            than an empty array.
         ufunc (Callable, optional): If given, applies this unary function to
             each element before storing it in the to-be-returned ndarray.
 
     Returns:
-        np.ndarray: The populated ``out`` array or the newly created one (if
+        numpy.ndarray: The populated ``out`` array or the newly created one (if
             ``out`` was not given)
 
     Raises:
@@ -665,7 +665,7 @@ def multi_concat(
     is used.
 
     Args:
-        arrs (np.ndarray): The array containing xarray objects which are to be
+        arrs (numpy.ndarray): The array containing xarray objects which are to be
             concatenated. Each array dimension should correspond to one of the
             given ``dims``. For each of the dimensions, the
             :py:func:`xarray.concat` operation is applied along the axis,
@@ -762,7 +762,7 @@ def expand_dims(
     attempted to convert it to an :py:class:`xarray.DataArray` first.
 
     Args:
-        d (Union[np.ndarray, xr.DataArray]): The object to expand the
+        d (Union[numpy.ndarray, xarray.DataArray]): The object to expand the
             dimensions of
         dim (dict, optional): Keys specify the dimensions to expand, values can
             either be an integer specifying the length of the dimension, or a
@@ -771,7 +771,7 @@ def expand_dims(
             objects that would be :py:meth:`xarray.DataArray.expand_dims`.
 
     Returns:
-        xr.DataArray: The input data with expanded dimensions.
+        xarray.DataArray: The input data with expanded dimensions.
     """
     if not hasattr(d, "expand_dims"):
         d = xr.DataArray(d)
@@ -813,15 +813,16 @@ def expand_object_array(
         done and all information for combination is already available.
 
     Args:
-        d (xr.DataArray): The labelled object-array containing further arrays
+        d (xarray.DataArray): The labelled object-array containing further arrays
             as elements (which are assumed to be unlabelled).
         shape (Sequence[int], optional): Shape of the inner arrays. If not
             given, the first element is used to determine the shape.
-        astype (Union[str, type, np.dtype], optional): All inner arrays need to
-            have the same dtype. If this argument is given, the arrays will be
-            coerced to this dtype. For numeric data, ``float`` is typically a
-            good fallback. Note that with ``combination_method == "merge"``,
-            the choice here might not be respected.
+        astype (Union[str, type, numpy.dtype], optional): All inner arrays
+            need to have the same dtype. If this argument is given, the arrays
+            will be coerced to this dtype. For numeric data, ``float`` is
+            typically a good fallback.
+            Note that with ``combination_method == "merge"``, the choice here
+            might not be respected.
         dims (Sequence[str], optional): Dimension names for labelling the
             inner arrays. This is necessary for proper alignment. The number of
             dimensions need to match the ``shape``. If not given, will use
@@ -847,7 +848,7 @@ def expand_object_array(
             :py:func:`~dantro.utils.data_ops.merge`.
 
     Returns:
-        xr.DataArray: A new, higher-dimensional labelled array.
+        xarray.DataArray: A new, higher-dimensional labelled array.
 
     Raises:
         TypeError: If no ``shape`` can be extracted from the first element in

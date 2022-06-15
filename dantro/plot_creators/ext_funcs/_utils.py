@@ -31,11 +31,11 @@ def plot_errorbar(
 
     Args:
         ax: The axis to plot on
-        x (np.ndarray): The x data to use
-        y (np.ndarray): The y-data to use for ``ax.errorbar``. Needs to be
+        x (numpy.ndarray): The x data to use
+        y (numpy.ndarray): The y-data to use for ``ax.errorbar``. Needs to be
             1D and have coordinates associated which will be used for the
             x-values.
-        yerr (np.ndarray): The y-error data
+        yerr (numpy.ndarray): The y-error data
         fill_between (bool, optional): Whether to use plt.fill_between or
             plt.errorbar to plot y-errors
         fill_between_kwargs (dict, optional): Passed on to plt.fill_between

@@ -69,13 +69,13 @@ class Hdf5DataProxy(BaseDataProxy):
 
     def resolve(self, *, astype: type = None):
         """Resolve the data of this proxy by opening the hdf5 file and loading
-        the dataset into a :py:class:`np.ndarray` or a type specified by the
+        the dataset into a :py:class:`numpy.ndarray` or a type specified by the
         ``astype`` argument.
 
         Args:
             astype (type, optional): As which type to return the data from the
                 dataset this object is proxy for.
-                If None, will return as :py:class:`np.ndarray`.
+                If None, will return as :py:class:`numpy.ndarray`.
                 For :py:class:`h5py.Dataset`, the :py:class:`h5py.File` object
                 stays in memory until the proxy is deleted.
                 Note that if ``resolve_as_dask`` was specified during proxy

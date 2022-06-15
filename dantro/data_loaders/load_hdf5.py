@@ -367,8 +367,8 @@ class Hdf5LoaderMixin:
         the ``_HDF5_MAP_FROM_ATTR`` class attribute.
 
         Args:
-            h5dset (h5.Dataset): The source dataset to load into ``target`` as
-                a dantro data container.
+            h5dset (h5py.Dataset): The source dataset to load into ``target``
+                as a dantro data container.
             target (BaseDataGroup): The target group where the ``h5dset`` will
                 be represented in as a new dantro data container.
             name (str): the name of the new container

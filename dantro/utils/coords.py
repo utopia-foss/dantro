@@ -262,9 +262,9 @@ def extract_coords_from_attrs(
     raised once this information is applied.
 
     Args:
-        obj (Union[AbstractDataContainer, np.ndarray]): The object to retrieve
-            the attributes from (via the ``attrs`` attribute). If the ``attrs``
-            *argument* is given, will use those instead.
+        obj (Union[AbstractDataContainer, numpy.ndarray]): The object to
+            retrieve the attributes from (via the ``attrs`` attribute). If the
+            ``attrs`` *argument* is given, will use those instead.
             It is furthermore expected that this object specifies the shape of
             the numerical data the coordinates are to be generated for by
             providing a ``shape`` property. This is possible with

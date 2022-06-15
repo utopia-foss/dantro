@@ -92,7 +92,7 @@ class XrDataContainer(
 
         Args:
             name (str): which name to give to the XrDataContainer
-            data (Union[np.ndarray, xarray.DataArray]): The data to store;
+            data (Union[numpy.ndarray, xarray.DataArray]): The data to store;
                 anything that an :py:class:`xarray.DataArray` can take.
             dims (Sequence[str], optional): The dimension names.
             coords (dict, optional): The coordinates. The keys of this dict
@@ -259,7 +259,7 @@ class XrDataContainer(
             self._dim_to_coords_map = coords
 
     def _inherit_attrs(self):
-        """Carry over container attributes to the xr.DataArray attributes
+        """Carry over container attributes to the data array attributes.
 
         This does not include container attributes that are used for extracting
         metadata; it makes no sense to have them in the attributes of the
@@ -280,7 +280,7 @@ class XrDataContainer(
 
     def _apply_metadata(self):
         """Applies the cached metadata to the underlying
-        :py:class:`xr.DataArray`
+        :py:class:`xarray.DataArray`
         """
         # Make sure that data is an xarray
         if not isinstance(self.data, xr.DataArray):

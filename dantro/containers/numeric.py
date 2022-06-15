@@ -45,7 +45,7 @@ class NumpyDataContainer(
 
         Arguments:
             name (str): The name of this container
-            data (np.ndarray): The numpy data to store
+            data (numpy.ndarray): The numpy data to store
             **dc_kwargs: Additional arguments for container initialization,
                 passed on to parent method
         """

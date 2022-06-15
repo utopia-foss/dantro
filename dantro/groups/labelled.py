@@ -369,8 +369,8 @@ class LabelledDataGroup(OrderedDataGroup):
             **indexers_kwargs: Additional indexers
 
         Returns:
-            xr.DataArray: The selected data, potentially a combination of data
-                on group level and member-level data.
+            xarray.DataArray: The selected data, potentially a combination of
+                data on group level and member-level data.
         """
         idxrs, deep_idxrs = self._parse_indexers(
             indexers, allow_deep=deep, **indexers_kwargs
@@ -868,12 +868,12 @@ class LabelledDataGroup(OrderedDataGroup):
         :py:class:`numpy.ndarray`.
 
         Args:
-            cont_names (xr.DataArray): The pre-selected member map object, i.e.
-                a labelled array containing names of the desired members that
-                are to be combined.
-            combination_method (str): How to combine them: concat, try_concat,
-                or merge. Concatenation will allow preserving the dtype of the
-                underlying data.
+            cont_names (xarray.DataArray): The pre-selected member map object,
+                i.e. a labelled array containing names of the desired members
+                that are to be combined.
+            combination_method (str): How to combine them: ``concat``,
+                ``try_concat``, or ``merge``. Concatenation will allow
+                preserving the dtype of the underlying data.
             shallow_indexers (dict): Indexer arguments that were used for the
                 group member selection.
             deep_indexers (dict): Indexer arguments for deep selection to be
@@ -1078,7 +1078,7 @@ class LabelledDataGroup(OrderedDataGroup):
         :py:func:`xarray.merge`.
 
         Args:
-            dsets (np.ndarray): The ``object``-dtype array of
+            dsets (numpy.ndarray): The ``object``-dtype array of
                 :py:class:`xarray.Dataset` objects that are to be combined.
 
         Returns:
@@ -1101,8 +1101,8 @@ class LabelledDataGroup(OrderedDataGroup):
         dimensions specified in ``dims``.
 
         Args:
-            dsets (np.ndarray): The object-dtype array of
-                :py:class:`xr.Dataset` objects that are to be combined by
+            dsets (numpy.ndarray): The object-dtype array of
+                :py:class:`xarray.Dataset` objects that are to be combined by
                 concatenation.
             dims (TDims): The dimension names corresponding to *all* the
                 dimensions of the ``dsets`` array.
