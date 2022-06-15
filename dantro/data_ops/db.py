@@ -12,7 +12,7 @@ from .._import_tools import (
     import_module_or_object,
 )
 from ..exceptions import *
-from ..tools import apply_along_axis, recursive_getitem
+from ..tools import recursive_getitem
 from ..utils.coords import extract_coords_from_attrs, extract_dim_names
 from ..utils.ordereddict import KeyOrderedDict
 from .arr_ops import *

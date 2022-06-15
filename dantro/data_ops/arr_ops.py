@@ -7,7 +7,6 @@ from typing import Any, Callable, Dict, Iterable, List, Sequence, Tuple, Union
 import numpy as np
 
 from .._import_tools import LazyLoader
-from ..tools import apply_along_axis
 from ._base_ops import BOOLEAN_OPERATORS
 
 log = logging.getLogger(__name__)
@@ -15,6 +14,60 @@ log = logging.getLogger(__name__)
 xr = LazyLoader("xarray")
 
 # -----------------------------------------------------------------------------
+
+
+def apply_along_axis(
+    func: Callable, axis: int, arr: np.ndarray, *args, **kwargs
+) -> np.ndarray:
+    """This is like numpy's function of the same name, but does not try to
+    cast the results of func to an :py:class:`np.ndarray` but tries to keep
+    them as dtype object. Thus, the return value of this function will always
+    have one fewer dimension then the input array.
+
+    This goes along the equivalent formulation of
+    :py:func:`numpy.apply_along_axis`, outlined in their documentation of the
+    function.
+
+    Args:
+        func (Callable): The function to apply along the axis
+        axis (int): Which axis to apply it to
+        arr (np.ndarray): The array-like data to apply the function to
+        *args: Passed to ``func``
+        **kwargs: Passed to ``func``
+
+    Returns:
+        numpy.ndarray: with ``func`` applied along ``axis``, reducing the array
+            dimensions by one.
+    """
+    # Get the shapes of the outer and inner iteration; both are tuples!
+    shape_outer, shape_inner = arr.shape[:axis], arr.shape[axis + 1 :]
+    num_outer = len(shape_outer)
+
+    # These together give the shape of the output array
+    out = np.zeros(shape_outer + shape_inner, dtype="object")
+    out.fill(None)
+
+    log.debug("Applying function '%s' along axis ...", func.__name__)
+    log.debug("  input array:     %s, %s", arr.shape, arr.dtype)
+    log.debug("  axis to reduce:  %d", axis)
+    log.debug("  output will be:  %s, %s", out.shape, out.dtype)
+
+    # Now loop over the output array and at each position fill it with the
+    # result of the function call.
+    it = np.nditer(out, flags=("refs_ok", "multi_index"))
+    for _ in it:
+        midx = it.multi_index
+
+        # Build selector, which has the ellipsis at position `axis`, thus one
+        # dimension higher than the out array and matching the input `arr`.
+        sel = tuple(midx[:num_outer]) + (Ellipsis,) + tuple(midx[num_outer:])
+        log.debug("  midx: %s  -->  selector: %s", midx, sel)
+
+        # Apply function to selected parts of array, then write to the current
+        # point in the iteration over the output array.
+        out[midx] = func(arr[sel], *args, **kwargs)
+
+    return out
 
 
 def create_mask(
