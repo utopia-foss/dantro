@@ -13,6 +13,7 @@
 - !270 drops official support and testing for Python 3.7
 - !271 strongly reduces the time it takes to `import dantro` by delaying imports of dependencies
 - !277 improves the dantro documentation by adding cross-referencing to other sphinx-based docs and tweaking many minor aspects of the dantro docs.
+- !278 implements the `TERMINAL_INFO` dict which holds information about the terminal size and can be updated using `dantro.tools.update_terminal_info()`.
 
 #### Internal
 - !267 performs some code clean-up and improves the sphinx setup
