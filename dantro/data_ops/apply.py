@@ -21,14 +21,17 @@ def apply_operation(
     _log_level: int = 5,
     **op_kwargs,
 ) -> Any:
-    """Apply an operation with the given arguments and then return it.
+    """Apply an operation with the given arguments and then return its return
+    value.
+    This is used by the :ref:`dag_framework` and allows to invoke operations
+    from the data operations database, see :ref:`data_processing`.
 
     Args:
         op_name (str): The name of the operation to carry out; need to be part
-            of the ``OPERATIONS`` database.
+            of the operations database ``_ops``.
         *op_args: The positional arguments to the operation
         _ops (dict, optional): The operations database object to use; if None,
-            uses the dantro operations database
+            uses the :ref:`dantro operations database <data_ops_available>`.
         _log_level (int, optional): Log level of the log messages created by
             this function.
         **op_kwargs: The keyword arguments to the operation

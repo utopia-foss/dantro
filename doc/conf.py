@@ -96,11 +96,14 @@ extensions = [
     "sphinx.ext.autodoc.typehints",
     "sphinx.ext.intersphinx",
     "sphinx.ext.todo",
+    "sphinx.ext.doctest",
     "sphinx.ext.coverage",
     "sphinx.ext.mathjax",
     "sphinx.ext.ifconfig",
     "sphinx.ext.viewcode",
     ### Additional extensions...
+    #   ... to allow toggling content
+    "sphinx_togglebutton",
     #   ... to pre-process Google-style Python docstrings
     "sphinx.ext.napoleon",
     #   ... to have the IPython directive available for code examples

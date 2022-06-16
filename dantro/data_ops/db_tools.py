@@ -32,7 +32,7 @@ def register_operation(
             already existing operation of the same name. If given, this takes
             precedence over ``skip_existing``.
         _ops (dict, optional): The operations database object to use; if None,
-            uses the dantro operations database
+            uses the :ref:`dantro operations database <data_ops_available>`.
 
     Raises:
         TypeError: On invalid name or non-callable for the func argument
@@ -90,71 +90,50 @@ def is_operation(
     _reg_func: Callable = None,
     **kws,
 ):
-    """Decorator for registering operations with the operations database.
+    """Decorator for registering functions with the operations database.
 
-    Usage examples:
+    As an alternative to :py:func:`.register_operation`, this decorator can be
+    used to register a function with the operations database right where its
+    defined:
 
-    .. code-block:: python
+    .. testcode::
 
         from dantro.data_ops import is_operation
 
         # Operation name deduced from function name
         @is_operation
         def my_operation(data, *args):
-            # ...
+            # ... do stuff here ...
+            return data
 
         # Custom operation name
         @is_operation("do_stuff")
         def my_operation_with_a_custom_name(foo, bar):
-            # ...
+            pass
 
         # Overwriting an operation of the same name
         @is_operation("do_stuff", overwrite_existing=True)
         def actually_do_stuff(spam, fish):
-            # ...
-
-    If you want to provide different default values for the decorator used in
-    your package, consider the following implementation:
-
-    .. code-block:: python
-
-        from dantro.data_ops import register_operation as _register_operation
-        from dantro.data_ops import is_operation as _is_operation
-
-        # Your operations database object that is used as the default database.
-        MY_OPERATIONS = dict()
-
-        # Define a registration function with `skip_existing = True` as default
-        # and evaluation of the default database
-        def my_reg_func(*args, skip_existing=True, _ops=None, **kwargs):
-            _ops = _ops if _ops is not None else MY_OPERATIONS
-
-            return _register_operation(
-                *args, skip_existing=skip_existing, _ops=_ops, **kwargs
-            )
-
-        # Define a custom decorator that uses the custom registration function
-        def my_decorator(
-            arg: Union[str, Callable] = None, /, **kws
-        ):
-            return _is_operation(arg, _reg_func=my_reg_func, **kws)
-
-        # Usage examples
-        @my_decorator
-        def some_operation():
             pass
 
-        @my_decorator("my_operation_name")
-        def some_other_operation():
-            pass
+    .. testcode::
+        :hide:
+
+        from dantro.data_ops.db import _OPERATIONS
+        assert "my_operation" in _OPERATIONS
+        assert "do_stuff" in _OPERATIONS
+
+    See :ref:`register_data_ops` for general information.
+    For instructions on how to overwrite this decorator with a custom one, see
+    :ref:`customize_db_tools`.
 
     Args:
         arg (Union[str, Callable], optional): The name that should be used in
             the operation registry. If not given, will use the name of the
             decorated function instead. If a callable, this refers to the
             ``@is_operation`` call syntax and will use that as a function.
-        _ops (dict, optional): The operations database to use. If not given, ´
-            will use the dantro default operations database.
+        _ops (dict, optional): The operations database to use. If not given,
+            uses the :ref:`dantro operations database <data_ops_available>`.
         _reg_func (Callable, optional): If given, uses that callable for
             registration, which should have the same signature as
             :py:func:`.register_operation`. If None, uses dantro's registration
@@ -194,13 +173,15 @@ def available_operations(
 ) -> Sequence[str]:
     """Returns all available operation names or a fuzzy-matched subset of them.
 
+    Also see :ref:`data_ops_available` for an overview.
+
     Args:
         match (str, optional): If given, fuzzy-matches the names and only
             returns close matches to this name.
         n (int, optional): Number of close matches to return. Passed on to
             :py:func:`difflib.get_close_matches`
         _ops (dict, optional): The operations database object to use; if None,
-            uses the dantro operations database
+            uses the :ref:`dantro operations database <data_ops_available>`.
 
     Returns:
         Sequence[str]: All available operation names or the matched subset.
