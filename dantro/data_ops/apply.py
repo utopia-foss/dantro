@@ -54,7 +54,7 @@ def apply_operation(
             if _close_matches
             else ""
         )
-        _available = _make_columns(available_operations())
+        _available = _make_columns(available_operations(_ops=_ops))
 
         raise BadOperationName(
             f"No operation '{op_name}' registered!{_did_you_mean} "

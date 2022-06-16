@@ -613,7 +613,7 @@ def parse_dag_syntax(
 
     elif ops and not operation:
         # Shorthand parametrization
-        # Make sure there are no stray argument
+        # Make sure there are no stray arguments
         if len(ops) > 1:
             raise ValueError(
                 "For shorthand notation, there can only be a "
