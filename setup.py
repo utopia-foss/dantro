@@ -47,6 +47,7 @@ test_deps = [
 doc_deps = [
     "sphinx==4.*",
     "sphinx-book-theme>=0.3.*",
+    "sphinx-togglebutton",
     "ipython>=7.0",
 ]
 

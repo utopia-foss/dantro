@@ -1,4 +1,5 @@
 # Pass regular log output to devnull; pytest catches log calls by other means
+
 import logging
 import os
 

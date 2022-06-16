@@ -16,8 +16,8 @@ import numpy as np
 from .._import_tools import LazyLoader
 from ..abc import AbstractDataContainer
 from ..containers import XrDataContainer
+from ..data_ops.arr_ops import apply_along_axis
 from ..exceptions import *
-from ..tools import apply_along_axis
 from ..utils import extract_coords
 from ..utils.coords import TCoord, TCoordsDict, TDims
 from . import OrderedDataGroup

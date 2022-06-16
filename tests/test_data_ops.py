@@ -1,6 +1,8 @@
 """Tests the utils.data_ops module"""
 
 import builtins
+import copy
+from typing import Callable, Union
 
 import numpy as np
 import pytest
@@ -8,14 +10,25 @@ import sympy as sym
 import xarray as xr
 
 import dantro
-import dantro.utils.data_ops as dops
+import dantro.data_ops.db as dops
 from dantro.containers import ObjectContainer
+from dantro.data_ops import _OPERATIONS as OPERATIONS
+from dantro.data_ops import apply_operation, is_operation, register_operation
 from dantro.exceptions import *
 from dantro.groups import OrderedDataGroup
-from dantro.utils import apply_operation, register_operation
-from dantro.utils.data_ops import _OPERATIONS as OPERATIONS
 
 # -----------------------------------------------------------------------------
+
+
+@pytest.fixture
+def tmp_operations():
+    """A temporary operations database; reset to its previous state after test
+    teardown.
+    """
+    original_ops = copy.copy(OPERATIONS)
+    yield
+    OPERATIONS.clear()
+    OPERATIONS.update(original_ops)
 
 
 @pytest.fixture
@@ -54,22 +67,36 @@ def test_OPERATIONS():
     assert "increment" in OPERATIONS
 
 
-def test_register_operation():
+def test_register_operation(tmp_operations):
     """Test operation registration"""
     # Can add something
     assert "op_foobar" not in OPERATIONS
     func_foobar = lambda: "foobar"
-    register_operation(name="op_foobar", func=func_foobar)
+    register_operation(func_foobar, "op_foobar")
     assert "op_foobar" in OPERATIONS
     assert OPERATIONS["op_foobar"] is func_foobar
 
+    # Need not specify a name
+    def my_test_func():
+        pass
+
+    register_operation(my_test_func)
+    assert OPERATIONS["my_test_func"] is my_test_func
+
+    # Lambdas need to be named explicitly
+    with pytest.raises(
+        ValueError,
+        match="Could not automatically deduce an operation name .* lambda",
+    ):
+        register_operation(lambda: 0)
+
     # Cannot overwrite it ...
     with pytest.raises(ValueError, match="already exists!"):
-        register_operation(name="op_foobar", func=lambda: "some_other_func")
+        register_operation(func=lambda: "some_other_func", name="op_foobar")
 
     # No error if it's to be skipped
     register_operation(
-        name="op_foobar", func=lambda: "some_other_func", skip_existing=True
+        lambda: "some_other_func", name="op_foobar", skip_existing=True
     )
     assert OPERATIONS["op_foobar"] is func_foobar
 
@@ -93,17 +120,97 @@ def test_register_operation():
     del OPERATIONS["op_foobar"]
     assert "op_foobar" not in OPERATIONS
 
+    # Can also use a custom operations database
+    my_ops = dict()
+    register_operation(func_foobar, name="my_foobar", _ops=my_ops)
+    register_operation(func=func_foobar2, name="my_foobar2", _ops=my_ops)
+    assert "my_foobar" in my_ops
+    assert "my_foobar2" in my_ops
+    assert "my_foobar" not in OPERATIONS
+    assert "my_foobar2" not in OPERATIONS
+
+
+def test_is_operation_decorator(tmp_operations):
+    """Tests the `is_operation` decorator"""
+    assert "some_func" not in OPERATIONS
+    assert "another_func" not in OPERATIONS
+    assert "yet_another_func" not in OPERATIONS
+
+    # Without parentheses
+    @is_operation
+    def some_func():
+        pass
+
+    assert OPERATIONS["some_func"] is some_func
+
+    # With parentheses
+    @is_operation()
+    def another_func():
+        pass
+
+    assert OPERATIONS["another_func"] is another_func
+
+    # With custom name
+    @is_operation("yet_another_func")
+    def one_more_func():
+        pass
+
+    assert "one_more_func" not in OPERATIONS
+    assert OPERATIONS["yet_another_func"] is one_more_func
+
+    # Passing of arguments: overwrite existing operation
+    @is_operation("yet_another_func", overwrite_existing=True)
+    def yet_one_more_func():
+        pass
+
+    assert OPERATIONS["yet_another_func"] is yet_one_more_func
+
+    # Skip an existing operation
+    @is_operation("some_func", skip_existing=True)
+    def some_other_func():
+        pass
+
+    assert OPERATIONS["some_func"] is some_func
+
+
+def test_is_operation_decorator_overwriting(tmp_operations):
+    """Test whether the decorator allows overwriting in an easy way, e.g. to
+    specify different defaults.
+    """
+    my_ops = dict()
+
+    def my_reg_func(*args, skip_existing=True, _ops=None, **kwargs):
+        _ops = _ops if _ops is not None else my_ops
+        return register_operation(
+            *args, skip_existing=skip_existing, _ops=_ops, **kwargs
+        )
+
+    def my_decorator(arg: Union[str, Callable] = None, /, **kws):
+        return is_operation(arg, _reg_func=my_reg_func, **kws)
+
+    @my_decorator
+    def my_func():
+        pass
+
+    assert my_ops["my_func"] is my_func
+
+    @my_decorator("my_func")  # now with `skip_existing = True` as default
+    def also_my_func():
+        pass
+
+    assert my_ops["my_func"] is my_func
+
 
 def test_apply_operation():
     """Test operation application"""
     assert apply_operation("add", 1, 2) == 3
 
     # Test the "did you mean" feature
-    with pytest.raises(ValueError, match="Did you mean: add ?"):
+    with pytest.raises(BadOperationName, match="Did you mean: add ?"):
         apply_operation("addd")
 
     # ... and check that a list of available operations is posted
-    with pytest.raises(ValueError, match="getitem"):
+    with pytest.raises(BadOperationName, match="getitem"):
         apply_operation("addd")
 
     # Test application failure error message
@@ -113,11 +220,19 @@ def test_apply_operation():
         apply_operation("add", 1, foo="bar")
 
     # Check again if kwargs are part of the error message
-    with pytest.raises(RuntimeError, match=r"foo:  \['barbazspam', 123\]"):
+    with pytest.raises(
+        DataOperationFailed, match=r"foo:  \['barbazspam', 123\]"
+    ):
         apply_operation("add", 1, foo=["barbazspam", 123])
 
+    # Can also have a custom operations database (where there is no add)
+    with pytest.raises(BadOperationName, match="No operation 'add'"):
+        apply_operation("add", 1, 2, _ops=dict()) == 3
 
+
+# -----------------------------------------------------------------------------
 # Tests of specific operations ------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 def test_op_print_data():
@@ -140,7 +255,8 @@ def test_op_import_module_or_object():
 
     # Module import
     assert _import() is builtins
-    assert _import(".utils.data_ops") is dantro.utils.data_ops
+    assert _import(".data_ops") is dantro.data_ops
+    assert _import(".data_ops.db") is dantro.data_ops.db
     assert _import("numpy.random") is np.random
     assert _import("numpy.random") is _import(module="numpy.random")
 
@@ -148,8 +264,8 @@ def test_op_import_module_or_object():
     assert _import(name="abs") is builtins.abs is abs
     assert _import(name="abs.__name__") == "abs"
     assert (
-        _import(".utils", "register_operation")
-        is dantro.utils.register_operation
+        _import(".data_ops", "register_operation")
+        is dantro.data_ops.register_operation
     )
     assert _import("numpy", "pi") is np.pi
     assert _import("numpy.random", "randint.__name__") == "randint"
