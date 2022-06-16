@@ -1,6 +1,7 @@
 """This module holds the data operations database"""
 
 import logging
+import math
 import operator
 from typing import Any, Callable, Dict, Iterable, List, Sequence, Tuple, Union
 
@@ -38,7 +39,12 @@ _OPERATIONS = KeyOrderedDict({
     # General operations - - - - - - - - - - - - - - - - - - - - - - - - - - -
     "define":               lambda d: d,
     "pass":                 lambda d: d,
+
+    # Functions useful for debugging
     "print":                print_data,
+
+    # Control flow functions, e.g. conditionally skipping a plot
+    "raise_SkipPlot":       raise_SkipPlot,
 
     # Working on imported modules (useful if other operations don't match)
     "from_module":          get_from_module,
@@ -47,7 +53,13 @@ _OPERATIONS = KeyOrderedDict({
     "import_and_call":
         lambda m, n, *a, **k: import_module_or_object(m, n)(*a, **k),
 
+    # Defining and calling lambdas
+    "lambda":               generate_lambda,
+    "call_lambda":          lambda e, *a, **k: generate_lambda(e)(*a, **k),
+
     # Import from packages and call directly
+    "math.":
+        lambda ms, *a, **k: get_from_module(math, name=ms)(*a, **k),
     "np.":
         lambda ms, *a, **k: get_from_module(np, name=ms)(*a, **k),
     "xr.":
@@ -58,10 +70,6 @@ _OPERATIONS = KeyOrderedDict({
         lambda ms, *a, **k: get_from_module(nx, name=ms)(*a, **k),
     "pd.":
         lambda ms, *a, **k: get_from_module(pd, name=ms)(*a, **k),
-
-    # Defining lambdas
-    "lambda":               generate_lambda,
-    "call_lambda":          lambda e, *a, **k: generate_lambda(e)(*a, **k),
 
     # Some commonly used types
     "list":                 list,
@@ -108,10 +116,10 @@ _OPERATIONS = KeyOrderedDict({
     # Numerical operations - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Broadly categorized in how many arguments they accept ...
     # Unary ...................................................................
-    "neg":                  lambda d: operator.neg(d),
-    "pos":                  lambda d: operator.pos(d),
-    "truth":                lambda d: operator.truth(d),
-    "invert":               lambda d: operator.invert(d),
+    "neg":                  operator.neg,
+    "pos":                  operator.pos,
+    "truth":                operator.truth,
+    "invert":               operator.invert,
 
     "increment":            lambda d: d + 1,
     "decrement":            lambda d: d - 1,
@@ -143,20 +151,20 @@ _OPERATIONS = KeyOrderedDict({
     ".isnull":              lambda d: d.isnull(),
 
     # logarithms and powers, all numpy-based
-    "log":                  lambda d: np.log(d),
-    "log10":                lambda d: np.log10(d),
-    "log2":                 lambda d: np.log2(d),
-    "log1p":                lambda d: np.log1p(d),
-    "squared":              lambda d: np.square(d),
-    "sqrt":                 lambda d: np.sqrt(d),
+    "log":                  np.log,
+    "log10":                np.log10,
+    "log2":                 np.log2,
+    "log1p":                np.log1p,
+    "squared":              np.square,
+    "sqrt":                 np.sqrt,
     "cubed":                lambda d: np.power(d, 3),
     "sqrt3":                lambda d: np.power(d, 1./3.),
 
     # normalization and cumulation
     "normalize_to_sum":     lambda d: d / np.sum(d),
     "normalize_to_max":     lambda d: d / np.max(d),
-    "cumulate":             lambda d: np.cumsum(d),
-    "cumulate_complementary": lambda d: np.cumsum(d[::-1])[::-1],
+    "cumulate":             lambda d, **k: np.cumsum(d, **k),
+    "cumulate_complementary": lambda d, **k: np.cumsum(d[::-1], **k)[::-1],
 
 
     # Binary ..................................................................
@@ -377,13 +385,6 @@ _OPERATIONS = KeyOrderedDict({
         lambda *a, **k: import_module_or_object("scipy.optimize",
                                                 name="curve_fit")(*a, **k),
     # NOTE: Use the "lambda" operation to generate the callable
-
-
-    # For use in Plotting Framework - - - - - - - - - - - - - - - - - - - - - -
-    # Can be called to conditionally skip a plot
-    "raise_SkipPlot":       raise_SkipPlot,
-
-
 }) # End of default operation definitions
 # fmt: on
 
