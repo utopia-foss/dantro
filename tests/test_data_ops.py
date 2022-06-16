@@ -72,17 +72,31 @@ def test_register_operation(tmp_operations):
     # Can add something
     assert "op_foobar" not in OPERATIONS
     func_foobar = lambda: "foobar"
-    register_operation(name="op_foobar", func=func_foobar)
+    register_operation(func_foobar, "op_foobar")
     assert "op_foobar" in OPERATIONS
     assert OPERATIONS["op_foobar"] is func_foobar
 
+    # Need not specify a name
+    def my_test_func():
+        pass
+
+    register_operation(my_test_func)
+    assert OPERATIONS["my_test_func"] is my_test_func
+
+    # Lambdas need to be named explicitly
+    with pytest.raises(
+        ValueError,
+        match="Could not automatically deduce an operation name .* lambda",
+    ):
+        register_operation(lambda: 0)
+
     # Cannot overwrite it ...
     with pytest.raises(ValueError, match="already exists!"):
-        register_operation(name="op_foobar", func=lambda: "some_other_func")
+        register_operation(func=lambda: "some_other_func", name="op_foobar")
 
     # No error if it's to be skipped
     register_operation(
-        name="op_foobar", func=lambda: "some_other_func", skip_existing=True
+        lambda: "some_other_func", name="op_foobar", skip_existing=True
     )
     assert OPERATIONS["op_foobar"] is func_foobar
 
@@ -108,8 +122,8 @@ def test_register_operation(tmp_operations):
 
     # Can also use a custom operations database
     my_ops = dict()
-    register_operation(name="my_foobar", func=func_foobar, _ops=my_ops)
-    register_operation(name="my_foobar2", func=func_foobar2, _ops=my_ops)
+    register_operation(func_foobar, name="my_foobar", _ops=my_ops)
+    register_operation(func=func_foobar2, name="my_foobar2", _ops=my_ops)
     assert "my_foobar" in my_ops
     assert "my_foobar2" in my_ops
     assert "my_foobar" not in OPERATIONS

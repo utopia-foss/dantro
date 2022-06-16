@@ -12,9 +12,9 @@ log = logging.getLogger(__name__)
 
 
 def register_operation(
-    *,
-    name: str,
     func: Callable,
+    name: str = None,
+    *,
     skip_existing: bool = False,
     overwrite_existing: bool = False,
     _ops: dict = None,
@@ -22,8 +22,9 @@ def register_operation(
     """Adds an entry to the shared operations registry.
 
     Args:
-        name (str): The name of the operation
-        func (Callable): The callable
+        func (Callable): The callable that is to be registered as operation.
+        name (str, optional): The name of the operation. If not given (and the
+            callable not being a lambda), will use the function name instead.
         skip_existing (bool, optional): Whether to skip registration if the
             operation name is already registered. This suppresses the
             ValueError raised on existing operation name.
@@ -36,33 +37,45 @@ def register_operation(
     Raises:
         TypeError: On invalid name or non-callable for the func argument
         ValueError: On already existing operation name and no skipping or
-            overwriting enabled.
+            overwriting enabled. Also if no ``name`` was given but the given
+            callable is a lambda (which only has ``<lambda>`` as name).
     """
     if _ops is None:
         _ops = _OPERATIONS
+
+    if not callable(func):
+        raise TypeError(
+            f"The given {func} for operation '{name}' is not callable!"
+        )
+
+    if name is None:
+        name = func.__name__
+        if name == (lambda: 0).__name__:
+            raise ValueError(
+                "Could not automatically deduce an operation name because the "
+                "given callable appears to be a lambda! Explicitly specify an "
+                "operation name using the `name` argument."
+            )
+    elif not isinstance(name, str):
+        raise TypeError(
+            f"Operation name need be a string, was {type(name)} with "
+            f"value {name}!"
+        )
 
     if name in _ops and not overwrite_existing:
         if skip_existing:
             log.debug(
                 "Operation '%s' is already registered and will not be "
-                "registered again.",
+                "registered again. Choose a different name or unset the "
+                "`skip_existing` flag.",
                 name,
             )
             return
         raise ValueError(
-            f"Operation name '{name}' already exists! Refusing to register a "
-            "new one. Set the overwrite_existing flag to force overwriting."
-        )
-
-    elif not callable(func):
-        raise TypeError(
-            f"The given {func} for operation '{name}' is not callable! "
-        )
-
-    elif not isinstance(name, str):
-        raise TypeError(
-            f"Operation name need be a string, was {type(name)} with "
-            f"value {name}!"
+            f"Operation name '{name}' already exists! Not overwriting. "
+            "Set the `overwrite_existing` flag to force overwriting or choose "
+            "a different `name`. If no name was given, consider specifying it "
+            "explicitly instead of letting it be deduced."
         )
 
     _ops[name] = func
@@ -159,12 +172,12 @@ def is_operation(
         name = arg
         if callable(name):
             # Invocation via @is_operation -- without parentheses
-            name = func.__name__
+            name = None
         elif name is None:
             # Invocation via @is_operation() -- without arguments
-            name = func.__name__
+            pass
 
-        _reg_func(name=name, func=func, _ops=_ops, **kws)
+        _reg_func(func, name=name, _ops=_ops, **kws)
         return func
 
     # Allow both invocation styles
