@@ -125,10 +125,10 @@ For more information, see :doc:`data_io/data_mngr`.
 
 .. _spec_plot_creators:
 
-Specializing :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator`
+Specializing :py:class:`~dantro.plot.creators.base.BasePlotCreator`
 -----------------------------------------------------------------------
 As described in :doc:`plotting/plot_creators`, dantro already supplies a range of plot creators.
-Furthermore, dantro provides the :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator`, which provides an interface and a lot of the commonly used functionality.
+Furthermore, dantro provides the :py:class:`~dantro.plot.creators.base.BasePlotCreator`, which provides an interface and a lot of the commonly used functionality.
 
 Specialization thus can be of two kinds:
 
@@ -137,7 +137,7 @@ Specialization thus can be of two kinds:
 
 For the former, we suggest to refer to the individual creator's documentation, e.g. :ref:`pcr_ext_specializing`.
 
-For the latter, we recommend to use the existing :py:mod:`dantro.plot_creators` as examples for how this can be achieved; we are happy to support the implementation of new plot creators, so feel free to post an issue to `the project page <https://gitlab.com/utopia-project/dantro>`_.
+For the latter, we recommend to use the existing :py:mod:`dantro.plot.creators` as examples for how this can be achieved; we are happy to support the implementation of new plot creators, so feel free to post an issue to `the project page <https://gitlab.com/utopia-project/dantro>`_.
 
 .. note::
 

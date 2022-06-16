@@ -12,9 +12,9 @@ from pkg_resources import resource_filename
 
 from dantro.containers import PassthroughContainer, XrDataContainer
 from dantro.exceptions import PlottingError
-from dantro.plot_creators import ExternalPlotCreator, PlotHelper
-from dantro.plot_creators._plot_helper import parse_function_specs
-from dantro.plot_creators.ext_funcs.multiplot import multiplot
+from dantro.plot import ExternalPlotCreator, PlotHelper
+from dantro.plot.funcs._multiplot import parse_function_specs
+from dantro.plot.funcs.multiplot import multiplot
 from dantro.tools import load_yml
 
 from .test_generic import create_nd_data, out_dir

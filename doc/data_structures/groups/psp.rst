@@ -145,7 +145,7 @@ For dantro, these terms typically refer to the *output* of such computer simulat
     * **Multiverse data** is the output from *multiple* individual universes.
       As these are typically generated for points of the same parameters space, they can also be gathered into a :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`.
 
-Subsequently, when handling data that is structured this way, parts of dantro (most notably the :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator` and :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator`) also use these metaphors instead of the parameter space terminology.
+Subsequently, when handling data that is structured this way, parts of dantro (most notably the :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator` and :py:class:`~dantro.plot.creators.psp.UniversePlotCreator`) also use these metaphors instead of the parameter space terminology.
 
 
 .. note::

@@ -1,14 +1,14 @@
 .. _pcr_ext:
 
-The :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator`
+The :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator`
 =================================================================
 
-The :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` focusses on creating plots from a Python function, the so-called *plot function*.
+The :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` focusses on creating plots from a Python function, the so-called *plot function*.
 The term *external* refers to its ability to invoke plot functions from external modules, which can also be loaded from some file path.
 
 .. note::
 
-    There are specializations of the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` that make plotting of data originating from parameter sweeps easier.
+    There are specializations of the :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` that make plotting of data originating from parameter sweeps easier.
     See :ref:`pcr_psp`.
 
 .. contents::
@@ -20,7 +20,7 @@ The term *external* refers to its ability to invoke plot functions from external
 
 Specifying which plotting function to use
 -----------------------------------------
-Let's assume we have a plotting function defined somewhere and want to communicate to the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` that this function should be used for some plot.
+Let's assume we have a plotting function defined somewhere and want to communicate to the :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` that this function should be used for some plot.
 
 For the moment, the exact definition of the function is irrelevant.
 You can read more about it :ref:`below <pcr_ext_implement_plot_funcs>`.
@@ -134,13 +134,13 @@ For valid RC parameters, see the `matplotlib customization documentation <https:
 
 .. _pcr_ext_plot_helper:
 
-The :py:class:`~dantro.plot_creators._plot_helper.PlotHelper`
+The :py:class:`~dantro.plot.creators._plot_helper.PlotHelper`
 -------------------------------------------------------------
 
 The aim of the PlotHelper framework is to let the plot functions focus on what cannot easily be automated: being the bridge between some selected or :ref:`transformed <pcr_ext_DAG_support>` data and its visualization.
 The plot function should not have to concern itself with things like plot aesthetics, as that can easily be automated.
 
-The :py:class:`~dantro.plot_creators._plot_helper.PlotHelper` can make your life easier by quite a lot as it already takes care of setting up and saving a figure and makes large parts of the matplotlib interface accessible via the plot configuration.
+The :py:class:`~dantro.plot.creators._plot_helper.PlotHelper` can make your life easier by quite a lot as it already takes care of setting up and saving a figure and makes large parts of the matplotlib interface accessible via the plot configuration.
 That way, you don’t need to touch Python code for trivial tasks like changing the plot limits.
 But even more advanced tasks, such as creating an animation, are conveniently done using this framework.
 
@@ -168,8 +168,8 @@ As an example, the following plot configuration sets the title of the plot as we
         y: [1.0, ~]
 
 The enabled helpers are automatically invoked after the plot function has been called and before the plot is saved.
-Aside from specifying values in the configuration, helpers can also be dynamically (re-)configured from within the plot function using :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.provide_defaults` or be invoked directly using :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.invoke_helper`.
-To ensure that helpers stay disabled, regardless of configuration, you can call :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.mark_disabled` inside the plot function.
+Aside from specifying values in the configuration, helpers can also be dynamically (re-)configured from within the plot function using :py:meth:`~dantro.plot.creators._plot_helper.PlotHelper.provide_defaults` or be invoked directly using :py:meth:`~dantro.plot.creators._plot_helper.PlotHelper.invoke_helper`.
+To ensure that helpers stay disabled, regardless of configuration, you can call :py:meth:`~dantro.plot.creators._plot_helper.PlotHelper.mark_disabled` inside the plot function.
 
 .. hint::
 
@@ -178,7 +178,7 @@ To ensure that helpers stay disabled, regardless of configuration, you can call 
 
     If you get it wrong, the error message aims to be helpful: it provides the full signature and docstring of the invoked helper such that you can adjust the parameters to the required format.
 
-    Thus, trial and error is a useful initial approach before digging into the :py:class:`~dantro.plot_creators._plot_helper.PlotHelper` API reference.
+    Thus, trial and error is a useful initial approach before digging into the :py:class:`~dantro.plot.creators._plot_helper.PlotHelper` API reference.
 
 Furthermore, notice how you can combine the capabilities of the plot helper framework with the ability to :ref:`set the plot style <pcr_ext_style>`.
 
@@ -189,7 +189,7 @@ The following helper methods are available:
 
 .. ipython::
 
-    In [1]: from dantro.plot_creators import PlotHelper
+    In [1]: from dantro.plot import PlotHelper
 
     In [2]: hlpr = PlotHelper(out_path="~/my_output_directory")
 
@@ -198,8 +198,8 @@ The following helper methods are available:
 
 Additionally, there are "special" helpers that help with setting up and storing a figure:
 
-- :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.setup_figure`
-- :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.save_figure`
+- :py:meth:`~dantro.plot.creators._plot_helper.PlotHelper.setup_figure`
+- :py:meth:`~dantro.plot.creators._plot_helper.PlotHelper.save_figure`
 
 .. note::
 
@@ -211,7 +211,7 @@ Additionally, there are "special" helpers that help with setting up and storing 
 Axis-specific helper configurations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The :py:class:`~dantro.plot_creators._plot_helper.PlotHelper` is not restricted to a single axis, but it can manage multiple axes aranged on a grid.
+The :py:class:`~dantro.plot.creators._plot_helper.PlotHelper` is not restricted to a single axis, but it can manage multiple axes aranged on a grid.
 A possible plot configuration with axis-specific helpers could look as follows:
 
 .. code-block:: yaml
@@ -239,10 +239,10 @@ A possible plot configuration with axis-specific helpers could look as follows:
 
 Putting the above configuration into words:
 
-* The :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.setup_figure` helper sets up a figure with with two subfigures that are accessible via the coordinate pairs ``[0, 0]`` and ``[1, 0]``.
+* The :py:meth:`~dantro.plot.creators._plot_helper.PlotHelper.setup_figure` helper sets up a figure with with two subfigures that are accessible via the coordinate pairs ``[0, 0]`` and ``[1, 0]``.
 * The ``set_limits`` helper is applied to all existing axes.
 * Helpers for specific axes can be configured by passing an ``axis_specific`` dictionary.
-  In the plot function, you can then switch axes using the :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.select_axis` method (the ``[0, 0]`` axis is selected initially).
+  In the plot function, you can then switch axes using the :py:meth:`~dantro.plot.creators._plot_helper.PlotHelper.select_axis` method (the ``[0, 0]`` axis is selected initially).
 
 .. note::
 
@@ -304,12 +304,12 @@ Remarks
 
 Specializing the helper
 ^^^^^^^^^^^^^^^^^^^^^^^
-The dantro :py:class:`~dantro.plot_creators._plot_helper.PlotHelper` already provides a default set of helpers that provide access to most of the matplotlib interface.
+The dantro :py:class:`~dantro.plot.creators._plot_helper.PlotHelper` already provides a default set of helpers that provide access to most of the matplotlib interface.
 If you need any additional customized helpers, you can easily add new methods to a specialization of the helper:
 
 .. code-block:: python
 
-  import dantro.plot_creators
+  import dantro.plot.creators
 
   class MyPlotHelper(dtr.plot_creators.PlotHelper):
       """A specialization of the dantro ``PlotHelper`` which can be used to add
@@ -317,7 +317,7 @@ If you need any additional customized helpers, you can easily add new methods to
       """
       # You can add new helper methods here, prefixed with _hlpr_
 
-Note that you will have to communicate this new plot helper type to the creator by setting :py:const:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator.PLOT_HELPER_CLS`.
+Note that you will have to communicate this new plot helper type to the creator by setting :py:const:`~dantro.plot.creators.ext.ExternalPlotCreator.PLOT_HELPER_CLS`.
 
 
 
@@ -364,15 +364,15 @@ To learn more about this, :ref:`see here <dag_framework>`.
 
 Implementing plot functions
 ---------------------------
-Below, you will learn how to implement a plot function that can be used with the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator`.
+Below, you will learn how to implement a plot function that can be used with the :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator`.
 
 
 .. _is_plot_func_decorator:
 
-The :py:func:`~dantro.plot_creators.pcr_ext.is_plot_func` decorator
+The :py:func:`~dantro.plot.creators.ext.is_plot_func` decorator
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 When defining a plot function, we recommend using this decorator.
-It takes care of providing essential information to the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` and makes it easy to configure those parameters relevant for the plot function.
+It takes care of providing essential information to the :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` and makes it easy to configure those parameters relevant for the plot function.
 
 For example, to specify which creator should be used for the plot function, the ``creator_type`` can be given.
 To control usage of the data transformation framework, the ``use_dag`` flag can be used and the ``required_dag_tags`` argument can specify which data tags the plot function expects.
@@ -387,12 +387,12 @@ When using the data transformation framework, the data selection is taken care o
 In the plot function, one can specify which tags are required by the plot function; the framework will then make sure that these results are computed.
 In this case, two tags called ``x`` and ``y`` are required which are then fed directly to the plot function.
 
-Importantly, such a plot function can be **averse to any creator**, because it is compatible not only with the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` but also with all its specializations.
+Importantly, such a plot function can be **averse to any creator**, because it is compatible not only with the :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` but also with all its specializations.
 This makes it very flexible in its usage, serving solely as the bridge between data and visualization.
 
 .. code-block:: python
 
-    from dantro.plot_creators import is_plot_func, PlotHelper
+    from dantro.plot.creators import is_plot_func, PlotHelper
 
     @is_plot_func(use_dag=True, required_dag_tags=('x', 'y'))
     def my_plot(*, data: dict, hlpr: PlotHelper, **plot_kwargs):
@@ -437,7 +437,7 @@ The corresponding plot configuration could look like this:
 
 For more detail on the syntax, see :ref:`above <pcr_ext_DAG_support>`.
 
-While the plot *function* signature can remain as it is regardless of the chosen specialization of the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator`, the plot *configuration* will differ for the specializations.
+While the plot *function* signature can remain as it is regardless of the chosen specialization of the :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator`, the plot *configuration* will differ for the specializations.
 See :ref:`here <plot_data_selection_uni>` and :ref:`here <plot_data_selection_mv>` for more information.
 
 .. note::
@@ -461,7 +461,7 @@ When not using the transformation framework, the ``creator_type`` should be spec
 .. code-block:: python
 
     from dantro import DataManager
-    from dantro.plot_creators import is_plot_func, PlotHelper, ExternalPlotCreator
+    from dantro.plot.creators import is_plot_func, PlotHelper, ExternalPlotCreator
 
     @is_plot_func(creator_type=ExternalPlotCreator)
     def my_plot(dm: DataManager, *, hlpr: PlotHelper, **additional_kwargs):
@@ -490,7 +490,7 @@ Bare basics
 If you desire to do everything by yourself, you can disable the plot helper framework by passing ``use_helper=False`` to the decorator.
 Subsequently, the ``hlpr`` argument is **not** passed to the plot function.
 
-There is an even more basic version to do this, leaving out the :py:func:`~dantro.plot_creators.pcr_ext.is_plot_func` decorator:
+There is an even more basic version to do this, leaving out the :py:func:`~dantro.plot.creators.ext.is_plot_func` decorator:
 
 .. code-block:: python
 
@@ -520,13 +520,13 @@ There is an even more basic version to do this, leaving out the :py:func:`~dantr
 
 Animations
 ----------
-With the :py:class:`~dantro.plot_creators._plot_helper.PlotHelper` framework it is really simple to let your plot function support animation.
+With the :py:class:`~dantro.plot.creators._plot_helper.PlotHelper` framework it is really simple to let your plot function support animation.
 
 Say you have defined the following plot function:
 
 .. code-block:: python
 
-    from dantro.plot_creators import is_plot_func, PlotHelper
+    from dantro.plot.creators import is_plot_func, PlotHelper
 
     @is_plot_func(use_dag=True, required_dag_tags=('time_series',))
     def plot_some_data(*, data: dict,
@@ -547,7 +547,7 @@ update function, register that function with the helper, and mark the plot funct
 
 .. code-block:: python
 
-    from dantro.plot_creators import is_plot_func, PlotHelper
+    from dantro.plot.creators import is_plot_func, PlotHelper
 
     @is_plot_func(use_dag=True, required_dag_tags=('time_series',),
                   supports_animation=True)
@@ -590,7 +590,7 @@ update function, register that function with the helper, and mark the plot funct
 Ok, so the following things happened:
 
     * The ``update`` function is defined
-    * The ``update`` function is passed to helper via :py:meth:`dantro.plot_creators._plot_helper.PlotHelper.register_animation_update`
+    * The ``update`` function is passed to helper via :py:meth:`dantro.plot.creators._plot_helper.PlotHelper.register_animation_update`
     * The plot function is marked ``supports_animation``
 
 This is all that is needed to define an animation update for a plot.
@@ -613,12 +613,12 @@ There are a few things to look out for:
 
     If it is not possible or too complicated to let the animation update function set the data directly, one typically has to redraw the axis or the whole figure.
 
-    In such cases, two important steps need to be taken in order to ensure correct functioning of the :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper`:
+    In such cases, two important steps need to be taken in order to ensure correct functioning of the :py:meth:`~dantro.plot.creators._plot_helper.PlotHelper`:
 
-        * Specifying the ``invoke_helpers_before_grab`` flag when calling :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.register_animation_update`, such that the helpers are invoked before grabbing each frame.
-        * If using a new figure object and/or axes grid, that needs to be communicated to the :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper` via :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.attach_figure_and_axes`.
+        * Specifying the ``invoke_helpers_before_grab`` flag when calling :py:meth:`~dantro.plot.creators._plot_helper.PlotHelper.register_animation_update`, such that the helpers are invoked before grabbing each frame.
+        * If using a new figure object and/or axes grid, that needs to be communicated to the :py:meth:`~dantro.plot.creators._plot_helper.PlotHelper` via :py:meth:`~dantro.plot.creators._plot_helper.PlotHelper.attach_figure_and_axes`.
 
-    For example implementations of such cases, refer to the plot functions specified in the :py:mod:`dantro.plot_creators.ext_funcs.generic` module.
+    For example implementations of such cases, refer to the plot functions specified in the :py:mod:`dantro.plot.funcs.generic` module.
 
 An example for an animation configuration is the following:
 
@@ -657,8 +657,8 @@ Dynamically entering/exiting animation mode
 In some situations, one might want to dynamically determine if an animation should be carried out or not.
 For instance, this could be dependent on whether the dimensionality of the data requires another representation mode (the animation) or not.
 
-For that purpose, the :py:class:`~dantro.plot_creators._plot_helper.PlotHelper` supplies two methods to enter or exit animation mode, :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.enable_animation` and :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.disable_animation`.
-When these are invoked, the plot function is *directly* left, the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` enables or disables the animation, and the plot function is invoked anew.
+For that purpose, the :py:class:`~dantro.plot.creators._plot_helper.PlotHelper` supplies two methods to enter or exit animation mode, :py:meth:`~dantro.plot.creators._plot_helper.PlotHelper.enable_animation` and :py:meth:`~dantro.plot.creators._plot_helper.PlotHelper.disable_animation`.
+When these are invoked, the plot function is *directly* left, the :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` enables or disables the animation, and the plot function is invoked anew.
 
 A few remarks:
 
@@ -667,13 +667,13 @@ A few remarks:
       You should implement the logic for entering or exiting animation mode in such a way, that flip-flopping between the two modes is not possible.
     * The ``animation`` parameters need to be given if *entering* into animation mode is desired.
       In such cases, ``animation.enabled`` key should be set to ``False``.
-    * The :py:class:`~dantro.plot_creators._plot_helper.PlotHelper` instance of the first plot function invocation will be discarded and a new instance will be created for the second invocation.
+    * The :py:class:`~dantro.plot.creators._plot_helper.PlotHelper` instance of the first plot function invocation will be discarded and a new instance will be created for the second invocation.
 
 A plot function could then look like this:
 
 .. code-block:: python
 
-    from dantro.plot_creators import is_plot_func, PlotHelper
+    from dantro.plot.creators import is_plot_func, PlotHelper
 
     @is_plot_func(use_dag=True, required_dag_tags=('nd_data',),
                   supports_animation=True)
@@ -708,15 +708,15 @@ A plot function could then look like this:
 
 .. _pcr_ext_specializing:
 
-Specializing :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator`
+Specializing :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator`
 --------------------------------------------------------------------------
 As common throughout dantro, the plot creators are specialized using class variables.
-For :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator`, a specialization can look like this:
+For :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator`, a specialization can look like this:
 
 .. code-block:: python
 
     import dantro as dtr
-    import dantro.plot_creators
+    import dantro.plot.creators
 
     class MyExternalPlotCreator(dtr.plot_creators.ExternalPlotCreator):
         """My custom external plot creator, using
@@ -727,10 +727,10 @@ For :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator`, a specializat
         # Which plot helper class to use
         PLOT_HELPER_CLS = MyPlotHelper
 
-For specializing the :py:class:`~dantro.plot_creators._plot_helper.PlotHelper`, see :ref:`above <pcr_ext_plot_helper_spec>`.
+For specializing the :py:class:`~dantro.plot.creators._plot_helper.PlotHelper`, see :ref:`above <pcr_ext_plot_helper_spec>`.
 
 Furthermore, if the retrieval of the plot function needs to be adjusted, the private methods can be adjusted accordingly.
-For example, the :py:meth:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator._get_module_via_import` method is responsible for importing a module.
+For example, the :py:meth:`~dantro.plot.creators.ext.ExternalPlotCreator._get_module_via_import` method is responsible for importing a module.
 By overwriting it, import behaviour can be customized:
 
 .. code-block:: python
@@ -751,4 +751,4 @@ By overwriting it, import behaviour can be customized:
 .. note::
 
     For an operational example in a more complex framework setting, see `the specialization used in the utopya project <https://gitlab.com/utopia-project/utopya/-/blob/main/utopya/eval/plotcreators.py>`_.
-    Here, the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` is extended such that a number of custom module paths are made available for import.
+    Here, the :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` is extended such that a number of custom module paths are made available for import.

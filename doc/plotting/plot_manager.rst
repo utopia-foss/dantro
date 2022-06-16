@@ -91,7 +91,7 @@ A set of plot configurations may look like this:
       # ...
 
 This will create two plots: ``values_over_time`` and ``my_fancy_plot``.
-Both are using :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` (known to :py:class:`~dantro.plot_mngr.PlotManager` by its name, ``external``) and are loading certain functions to use for plotting.
+Both are using :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` (known to :py:class:`~dantro.plot_mngr.PlotManager` by its name, ``external``) and are loading certain functions to use for plotting.
 
 .. hint::
 
@@ -388,12 +388,12 @@ To skip a plot, raise a :py:class:`dantro.exceptions.SkipPlot` exception anywher
               fallback: !dag_tag _skip_plot
 
 Additionally, plot creators can supply built-in plot configuration arguments that allow to skip a plot under certain conditions.
-Currently, this is only done by the :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`, see :ref:`mv_plot_skipping`.
+Currently, this is only done by the :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator`, see :ref:`mv_plot_skipping`.
 
 .. note::
 
     *For developers:*
-    The :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator` provides the :py:meth:`~dantro.plot_creators.pcr_base.BasePlotCreator._check_skipping` method, which can be overwritten by plot creators to implement this behaviour.
+    The :py:class:`~dantro.plot.creators.base.BasePlotCreator` provides the :py:meth:`~dantro.plot.creators.base.BasePlotCreator._check_skipping` method, which can be overwritten by plot creators to implement this behaviour.
 
 
 What happens when a plot is skipped?

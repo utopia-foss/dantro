@@ -1,5 +1,5 @@
 """This implements the ParamSpaceGroup plot creators, based on the
-:py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` and providing
+:py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` and providing
 additional functionality for data that is stored in a
 :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`.
 """
@@ -12,13 +12,13 @@ from typing import Callable, List, Sequence, Tuple, Union
 import numpy as np
 from paramspace import ParamDim, ParamSpace
 
-from .._import_tools import LazyLoader
-from ..abc import PATH_JOIN_CHAR
-from ..dag import DAGNode, DAGReference, DAGTag, TransformationDAG
-from ..groups import ParamSpaceGroup, ParamSpaceStateGroup
-from ..tools import is_iterable, recursive_update
-from .pcr_base import SkipPlot
-from .pcr_ext import ExternalPlotCreator
+from ..._import_tools import LazyLoader
+from ...abc import PATH_JOIN_CHAR
+from ...dag import DAGNode, DAGReference, DAGTag, TransformationDAG
+from ...groups import ParamSpaceGroup, ParamSpaceStateGroup
+from ...tools import is_iterable, recursive_update
+from .base import SkipPlot
+from .ext import ExternalPlotCreator
 
 # Local constants and lazy module imports
 log = logging.getLogger(__name__)

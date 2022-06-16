@@ -14,9 +14,9 @@ from pkg_resources import resource_filename
 
 from dantro.containers import PassthroughContainer, XrDataContainer
 from dantro.exceptions import *
-from dantro.plot_creators import ExternalPlotCreator, PlotHelper
-from dantro.plot_creators.ext_funcs._utils import plot_errorbar
-from dantro.plot_creators.ext_funcs.generic import (
+from dantro.plot import ExternalPlotCreator, PlotHelper
+from dantro.plot.funcs._utils import plot_errorbar
+from dantro.plot.funcs.generic import (
     _FACET_GRID_FUNCS,
     _FACET_GRID_KINDS,
     determine_encoding,

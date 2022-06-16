@@ -429,7 +429,7 @@ Let's have a look at an example plot configuration and how it is invoked:
 
 Once invoked, the logger output will show the progress of the plotting procedure.
 It will show that a plot named ``random_walk`` is created for each of the simulations, as specified in the plot configuration.
-This is using the :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator`, which is capable of detecting the parameter space and which uses the capabilities of the :py:class:`~dantro.plot_mngr.PlotManager` to generate multiple plots.
+This is using the :py:class:`~dantro.plot.creators.psp.UniversePlotCreator`, which is capable of detecting the parameter space and which uses the capabilities of the :py:class:`~dantro.plot_mngr.PlotManager` to generate multiple plots.
 
 .. hint::
 
@@ -451,7 +451,7 @@ Let's look at a more involved example that plots mean random walk data from the 
 These plot configurations already do much more and are meant to illustrate the capabilities of the plotting framework.
 Without going into detail, let's highlight some of the operations specified above:
 
-* With the :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`, data from several simulations can be combined into a higher-dimensional array.
+* With the :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator`, data from several simulations can be combined into a higher-dimensional array.
 * The ``select_and_combine`` key controls which data to select from each simulation and how it should be combined into the higher-dimensional object.
 * The ``transform`` key is used to control the :ref:`dag_framework`, e.g. to calculate the mean over some dimension of the data or label the dimensions accordingly.
 * The ``facet_grid`` plot is a very versatile plotting function for high-dimensional data, which is why it is used here. See :ref:`here <dag_generic_facet_grid>` for more information.
@@ -461,7 +461,7 @@ The above example gives a glimpse of the possibilities of the plotting framework
 All of these features are already available as part of dantro.
 
 Importantly, though, the plotting framework becomes much more capable once you specialize it to your needs.
-For example, with the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` and its built-in access to the :ref:`dag_framework`, you can easily define further plotting functions that form a bridge between selected and transformed data and its visualization.
+For example, with the :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` and its built-in access to the :ref:`dag_framework`, you can easily define further plotting functions that form a bridge between selected and transformed data and its visualization.
 
 .. hint::
 

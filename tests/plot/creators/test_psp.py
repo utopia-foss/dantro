@@ -10,15 +10,11 @@ from paramspace import ParamDim, ParamSpace
 from dantro._dag_utils import KeywordArgument, PositionalArgument
 from dantro.data_mngr import DataManager
 from dantro.groups import ParamSpaceGroup
-from dantro.plot_creators import (
-    MultiversePlotCreator,
-    SkipPlot,
-    UniversePlotCreator,
-)
+from dantro.plot import MultiversePlotCreator, SkipPlot, UniversePlotCreator
 
 # Fixtures --------------------------------------------------------------------
 # Import some from other tests
-from ..groups.test_pspgrp import psp_grp, psp_grp_default
+from ...groups.test_pspgrp import psp_grp, psp_grp_default
 
 
 @pytest.fixture()

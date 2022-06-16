@@ -12,15 +12,15 @@ import pytest
 from pkg_resources import resource_filename
 
 from dantro.data_mngr import DataManager
-from dantro.plot_creators import ExternalPlotCreator, PlotHelper, is_plot_func
-from dantro.plot_creators._plot_helper import (
+from dantro.plot import ExternalPlotCreator, PlotHelper, is_plot_func
+from dantro.plot.plot_helper import (
     EnterAnimationMode,
     ExitAnimationMode,
     PlotConfigError,
     PlotHelperErrors,
-    coords_match,
-    temporarily_changed_axis,
 )
+from dantro.plot.plot_helper import _coords_match as coords_match
+from dantro.plot.plot_helper import temporarily_changed_axis
 from dantro.tools import load_yml
 
 # Paths

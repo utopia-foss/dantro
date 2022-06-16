@@ -1,9 +1,9 @@
 """This module implements the base class for plot creators,
-:py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator`.
+:py:class:`~dantro.plot.creators.base.BasePlotCreator`.
 Classes derived from this class create plots for single files.
 
 The interface is defined as an abstract base class and partly implemented by
-the :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator` (which still
+the :py:class:`~dantro.plot.creators.base.BasePlotCreator` (which still
 remains *abstract*).
 """
 
@@ -16,15 +16,15 @@ from typing import Sequence, Tuple, Union
 
 from paramspace import ParamSpace
 
-from .._copy import _deepcopy
-from .._dag_utils import resolve_placeholders as _resolve_placeholders
-from .._hash import _hash
-from ..abc import AbstractPlotCreator
-from ..dag import TransformationDAG
-from ..data_mngr import DataManager
-from ..exceptions import SkipPlot
-from ..tools import format_time as _format_time
-from ..tools import recursive_update
+from ..._copy import _deepcopy
+from ..._dag_utils import resolve_placeholders as _resolve_placeholders
+from ..._hash import _hash
+from ...abc import AbstractPlotCreator
+from ...dag import TransformationDAG
+from ...data_mngr import DataManager
+from ...exceptions import SkipPlot
+from ...tools import format_time as _format_time
+from ...tools import recursive_update
 
 log = logging.getLogger(__name__)
 
@@ -61,10 +61,10 @@ class BasePlotCreator(AbstractPlotCreator):
 
     POSTPONE_PATH_PREPARATION: bool = False
     """Whether to prepare paths in the base class's
-    :py:meth:`~dantro.plot_creators.pcr_base.BasePlotCreator.__call__` method
+    :py:meth:`~dantro.plot.creators.base.BasePlotCreator.__call__` method
     or not. If the derived class wants to take care of this on their own, this
     should be set to True and the
-    :py:meth:`~dantro.plot_creators.pcr_base.BasePlotCreator._prepare_path`
+    :py:meth:`~dantro.plot.creators.base.BasePlotCreator._prepare_path`
     method, adjusted or not, should be called at another point of the plot
     execution."""
 
@@ -228,7 +228,7 @@ class BasePlotCreator(AbstractPlotCreator):
         Returns:
             The return value of the :py:meth:`.plot` method, which is an
             abstract method in
-            :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator`.
+            :py:class:`~dantro.plot.creators.base.BasePlotCreator`.
         """
         # Get (a deep copy of) the initial plot config, update it with new args
         cfg = self.plot_cfg

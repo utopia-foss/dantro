@@ -62,7 +62,7 @@ For example, if a :py:class:`~dantro.data_mngr.DataManager` is desired that need
     :end-before:  ### End ---- philosophy_specializing
     :dedent: 4
 
-In dantro, this is used by :py:mod:`~dantro.containers`, :py:mod:`~dantro.groups`, :py:mod:`~dantro.data_loaders` and even :py:mod:`~dantro.plot_creators`.
+In dantro, this is used by :py:mod:`~dantro.containers`, :py:mod:`~dantro.groups`, :py:mod:`~dantro.data_loaders` and even :py:mod:`~dantro.plot.creators`.
 It allows adding functionality to classes in a granular fashion, customizing them for a particular use case.
 At the same time, this approach makes it easy to retain a shared interface that allows storing all these heterogeneous objects in the same :ref:`data tree <phil_data_tree>`.
 

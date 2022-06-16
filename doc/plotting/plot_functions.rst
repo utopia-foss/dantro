@@ -1,4 +1,4 @@
-.. default-domain:: dantro.plot_creators.ext_funcs.generic
+.. default-domain:: dantro.plot.funcs.generic
 
 .. _pcr_ext_plot_funcs:
 
@@ -15,7 +15,7 @@ To use these plot functions, the following information needs to be specified in 
 
     my_plot:
       creator: external      # or: universe, multiverse, ...
-      module: .generic       # absolute: dantro.plot_creators.ext_funcs.generic
+      module: .generic       # absolute: dantro.plot.funcs.generic
       plot_func: facet_grid  # or: errorbar, errorbands, ...
 
       # ...
@@ -40,7 +40,7 @@ The :py:func:`~.facet_grid` function then gets the ready-to-plot data as input a
 This approach is called `faceting <https://xarray.pydata.org/en/stable/user-guide/plotting.html#faceting>`_; dantro makes use of the `excellent plotting functionality of xarray <https://xarray.pydata.org/en/stable/plotting.html>`_ for this feature.
 The :py:func:`~.facet_grid` plot function further extends the xarray plotting functionality by adding the possibility to create :ref:`animations <pcr_ext_animations>`, simply by using the ``frames`` argument to specify the data dimension to represent as individual frames of an animation.
 
-The :py:class:`~dantro.plot_creators._plot_helper.PlotHelper` interface then copes with the plot :ref:`style <pcr_ext_style>` and further layout.
+The :py:class:`~dantro.plot.creators._plot_helper.PlotHelper` interface then copes with the plot :ref:`style <pcr_ext_style>` and further layout.
 All steps are fully configurable and optimized for the YAML-based plotting interface.
 Thus, generating a plot of multidimensional data does not require touching any actual code but just specifying the desired representation in the plot configuration. 🎉
 
@@ -59,7 +59,7 @@ While ``kind: None`` outsources the plot kind to xarray, this frequently leads t
 The :py:func:`~.determine_plot_kind` function used in :py:func:`~.facet_grid` uses the plot data's dimensionality to select a plotting ``kind``.
 By default, the following mapping of data-dimensionality to plot kind is used:
 
-.. literalinclude:: ../../dantro/plot_creators/ext_funcs/generic.py
+.. literalinclude:: ../../dantro/plot/funcs/generic.py
     :language: python
     :start-after: _AUTO_PLOT_KINDS = {  # --- start literalinclude
     :end-before:  }   # --- end literalinclude
@@ -83,7 +83,7 @@ The available encodings for the :py:func:`~.facet_grid` plot are:
 .. ipython::
 
     @suppress
-    In [1]: from dantro.plot_creators.ext_funcs.generic import _FACET_GRID_KINDS
+    In [1]: from dantro.plot.funcs.generic import _FACET_GRID_KINDS
 
     @suppress
     In [2]: available_facet_grid_kinds = "\n".join([f"{kind:>15s} : {specs}" for kind, specs in _FACET_GRID_KINDS.items()])
@@ -100,7 +100,7 @@ For further details, see :py:func:`~.determine_encoding`.
 Add custom plot ``kind``\ s that support faceting
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 While the already-available plot kinds of the facet grid cover many use cases, there is still room for extension.
-As part of the :py:mod:`~dantro.plot_creators.ext_funcs.generic` plot functions module, dantro provides the :py:class:`~.make_facet_grid_plot` decorator that wraps the decorated function in such a way that it becomes facetable.
+As part of the :py:mod:`~dantro.plot.funcs.generic` plot functions module, dantro provides the :py:class:`~.make_facet_grid_plot` decorator that wraps the decorated function in such a way that it becomes facetable.
 
 That means that after decoration:
 
@@ -158,7 +158,7 @@ Plot functions can be specified in three ways:
 
 For plot function lookup by string, the following `seaborn plot functions <https://seaborn.pydata.org/api.html>`_ and some matplotlib functions are available:
 
-.. literalinclude:: ../../dantro/plot_creators/ext_funcs/multiplot.py
+.. literalinclude:: ../../dantro/plot/funcs/multiplot.py
     :language: python
     :start-after: _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
     :end-before:  }   # --- end literalinclude
@@ -227,8 +227,8 @@ Let us look at some example configurations to illustrate the above features:
 
 .. hint::
 
-    The actual implementation is part of the :py:mod:`~dantro.plot_creators._plot_helper.PlotHelper` interface, which also gives access to arbitrary function invocations on the current axis.
-    The corresponding helper function is named ``call`` (:py:meth:`~dantro.plot_creators._plot_helper.PlotHelper._hlpr_call`).
+    The actual implementation is part of the :py:mod:`~dantro.plot.creators._plot_helper.PlotHelper` interface, which also gives access to arbitrary function invocations on the current axis.
+    The corresponding helper function is named ``call`` (:py:meth:`~dantro.plot.creators._plot_helper.PlotHelper._hlpr_call`).
 
 
 Use ``multiplot`` with multiple subplots

@@ -16,7 +16,7 @@ If you have not already done so, **make sure to read up on the corresponding nom
 
 Plots from Universe Data
 ------------------------
-To create plots that use data from a single universe, use the :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator`.
+To create plots that use data from a single universe, use the :py:class:`~dantro.plot.creators.psp.UniversePlotCreator`.
 It allows to specify a set of universes to create plots for and provides the plotting function with data from the selected universes.
 
 The plot configuration for a universe plot requires as an additional argument a selection of which universes the plot should be created for.
@@ -103,8 +103,7 @@ Without the DAG framework, the data needs to be selected manually:
 
     from dantro import DataManager
     from dantro.groups import ParamSpaceStateGroup as UniverseGroup
-    from dantro.plot_creators import (is_plot_func, PlotHelper,
-                                      UniversePlotCreator)
+    from dantro.plot import is_plot_func, PlotHelper, UniversePlotCreator
 
     @is_plot_func(creator_type=UniversePlotCreator)
     def my_plot(dm: DataManager, *, uni: UniverseGroup, hlpr: PlotHelper,
@@ -144,7 +143,7 @@ In other words, when *not* using the data selection and transformation framework
 
 Plots from Multiverse Data
 --------------------------
-To create plots that use data from *more than one* universe — henceforth called *multiverse data* — use the :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`.
+To create plots that use data from *more than one* universe — henceforth called *multiverse data* — use the :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator`.
 This creator makes it possible to select and combine the data from all selected individual universes and provides the result of the combination to the plot function.
 
 This requires the handling of multidimensional data and depends on the dimensionality of the chosen parameter space.
@@ -199,7 +198,7 @@ Again, for more details, have a look at :ref:`plot_data_selection_mv` and :ref:`
 
 Skipping multiverse plots
 ^^^^^^^^^^^^^^^^^^^^^^^^^
-For skipping :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator` plots, the ``expected_multiverse_ndim`` argument can optionally be specified in the plot configuration.
+For skipping :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator` plots, the ``expected_multiverse_ndim`` argument can optionally be specified in the plot configuration.
 The argument specifies a set of dimensionalities with which plotting is possible; if the dimensionality of the associated :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` is not part of this set, the plot will be skipped.
 
 .. code-block:: yaml

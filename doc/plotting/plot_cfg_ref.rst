@@ -22,7 +22,7 @@ In the following, all examples are given on the level of a single plot configura
 General Options
 ---------------
 
-The options shown here are handled by :py:class:`~dantro.plot_mngr.PlotManager` or :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator` and are always available.
+The options shown here are handled by :py:class:`~dantro.plot_mngr.PlotManager` or :py:class:`~dantro.plot.creators.base.BasePlotCreator` and are always available.
 
 All options seen here basically act as **reserved keywords**.
 Subsequently, they cannot be used downstream in the plot creator, because they are already handled and not passed on again.

@@ -7,14 +7,16 @@ import logging
 import os
 from collections import defaultdict
 from itertools import product
-from typing import Any, Callable, Dict, Generator, List, Sequence, Tuple, Union
+from typing import Callable, Dict, Generator, Sequence, Tuple, Union
 
 import numpy as np
 from paramspace.tools import recursive_replace
 
-from .._import_tools import LazyLoader, import_module_or_object
+from .._import_tools import LazyLoader
+from .._import_tools import resolve_lazy_imports as _resolve_lazy_imports
 from ..exceptions import *
 from ..tools import make_columns, recursive_update
+from .utils.mpl import *
 
 # Local constants and lazy loading modules that take a long time to import
 log = logging.getLogger(__name__)
@@ -23,20 +25,12 @@ mpl = LazyLoader("matplotlib")
 plt = LazyLoader("matplotlib.pyplot")
 sns = LazyLoader("seaborn")
 
-
 # -----------------------------------------------------------------------------
-
-
-def _resolve_lazy_imports(d: dict):
-    """In-place resolves lazy imports in the given dict"""
-    for k, v in d.items():
-        if isinstance(v, LazyLoader):
-            d[k] = v.resolve()
 
 
 class temporarily_changed_axis:
     """Context manager to temporarily change an axis in the
-    :py:class:`~dantro.plot_creators._plot_helper.PlotHelper`
+    :py:class:`.PlotHelper`.
     """
 
     def __init__(
@@ -81,7 +75,7 @@ class temporarily_changed_axis:
             self._hlpr.select_axis(*self._old_ax_coords)
 
 
-def coords_match(
+def _coords_match(
     coords: Tuple[int], *, match: Union[tuple, str], full_shape: Tuple[int]
 ) -> bool:
     """Whether a coordinate is matched by a coordinate match tuple.
@@ -120,8 +114,7 @@ def coords_match(
     elif not isinstance(match, tuple):
         raise TypeError(
             "Argument `match` needs to be a 2-tuple, list, or a "
-            "string, but was {} with value '{}'!"
-            "".format(type(match), match)
+            f"string, but was {type(match)} with value '{match}'!"
         )
 
     # Convert any Nones to Ellipsis
@@ -137,11 +130,10 @@ def coords_match(
 
     elif not all([m is Ellipsis or m < s for m, s in zip(match, full_shape)]):
         raise ValueError(
-            "Got match values {} exceeding the shape {}! Take "
+            f"Got match values {match} exceeding the shape {full_shape}! Take "
             "care that all values are strictly smaller than the "
             "maximum value. Negative values are allowed and will "
             "be evaluated via a modulo operation."
-            "".format(match, full_shape)
         )
 
     for c, m, s in zip(coords, match, full_shape):
@@ -156,395 +148,8 @@ def coords_match(
     return True
 
 
-def remove_duplicate_handles_labels(h: list, l: list) -> Tuple[list, list]:
-    """Returns new aligned lists of handles and labels from which duplicates
-    (identified by label) are removed.
-
-    This maintains the order and association by keeping track of seen items;
-    see https://stackoverflow.com/a/480227/1827608 for more information.
-
-    Args:
-        h (list): List of artist handles
-        l (list): List of labels
-
-    Returns:
-        Tuple[list, list]: handles and labels
-    """
-    seen = set()
-    hls = [
-        (_h, _l) for _h, _l in zip(h, l) if not (_l in seen or seen.add(_l))
-    ]
-    h, l = [hl[0] for hl in hls], [hl[1] for hl in hls]
-    return h, l
-
-
-def gather_handles_labels(mpo) -> Tuple[list, list]:
-    """Uses ``.findobj`` to search a figure or axis for legend objects and
-    returns lists of handles and (string) labels.
-    """
-    h, l = [], []
-    for lg in mpo.findobj(mpl.legend.Legend):
-        h += [_h for _h in lg.legendHandles]
-        l += [_t.get_text() for _t in lg.texts]
-
-    # Remove duplicates and return
-    return remove_duplicate_handles_labels(h, l)
-
-
-def prepare_legend_args(
-    h, l, *, custom_labels: List[str], hiding_threshold: int
-) -> Tuple[list, list, bool]:
-
-    # Might want to use custom labels
-    if custom_labels:
-        log.remark("Using custom labels:  " + ", ".join(custom_labels))
-        l = custom_labels
-
-    # Evaluate the hiding threshold
-    past_thresh = (
-        hiding_threshold is not None and min(len(h), len(l)) > hiding_threshold
-    )
-    if past_thresh:
-        log.remark(
-            "With %d handles and %d labels, passed hiding threshold of %d.",
-            len(h),
-            len(l),
-            hiding_threshold,
-        )
-    else:
-        log.remark(
-            "Have %d handles and %d labels available for the legend.",
-            len(h),
-            len(l),
-        )
-
-    return h, l, past_thresh
-
-
-def calculate_space_needed_hv(
-    fig: "matplotlib.figure.Figure",
-    obj,
-    *,
-    spacing_h: float = 0.02,
-    spacing_v: float = 0.02,
-) -> Tuple[float, float]:
-    """Calculates the horizontal and vertical space needed for an object in
-    this figure.
-
-    .. note::
-
-        This will invoke :py:meth:`matplotlib.figure.Figure.draw` two times
-        and cause resizing of the figure!
-
-    Args:
-        fig: The figure
-        obj: The object in that figure to fit
-        spacing_h (float, optional): Added to space needed (in inches)
-        spacing_v (float, optional): Added to space needed (in inches)
-
-    Returns:
-        Tuple[float, float]: the horizontal and vertical space needed to fit
-            into the figure (in inches).
-    """
-
-    def get_obj_width_height(obj) -> tuple:
-        extent = obj.get_window_extent()
-        return (extent.width / fig.dpi, extent.height / fig.dpi)
-
-    # Draw the figure to have an object window
-    fig.draw(fig.canvas.get_renderer())
-
-    # Calculate and set the new width and height of the figure so the obj fits
-    fig_width, fig_height = fig.get_figwidth(), fig.get_figheight()
-    obj_width, obj_height = get_obj_width_height(obj)
-
-    fig.set_figwidth(fig_width + obj_width)
-    fig.set_figheight(fig_height + obj_height)
-
-    # Draw again to get new object transformations
-    fig.draw(fig.canvas.get_renderer())
-    obj_width, obj_height = get_obj_width_height(obj)
-
-    # Now calculate the needed space horizontally and vertically
-    space_needed_h = obj_width / (fig_width + obj_width) + spacing_h
-    space_needed_v = obj_height / (fig_height + obj_height) + spacing_v
-
-    return space_needed_h, space_needed_v
-
-
-def _set_tick_locators_or_formatters(
-    *,
-    ax: "matplotlib.axis.Axis",
-    kind: str,
-    x: dict = None,
-    y: dict = None,
-):
-    """Sets the tick locators or formatters
-    Look at the documentation of the ``_hlpr_set_tick_{locators/formatters}``
-    functions below for more information, respectively.
-
-    Args:
-        ax (matplotlib.axis.Axis): The axis object
-        kind (str): Whether to set a ``locator`` or a ``formatter``.
-        x (dict, optional): The config for the x-axis tick locator/formatter
-        y (dict, optional): The config for the y-axis tick locator/formatter
-    """
-    # Safe guard against calling this with unexpected arguments from
-    # within the actual helper methods; not part of public interface.
-    if kind not in ("locator", "formatter"):
-        raise ValueError(f"Bad kind: {kind}")
-
-    def _set_locator_or_formatter(
-        *,
-        _ax: plt.axis,
-        _axis: str,
-        _major: bool,
-        _kind: str,
-        name: str,
-        args: tuple = (),
-        **kwargs,
-    ):
-        """Set the tick locator or formatter on a specific axis.
-
-        Args:
-            _ax (plt.axis): The matplotlib.axis to work on.
-            _axis (str):    The axis: ``x`` or ``y``
-            _major (bool):  Whether to set the major or minor ticks
-            _kind (str):    The kind of function to set: ``locator`` or
-                ``formatter``
-            name (str):     The name of the locator or formatter
-            args (tuple):   Args passed on to the respective locator
-                            or formatter setter function.
-            **kwargs:       Kwargs passed on to the respective locator
-                            or formatter setter function.
-        """
-        # Get the ticker from the name.
-        # Customize the error message for (i) no name (ii) wrong name
-        # for locators and formatters.
-        try:
-            ticker = getattr(mpl.ticker, name)
-        except AttributeError as err:
-            _avail = ", ".join(
-                [s for s in dir(mpl.ticker) if _kind.capitalize() in s]
-            )
-            raise AttributeError(
-                f"The given {_kind} name '{name}' is not valid! "
-                f"Choose from: {_avail}"
-            ) from err
-
-        # Get the locator or formatter function for the respective
-        # major or minor axis.
-        ax_obj = getattr(_ax, f"{_axis}axis")
-        setter = getattr(
-            ax_obj, f"set_{'major' if _major else 'minor'}_{_kind}"
-        )
-
-        try:
-            setter(ticker(*args, **kwargs))
-        except Exception as exc:
-            raise ValueError(
-                f"Failed setting {'major' if _major else 'minor'} {_kind} "
-                f"'{name}' for {_axis}-axis! Check the matplotlib "
-                "documentation for valid arguments. "
-                f"Got:\n  args: {args}\n  kwargs: {kwargs}"
-            ) from exc
-
-    # Decide which tick locator or formatter to set, and set it
-    if x:
-        if x.get("major"):
-            _set_locator_or_formatter(
-                _ax=ax,
-                _kind=kind,
-                _axis="x",
-                _major=True,
-                **x["major"],
-            )
-
-        if x.get("minor"):
-            _set_locator_or_formatter(
-                _ax=ax,
-                _kind=kind,
-                _axis="x",
-                _major=False,
-                **x["minor"],
-            )
-
-    if y:
-        if y.get("major"):
-            _set_locator_or_formatter(
-                _ax=ax,
-                _kind=kind,
-                _axis="y",
-                _major=True,
-                **y["major"],
-            )
-
-        if y.get("minor"):
-            _set_locator_or_formatter(
-                _ax=ax,
-                _kind=kind,
-                _axis="y",
-                _major=False,
-                **y["minor"],
-            )
-
-    # TODO z-axis support
-
-
-def parse_function_specs(
-    *,
-    _hlpr: "PlotHelper",
-    _funcs: Dict[str, Callable] = {},
-    _shared_kwargs: dict = {},
-    function: Union[str, Callable, Tuple[str, str]],
-    args: list = None,
-    pass_axis_object_as: str = None,
-    pass_helper: bool = False,
-    **func_kwargs,
-) -> Tuple[str, Callable, list, dict]:
-    """Parses a function specification used in the ``invoke_function`` helper.
-    If ``function`` is a string it is looked up from the ``_funcs`` dict.
-
-    See :py:func:`~dantro.plot_creators._plot_helper.parse_and_invoke_function`
-    and :py:func:`~dantro.plot_creators.ext_funcs.multiplot.multiplot`.
-
-    Args:
-        _hlpr (dantro.plot_creators._plot_helper.PlotHelper): The currently
-            used PlotHelper instance
-        _funcs (Dict[str, Callable]): The lookup dictionary for callables
-        _shared_kwargs (dict, optional): Shared kwargs that passed on to
-            all multiplot functions. They are recursively updated with
-            the individual plot functions' ``func_kwargs``.
-        function (Union[str, Callable, Tuple[str, str]]): The callable
-            function object or the name of the plot function to look up.
-            If given as 2-tuple ``(module, name)``, will attempt an import of
-            that module.
-        args (list, optional): The positional arguments for the plot function
-        pass_axis_object_as (str, optional): If given, will add a keyword
-            argument with this name to pass the current axis object to the
-            to-be-invoked function.
-        pass_helper (bool, optional): If true, passes the helper instance to
-            the function call as keyword argument ``hlpr``.
-        **func_kwargs (dict): The function kwargs to be passed on to the
-            function object.
-
-    Returns:
-        Tuple[str, Callable, list, dict]: A tuple of function name, callable,
-            positional arguments, and keyword arguments.
-    """
-    # Parse positional and keyword arguments
-    if args is None:
-        args = []
-
-    func_kwargs = recursive_update(copy.deepcopy(_shared_kwargs), func_kwargs)
-
-    if pass_axis_object_as:
-        func_kwargs[pass_axis_object_as] = _hlpr.ax
-
-    if pass_helper:
-        func_kwargs["hlpr"] = _hlpr
-
-    # Get the function object and a readable name
-    if callable(function):
-        func_name = function.__name__
-        func = function
-
-    elif isinstance(function, (list, tuple)):
-        # Import
-        mod, name = function
-        func = import_module_or_object(mod, name)
-        func_name = ".".join(function)
-
-    else:
-        # Look up the function in the `_funcs` dict.
-        # Still need to resolve all lazy imports in the lookup dictionary.
-        _resolve_lazy_imports(_funcs)
-
-        func_name = function
-        try:
-            func = _funcs[func_name]
-
-        except KeyError as err:
-            _avail = " (none)\n"
-            if _funcs:
-                _avail = make_columns(_funcs)
-
-            raise ValueError(
-                f"A function called '{func_name}' could not be found "
-                f"by name!\nAvailable functions:\n{_avail}\n"
-                "Alternatively, pass a callable instead of the function name "
-                "or pass a 2-tuple of (module, name) to import a callable."
-            ) from err
-
-    return func_name, func, args, func_kwargs
-
-
-def parse_and_invoke_function(
-    *,
-    hlpr: "PlotHelper",
-    funcs: Dict[str, Callable],
-    shared_kwargs: dict,
-    func_kwargs: dict,
-    show_hints: bool,
-    call_num: int,
-    caution_func_names: List[str] = (),
-) -> Any:
-    """Parses function arguments and then calls
-    :py:func:`~dantro.plot_creators.ext_funcs.multiplot.multiplot`.
-
-    Args:
-        hlpr (PlotHelper): The currently used PlotHelper instance
-        funcs (Dict[str, Callable]): The lookup dictionary for the functions
-        shared_kwargs (dict): Arguments shared between function calls
-        func_kwargs (dict): Arguments for *this* function in particular
-        show_hints (bool): Whether to show hints
-        call_num (int): The number of this plot, for easier identification
-        caution_func_names (List[str], optional): a list of function names that
-            will trigger a log message if no function kwargs were given.
-
-    Returns:
-        Any: return value of plot function call
-    """
-    # Get the function name, the function object and all function kwargs
-    # from the configuration entry.
-    func_name, func, func_args, func_kwargs = parse_function_specs(
-        _hlpr=hlpr, _funcs=funcs, _shared_kwargs=shared_kwargs, **func_kwargs
-    )
-
-    # Notify user if plot functions do not get any kwargs passed on.
-    # This is e.g. helpful and relevant for seaborn functions that require
-    # a 'data' kwarg but do not fail or warn if no 'data' is passed on to them.
-    if show_hints and not func_kwargs and func_name in caution_func_names:
-        log.caution(
-            "You seem to have called '%s' without any function arguments. "
-            "If this produces unexpected output, check that all required "
-            "arguments (e.g. `data`, `x`, ...) were given.\n"
-            "To silence this warning, set `show_hints` to `False`.",
-            func_name,
-        )
-
-    # Apply the plot function and allow it to fail to make sure that potential
-    # other plots are still plotted and shown.
-    rv = None
-    try:
-        rv = func(*func_args, **func_kwargs)
-
-    except Exception as exc:
-        msg = (
-            f"The call to '{func_name}' (call no. {call_num} on axis "
-            f"{hlpr.ax_coords}) did not succeed!\n"
-            f"Got a {type(exc).__name__}: {exc}"
-        )
-        if hlpr.raise_on_error:
-            raise PlottingError(msg) from exc
-        log.warning(
-            f"{msg}\nEnable debug mode to get a full traceback. "
-            "Proceeding with next plot ..."
-        )
-
-    return rv
-
-
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
 
@@ -1089,8 +694,7 @@ class PlotHelper:
 
         Args:
             match (Union[tuple, str]): The coordinates to match; those that do
-                not match this pattern (evaluated by
-                :py:func:`~dantro.plot_creators._plot_helper.coords_match`)
+                not match this pattern (evaluated by :py:func:`._coords_match`)
                 will not be yielded. If not given, will iterate only over the
                 currently selected axis.
 
@@ -1104,7 +708,7 @@ class PlotHelper:
         for coords in product(
             range(self.axes.shape[0]), range(self.axes.shape[1])
         ):
-            if coords_match(coords, match=match, full_shape=self.axes.shape):
+            if _coords_match(coords, match=match, full_shape=self.axes.shape):
                 yield coords
 
     # .........................................................................
@@ -1328,7 +932,7 @@ class PlotHelper:
         matching axes and all enabled figure-level helpers on the figure.
 
         Internally, this first invokes all figure-level helpers and then calls
-        :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.invoke_helpers`
+        :py:meth:`~dantro.plot.creators._plot_helper.PlotHelper.invoke_helpers`
         with all enabled helpers for all axes matching the ``axes`` argument.
 
         .. note::
@@ -1654,7 +1258,7 @@ class PlotHelper:
                     )
 
                 # Check if there is a match
-                if not coords_match(
+                if not _coords_match(
                     ax_coords, match=axis, full_shape=self.axes.shape
                 ):
                     # Nothing to update for this coordinate
@@ -2461,7 +2065,7 @@ class PlotHelper:
             x (dict, optional): The configuration of the x-axis tick locator
             y (dict, optional): The configuration of the y-axis tick locator
         """
-        _set_tick_locators_or_formatters(ax=self.ax, kind="locator", x=x, y=y)
+        set_tick_locators_or_formatters(ax=self.ax, kind="locator", x=x, y=y)
 
     def _hlpr_set_tick_formatters(self, *, x: dict = None, y: dict = None):
         """Sets the tick formatters for the current axis
@@ -2502,11 +2106,15 @@ class PlotHelper:
             x (dict, optional): The configuration of the x-axis tick formatter
             y (dict, optional): The configuration of the y-axis tick formatter
         """
-        _set_tick_locators_or_formatters(
-            ax=self.ax, kind="formatter", x=x, y=y
-        )
+        set_tick_locators_or_formatters(ax=self.ax, kind="formatter", x=x, y=y)
 
-    def _hlpr_call(self, *, functions: Sequence[dict], **shared_kwargs):
+    def _hlpr_call(
+        self,
+        *,
+        functions: Sequence[dict],
+        funcs_lookup_dict: Dict[str, Callable] = None,
+        **shared_kwargs,
+    ):
         """Axis-level helper that can be used to call multiple functions.
 
         Functions can be specified in three ways:
@@ -2516,7 +2124,7 @@ class PlotHelper:
             - as callable, which will be used directly
 
         The implementation of this is shared with the plot function
-        :py:func:`~dantro.plot_creators.ext_funcs.multiplot.multiplot`. See
+        :py:func:`~dantro.plot.funcs.multiplot.multiplot`. See
         there for more information.
 
         The figure-level helper ``figcall`` is identical to this helper, but is
@@ -2570,15 +2178,18 @@ class PlotHelper:
                 ``function`` which determines which function to invoke. Further
                 arguments are parsed into the positional and keyword arguments
                 of the to-be-invoked function.
+            funcs_lookup_dict (Dict[str, Callable], optional): If given, will
+                look up the function names from this dict instead of the
+                default dict.
             **shared_kwargs: Passed on as keyword arguments to *all* function
                 calls in ``functions``.
         """
-        from .ext_funcs.multiplot import _MULTIPLOT_FUNC_KINDS
+        from .funcs._multiplot import parse_and_invoke_function
 
         for call_num, func_kwargs in enumerate(functions):
             parse_and_invoke_function(
                 hlpr=self,
-                funcs=_MULTIPLOT_FUNC_KINDS,
+                funcs=funcs_lookup_dict,
                 shared_kwargs=shared_kwargs,
                 func_kwargs=func_kwargs,
                 show_hints=False,

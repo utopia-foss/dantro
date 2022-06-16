@@ -7,9 +7,9 @@ import pytest
 from dantro.dag import TransformationDAG, _ResultPlaceholder
 from dantro.data_mngr import DataManager
 from dantro.exceptions import *
-from dantro.plot_creators import BasePlotCreator
+from dantro.plot import BasePlotCreator
 
-logging.getLogger("dantro.plot_creators.pcr_base").setLevel(12)  # remark
+logging.getLogger("dantro.plot.creators.base").setLevel(12)  # remark
 
 # Test classes ----------------------------------------------------------------
 
@@ -229,7 +229,7 @@ def test_data_selection_interface(init_kwargs, tmpdir):
 
 def test_dag_object_cache(init_kwargs, tmpdir):
     """Tests the caching of TransformationDAG objects via the plot creator"""
-    from dantro.plot_creators.pcr_base import _DAG_OBJECT_CACHE
+    from dantro.plot.creators.base import _DAG_OBJECT_CACHE
 
     assert len(_DAG_OBJECT_CACHE) == 0
 
