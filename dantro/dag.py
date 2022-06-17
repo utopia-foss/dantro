@@ -799,29 +799,32 @@ class Transformation:
 
 
 class TransformationDAG:
-    """This class collects transformation operations that are (already by
-    their own structure) connected into a directed acyclic graph. The aim of
-    this class is to maintain base objects, manage references, and allow
-    operations on the DAG, the most central of which is computing the result
-    of a node.
+    """This class collects :py:class:`.Transformation` objects that are
+    (already by their own structure) connected into a directed acyclic graph.
+    The aim of this class is to maintain base objects, manage references, and
+    allow operations on the DAG, the most central of which is computing the
+    result of a node.
 
-    Furthermore, this class also implements caching of transformations, such
+    Furthermore, this class also implements *caching* of transformations, such
     that operations that take very long can be stored (in memory or on disk) to
     speed up future operations.
 
     Objects of this class are initialized with dict-like arguments which
     specify the transformation operations. There are some shorthands that allow
     a simple definition syntax, for example the ``select`` syntax, which takes
-    care of selecting a basic set of data from the associated DataManager.
+    care of selecting a basic set of data from the associated
+    :py:class:`~dantro.data_mngr.DataManager`.
+
+    See :ref:`dag_framework` for more information and examples.
     """
 
-    # The tags that have special meaning
     SPECIAL_TAGS = ("dag", "dm", "select_base")
+    """Tags with special meaning"""
 
     def __init__(
         self,
         *,
-        dm: "DataManager",
+        dm: "dantro.data_mngr.DataManager",
         define: Dict[str, Union[List[dict], Any]] = None,
         select: dict = None,
         transform: Sequence[dict] = None,
@@ -834,11 +837,15 @@ class TransformationDAG:
         exclude_from_all: List[str] = None,
         verbosity: int = 1,
     ):
-        """Initialize a DAG which is associated with a DataManager and load the
-        specified transformations configuration into it.
+        """Initialize a TransformationDAG by loading the specified
+        transformations configuration into it, creating a directed acyclic
+        graph of :py:class:`.Transformation` objects.
+
+        See :ref:`dag_framework` for more information and examples.
 
         Args:
-            dm (DataManager): The associated data manager
+            dm (dantro.data_mngr.DataManager): The associated data manager
+                which is made available as a special node in the DAG.
             define (Dict[str, Union[List[dict], Any]], optional): Definitions
                 of tags. This can happen in two ways: If the given entries
                 contain a list or tuple, they are interpreted as sequences of

@@ -393,22 +393,29 @@ class AbstractPlotCreator(metaclass=abc.ABCMeta):
     """This class defines the interface for PlotCreator classes"""
 
     @abc.abstractmethod
-    def __init__(self, name: str, *, dm, **plot_cfg):
-        """Initialize the PlotCreator, given a data manager, the plot name, and
-        the default plot configuration.
+    def __init__(
+        self, name: str, *, dm: "dantro.data_manager.DataManager", **plot_cfg
+    ):
+        """Initialize the plot creator, given a
+        :py:class:`~dantro.data_mngr.DataManager`, the plot name, and the
+        default plot configuration.
         """
 
     @abc.abstractmethod
     def __call__(self, *, out_path: str = None, **update_plot_cfg):
         """Perform the plot, updating the configuration passed to __init__
-        with the given values and then calling _plot.
+        with the given values and then calling :py:meth:`.plot`.
+
+        This method essentially takes care of parsing the configuration, while
+        :py:meth:`.plot` expects *parsed* arguments.
         """
 
     @abc.abstractmethod
-    def plot(self, out_path: str = None, **cfg):
-        """Given a specific configuration, perform a plot.
+    def plot(self, *, out_path: str = None, **cfg) -> None:
+        """Given a specific configuration, performs a plot.
 
-        This method should always be private and only be called from __call__.
+        To parse plot configuration arguments, use :py:meth:`.__call__`, which
+        will call this method.
         """
 
     @abc.abstractmethod
@@ -416,8 +423,10 @@ class AbstractPlotCreator(metaclass=abc.ABCMeta):
         """Returns the extension to use for the upcoming plot"""
 
     @abc.abstractmethod
-    def prepare_cfg(self, *, plot_cfg: dict, pspace) -> tuple:
-        """Prepares the plot configuration for the PlotManager.
+    def prepare_cfg(
+        self, *, plot_cfg: dict, pspace: "paramspace.paramspace.ParamSpace"
+    ) -> tuple:
+        """Prepares the plot configuration for the plot.
 
         This function is called by the plot manager before the first plot
         is created.
@@ -425,7 +434,7 @@ class AbstractPlotCreator(metaclass=abc.ABCMeta):
         The base implementation just passes the given arguments through.
         However, it can be re-implemented by derived classes to change the
         behaviour of the plot manager, e.g. by converting a plot configuration
-        to a parameter space.
+        to a :py:class:`~paramspace.paramspace.ParamSpace`.
         """
 
     @abc.abstractmethod
@@ -433,7 +442,8 @@ class AbstractPlotCreator(metaclass=abc.ABCMeta):
         """Whether this plot creator is able to make a plot for the given plot
         configuration.
 
-        This function is used by the PlotManager's auto-detect feature.
+        This function is used by the :py:class:`~dantro.plot_mngr.PlotManager`
+        for its creator auto-detection feature.
 
         Args:
             creator_name (str): The name for this creator used within the
@@ -449,6 +459,6 @@ class AbstractPlotCreator(metaclass=abc.ABCMeta):
         """Prepares the output path, creating directories if needed, then
         returning the full absolute path.
 
-        This is called from __call__ and is meant to postpone directory
-        creation as far as possible.
+        This is called from :py:meth:`.__call__` and is meant to postpone
+        directory creation as far as possible.
         """

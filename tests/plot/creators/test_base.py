@@ -1,4 +1,7 @@
-"""Tests features of the base class."""
+"""Tests features of the base class.
+
+NOTE Some of the tests are easier to carry out with PyPlotCreator; see there.
+"""
 
 import logging
 
@@ -7,7 +10,7 @@ import pytest
 from dantro.dag import TransformationDAG, _ResultPlaceholder
 from dantro.data_mngr import DataManager
 from dantro.exceptions import *
-from dantro.plot import BasePlotCreator
+from dantro.plot import BasePlotCreator, is_plot_func
 
 logging.getLogger("dantro.plot.creators.base").setLevel(12)  # remark
 
@@ -44,6 +47,23 @@ class MockPlotCreator3(MockPlotCreator):
 def init_kwargs(tmpdir) -> dict:
     """Default initialisation kwargs"""
     return dict(dm=DataManager(data_dir=tmpdir), default_ext="ext")
+
+
+@pytest.fixture
+def tmp_module(tmpdir) -> str:
+    """Creates a module file in a temporary directory"""
+    write_something_funcdef = (
+        "def write_something(dm, *, out_path, **kwargs):\n"
+        "    '''Writes the kwargs to the given path'''\n"
+        "    with open(out_path, 'w') as f:\n"
+        "        f.write(str(kwargs))\n"
+        "    return 42\n"
+    )
+
+    path = tmpdir.join("test_module.py")
+    path.write(write_something_funcdef)
+
+    return path
 
 
 # Tests -----------------------------------------------------------------------
@@ -222,8 +242,7 @@ def test_data_selection_interface(init_kwargs, tmpdir):
     # Perform data selection via __call__ to test it is carried through
     # Need to change some class variables for that
     assert mpc.DAG_INVOKE_IN_BASE
-    assert not mpc.DAG_SUPPORTED
-    mpc.DAG_SUPPORTED = True
+    assert mpc.DAG_SUPPORTED
     mpc(out_path=tmpdir.join("foo"), use_dag=True, **params0)
 
 
@@ -315,3 +334,108 @@ def test_dag_object_cache(init_kwargs, tmpdir):
         ),
     )
     assert len(_DAG_OBJECT_CACHE) == 0
+
+
+def test_resolve_plot_func(init_kwargs, tmpdir, tmp_module):
+    """Tests whether the _resolve_plot_func works as expected"""
+    epc = MockPlotCreator("init", **init_kwargs)
+
+    # Make a shortcut to the function
+    resolve = epc._resolve_plot_func
+
+    # Test with valid arguments
+    # Directly passing a callable should just return it
+    func = lambda foo: "bar"
+    assert resolve(plot_func=func) is func
+
+    # Giving a module file should load that module. Test by calling function
+    wfunc = resolve(module_file=tmp_module, plot_func="write_something")
+    wfunc("foo", out_path=tmpdir.join("wfunc_output")) == 42
+
+    # ...but only for absolute paths
+    with pytest.raises(ValueError, match="Need to specify `base_module_file_"):
+        resolve(module_file="some/relative/path", plot_func="foobar")
+
+    # Giving a module name works also
+    assert callable(resolve(module=".basic", plot_func="lineplot"))
+
+    # Not giving enough arguments will fail
+    with pytest.raises(TypeError, match="neither argument"):
+        resolve(plot_func="foo")
+
+    # So will a plot_func of wrong type
+    with pytest.raises(TypeError, match="needs to be a string or a callable"):
+        resolve(plot_func=666, module="foo")
+
+    # Can have longer plot_func modstr as well, resolved recursively
+    assert callable(resolve(module=".basic", plot_func="plt.plot"))
+    # NOTE that this would not work as a plot function; just for testing here
+
+
+def test_can_plot(init_kwargs, tmp_module):
+    """Tests the can_plot and _valid_plot_func_signature methods"""
+    epc = MockPlotCreator("can_plot", **init_kwargs)
+
+    # Should work for the .basic lineplot, which is decorated and specifies
+    # the creator type
+    assert epc.can_plot("external", module=".basic", plot_func="lineplot")
+    assert not epc.can_plot("foobar", module=".basic", plot_func="lineplot")
+
+    # Cases where no plot function can be resolved
+    assert not epc.can_plot("external", **{})
+    assert not epc.can_plot("external", plot_func="some_func")
+    assert not epc.can_plot("external", plot_func="some_func", module="foo")
+    assert not epc.can_plot("external", plot_func="some_func", module_file=".")
+
+    # Test the decorator . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    # Define a shortcut
+    def declared_pf_by_attrs(func, pc=epc, creator_name="external"):
+        return pc._declared_plot_func_by_attrs(func, creator_name)
+
+    # Define some functions to test
+    @is_plot_func(creator_name="external")
+    def pfdec_name():
+        pass
+
+    @is_plot_func(creator_type=MockPlotCreator)
+    def pfdec_type():
+        pass
+
+    @is_plot_func(creator_type=MockPlotCreator, creator_name="foo")
+    def pfdec_type_and_name():
+        pass
+
+    @is_plot_func(creator_type=MockPlotCreator2)
+    def pfdec_subtype():
+        pass
+
+    @is_plot_func(creator_name="base")
+    def pfdec_subtype_name():
+        pass
+
+    @is_plot_func(creator_type=int)
+    def pfdec_bad_type():
+        pass
+
+    @is_plot_func(creator_name="i_do_not_exist")
+    def pfdec_bad_name():
+        pass
+
+    assert declared_pf_by_attrs(pfdec_name)
+    assert declared_pf_by_attrs(pfdec_type)
+    assert declared_pf_by_attrs(pfdec_type_and_name)
+    assert not declared_pf_by_attrs(pfdec_subtype)
+    assert not declared_pf_by_attrs(pfdec_subtype_name)
+    assert not declared_pf_by_attrs(pfdec_bad_type)
+    assert not declared_pf_by_attrs(pfdec_bad_name)
+
+    # Also test for a derived class
+    mpc2 = MockPlotCreator2("can_plot", **init_kwargs)
+
+    assert not declared_pf_by_attrs(pfdec_name, mpc2, "base")
+    assert declared_pf_by_attrs(pfdec_type, mpc2, "base")
+    assert declared_pf_by_attrs(pfdec_type_and_name, mpc2, "base")
+    assert declared_pf_by_attrs(pfdec_subtype, mpc2, "base")
+    assert declared_pf_by_attrs(pfdec_subtype_name, mpc2, "base")
+    assert not declared_pf_by_attrs(pfdec_bad_type, mpc2, "base")
+    assert not declared_pf_by_attrs(pfdec_bad_name, mpc2, "base")

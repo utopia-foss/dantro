@@ -31,23 +31,6 @@ def init_kwargs(dm) -> dict:
 
 
 @pytest.fixture
-def tmp_module(tmpdir) -> str:
-    """Creates a module file in a temporary directory"""
-    write_something_funcdef = (
-        "def write_something(dm, *, out_path, **kwargs):\n"
-        "    '''Writes the kwargs to the given path'''\n"
-        "    with open(out_path, 'w') as f:\n"
-        "        f.write(str(kwargs))\n"
-        "    return 42\n"
-    )
-
-    path = tmpdir.join("test_module.py")
-    path.write(write_something_funcdef)
-
-    return path
-
-
-@pytest.fixture
 def tmp_rc_file(tmpdir) -> str:
     """Creates a temporary yaml file with matplotlib rcParams"""
     rc_paramaters = "figure.dpi: 10 \naxes.grid: True\n"
@@ -210,42 +193,6 @@ def test_style_context(init_kwargs, tmp_rc_file):
         plot_func=test_plot_func,
         style=dict(ignore_defaults=True),
     )
-
-
-def test_resolve_plot_func(init_kwargs, tmpdir, tmp_module):
-    """Tests whether the _resolve_plot_func"""
-    epc = PyPlotCreator("init", **init_kwargs)
-
-    # Make a shortcut to the function
-    resolve = epc._resolve_plot_func
-
-    # Test with valid arguments
-    # Directly passing a callable should just return it
-    func = lambda foo: "bar"
-    assert resolve(plot_func=func) is func
-
-    # Giving a module file should load that module. Test by calling function
-    wfunc = resolve(module_file=tmp_module, plot_func="write_something")
-    wfunc("foo", out_path=tmpdir.join("wfunc_output")) == 42
-
-    # ...but only for absolute paths
-    with pytest.raises(ValueError, match="Need to specify `base_module_file_"):
-        resolve(module_file="some/relative/path", plot_func="foobar")
-
-    # Giving a module name works also
-    assert callable(resolve(module=".basic", plot_func="lineplot"))
-
-    # Not giving enough arguments will fail
-    with pytest.raises(TypeError, match="neither argument"):
-        resolve(plot_func="foo")
-
-    # So will a plot_func of wrong type
-    with pytest.raises(TypeError, match="needs to be a string or a callable"):
-        resolve(plot_func=666, module="foo")
-
-    # Can have longer plot_func modstr as well, resolved recursively
-    assert callable(resolve(module=".basic", plot_func="plt.plot"))
-    # NOTE that this would not work as a plot function; just for testing here
 
 
 # -----------------------------------------------------------------------------
@@ -560,102 +507,6 @@ def test_dag_required_tags(tmpdir, init_kwargs):
 
 
 # -----------------------------------------------------------------------------
-
-
-def test_can_plot(init_kwargs, tmp_module):
-    """Tests the can_plot and _valid_plot_func_signature methods"""
-    epc = PyPlotCreator("can_plot", **init_kwargs)
-
-    # Should work for the .basic lineplot, which is decorated and specifies
-    # the creator type
-    assert epc.can_plot("external", module=".basic", plot_func="lineplot")
-    assert not epc.can_plot("foobar", module=".basic", plot_func="lineplot")
-
-    # Cases where no plot function can be resolved
-    assert not epc.can_plot("external", **{})
-    assert not epc.can_plot("external", plot_func="some_func")
-    assert not epc.can_plot("external", plot_func="some_func", module="foo")
-    assert not epc.can_plot("external", plot_func="some_func", module_file=".")
-
-    # Test the decorator . . . . . . . . . . . . . . . . . . . . . . . . . . .
-    # Define a shortcut
-    def declared_pf_by_attrs(func, pc=epc, creator_name="external"):
-        return pc._declared_plot_func_by_attrs(func, creator_name)
-
-    # Define some functions to test
-    @is_plot_func(creator_name="external")
-    def pfdec_name():
-        pass
-
-    @is_plot_func(creator_type=PyPlotCreator)
-    def pfdec_type():
-        pass
-
-    @is_plot_func(creator_type=PyPlotCreator, creator_name="foo")
-    def pfdec_type_and_name():
-        pass
-
-    @is_plot_func(creator_type=UniversePlotCreator)
-    def pfdec_subtype():
-        pass
-
-    @is_plot_func(creator_name="universe")
-    def pfdec_subtype_name():
-        pass
-
-    @is_plot_func(creator_type=int)
-    def pfdec_bad_type():
-        pass
-
-    @is_plot_func(creator_name="i_do_not_exist")
-    def pfdec_bad_name():
-        pass
-
-    assert declared_pf_by_attrs(pfdec_name)
-    assert declared_pf_by_attrs(pfdec_type)
-    assert declared_pf_by_attrs(pfdec_type_and_name)
-    assert not declared_pf_by_attrs(pfdec_subtype)
-    assert not declared_pf_by_attrs(pfdec_subtype_name)
-    assert not declared_pf_by_attrs(pfdec_bad_type)
-    assert not declared_pf_by_attrs(pfdec_bad_name)
-
-    # Also test for a derived class
-    upc = UniversePlotCreator("can_plot", **init_kwargs)
-
-    assert not declared_pf_by_attrs(pfdec_name, upc, "universe")
-    assert declared_pf_by_attrs(pfdec_type, upc, "universe")
-    assert declared_pf_by_attrs(pfdec_type_and_name, upc, "universe")
-    assert declared_pf_by_attrs(pfdec_subtype, upc, "universe")
-    assert declared_pf_by_attrs(pfdec_subtype_name, upc, "universe")
-    assert not declared_pf_by_attrs(pfdec_bad_type, upc, "universe")
-    assert not declared_pf_by_attrs(pfdec_bad_name, upc, "universe")
-
-
-def test_decorator(tmpdir):
-    """Test the is_plot_func decorator"""
-    # Needs no arguments
-    is_plot_func()
-
-    # Can take some specific ones, though, without checks
-    is_plot_func(
-        creator_type=PyPlotCreator,
-        creator_name="foo",
-        use_helper=True,
-        helper_defaults=dict(),
-        supports_animation=True,
-        add_attributes=dict(),
-    )
-
-    # Helper_defaults can be an absolute path
-    is_plot_func(helper_defaults=tmpdir.join("foo.yml"))
-
-    # User is expaned (but file is missing)
-    with pytest.raises(FileNotFoundError, match="No such file or directory"):
-        is_plot_func(helper_defaults="~/something/something.yml")
-
-    # Relative path not allowed
-    with pytest.raises(ValueError, match="was a relative path: some/rel"):
-        is_plot_func(helper_defaults="some/relative/path")
 
 
 def test_figure_leak_prevention():

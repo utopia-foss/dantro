@@ -1,18 +1,19 @@
-"""This module implements the base class for plot creators,
-:py:class:`~dantro.plot.creators.base.BasePlotCreator`.
-Classes derived from this class create plots for single files.
+"""This module implements :py:class:`.BasePlotCreator`, the base class for plot
+creators.
 
 The interface is defined as an abstract base class and partly implemented by
-the :py:class:`~dantro.plot.creators.base.BasePlotCreator` (which still
-remains *abstract*).
+the :py:class:`.BasePlotCreator`, which is no longer abstract but has only the
+functionality that is general enough for all derived creators to profit from.
 """
 
 import copy
 import gc
+import importlib
+import importlib.util
 import logging
 import os
 import time
-from typing import Sequence, Tuple, Union
+from typing import Callable, Dict, Sequence, Tuple, Union
 
 from paramspace import ParamSpace
 
@@ -28,11 +29,12 @@ from ...tools import recursive_update
 
 log = logging.getLogger(__name__)
 
-# A local time formatting function
 _fmt_time = lambda t: _format_time(t, ms_precision=1)
 
-# The local DAG cache object
-_DAG_OBJECT_CACHE = dict()
+_DAG_OBJECT_CACHE: Dict[str, TransformationDAG] = dict()
+"""A dict holding the previously-used :py:class:`~dantro.dag.TransformationDAG`
+objects to allow re-using them in another plot function.
+The keys are hashes of the configuration used in creating the DAG."""
 
 
 # -----------------------------------------------------------------------------
@@ -41,13 +43,15 @@ _DAG_OBJECT_CACHE = dict()
 class BasePlotCreator(AbstractPlotCreator):
     """The base class for plot creators.
 
-    .. note::
+    It provides the following functionality:
 
-        The ``plot`` method remains abstract, thus this class needs to be
-        subclassed and the method implemented!
+    - Resolving a plot function
+    - …
+
+    TODO Write
     """
 
-    EXTENSIONS: tuple = "all"
+    EXTENSIONS: Union[Tuple[str], str] = "all"
     """A tuple of supported file extensions.
     If ``all``, no checks for the extensions are performed."""
 
@@ -72,7 +76,10 @@ class BasePlotCreator(AbstractPlotCreator):
     """Whether a warning should be shown (instead of an error), when a plot
     file already exists at the specified output path"""
 
-    DAG_SUPPORTED: bool = False
+    BASE_PKG = "dantro.plot.funcs"
+    """For relative module imports, use this module as the base package"""
+
+    DAG_SUPPORTED: bool = True
     """Whether the data selection and transformation interface is supported by
     this plot creator. If False, the related methods will not be called."""
 
@@ -86,11 +93,21 @@ class BasePlotCreator(AbstractPlotCreator):
     :py:class:`~dantro._dag_utils.ResultPlaceholder` objects, should be
     replaced with results from the data transformations."""
 
+    _AD_IGNORE_FUNC_ATTRS = False
+    """A :py:class:`~dantro.plot_mngr.PlotManager` -related class variable
+    for the auto-detection feature: Whether to ignore function attributes
+    (e.g. ``creator_name``) when deciding whether a plot function is to be
+    used with this creator.
+    """
+
+    # .........................................................................
+
     def __init__(
         self,
         name: str,
         *,
         dm: DataManager,
+        base_module_file_dir: str = None,
         default_ext: str = None,
         exist_ok: Union[bool, str] = None,
         raise_exc: bool = None,
@@ -104,6 +121,9 @@ class BasePlotCreator(AbstractPlotCreator):
         Args:
             name (str): The name of this plot
             dm (DataManager): The data manager that contains the data to plot
+            base_module_file_dir (str, optional): If given, ``module_file``
+                arguments to :py:meth:`.plot` that are relative paths will
+                be seen relative to this directory.
             default_ext (str, optional): The default extension to use; needs
                 to be in ``EXTENSIONS``, if that class variable is not set to
                 'all'. The value given here is needed by the PlotManager to
@@ -123,39 +143,54 @@ class BasePlotCreator(AbstractPlotCreator):
                 creator is supposed to create.
 
         Raises:
-            ValueError: On bad ``default_ext`` argument
+            ValueError: On bad ``base_module_file_dir`` or ``default_ext``
         """
         self._name = name
         self._dm = dm
         self._plot_cfg = plot_cfg
+        self._dag_obj_cache = _DAG_OBJECT_CACHE
         self._exist_ok = (
             self.OUT_PATH_EXIST_OK if exist_ok is None else exist_ok
         )
         self.raise_exc = raise_exc
 
-        # Initialize property-managed attributes
+        # Property-managed attributes
         self._logstr = None
         self._default_ext = None
         self._dag = None
 
-        # And others via their property setters
+        # Check that the base module file directory is valid
+        if base_module_file_dir:
+            bmfd = os.path.expanduser(base_module_file_dir)
+
+            if not os.path.isabs(bmfd):
+                raise ValueError(
+                    "Argument `base_module_file_dir` needs to be "
+                    f"an absolute path, was not! Got: {bmfd}"
+                )
+
+            elif not os.path.exists(bmfd) or not os.path.isdir(bmfd):
+                raise ValueError(
+                    "Argument `base_module_file_dir` does not "
+                    "exists or does not point to a directory!"
+                )
+
+        self.base_module_file_dir = base_module_file_dir
+
         # Set the default extension, first from argument, then default.
+        # Then check that it was set correctly
         if default_ext is not None:
             self.default_ext = default_ext
 
         elif self.DEFAULT_EXT is not None:
             self.default_ext = self.DEFAULT_EXT
 
-        # Check that it was set correctly
         if self.DEFAULT_EXT_REQUIRED and not self.default_ext:
             raise ValueError(
                 f"{self.logstr} requires a default extension, but neither "
                 f"the argument ('{default_ext}') nor the DEFAULT_EXT class "
-                f"variable ('{self.DEFAULT_EXT}') evaluated to True."
+                f"variable ('{self.DEFAULT_EXT}') was set."
             )
-
-        # Internal attributes, not exposed
-        self._dag_obj_cache = _DAG_OBJECT_CACHE
 
     # .. Properties ...........................................................
 
@@ -183,7 +218,7 @@ class BasePlotCreator(AbstractPlotCreator):
         return self._dm
 
     @property
-    def plot_cfg(self) -> dict:
+    def plot_cfg(self) -> Dict[str, dict]:
         """Returns a deepcopy of the plot configuration, assuring that plot
         configurations are completely independent of each other.
         """
@@ -196,11 +231,15 @@ class BasePlotCreator(AbstractPlotCreator):
 
     @default_ext.setter
     def default_ext(self, val: str) -> None:
-        """Sets the default extension. Needs to be in EXTENSIONS"""
+        """Sets the default extension.
+
+        Unless :py:attr:`.EXTENSIONS` is set to ``all``, needs to be a valid
+        extension.
+        """
         if self.EXTENSIONS != "all" and val not in self.EXTENSIONS:
             raise ValueError(
                 f"Extension '{val}' not supported in {self.logstr}. "
-                f"Supported extensions are: {self.EXTENSIONS}"
+                f"Supported extensions are: {', '.join(self.EXTENSIONS)}"
             )
 
         self._default_ext = val
@@ -218,7 +257,7 @@ class BasePlotCreator(AbstractPlotCreator):
 
     def __call__(self, *, out_path: str, **update_plot_cfg):
         """Perform the plot, updating the configuration passed to __init__
-        with the given values and then calling _plot.
+        with the given values and then calling :py:meth:`.plot`.
 
         Args:
             out_path (str): The full output path to store the plot at
@@ -257,8 +296,53 @@ class BasePlotCreator(AbstractPlotCreator):
         if not self.POSTPONE_PATH_PREPARATION:
             self._prepare_path(out_path, exist_ok=exist_ok)
 
-        # Now call the plottig function with these arguments
+        # Now call the plotting function with these arguments
         return self.plot(out_path=out_path, **cfg)
+
+    def plot(
+        self,
+        *,
+        out_path: str,
+        plot_func: Union[str, Callable],
+        module: str = None,
+        module_file: str = None,
+        use_dag: bool = None,
+        **func_kwargs,
+    ):
+        """Resolves and invokes the specified plot function.
+
+        Args:
+            out_path (str): The output path for the resulting file
+            plot_func (Union[str, Callable]): The plot function or a name or
+                module string under which it can be imported.
+            module (str, optional): If plot_func was the name of the plot
+                function, this needs to be the name of the module to import
+            module_file (str, optional): Path to the file to load and look for
+                the ``plot_func`` in. If ``base_module_file_dir`` is given,
+                this can also be a path relative to that directory.
+            use_dag (bool, optional): Whether to use the :ref:`dag_framework`
+                to select and transform data that can be used in the plotting
+                function. If not given, will query the plot function attributes
+                for whether the DAG should be used. If not, the data selection
+                has to occur separately inside the plot function. Note that
+                this may require a different plot function signature.
+            **func_kwargs: Passed on to the plot function
+        """
+        # Retrieve the plotting function
+        plot_func = self._resolve_plot_func(
+            plot_func=plot_func, module=module, module_file=module_file
+        )
+        plot_func_name = plot_func.__name__
+
+        # Prepare arguments, also performing plot data selection
+        args, kwargs = self._prepare_plot_func_args(
+            plot_func, use_dag=use_dag, **func_kwargs
+        )
+
+        # Call the plot function
+        log.info("Now calling plotting function '%s' ...", plot_func_name)
+        plot_func(*args, **kwargs)
+        log.note("Plotting function '%s' returned.", plot_func_name)
 
     def get_ext(self) -> str:
         """Returns the extension to use for the upcoming plot by checking
@@ -281,21 +365,57 @@ class BasePlotCreator(AbstractPlotCreator):
         """
         return plot_cfg, pspace
 
-    def can_plot(self, creator_name: str, **plot_cfg) -> bool:
-        """Whether this creator is able to make a plot for the given plot
+    def can_plot(self, creator_name: str, **cfg) -> bool:
+        """Whether this plot creator is able to make a plot for the given plot
         configuration.
 
-        By default, this always returns false. It can be subclassed and a
-        checking logic can be implemented to allow creator auto-detection.
+        This checks whether the configuration allows resolving a plot function.
+        If that is the case, it checks whether the plot function has defined
+        some attributes that provide further information on whether the current
+        creator is the desired one.
 
         Args:
             creator_name (str): The name for this creator used within the
-                PlotManager.
-            **plot_cfg: The plot configuration with which to decide this.
+                :py:class:`~dantro.plot_mngr.PlotManager`.
+            **cfg: The plot configuration with which to decide this ...
 
         Returns:
-            bool: Whether this creator can be used for the given plot config
+            bool: Whether this creator can be used for plotting or not
         """
+        log.debug(
+            "Checking if %s can plot the given configuration ...", self.logstr
+        )
+
+        # Gather the arguments needed for plot function resolution and remove
+        # those that are None
+        pf_kwargs = dict(
+            plot_func=cfg.get("plot_func"),
+            module=cfg.get("module"),
+            module_file=cfg.get("module_file"),
+        )
+        pf_kwargs = {k: v for k, v in pf_kwargs.items() if v is not None}
+
+        # Try to resolve the function
+        try:
+            pf = self._resolve_plot_func(**pf_kwargs)
+
+        except Exception:
+            log.debug(
+                "Cannot plot this configuration, because a plotting function "
+                "could not be resolved with the given arguments: %s",
+                pf_kwargs,
+            )
+            return False
+
+        # else: was able to resolve a plotting function
+
+        # The function might have an attribute that specifies the name of the
+        # creator to use
+        if not self._AD_IGNORE_FUNC_ATTRS:
+            if self._declared_plot_func_by_attrs(pf, creator_name):
+                return True
+
+        # Nothing worked: This creator is not suitable.
         return False
 
     # .........................................................................
@@ -356,6 +476,137 @@ class BasePlotCreator(AbstractPlotCreator):
             plot_kwargs (dict): The full plot configuration
         """
         pass
+
+    # .........................................................................
+    # Plot function resolution and argument preparation
+
+    def _resolve_plot_func(
+        self,
+        *,
+        plot_func: Union[str, Callable],
+        module: str = None,
+        module_file: str = None,
+    ) -> Callable:
+        """
+        Args:
+            plot_func (Union[str, Callable]): The plot function or a name or
+                module string under which it can be imported.
+            module (str): If plot_func was the name of the plot
+                function, this needs to be the name of the module to import
+            module_file (str): Path to the file to load and look for
+                the `plot_func` in. If `base_module_file_dir` is given, this
+                can also be a path relative to that directory.
+
+        Returns:
+            Callable: The resolved plot function
+
+        Raises:
+            TypeError: Upon wrong argument types
+        """
+        if callable(plot_func):
+            log.debug("Received plotting function:  %s", str(plot_func))
+            return plot_func
+
+        elif not isinstance(plot_func, str):
+            raise TypeError(
+                "Argument `plot_func` needs to be a string or a "
+                f"callable, was {type(plot_func)} with value '{plot_func}'."
+            )
+
+        # else: need to resolve the module and find the plot_func in it
+        # First resolve the module, either from file or via import
+        if module_file:
+            mod = self._get_module_from_file(module_file)
+
+        elif isinstance(module, str):
+            mod = self._get_module_via_import(module)
+
+        else:
+            raise TypeError(
+                "Could not import a module, because neither argument "
+                "`module_file` was given nor did argument `module` have the "
+                f"correct type (needs to be string but was {type(module)} "
+                f"with value '{module}')."
+            )
+
+        # plot_func could be something like "A.B.C.d"; go along the segments to
+        # allow for more versatile plot function retrieval
+        attr_names = plot_func.split(".")
+        for attr_name in attr_names[:-1]:
+            mod = getattr(mod, attr_name)
+
+        # This is now the last module. Get the actual function
+        plot_func = getattr(mod, attr_names[-1])
+
+        log.debug("Resolved plotting function:  %s", str(plot_func))
+
+        return plot_func
+
+    def _get_module_from_file(self, path: str):
+        """Returns the module corresponding to the file at the given `path`"""
+        # Pre-processing
+        path = os.path.expanduser(path)
+
+        # Make it absolute
+        if not os.path.isabs(path):
+            if not self.base_module_file_dir:
+                raise ValueError(
+                    "Need to specify `base_module_file_dir` "
+                    "during initialization to use relative paths "
+                    "for `module_file` argument!"
+                )
+
+            path = os.path.join(self.base_module_file_dir, path)
+
+        # Extract a name from the path to use as module name
+        mod_name = "from_file." + os.path.basename(path).split(".")[0]
+        # NOTE The name does not really matter
+
+        # Is an absolute path now
+        # Create a module specification and, from that, import the module
+        spec = importlib.util.spec_from_file_location(mod_name, path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+
+        # Now, it is loaded
+        return mod
+
+    def _get_module_via_import(self, module: str):
+        """Returns the module via import"""
+        # Import module via importlib, allowing relative imports from the
+        # package defined as base package
+        return importlib.import_module(module, package=self.BASE_PKG)
+
+    def _prepare_plot_func_args(
+        self, plot_func: Callable, *args, use_dag: bool = None, **kwargs
+    ) -> Tuple[tuple, dict]:
+        """Prepares the args and kwargs passed to the plot function.
+
+        The passed args and kwargs are carried over, while the positional
+        arguments are prepended with passing of the data manager.
+
+        When subclassing this function, the parent method (this one) should
+        still be called to maintain base functionality.
+
+        Args:
+            *args: Additional args
+            **kwargs: Additional kwargs
+
+        Returns:
+            tuple: (args: tuple, kwargs: dict)
+        """
+        # If enabled, use the DAG interface to perform data selection. The
+        # returned kwargs are the adjusted plot function keyword arguments.
+        using_dag, kwargs = self._perform_data_selection(
+            use_dag=use_dag, plot_kwargs=kwargs, _plot_func=plot_func
+        )
+
+        # Aggregate as (args, kwargs), passed on to plot function. When using
+        # the DAG, the DataManager is NOT passed along, as it is accessible via
+        # the tags of the DAG.
+        if not using_dag:
+            return ((self.dm,) + args, kwargs)
+        return (args, kwargs)
 
     # .........................................................................
     # Data selection interface, using TransformationDAG
@@ -615,3 +866,65 @@ class BasePlotCreator(AbstractPlotCreator):
         """
         # Build a dict, delibaretly excluding the dag_params
         return dict(dag=dag, dag_results=dag_results, **plot_kwargs)
+
+    # .........................................................................
+    # PlotManager's auto-detection feature
+
+    def _declared_plot_func_by_attrs(
+        self, pf: Callable, creator_name: str
+    ) -> bool:
+        """Checks whether the given function has attributes set that declare
+        it as a plotting function that is to be used with this creator.
+
+        Used from within :py:meth:`.can_plot`.
+
+        Args:
+            pf (Callable): The plot function to check attributes of
+            creator_name (str): The name under which this creator type is
+                registered to the PlotManager.
+
+        Returns:
+            bool: Whether the plot function attributes declare the given plot
+                function as suitable for working with this specific creator.
+        """
+        if hasattr(pf, "creator_type") and pf.creator_type is not None:
+            if isinstance(self, pf.creator_type):
+                log.debug(
+                    "The desired type of the plot function, %s, is the "
+                    "same or a parent type of this %s.",
+                    pf.creator_type,
+                    self.logstr,
+                )
+                return True
+        else:
+            log.debug(
+                "The plot function's specified creator type (%s) does "
+                "not match %s.",
+                getattr(pf, "creator_type", None),
+                self.logstr,
+            )
+
+        if hasattr(pf, "creator_name") and pf.creator_name == creator_name:
+            log.debug(
+                "The plot function's desired creator name '%s' "
+                "matches the name under which %s is known to the "
+                "PlotManager.",
+                pf.creator_name,
+                self.classname,
+            )
+            return True
+        else:
+            log.debug(
+                "The plot function's specified creator name (%s) does "
+                "not match the specified creator name '%s' of %s.",
+                getattr(pf, "creator_name", None),
+                creator_name,
+                self.logstr,
+            )
+
+        log.debug(
+            "Checked plot function attributes, but neither the type "
+            "nor the creator name were specified or matched this "
+            "creator."
+        )
+        return False

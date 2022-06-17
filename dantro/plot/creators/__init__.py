@@ -6,8 +6,9 @@ from .psp import MultiversePlotCreator, UniversePlotCreator
 from .pyplot import PyPlotCreator
 
 ALL_PLOT_CREATORS = dict(
+    base=BasePlotCreator,
+    external=PyPlotCreator,  # NOTE Old name, kept for compatibility
     pyplot=PyPlotCreator,
-    external=PyPlotCreator,
     universe=UniversePlotCreator,
     multiverse=MultiversePlotCreator,
 )

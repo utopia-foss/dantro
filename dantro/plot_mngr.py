@@ -577,6 +577,11 @@ class PlotManager:
                 # Can try to auto-detect from the arguments, which creator
                 # could uniquely fit to the arguments
                 log.debug("Attempting auto-detection of creator ...")
+                log.warning(
+                    "Auto-detection of a plot creator is deprecated!\n"
+                    "To avoid future breakage, specify the `creator` argument "
+                    "explicitly."
+                )
 
                 # If a ParamSpace plot is to be made, detect feasibility by
                 # using its default parameters
