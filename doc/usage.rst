@@ -74,7 +74,7 @@ Let's check:
 
 Now, let's load some YAML data!
 In the associated data directory, let's say we have some YAML files like ``foobar.yml``, which are some configuration files we want to have available.
-To load these YAML files, we simply need to invoke the :py:meth:`~dantro.data_mngr.DataManager.load` method and specify the ``yaml`` loader which we made available by mixing in the :py:class:`~dantro.data_loaders.load_yaml.YamlLoaderMixin`.
+To load these YAML files, we simply need to invoke the :py:meth:`~dantro.data_mngr.DataManager.load` method and specify the ``yaml`` loader which we made available by mixing in the :py:class:`~dantro.data_loaders.yaml.YamlLoaderMixin`.
 Also, we need to specify the name of the data entry
 
 .. literalinclude:: ../tests/test_doc_examples.py

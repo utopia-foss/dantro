@@ -55,7 +55,7 @@ This is an important aspect of making the data proxies drop-in replacements.
 
 Example: :py:class:`~dantro.proxy.hdf5.Hdf5DataProxy`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The :py:class:`~dantro.data_loaders.load_hdf5.Hdf5LoaderMixin` provides proxy loading capabilities for HDF5 data.
+The :py:class:`~dantro.data_loaders.hdf5.Hdf5LoaderMixin` provides proxy loading capabilities for HDF5 data.
 Instead of loading the datasets directly into memory, the structure and metadata of the HDF5 file are used to generate the tree, but for data containers, :py:class:`~dantro.proxy.hdf5.Hdf5DataProxy` objects are placed.
 
 Additionally, it stores metadata about the dataset, e.g. its shape, data type, dimensionality, dataset attributes.
@@ -64,7 +64,7 @@ Accessing those metadata attributes of the resulting container does **not** resu
 To load HDF5 data as proxy:
 
 * Customize a container using the :py:class:`~dantro.mixins.proxy_support.Hdf5ProxySupportMixin`
-* Customize a :py:class:`~dantro.data_mngr.DataManager` with the :py:class:`~dantro.data_loaders.load_hdf5.Hdf5LoaderMixin`
+* Customize a :py:class:`~dantro.data_mngr.DataManager` with the :py:class:`~dantro.data_loaders.hdf5.Hdf5LoaderMixin`
 * Pass the ``load_as_proxy`` argument to the regular ``hdf5`` loader or, as a shortcut to achieving the same: use the ``hdf5_proxy`` loader
 
 
@@ -97,7 +97,7 @@ Using dask with HDF5 data
 To use dask when loading HDF5 data, arguments need to be passed to the :py:class:`~dantro.proxy.hdf5.Hdf5DataProxy` that it should not be resolved as the actual data, but as a dask representation of it.
 This is controlled by the ``resolve_as_dask`` argument.
 
-HDF5-data is loaded using the :py:class:`~dantro.data_loaders.load_hdf5.Hdf5LoaderMixin`, which allows passing arguments to the proxy via the ``proxy_kwargs`` argument.
+HDF5-data is loaded using the :py:class:`~dantro.data_loaders.hdf5.Hdf5LoaderMixin`, which allows passing arguments to the proxy via the ``proxy_kwargs`` argument.
 In other words, the following :py:meth:`~dantro.data_mngr.DataManager.load` command will lead to HDF5 data being loaded as proxies that will later be resolved as dask objects:
 
 .. code-block:: python

@@ -214,7 +214,7 @@ Furthermore, it was supplied with information about available group types.
 We will use those below to build the initial tree structure.
 
 The ``_HDF5_GROUP_MAP`` class variable is an example of a customization of one of the loaders.
-In this case, the given mapping is used by the :py:class:`~dantro.data_loaders.load_hdf5.Hdf5LoaderMixin` to load appropriately labelled HDF5 groups not as the default dantro group type, but as the specified type, which can be a specialized version.
+In this case, the given mapping is used by the :py:class:`~dantro.data_loaders.hdf5.Hdf5LoaderMixin` to load appropriately labelled HDF5 groups not as the default dantro group type, but as the specified type, which can be a specialized version.
 
 
 Initializing ``MyDataManager``

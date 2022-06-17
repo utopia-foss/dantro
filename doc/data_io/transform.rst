@@ -1114,7 +1114,7 @@ See above on how to enable it.
 .. note::
 
     When desiring to use the caching feature of the transformation framework, the employed :py:class:`~dantro.data_mngr.DataManager` needs to be able to load numerical data.
-    If you are not already using the :py:class:`~dantro.data_loaders.AllAvailableLoadersMixin`, consider adding :py:class:`~dantro.data_loaders.load_numpy.NumpyLoaderMixin`, :py:class:`~dantro.data_loaders.load_xarray.XarrayLoaderMixin`, and :py:class:`~dantro.data_loaders.load_pkl.PickleLoaderMixin` to your :py:class:`~dantro.data_mngr.DataManager` specialization.
+    If you are not already using the :py:class:`~dantro.data_loaders.AllAvailableLoadersMixin`, consider adding :py:class:`~dantro.data_loaders.numpy.NumpyLoaderMixin`, :py:class:`~dantro.data_loaders.xarray.XarrayLoaderMixin`, and :py:class:`~dantro.data_loaders.pickle.PickleLoaderMixin` to your :py:class:`~dantro.data_mngr.DataManager` specialization.
 
 
 Writing to the file cache

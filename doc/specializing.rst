@@ -116,7 +116,7 @@ For more information, see :doc:`data_io/data_mngr`.
 .. note::
 
     When using :ref:`specialized container classes <spec_data_container>` such a custom :py:class:`~dantro.data_mngr.DataManager` is also the place to configure data loaders to use those classes.
-    For example, when using the :py:class:`~dantro.data_loaders.load_hdf5.Hdf5LoaderMixin`, the ``_HDF5``\ -prefixed class variables can be set to use the specialized container classes rather than the defaults.
+    For example, when using the :py:class:`~dantro.data_loaders.hdf5.Hdf5LoaderMixin`, the ``_HDF5``\ -prefixed class variables can be set to use the specialized container classes rather than the defaults.
 
 .. note::
 

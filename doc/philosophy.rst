@@ -54,7 +54,7 @@ Enter: Mixin Classes.
 This refers to the idea that functionality can be added to classes using `multiple inheritance <https://docs.python.org/3/tutorial/classes.html#multiple-inheritance>`_.
 This concept is widely used in dantro to allow easy customization.
 
-For example, if a :py:class:`~dantro.data_mngr.DataManager` is desired that needs a certain load functionality, this can be specified simply by *additionally* inheriting a certain mixin class, e.g. the :py:class:`~dantro.data_loaders.load_yaml.YamlLoaderMixin` for loading YAML files:
+For example, if a :py:class:`~dantro.data_mngr.DataManager` is desired that needs a certain load functionality, this can be specified simply by *additionally* inheriting a certain mixin class, e.g. the :py:class:`~dantro.data_loaders.yaml.YamlLoaderMixin` for loading YAML files:
 
 .. literalinclude:: ../tests/test_doc_examples.py
     :language: python
