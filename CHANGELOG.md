@@ -17,6 +17,11 @@
 - !279 adds the `set_margins` function to the `PlotHelper`, giving access to the [`ax.margins`](https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.margins.html) method.
 - !280 reworks the structure of the `dantro.utils.data_ops` module, now available directly via `dantro.data_ops`.
   Furthermore, this implements the `is_operation` decorator which can be used to register functions as operations directly where they are defined.
+- !281 completely restructures the plotting module (and some other modules):
+    - Plotting related functionality is now condensed in `dantro.plot`, with plot creators having moved to `dantro.plot.creators`.
+    - The `ExternalPlotCreator` is renamed to `PyPlotCreator`, highlighting that it works with `matplotlib.pyplot` as a backend.
+    - The `dantro.groups.pspgrp` module was renamed to `dantro.groups.psp`
+    - The `dantro.containers.xrdatactr` module was renamed to `dantro.containers.xr`
 
 #### Internal
 - !267 performs some code clean-up and improves the sphinx setup

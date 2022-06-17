@@ -631,10 +631,10 @@ def test_groups_graphgroup():
 # -----------------------------------------------------------------------------
 # plotting/plot_cfg_ref.rst
 from .test_plot_mngr import dm as pm_dm
-from .test_plot_mngr import pcr_ext_kwargs, pm_kwargs
+from .test_plot_mngr import pcr_pyplot_kwargs, pm_kwargs
 
 
-def test_plot_cfg_ref(cfg, tmpdir, pm_dm, pm_kwargs, pcr_ext_kwargs):
+def test_plot_cfg_ref(cfg, tmpdir, pm_dm, pm_kwargs, pcr_pyplot_kwargs):
     """Tests the examples for the plot configuration reference"""
     from dantro import PlotManager
 

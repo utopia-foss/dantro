@@ -5,7 +5,6 @@ import os
 
 import matplotlib as mpl
 import matplotlib.animation
-import matplotlib.pyplot as plt
 
 # -----------------------------------------------------------------------------
 
@@ -125,4 +124,6 @@ class FileWriter(mpl.animation.AbstractMovieWriter):
 
         Closes the figure.
         """
+        import matplotlib.pyplot as plt
+
         plt.close(self.fig)

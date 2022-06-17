@@ -12,15 +12,15 @@ import pytest
 from pkg_resources import resource_filename
 
 from dantro.data_mngr import DataManager
-from dantro.plot_creators import ExternalPlotCreator, PlotHelper, is_plot_func
-from dantro.plot_creators._plot_helper import (
+from dantro.plot import PlotHelper, PyPlotCreator, is_plot_func
+from dantro.plot.plot_helper import (
     EnterAnimationMode,
     ExitAnimationMode,
     PlotConfigError,
     PlotHelperErrors,
-    coords_match,
-    temporarily_changed_axis,
 )
+from dantro.plot.plot_helper import _coords_match as coords_match
+from dantro.plot.plot_helper import temporarily_changed_axis
 from dantro.tools import load_yml
 
 # Paths
@@ -47,9 +47,9 @@ def hlpr(tmpdir) -> PlotHelper:
 
 
 @pytest.fixture
-def epc(dm) -> ExternalPlotCreator:
+def epc(dm) -> PyPlotCreator:
     """External Plot Creator for integration tests"""
-    return ExternalPlotCreator("ph_test", dm=dm, default_ext="pdf")
+    return PyPlotCreator("ph_test", dm=dm, default_ext="pdf")
 
 
 # Plot functions --------------------------------------------------------------
@@ -801,7 +801,7 @@ def test_animation_mode_switching(hlpr, epc, tmpdir):
         hlpr.disable_animation()
     assert not hlpr.animation_enabled
 
-    # -- Part 2: Switching between modes within ExternalPlotCreator . . . . . .
+    # -- Part 2: Switching between modes within PyPlotCreator . . . . . .
     # Animation-enabled plot --> NOT exiting --> directory with multiple plots
     plot_name = "not_exiting"
     epc.plot(
@@ -1081,3 +1081,17 @@ def test_helper_set_figlegend(hlpr):
     # Can't do it twice
     with pytest.raises(ValueError, match="was already set"):
         hlpr.invoke_helper("set_figlegend")
+
+
+# -----------------------------------------------------------------------------
+
+
+def test_utils_set_tick_locators_or_formatters():
+    """Tests dantro.plot.utils.mpl.set_tick_locators_or_formatters"""
+    from dantro.plot.utils.mpl import set_tick_locators_or_formatters
+
+    # Bad kind
+    with pytest.raises(ValueError, match="Bad kind"):
+        set_tick_locators_or_formatters(ax=None, kind="invalid_key")
+
+    # ... rest is tested via other tests

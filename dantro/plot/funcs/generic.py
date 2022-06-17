@@ -1,5 +1,5 @@
 """Generic, DAG-based plot functions for the
-:py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` and derived plot
+:py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` and derived plot
 creators.
 """
 
@@ -12,7 +12,8 @@ from typing import Callable, Dict, List, Tuple, Union
 from ..._import_tools import LazyLoader
 from ...exceptions import PlottingError
 from ...tools import recursive_update
-from ..pcr_ext import PlotHelper, figure_leak_prevention, is_plot_func
+from ..plot_helper import PlotHelper
+from ..utils import figure_leak_prevention, is_plot_func
 from ._utils import plot_errorbar as _plot_errorbar
 
 # Local constants and lazy module imports
@@ -104,7 +105,7 @@ def determine_plot_kind(
 
     A kind mapping may look like this:
 
-    .. literalinclude:: ../../dantro/plot_creators/ext_funcs/generic.py
+    .. literalinclude:: ../../dantro/plot/funcs/generic.py
         :language: python
         :start-after: _AUTO_PLOT_KINDS = {  # --- start literalinclude
         :end-before:  }   # --- end literalinclude
@@ -216,7 +217,7 @@ def determine_encoding(
 
     An encodings mapping may look like this:
 
-    .. literalinclude:: ../../dantro/plot_creators/ext_funcs/generic.py
+    .. literalinclude:: ../../dantro/plot/funcs/generic.py
         :language: python
         :start-after: _XR_PLOT_KINDS = {  # --- start literalinclude
         :end-before:  }   # --- end literalinclude
@@ -649,8 +650,8 @@ def errorbar(
     .. deprecated:: 0.15
 
         This function is deprecated. Instead, the more capable and generic
-        :py:func:`~dantro.plot_creators.ext_funcs.generic.errorbars` function
-        or :py:func:`~dantro.plot_creators.ext_funcs.generic.facet_grid` with
+        :py:func:`~dantro.plot.funcs.generic.errorbars` function
+        or :py:func:`~dantro.plot.funcs.generic.facet_grid` with
         ``kind: errorbars`` can be used. The interface is mostly the same, but
         data is expected as :py:class:`xarray.Dataset` instead of as two
         separate arrays.
@@ -661,7 +662,7 @@ def errorbar(
     (``x``, ``hue``, and ``frames``), data may be 1D, 2D, or 3D.
     The :ref:`auto-encoding feature <dag_generic_auto_encoding>` is supported.
 
-    Uses :py:func:`~dantro.plot_creators.ext_funcs._utils.plot_errorbar` for
+    Uses :py:func:`~dantro.plot.funcs._utils.plot_errorbar` for
     plotting individual lines.
 
     Args:
@@ -673,11 +674,11 @@ def errorbar(
             the dimension, trivial coordinates are used.
         hue (str, optional): Name of the dimension to respresent via the hue
             colors of the errorbar lines. For adjusting the property cycle of
-            the lines, see :ref:`pcr_ext_style`.
+            the lines, see :ref:`pcr_pyplot_style`.
         frames (str, optional): Name of the dimension to represent via the
             frames of an animation. If given, this will automatically enable
             animation mode and requires ``animation`` arguments being specified
-            in the plot configuration. See :ref:`pcr_ext_animations`.
+            in the plot configuration. See :ref:`pcr_pyplot_animations`.
         auto_encoding (Union[bool, dict], optional): Whether to choose the
             layout encoding options automatically, i.e. select ``x``, ``hue``,
             and ``frames`` according to the given data's dimensionality.
@@ -886,7 +887,7 @@ def errorbar(
 def errorbands(*, data: dict, hlpr: PlotHelper, **kwargs):
     """A DAG-based generic errorbands plot.
 
-    Invokes :py:func:`~dantro.plot_creators.ext_funcs.generic.errorbar` with
+    Invokes :py:func:`~dantro.plot.funcs.generic.errorbar` with
     ``use_bands = True``. See there for available arguments.
     """
     return errorbar(data=data, hlpr=hlpr, use_bands=True, **kwargs)
@@ -944,23 +945,23 @@ def facet_grid(
           figure becomes more square-like (requires ``auto_encoding: true``)
         * allows to register additional plot ``kind`` values that create plots
           with a custom single-axis plotting function, using the
-          :py:class:`~dantro.plot_creators.ext_funcs.generic.make_facet_grid_plot`
+          :py:class:`~dantro.plot.funcs.generic.make_facet_grid_plot`
           decorator.
 
     For details about auto-encoding and how the plot ``kind`` is chosen, see
-    :py:func:`~dantro.plot_creators.ext_funcs.generic.determine_encoding`
-    and :py:func:`~dantro.plot_creators.ext_funcs.generic.determine_plot_kind`.
+    :py:func:`~dantro.plot.funcs.generic.determine_encoding`
+    and :py:func:`~dantro.plot.funcs.generic.determine_plot_kind`.
 
     .. note::
 
         When specifying ``frames``, the ``animation`` arguments need to be
-        specified. See :ref:`here <pcr_ext_animations>` for more information
+        specified. See :ref:`here <pcr_pyplot_animations>` for more information
         on the expected animation parameters.
 
         The value of the ``animation.enabled`` key is not relevant for this
         function; it will automatically enter or exit animation mode,
         depending on whether the ``frames`` argument is given or not. This uses
-        the :ref:`animation mode switching <pcr_ext_animation_mode_switching>`
+        the :ref:`animation mode switching <pcr_pyplot_animation_mode_switching>`
         feature.
 
     .. note::
@@ -976,7 +977,7 @@ def facet_grid(
         set up figure. This includes the figure from the plot helper.
 
         To control figure aesthetics, you can either specify matplotlib RC
-        :ref:`style parameters <pcr_ext_style>` (via the ``style`` argument),
+        :ref:`style parameters <pcr_pyplot_style>` (via the ``style`` argument),
         or you can use the ``plot_kwargs`` to pass arguments to the respective
         plot functions. For the latter, refer to the respective documentation
         to find out about available arguments.
@@ -989,7 +990,7 @@ def facet_grid(
             ``contourf``, ``contour``, ``imshow``, ``line``, ``pcolormesh``,
             ``step``, ``hist``, ``scatter``, ``errorbars`` and any plot kinds
             that were additionally registered via the
-            :py:class:`~dantro.plot_creators.ext_funcs.generic.make_facet_grid_plot`
+            :py:class:`~dantro.plot.funcs.generic.make_facet_grid_plot`
             decorator.
             With ``auto``, dantro chooses an appropriate kind by itself; this
             setting is useful when also using the ``auto_encoding`` feature;
@@ -1211,9 +1212,9 @@ def errorbars(
     """An errorbar plot supporting facet grid.
 
     This function makes use of a decorator to implement faceting support:
-    :py:class:`~dantro.plot_creators.ext_funcs.generic.make_facet_grid_plot`.
+    :py:class:`~dantro.plot.funcs.generic.make_facet_grid_plot`.
     It additionally registers this plot as an available plot ``kind`` in
-    :py:func:`~dantro.plot_creators.ext_funcs.generic.facet_grid`.
+    :py:func:`~dantro.plot.funcs.generic.facet_grid`.
 
     .. note::
 
@@ -1221,7 +1222,7 @@ def errorbars(
         not all functionality is exposed here. Instead, the arguments seen here
         are those that apply to a *single* subplot of a facet grid.
 
-    Uses :py:func:`~dantro.plot_creators.ext_funcs._utils.plot_errorbar` for
+    Uses :py:func:`~dantro.plot.funcs._utils.plot_errorbar` for
     plotting individual lines.
 
     Args:
@@ -1242,7 +1243,7 @@ def errorbars(
         add_legend (bool, optional): Whether to add a legend to the individual
             plot or to the figure
         **kwargs: Passed on to ``hlpr.ax.errorbar`` via
-            :py:func:`~dantro.plot_creators.ext_funcs._utils.plot_errorbar`.
+            :py:func:`~dantro.plot.funcs._utils.plot_errorbar`.
     """
     # Prepare data
     _y = ds[y]

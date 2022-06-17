@@ -1,114 +1,15 @@
 """Generic, DAG-based multiplot function for the
-:py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` and derived plot
+:py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` and derived plot
 creators.
 """
 
 import logging
-from typing import Dict, List, Tuple, Union
+from typing import Callable, Dict, List, Tuple, Union
 
-import matplotlib.pyplot as plt
+from ..utils import is_plot_func
+from ._multiplot import parse_and_invoke_function
 
-from ..._import_tools import LazyLoader, import_module_or_object
-from .._plot_helper import PlotHelper, parse_and_invoke_function
-from ..pcr_ext import is_plot_func
-
-# Local constants
 log = logging.getLogger(__name__)
-
-# Lazy module loading for packages that take a long time to import
-_sns = LazyLoader("seaborn", _depth=1)
-# NOTE This import is specifically for the definition of the seaborn-based
-#      multiplot functions and should not be used for anything else!
-#      Depth 1 means: `_sns.foobar` is still a LazyLoader object and will only
-#      be resolved upon an *attribute* call! Subsequently, these need to be
-#      resolved manually, as done via `_resolve_lazy_imports`.
-
-# fmt: off
-
-# The available plot kinds for the multiplot interface.
-# Details of the seaborn-related plots can be found here in the seaborn API:
-# https://seaborn.pydata.org/api.html
-#
-# NOTE Seaborn plot functions are defined here in a lazy fashion, thus being
-#      actually LazyLoader instances. They are resolved upon a first call to
-#      the multiplot function
-_MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
-    # Seaborn - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # https://seaborn.pydata.org/api.html
-
-    # Relational plots
-    "sns.scatterplot":      _sns.scatterplot,
-    "sns.lineplot":         _sns.lineplot,
-
-    # Distribution plots
-    "sns.histplot":         _sns.histplot,
-    "sns.kdeplot":          _sns.kdeplot,
-    "sns.ecdfplot":         _sns.ecdfplot,
-    "sns.rugplot":          _sns.rugplot,
-
-    # Categorical plots
-    "sns.stripplot":        _sns.stripplot,
-    "sns.swarmplot":        _sns.swarmplot,
-    "sns.boxplot":          _sns.boxplot,
-    "sns.violinplot":       _sns.violinplot,
-    "sns.boxenplot":        _sns.boxenplot,
-    "sns.pointplot":        _sns.pointplot,
-    "sns.barplot":          _sns.barplot,
-    "sns.countplot":        _sns.countplot,
-
-    # Regression plots
-    "sns.regplot":          _sns.regplot,
-    "sns.residplot":        _sns.residplot,
-
-    # Matrix plots
-    "sns.heatmap":          _sns.heatmap,
-
-    # Utility functions
-    "sns.despine":          _sns.despine,
-
-    # Matplotlib - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # https://matplotlib.org/tutorials/introductory/sample_plots.html
-
-    # Relational plots
-    "plt.fill":             plt.fill,
-    "plt.scatter":          plt.scatter,
-    "plt.plot":             plt.plot,
-    "plt.polar":            plt.polar,
-    "plt.loglog":           plt.loglog,
-    "plt.semilogx":         plt.fill,
-    "plt.semilogy":         plt.semilogy,
-
-    # Distribution plots
-    "plt.hist":             plt.hist,
-    "plt.hist2d":           plt.hist2d,
-
-    # Categorical plots
-    "plt.bar":              plt.bar,
-    "plt.barh":             plt.barh,
-    "plt.pie":              plt.pie,
-    "plt.table":            plt.table,
-
-    # Matrix plots
-    "plt.imshow":           plt.imshow,
-    "plt.pcolormesh":       plt.pcolormesh,
-
-    # Vector plots
-    "plt.contour":          plt.contour,
-    "plt.quiver":           plt.quiver,
-    "plt.streamplot":       plt.streamplot,
-}   # --- end literalinclude
-
-# The multiplot functions that emit a warning if they do not get any arguments
-# when called.
-# This is helpful for functions that e.g. require a 'data' argument but do
-# not fail or warn if no 'data' is passed on to them.
-_MULTIPLOT_CAUTION_FUNC_NAMES = tuple(
-    func_name for func_name in _MULTIPLOT_FUNC_KINDS
-    if func_name not in ("sns.despine",)
-)
-
-
-# fmt: on
 
 
 # -----------------------------------------------------------------------------
@@ -119,9 +20,10 @@ _MULTIPLOT_CAUTION_FUNC_NAMES = tuple(
 @is_plot_func(use_dag=True)
 def multiplot(
     *,
-    hlpr: PlotHelper,
+    hlpr: "dantro.plot.plot_helper.PlotHelper",
     to_plot: Union[List[dict], Dict[Tuple[int, int], List[dict]]],
     data: dict,
+    funcs: Dict[str, Callable] = None,
     show_hints: bool = True,
     **shared_kwargs,
 ) -> None:
@@ -134,7 +36,7 @@ def multiplot(
     an ax to plot on, e.g. (0,0), while the values specify a list of plot
     function configurations to apply consecutively.
     Each list entry specifies one function plot and is parsed via the
-    :py:func:`~dantro.plot_creators._plot_helper.parse_function_specs`
+    :py:func:`~dantro.plot.funcs._multiplot.parse_function_specs`
     function.
 
     The multiplot works with any plot function that either operates on the
@@ -185,9 +87,9 @@ def multiplot(
 
     If ``function`` is a string it is looked up from the following dictionary:
 
-    .. literalinclude:: ../../dantro/plot_creators/ext_funcs/multiplot.py
+    .. literalinclude:: ../../dantro/plot/funcs/_multiplot.py
         :language: python
-        :start-after: _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
+        :start-after: MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
         :end-before:  }   # --- end literalinclude
         :dedent: 4
 
@@ -196,7 +98,8 @@ def multiplot(
     using :py:func:`~dantro._import_tools.import_module_or_object`.
 
     Args:
-        hlpr (PlotHelper): The PlotHelper instance for this plot
+        hlpr (dantro.plot.plot_helper.PlotHelper): The PlotHelper instance for
+            this plot, carrying the to-be-plotted-on figure object.
         to_plot (Union[list, dict]): The plot specifications.
             If list-like, assumes that there is only a single axis and applies
             all functions to that axis.
@@ -206,6 +109,9 @@ def multiplot(
         data (dict): Data from TransformationDAG selection. These results are
             ignored; data needs to be passed via the result placeholders!
             See above.
+        funcs (Dict[str, Callable], optional): If given, use this dictionary
+            to look up functions by name. If not given, will use a default
+            dict with a set of matplotlib and seaborn functions.
         show_hints (bool): Whether to show hints in the case of not passing
             any arguments to a plot function.
         **shared_kwargs (dict): Shared kwargs for all plot functions.
@@ -251,22 +157,20 @@ def multiplot(
             for call_num, func_kwargs in enumerate(specs):
                 parse_and_invoke_function(
                     hlpr=hlpr,
-                    funcs=_MULTIPLOT_FUNC_KINDS,
+                    funcs=funcs,
                     shared_kwargs=shared_kwargs,
                     func_kwargs=func_kwargs,
                     show_hints=show_hints,
                     call_num=call_num,
-                    caution_func_names=_MULTIPLOT_CAUTION_FUNC_NAMES,
                 )
 
     else:
         for call_num, func_kwargs in enumerate(to_plot):
             parse_and_invoke_function(
                 hlpr=hlpr,
-                funcs=_MULTIPLOT_FUNC_KINDS,
+                funcs=funcs,
                 shared_kwargs=shared_kwargs,
                 func_kwargs=func_kwargs,
                 show_hints=show_hints,
                 call_num=call_num,
-                caution_func_names=_MULTIPLOT_CAUTION_FUNC_NAMES,
             )

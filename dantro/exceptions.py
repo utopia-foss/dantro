@@ -226,12 +226,12 @@ class SkipPlot(DantroMessagingException):
 
 class EnterAnimationMode(DantroMessagingException):
     """An exception that is used to convey to any
-    :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` or derived
+    :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` or derived
     creator that animation mode is to be entered instead of a regular
     single-file plot.
 
     It can and should be invoked via
-    :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.enable_animation`.
+    :py:meth:`~dantro.plot.plot_helper.PlotHelper.enable_animation`.
 
     This exception can be raised from within a plot function to dynamically
     decide whether animation should happen or not. Its counterpart is
@@ -241,12 +241,12 @@ class EnterAnimationMode(DantroMessagingException):
 
 class ExitAnimationMode(DantroMessagingException):
     """An exception that is used to convey to any
-    :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` or derived
+    :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` or derived
     creator that animation mode is to be exited and a regular single-file plot
     should be carried out.
 
     It can and should be invoked via
-    :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.disable_animation`.
+    :py:meth:`~dantro.plot.plot_helper.PlotHelper.disable_animation`.
 
     This exception can be raised from within a plot function to dynamically
     decide whether animation should happen or not. Its counterpart is
@@ -291,7 +291,7 @@ class PlotHelperError(PlotConfigError):
     @property
     def docstring(self) -> str:
         """Returns the docstring of this helper function"""
-        from .plot_creators import PlotHelper
+        from .plot import PlotHelper
 
         func = getattr(PlotHelper, "_hlpr_" + self.name)
         return f"{self.name}\n{'-'*len(self.name)}\n{inspect.getdoc(func)}\n"

@@ -50,7 +50,7 @@ How can I specify a file extension?
 
 The file extension used in generating the output path can be adjusted for all plots associated with a plot creator or for a single plot, using its plot configuration.
 
-To set a default extension, use the ``default_ext`` argument to :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator` or derived classes.
+To set a default extension, use the ``default_ext`` argument to :py:class:`~dantro.plot.creators.base.BasePlotCreator` or derived classes.
 To specify it for a single plot, use the ``file_ext`` argument, directly in its plot configuration:
 
 .. code-block:: yaml
@@ -78,9 +78,9 @@ Follow these steps to achieve overwriting of existing plot output:
 
     .. note::
 
-        If you always desire this behavior for a specific plot creator, set the :py:const:`~dantro.plot_creators.pcr_base.BasePlotCreator.OUT_PATH_EXIST_OK` class variable to ``True``.
+        If you always desire this behavior for a specific plot creator, set the :py:const:`~dantro.plot.creators.base.BasePlotCreator.OUT_PATH_EXIST_OK` class variable to ``True``.
         That variable defines the default behavior.
-        It is overwritten by the ``exist_ok`` argument passed during initialization of a :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator` (or derived creator) and by the value given in the plot configuration.
+        It is overwritten by the ``exist_ok`` argument passed during initialization of a :py:class:`~dantro.plot.creators.base.BasePlotCreator` (or derived creator) and by the value given in the plot configuration.
 
 - **Tell the plot manager to overwrite existing plot configuration files** that are stored alongside each plot; otherwise, this would also create conflict.
   To do so, pass ``cfg_exists_action='overwrite'`` during the initialization of the :py:class:`~dantro.plot_mngr.PlotManager`.
@@ -94,17 +94,17 @@ Yes. See :ref:`plot_mngr_skipping_plots` for more information.
 
 
 
-:py:class:`~dantro.plot_creators._plot_helper.PlotHelper` FAQs
+:py:class:`~dantro.plot.plot_helper.PlotHelper` FAQs
 --------------------------------------------------------------
 
 Can I assign a custom figure to the PlotHelper?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Yes.
 
-When using the :py:class:`~dantro.plot_creators._plot_helper.PlotHelper`, it automatically sets up a figure instance and an axis initially, even before the plot function is called.
-However, they can be replaced using the :py:meth:`~dantro.plot_creators._plot_helper.PlotHelper.attach_figure_and_axes` method.
+When using the :py:class:`~dantro.plot.plot_helper.PlotHelper`, it automatically sets up a figure instance and an axis initially, even before the plot function is called.
+However, they can be replaced using the :py:meth:`~dantro.plot.plot_helper.PlotHelper.attach_figure_and_axes` method.
 
 
 Can I let the plot function decide whether to perform an animation?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Yes. See :ref:`pcr_ext_animation_mode_switching` for more information.
+Yes. See :ref:`pcr_pyplot_animation_mode_switching` for more information.

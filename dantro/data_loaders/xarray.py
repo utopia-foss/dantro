@@ -22,7 +22,7 @@ class XarrayLoaderMixin:
         **load_kwargs,
     ) -> XrDataContainer:
         """Loads an :py:class:`xarray.DataArray` from a netcdf file into an
-        :py:class:`~dantro.containers.xrdatactr.XrDataContainer`.
+        :py:class:`~dantro.containers.xr.XrDataContainer`.
         Uses :py:func:`xarray.load_dataarray`.
 
         Args:

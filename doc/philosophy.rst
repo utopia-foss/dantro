@@ -54,7 +54,7 @@ Enter: Mixin Classes.
 This refers to the idea that functionality can be added to classes using `multiple inheritance <https://docs.python.org/3/tutorial/classes.html#multiple-inheritance>`_.
 This concept is widely used in dantro to allow easy customization.
 
-For example, if a :py:class:`~dantro.data_mngr.DataManager` is desired that needs a certain load functionality, this can be specified simply by *additionally* inheriting a certain mixin class, e.g. the :py:class:`~dantro.data_loaders.load_yaml.YamlLoaderMixin` for loading YAML files:
+For example, if a :py:class:`~dantro.data_mngr.DataManager` is desired that needs a certain load functionality, this can be specified simply by *additionally* inheriting a certain mixin class, e.g. the :py:class:`~dantro.data_loaders.yaml.YamlLoaderMixin` for loading YAML files:
 
 .. literalinclude:: ../tests/test_doc_examples.py
     :language: python
@@ -62,7 +62,7 @@ For example, if a :py:class:`~dantro.data_mngr.DataManager` is desired that need
     :end-before:  ### End ---- philosophy_specializing
     :dedent: 4
 
-In dantro, this is used by :py:mod:`~dantro.containers`, :py:mod:`~dantro.groups`, :py:mod:`~dantro.data_loaders` and even :py:mod:`~dantro.plot_creators`.
+In dantro, this is used by :py:mod:`~dantro.containers`, :py:mod:`~dantro.groups`, :py:mod:`~dantro.data_loaders` and even :py:mod:`~dantro.plot.creators`.
 It allows adding functionality to classes in a granular fashion, customizing them for a particular use case.
 At the same time, this approach makes it easy to retain a shared interface that allows storing all these heterogeneous objects in the same :ref:`data tree <phil_data_tree>`.
 

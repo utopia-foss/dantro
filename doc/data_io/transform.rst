@@ -1114,7 +1114,7 @@ See above on how to enable it.
 .. note::
 
     When desiring to use the caching feature of the transformation framework, the employed :py:class:`~dantro.data_mngr.DataManager` needs to be able to load numerical data.
-    If you are not already using the :py:class:`~dantro.data_loaders.AllAvailableLoadersMixin`, consider adding :py:class:`~dantro.data_loaders.load_numpy.NumpyLoaderMixin`, :py:class:`~dantro.data_loaders.load_xarray.XarrayLoaderMixin`, and :py:class:`~dantro.data_loaders.load_pkl.PickleLoaderMixin` to your :py:class:`~dantro.data_mngr.DataManager` specialization.
+    If you are not already using the :py:class:`~dantro.data_loaders.AllAvailableLoadersMixin`, consider adding :py:class:`~dantro.data_loaders.numpy.NumpyLoaderMixin`, :py:class:`~dantro.data_loaders.xarray.XarrayLoaderMixin`, and :py:class:`~dantro.data_loaders.pickle.PickleLoaderMixin` to your :py:class:`~dantro.data_mngr.DataManager` specialization.
 
 
 Writing to the file cache
@@ -1129,7 +1129,7 @@ Once it is decided that a result is to be written to a cache file, the correspon
 It creates the cache directory, if it does not already exist, and then attempts to save the result object using a set of different storage functions.
 
 There are specific storage functions for numerical data: numpy arrays are stored via the ``numpy.save`` function, which is also used to store :py:class:`~dantro.containers.numeric.NumpyDataContainer` objects.
-Another specific storage function takes care of ``xarray.DataArray`` and :py:class:`~dantro.containers.xrdatactr.XrDataContainer` objects.
+Another specific storage function takes care of ``xarray.DataArray`` and :py:class:`~dantro.containers.xr.XrDataContainer` objects.
 
 If there is no specific storage function available, it is attempted to pickle the object.
 

@@ -61,7 +61,7 @@ When writing xarray data to the cache, you *might* encounter the following error
 .. code-block:: none
 
     RuntimeError: Failed saving transformation cache file for result of type
-    dantro.containers.xrdatactr.XrDataContainer using storage function ...
+    dantro.containers.xr.XrDataContainer using storage function ...
 
 This error should trace back to the ``to_netcdf4`` method of xarray ``Dataset`` or xarray ``DataArray`` objects.
 That method inspects whether the netcdf4 package is available, and if so: uses it to write the cache file.

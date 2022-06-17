@@ -135,3 +135,27 @@ class LazyLoader:
         return import_module_or_object(
             module=modstr_parts[0], name=".".join(modstr_parts[1:])
         )
+
+
+def resolve_lazy_imports(d: dict, *, recursive: bool = True) -> dict:
+    """In-place resolves lazy imports in the given dict, recursively.
+
+    .. warning::
+
+        Only recurses on dicts, not on other mutable objects!
+
+    Args:
+        d (dict): The dict to resolve lazy imports in
+        recursive (bool, optional): Whether to recurse through the dict
+
+    Returns:
+        dict: ``d`` but with in-place resolved lazy imports
+    """
+    for k, v in d.items():
+        if isinstance(v, LazyLoader):
+            d[k] = v.resolve()
+
+        elif recursive and isinstance(v, dict):
+            d[k] = resolve_lazy_imports(d[k], recursive=recursive)
+
+    return d

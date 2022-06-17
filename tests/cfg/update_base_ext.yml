@@ -10,10 +10,10 @@ update_from_func:
 
 # A function only defined in update_base_cfg
 update_func:
-  # creator: external  (already set by default here)
+  # creator: pyplot  (already set by default here)
 
   # Specify the module to find the function in
-  module: .basic  # relative to the dantro.plot_creators.ext_funcs subpackage
+  module: .basic  # relative to the dantro.plot.funcs subpackage
 
   # And the name of the plot function within that package
   plot_func: lineplot

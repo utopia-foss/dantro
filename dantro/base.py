@@ -44,7 +44,9 @@ log = logging.getLogger(__name__)
 class BaseDataProxy(dantro.abc.AbstractDataProxy):
     """The base class for data proxies.
 
-    NOTE: This is still an abstract class and needs to be subclassed.
+    .. note::
+
+        This is still an abstract class and needs to be subclassed.
     """
 
     # Associated tags, empty by default; may also be overwritten in the object
@@ -73,9 +75,11 @@ class BaseDataAttrs(MappingAccessMixin, dantro.abc.AbstractDataAttrs):
     This implements a dict-like interface and serves as default attribute
     class.
 
-    NOTE: Unlike the other base classes, this can already be instantiated. That
-    is required as it is needed in BaseDataContainer where no previous
-    subclassing or mixin is reasonable.
+    .. note::
+
+        Unlike the other base classes, this can already be instantiated. That
+        is required as it is needed in BaseDataContainer where no previous
+        subclassing or mixin is reasonable.
     """
 
     def __init__(self, attrs: dict = None, **dc_kwargs):

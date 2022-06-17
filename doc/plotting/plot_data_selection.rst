@@ -15,7 +15,7 @@ The uniform interface of the :py:class:`~dantro.data_mngr.DataManager` paired wi
 - Fully configuration-based interface
 - Caching of computationally expensive results
 
-This functionality is embedded at the level of the :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator`, making it available for all plot creators and allowing subclasses to tailor it to their needs.
+This functionality is embedded at the level of the :py:class:`~dantro.plot.creators.base.BasePlotCreator`, making it available for all plot creators and allowing subclasses to tailor it to their needs.
 
 Additionally, :ref:`result placeholders <dag_result_placeholder>` can be specified inside the plot configuration, thus allowing to use transformation results not only for data selection, but also for programmatically determining other configuration parameters.
 
@@ -178,14 +178,14 @@ Example
       # ... some plot arguments ...
 
 
-DAG usage with :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator`
+DAG usage with :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator`
 ----------------------------------------------------------------------------
-The :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` works exactly the same as in the general case.
+The :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` works exactly the same as in the general case.
 After computation, the results are made available to the selected python plot function via the ``data`` keyword argument, which is a dictionary of the tags that were selected to be computed.
 
 With this additional keyword argument being passed to the plot function, the plot function's signature also needs to support DAG usage, which makes it less comfortable to control DAG usage via the ``use_dag`` argument in the plot *configuration*.
 
-Instead, the **best way** of implementing DAG support is via the :py:func:`~dantro.plot_creators.pcr_ext.is_plot_func` decorator.
+Instead, the **best way** of implementing DAG support is via the :py:func:`~dantro.plot.utils.is_plot_func.is_plot_func` decorator.
 It provides the following arguments that affect DAG usage:
 
 - ``use_dag``: to enable or disable DAG usage. Disabled by default.
@@ -203,7 +203,7 @@ Decorator usage puts all the relevant arguments for using the DAG framework into
 
 Defining a generic plot function
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-A plot function can then be defined via the following signature and the :py:func:`~dantro.plot_creators.pcr_ext.is_plot_func` decorator:
+A plot function can then be defined via the following signature and the :py:func:`~dantro.plot.utils.is_plot_func.is_plot_func` decorator:
 
 .. code-block:: python
 
@@ -215,7 +215,7 @@ A plot function can then be defined via the following signature and the :py:func
 The only required arguments here are ``data`` and ``hlpr``.
 The former contains all results from the DAG computation; the latter is the plot helper, which effectively is the interface to the visualization of the data.
 
-**Importantly,** this makes the plot function averse to the specific choice of a creator: the plot function can be used with the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` and from its specializations, :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator` and :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`.
+**Importantly,** this makes the plot function averse to the specific choice of a creator: the plot function can be used with the :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` and from its specializations, :py:class:`~dantro.plot.creators.psp.UniversePlotCreator` and :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator`.
 In such cases, the ``creator_type`` should not be specified in the decorator, but it should be given in the plot configuration.
 
 
@@ -247,7 +247,7 @@ The DAG can be configured in the same way as :ref:`in the general case <plot_cre
 
 Accessing the :py:class:`~dantro.data_mngr.DataManager`
 """""""""""""""""""""""""""""""""""""""""""""""""""""""
-As visible from the plot function above, the :py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` does **not** pass along the current :py:class:`~dantro.data_mngr.DataManager` instance as first positional argument (``dm``) when DAG usage is enabled.
+As visible from the plot function above, the :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` does **not** pass along the current :py:class:`~dantro.data_mngr.DataManager` instance as first positional argument (``dm``) when DAG usage is enabled.
 This makes the plot function signature simpler and allows the creator-averse definition of plot functions while not restricting access to the data manager:
 
 The data manager can still be accessed directly via the ``dm`` DAG tag.
@@ -256,13 +256,13 @@ Make sure to specify that it should be included, e.g. via ``compute_only`` or th
 
 .. _plot_data_selection_uni:
 
-Special case: :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator`
+Special case: :py:class:`~dantro.plot.creators.psp.UniversePlotCreator`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-For the :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator`, data selection and transformation has to occur based on data from the currently selected universe.
+For the :py:class:`~dantro.plot.creators.psp.UniversePlotCreator`, data selection and transformation has to occur based on data from the currently selected universe.
 This is taken care of automatically by this creator: it dynamically sets the :py:meth:`~dantro.dag.TransformationDAG.select_base` property to the current universe, not requiring any further user action.
 In effect, the ``select`` argument acts as if selections were to happen directly from the universe.
 
-Except for the ``select_base`` and ``base_transform`` arguments, the full DAG interface is available via the :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator`.
+Except for the ``select_base`` and ``base_transform`` arguments, the full DAG interface is available via the :py:class:`~dantro.plot.creators.psp.UniversePlotCreator`.
 
 .. hint::
 
@@ -271,7 +271,7 @@ Except for the ``select_base`` and ``base_transform`` arguments, the full DAG in
 
 Example
 """""""
-The following suffices to define a :py:class:`~dantro.plot_creators.pcr_psp.UniversePlotCreator`-based plot function:
+The following suffices to define a :py:class:`~dantro.plot.creators.psp.UniversePlotCreator`-based plot function:
 
 .. code-block:: python
 
@@ -289,9 +289,9 @@ The DAG can be configured in the same way as :ref:`in the general case <plot_cre
 
 .. _plot_data_selection_mv:
 
-Special case: :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`
+Special case: :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator` has a harder job: It has to select data from the whole multiverse subspace, apply transformations to it, and finally combine it, with optional further transformations following.
+The :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator` has a harder job: It has to select data from the whole multiverse subspace, apply transformations to it, and finally combine it, with optional further transformations following.
 
 It does so fully within the DAG framework by building a separate DAG branch for each universe and bundling all of them into a transformation that combines the data.
 This happens via the ``select_and_combine`` argument.
@@ -320,11 +320,11 @@ Remarks
 - File caching is hard-coded to be disabled for the initial select operation and for the operation that attaches the parameter space coordinates to it. This behavior cannot be influenced.
 - The best place to cache is the result of the combination method.
 - The regular ``select`` argument is still available, but it is applied only *after* the ``select_and_combine``-defined nodes were added and it does only act *globally*, i.e. not on *each* universe.
-- The ``select_path_prefix`` argument to :py:class:`~dantro.dag.TransformationDAG` is not allowed for the :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`. Use the ``select_and_combine.base_path`` argument instead.
+- The ``select_path_prefix`` argument to :py:class:`~dantro.dag.TransformationDAG` is not allowed for the :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator`. Use the ``select_and_combine.base_path`` argument instead.
 
 Example
 """""""
-A :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`-based plot function can be implemented like this:
+A :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator`-based plot function can be implemented like this:
 
 .. code-block:: python
 
@@ -367,11 +367,11 @@ An associated plot configuration might look like this:
 
 Handling missing data
 """""""""""""""""""""
-In some cases, the :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` associated with the :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator` might miss some states.
+In some cases, the :py:class:`~dantro.groups.psp.ParamSpaceGroup` associated with the :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator` might miss some states.
 This can happen, for instance, if the to-be-plotted data is the result of a simulation for each point in parameter space and the simulation was stopped before visiting all these points.
 In such a case, ``select_and_combine`` will typically fail.
 
-Another reason for errors during this operation may be that the data structures between the different points in parameter space are different, such that a valid path within one :py:class:`~dantro.groups.pspgrp.ParamSpaceStateGroup` (or: "universe") is *not* a valid path in another.
+Another reason for errors during this operation may be that the data structures between the different points in parameter space are different, such that a valid path within one :py:class:`~dantro.groups.psp.ParamSpaceStateGroup` (or: "universe") is *not* a valid path in another.
 
 To be able to plot the partial data in both of these cases, this plot creator makes use of :ref:`the error handling feature in the data transformation framework <dag_error_handling>`.
 It's as simple as adding the ``allow_missing_or_failing`` key to ``select_and_combine``:
@@ -491,7 +491,7 @@ Here, ``objs`` is a list of the data from each individual parameter space state 
 
 Full DAG configuration interface for multiverse selection
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""
-An example of all options available in the :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator`.
+An example of all options available in the :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator`.
 
 
 .. code-block:: yaml
@@ -569,7 +569,7 @@ An example of all options available in the :py:class:`~dantro.plot_creators.pcr_
 
 .. note::
 
-    This does not include *all* possible options for DAG configuration but focusses on those options added by :py:class:`~dantro.plot_creators.pcr_psp.MultiversePlotCreator` to work with multiverse data, e.g. ``subspace``, ``combination_kwargs``.
+    This does not include *all* possible options for DAG configuration but focusses on those options added by :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator` to work with multiverse data, e.g. ``subspace``, ``combination_kwargs``.
 
     For other arguments, see :ref:`dag_transform_full_syntax_spec`.
 
@@ -582,7 +582,7 @@ Using data transformation results in the plot configuration
 -----------------------------------------------------------
 The :ref:`data transformation framework <dag_framework>` can not only be used for the *selection* of plot data: using so-called "result placeholders", data transformation results can be used as part of the plot *configuration*.
 
-One use case is to include a computation result, e.g. some mean value, into the title of the plot via the :ref:`plot helper <pcr_ext_plot_helper>`.
+One use case is to include a computation result, e.g. some mean value, into the title of the plot via the :ref:`plot helper <plot_helper>`.
 In general, this feature allows to automate further parts of the plot configuration by giving access to the capabilities of the transformation framework.
 
 Let's look at an example plot configuration:
@@ -616,8 +616,8 @@ If you encounter errors that refer to an ``unexpected ResultPlaceholder object``
 
 **Where can (✅) placeholders always be used? Where can they never (❌) be used?**
 
-* ✅ They *can* be used in *all* configuration entries that are passed through to the selected plot function of the :ref:`pcr_ext` and derived plot creators.
-* ✅ They *can* be used within the ``helpers`` argument that controls the :ref:`pcr_ext_plot_helper`.
+* ✅ They *can* be used in *all* configuration entries that are passed through to the selected plot function of the :ref:`pcr_pyplot` and derived plot creators.
+* ✅ They *can* be used within the ``helpers`` argument that controls the :ref:`plot_helper`.
 * ❌ They can *not* be used for entries related to data transformation (``select``, ``transform``, ``dag_options``, ...) because these need to be evaluated in order to set up the :py:class:`~dantro.dag.TransformationDAG`.
 * ❌ They can *not* be used for entries evaluated by the :ref:`plot_manager` (``out_path``, etc) or the plot creator *prior to data selection* (``animation``, ``style``, ``module``, etc).
 
@@ -632,7 +632,7 @@ The only *exception* being if the placeholder is in some part of an *object* tha
 Implementation details
 ^^^^^^^^^^^^^^^^^^^^^^
 Under the hood, the ``!dag_result`` YAML tag is read as a :py:class:`~dantro._dag_utils.ResultPlaceholder` object, which simply stores the name of the tag that should come in its place.
-After the plot data was computed, the :py:class:`~dantro.plot_creators.pcr_base.BasePlotCreator` inspects the plot configuration and recursively collects all these placeholder objects.
+After the plot data was computed, the :py:class:`~dantro.plot.creators.base.BasePlotCreator` inspects the plot configuration and recursively collects all these placeholder objects.
 The :py:meth:`~dantro.dag.TransformationDAG.compute` method is then invoked to retrieve the specified results.
 Subsequently, the placeholder entries in the plot configuration are replaced with the result from the computation.
 

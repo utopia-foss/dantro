@@ -72,7 +72,7 @@ def dm(tmpdir) -> DataManager:
 
 @pytest.fixture
 def pm_kwargs(tmpdir) -> dict:
-    """Common plot manager kwargs to use; uses the ExternalPlotCreator for all
+    """Common plot manager kwargs to use; uses the PyPlotCreator for all
     the tests."""
     # Create a test module that just writes a file to the given path
     write_something_funcdef = (
@@ -84,7 +84,7 @@ def pm_kwargs(tmpdir) -> dict:
 
     tmpdir.join("test_module.py").write(write_something_funcdef)
 
-    # Pass the tmpdir to the ExternalPlotCreator __init__
+    # Pass the tmpdir to the PyPlotCreator __init__
     cik = dict(
         external=dict(default_ext="pdf", base_module_file_dir=str(tmpdir))
     )
@@ -95,8 +95,8 @@ def pm_kwargs(tmpdir) -> dict:
 
 
 @pytest.fixture
-def pcr_ext_kwargs() -> dict:
-    """Returns valid kwargs to make a ExternalPlotCreator plot"""
+def pcr_pyplot_kwargs() -> dict:
+    """Returns valid kwargs to make a PyPlotCreator plot"""
     return dict(module=".basic", plot_func="lineplot", y="vectors/values")
 
 
@@ -174,7 +174,7 @@ def test_init(dm, tmpdir):
         PlotManager(dm=dm, plots_cfg={"some_dummy_plot_3": {}})
 
 
-def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
+def test_plotting(dm, pm_kwargs, pcr_pyplot_kwargs):
     """Test the plotting functionality of the PlotManager with a plots_cfg
     setup
     """
@@ -211,7 +211,7 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
     # If default values were given during init, this should work.
     # Also, additional initialisation kwargs for the creator should be passable
     pm.plot(
-        "foo", **pcr_ext_kwargs, creator_init_kwargs=dict(default_ext="pdf")
+        "foo", **pcr_pyplot_kwargs, creator_init_kwargs=dict(default_ext="pdf")
     )
     assert_num_plots(pm, 4 + 1)
 
@@ -231,12 +231,12 @@ def test_plotting(dm, pm_kwargs, pcr_ext_kwargs):
         pm.plot("foo", creator="universe")  # missing arguments
 
     # Assert that config files were created
-    pm.plot("bar", **pcr_ext_kwargs)
+    pm.plot("bar", **pcr_pyplot_kwargs)
     assert_num_plots(pm, 4 + 2)
     assert pm.plot_info[-1]["plot_cfg_path"]
     assert os.path.exists(pm.plot_info[-1]["plot_cfg_path"])
 
-    pm.plot("baz", **pcr_ext_kwargs, save_plot_cfg=False)
+    pm.plot("baz", **pcr_pyplot_kwargs, save_plot_cfg=False)
     assert_num_plots(pm, 4 + 3)
     assert pm.plot_info[-1]["plot_cfg_path"] is None
 
@@ -312,7 +312,7 @@ def test_plot_only(dm):
         pm.plot_from_cfg(plot_only=["fish"])
 
 
-def test_plot_locations(dm, pm_kwargs, pcr_ext_kwargs):
+def test_plot_locations(dm, pm_kwargs, pcr_pyplot_kwargs):
     """Tests the locations of plots and config files are as expected.
 
     This also makes sure that it is possible to have plot names with slashes
@@ -325,7 +325,7 @@ def test_plot_locations(dm, pm_kwargs, pcr_ext_kwargs):
     # regardless of whether a sweep is configured or not
     for name in ("foo", "foo/bar/baz"):
         # Regular plot
-        pm.plot(name, **pcr_ext_kwargs)
+        pm.plot(name, **pcr_pyplot_kwargs)
 
         info = pm.plot_info[-1]
         assert os.path.isfile(info["out_path"])
@@ -335,7 +335,7 @@ def test_plot_locations(dm, pm_kwargs, pcr_ext_kwargs):
         )
 
         # Sweep plot with zero-volume: behaves basically like a regular plot
-        zero_vol_pspace = psp.ParamSpace(pcr_ext_kwargs)
+        zero_vol_pspace = psp.ParamSpace(pcr_pyplot_kwargs)
         assert zero_vol_pspace.volume == 0
         pm.plot(name + "_0vol", from_pspace=zero_vol_pspace)
 
@@ -349,7 +349,7 @@ def test_plot_locations(dm, pm_kwargs, pcr_ext_kwargs):
         )
 
         # Sweep plot with nonzero-volume
-        sweep_kwargs = copy.deepcopy(pcr_ext_kwargs)
+        sweep_kwargs = copy.deepcopy(pcr_pyplot_kwargs)
         sweep_kwargs["lw"] = psp.ParamDim(default=1.2, values=[1.0, 2.0, 3.0])
         pm.plot(name + "_sweep", from_pspace=sweep_kwargs)
 
@@ -370,7 +370,7 @@ def test_plotting_from_file_path(dm, pm_kwargs):
 
 
 def test_plotting_overwrite(
-    dm, pm_kwargs, pcr_ext_kwargs, tmpdir, pspace_plots
+    dm, pm_kwargs, pcr_pyplot_kwargs, tmpdir, pspace_plots
 ):
     """Tests that it is possible to specify a custom output path and overwrite
     existing plots.
@@ -378,7 +378,7 @@ def test_plotting_overwrite(
     pm = PlotManager(dm=dm, **pm_kwargs)
     custom_dir = tmpdir.join("custom_dir")
 
-    pc = pm.plot("foo", out_dir=str(custom_dir), **pcr_ext_kwargs)
+    pc = pm.plot("foo", out_dir=str(custom_dir), **pcr_pyplot_kwargs)
 
     # Have two files created now, plot and its config. Get the plots creation
     # date and time to make sure the later one overwrote this one
@@ -387,7 +387,7 @@ def test_plotting_overwrite(
 
     # Should not be able to overwrite it
     with pytest.raises(PlotCreatorError, match="There already exists a file"):
-        pm.plot("foo", out_dir=str(custom_dir), **pcr_ext_kwargs)
+        pm.plot("foo", out_dir=str(custom_dir), **pcr_pyplot_kwargs)
     assert plot_mtime == custom_dir.join("foo.pdf").mtime()
 
     # Now, with a plot creator that allows overwriting, it should work ... but
@@ -395,13 +395,13 @@ def test_plotting_overwrite(
     # already exists
     with pytest.raises(FileExistsError, match="File exists"):
         pm.plot(
-            "foo", out_dir=str(custom_dir), exist_ok=True, **pcr_ext_kwargs
+            "foo", out_dir=str(custom_dir), exist_ok=True, **pcr_pyplot_kwargs
         )
 
     # Set the config_exists_action in the plot manager accordingly
     pm = PlotManager(dm=dm, **pm_kwargs, cfg_exists_action="overwrite")
     pc = pm.plot(
-        "foo", out_dir=str(custom_dir), exist_ok=True, **pcr_ext_kwargs
+        "foo", out_dir=str(custom_dir), exist_ok=True, **pcr_pyplot_kwargs
     )
     assert len(custom_dir.listdir()) == 2
     assert plot_mtime < custom_dir.join("foo.pdf").mtime()
@@ -500,14 +500,14 @@ def test_plotting_based_on(dm, pm_kwargs):
     assert_num_plots(pm, 5)  # No new plots
 
 
-def test_plots_enabled(dm, pm_kwargs, pcr_ext_kwargs):
+def test_plots_enabled(dm, pm_kwargs, pcr_pyplot_kwargs):
     """Tests the handling of `enabled` key in plots configuration"""
     pm = PlotManager(
         dm=dm,
         **pm_kwargs,
         default_plots_cfg=dict(
-            foo=dict(enabled=False, **pcr_ext_kwargs),
-            bar=dict(enabled=True, **pcr_ext_kwargs),
+            foo=dict(enabled=False, **pcr_pyplot_kwargs),
+            bar=dict(enabled=True, **pcr_pyplot_kwargs),
         ),
         cfg_exists_action="skip",
     )
@@ -556,7 +556,7 @@ def test_sweep(dm, pm_kwargs, pspace_plots):
         assert pi["plot_cfg_path"] is None
 
 
-def test_file_ext(dm, pm_kwargs, pcr_ext_kwargs):
+def test_file_ext(dm, pm_kwargs, pcr_pyplot_kwargs):
     """Check file extension handling"""
     # Without given default extension
     PlotManager(

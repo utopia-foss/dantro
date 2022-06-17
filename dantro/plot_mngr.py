@@ -18,10 +18,10 @@ from paramspace import ParamDim, ParamSpace
 from .abc import BAD_NAME_CHARS as _BAD_NAME_CHARS
 from .data_mngr import DataManager
 from .exceptions import *
+from .plot import BasePlotCreator, SkipPlot
 from .plot._cfg import resolve_based_on as _resolve_based_on
 from .plot._cfg import resolve_based_on_single as _resolve_based_on_single
-from .plot_creators import ALL as ALL_PCRS
-from .plot_creators import BasePlotCreator, SkipPlot
+from .plot.creators import ALL_PLOT_CREATORS as ALL_PCRS
 from .tools import format_time as _format_time
 from .tools import load_yml, make_columns, recursive_update, write_yml
 
@@ -56,7 +56,7 @@ class PlotManager:
     By default, all available dantro plot creators are registered.
 
     When subclassing PlotManager and desiring to *extend* the creator mapping,
-    use ``dict(**dantro.plot_creators.ALL, my_new_creator=MyNewCreator)``
+    use ``dict(**dantro.plot.creators.ALL, my_new_creator=MyNewCreator)``
     to include the default creator mapping."""
 
     DEFAULT_OUT_FSTRS: Dict[str, str] = dict(

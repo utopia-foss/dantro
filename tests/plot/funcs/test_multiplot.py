@@ -12,9 +12,9 @@ from pkg_resources import resource_filename
 
 from dantro.containers import PassthroughContainer, XrDataContainer
 from dantro.exceptions import PlottingError
-from dantro.plot_creators import ExternalPlotCreator, PlotHelper
-from dantro.plot_creators._plot_helper import parse_function_specs
-from dantro.plot_creators.ext_funcs.multiplot import multiplot
+from dantro.plot import PlotHelper, PyPlotCreator
+from dantro.plot.funcs._multiplot import parse_function_specs
+from dantro.plot.funcs.multiplot import multiplot
 from dantro.tools import load_yml
 
 from .test_generic import create_nd_data, out_dir
@@ -73,7 +73,7 @@ def test_multiplot(dm, out_dir):
     """Tests the basic features and special cases of the multiplot plot"""
     default_kwargs = dict(module=".multiplot", plot_func="multiplot")
 
-    epc = ExternalPlotCreator("test_multiplot", dm=dm)
+    epc = PyPlotCreator("test_multiplot", dm=dm)
     epc._exist_ok = True
 
     # Shortcuts

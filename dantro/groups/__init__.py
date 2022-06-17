@@ -9,5 +9,5 @@ from .ordered import IndexedDataGroup, OrderedDataGroup
 # The groups below can be imported in whatever order
 from .graph import GraphGroup
 from .labelled import LabelledDataGroup
-from .pspgrp import ParamSpaceGroup, ParamSpaceStateGroup
+from .psp import ParamSpaceGroup, ParamSpaceStateGroup
 from .time_series import HeterogeneousTimeSeriesGroup, TimeSeriesGroup

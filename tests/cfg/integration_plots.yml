@@ -2,7 +2,7 @@
 ---
 my_high_dimensional_plot:
   # Choose a creator
-  creator: external
+  creator: pyplot
 
   # Select a plot function, in this case: dantro's generic facet grid function
   module: .generic
@@ -21,7 +21,7 @@ my_high_dimensional_plot:
 # For each simulation, called "universe" here, plot the random walk
 random_walk:
   # Choose a creator
-  # Here: the UniversePlotCreator, a specialization of the ExternalPlotCreator
+  # Here: the UniversePlotCreator, a specialization of the PyPlotCreator
   creator: universe
   universes: all
 

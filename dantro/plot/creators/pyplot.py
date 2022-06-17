@@ -1,26 +1,29 @@
-"""This module implements the ExternalPlotCreator class, which specialises on
-creating matplotlib-based plots. These are accessed via 'external' modules
-being imported and plot functions defined in these modules being invoked.
+"""This module implements the :py:class:`.PyPlotCreator` class, which
+specializes on creating :py:mod:`matplotlib.pyplot`-based plots.
+
+These are accessed via "external" modules being imported and plot functions
+defined in these modules being invoked.
 """
 
 import copy
-import importlib
+import importlib  # TODO replace with _import_tools functionality
 import importlib.util
 import logging
 import os
 from typing import Callable, List, Sequence, Tuple, Union
 
-from .._import_tools import LazyLoader
-from ..dag import TransformationDAG
-from ..tools import DoNothingContext, load_yml, recursive_update
-from ._plot_helper import (
+from ..._import_tools import LazyLoader
+from ...dag import TransformationDAG
+from ...tools import DoNothingContext, load_yml, recursive_update
+from ..plot_helper import (
     EnterAnimationMode,
     ExitAnimationMode,
     PlotHelper,
     PlotHelperError,
     PlotHelperErrors,
 )
-from .pcr_base import BasePlotCreator, _resolve_placeholders
+from ..utils import figure_leak_prevention
+from .base import BasePlotCreator, _resolve_placeholders
 
 log = logging.getLogger(__name__)
 
@@ -28,93 +31,32 @@ mpl = LazyLoader("matplotlib")
 plt = LazyLoader("matplotlib.pyplot")
 
 # -----------------------------------------------------------------------------
-# Tools
 
 
-class figure_leak_prevention:
-    """Context manager that aims to prevent superfluous matplotlib figures
-    persisting beyond the context. Such figure objects can aggregate and start
-    memory issues or even representation errors.
-
-    Specifically, it does the following:
-
-        * When entering, stores all current figure numbers
-        * When exiting regularly, all figures that were opened within the
-          context are closed, except the currently selected figure.
-        * When exiting with an exception, the behaviour is the same, unless the
-          ``close_current_fig_on_raise`` is set, in which case the currently
-          selected figure is **not** excluded from closing.
-
+class PyPlotCreator(BasePlotCreator):
+    """A plot creator that is specialized on creating plots using
+    :py:mod:`matplotlib.pyplot`.
     """
 
-    def __init__(self, *, close_current_fig_on_raise: bool = False):
-        """Initialize the context manager
-
-        Args:
-            close_current_fig_on_raise (bool, optional): If True, the
-                currently selected figure will **not** be exempt from the
-                figure closure in case an exception occurs. This flag has no
-                effect when the context is exited without an exception.
-        """
-        self._fignums = None
-        self._close_current = close_current_fig_on_raise
-
-    def __enter__(self):
-        """Upon entering, store all currently open figure numbers"""
-        self._fignums = plt.get_fignums()
-        log.trace(
-            "Entering figure_leak_prevention context. Open figures: %s",
-            self._fignums,
-        )
-
-    def __exit__(self, exc_type: type, *args) -> None:
-        """Iterates over all currently open figures and closes all figures
-        that were not previously open, except the currently selected figure.
-
-        If an exception is detected, i.e. ``exc_type` is **not** None, the
-        current figure is only closed if the context manager was entered with
-        the ``close_current_fig_on_raise`` flag set.
-        """
-        log.trace(
-            "Exiting figure_leak_prevention (exception: %s) ...", exc_type
-        )
-
-        # Determine whether to exclude the current figure or not
-        exclude_current = not self._close_current or exc_type is None
-        cfn = plt.gcf().number
-        log.trace("  Current figure: %d", cfn)
-
-        for n in plt.get_fignums():
-            if n in self._fignums or (exclude_current and n == cfn):
-                continue
-            plt.close(n)
-            log.trace("  Closed figure %d.", n)
-
-
-# -----------------------------------------------------------------------------
-
-
-class ExternalPlotCreator(BasePlotCreator):
-    """This PlotCreator uses external scripts to create plots."""
-
-    # Settings of functionality implemented in parent classes
+    # Settings of functionality implemented in BasePlotCreator
     EXTENSIONS = "all"  # no checks performed
     DEFAULT_EXT = None
     DEFAULT_EXT_REQUIRED = False
     DAG_SUPPORTED = True
     DAG_INVOKE_IN_BASE = False  # False: DAG invocation NOT done automatically
 
-    # For relative module imports, see the following as the base package
-    BASE_PKG = "dantro.plot_creators.ext_funcs"
-
-    # Which plot helper class to use
-    PLOT_HELPER_CLS = PlotHelper
-
-    # Configuration for the PlotManager's auto-detection feature ..............
-
+    # PlotManager-related class variables for the auto-detection feature:
     # Whether to ignore function attributes (e.g. `creator_name`) when
     # deciding whether a plot function is to be used with this creator
     _AD_IGNORE_FUNC_ATTRS = False
+
+    # Newly introduced class variables ........................................
+
+    BASE_PKG = "dantro.plot.funcs"
+    """For relative module imports, use this base package"""
+
+    PLOT_HELPER_CLS = PlotHelper
+    """Which :py:class:`~dantro.plot.plot_helper.PlotHelper` class to use"""
 
     # .........................................................................
     # Main API functions, required by PlotManager
@@ -127,7 +69,7 @@ class ExternalPlotCreator(BasePlotCreator):
         style: dict = None,
         **parent_kwargs,
     ):
-        """Initialize an ExternalPlotCreator.
+        """Initialize an PyPlotCreator.
 
         Args:
             name (str): The name of this plot
@@ -400,7 +342,7 @@ class ExternalPlotCreator(BasePlotCreator):
         use_dag: bool,
     ):
         """A helper method that performs plotting using the
-        :py:class:`~dantro.plot_creators._plot_helper.PlotHelper`.
+        :py:class:`~dantro.plot.plot_helper.PlotHelper`.
 
         Args:
             out_path (str): The output path
@@ -963,7 +905,7 @@ class ExternalPlotCreator(BasePlotCreator):
 
         # Retrieve the writer; to trigger writer registration with matplotlib,
         # make sure that the movie writers module is actually imported
-        from ._movie_writers import FileWriter
+        from ..utils._file_writer import FileWriter
 
         if mpl.animation.writers.is_available(writer_name):
             wCls = mpl.animation.writers[writer_name]
@@ -1111,103 +1053,3 @@ class ExternalPlotCreator(BasePlotCreator):
             "creator."
         )
         return False
-
-
-# -----------------------------------------------------------------------------
-
-
-class is_plot_func:
-    """This is a decorator class declaring the decorated function as a
-    plotting function to use with ExternalPlotCreator-derived plot creators
-    """
-
-    def __init__(
-        self,
-        *,
-        creator_type: type = None,
-        creator_name: str = None,
-        use_helper: bool = True,
-        helper_defaults: Union[dict, str] = None,
-        use_dag: bool = None,
-        required_dag_tags: Sequence[str] = None,
-        compute_only_required_dag_tags: bool = True,
-        pass_dag_object_along: bool = False,
-        unpack_dag_results: bool = False,
-        supports_animation=False,
-        add_attributes: dict = None,
-    ):
-        """Initialize the decorator. Note that the function to be decorated is
-        not passed to this method.
-
-        Args:
-            creator_type (type, optional): The type of plot creator to use
-            creator_name (str, optional): The name of the plot creator to use
-            use_helper (bool, optional): Whether to use a PlotHelper
-            helper_defaults (Union[dict, str], optional): Default
-                configurations for helpers; these are automatically considered
-                to be enabled. If string-like, will assume this is an absolute
-                path to a YAML file and will load the dict-like configuration
-                from there.
-            use_dag (bool, optional): Whether to use the data transformation
-                framework.
-            required_dag_tags (Sequence[str], optional): The DAG tags that are
-                required by the plot function.
-            compute_only_required_dag_tags (bool, optional): Whether to compute
-                only those DAG tags that are specified as required by the plot
-                function. This is ignored if no required DAG tags were given
-                and can be overwritten by the ``compute_only`` argument.
-            pass_dag_object_along (bool, optional): Whether to pass on the DAG
-                object to the plot function
-            unpack_dag_results (bool, optional): Whether to unpack the results
-                of the DAG computation directly into the plot function instead
-                of passing it as a dictionary.
-            supports_animation (bool, optional): Whether the plot function
-                supports animation.
-            add_attributes (dict, optional): Additional attributes to add to
-                the plot function.
-
-        Raises:
-            ValueError: If `helper_defaults` was a string but not an absolute
-                path.
-        """
-        if isinstance(helper_defaults, str):
-            # Interpret as path to yaml file
-            fpath = os.path.expanduser(helper_defaults)
-
-            # Should be absolute
-            if not os.path.isabs(fpath):
-                raise ValueError(
-                    "`helper_defaults` string argument was a "
-                    "relative path: {}, but needs to be either a "
-                    "dict or an absolute path (~ allowed)."
-                    "".format(fpath)
-                )
-
-            log.debug("Loading helper defaults from file %s ...", fpath)
-            helper_defaults = load_yml(fpath)
-
-        # Gather those attributes that are to be set as function attributes
-        self.pf_attrs = dict(
-            creator_type=creator_type,
-            creator_name=creator_name,
-            use_helper=use_helper,
-            helper_defaults=helper_defaults,
-            use_dag=use_dag,
-            required_dag_tags=required_dag_tags,
-            compute_only_required_dag_tags=compute_only_required_dag_tags,
-            pass_dag_object_along=pass_dag_object_along,
-            supports_animation=supports_animation,
-            **(add_attributes if add_attributes else {}),
-        )
-
-    def __call__(self, func: Callable):
-        """If there are decorator arguments, __call__() is only called
-        once, as part of the decoration process and expects as only argument
-        the function to be decorated.
-        """
-        # Do not actually wrap the function call, but add attributes to it
-        for k, v in self.pf_attrs.items():
-            setattr(func, k, v)
-
-        # Return the function, now with attributes set
-        return func

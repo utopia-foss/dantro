@@ -53,7 +53,7 @@ class Hdf5LoaderMixin:
     """The name of the HDF5 dataset or group attribute to read in order to
     determine the type mapping. For example, this could be ``"content"``.
     This is the fallback value if no ``map_from_attr`` argument is given to
-    :py:meth:`dantro.data_loaders.load_hdf5.Hdf5LoaderMixin._load_hdf5`"""
+    :py:meth:`dantro.data_loaders.hdf5.Hdf5LoaderMixin._load_hdf5`"""
 
     _HDF5_DECODE_ATTR_BYTESTRINGS: bool = True
     """If true (default), will attempt to decode HDF5 attributes that are
@@ -220,7 +220,7 @@ class Hdf5LoaderMixin:
     @add_loader(TargetCls=OrderedDataGroup, omit_self=False)
     def _load_hdf5_proxy(self, *args, **kwargs) -> OrderedDataGroup:
         """This is a shorthand for
-        :py:meth:`~dantro.data_loaders.load_hdf5.Hdf5LoaderMixin._load_hdf5`
+        :py:meth:`~dantro.data_loaders.hdf5.Hdf5LoaderMixin._load_hdf5`
         with the ``load_as_proxy`` flag set.
         """
         return self._load_hdf5(*args, load_as_proxy=True, **kwargs)
@@ -228,7 +228,7 @@ class Hdf5LoaderMixin:
     @add_loader(TargetCls=OrderedDataGroup, omit_self=False)
     def _load_hdf5_as_dask(self, *args, **kwargs) -> OrderedDataGroup:
         """This is a shorthand for
-        :py:meth:`~dantro.data_loaders.load_hdf5.Hdf5LoaderMixin._load_hdf5`
+        :py:meth:`~dantro.data_loaders.hdf5.Hdf5LoaderMixin._load_hdf5`
         with the ``load_as_proxy`` flag set and ``resolve_as_dask`` passed as
         additional arguments to the proxy via ``proxy_kwargs``.
         """
@@ -262,9 +262,9 @@ class Hdf5LoaderMixin:
             direct_insertion (bool): Whether to use direct insertion mode on
                 the target group (and all groups below)
             **kwargs: Passed on to the group and container loader methods,
-                :py:meth:`~dantro.data_loaders.load_hdf5.Hdf5LoaderMixin._container_from_h5dataset`
+                :py:meth:`~dantro.data_loaders.hdf5.Hdf5LoaderMixin._container_from_h5dataset`
                 and
-                :py:meth:`~dantro.data_loaders.load_hdf5.Hdf5LoaderMixin._group_from_h5group`.
+                :py:meth:`~dantro.data_loaders.hdf5.Hdf5LoaderMixin._group_from_h5group`.
 
         Raises:
             NotImplementedError: When encountering objects other than groups

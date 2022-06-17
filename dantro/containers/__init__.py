@@ -1,4 +1,4 @@
-"""The containers sub-package implements BaseDataContainer specializations"""
+"""Implements :py:class:`~dantro.base.BaseDataContainer` specializations."""
 
 from .general import (
     MutableMappingContainer,
@@ -9,4 +9,4 @@ from .general import (
 )
 from .link import LinkContainer
 from .numeric import NumpyDataContainer
-from .xrdatactr import XrDataContainer
+from .xr import XrDataContainer

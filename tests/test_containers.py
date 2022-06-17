@@ -26,15 +26,10 @@ from dantro.mixins.proxy_support import Hdf5ProxySupportMixin
 from dantro.proxy import Hdf5DataProxy
 from dantro.utils import Link
 
-# Local constants
-
 
 class DummyContainer(ItemAccessMixin, BaseDataContainer):
     """A dummy container that fulfills all the requirements of the abstract
-    BaseDataContainer class.
-
-    NOTE: the methods have not the correct functionality!
-    """
+    BaseDataContainer class."""
 
     def _format_info(self):
         return "dummy"
@@ -48,7 +43,6 @@ from .test_proxy import tmp_h5file
 @pytest.fixture
 def tmp_h5_dset(tmp_h5file) -> h5.Dataset:
     """Creates a temporary hdf5 dataset"""
-    # Create a h5 dataset
     dset = tmp_h5file.create_dataset(
         "init", data=np.zeros(shape=(1, 2, 3), dtype=int)
     )

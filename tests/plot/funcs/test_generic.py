@@ -14,9 +14,9 @@ from pkg_resources import resource_filename
 
 from dantro.containers import PassthroughContainer, XrDataContainer
 from dantro.exceptions import *
-from dantro.plot_creators import ExternalPlotCreator, PlotHelper
-from dantro.plot_creators.ext_funcs._utils import plot_errorbar
-from dantro.plot_creators.ext_funcs.generic import (
+from dantro.plot import PlotHelper, PyPlotCreator
+from dantro.plot.funcs._utils import plot_errorbar
+from dantro.plot.funcs.generic import (
     _FACET_GRID_FUNCS,
     _FACET_GRID_KINDS,
     determine_encoding,
@@ -113,7 +113,7 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
     After each invocation, if the number of open figures is checked, which can
     be used to detect figure leakage.
     """
-    epc = ExternalPlotCreator("test_facet_grid", dm=dm)
+    epc = PyPlotCreator("test_facet_grid", dm=dm)
     epc._exist_ok = True
 
     # Shortcuts
@@ -451,7 +451,7 @@ def test_determine_encoding():
 #      test the `errorbars` function!
 def test_errorbar(dm, out_dir, anim_disabled):
     """Tests the errorbar plot"""
-    epc = ExternalPlotCreator("test_errorbar", dm=dm)
+    epc = PyPlotCreator("test_errorbar", dm=dm)
     epc._exist_ok = True
 
     # Shortcuts
@@ -646,7 +646,7 @@ def test_make_facet_grid_plot():
 
 def test_facet_grid(dm, out_dir, anim_disabled):
     """Tests the basic features and special cases of the facet_grid plot"""
-    epc = ExternalPlotCreator("test_facet_grid", dm=dm)
+    epc = PyPlotCreator("test_facet_grid", dm=dm)
     epc._exist_ok = True
 
     # Shortcuts

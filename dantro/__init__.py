@@ -8,9 +8,11 @@ It is built around three main features:
 
 Together, these stages constitute a **data processing pipeline**:
 an automated sequence of predefined, configurable operations.
+
+See :ref:`the user manual <welcome>` for more information.
 """
 
-__version__ = "0.18.0a7"
+__version__ = "0.18.0a8"
 """Package version"""
 
 from .logging import getLogger

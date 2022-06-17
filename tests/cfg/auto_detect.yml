@@ -1,11 +1,11 @@
 # Configuration #3 for PlotManager test with "external" plot creator
 # This file is used for the auto-detect feature in both the tests of the
-# PlotManager and the ExternalPlotCreator
+# PlotManager and the PyPlotCreator
 ---
 # -- Used in test_plot_mngr.py ------------------------------------------------
 pcr_ext: &pcr_ext
   # Specify the module to find the function in
-  module: .basic  # relative to the dantro.plot_creators.ext_funcs subpackage
+  module: .basic  # relative to the dantro.plot.funcs subpackage
 
   # And the name of the plot function within that package
   plot_func: lineplot

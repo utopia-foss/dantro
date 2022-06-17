@@ -1,7 +1,7 @@
 """This implements the ParamSpaceGroup plot creators, based on the
-:py:class:`~dantro.plot_creators.pcr_ext.ExternalPlotCreator` and providing
+:py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` and providing
 additional functionality for data that is stored in a
-:py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`.
+:py:class:`~dantro.groups.psp.ParamSpaceGroup`.
 """
 
 import copy
@@ -12,13 +12,13 @@ from typing import Callable, List, Sequence, Tuple, Union
 import numpy as np
 from paramspace import ParamDim, ParamSpace
 
-from .._import_tools import LazyLoader
-from ..abc import PATH_JOIN_CHAR
-from ..dag import DAGNode, DAGReference, DAGTag, TransformationDAG
-from ..groups import ParamSpaceGroup, ParamSpaceStateGroup
-from ..tools import is_iterable, recursive_update
-from .pcr_base import SkipPlot
-from .pcr_ext import ExternalPlotCreator
+from ..._import_tools import LazyLoader
+from ...abc import PATH_JOIN_CHAR
+from ...dag import DAGNode, DAGReference, DAGTag, TransformationDAG
+from ...groups import ParamSpaceGroup, ParamSpaceStateGroup
+from ...tools import is_iterable, recursive_update
+from .base import SkipPlot
+from .pyplot import PyPlotCreator
 
 # Local constants and lazy module imports
 log = logging.getLogger(__name__)
@@ -29,13 +29,13 @@ xr = LazyLoader("xarray")
 # -----------------------------------------------------------------------------
 
 
-class MultiversePlotCreator(ExternalPlotCreator):
-    """A MultiversePlotCreator is an ExternalPlotCreator that allows data to be
+class MultiversePlotCreator(PyPlotCreator):
+    """A MultiversePlotCreator is an PyPlotCreator that allows data to be
     selected before being passed to the plot function.
     """
 
     PSGRP_PATH: ParamSpaceGroup = None
-    """Where the :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` object is
+    """Where the :py:class:`~dantro.groups.psp.ParamSpaceGroup` object is
     expected within the :py:class:`~dantro.data_mngr.DataManager`"""
 
     # .........................................................................
@@ -46,7 +46,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
         Args:
             *args: Passed on to parent class.
             psgrp_path (str, optional): The path to the associated
-                :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` that is to
+                :py:class:`~dantro.groups.psp.ParamSpaceGroup` that is to
                 be used for these multiverse plots.
             **kwargs: Passed on to parent
         """
@@ -75,7 +75,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
 
         Controlled by the ``expected_multiverse_ndim`` argument, this
         plot will be skipped if the dimensionality of the associated
-        :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` is *not* specified in
+        :py:class:`~dantro.groups.psp.ParamSpaceGroup` is *not* specified in
         the set of permissible dimensionalities.
         If that argument is not given or None, this check will not be carried
         out.
@@ -116,7 +116,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
 
         This also implements the functionality to select and combine data from
         the Multiverse and provide it to the plot function. It can do so via
-        the associated :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`
+        the associated :py:class:`~dantro.groups.psp.ParamSpaceGroup`
         directly or by creating a :py:class:`~dantro.dag.TransformationDAG`
         that leads to the same results.
 
@@ -130,7 +130,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
             *args: Positional arguments to the plot function.
             select (dict, optional): If given, selects and combines multiverse
                 data using
-                :py:meth:`~dantro.groups.pspgrp.ParamSpaceGroup.select`.
+                :py:meth:`~dantro.groups.psp.ParamSpaceGroup.select`.
                 The result is an ``xr.Dataset`` and it is made available to
                 the plot function as ``mv_data`` argument.
             select_and_combine (dict, optional): If given, interfaces with the
@@ -166,7 +166,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
                 "or `select_and_combine`, got neither!"
             )
 
-        # Let the parent method (from ExternalPlotCreator) do its thing.
+        # Let the parent method (from PyPlotCreator) do its thing.
         # It will invoke the specialized _get_dag_params and _create_dag helper
         # methods that are implemented by this class.
         return super()._prepare_plot_func_args(*args, **kwargs)
@@ -204,7 +204,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
         transformations, and a ``combine`` operation, that aligns the data in
         the desired fashion.
 
-        This way, the :py:meth:`~dantro.groups.pspgrp.ParamSpaceGroup.select`
+        This way, the :py:meth:`~dantro.groups.psp.ParamSpaceGroup.select`
         method's behaviour is emulated in the DAG.
 
         Args:
@@ -555,13 +555,13 @@ class MultiversePlotCreator(ExternalPlotCreator):
 # -----------------------------------------------------------------------------
 
 
-class UniversePlotCreator(ExternalPlotCreator):
-    """A UniversePlotCreator is an ExternalPlotCreator that allows looping of
+class UniversePlotCreator(PyPlotCreator):
+    """A UniversePlotCreator is an PyPlotCreator that allows looping of
     all or a selected subspace of universes.
     """
 
     PSGRP_PATH: ParamSpaceGroup = None
-    """Where the :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` object is
+    """Where the :py:class:`~dantro.groups.psp.ParamSpaceGroup` object is
     expected within the :py:class:`~dantro.data_mngr.DataManager`"""
 
     # .........................................................................
@@ -572,7 +572,7 @@ class UniversePlotCreator(ExternalPlotCreator):
         Args:
             *args: Passed on to parent class
             psgrp_path (str, optional): Specifies the location of the
-                :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` within the
+                :py:class:`~dantro.groups.psp.ParamSpaceGroup` within the
                 data tree. If given, overwrites the class variable default.
             **kwargs: Passed on to parent class
         """
@@ -843,7 +843,7 @@ class UniversePlotCreator(ExternalPlotCreator):
         uni = self.psgrp[uni_id]
         log.note("Using data of:        %s", uni.logstr)
 
-        # Let the parent function, implemented in ExternalPlotCreator, do its
+        # Let the parent function, implemented in PyPlotCreator, do its
         # thing. This will return the (args, kwargs) tuple and will also take
         # care of data transformation using the DAG framework, for which some
         # behaviour is specialized for selection from the passed `uni` using

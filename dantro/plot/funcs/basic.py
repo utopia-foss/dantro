@@ -1,13 +1,12 @@
-"""Holds basic plot functions for use with ExternalPlotCreator"""
+"""Holds basic plot functions for use with PyPlotCreator"""
 
 import logging
 
 import matplotlib.pyplot as plt
 
 from ...data_mngr import DataManager
-from ..pcr_ext import is_plot_func
+from ..utils.is_plot_func import is_plot_func
 
-# Local constants
 log = logging.getLogger(__name__)
 
 

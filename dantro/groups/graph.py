@@ -316,7 +316,7 @@ class GraphGroup(BaseDataGroup):
 
         Returns:
             The data, potentially converted to a
-                :py:class: `~dantro.containers.xrdatactr.XrDataContainer`
+                :py:class: `~dantro.containers.xr.XrDataContainer`
 
         Raises:
             TypeError: On invalid type of ``data``
@@ -377,7 +377,7 @@ class GraphGroup(BaseDataGroup):
             key (str): The key via which the registered data will be available
             data: The data to be mapped. If the given data is not an allowed
                 container type, an attempt is made to construct an
-                :py:class:`~dantro.containers.xrdatactr.XrDataContainer` with
+                :py:class:`~dantro.containers.xr.XrDataContainer` with
                 the data. Only if this operation fails, will property map
                 registration fail.
 
@@ -635,7 +635,7 @@ class GraphGroup(BaseDataGroup):
             data (None, optional): If given, load node properties directly
                 from ``data``. If the given data is not an allowed container
                 type, an attempt is made to construct an
-                :py:class:`~dantro.containers.xrdatactr.XrDataContainer` with
+                :py:class:`~dantro.containers.xr.XrDataContainer` with
                 the data. Only if this operation fails, the node property
                 setting will fail.
             align (bool, optional): If True, the property data is aligned
@@ -776,7 +776,7 @@ class GraphGroup(BaseDataGroup):
             data (None, optional): If given, load edge properties directly
                 from ``data``. If the given data is not an allowed container
                 type, an attempt is made to construct an
-                :py:class:`~dantro.containers.xrdatactr.XrDataContainer` with
+                :py:class:`~dantro.containers.xr.XrDataContainer` with
                 the data. Only if this operation fails, the edge property
                 setting will fail.
             align (bool, optional): If True, the property data is aligned
