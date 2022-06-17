@@ -74,7 +74,7 @@ Dask Support
 There will be scenarios in which the data that is to be analyzed exceeds the limits of the physical memory of the machine.
 Here, proxy objects don't help, as they only *postpone* the loading.
 
-This is often the case for numerical data, typically represented in dantro by the :py:class:`~dantro.containers.xrdatactr.XrDataContainer`, which are based on `xarray <http://xarray.pydata.org/en/stable/>`_ data structures.
+This is often the case for numerical data, typically represented in dantro by the :py:class:`~dantro.containers.xr.XrDataContainer`, which are based on `xarray <http://xarray.pydata.org/en/stable/>`_ data structures.
 As xarray provides an interface to the `dask <https://dask.org>`_ framework and its delayed computation capabilities, dantro can make use of that interface as well.
 
 The dask package allows working on chunked data, e.g. HDF5 data, and only load those parts that are necessary for a calculation, afterward freeing up the memory again.

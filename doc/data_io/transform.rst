@@ -1129,7 +1129,7 @@ Once it is decided that a result is to be written to a cache file, the correspon
 It creates the cache directory, if it does not already exist, and then attempts to save the result object using a set of different storage functions.
 
 There are specific storage functions for numerical data: numpy arrays are stored via the ``numpy.save`` function, which is also used to store :py:class:`~dantro.containers.numeric.NumpyDataContainer` objects.
-Another specific storage function takes care of ``xarray.DataArray`` and :py:class:`~dantro.containers.xrdatactr.XrDataContainer` objects.
+Another specific storage function takes care of ``xarray.DataArray`` and :py:class:`~dantro.containers.xr.XrDataContainer` objects.
 
 If there is no specific storage function available, it is attempted to pickle the object.
 

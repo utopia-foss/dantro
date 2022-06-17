@@ -202,7 +202,7 @@ The following example illustrates that, and furthermore uses the `dask <https://
 
 Remarks:
 
-* By default, the :py:class:`~dantro.containers.numeric.NumpyDataContainer` and :py:class:`~dantro.containers.xrdatactr.XrDataContainer` classes do not provide proxy support.
+* By default, the :py:class:`~dantro.containers.numeric.NumpyDataContainer` and :py:class:`~dantro.containers.xr.XrDataContainer` classes do not provide proxy support.
   This is why a custom class needs to be :doc:`specialized <../specializing>` to allow loading the data as proxy.
 * Furthermore, the :py:class:`~dantro.data_mngr.DataManager`\ 's :py:class:`~dantro.data_loaders.hdf5.Hdf5LoaderMixin` needs to be told to use the custom data container class.
 
