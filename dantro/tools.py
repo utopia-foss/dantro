@@ -3,9 +3,9 @@
 import collections
 import logging
 import os
-import shutil
 import sys
-from datetime import timedelta
+from datetime import timedelta as _timedelta
+from shutil import get_terminal_size as _get_terminal_size
 from typing import List, Mapping, Sequence, Set, Tuple, Union
 
 import numpy as np
@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 # Terminal, TTY-related
 
-TERMINAL_INFO = dict(columns=79, lines=20, is_a_tty=False)
+TERMINAL_INFO = dict(columns=79, lines=24, is_a_tty=False)
 """Holds information about the size and properties of the used terminal.
 
 .. warning::
@@ -24,7 +24,7 @@ TERMINAL_INFO = dict(columns=79, lines=20, is_a_tty=False)
 """
 
 
-def update_terminal_info() -> None:
+def update_terminal_info() -> dict:
     """Updates the ``TERMINAL_INFO`` constant with information about the
     number of columns, lines, and whether the terminal is a TTY terminal.
 
@@ -32,18 +32,21 @@ def update_terminal_info() -> None:
     for whatever reason, will not apply any changes.
     """
     try:
-        terminal_size = shutil.get_terminal_size()
+        terminal_size = _get_terminal_size()
         cols, lines = terminal_size.columns, terminal_size.lines
+
     except Exception as exc:
         log.debug(
-            "Did not update terminal info!  %s: %s", type(exc).__name__, exc
+            "Failed to update terminal info!  %s: %s", type(exc).__name__, exc
         )
-        return
 
-    TERMINAL_INFO["columns"] = cols
-    TERMINAL_INFO["lines"] = lines
-    TERMINAL_INFO["is_a_tty"] = sys.stdout.isatty()
-    log.debug("Updated terminal info:  %s", TERMINAL_INFO)
+    else:
+        TERMINAL_INFO["columns"] = cols
+        TERMINAL_INFO["lines"] = lines
+        TERMINAL_INFO["is_a_tty"] = sys.stdout.isatty()
+        log.debug("Updated terminal info:  %s", TERMINAL_INFO)
+
+    return TERMINAL_INFO
 
 
 # Set the content and the (not updateable constants)
@@ -449,7 +452,7 @@ def format_bytesize(num: int, *, precision: int = 1) -> str:
 
 
 def format_time(
-    duration: Union[float, timedelta],
+    duration: Union[float, _timedelta],
     *,
     ms_precision: int = 0,
     max_num_parts: int = None,
@@ -477,7 +480,7 @@ def format_time(
         str: The formatted duration string
     """
 
-    if isinstance(duration, timedelta):
+    if isinstance(duration, _timedelta):
         duration = duration.total_seconds()
 
     divisors = (24 * 60 * 60, 60 * 60, 60, 1)

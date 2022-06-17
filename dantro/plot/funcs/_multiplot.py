@@ -31,13 +31,10 @@ _sns = LazyLoader("seaborn", _depth=1)
 
 # -----------------------------------------------------------------------------
 
-# The available plot kinds for the multiplot interface.
-# Details of the seaborn-related plots can be found here in the seaborn API:
-# https://seaborn.pydata.org/api.html
-#
-# NOTE Seaborn plot functions are defined here in a lazy fashion, thus being
-#      actually LazyLoader instances. They are resolved upon a first call to
-#      the multiplot function
+# Define some default plot functions
+# NOTE These are defined here in a lazy fashion, thus being actually
+#      LazyLoader instances. They are (and need to be) resolved upon a first
+#      call to the multiplot function
 MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
     # Seaborn - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # https://seaborn.pydata.org/api.html
@@ -103,15 +100,23 @@ MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
     "plt.quiver":           _plt.quiver,
     "plt.streamplot":       _plt.streamplot,
 }   # --- end literalinclude
+"""The default-available plot kinds for the
+:py:func:`~dantro.plot.funcs.multiplot.multiplot` function.
 
-# The multiplot functions that emit a warning if they do not get any arguments
-# when called.
-# This is helpful for functions that e.g. require a 'data' argument but do
-# not fail or warn if no 'data' is passed on to them.
+Details of the seaborn-related plots can be found here in the
+`seaborn docs <https://seaborn.pydata.org/api.html>`_.
+"""
+
 MULTIPLOT_CAUTION_FUNC_NAMES = tuple(
     func_name for func_name in MULTIPLOT_FUNC_KINDS
-    if func_name not in ("sns.despine",)
+    if func_name not in (
+        "sns.despine",
+    )
 )
+"""The multiplot functions that emit a warning if they do not get any arguments
+when called. This is helpful for functions that e.g. require a ``data``
+argument but do *not* fail or warn if no such argument is passed on to them.
+"""
 
 # fmt: on
 
@@ -233,15 +238,13 @@ def parse_and_invoke_function(
         call_num (int): The number of this plot, for easier identification
         caution_func_names (List[str], optional): a list of function names that
             will trigger a log message if no function kwargs were given.
+            If not explicitly given, will use some defaults.
 
     Returns:
         Any: return value of plot function call
     """
     if caution_func_names is None:
-        if funcs is MULTIPLOT_FUNC_KINDS:
-            caution_func_names = MULTIPLOT_CAUTION_FUNC_NAMES
-        else:
-            caution_func_names = ()
+        caution_func_names = MULTIPLOT_CAUTION_FUNC_NAMES
 
     # Get the function name, the function object and all function kwargs
     # from the configuration entry.

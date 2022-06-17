@@ -23,7 +23,7 @@ multiplots:
 
   func_without_kwargs:
     to_plot:
-      - function: sns.scatterplot
+      - function: sns.scatterplot  # will log a warning
 
   multiple_funcs:
     to_plot:

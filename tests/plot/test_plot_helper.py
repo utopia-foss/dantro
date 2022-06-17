@@ -1081,3 +1081,17 @@ def test_helper_set_figlegend(hlpr):
     # Can't do it twice
     with pytest.raises(ValueError, match="was already set"):
         hlpr.invoke_helper("set_figlegend")
+
+
+# -----------------------------------------------------------------------------
+
+
+def test_utils_set_tick_locators_or_formatters():
+    """Tests dantro.plot.utils.mpl.set_tick_locators_or_formatters"""
+    from dantro.plot.utils.mpl import set_tick_locators_or_formatters
+
+    # Bad kind
+    with pytest.raises(ValueError, match="Bad kind"):
+        set_tick_locators_or_formatters(ax=None, kind="invalid_key")
+
+    # ... rest is tested via other tests

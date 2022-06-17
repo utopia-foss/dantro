@@ -1,4 +1,6 @@
-"""Test the tools module"""
+"""Tests the dantro.tools module"""
+
+import copy
 
 import numpy as np
 import pytest
@@ -6,13 +8,28 @@ import pytest
 import dantro
 import dantro.tools as t
 
-# Local constants
+# -----------------------------------------------------------------------------
 
 
-# Fixtures --------------------------------------------------------------------
+def test_update_terminal_info(monkeypatch):
+    """Tests updating of TERMINAL_INFO dict"""
+    initial_info = copy.copy(t.TERMINAL_INFO)
 
+    # This should work
+    assert t.update_terminal_info() == initial_info  # ran in the same session
 
-# Tests -----------------------------------------------------------------------
+    # This should fail and not result in a change, but also not raise
+    with monkeypatch.context() as m:
+        print(m.delattr.__doc__)
+        m.delattr(t, "_get_terminal_size", raising=True)
+
+        t.TERMINAL_INFO["lines"] = "will not be overwritten"
+        t.update_terminal_info()
+        assert t.TERMINAL_INFO["lines"] == "will not be overwritten"
+
+    # This should work again
+    t.update_terminal_info()
+    assert isinstance(t.TERMINAL_INFO["lines"], int)
 
 
 def test_recursive_getitem():

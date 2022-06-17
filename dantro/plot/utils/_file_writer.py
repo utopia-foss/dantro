@@ -3,10 +3,8 @@ are specializations of :py:class:`matplotlib.animation.AbstractMovieWriter`."""
 
 import os
 
-# TODO Check if these need be lazy imports?!
 import matplotlib as mpl
 import matplotlib.animation
-import matplotlib.pyplot as plt
 
 # -----------------------------------------------------------------------------
 
@@ -126,4 +124,6 @@ class FileWriter(mpl.animation.AbstractMovieWriter):
 
         Closes the figure.
         """
+        import matplotlib.pyplot as plt
+
         plt.close(self.fig)

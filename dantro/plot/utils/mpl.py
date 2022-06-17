@@ -197,7 +197,7 @@ def prepare_legend_args(
 
 def set_tick_locators_or_formatters(
     *,
-    ax: "matplotlib.axis.Axis",
+    ax: "matplotlib.axes.Axes",
     kind: str,
     x: dict = None,
     y: dict = None,
