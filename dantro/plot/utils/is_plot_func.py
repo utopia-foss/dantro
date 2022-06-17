@@ -11,7 +11,8 @@ log = logging.getLogger(__name__)
 
 class is_plot_func:
     """This is a decorator class declaring the decorated function as a
-    plotting function to use with ExternalPlotCreator-derived plot creators
+    plotting function to use with
+    :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator`-derived creators
     """
 
     def __init__(

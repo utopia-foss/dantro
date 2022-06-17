@@ -136,7 +136,7 @@ def parse_function_specs(
     :py:func:`~dantro.plot.funcs.multiplot.multiplot`.
 
     Args:
-        _hlpr (dantro.plot.creators._plot_helper.PlotHelper): The currently
+        _hlpr (dantro.plot.plot_helper.PlotHelper): The currently
             used PlotHelper instance
         _funcs (Dict[str, Callable]): The lookup dictionary for callables
         _shared_kwargs (dict, optional): Shared kwargs that passed on to

@@ -932,7 +932,7 @@ class PlotHelper:
         matching axes and all enabled figure-level helpers on the figure.
 
         Internally, this first invokes all figure-level helpers and then calls
-        :py:meth:`~dantro.plot.creators._plot_helper.PlotHelper.invoke_helpers`
+        :py:meth:`~dantro.plot.plot_helper.PlotHelper.invoke_helpers`
         with all enabled helpers for all axes matching the ``axes`` argument.
 
         .. note::

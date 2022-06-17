@@ -231,7 +231,7 @@ class EnterAnimationMode(DantroMessagingException):
     single-file plot.
 
     It can and should be invoked via
-    :py:meth:`~dantro.plot.creators._plot_helper.PlotHelper.enable_animation`.
+    :py:meth:`~dantro.plot.plot_helper.PlotHelper.enable_animation`.
 
     This exception can be raised from within a plot function to dynamically
     decide whether animation should happen or not. Its counterpart is
@@ -246,7 +246,7 @@ class ExitAnimationMode(DantroMessagingException):
     should be carried out.
 
     It can and should be invoked via
-    :py:meth:`~dantro.plot.creators._plot_helper.PlotHelper.disable_animation`.
+    :py:meth:`~dantro.plot.plot_helper.PlotHelper.disable_animation`.
 
     This exception can be raised from within a plot function to dynamically
     decide whether animation should happen or not. Its counterpart is

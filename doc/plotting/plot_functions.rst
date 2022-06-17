@@ -40,7 +40,7 @@ The :py:func:`~.facet_grid` function then gets the ready-to-plot data as input a
 This approach is called `faceting <https://xarray.pydata.org/en/stable/user-guide/plotting.html#faceting>`_; dantro makes use of the `excellent plotting functionality of xarray <https://xarray.pydata.org/en/stable/plotting.html>`_ for this feature.
 The :py:func:`~.facet_grid` plot function further extends the xarray plotting functionality by adding the possibility to create :ref:`animations <pcr_ext_animations>`, simply by using the ``frames`` argument to specify the data dimension to represent as individual frames of an animation.
 
-The :py:class:`~dantro.plot.creators._plot_helper.PlotHelper` interface then copes with the plot :ref:`style <pcr_ext_style>` and further layout.
+The :py:class:`~dantro.plot.plot_helper.PlotHelper` interface then copes with the plot :ref:`style <pcr_ext_style>` and further layout.
 All steps are fully configurable and optimized for the YAML-based plotting interface.
 Thus, generating a plot of multidimensional data does not require touching any actual code but just specifying the desired representation in the plot configuration. 🎉
 
@@ -148,7 +148,7 @@ Similar to :py:func:`~.facet_grid`, these functions offer the ``hue`` and ``fram
 
 :py:func:`~.multiplot`: Plot multiple functions on one axis
 -----------------------------------------------------------
-The :py:func:`~.multiplot` plotting function enables the consecutive application of multiple plot functions on the current axis generated and provided through the ``PlotHelper``.
+The :py:func:`~.multiplot` plotting function enables the consecutive application of multiple plot functions on the current axis generated and provided through the :py:class:`~dantro.plot.plot_helper.PlotHelper`.
 
 Plot functions can be specified in three ways:
 
@@ -158,15 +158,15 @@ Plot functions can be specified in three ways:
 
 For plot function lookup by string, the following `seaborn plot functions <https://seaborn.pydata.org/api.html>`_ and some matplotlib functions are available:
 
-.. literalinclude:: ../../dantro/plot/funcs/multiplot.py
+.. literalinclude:: ../../dantro/plot/funcs/_multiplot.py
     :language: python
-    :start-after: _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
+    :start-after: MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
     :end-before:  }   # --- end literalinclude
     :dedent: 4
 
 To import a callable, specify a ``(module, name)`` tuple; this will use :py:func:`~dantro._import_tools.import_module_or_object` to carry out the import and traverse any modules.
 
-You can also invoke any other function operating on a ``matplotlib.axes`` object by importing or constructing a callable via the :ref:`data transformation framework <plot_creator_dag>`.
+You can also invoke any other function operating on a :py:class:`~matplotlib.axes.Axes` object by importing or constructing a callable via the :ref:`data transformation framework <plot_creator_dag>`.
 
 Let us look at some example configurations to illustrate the above features:
 
@@ -227,17 +227,17 @@ Let us look at some example configurations to illustrate the above features:
 
 .. hint::
 
-    The actual implementation is part of the :py:mod:`~dantro.plot.creators._plot_helper.PlotHelper` interface, which also gives access to arbitrary function invocations on the current axis.
-    The corresponding helper function is named ``call`` (:py:meth:`~dantro.plot.creators._plot_helper.PlotHelper._hlpr_call`).
+    The actual implementation is part of the :py:mod:`~dantro.plot.plot_helper.PlotHelper` interface, which also gives access to arbitrary function invocations on the current axis.
+    The corresponding helper function is named ``call`` (:py:meth:`~dantro.plot.plot_helper.PlotHelper._hlpr_call`).
 
 
 Use ``multiplot`` with multiple subplots
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Generating plots with multiple subplots is also possible via the ``multiplot`` function.
+Generating plots with multiple subplots is also possible via the :py:func:`~dantro.plot.funcs.multiplot.multiplot` function.
 This is a two-step process:
 
-- In the ``PlotHelper`` configuration, specify the desired subplots of the figure using ``setup_figure``.
-- In the ``multiplot`` configuration, address each axis separately and specify which function calls should be made on it.
+- In the :py:class:`~dantro.plot.plot_helper.PlotHelper` configuration, specify the desired subplots of the figure using ``setup_figure``.
+- In the :py:func:`~dantro.plot.funcs.multiplot.multiplot` configuration, address each axis separately and specify which function calls should be made on it.
 
 Example:
 

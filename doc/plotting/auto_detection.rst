@@ -34,7 +34,7 @@ Furthermore, it checks whether the plot function is marked with attributes that 
 * ``creator_type``: The type of the plot creator to use (or a parent type)
 * ``creator_name``: The name of the plot creator *as registered* in the manager's :py:const:`~dantro.plot_mngr.PlotManager.CREATORS` dict
 
-To conveniently add these attributes to the plot function, the :py:func:`~dantro.plot.creators.ext.is_plot_func` decorator can be used:
+To conveniently add these attributes to the plot function, the :py:func:`~dantro.plot.utils.is_plot_func.is_plot_func` decorator can be used:
 
 .. code-block:: python
 

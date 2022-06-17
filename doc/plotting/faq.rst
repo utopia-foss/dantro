@@ -94,15 +94,15 @@ Yes. See :ref:`plot_mngr_skipping_plots` for more information.
 
 
 
-:py:class:`~dantro.plot.creators._plot_helper.PlotHelper` FAQs
+:py:class:`~dantro.plot.plot_helper.PlotHelper` FAQs
 --------------------------------------------------------------
 
 Can I assign a custom figure to the PlotHelper?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Yes.
 
-When using the :py:class:`~dantro.plot.creators._plot_helper.PlotHelper`, it automatically sets up a figure instance and an axis initially, even before the plot function is called.
-However, they can be replaced using the :py:meth:`~dantro.plot.creators._plot_helper.PlotHelper.attach_figure_and_axes` method.
+When using the :py:class:`~dantro.plot.plot_helper.PlotHelper`, it automatically sets up a figure instance and an axis initially, even before the plot function is called.
+However, they can be replaced using the :py:meth:`~dantro.plot.plot_helper.PlotHelper.attach_figure_and_axes` method.
 
 
 Can I let the plot function decide whether to perform an animation?

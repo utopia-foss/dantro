@@ -340,7 +340,7 @@ class ExternalPlotCreator(BasePlotCreator):
         use_dag: bool,
     ):
         """A helper method that performs plotting using the
-        :py:class:`~dantro.plot.creators._plot_helper.PlotHelper`.
+        :py:class:`~dantro.plot.plot_helper.PlotHelper`.
 
         Args:
             out_path (str): The output path

@@ -140,16 +140,16 @@ class LazyLoader:
 def resolve_lazy_imports(d: dict, *, recursive: bool = True) -> dict:
     """In-place resolves lazy imports in the given dict, recursively.
 
-        .. warning::
+    .. warning::
 
-    #       Only recurses on dicts, no other objects!
+        Only recurses on dicts, not on other mutable objects!
 
-        Args:
-            d (dict): The dict to resolve lazy imports in
-            recursive (bool, optional): Whether to recurse through the dict
+    Args:
+        d (dict): The dict to resolve lazy imports in
+        recursive (bool, optional): Whether to recurse through the dict
 
-        Returns:
-            dict: ``d`` but with in-place resolved lazy imports
+    Returns:
+        dict: ``d`` but with in-place resolved lazy imports
     """
     for k, v in d.items():
         if isinstance(v, LazyLoader):

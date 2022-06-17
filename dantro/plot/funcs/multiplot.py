@@ -36,7 +36,7 @@ def multiplot(
     an ax to plot on, e.g. (0,0), while the values specify a list of plot
     function configurations to apply consecutively.
     Each list entry specifies one function plot and is parsed via the
-    :py:func:`~dantro.plot.creators._plot_helper.parse_function_specs`
+    :py:func:`~dantro.plot.funcs._multiplot.parse_function_specs`
     function.
 
     The multiplot works with any plot function that either operates on the
@@ -87,9 +87,9 @@ def multiplot(
 
     If ``function`` is a string it is looked up from the following dictionary:
 
-    .. literalinclude:: ../../dantro/plot/funcs/multiplot.py
+    .. literalinclude:: ../../dantro/plot/funcs/_multiplot.py
         :language: python
-        :start-after: _MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
+        :start-after: MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
         :end-before:  }   # --- end literalinclude
         :dedent: 4
 

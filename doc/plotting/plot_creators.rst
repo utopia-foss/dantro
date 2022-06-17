@@ -53,7 +53,7 @@ The :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` focusses on creati
 * The plot function can do whatever it wants, also meaning that it *has* to do everything by itself (getting data, saving plots, closing figures ...)
 
 The plot function gets passed some data or the :py:class:`~dantro.data_mngr.DataManager` (to manually select data) and the rest of the plot configuration.
-The required signature of the plot function depends on the chosen additional features of the :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator`, e.g., the :py:class:`~dantro.plot.creators._plot_helper.PlotHelper` or :doc:`plot_data_selection`.
+The required signature of the plot function depends on the chosen additional features of the :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator`, e.g., the :py:class:`~dantro.plot.plot_helper.PlotHelper` or :doc:`plot_data_selection`.
 
 For more information, have a look at :ref:`the dedicated documentation page <pcr_ext>`.
 
