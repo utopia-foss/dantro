@@ -367,11 +367,11 @@ An associated plot configuration might look like this:
 
 Handling missing data
 """""""""""""""""""""
-In some cases, the :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` associated with the :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator` might miss some states.
+In some cases, the :py:class:`~dantro.groups.psp.ParamSpaceGroup` associated with the :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator` might miss some states.
 This can happen, for instance, if the to-be-plotted data is the result of a simulation for each point in parameter space and the simulation was stopped before visiting all these points.
 In such a case, ``select_and_combine`` will typically fail.
 
-Another reason for errors during this operation may be that the data structures between the different points in parameter space are different, such that a valid path within one :py:class:`~dantro.groups.pspgrp.ParamSpaceStateGroup` (or: "universe") is *not* a valid path in another.
+Another reason for errors during this operation may be that the data structures between the different points in parameter space are different, such that a valid path within one :py:class:`~dantro.groups.psp.ParamSpaceStateGroup` (or: "universe") is *not* a valid path in another.
 
 To be able to plot the partial data in both of these cases, this plot creator makes use of :ref:`the error handling feature in the data transformation framework <dag_error_handling>`.
 It's as simple as adding the ``allow_missing_or_failing`` key to ``select_and_combine``:

@@ -14,7 +14,7 @@ from dantro.plot import MultiversePlotCreator, SkipPlot, UniversePlotCreator
 
 # Fixtures --------------------------------------------------------------------
 # Import some from other tests
-from ...groups.test_pspgrp import psp_grp, psp_grp_default
+from ...groups.test_psp import psp_grp, psp_grp_default
 
 
 @pytest.fixture()

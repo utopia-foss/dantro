@@ -238,7 +238,7 @@ As initialization parameters, we pass the following arguments:
 These already include the so-called ``load_cfg``, i.e. a set of parameters that specifies which data should be loaded from where and how it should be stored in the data tree.
 
 Furthermore, these parameters can be used to already generate a part of the data tree; this can make loading data easier in some scenarios.
-Here, the ``create_groups`` argument creates the ``simulations`` group, a :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`, where each member is assumed to be the output of a single simulation.
+Here, the ``create_groups`` argument creates the ``simulations`` group, a :py:class:`~dantro.groups.psp.ParamSpaceGroup`, where each member is assumed to be the output of a single simulation.
 (See :ref:`here <data_structures_psp_group>` for more information.)
 
 The ``out_dir`` of the :py:class:`~dantro.data_mngr.DataManager` is a directory that is used to store output that is associated with the to-be-loaded data.
@@ -407,7 +407,7 @@ The ``pm_cfg`` is used to specify some default behaviour of the manager, e.g. th
 
 As part of this initialization process, default arguments for the plot creators are also supplied via ``creator_init_kwargs``.
 In this case, we configure these creators to use ``pdf`` as the default file extension.
-For the :py:class:`~paramspace.paramspace.ParamSpace`-supporting plot creators (see :doc:`plotting/creators/psp`), we specify the path to the :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` inside the data tree.
+For the :py:class:`~paramspace.paramspace.ParamSpace`-supporting plot creators (see :doc:`plotting/creators/psp`), we specify the path to the :py:class:`~dantro.groups.psp.ParamSpaceGroup` inside the data tree.
 
 Creating plots
 ^^^^^^^^^^^^^^

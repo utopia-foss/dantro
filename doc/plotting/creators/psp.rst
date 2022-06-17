@@ -199,7 +199,7 @@ Again, for more details, have a look at :ref:`plot_data_selection_mv` and :ref:`
 Skipping multiverse plots
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 For skipping :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator` plots, the ``expected_multiverse_ndim`` argument can optionally be specified in the plot configuration.
-The argument specifies a set of dimensionalities with which plotting is possible; if the dimensionality of the associated :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` is not part of this set, the plot will be skipped.
+The argument specifies a set of dimensionalities with which plotting is possible; if the dimensionality of the associated :py:class:`~dantro.groups.psp.ParamSpaceGroup` is not part of this set, the plot will be skipped.
 
 .. code-block:: yaml
 

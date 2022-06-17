@@ -1,13 +1,13 @@
 .. _data_structures_psp_group:
 
-The :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`
+The :py:class:`~dantro.groups.psp.ParamSpaceGroup`
 =====================================================
-The :py:mod:`~dantro.groups.pspgrp.ParamSpaceGroup` is a group where each member is assumed to be a point in a multi-dimensional parameter space.
+The :py:mod:`~dantro.groups.psp.ParamSpaceGroup` is a group where each member is assumed to be a point in a multi-dimensional parameter space.
 
 For the representation of the parameter space, the ``paramspace`` package (see `here <https://pypi.org/project/paramspace/>`_) is used.
-Subsequently, a :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` is associated with a ``paramspace.ParamSpace`` object, which maps the members of the group to states in the parameter space.
+Subsequently, a :py:class:`~dantro.groups.psp.ParamSpaceGroup` is associated with a ``paramspace.ParamSpace`` object, which maps the members of the group to states in the parameter space.
 
-Each member of the group (i.e.: each state of the parameter space) is represented by a :py:class:`~dantro.groups.pspgrp.ParamSpaceStateGroup`, which ensures that the name of the group is a valid state name.
+Each member of the group (i.e.: each state of the parameter space) is represented by a :py:class:`~dantro.groups.psp.ParamSpaceStateGroup`, which ensures that the name of the group is a valid state name.
 
 .. contents::
     :local:
@@ -17,7 +17,7 @@ Each member of the group (i.e.: each state of the parameter space) is represente
 
 Usage Example
 -------------
-This usage example shows how a :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` is populated and used.
+This usage example shows how a :py:class:`~dantro.groups.psp.ParamSpaceGroup` is populated and used.
 
 First, let's define a parameter space, in this case a two-dimensional one that goes over the parameters ``beta`` and ``seed``.
 (For more information on usage of the paramspace package, consult `its documentation <https://paramspace.readthedocs.io/>`_).
@@ -41,7 +41,7 @@ First, let's define a parameter space, in this case a two-dimensional one that g
     # What does this look like?
     print(pspace.get_info_str())
 
-Now, let's set up a :py:mod:`~dantro.groups.pspgrp.ParamSpaceGroup` and populate it (with some random data in this case):
+Now, let's set up a :py:mod:`~dantro.groups.psp.ParamSpaceGroup` and populate it (with some random data in this case):
 
 .. ipython:: python
 
@@ -68,7 +68,7 @@ The ``pspgrp`` is now populated and ready to use.
 
 .. hint::
 
-    For instructions on how to load data *from files* into a :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`, see the examples in the :ref:`integration guide <integrate_dantro>`.
+    For instructions on how to load data *from files* into a :py:class:`~dantro.groups.psp.ParamSpaceGroup`, see the examples in the :ref:`integration guide <integrate_dantro>`.
 
 Let's explore its properties a bit, also comparing it to the shape of the parameter space it is associated with:
 
@@ -89,7 +89,7 @@ Let's explore its properties a bit, also comparing it to the shape of the parame
     In [4]: len(pspgrp) == pspgrp.pspace.volume
     Out[4]: True
 
-On top of the capabilities of a regular group-like iteration, the individual members (i.e., :py:class:`~dantro.groups.pspgrp.ParamSpaceStateGroup` objects) can query their coordinates within the parameter space via their :py:attr:`~dantro.groups.pspgrp.ParamSpaceStateGroup.coords` property.
+On top of the capabilities of a regular group-like iteration, the individual members (i.e., :py:class:`~dantro.groups.psp.ParamSpaceStateGroup` objects) can query their coordinates within the parameter space via their :py:attr:`~dantro.groups.psp.ParamSpaceStateGroup.coords` property.
 
 .. ipython:: python
 
@@ -100,7 +100,7 @@ On top of the capabilities of a regular group-like iteration, the individual mem
         assert 'beta' in pss.coords
         assert 'seed' in pss.coords
 
-Furthermore, it also supplies the :py:meth:`~dantro.groups.pspgrp.ParamSpaceGroup.select` method, with which data from the ensemble of parameter states can be combined into a higher-dimensional object.
+Furthermore, it also supplies the :py:meth:`~dantro.groups.psp.ParamSpaceGroup.select` method, with which data from the ensemble of parameter states can be combined into a higher-dimensional object.
 The resulting object then has the parameter space dimensions *plus* the data dimensions:
 
 .. ipython::
@@ -141,9 +141,9 @@ To push it a bit more: The universes may all be goverened by the same physical l
 
 For dantro, these terms typically refer to the *output* of such computer simulations:
 
-    * **Universe data** is the output of a single simulation, loaded into a :py:class:`~dantro.groups.pspgrp.ParamSpaceStateGroup`
+    * **Universe data** is the output of a single simulation, loaded into a :py:class:`~dantro.groups.psp.ParamSpaceStateGroup`
     * **Multiverse data** is the output from *multiple* individual universes.
-      As these are typically generated for points of the same parameters space, they can also be gathered into a :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`.
+      As these are typically generated for points of the same parameters space, they can also be gathered into a :py:class:`~dantro.groups.psp.ParamSpaceGroup`.
 
 Subsequently, when handling data that is structured this way, parts of dantro (most notably the :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator` and :py:class:`~dantro.plot.creators.psp.UniversePlotCreator`) also use these metaphors instead of the parameter space terminology.
 

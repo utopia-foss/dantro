@@ -63,13 +63,13 @@ For more information, have a look at :ref:`the dedicated documentation page <pcr
 
 :py:class:`~.psp.UniversePlotCreator` & :py:class:`.psp.MultiversePlotCreator`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Implemented in :py:mod:`dantro.plot.creators.psp` are plot creators that work tightly with data stored in a :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`, i.e.: data that was created from a :py:class:`~paramspace.paramspace.ParamSpace` parameter sweep.
+Implemented in :py:mod:`dantro.plot.creators.psp` are plot creators that work tightly with data stored in a :py:class:`~dantro.groups.psp.ParamSpaceGroup`, i.e.: data that was created from a :py:class:`~paramspace.paramspace.ParamSpace` parameter sweep.
 These are derived from :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` and inherit all its abilities.
 
 There are two different plot creators to work with this kind of data.
 The :py:class:`~dantro.plot.creators.psp.UniversePlotCreator` allows selecting a certain subspace of the parameter space and creating a plot *for each* of these so-called "universes".
 
-The :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator` on the other hand uses the capabilities of the :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` to select and combine data from many universes, thus working on the "multiverse".
-For the syntax needed to select the field and the subspace from the data, refer to :py:meth:`dantro.groups.pspgrp.ParamSpaceGroup.select`.
+The :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator` on the other hand uses the capabilities of the :py:class:`~dantro.groups.psp.ParamSpaceGroup` to select and combine data from many universes, thus working on the "multiverse".
+For the syntax needed to select the field and the subspace from the data, refer to :py:meth:`dantro.groups.psp.ParamSpaceGroup.select`.
 
 For more information, see :ref:`pcr_psp`.

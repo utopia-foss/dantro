@@ -21,7 +21,6 @@ from dantro.groups import (
 )
 from dantro.tools import load_yml
 
-# Local constants
 SELECTOR_PATH = resource_filename("tests", "cfg/selectors.yml")
 
 # Helper functions ------------------------------------------------------------

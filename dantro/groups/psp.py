@@ -28,10 +28,10 @@ xr = LazyLoader("xarray")
 
 class ParamSpaceStateGroup(OrderedDataGroup):
     """A ParamSpaceStateGroup is meant to be used as a member group of the
-    :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`.
+    :py:class:`~dantro.groups.psp.ParamSpaceGroup`.
 
     While its *own* name need be interpretable as a positive integer (enforced
-    in the enclosing :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` but also
+    in the enclosing :py:class:`~dantro.groups.psp.ParamSpaceGroup` but also
     here), it can *hold* members with any name.
     """
 
@@ -62,7 +62,7 @@ class ParamSpaceStateGroup(OrderedDataGroup):
     @property
     def coords(self) -> dict:
         """Retrieves the coordinates of this group within the parameter space
-        described by the :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`
+        described by the :py:class:`~dantro.groups.psp.ParamSpaceGroup`
         this group is enclosed in.
 
         Returns:
@@ -118,7 +118,7 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
                 pass a ParamSpace object here.
             containers (list, optional): A list of containers to add, which
                 need to be
-                :py:class:`~dantro.groups.pspgrp.ParamSpaceStateGroup` objects.
+                :py:class:`~dantro.groups.psp.ParamSpaceStateGroup` objects.
             **kwargs: Further initialisation kwargs, e.g. ``attrs`` ...
         """
         # Initialize with parent method, which will call .add(*containers)

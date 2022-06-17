@@ -43,7 +43,7 @@ logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 
 # Fixtures --------------------------------------------------------------------
-from ..groups.test_pspgrp import (
+from ..groups.test_psp import (
     psp_grp,
     psp_grp_default,
     psp_grp_missing_data,

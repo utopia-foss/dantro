@@ -1,7 +1,7 @@
 """This implements the ParamSpaceGroup plot creators, based on the
 :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` and providing
 additional functionality for data that is stored in a
-:py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`.
+:py:class:`~dantro.groups.psp.ParamSpaceGroup`.
 """
 
 import copy
@@ -35,7 +35,7 @@ class MultiversePlotCreator(PyPlotCreator):
     """
 
     PSGRP_PATH: ParamSpaceGroup = None
-    """Where the :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` object is
+    """Where the :py:class:`~dantro.groups.psp.ParamSpaceGroup` object is
     expected within the :py:class:`~dantro.data_mngr.DataManager`"""
 
     # .........................................................................
@@ -46,7 +46,7 @@ class MultiversePlotCreator(PyPlotCreator):
         Args:
             *args: Passed on to parent class.
             psgrp_path (str, optional): The path to the associated
-                :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` that is to
+                :py:class:`~dantro.groups.psp.ParamSpaceGroup` that is to
                 be used for these multiverse plots.
             **kwargs: Passed on to parent
         """
@@ -75,7 +75,7 @@ class MultiversePlotCreator(PyPlotCreator):
 
         Controlled by the ``expected_multiverse_ndim`` argument, this
         plot will be skipped if the dimensionality of the associated
-        :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` is *not* specified in
+        :py:class:`~dantro.groups.psp.ParamSpaceGroup` is *not* specified in
         the set of permissible dimensionalities.
         If that argument is not given or None, this check will not be carried
         out.
@@ -116,7 +116,7 @@ class MultiversePlotCreator(PyPlotCreator):
 
         This also implements the functionality to select and combine data from
         the Multiverse and provide it to the plot function. It can do so via
-        the associated :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`
+        the associated :py:class:`~dantro.groups.psp.ParamSpaceGroup`
         directly or by creating a :py:class:`~dantro.dag.TransformationDAG`
         that leads to the same results.
 
@@ -130,7 +130,7 @@ class MultiversePlotCreator(PyPlotCreator):
             *args: Positional arguments to the plot function.
             select (dict, optional): If given, selects and combines multiverse
                 data using
-                :py:meth:`~dantro.groups.pspgrp.ParamSpaceGroup.select`.
+                :py:meth:`~dantro.groups.psp.ParamSpaceGroup.select`.
                 The result is an ``xr.Dataset`` and it is made available to
                 the plot function as ``mv_data`` argument.
             select_and_combine (dict, optional): If given, interfaces with the
@@ -204,7 +204,7 @@ class MultiversePlotCreator(PyPlotCreator):
         transformations, and a ``combine`` operation, that aligns the data in
         the desired fashion.
 
-        This way, the :py:meth:`~dantro.groups.pspgrp.ParamSpaceGroup.select`
+        This way, the :py:meth:`~dantro.groups.psp.ParamSpaceGroup.select`
         method's behaviour is emulated in the DAG.
 
         Args:
@@ -561,7 +561,7 @@ class UniversePlotCreator(PyPlotCreator):
     """
 
     PSGRP_PATH: ParamSpaceGroup = None
-    """Where the :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` object is
+    """Where the :py:class:`~dantro.groups.psp.ParamSpaceGroup` object is
     expected within the :py:class:`~dantro.data_mngr.DataManager`"""
 
     # .........................................................................
@@ -572,7 +572,7 @@ class UniversePlotCreator(PyPlotCreator):
         Args:
             *args: Passed on to parent class
             psgrp_path (str, optional): Specifies the location of the
-                :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup` within the
+                :py:class:`~dantro.groups.psp.ParamSpaceGroup` within the
                 data tree. If given, overwrites the class variable default.
             **kwargs: Passed on to parent class
         """
