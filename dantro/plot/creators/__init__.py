@@ -2,11 +2,12 @@
 based on :py:class:`~dantro.plot.creators.base.BasePlotCreator`"""
 
 from .base import BasePlotCreator
-from .ext import ExternalPlotCreator
 from .psp import MultiversePlotCreator, UniversePlotCreator
+from .pyplot import PyPlotCreator
 
 ALL_PLOT_CREATORS = dict(
-    external=ExternalPlotCreator,
+    pyplot=PyPlotCreator,
+    external=PyPlotCreator,
     universe=UniversePlotCreator,
     multiverse=MultiversePlotCreator,
 )

@@ -7,7 +7,7 @@ _pm_init_kwargs:
     - - base
       - # .. Creators .........................................................
         creator.ext:
-          creator: external
+          creator: pyplot
 
         creator.uni:
           creator: universe

@@ -107,4 +107,4 @@ However, they can be replaced using the :py:meth:`~dantro.plot.plot_helper.PlotH
 
 Can I let the plot function decide whether to perform an animation?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Yes. See :ref:`pcr_ext_animation_mode_switching` for more information.
+Yes. See :ref:`pcr_pyplot_animation_mode_switching` for more information.

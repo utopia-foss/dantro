@@ -1,5 +1,5 @@
 """Generic, DAG-based plot functions for the
-:py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` and derived plot
+:py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` and derived plot
 creators.
 """
 
@@ -674,11 +674,11 @@ def errorbar(
             the dimension, trivial coordinates are used.
         hue (str, optional): Name of the dimension to respresent via the hue
             colors of the errorbar lines. For adjusting the property cycle of
-            the lines, see :ref:`pcr_ext_style`.
+            the lines, see :ref:`pcr_pyplot_style`.
         frames (str, optional): Name of the dimension to represent via the
             frames of an animation. If given, this will automatically enable
             animation mode and requires ``animation`` arguments being specified
-            in the plot configuration. See :ref:`pcr_ext_animations`.
+            in the plot configuration. See :ref:`pcr_pyplot_animations`.
         auto_encoding (Union[bool, dict], optional): Whether to choose the
             layout encoding options automatically, i.e. select ``x``, ``hue``,
             and ``frames`` according to the given data's dimensionality.
@@ -955,13 +955,13 @@ def facet_grid(
     .. note::
 
         When specifying ``frames``, the ``animation`` arguments need to be
-        specified. See :ref:`here <pcr_ext_animations>` for more information
+        specified. See :ref:`here <pcr_pyplot_animations>` for more information
         on the expected animation parameters.
 
         The value of the ``animation.enabled`` key is not relevant for this
         function; it will automatically enter or exit animation mode,
         depending on whether the ``frames`` argument is given or not. This uses
-        the :ref:`animation mode switching <pcr_ext_animation_mode_switching>`
+        the :ref:`animation mode switching <pcr_pyplot_animation_mode_switching>`
         feature.
 
     .. note::
@@ -977,7 +977,7 @@ def facet_grid(
         set up figure. This includes the figure from the plot helper.
 
         To control figure aesthetics, you can either specify matplotlib RC
-        :ref:`style parameters <pcr_ext_style>` (via the ``style`` argument),
+        :ref:`style parameters <pcr_pyplot_style>` (via the ``style`` argument),
         or you can use the ``plot_kwargs`` to pass arguments to the respective
         plot functions. For the latter, refer to the respective documentation
         to find out about available arguments.

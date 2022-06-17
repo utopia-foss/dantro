@@ -1,11 +1,11 @@
 .. default-domain:: dantro.plot.funcs.generic
 
-.. _pcr_ext_plot_funcs:
+.. _pcr_pyplot_plot_funcs:
 
 Plot Functions
 ==============
 
-This page gives an overview of plot functions that are implemented within :py:mod:`dantro` for the use with :ref:`pcr_ext` and derived plot creators.
+This page gives an overview of plot functions that are implemented within :py:mod:`dantro` for the use with :ref:`pcr_pyplot` and derived plot creators.
 These plot functions are meant to be as generic as possible, allowing to work with a wide variety of data.
 They make use of the :ref:`dag_framework` for :ref:`plot_creator_dag`.
 
@@ -14,7 +14,7 @@ To use these plot functions, the following information needs to be specified in 
 .. code-block:: yaml
 
     my_plot:
-      creator: external      # or: universe, multiverse, ...
+      creator: pyplot        # or: universe, multiverse, ...
       module: .generic       # absolute: dantro.plot.funcs.generic
       plot_func: facet_grid  # or: errorbar, errorbands, ...
 
@@ -38,9 +38,9 @@ Handling, transforming, and plotting high-dimensional data is difficult and ofte
 The idea is that high-dimensional raw data first is transformed using the :ref:`dag_framework`.
 The :py:func:`~.facet_grid` function then gets the ready-to-plot data as input and visualizes it by automatically choosing an appropriate kind of plot – if possible and not explicitly given – in a declarative way through the specification of layout keywords such as ``col``\ ums, ``row``\ s, or ``hue``.
 This approach is called `faceting <https://xarray.pydata.org/en/stable/user-guide/plotting.html#faceting>`_; dantro makes use of the `excellent plotting functionality of xarray <https://xarray.pydata.org/en/stable/plotting.html>`_ for this feature.
-The :py:func:`~.facet_grid` plot function further extends the xarray plotting functionality by adding the possibility to create :ref:`animations <pcr_ext_animations>`, simply by using the ``frames`` argument to specify the data dimension to represent as individual frames of an animation.
+The :py:func:`~.facet_grid` plot function further extends the xarray plotting functionality by adding the possibility to create :ref:`animations <pcr_pyplot_animations>`, simply by using the ``frames`` argument to specify the data dimension to represent as individual frames of an animation.
 
-The :py:class:`~dantro.plot.plot_helper.PlotHelper` interface then copes with the plot :ref:`style <pcr_ext_style>` and further layout.
+The :py:class:`~dantro.plot.plot_helper.PlotHelper` interface then copes with the plot :ref:`style <pcr_pyplot_style>` and further layout.
 All steps are fully configurable and optimized for the YAML-based plotting interface.
 Thus, generating a plot of multidimensional data does not require touching any actual code but just specifying the desired representation in the plot configuration. 🎉
 

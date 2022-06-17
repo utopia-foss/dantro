@@ -26,9 +26,9 @@ In unambiguous cases, the manager then uses the *single* candidate creator and c
 Specializations
 ---------------
 
-:py:class:`~dantro.plot.creators.ext.ExternalPlotCreator`
+:py:class:`~dantro.plot.creators.pyplot.PyPlotCreator`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` and derived classes try auto-detection by checking if it can use the given plot configuration to resolve a plotting function.
+The :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` and derived classes try auto-detection by checking if it can use the given plot configuration to resolve a plotting function.
 Furthermore, it checks whether the plot function is marked with attributes that may specify which creator to use. The attributes that are looked at are, in this order:
 
 * ``creator_type``: The type of the plot creator to use (or a parent type)
@@ -52,7 +52,7 @@ To conveniently add these attributes to the plot function, the :py:func:`~dantro
 .. hint::
 
     When using the :doc:`data transformation framework <plot_data_selection>`, the signature of the plot functions is averse to the choice of a creator.
-    This makes it possible to implement *generic* plotting functions, which can be used for all :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator`\ -derived plot creators.
+    This makes it possible to implement *generic* plotting functions, which can be used for all :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator`\ -derived plot creators.
 
     In such cases, simply omit the ``creator_*`` argument to the decorator and specify the creator via the plot configuration.
 

@@ -12,7 +12,7 @@ import pytest
 from pkg_resources import resource_filename
 
 from dantro.data_mngr import DataManager
-from dantro.plot import ExternalPlotCreator, PlotHelper, is_plot_func
+from dantro.plot import PlotHelper, PyPlotCreator, is_plot_func
 from dantro.plot.plot_helper import (
     EnterAnimationMode,
     ExitAnimationMode,
@@ -47,9 +47,9 @@ def hlpr(tmpdir) -> PlotHelper:
 
 
 @pytest.fixture
-def epc(dm) -> ExternalPlotCreator:
+def epc(dm) -> PyPlotCreator:
     """External Plot Creator for integration tests"""
-    return ExternalPlotCreator("ph_test", dm=dm, default_ext="pdf")
+    return PyPlotCreator("ph_test", dm=dm, default_ext="pdf")
 
 
 # Plot functions --------------------------------------------------------------
@@ -801,7 +801,7 @@ def test_animation_mode_switching(hlpr, epc, tmpdir):
         hlpr.disable_animation()
     assert not hlpr.animation_enabled
 
-    # -- Part 2: Switching between modes within ExternalPlotCreator . . . . . .
+    # -- Part 2: Switching between modes within PyPlotCreator . . . . . .
     # Animation-enabled plot --> NOT exiting --> directory with multiple plots
     plot_name = "not_exiting"
     epc.plot(

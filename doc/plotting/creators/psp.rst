@@ -39,7 +39,7 @@ This is done via the ``universes`` argument:
 
 Universe plots using DAG framework *(recommended)*
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Use the :ref:`creator-averse plot function definition <pcr_ext_recommended_sig>` and specify the ``creator`` in the plot configuration.
+Use the :ref:`creator-averse plot function definition <pcr_pyplot_recommended_sig>` and specify the ``creator`` in the plot configuration.
 You can then use the :ref:`regular syntax <plot_creator_dag_args>` to select the desired data, based on the currently selected universe.
 
 When using the recommended creator-averse plot function signature, the DAG is automatically enabled and allows to select data in the following way:
@@ -69,7 +69,7 @@ When using the recommended creator-averse plot function signature, the DAG is au
 In this case, the available tags would be ``some_data``, ``some_other_data``, and ``result``.
 Furthermore, for the universe plot creator, the ``uni`` tag is always available as well.
 
-For more details, have a look at :ref:`plot_data_selection_uni` and :ref:`the general remarks on the transformation framework <pcr_ext_DAG_support>`.
+For more details, have a look at :ref:`plot_data_selection_uni` and :ref:`the general remarks on the transformation framework <pcr_pyplot_DAG_support>`.
 
 Remarks
 """""""
@@ -154,7 +154,7 @@ Say the selected data from each universe has dimensionality three and a paramete
 
 Multiverse plots using DAG framework *(recommended)*
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Again, use the :ref:`creator-averse plot function definition <pcr_ext_recommended_sig>` and specify the ``creator`` in the plot configuration.
+Again, use the :ref:`creator-averse plot function definition <pcr_pyplot_recommended_sig>` and specify the ``creator`` in the plot configuration.
 For this creator, a :ref:`special syntax <plot_data_selection_mv>` exists to select and combine the multiverse data.
 
 When using the recommended creator-averse plot function signature, the DAG is automatically enabled and allows to select data using the ``select_and_combine`` key:
@@ -186,7 +186,7 @@ When using the recommended creator-averse plot function signature, the DAG is au
         - add: [!dag_tag some_data, !dag_tag some_other_data]
           tag: result
 
-Again, for more details, have a look at :ref:`plot_data_selection_mv` and :ref:`the general remarks on the transformation framework <pcr_ext_DAG_support>`.
+Again, for more details, have a look at :ref:`plot_data_selection_mv` and :ref:`the general remarks on the transformation framework <pcr_pyplot_DAG_support>`.
 
 .. hint::
 

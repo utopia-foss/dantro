@@ -1,5 +1,5 @@
 """This implements the ParamSpaceGroup plot creators, based on the
-:py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` and providing
+:py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` and providing
 additional functionality for data that is stored in a
 :py:class:`~dantro.groups.pspgrp.ParamSpaceGroup`.
 """
@@ -18,7 +18,7 @@ from ...dag import DAGNode, DAGReference, DAGTag, TransformationDAG
 from ...groups import ParamSpaceGroup, ParamSpaceStateGroup
 from ...tools import is_iterable, recursive_update
 from .base import SkipPlot
-from .ext import ExternalPlotCreator
+from .pyplot import PyPlotCreator
 
 # Local constants and lazy module imports
 log = logging.getLogger(__name__)
@@ -29,8 +29,8 @@ xr = LazyLoader("xarray")
 # -----------------------------------------------------------------------------
 
 
-class MultiversePlotCreator(ExternalPlotCreator):
-    """A MultiversePlotCreator is an ExternalPlotCreator that allows data to be
+class MultiversePlotCreator(PyPlotCreator):
+    """A MultiversePlotCreator is an PyPlotCreator that allows data to be
     selected before being passed to the plot function.
     """
 
@@ -166,7 +166,7 @@ class MultiversePlotCreator(ExternalPlotCreator):
                 "or `select_and_combine`, got neither!"
             )
 
-        # Let the parent method (from ExternalPlotCreator) do its thing.
+        # Let the parent method (from PyPlotCreator) do its thing.
         # It will invoke the specialized _get_dag_params and _create_dag helper
         # methods that are implemented by this class.
         return super()._prepare_plot_func_args(*args, **kwargs)
@@ -555,8 +555,8 @@ class MultiversePlotCreator(ExternalPlotCreator):
 # -----------------------------------------------------------------------------
 
 
-class UniversePlotCreator(ExternalPlotCreator):
-    """A UniversePlotCreator is an ExternalPlotCreator that allows looping of
+class UniversePlotCreator(PyPlotCreator):
+    """A UniversePlotCreator is an PyPlotCreator that allows looping of
     all or a selected subspace of universes.
     """
 
@@ -843,7 +843,7 @@ class UniversePlotCreator(ExternalPlotCreator):
         uni = self.psgrp[uni_id]
         log.note("Using data of:        %s", uni.logstr)
 
-        # Let the parent function, implemented in ExternalPlotCreator, do its
+        # Let the parent function, implemented in PyPlotCreator, do its
         # thing. This will return the (args, kwargs) tuple and will also take
         # care of data transformation using the DAG framework, for which some
         # behaviour is specialized for selection from the passed `uni` using

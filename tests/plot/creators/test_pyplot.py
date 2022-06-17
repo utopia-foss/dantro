@@ -1,4 +1,4 @@
-"""Tests the ExternalPlotCreator class."""
+"""Tests the PyPlotCreator class."""
 
 import matplotlib.pyplot as plt
 import pytest
@@ -7,8 +7,8 @@ from pkg_resources import resource_filename
 from dantro.dag import TransformationDAG
 from dantro.data_mngr import DataManager
 from dantro.plot import (
-    ExternalPlotCreator,
     PlotHelper,
+    PyPlotCreator,
     UniversePlotCreator,
     is_plot_func,
 )
@@ -63,19 +63,19 @@ def tmp_rc_file(tmpdir) -> str:
 
 def test_init(init_kwargs, tmpdir):
     """Tests initialisation"""
-    ExternalPlotCreator("init", **init_kwargs)
+    PyPlotCreator("init", **init_kwargs)
 
     # Test passing a base_module_file_dir
-    ExternalPlotCreator("init", **init_kwargs, base_module_file_dir=tmpdir)
+    PyPlotCreator("init", **init_kwargs, base_module_file_dir=tmpdir)
 
     # Check with invalid directories
     with pytest.raises(ValueError, match="needs to be an absolute path"):
-        ExternalPlotCreator(
+        PyPlotCreator(
             "init", **init_kwargs, base_module_file_dir="foo/bar/baz"
         )
 
     with pytest.raises(ValueError, match="does not exists or does not point"):
-        ExternalPlotCreator(
+        PyPlotCreator(
             "init", **init_kwargs, base_module_file_dir=tmpdir.join("foo.bar")
         )
 
@@ -83,7 +83,7 @@ def test_init(init_kwargs, tmpdir):
 def test_style_context(init_kwargs, tmp_rc_file):
     """Tests if the style context has been set"""
     # .. Test _prepare_style_context directly .................................
-    epc = ExternalPlotCreator("direct", **init_kwargs)
+    epc = PyPlotCreator("direct", **init_kwargs)
     psc = epc._prepare_style_context
 
     # String for base_style
@@ -138,7 +138,7 @@ def test_style_context(init_kwargs, tmp_rc_file):
         print("All RC parameters matched.", end="\n\n")
 
     # .. Without style given to init ..........................................
-    epc = ExternalPlotCreator("without_defaults", **init_kwargs)
+    epc = PyPlotCreator("without_defaults", **init_kwargs)
 
     # Without defaults, the cache attribute should be empty
     assert epc._default_rc_params is None
@@ -177,7 +177,7 @@ def test_style_context(init_kwargs, tmp_rc_file):
 
     # .. With style given to init .............................................
     # Initialize plot creators with and without a default style
-    epc = ExternalPlotCreator("with_defaults", **init_kwargs, style=style)
+    epc = PyPlotCreator("with_defaults", **init_kwargs, style=style)
 
     # Check wether the default style contains the correct parameters, this
     # should serve as a test for the _prepare_style_context method
@@ -214,7 +214,7 @@ def test_style_context(init_kwargs, tmp_rc_file):
 
 def test_resolve_plot_func(init_kwargs, tmpdir, tmp_module):
     """Tests whether the _resolve_plot_func"""
-    epc = ExternalPlotCreator("init", **init_kwargs)
+    epc = PyPlotCreator("init", **init_kwargs)
 
     # Make a shortcut to the function
     resolve = epc._resolve_plot_func
@@ -255,7 +255,7 @@ def test_use_dag(tmpdir, init_kwargs):
     """Tests whether DAG parameters are passed through properly to the plot
     function ...
     """
-    epc = ExternalPlotCreator("dag_tests", **init_kwargs)
+    epc = PyPlotCreator("dag_tests", **init_kwargs)
 
     # Some temporary output path
     out_path = str(tmpdir.join("foo"))
@@ -352,7 +352,7 @@ def test_use_dag(tmpdir, init_kwargs):
 
 def test_dag_required_tags(tmpdir, init_kwargs):
     """Tests the requirements for certain tags expected by the plot function"""
-    epc = ExternalPlotCreator("dag_required_tags", **init_kwargs)
+    epc = PyPlotCreator("dag_required_tags", **init_kwargs)
 
     # Some temporary output path
     out_path = str(tmpdir.join("foo"))
@@ -564,7 +564,7 @@ def test_dag_required_tags(tmpdir, init_kwargs):
 
 def test_can_plot(init_kwargs, tmp_module):
     """Tests the can_plot and _valid_plot_func_signature methods"""
-    epc = ExternalPlotCreator("can_plot", **init_kwargs)
+    epc = PyPlotCreator("can_plot", **init_kwargs)
 
     # Should work for the .basic lineplot, which is decorated and specifies
     # the creator type
@@ -587,11 +587,11 @@ def test_can_plot(init_kwargs, tmp_module):
     def pfdec_name():
         pass
 
-    @is_plot_func(creator_type=ExternalPlotCreator)
+    @is_plot_func(creator_type=PyPlotCreator)
     def pfdec_type():
         pass
 
-    @is_plot_func(creator_type=ExternalPlotCreator, creator_name="foo")
+    @is_plot_func(creator_type=PyPlotCreator, creator_name="foo")
     def pfdec_type_and_name():
         pass
 
@@ -638,7 +638,7 @@ def test_decorator(tmpdir):
 
     # Can take some specific ones, though, without checks
     is_plot_func(
-        creator_type=ExternalPlotCreator,
+        creator_type=PyPlotCreator,
         creator_name="foo",
         use_helper=True,
         helper_defaults=dict(),

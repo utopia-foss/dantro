@@ -178,9 +178,9 @@ Example
       # ... some plot arguments ...
 
 
-DAG usage with :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator`
+DAG usage with :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator`
 ----------------------------------------------------------------------------
-The :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` works exactly the same as in the general case.
+The :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` works exactly the same as in the general case.
 After computation, the results are made available to the selected python plot function via the ``data`` keyword argument, which is a dictionary of the tags that were selected to be computed.
 
 With this additional keyword argument being passed to the plot function, the plot function's signature also needs to support DAG usage, which makes it less comfortable to control DAG usage via the ``use_dag`` argument in the plot *configuration*.
@@ -215,7 +215,7 @@ A plot function can then be defined via the following signature and the :py:func
 The only required arguments here are ``data`` and ``hlpr``.
 The former contains all results from the DAG computation; the latter is the plot helper, which effectively is the interface to the visualization of the data.
 
-**Importantly,** this makes the plot function averse to the specific choice of a creator: the plot function can be used with the :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` and from its specializations, :py:class:`~dantro.plot.creators.psp.UniversePlotCreator` and :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator`.
+**Importantly,** this makes the plot function averse to the specific choice of a creator: the plot function can be used with the :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` and from its specializations, :py:class:`~dantro.plot.creators.psp.UniversePlotCreator` and :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator`.
 In such cases, the ``creator_type`` should not be specified in the decorator, but it should be given in the plot configuration.
 
 
@@ -247,7 +247,7 @@ The DAG can be configured in the same way as :ref:`in the general case <plot_cre
 
 Accessing the :py:class:`~dantro.data_mngr.DataManager`
 """""""""""""""""""""""""""""""""""""""""""""""""""""""
-As visible from the plot function above, the :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` does **not** pass along the current :py:class:`~dantro.data_mngr.DataManager` instance as first positional argument (``dm``) when DAG usage is enabled.
+As visible from the plot function above, the :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` does **not** pass along the current :py:class:`~dantro.data_mngr.DataManager` instance as first positional argument (``dm``) when DAG usage is enabled.
 This makes the plot function signature simpler and allows the creator-averse definition of plot functions while not restricting access to the data manager:
 
 The data manager can still be accessed directly via the ``dm`` DAG tag.
@@ -582,7 +582,7 @@ Using data transformation results in the plot configuration
 -----------------------------------------------------------
 The :ref:`data transformation framework <dag_framework>` can not only be used for the *selection* of plot data: using so-called "result placeholders", data transformation results can be used as part of the plot *configuration*.
 
-One use case is to include a computation result, e.g. some mean value, into the title of the plot via the :ref:`plot helper <pcr_ext_plot_helper>`.
+One use case is to include a computation result, e.g. some mean value, into the title of the plot via the :ref:`plot helper <plot_helper>`.
 In general, this feature allows to automate further parts of the plot configuration by giving access to the capabilities of the transformation framework.
 
 Let's look at an example plot configuration:
@@ -616,8 +616,8 @@ If you encounter errors that refer to an ``unexpected ResultPlaceholder object``
 
 **Where can (✅) placeholders always be used? Where can they never (❌) be used?**
 
-* ✅ They *can* be used in *all* configuration entries that are passed through to the selected plot function of the :ref:`pcr_ext` and derived plot creators.
-* ✅ They *can* be used within the ``helpers`` argument that controls the :ref:`pcr_ext_plot_helper`.
+* ✅ They *can* be used in *all* configuration entries that are passed through to the selected plot function of the :ref:`pcr_pyplot` and derived plot creators.
+* ✅ They *can* be used within the ``helpers`` argument that controls the :ref:`plot_helper`.
 * ❌ They can *not* be used for entries related to data transformation (``select``, ``transform``, ``dag_options``, ...) because these need to be evaluated in order to set up the :py:class:`~dantro.dag.TransformationDAG`.
 * ❌ They can *not* be used for entries evaluated by the :ref:`plot_manager` (``out_path``, etc) or the plot creator *prior to data selection* (``animation``, ``style``, ``module``, etc).
 

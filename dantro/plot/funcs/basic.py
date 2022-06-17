@@ -1,4 +1,4 @@
-"""Holds basic plot functions for use with ExternalPlotCreator"""
+"""Holds basic plot functions for use with PyPlotCreator"""
 
 import logging
 

@@ -135,7 +135,7 @@ Specialization thus can be of two kinds:
 1. Using an existing plot creator and configuring it to your needs.
 2. Implementing a whole *new* plot creator, e.g. because you desire to use a different plotting backend.
 
-For the former, we suggest to refer to the individual creator's documentation, e.g. :ref:`pcr_ext_specializing`.
+For the former, we suggest to refer to the individual creator's documentation, e.g. :ref:`pcr_pyplot_specializing`.
 
 For the latter, we recommend to use the existing :py:mod:`dantro.plot.creators` as examples for how this can be achieved; we are happy to support the implementation of new plot creators, so feel free to post an issue to `the project page <https://gitlab.com/utopia-project/dantro>`_.
 

@@ -1,5 +1,5 @@
 """Generic, DAG-based multiplot function for the
-:py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` and derived plot
+:py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` and derived plot
 creators.
 """
 

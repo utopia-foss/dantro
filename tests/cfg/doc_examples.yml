@@ -111,7 +111,7 @@ plot_cfg_ref:
 
       # --- Choosing and configuring a plot creator
       # Manually
-      creator: external
+      creator: pyplot
 
       # If the above is not given, auto-detection *may* be able to deduce it
       auto_detect_creator: true

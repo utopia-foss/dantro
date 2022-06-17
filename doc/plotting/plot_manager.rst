@@ -54,7 +54,7 @@ A set of plot configurations may look like this:
 
     values_over_time:  # this will also be the final name of the plot (without extension)
       # Select the creator to use
-      creator: external
+      creator: pyplot
       # NOTE: This has to be known to PlotManager under this name.
       #       It can also be set as default during PlotManager initialization.
 
@@ -78,7 +78,7 @@ A set of plot configurations may look like this:
 
     my_fancy_plot:
       # Select the creator to use
-      creator: external
+      creator: pyplot
 
       # This time, get the module from a file
       module_file: /path/to/my/fancy/plotting/script.py
@@ -91,7 +91,7 @@ A set of plot configurations may look like this:
       # ...
 
 This will create two plots: ``values_over_time`` and ``my_fancy_plot``.
-Both are using :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` (known to :py:class:`~dantro.plot_mngr.PlotManager` by its name, ``external``) and are loading certain functions to use for plotting.
+Both are using :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` (known to :py:class:`~dantro.plot_mngr.PlotManager` by its name, ``pyplot``) and are loading certain functions to use for plotting.
 
 .. hint::
 
@@ -112,7 +112,7 @@ Both are using :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` (known 
           <<: [*defaults, *more_defaults]
           # ...
 
-        my_other_plot:  # -> creates my_other_plot
+        my/other/plot:  # -> creates my/other/plot
           # ...
 
     This can be useful when desiring to define YAML anchors that are used in the actual plot configuration entries, e.g. for specifying defaults.
@@ -126,7 +126,7 @@ With the configuration-based approach, it becomes possible to use **parameter sw
 .. code-block:: yaml
 
     multiple_plots: !pspace
-      creator: external
+      creator: pyplot
       module: .basic
       plot_func: lineplot
 
@@ -165,7 +165,7 @@ For example, let's say we have a base configuration pool that specifies a linepl
     # Base configuration pool, registered with PlotManager
     ---
     my_gg_lineplot:
-      creator: external
+      creator: pyplot
       module: basic
       plot_func: lineplot
 
@@ -192,7 +192,7 @@ It is then recursively updated with the other keys, here ``x`` and ``y``, result
     # Plot configuration with ``based_on`` entries fully resolved
     ---
     values_over_time:
-      creator: external
+      creator: pyplot
       module: basic
       plot_func: lineplot
 
@@ -221,7 +221,7 @@ With the example above, we could also do the following:
     ---
     # Base plot configuration, specifying importable configuration chunks
     .plot.line:
-      creator: external
+      creator: pyplot
       module: basic
       plot_func: lineplot
 
@@ -285,7 +285,7 @@ Let's assume we have the following two base configuration pools registered, with
     # Plot function definitions
     .plot.defaults:
       based_on: .style.default
-      creator: external
+      creator: pyplot
       module: generic
 
     .plot.errorbars:

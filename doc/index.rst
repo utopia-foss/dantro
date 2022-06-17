@@ -72,6 +72,7 @@ It was developed alongside the `Utopia project <https://gitlab.com/utopia-projec
 
     plotting/plot_manager
     plotting/plot_creators
+    plotting/plot_helper
     plotting/plot_data_selection
     plotting/plot_functions
     plotting/faq

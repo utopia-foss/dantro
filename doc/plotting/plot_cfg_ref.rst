@@ -51,5 +51,5 @@ Options handled by the :doc:`Plot Creators <plot_creators>`
 The options made available by the individual plot creators, see their respective documentation entries:
 
 * :doc:`plot_creators`
-* :doc:`creators/ext`
+* :doc:`creators/pyplot`
 * :doc:`creators/psp`

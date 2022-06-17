@@ -226,7 +226,7 @@ class SkipPlot(DantroMessagingException):
 
 class EnterAnimationMode(DantroMessagingException):
     """An exception that is used to convey to any
-    :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` or derived
+    :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` or derived
     creator that animation mode is to be entered instead of a regular
     single-file plot.
 
@@ -241,7 +241,7 @@ class EnterAnimationMode(DantroMessagingException):
 
 class ExitAnimationMode(DantroMessagingException):
     """An exception that is used to convey to any
-    :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` or derived
+    :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` or derived
     creator that animation mode is to be exited and a regular single-file plot
     should be carried out.
 

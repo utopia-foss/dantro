@@ -1,8 +1,8 @@
-"""This module implements the ExternalPlotCreator class, which specialises on
-creating matplotlib-based plots. These are accessed via 'external' modules
-being imported and plot functions defined in these modules being invoked.
+"""This module implements the :py:class:`.PyPlotCreator` class, which
+specializes on creating :py:mod:`matplotlib.pyplot`-based plots.
 
-# TODO update module docstring
+These are accessed via "external" modules being imported and plot functions
+defined in these modules being invoked.
 """
 
 import copy
@@ -33,8 +33,10 @@ plt = LazyLoader("matplotlib.pyplot")
 # -----------------------------------------------------------------------------
 
 
-class ExternalPlotCreator(BasePlotCreator):
-    """This PlotCreator uses external scripts to create plots."""
+class PyPlotCreator(BasePlotCreator):
+    """A plot creator that is specialized on creating plots using
+    :py:mod:`matplotlib.pyplot`.
+    """
 
     # Settings of functionality implemented in BasePlotCreator
     EXTENSIONS = "all"  # no checks performed
@@ -54,7 +56,7 @@ class ExternalPlotCreator(BasePlotCreator):
     """For relative module imports, use this base package"""
 
     PLOT_HELPER_CLS = PlotHelper
-    """Which plot helper class to use"""
+    """Which :py:class:`~dantro.plot.plot_helper.PlotHelper` class to use"""
 
     # .........................................................................
     # Main API functions, required by PlotManager
@@ -67,7 +69,7 @@ class ExternalPlotCreator(BasePlotCreator):
         style: dict = None,
         **parent_kwargs,
     ):
-        """Initialize an ExternalPlotCreator.
+        """Initialize an PyPlotCreator.
 
         Args:
             name (str): The name of this plot

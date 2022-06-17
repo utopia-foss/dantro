@@ -461,7 +461,7 @@ The above example gives a glimpse of the possibilities of the plotting framework
 All of these features are already available as part of dantro.
 
 Importantly, though, the plotting framework becomes much more capable once you specialize it to your needs.
-For example, with the :py:class:`~dantro.plot.creators.ext.ExternalPlotCreator` and its built-in access to the :ref:`dag_framework`, you can easily define further plotting functions that form a bridge between selected and transformed data and its visualization.
+For example, with the :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` and its built-in access to the :ref:`dag_framework`, you can easily define further plotting functions that form a bridge between selected and transformed data and its visualization.
 
 .. hint::
 
@@ -534,7 +534,7 @@ For the Python project your project's processing pipeline will be implemented in
       ├ pipeline_cfg.yml        # stores default pipeline configuration
       ├ base_plots_cfg.yml      # defines base plot configurations
       ├ ...
-      ├ plot_funcs.py           # defines functions for ExternalPlotCreator
+      ├ plot_funcs.py           # defines functions for PyPlotCreator
       └ plotting.py             # defines MyPlotManager
 
 Here, ``run_my_pipeline.py`` is a script that determines which configuration files should be used and passed to ``MyDataManager`` and ``MyPlotManager``.

@@ -1,7 +1,7 @@
 # Configuration #2 for PlotManager test with "external" plot creator
 ---
 with_file_ext: !pspace
-  # creator: external  (already set by default here)
+  # creator: pyplot  (already set by default here)
 
   # Specify the module to find the function in
   module: .basic  # relative to the dantro.plot.funcs subpackage
