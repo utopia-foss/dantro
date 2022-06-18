@@ -14,9 +14,13 @@ class is_plot_func:
     plotting function to use with
     :py:class:`~dantro.plot.creators.base.BasePlotCreator` or derived creators.
 
-    It has a set of specializations that make sense only when using a specific
-    creator type. For example, the ``helper``-related arguments are only used
-    by :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator`.
+    .. note::
+
+        This decorator has a set of specializations that make sense only when
+        using a specific creator type!
+        For example, the ``helper``-related arguments are only used by
+        :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` and are ignored
+        without warning otherwise.
     """
 
     def __init__(
@@ -29,13 +33,12 @@ class is_plot_func:
         compute_only_required_dag_tags: bool = True,
         pass_dag_object_along: bool = False,
         unpack_dag_results: bool = False,
-        use_helper: bool = True,
+        use_helper: bool = None,
         helper_defaults: Union[dict, str] = None,
         supports_animation=False,
         add_attributes: dict = None,
     ):
-        """Initialize the decorator. Note that the function to be decorated is
-        not passed to this method.
+        """Initialize the decorator.
 
         .. note::
 
@@ -61,6 +64,8 @@ class is_plot_func:
             use_helper (bool, optional): Whether to use the
                 :py:class:`~dantro.plot.plot_helper.PlotHelper` with this plot.
                 Needs :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator`.
+                If None, will default to True for supported creators and False
+                otherwise.
             helper_defaults (Union[dict, str], optional): Default
                 configurations for helpers; these are automatically considered
                 to be enabled. If not dict-like, will assume this is an

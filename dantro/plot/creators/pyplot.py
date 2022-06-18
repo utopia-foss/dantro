@@ -1,9 +1,5 @@
 """This module implements the :py:class:`.PyPlotCreator` class, which
-specializes on creating :py:mod:`matplotlib.pyplot`-based plots.
-
-These are accessed via "external" modules being imported and plot functions
-defined in these modules being invoked.
-"""
+specializes on creating :py:mod:`matplotlib.pyplot`-based plots."""
 
 import copy
 import logging
@@ -33,7 +29,21 @@ plt = LazyLoader("matplotlib.pyplot")
 
 class PyPlotCreator(BasePlotCreator):
     """A plot creator that is specialized on creating plots using
-    :py:mod:`matplotlib.pyplot`.
+    :py:mod:`matplotlib.pyplot`. On top of the capabilities of
+    :py:class:`~dantro.plot.creators.base.BasePlotCreator`, this class
+    contains specializations for the matplotlib-based plotting backend:
+
+    - The :py:class:`~dantro.plot.plot_helper.PlotHelper` provides an interface
+      to a wide range of the :py:mod:`matplotlib.pyplot` interface, allowing to
+      let the plot function itself focus on generating a visual representation
+      of the data and removing boilerplate code; see :ref:`plot_helper`.
+    - There are so-called "style contexts" that a plot can be generated in,
+      allowing to have consistent and easily adjsutable aesthetics; see
+      :ref:`pcr_pyplot_style`.
+    - By including the :py:mod:`matplotlib.animation` framework, allows to
+      easily implement plot functions that generate animation output.
+
+    For more information, refer to :ref:`the user manual <pcr_pyplot>`.
     """
 
     # Settings that are inherited from the BasePlotCreator ....................
@@ -59,7 +69,7 @@ class PyPlotCreator(BasePlotCreator):
 
     # Newly introduced class variables ........................................
 
-    PLOT_HELPER_CLS = PlotHelper
+    PLOT_HELPER_CLS: type = PlotHelper
     """Which :py:class:`~dantro.plot.plot_helper.PlotHelper` class to use"""
 
     # .........................................................................
@@ -76,12 +86,13 @@ class PyPlotCreator(BasePlotCreator):
 
         Args:
             name (str): The name of this plot
-            style (dict, optional): The default style context defintion to
+            style (dict, optional): The *default* style context defintion to
                 enter before calling the plot function. This can be used to
                 specify the aesthetics of a plot. It is evaluated here once,
                 stored as attribute, and can be updated when the plot method
-                is called.
-            **parent_kwargs: Passed to the parent's __init__
+                is actually called.
+            **parent_kwargs: Passed to the parent's
+                :py:meth:`~dantro.plot.creators.base.BasePlotCreator.__init__`.
         """
         super().__init__(name, **parent_kwargs)
 
@@ -159,8 +170,12 @@ class PyPlotCreator(BasePlotCreator):
         # Generate a style dictionary to be used for context manager creation
         rc_params = self._prepare_style_context(**(style if style else {}))
 
-        # Check if PlotHelper is to be used
-        if getattr(plot_func, "use_helper", False):
+        # Check if PlotHelper is to be used, defaulting to True for None.
+        _use_helper = getattr(plot_func, "use_helper", False)
+        if _use_helper is None:
+            _use_helper = True
+
+        if _use_helper:
             switch_anim_mode = False
 
             # Delegate to private helper method that performs the plot or the
