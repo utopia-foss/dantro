@@ -8,3 +8,4 @@ isort:skip_file
 from .db import _OPERATIONS
 from .db_tools import available_operations, register_operation, is_operation
 from .apply import apply_operation
+from .hooks import DAG_PARSER_OPERATION_HOOKS

@@ -1,9 +1,15 @@
 """This module implements loaders mixin classes for use with the
 :py:class:`~dantro.data_mngr.DataManager`.
 
-All these mixin classes should follow the following pattern:
+All these mixin classes should follow the following signature:
 
-.. code-block:: python
+.. testcode::
+
+    from dantro.data_loaders import add_loader
+    from dantro.base import BaseDataContainer
+
+    class TheTargetContainerClass(BaseDataContainer):
+        pass
 
     class LoadernameLoaderMixin:
 
@@ -25,6 +31,7 @@ If ``self`` is required for some reason, set the ``omit_self`` option of the
 decorator to ``False``, making it a regular (instead of a static) method.
 """
 
+from ._tools import add_loader
 from .hdf5 import Hdf5LoaderMixin
 from .numpy import NumpyLoaderMixin
 from .pickle import PickleLoaderMixin

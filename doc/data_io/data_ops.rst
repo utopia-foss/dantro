@@ -120,7 +120,7 @@ For instance, if it is desired to use a custom operations database, the toolchai
 
 .. toggle::
 
-    .. code-block:: python
+    .. testcode:: custom_db_tools
 
         from typing import Union, Callable
 
@@ -166,7 +166,11 @@ For instance, if it is desired to use a custom operations database, the toolchai
             # do stuff here
             return d
 
-        print(available_operations())
+        print(", ".join(available_operations()))
+
+    .. testoutput:: custom_db_tools
+
+        some_operation, my_operation_name
 
     .. warning::
 

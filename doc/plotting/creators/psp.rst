@@ -104,7 +104,7 @@ Without DAG framework
 ^^^^^^^^^^^^^^^^^^^^^
 Without the DAG framework, the data needs to be selected manually:
 
-.. code-block:: python
+.. testcode::
 
     from dantro import DataManager
     from dantro.groups import ParamSpaceStateGroup as UniverseGroup

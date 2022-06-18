@@ -177,14 +177,20 @@ Specializing the helper
 The dantro :py:class:`.PlotHelper` already provides a default set of helpers that provide access to most of the matplotlib interface.
 If you need any additional customized helpers, you can easily add new methods to a specialization of the helper:
 
-.. code-block:: python
+.. testcode::
 
-  import dantro.plot.creators
+    import dantro.plot
 
-  class MyPlotHelper(dtr.plot_creators.PlotHelper):
-      """A specialization of the dantro ``PlotHelper`` which can be used to add
-      additional helper methods.
-      """
-      # You can add new helper methods here, prefixed with _hlpr_
+    class MyPlotHelper(dantro.plot.PlotHelper):
+        """A specialization of the dantro ``PlotHelper`` which can be used to
+        add additional helper methods.
+
+        New helper methods can be added here, names prefixed with ``_hlpr_``.
+        """
+
+        def _hlpr_do_stuff(self, **kwargs):
+            """My custom ``do_stuff`` helper"""
+            # Do stuff here ...
+            pass
 
 Note that you will have to communicate this new plot helper type to the creator by setting :py:const:`~dantro.plot.creators.pyplot.PyPlotCreator.PLOT_HELPER_CLS`.

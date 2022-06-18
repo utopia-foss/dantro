@@ -36,18 +36,20 @@ Furthermore, it checks whether the plot function is marked with attributes that 
 
 To conveniently add these attributes to the plot function, the :py:func:`~dantro.plot.utils.is_plot_func.is_plot_func` decorator can be used:
 
-.. code-block:: python
+.. testcode::
 
   from dantro.plot import is_plot_func, MultiversePlotCreator
 
   @is_plot_func(creator_type=MultiversePlotCreator)
-  def my_mv_plot_func(dm: DataManager, *, out_path: str, mv_data, **kwargs):
+  def my_mv_plot_func(dm: "DataManager", *, out_path: str, mv_data, **kwargs):
       # ...
+      pass
 
   # Alternatively: Specify only via the _name_ known to the PlotManager
   @is_plot_func(creator_name="universe")
-  def my_uni_plot_func(dm: DataManager, *, out_path: str, uni, **kwargs):
+  def my_uni_plot_func(dm: "DataManager", *, out_path: str, uni, **kwargs):
       # ...
+      pass
 
 .. hint::
 
