@@ -45,10 +45,17 @@ class BasePlotCreator(AbstractPlotCreator):
 
     It provides the following functionality:
 
-    - Resolving a plot function
-    - …
+    - Resolving a plot function, which can be a directly given callable, an
+      importable module and name, or a path to a Python file that is to be
+      imported.
+    - Parsing plot configuration arguments.
+    - Optionally, performing data selection from the associated
+      :py:class:`~dantro.data_mngr.DataManager` using the
+      :ref:`data transformation framework <dag_framework>`.
+    - Invoking the plot function.
 
-    TODO Write
+    As such, the this base class is agnostic to the exact way of how plot
+    output is generated; the plot function is responsible for that.
     """
 
     EXTENSIONS: Union[Tuple[str], str] = "all"
@@ -336,7 +343,7 @@ class BasePlotCreator(AbstractPlotCreator):
 
         # Prepare arguments, also performing plot data selection
         args, kwargs = self._prepare_plot_func_args(
-            plot_func, use_dag=use_dag, **func_kwargs
+            plot_func, use_dag=use_dag, out_path=out_path, **func_kwargs
         )
 
         # Call the plot function
@@ -494,8 +501,9 @@ class BasePlotCreator(AbstractPlotCreator):
             module (str): If plot_func was the name of the plot
                 function, this needs to be the name of the module to import
             module_file (str): Path to the file to load and look for
-                the `plot_func` in. If `base_module_file_dir` is given, this
-                can also be a path relative to that directory.
+                the `plot_func` in. If ``base_module_file_dir`` is given during
+                initialization, this can also be a path relative to that
+                directory.
 
         Returns:
             Callable: The resolved plot function

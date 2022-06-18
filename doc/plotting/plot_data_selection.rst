@@ -205,12 +205,15 @@ Defining a generic plot function
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 A plot function can then be defined via the following signature and the :py:func:`~dantro.plot.utils.is_plot_func.is_plot_func` decorator:
 
-.. code-block:: python
+.. testcode::
+
+    from dantro.plot import is_plot_func, PlotHelper
 
     @is_plot_func(use_dag=True)
     def my_plot_func(*, data: dict, hlpr: PlotHelper, **further_kwargs):
         """This is my custom plot function with preprocessed DAG data"""
         # ...
+        pass
 
 The only required arguments here are ``data`` and ``hlpr``.
 The former contains all results from the DAG computation; the latter is the plot helper, which effectively is the interface to the visualization of the data.
@@ -223,10 +226,10 @@ Specifying required tags
 """"""""""""""""""""""""
 If some specific tags are required, they can also be specified there:
 
-.. code-block:: python
+.. testcode::
 
     @is_plot_func(use_dag=True, required_dag_tags=('x', 'y'))
-    def simple_lineplot(*, data: dict, hlpr: PlotHelper, **plt_kwargs):
+    def simple_lineplot(*, data: dict, hlpr: "PlotHelper", **plt_kwargs):
         """Creates a simple line plot for selected x and y data"""
         hlpr.ax.plot(data['x'], data['y'], **plt_kwargs)
 
@@ -236,11 +239,11 @@ The DAG can be configured in the same way as :ref:`in the general case <plot_cre
 
     If you want the computed tags to be directly available in the plot function signature, use the ``unpack_dag_results`` flag in the decorator:
 
-    .. code-block:: python
+    .. testcode::
 
         @is_plot_func(use_dag=True, required_dag_tags=('x', 'y'),
                       unpack_dag_results=True)
-        def simple_lineplot(*, x, y, hlpr: PlotHelper, **plt_kwargs):
+        def simple_lineplot(*, x, y, hlpr: "PlotHelper", **plt_kwargs):
             """Creates a simple line plot for selected x and y data"""
             hlpr.ax.plot(x, y, **plt_kwargs)
 
@@ -273,12 +276,15 @@ Example
 """""""
 The following suffices to define a :py:class:`~dantro.plot.creators.psp.UniversePlotCreator`-based plot function:
 
-.. code-block:: python
+.. testcode::
+
+    from dantro.plot import UniversePlotCreator
 
     @is_plot_func(creator_type=UniversePlotCreator, use_dag=True)
     def my_universe_plot(*, data: dict, hlpr: PlotHelper, **kwargs):
         """This is my custom universe plot function with DAG usage"""
         # ...
+        pass
 
 .. hint::
 
@@ -326,12 +332,15 @@ Example
 """""""
 A :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator`-based plot function can be implemented like this:
 
-.. code-block:: python
+.. testcode::
+
+    from dantro.plot import MultiversePlotCreator
 
     @is_plot_func(creator_type=MultiversePlotCreator, use_dag=True)
     def my_multiverse_plot(*, data: dict, hlpr: PlotHelper, **kwargs):
         """This is my custom multiverse plot function with DAG usage"""
         # ...
+        pass
 
 .. hint::
 

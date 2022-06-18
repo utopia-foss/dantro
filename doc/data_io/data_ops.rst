@@ -42,7 +42,7 @@ Registering operations
 ^^^^^^^^^^^^^^^^^^^^^^
 To register additional operations, use the :py:func:`~dantro.data_ops.db_tools.register_operation` function:
 
-.. testcode::
+.. testcode:: register_operation
 
     from dantro.data_ops import register_operation
 
@@ -57,7 +57,7 @@ To register additional operations, use the :py:func:`~dantro.data_ops.db_tools.r
     # Can also give it a different name
     register_operation(increment_data, name="my_ops.increment")
 
-.. testcode::
+.. testcode:: register_operation
     :hide:
 
     from dantro.data_ops.db import _OPERATIONS
@@ -81,19 +81,19 @@ The :py:func:`~dantro.data_ops.db_tools.is_operation` decorator
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 As an alternative to :py:func:`~dantro.data_ops.db_tools.register_operation`, the :py:func:`~dantro.data_ops.db_tools.is_operation` decorator can be used to register a function with the operations database right where its defined:
 
-.. testcode::
+.. testcode:: register_with_decorator
 
     from dantro.data_ops import is_operation
 
     # Operation name deduced from function name
     @is_operation
-    def my_operation(data, *args):
+    def some_operation(data, *args):
         # ... do stuff here ...
         return data
 
     # Custom operation name
     @is_operation("do_stuff")
-    def my_operation_with_a_custom_name(foo, bar):
+    def some_operation_with_a_custom_name(foo, bar):
         pass
 
     # Overwriting an operation of the same name
@@ -101,12 +101,12 @@ As an alternative to :py:func:`~dantro.data_ops.db_tools.register_operation`, th
     def actually_do_stuff(spam, fish):
         pass
 
-.. testcode::
+.. testcode:: register_with_decorator
     :hide:
 
     # Check that they are actually there
     from dantro.data_ops.db import _OPERATIONS
-    assert "my_operation" in _OPERATIONS
+    assert "some_operation" in _OPERATIONS
     assert "do_stuff" in _OPERATIONS
 
 
@@ -120,7 +120,7 @@ For instance, if it is desired to use a custom operations database, the toolchai
 
 .. toggle::
 
-    .. testcode::
+    .. code-block:: python
 
         from typing import Union, Callable
 

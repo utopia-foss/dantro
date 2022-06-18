@@ -1,3 +1,5 @@
+.. default-domain:: dantro.plot.creators.psp
+
 .. _pcr_psp:
 
 Plots from Multidimensional Data
@@ -14,9 +16,12 @@ If you have not already done so, **make sure to read up on the corresponding nom
 
 ----
 
-Plots from Universe Data
-------------------------
-To create plots that use data from a single universe, use the :py:class:`~dantro.plot.creators.psp.UniversePlotCreator`.
+.. _pcr_uni:
+
+:py:class:`.UniversePlotCreator`: Plots from Universe Data
+----------------------------------------------------------
+
+To create plots that use data from a single universe, use the :py:class:`.UniversePlotCreator`.
 It allows to specify a set of universes to create plots for and provides the plotting function with data from the selected universes.
 
 The plot configuration for a universe plot requires as an additional argument a selection of which universes the plot should be created for.
@@ -69,7 +74,7 @@ When using the recommended creator-averse plot function signature, the DAG is au
 In this case, the available tags would be ``some_data``, ``some_other_data``, and ``result``.
 Furthermore, for the universe plot creator, the ``uni`` tag is always available as well.
 
-For more details, have a look at :ref:`plot_data_selection_uni` and :ref:`the general remarks on the transformation framework <pcr_pyplot_DAG_support>`.
+For more details, have a look at :ref:`plot_data_selection_uni` and :ref:`the general remarks on the transformation framework <pcr_base_DAG_support>`.
 
 Remarks
 """""""
@@ -140,10 +145,11 @@ In other words, when *not* using the data selection and transformation framework
 
 ----
 
+.. _pcr_mv:
 
-Plots from Multiverse Data
---------------------------
-To create plots that use data from *more than one* universe — henceforth called *multiverse data* — use the :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator`.
+:py:class:`.MultiversePlotCreator`: Plots from Multiverse Data
+--------------------------------------------------------------
+To create plots that use data from *more than one* universe — henceforth called *multiverse data* — use the :py:class:`.MultiversePlotCreator`.
 This creator makes it possible to select and combine the data from all selected individual universes and provides the result of the combination to the plot function.
 
 This requires the handling of multidimensional data and depends on the dimensionality of the chosen parameter space.
@@ -186,7 +192,7 @@ When using the recommended creator-averse plot function signature, the DAG is au
         - add: [!dag_tag some_data, !dag_tag some_other_data]
           tag: result
 
-Again, for more details, have a look at :ref:`plot_data_selection_mv` and :ref:`the general remarks on the transformation framework <pcr_pyplot_DAG_support>`.
+Again, for more details, have a look at :ref:`plot_data_selection_mv` and :ref:`the general remarks on the transformation framework <pcr_base_DAG_support>`.
 
 .. hint::
 
@@ -198,7 +204,7 @@ Again, for more details, have a look at :ref:`plot_data_selection_mv` and :ref:`
 
 Skipping multiverse plots
 ^^^^^^^^^^^^^^^^^^^^^^^^^
-For skipping :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator` plots, the ``expected_multiverse_ndim`` argument can optionally be specified in the plot configuration.
+For skipping :py:class:`.MultiversePlotCreator` plots, the ``expected_multiverse_ndim`` argument can optionally be specified in the plot configuration.
 The argument specifies a set of dimensionalities with which plotting is possible; if the dimensionality of the associated :py:class:`~dantro.groups.psp.ParamSpaceGroup` is not part of this set, the plot will be skipped.
 
 .. code-block:: yaml

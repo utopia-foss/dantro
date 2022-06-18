@@ -5,7 +5,7 @@
 The :py:class:`.PlotHelper`
 ---------------------------
 
-The aim of the :py:class:`.PlotHelper` is to let the plot functions focus on what cannot easily be automated: being the bridge between some selected or :ref:`transformed <pcr_pyplot_DAG_support>` data and its visualization.
+The aim of the :py:class:`.PlotHelper` is to let the plot functions focus on what cannot easily be automated: being the bridge between some selected or :ref:`transformed <pcr_base_DAG_support>` data and its visualization.
 The plot function should not have to concern itself with things like plot aesthetics, as that can easily be automated.
 
 The :py:class:`.PlotHelper` can make your life easier by quite a lot as it already takes care of setting up and saving a figure and makes large parts of the :py:mod:`matplotlib.pyplot` interface accessible via the plot configuration.

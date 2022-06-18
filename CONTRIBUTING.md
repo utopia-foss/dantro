@@ -115,7 +115,7 @@ Of course, you can always contact the developer team [directly via e-mail][devma
 [ext_user]: https://docs.gitlab.com/ee/user/permissions.html#external-users-core-only
 [dantro_project]: https://gitlab.com/utopia-project/dantro
 [request_access]: https://gitlab.com/utopia-project/dantro/-/project_members/request_access
-[new_issue]: https://gitlab.com/utopia-project/dantro/issues/new?issue
+[new_issue]: https://gitlab.com/utopia-project/dantro/issues
 [pep8]: https://www.python.org/dev/peps/pep-0008/
 [black]: https://black.readthedocs.io/en/stable/
 [zen]: https://www.python.org/dev/peps/pep-0020/

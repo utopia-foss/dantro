@@ -394,7 +394,7 @@ class AbstractPlotCreator(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def __init__(
-        self, name: str, *, dm: "dantro.data_manager.DataManager", **plot_cfg
+        self, name: str, *, dm: "dantro.data_mngr.DataManager", **plot_cfg
     ):
         """Initialize the plot creator, given a
         :py:class:`~dantro.data_mngr.DataManager`, the plot name, and the

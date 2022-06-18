@@ -17,15 +17,19 @@ help:
 # A target to build the whole HTML documentation, including API documentation
 doc:
 	@echo "Building HTML documentation ..."
+	@echo ""
 	make html
+	@echo ""
 	@echo "Built HTML documentation."
-	@echo "-------------------------"
+
+build_and_check:
+	make html
 	@echo ""
 	@echo ""
-	@echo "Now carrying out link check ..."
+	make linkcheck
 	@echo ""
-	make -b linkcheck
-	@echo "Finished building and linkcheck."
+	@echo ""
+	make doctest
 
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
