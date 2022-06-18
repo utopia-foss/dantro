@@ -22,6 +22,9 @@
     - The `ExternalPlotCreator` is renamed to `PyPlotCreator`, highlighting that it works with `matplotlib.pyplot` as a backend.
     - The `dantro.groups.pspgrp` module was renamed to `dantro.groups.psp`
     - The `dantro.containers.xrdatactr` module was renamed to `dantro.containers.xr`
+- !282 moves the former `ExternalPlotCreator`'s plot function loading functionality into `PlotManager`, making it a central component of the plotting framework rather than a creator's special feature.
+    - This also makes `BasePlotCreator` a fully-functioning (no longer abstract) creator class, which is averse to any plotting backend.
+- !282 also completely removes the plot creator auto detection feature, reducing implementation complexity.
 
 #### Internal
 - !267 performs some code clean-up and improves the sphinx setup
@@ -32,6 +35,7 @@
 #### Deprecations
 - !278 deprecates use of `dantro.tools.IS_A_TTY` and `dantro.tools.TTY_COLS` constants. This information should be retrieved from the `dantro.tools.TERMINAL_INFO` dict instead.
 - !280 deprecates imports from `dantro.utils.data_ops`; use `dantro.data_ops` instead.
+- !282 deprecates `creator_type` and `creator_name` arguments to the `is_plot_func` decorator; use `creator` instead.
 
 
 ## v0.17.2
