@@ -43,7 +43,7 @@ class Agent:
         self.energy = energy
 
     def iterate(self, *, p_death: float, p_eat: float,
-                dE_eat: float, dE_live: float) -> 'Agent':
+                dE_eat: float, dE_live: float) -> "Agent":
         """Iterates the agent state: deduces life costs, evaluates probability
         of eating and random death.
 
@@ -220,7 +220,7 @@ def test_integration(tmpdir):
 
     ### Start -- data_generation_03
     # -- Step 3: Use the parameter space to generate and store the output data
-    for params, state_str in pspace.iterator(with_info='state_no_str'):
+    for params, state_str in pspace.iterator(with_info="state_no_str"):
         # `params` is now a dict that contains the set of parameters for this
         # specific instantiation.
         # `state_str` is a string identifying this point of the parameter space
@@ -258,7 +258,7 @@ def test_integration(tmpdir):
     project_cfg = load_yml(project_cfg_path)
 
     # ... and extract the initialization parameters for MyDataManager
-    dm_cfg = project_cfg['data_manager']
+    dm_cfg = project_cfg["data_manager"]
 
 
     # -- Step 6: Set up the DataManager & associate it with the data directory.
@@ -274,7 +274,7 @@ def test_integration(tmpdir):
 
     ### Start -- data_loading_03
     # -- Step 7: Load data using the load configuration given at initialisation
-    dm.load_from_cfg(print_tree='condensed')
+    dm.load_from_cfg(print_tree="condensed")
     # Will load the data and then print a condensed tree overview:
     # Tree of MyDataManager 'my_simulation', 1 member, 0 attributes
     #  └─ simulations             <ParamSpaceGroup, 30 members, 1 attribute>
@@ -310,9 +310,9 @@ def test_integration(tmpdir):
 
     ### Start -- data_loading_04
     # To access data, can use the dict interface and paths
-    for sim in dm['simulations'].values():
-        num_steps = sim['params']['abm']['num_steps']
-        extinct_after = np.argmin(sim['data/abm/num_agents'])
+    for sim in dm["simulations"].values():
+        num_steps = sim["params"]["abm"]["num_steps"]
+        extinct_after = np.argmin(sim["data/abm/num_agents"])
 
         print(f"In simulation '{sim.name}', agents got extinct after "
               f"{extinct_after} / {num_steps} iterations.")
@@ -345,7 +345,7 @@ def test_integration(tmpdir):
 
     ### Start -- data_viz_02
     # -- Step 10: Initialize MyPlotManager from the project configuration
-    pm_cfg = project_cfg['plot_manager']
+    pm_cfg = project_cfg["plot_manager"]
 
     pm = MyPlotManager(dm=dm, **pm_cfg)
     ### End ---- data_viz_02

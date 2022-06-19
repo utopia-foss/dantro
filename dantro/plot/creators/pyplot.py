@@ -7,7 +7,6 @@ import os
 from typing import Callable, List, Sequence, Tuple, Union
 
 from ..._import_tools import LazyLoader
-from ...dag import TransformationDAG
 from ...tools import DoNothingContext, load_yml, recursive_update
 from ..plot_helper import (
     EnterAnimationMode,
@@ -61,10 +60,11 @@ class PyPlotCreator(BasePlotCreator):
     DAG_SUPPORTED = True
     """Whether this creator supports :ref:`dag_framework`"""
 
-    DAG_INVOKE_IN_BASE = False
-    """Whether DAG invocation should happen in the base class methods; if
-    False, can invoke the functions separately in the desired place inside the
-    derived class.
+    DAG_INVOKE_IN_BASE = True
+    """Whether DAG invocation should happen in the base class method
+    :py:meth:`~dantro.plot.creators.base.BasePlotCreator.__prepare_plot_func_args`.
+    If False, can/need to invoke the data selection separately in the desired
+    place inside the derived class.
     """
 
     # Newly introduced class variables ........................................
@@ -115,10 +115,13 @@ class PyPlotCreator(BasePlotCreator):
         use_dag: bool = None,
         **func_kwargs,
     ):
-        """Performs the plot operation by calling a specified plot function.
+        """Performs the plot operation.
 
-        The plot function is specified by its name, which is interpreted as a
-        full module string, or by directly passing a callable.
+        In addition to the behavior of the base class's
+        :py:meth:`~dantro.plot.creators.base.BasePlotCreator.plot`, this method
+        integrates the :ref:`plot helper framework <pcr_pyplot_helper>`,
+        :ref:`style contexts <pcr_pyplot_style>` and the
+        :ref:`animation mode <pcr_pyplot_animations>`.
 
         Alternatively, the base module can be loaded from a file path.
 
@@ -152,20 +155,22 @@ class PyPlotCreator(BasePlotCreator):
             helpers (dict, optional): helper configuration passed to PlotHelper
                 initialization if enabled
             animation (dict, optional): animation configuration
-            use_dag (bool, optional): Whether to use the TransformationDAG to
-                select and transform data that can be used in the plotting
+            use_dag (bool, optional): Whether to use the :ref:`dag_framework`
+                to select and transform data that can be used in the plotting
                 function. If not given, will query the plot function attributes
                 for whether the DAG should be used.
+                See :ref:`plot_creator_dag` for more information.
             **func_kwargs: Passed to the imported function
 
         Raises:
             ValueError: On superfluous ``helpers`` or ``animation`` arguments
                 in cases where these are not supported
         """
-        # Get the plotting function
+        # Get the plotting function and store it to attribute
         plot_func = self._resolve_plot_func(
             plot_func=plot_func, module=module, module_file=module_file
         )
+        self._plot_func = plot_func
 
         # Generate a style dictionary to be used for context manager creation
         rc_params = self._prepare_style_context(**(style if style else {}))
@@ -184,7 +189,6 @@ class PyPlotCreator(BasePlotCreator):
             try:
                 self._plot_with_helper(
                     out_path=out_path,
-                    plot_func=plot_func,
                     helpers=helpers,
                     style_context=self._build_style_context(**rc_params),
                     func_kwargs=func_kwargs,
@@ -219,7 +223,6 @@ class PyPlotCreator(BasePlotCreator):
                 try:
                     self._plot_with_helper(
                         out_path=out_path,
-                        plot_func=plot_func,
                         helpers=helpers,
                         style_context=self._build_style_context(**rc_params),
                         func_kwargs=func_kwargs,
@@ -257,7 +260,7 @@ class PyPlotCreator(BasePlotCreator):
             # Prepare the arguments. The DataManager is added to args there
             # and data transformation via DAG occurs there as well.
             args, kwargs = self._prepare_plot_func_args(
-                plot_func, use_dag=use_dag, out_path=out_path, **func_kwargs
+                use_dag=use_dag, out_path=out_path, **func_kwargs
             )
 
             # Enter the stlye context
@@ -269,13 +272,12 @@ class PyPlotCreator(BasePlotCreator):
             # Done.
 
     # .........................................................................
-    # Helpers: Main plot routines
+    # Plotting with the PlotHelper
 
     def _plot_with_helper(
         self,
         *,
         out_path: str,
-        plot_func: Callable,
         helpers: dict,
         style_context,
         func_kwargs: dict,
@@ -287,7 +289,6 @@ class PyPlotCreator(BasePlotCreator):
 
         Args:
             out_path (str): The output path
-            plot_func (Callable): The resolved plot function
             helpers (dict): The helper configuration
             style_context: A style context; can also be DoNothingContext, if
                 no style adjustments are to take place.
@@ -306,14 +307,14 @@ class PyPlotCreator(BasePlotCreator):
         # as well, the helpers are passed along here (and popped from the
         # parsed kwargs again a few lines below).
         args, kwargs = self._prepare_plot_func_args(
-            plot_func, use_dag=use_dag, helpers=helpers, **func_kwargs
+            use_dag=use_dag, helpers=helpers, **func_kwargs
         )
 
         # Initialize a PlotHelper instance that will take care of figure
         # setup, invoking helper-functions and saving the figure.
         # Then, add the Helper instance to the plot function keyword arguments.
         helpers = kwargs.pop("helpers")
-        helper_defaults = getattr(plot_func, "helper_defaults", None)
+        helper_defaults = getattr(self._plot_func, "helper_defaults", None)
         hlpr = self.PLOT_HELPER_CLS(
             out_path=out_path,
             helper_defaults=helper_defaults,
@@ -328,7 +329,6 @@ class PyPlotCreator(BasePlotCreator):
             self._perform_animation(
                 hlpr=hlpr,
                 style_context=style_context,
-                plot_func=plot_func,
                 plot_args=args,
                 plot_kwargs=kwargs,
                 **animation,
@@ -343,9 +343,9 @@ class PyPlotCreator(BasePlotCreator):
         with style_context, leak_prev:
             hlpr.setup_figure()
 
-            plot_func_name = plot_func.__name__
+            plot_func_name = self._plot_func.__name__
             log.info("Now calling plotting function '%s' ...", plot_func_name)
-            plot_func(*args, **kwargs)
+            self._plot_func(*args, **kwargs)
             log.note("Plotting function '%s' returned.", plot_func_name)
 
             log.info("Invoking helpers ...")
@@ -356,194 +356,7 @@ class PyPlotCreator(BasePlotCreator):
             log.remark("Figure saved.")
 
     # .........................................................................
-    # Helpers: specialization of data selection and transformation framework
-
-    def _get_dag_params(
-        self, *, _plot_func: Callable, **cfg
-    ) -> Tuple[dict, dict]:
-        """Extends the parent method by making the plot function callable
-        available to the other helper methods and extracting some further
-        information from the plot function.
-        """
-        dag_params, plot_kwargs = super()._get_dag_params(**cfg)
-
-        # Store the plot function, such that it is available as argument in the
-        # other subclassed helper methods
-        dag_params["init"]["_plot_func"] = _plot_func
-        dag_params["compute"]["_plot_func"] = _plot_func
-
-        # Determine whether the DAG object should be passed along to the func
-        pass_dag = getattr(_plot_func, "pass_dag_object_along", False)
-        dag_params["pass_dag_object_along"] = pass_dag
-
-        # Determine whether the DAG results should be unpacked when passing
-        # them to the plot function
-        unpack_results = getattr(_plot_func, "unpack_dag_results", False)
-        dag_params["unpack_dag_results"] = unpack_results
-
-        return dag_params, plot_kwargs
-
-    def _use_dag(
-        self, *, use_dag: bool, plot_kwargs: dict, _plot_func: Callable
-    ) -> bool:
-        """Whether the DAG should be used or not. This method extends that of
-        the base class by additionally checking the plot function attributes
-        for any information regarding the DAG
-        """
-        # If None was given, check the plot function attributes
-        if use_dag is None:
-            use_dag = getattr(_plot_func, "use_dag", None)
-
-        # Let the parent class do whatever else it does
-        use_dag = super()._use_dag(use_dag=use_dag, plot_kwargs=plot_kwargs)
-
-        # Complain, if tags where required, but DAG usage was disabled
-        if not use_dag and getattr(_plot_func, "required_dag_tags", None):
-            raise ValueError(
-                "The plot function {} requires DAG tags to be "
-                "computed, but DAG usage was disabled."
-                "".format(_plot_func)
-            )
-
-        return use_dag
-
-    def _create_dag(
-        self, *, _plot_func: Callable, **dag_params
-    ) -> TransformationDAG:
-        """Extends the parent method by allowing to pass the _plot_func, which
-        can be used to adjust DAG behaviour ...
-        """
-        return super()._create_dag(**dag_params)
-
-    def _compute_dag(
-        self,
-        dag: TransformationDAG,
-        *,
-        _plot_func: Callable,
-        compute_only: Sequence[str],
-        **compute_kwargs,
-    ) -> dict:
-        """Compute the dag results.
-
-        This extends the parent method by additionally checking whether all
-        required tags are defined and (after computation) whether all required
-        tags were computed.
-        """
-        # Extract the required tags from the plot function attributes
-        required_tags = getattr(_plot_func, "required_dag_tags", None)
-
-        # Make sure that all required tags are actually defined
-        if required_tags:
-            missing_tags = [t for t in required_tags if t not in dag.tags]
-
-            if missing_tags:
-                raise ValueError(
-                    "Plot function {} required tags that were "
-                    "not specified in the DAG: {}. Available "
-                    "tags: {}. Please adjust the DAG "
-                    "specification accordingly."
-                    "".format(
-                        _plot_func,
-                        ", ".join(missing_tags),
-                        ", ".join(dag.tags),
-                    )
-                )
-
-        # If the compute_only argument was not explicitly given, determine
-        # whether to compute only the required tags
-        if (
-            compute_only is None
-            and required_tags is not None
-            and getattr(_plot_func, "compute_only_required_dag_tags", False)
-        ):
-            log.remark(
-                "Tags that are required by the plot function:  %s",
-                ", ".join(required_tags),
-            )
-            compute_only = required_tags
-
-        # Make sure the compute_only argument contains all the required tags
-        elif compute_only is not None and required_tags is not None:
-            missing_tags = [t for t in required_tags if t not in compute_only]
-
-            if missing_tags:
-                raise ValueError(
-                    "Plot function {} required tags that were "
-                    "not set to be computed by the DAG: {}. Make "
-                    "sure to set the `compute_only` argument "
-                    "such that results for all required tags "
-                    "({}) will actually be computed.\n"
-                    "Available tags:  {}\n"
-                    "compute_only:    {}"
-                    "".format(
-                        _plot_func,
-                        ", ".join(missing_tags),
-                        ", ".join(required_tags),
-                        ", ".join(dag.tags),
-                        ", ".join(compute_only),
-                    )
-                )
-
-        return super()._compute_dag(
-            dag, compute_only=compute_only, **compute_kwargs
-        )
-
-    def _combine_dag_results_and_plot_cfg(
-        self,
-        *,
-        dag: TransformationDAG,
-        dag_results: dict,
-        dag_params: dict,
-        plot_kwargs: dict,
-    ) -> dict:
-        """Returns a dict of plot configuration and ``data``, where all the
-        DAG results are stored in.
-        In case where the DAG results are to be unpacked, the DAG results will
-        be made available as separate keyword arguments instead of as the
-        single ``data`` keyword argument.
-
-        Furthermore, if the plot function specified in its attributes that the
-        DAG object is to be passed along, this is the place where it is
-        included or excluded from the arguments.
-
-        .. note::
-
-            This behaviour is different than in the parent class, where the
-            DAG results are passed on as ``dag_results``.
-
-        """
-        if dag_params["unpack_dag_results"]:
-            # Unpack the results such that they can be specified in the plot
-            # function signature
-            try:
-                cfg = dict(**dag_results, **plot_kwargs)
-
-            except TypeError as err:
-                raise TypeError(
-                    "Failed unpacking DAG results! There were arguments of "
-                    "the same names as some DAG tags given in the plot "
-                    "configuration. Make sure they have unique names or "
-                    "disable unpacking of the DAG results.\n"
-                    "  Keys in DAG results: {}\n"
-                    "  Keys in plot config: {}\n"
-                    "".format(
-                        ", ".join(dag_results.keys()),
-                        ", ".join(plot_kwargs.keys()),
-                    )
-                ) from err
-
-        else:
-            # Make the DAG results available as `data` kwarg
-            cfg = dict(data=dag_results, **plot_kwargs)
-
-        # Add the `dag` kwarg, if configured to do so.
-        if dag_params["pass_dag_object_along"]:
-            cfg["dag"] = dag
-
-        return cfg
-
-    # .........................................................................
-    # Helpers: Style and Animation
+    # Style
 
     def _prepare_style_context(
         self,
@@ -655,12 +468,14 @@ class PyPlotCreator(BasePlotCreator):
             return plt.rc_context(rc=rc_params)
         return DoNothingContext()
 
+    # .........................................................................
+    # Animation
+
     def _perform_animation(
         self,
         *,
         hlpr: PlotHelper,
         style_context,
-        plot_func: Callable,
         plot_args: tuple,
         plot_kwargs: dict,
         writer: str,
@@ -672,7 +487,6 @@ class PyPlotCreator(BasePlotCreator):
         Args:
             hlpr (PlotHelper): The plot helper
             style_context: The style context to enter before starting animation
-            plot_func (Callable): plotting function which is to be animated
             plot_args (tuple): positional arguments to ``plot_func``
             plot_kwargs (dict): keyword arguments to ``plot_func``
             writer (str): name of movie writer with which the frames are saved
@@ -695,12 +509,11 @@ class PyPlotCreator(BasePlotCreator):
             ValueError: if the animation is not supported by the ``plot_func``
                 or if the writer is not available
         """
-        if not getattr(plot_func, "supports_animation", False):
+        if not getattr(self._plot_func, "supports_animation", False):
             raise ValueError(
-                f"Plotting function '{plot_func.__name__}' was not marked as "
-                "supporting an animation! To do so, add the "
-                "`supports_animation` flag to the plot function "
-                "decorator."
+                f"Plotting function '{self._plot_func.__name__}' was not "
+                "marked as supporting an animation! To do so, add the "
+                "`supports_animation` flag to the plot function decorator."
             )
 
         # Get the kwargs for __init__, saving, and grab_frame of the writer
@@ -738,7 +551,7 @@ class PyPlotCreator(BasePlotCreator):
 
         log.debug(
             "Performing animation of plot function '%s' using writer %s ...",
-            plot_func.__name__,
+            self._plot_func.__name__,
             writer_name,
         )
         frame_no = -1
@@ -747,10 +560,10 @@ class PyPlotCreator(BasePlotCreator):
             hlpr.setup_figure()
 
             # Call the plot function
-            plot_func_name = plot_func.__name__
+            plot_func_name = self._plot_func.__name__
             log.info("Now calling plotting function '%s' ...", plot_func_name)
 
-            plot_func(*plot_args, **plot_kwargs)
+            self._plot_func(*plot_args, **plot_kwargs)
             # NOTE This plot is NOT saved as the first frame in order to allow
             #      the animation update generator be a more general method.
 

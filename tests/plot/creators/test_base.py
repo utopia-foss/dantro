@@ -4,6 +4,7 @@ NOTE Some of the tests are easier to carry out with PyPlotCreator; see there.
 """
 
 import logging
+import os
 
 import pytest
 
@@ -72,6 +73,9 @@ def tmp_module(tmpdir) -> str:
 def test_init(init_kwargs):
     """Tests initialisation"""
     # Basic case
+    BasePlotCreator("init", **init_kwargs)
+
+    # Mocked class also works
     MockPlotCreator("init", **init_kwargs)
 
     # Test check for existence of default extension
@@ -111,12 +115,111 @@ def test_properties(init_kwargs):
     # Assert the get_ext method works (does nothing here)
     assert mpc.get_ext() == mpc.default_ext
 
-    # The BasePlotCreator should never mark itself as `can_plot`
-    assert not mpc.can_plot(
-        creator_name=None,  # need to specify this kwarg
-        foo="bar",
-        some_plot_param=123,
-    )
+
+def test_resolve_plot_func(init_kwargs, tmpdir, tmp_module):
+    """Tests whether the _resolve_plot_func works as expected"""
+    epc = MockPlotCreator("init", **init_kwargs)
+
+    # Make a shortcut to the function
+    resolve = epc._resolve_plot_func
+
+    # Test with valid arguments
+    # Directly passing a callable should just return it
+    func = lambda foo: "bar"
+    assert resolve(plot_func=func) is func
+
+    # Giving a module file should load that module. Test by calling function
+    wfunc = resolve(module_file=tmp_module, plot_func="write_something")
+    wfunc("foo", out_path=tmpdir.join("wfunc_output")) == 42
+
+    # ...but only for absolute paths
+    with pytest.raises(ValueError, match="Need to specify `base_module_file_"):
+        resolve(module_file="some/relative/path", plot_func="foobar")
+
+    # Giving a module name works also
+    assert callable(resolve(module=".basic", plot_func="lineplot"))
+
+    # Not giving enough arguments will fail
+    with pytest.raises(TypeError, match="neither argument"):
+        resolve(plot_func="foo")
+
+    # So will a plot_func of wrong type
+    with pytest.raises(TypeError, match="needs to be a string or a callable"):
+        resolve(plot_func=666, module="foo")
+
+    # Can have longer plot_func modstr as well, resolved recursively
+    assert callable(resolve(module=".basic", plot_func="plt.plot"))
+    # NOTE that this would not work as a plot function; just for testing here
+
+
+@pytest.mark.skip(reason="Feature will be removed")
+def test_can_plot(init_kwargs, tmp_module):
+    """Tests the can_plot and _valid_plot_func_signature methods"""
+    epc = MockPlotCreator("can_plot", **init_kwargs)
+
+    # Should work for the .basic lineplot, which is decorated and specifies
+    # the creator type
+    assert epc.can_plot("external", module=".basic", plot_func="lineplot")
+    assert not epc.can_plot("foobar", module=".basic", plot_func="lineplot")
+
+    # Cases where no plot function can be resolved
+    assert not epc.can_plot("external", **{})
+    assert not epc.can_plot("external", plot_func="some_func")
+    assert not epc.can_plot("external", plot_func="some_func", module="foo")
+    assert not epc.can_plot("external", plot_func="some_func", module_file=".")
+
+    # Test the decorator . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    # Define a shortcut
+    def declared_pf_by_attrs(func, pc=epc, creator_name="external"):
+        return pc._declared_plot_func_by_attrs(func, creator_name)
+
+    # Define some functions to test
+    @is_plot_func(creator_name="external")
+    def pfdec_name():
+        pass
+
+    @is_plot_func(creator_type=MockPlotCreator)
+    def pfdec_type():
+        pass
+
+    @is_plot_func(creator_type=MockPlotCreator, creator_name="foo")
+    def pfdec_type_and_name():
+        pass
+
+    @is_plot_func(creator_type=MockPlotCreator2)
+    def pfdec_subtype():
+        pass
+
+    @is_plot_func(creator_name="base")
+    def pfdec_subtype_name():
+        pass
+
+    @is_plot_func(creator_type=int)
+    def pfdec_bad_type():
+        pass
+
+    @is_plot_func(creator_name="i_do_not_exist")
+    def pfdec_bad_name():
+        pass
+
+    assert declared_pf_by_attrs(pfdec_name)
+    assert declared_pf_by_attrs(pfdec_type)
+    assert declared_pf_by_attrs(pfdec_type_and_name)
+    assert not declared_pf_by_attrs(pfdec_subtype)
+    assert not declared_pf_by_attrs(pfdec_subtype_name)
+    assert not declared_pf_by_attrs(pfdec_bad_type)
+    assert not declared_pf_by_attrs(pfdec_bad_name)
+
+    # Also test for a derived class
+    mpc2 = MockPlotCreator2("can_plot", **init_kwargs)
+
+    assert not declared_pf_by_attrs(pfdec_name, mpc2, "base")
+    assert declared_pf_by_attrs(pfdec_type, mpc2, "base")
+    assert declared_pf_by_attrs(pfdec_type_and_name, mpc2, "base")
+    assert declared_pf_by_attrs(pfdec_subtype, mpc2, "base")
+    assert declared_pf_by_attrs(pfdec_subtype_name, mpc2, "base")
+    assert not declared_pf_by_attrs(pfdec_bad_type, mpc2, "base")
+    assert not declared_pf_by_attrs(pfdec_bad_name, mpc2, "base")
 
 
 def test_call(init_kwargs, tmpdir):
@@ -137,6 +240,37 @@ def test_call(init_kwargs, tmpdir):
     # ... or skipping is desired
     with pytest.raises(SkipPlot, match="Plot output already exists"):
         mpc(out_path=tmpdir.join("call1"), foo="bar", exist_ok="skip")
+
+
+def test_BasePlotCreator_plot(init_kwargs, tmpdir, tmp_module):
+    """Tests the BasePlotCreator's plot method, which also works on its own"""
+    pc = BasePlotCreator("test", **init_kwargs)
+
+    p1 = tmpdir.join("plot1")
+    pc(
+        out_path=p1,
+        module_file=tmp_module,
+        plot_func="write_something",
+        some_kwargs="foobar",
+    )
+    assert os.path.isfile(p1)
+    with open(p1) as f:
+        "some_kwargs" in f.read()
+
+    # Can also explicitly pass a plot function
+    @is_plot_func(use_dag=True)
+    def my_func(*, out_path: str, data: dict, some_kwarg: int):
+        assert isinstance(out_path, str)
+        assert data == dict(foo="bar")
+        assert some_kwarg == 123
+
+    pc(
+        out_path=str(tmpdir.join("plot2")),
+        plot_func=my_func,
+        some_kwarg=123,
+        use_dag=True,
+        select=dict(foo=dict(path=".", transform=[dict(define="bar")])),
+    )
 
 
 def test_data_selection_interface(init_kwargs, tmpdir):
@@ -163,6 +297,7 @@ def test_data_selection_interface(init_kwargs, tmpdir):
     params4 = dict(
         **params3,
         dag_options=dict(file_cache_defaults=dict(write=False, read=True)),
+        invocation_options=dict(pass_dag_object_along=True),
     )
     params5 = dict(
         **params3,
@@ -195,8 +330,8 @@ def test_data_selection_interface(init_kwargs, tmpdir):
     flg, ds1 = mpc._perform_data_selection(use_dag=True, plot_kwargs=params1)
     assert flg is True
     assert "use_dag" not in ds1
-    assert isinstance(ds1["dag"], TransformationDAG)
-    assert ds1["dag_results"] == dict()
+    assert "dag" not in ds1
+    assert ds1["data"] == dict()
     assert ds1["foo"] == "bar"
     assert ds1["baz"] == 123
 
@@ -207,17 +342,17 @@ def test_data_selection_interface(init_kwargs, tmpdir):
     _, ds2 = mpc._perform_data_selection(use_dag=True, plot_kwargs=params2)
     assert "use_dag" not in ds2
     assert "transform" not in ds2
-    assert ds2["dag_results"] == dict(sum=3)
+    assert ds2["data"] == dict(sum=3)
 
     # It's possible to pass `compute_only`
     _, ds3 = mpc._perform_data_selection(use_dag=True, plot_kwargs=params3)
-    assert ds3["dag_results"] == dict(sub=1)
+    assert ds3["data"] == dict(sub=1)
     assert "transform" not in ds3
     assert "compute_only" not in ds3
 
     # It's possible to pass file cache default values via DAG options
     _, ds4 = mpc._perform_data_selection(use_dag=True, plot_kwargs=params4)
-    assert ds4["dag_results"] == dict(sub=1)
+    assert ds4["data"] == dict(sub=1)
     assert "transform" not in ds4
     assert "compute_only" not in ds4
     assert "file_cache_defaults" not in ds4
@@ -259,6 +394,7 @@ def test_dag_object_cache(init_kwargs, tmpdir):
             dict(operation="add", args=[1, 2], tag="sum"),
             dict(operation="sub", args=[3, 2], tag="sub"),
         ],
+        invocation_options=dict(pass_dag_object_along=True),
     )
 
     # Initial call: should write to object cache. Suppress copies to allow
@@ -334,108 +470,3 @@ def test_dag_object_cache(init_kwargs, tmpdir):
         ),
     )
     assert len(_DAG_OBJECT_CACHE) == 0
-
-
-def test_resolve_plot_func(init_kwargs, tmpdir, tmp_module):
-    """Tests whether the _resolve_plot_func works as expected"""
-    epc = MockPlotCreator("init", **init_kwargs)
-
-    # Make a shortcut to the function
-    resolve = epc._resolve_plot_func
-
-    # Test with valid arguments
-    # Directly passing a callable should just return it
-    func = lambda foo: "bar"
-    assert resolve(plot_func=func) is func
-
-    # Giving a module file should load that module. Test by calling function
-    wfunc = resolve(module_file=tmp_module, plot_func="write_something")
-    wfunc("foo", out_path=tmpdir.join("wfunc_output")) == 42
-
-    # ...but only for absolute paths
-    with pytest.raises(ValueError, match="Need to specify `base_module_file_"):
-        resolve(module_file="some/relative/path", plot_func="foobar")
-
-    # Giving a module name works also
-    assert callable(resolve(module=".basic", plot_func="lineplot"))
-
-    # Not giving enough arguments will fail
-    with pytest.raises(TypeError, match="neither argument"):
-        resolve(plot_func="foo")
-
-    # So will a plot_func of wrong type
-    with pytest.raises(TypeError, match="needs to be a string or a callable"):
-        resolve(plot_func=666, module="foo")
-
-    # Can have longer plot_func modstr as well, resolved recursively
-    assert callable(resolve(module=".basic", plot_func="plt.plot"))
-    # NOTE that this would not work as a plot function; just for testing here
-
-
-def test_can_plot(init_kwargs, tmp_module):
-    """Tests the can_plot and _valid_plot_func_signature methods"""
-    epc = MockPlotCreator("can_plot", **init_kwargs)
-
-    # Should work for the .basic lineplot, which is decorated and specifies
-    # the creator type
-    assert epc.can_plot("external", module=".basic", plot_func="lineplot")
-    assert not epc.can_plot("foobar", module=".basic", plot_func="lineplot")
-
-    # Cases where no plot function can be resolved
-    assert not epc.can_plot("external", **{})
-    assert not epc.can_plot("external", plot_func="some_func")
-    assert not epc.can_plot("external", plot_func="some_func", module="foo")
-    assert not epc.can_plot("external", plot_func="some_func", module_file=".")
-
-    # Test the decorator . . . . . . . . . . . . . . . . . . . . . . . . . . .
-    # Define a shortcut
-    def declared_pf_by_attrs(func, pc=epc, creator_name="external"):
-        return pc._declared_plot_func_by_attrs(func, creator_name)
-
-    # Define some functions to test
-    @is_plot_func(creator_name="external")
-    def pfdec_name():
-        pass
-
-    @is_plot_func(creator_type=MockPlotCreator)
-    def pfdec_type():
-        pass
-
-    @is_plot_func(creator_type=MockPlotCreator, creator_name="foo")
-    def pfdec_type_and_name():
-        pass
-
-    @is_plot_func(creator_type=MockPlotCreator2)
-    def pfdec_subtype():
-        pass
-
-    @is_plot_func(creator_name="base")
-    def pfdec_subtype_name():
-        pass
-
-    @is_plot_func(creator_type=int)
-    def pfdec_bad_type():
-        pass
-
-    @is_plot_func(creator_name="i_do_not_exist")
-    def pfdec_bad_name():
-        pass
-
-    assert declared_pf_by_attrs(pfdec_name)
-    assert declared_pf_by_attrs(pfdec_type)
-    assert declared_pf_by_attrs(pfdec_type_and_name)
-    assert not declared_pf_by_attrs(pfdec_subtype)
-    assert not declared_pf_by_attrs(pfdec_subtype_name)
-    assert not declared_pf_by_attrs(pfdec_bad_type)
-    assert not declared_pf_by_attrs(pfdec_bad_name)
-
-    # Also test for a derived class
-    mpc2 = MockPlotCreator2("can_plot", **init_kwargs)
-
-    assert not declared_pf_by_attrs(pfdec_name, mpc2, "base")
-    assert declared_pf_by_attrs(pfdec_type, mpc2, "base")
-    assert declared_pf_by_attrs(pfdec_type_and_name, mpc2, "base")
-    assert declared_pf_by_attrs(pfdec_subtype, mpc2, "base")
-    assert declared_pf_by_attrs(pfdec_subtype_name, mpc2, "base")
-    assert not declared_pf_by_attrs(pfdec_bad_type, mpc2, "base")
-    assert not declared_pf_by_attrs(pfdec_bad_name, mpc2, "base")

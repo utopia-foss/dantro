@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 
 
-@is_plot_func(creator_name="external", use_helper=False)
+@is_plot_func(creator_name="pyplot", use_helper=False)
 def lineplot(
     dm: DataManager,
     *,
@@ -24,15 +24,16 @@ def lineplot(
     save_kwargs: dict = None,
     **plot_kwargs,
 ):
-    """Performs a simple lineplot.
+    """Performs a simple lineplot using :py:func:`matplotlib.pyplot.plot`.
 
     Args:
         dm (DataManager): The data manager from which to retrieve the data
         out_path (str): Where to store the plot to
-        y (str): The path to get to the y-data in the data manager
-        x (str, optional): The path to get to the x-data in the data manager
-        save_kwargs (dict, optional): kwargs to the plt.savefig function
-        **plt_kwargs: Passed on to plt.plot
+        y (str): The path to get to the y-data from the data tree
+        x (str, optional): The path to get to the x-data from the data tree
+        save_kwargs (dict, optional): Keyword arguments for
+            :py:func:`matplotlib.pyplot.save`
+        **plot_kwargs: Passed on to :py:func:`matplotlib.pyplot.plot`.
     """
     # Get the data
     x_data = dm[x] if x else None
