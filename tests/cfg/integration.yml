@@ -84,9 +84,8 @@ data_manager:
 
 ### Start -- pm_params
 plot_manager:
-  # Allow auto-detecting plot creators and set the default creator
+  # Set the default creator type
   default_creator: pyplot
-  auto_detect_creator: true
 
   # Raise exceptions when a plot fails
   raise_exc: true

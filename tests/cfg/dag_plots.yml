@@ -6,7 +6,7 @@ _pm_init_kwargs:
   base_cfg_pools:
     - - base
       - # .. Creators .........................................................
-        creator.ext:
+        creator.pyplot:
           creator: pyplot
 
         creator.uni:
@@ -60,7 +60,7 @@ config_based:
   simple_example:
     plot_cfg:
       <<: *shared_plot_cfg
-      based_on: [creator.ext, dag.errorbars]
+      based_on: [creator.pyplot, dag.errorbars]
 
       # Create some mock data with the DAG framework
       transform:
@@ -83,8 +83,8 @@ config_based:
   # Example for a failing invocation
   simple_failing:
     plot_cfg: {}
-    _raises: ValueError
-    _match: No `creator` argument given
+    _raises: PlotConfigError
+    _match: Missing `plot_func` argument
 
 
   # .. Tests for UniversePlotCreator ..........................................
@@ -200,7 +200,7 @@ config_based:
   skip_plot_directly:
     plot_cfg:
       <<: *shared_plot_cfg
-      based_on: [creator.ext, dag.errorbars]
+      based_on: [creator.pyplot, dag.errorbars]
 
       transform:
         - raise_SkipPlot: [true]
@@ -211,7 +211,7 @@ config_based:
   skip_plot_conditionally:
     plot_cfg:
       <<: *shared_plot_cfg
-      based_on: [creator.ext, dag.errorbars]
+      based_on: [creator.pyplot, dag.errorbars]
 
       transform:
         - xr.DataArray: [[.5,1,2,4,8,16,32]]
@@ -301,7 +301,7 @@ config_based:
   helper/empty_axis:
     plot_cfg: &empty_axis
       <<: *shared_plot_cfg
-      based_on: [creator.ext, dag.facet_grid]
+      based_on: [creator.pyplot, dag.facet_grid]
       debug: true
 
       select:
@@ -341,7 +341,7 @@ config_based:
   facet_grid/errorbars_standalone:
     plot_cfg:
       <<: *shared_plot_cfg
-      based_on: [creator.ext, dag.errorbars]
+      based_on: [creator.pyplot, dag.errorbars]
 
       select:
         data: datasets/mean_and_std_4D
@@ -357,7 +357,7 @@ config_based:
   facet_grid/errorbars_standalone_failing:
     plot_cfg:
       <<: *shared_plot_cfg
-      based_on: [creator.ext, dag.errorbars]
+      based_on: [creator.pyplot, dag.errorbars]
 
       select:
         data: datasets/mean_and_std_4D

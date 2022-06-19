@@ -62,7 +62,7 @@ class PyPlotCreator(BasePlotCreator):
 
     DAG_INVOKE_IN_BASE = True
     """Whether DAG invocation should happen in the base class method
-    :py:meth:`~dantro.plot.creators.base.BasePlotCreator.__prepare_plot_func_args`.
+    :py:meth:`~dantro.plot.creators.base.BasePlotCreator._prepare_plot_func_args`.
     If False, can/need to invoke the data selection separately in the desired
     place inside the derived class.
     """
@@ -106,9 +106,6 @@ class PyPlotCreator(BasePlotCreator):
         self,
         *,
         out_path: str,
-        plot_func: Union[str, Callable],
-        module: str = None,
-        module_file: str = None,
         style: dict = None,
         helpers: dict = None,
         animation: dict = None,
@@ -127,13 +124,6 @@ class PyPlotCreator(BasePlotCreator):
 
         Args:
             out_path (str): The output path for the resulting file
-            plot_func (Union[str, Callable]): The plot function or a name or
-                module string under which it can be imported.
-            module (str, optional): If plot_func was the name of the plot
-                function, this needs to be the name of the module to import
-            module_file (str, optional): Path to the file to load and look for
-                the ``plot_func`` in. If ``base_module_file_dir`` is given,
-                this can also be a path relative to that directory.
             style (dict, optional): Parameters that determine the aesthetics of
                 the created plot; basically matplotlib rcParams. From them, a
                 style context is entered before calling the plot function.
@@ -166,17 +156,11 @@ class PyPlotCreator(BasePlotCreator):
             ValueError: On superfluous ``helpers`` or ``animation`` arguments
                 in cases where these are not supported
         """
-        # Get the plotting function and store it to attribute
-        plot_func = self._resolve_plot_func(
-            plot_func=plot_func, module=module, module_file=module_file
-        )
-        self._plot_func = plot_func
-
         # Generate a style dictionary to be used for context manager creation
         rc_params = self._prepare_style_context(**(style if style else {}))
 
         # Check if PlotHelper is to be used, defaulting to True for None.
-        _use_helper = getattr(plot_func, "use_helper", False)
+        _use_helper = getattr(self.plot_func, "use_helper", False)
         if _use_helper is None:
             _use_helper = True
 
@@ -246,7 +230,7 @@ class PyPlotCreator(BasePlotCreator):
                 raise ValueError(
                     "The key 'helpers' was found in the configuration of "
                     f"plot '{self.name}' but usage of the PlotHelper is not "
-                    f"supported by plot function '{plot_func.__name__}'!"
+                    f"supported by plot function '{self.plot_func_name}'!"
                 )
 
             if animation:
@@ -254,7 +238,7 @@ class PyPlotCreator(BasePlotCreator):
                     "The key 'animation' was found in the "
                     f"configuration of plot '{self.name}' but the animation "
                     "feature is only available when using the PlotHelper for "
-                    f"plot function '{plot_func.__name__}'!"
+                    f"plot function '{self.plot_func_name}'!"
                 )
 
             # Prepare the arguments. The DataManager is added to args there
@@ -266,9 +250,9 @@ class PyPlotCreator(BasePlotCreator):
             # Enter the stlye context
             with self._build_style_context(**rc_params):
                 log.debug(
-                    "Calling plotting function '%s' ...", plot_func.__name__
+                    "Calling plotting function '%s' ...", self.plot_func_name
                 )
-                plot_func(*args, **kwargs)
+                self.plot_func(*args, **kwargs)
             # Done.
 
     # .........................................................................
@@ -314,7 +298,7 @@ class PyPlotCreator(BasePlotCreator):
         # setup, invoking helper-functions and saving the figure.
         # Then, add the Helper instance to the plot function keyword arguments.
         helpers = kwargs.pop("helpers")
-        helper_defaults = getattr(self._plot_func, "helper_defaults", None)
+        helper_defaults = getattr(self.plot_func, "helper_defaults", None)
         hlpr = self.PLOT_HELPER_CLS(
             out_path=out_path,
             helper_defaults=helper_defaults,
@@ -343,10 +327,11 @@ class PyPlotCreator(BasePlotCreator):
         with style_context, leak_prev:
             hlpr.setup_figure()
 
-            plot_func_name = self._plot_func.__name__
-            log.info("Now calling plotting function '%s' ...", plot_func_name)
-            self._plot_func(*args, **kwargs)
-            log.note("Plotting function '%s' returned.", plot_func_name)
+            log.info(
+                "Now calling plotting function '%s' ...", self.plot_func_name
+            )
+            self.plot_func(*args, **kwargs)
+            log.note("Plotting function '%s' returned.", self.plot_func_name)
 
             log.info("Invoking helpers ...")
             hlpr.invoke_enabled(axes="all")
@@ -509,9 +494,9 @@ class PyPlotCreator(BasePlotCreator):
             ValueError: if the animation is not supported by the ``plot_func``
                 or if the writer is not available
         """
-        if not getattr(self._plot_func, "supports_animation", False):
+        if not getattr(self.plot_func, "supports_animation", False):
             raise ValueError(
-                f"Plotting function '{self._plot_func.__name__}' was not "
+                f"Plotting function '{self.plot_func_name}' was not "
                 "marked as supporting an animation! To do so, add the "
                 "`supports_animation` flag to the plot function decorator."
             )
@@ -551,7 +536,7 @@ class PyPlotCreator(BasePlotCreator):
 
         log.debug(
             "Performing animation of plot function '%s' using writer %s ...",
-            self._plot_func.__name__,
+            self.plot_func_name,
             writer_name,
         )
         frame_no = -1
@@ -560,10 +545,11 @@ class PyPlotCreator(BasePlotCreator):
             hlpr.setup_figure()
 
             # Call the plot function
-            plot_func_name = self._plot_func.__name__
-            log.info("Now calling plotting function '%s' ...", plot_func_name)
+            log.info(
+                "Now calling plotting function '%s' ...", self.plot_func_name
+            )
 
-            self._plot_func(*plot_args, **plot_kwargs)
+            self.plot_func(*plot_args, **plot_kwargs)
             # NOTE This plot is NOT saved as the first frame in order to allow
             #      the animation update generator be a more general method.
 

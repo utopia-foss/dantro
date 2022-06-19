@@ -170,7 +170,7 @@ Below, you will learn how to implement a plot function that can be used with the
 
 .. _is_plot_func_decorator:
 
-The :py:func:`~dantro.plot.utils.is_plot_func.is_plot_func` decorator
+The :py:func:`~dantro.plot.utils.plot_func.is_plot_func` decorator
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 When defining a plot function, we recommend using this decorator.
 It takes care of providing essential information to the :py:class:`.BasePlotCreator` and makes it easy to configure those parameters relevant for the plot function.
@@ -279,7 +279,7 @@ When not using the transformation framework, the ``creator_type`` should be spec
 
 Bare basics
 """""""""""
-There is an even more basic way of defining a plot function, leaving out the :py:func:`~dantro.plot.utils.is_plot_func.is_plot_func` decorator altogether:
+There is an even more basic way of defining a plot function, leaving out the :py:func:`~dantro.plot.utils.plot_func.is_plot_func` decorator altogether:
 
 .. testcode::
 

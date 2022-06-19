@@ -1,6 +1,7 @@
-"""This module implements the PlotManager class, which handles the
+"""Implements the :py:class:`~dantro.plot_mngr.PlotManager`, which handles the
 configuration of multiple plots and prepares the data and configuration to pass
-to the PlotCreator.
+to the respective :ref:`plot creators <plot_creators>`.
+See :ref:`the user manual <plot_manager>` for more information.
 """
 
 import copy
@@ -11,7 +12,7 @@ import time
 import warnings
 from collections import OrderedDict
 from difflib import get_close_matches as _get_close_matches
-from typing import Any, Dict, List, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Sequence, Tuple, Union
 
 from paramspace import ParamDim, ParamSpace
 
@@ -22,22 +23,23 @@ from .plot import BasePlotCreator, SkipPlot
 from .plot._cfg import resolve_based_on as _resolve_based_on
 from .plot._cfg import resolve_based_on_single as _resolve_based_on_single
 from .plot.creators import ALL_PLOT_CREATORS as ALL_PCRS
+from .plot.utils import PlotFuncResolver as _PlotFuncResolver
 from .tools import format_time as _format_time
 from .tools import load_yml, make_columns, recursive_update, write_yml
 
-# Local constants
 log = logging.getLogger(__name__)
 
-# Time formatting function
-fmt_time = lambda seconds: _format_time(seconds, ms_precision=1)
+_fmt_time = lambda seconds: _format_time(seconds, ms_precision=1)
 
-# Substrings that may not appear in plot names
-# Unlike the dantro.abc.BAD_NAME_CHARS, these *allow* the ``/`` (such that new
-# directories can be created) and disallows ``.`` (in order to not get confused
-# with file extensions).
 BAD_PLOT_NAME_CHARS = tuple(
     [c for c in _BAD_NAME_CHARS if c not in ("/",)] + ["."]
 )
+"""Substrings that may not appear in plot names.
+
+Unlike the :py:data:`~dantro.abc.BAD_NAME_CHARS`, these *allow* the ``/`` char
+(such that new directories can be created) and disallows the ``.`` character
+(in order to not get confused with file extensions).
+"""
 
 
 # -----------------------------------------------------------------------------
@@ -45,11 +47,18 @@ BAD_PLOT_NAME_CHARS = tuple(
 
 class PlotManager:
     """The PlotManager takes care of configuring plots and calling the
-    configured PlotCreator classes that then carry out the plots.
+    selected :ref:`plot creators <plot_creators>` that then actually carry out
+    the plotting operation.
+
     It is a high-level class that is aware of a larger plot configuration and
     aggregates all general capabilities needed to configure and carry out plots
     using the plotting framework.
+
+    See :ref:`the user manual <plot_manager>` for more information.
     """
+
+    PLOT_FUNC_RESOLVER: type = _PlotFuncResolver
+    """The class to use for resolving plot function objects"""
 
     CREATORS: Dict[str, type] = ALL_PCRS
     """The mapping of creator names to classes.
@@ -99,9 +108,9 @@ class PlotManager:
         update_base_cfg: Union[str, dict] = None,
         out_dir: Union[str, None] = "{timestamp:}/",
         out_fstrs: dict = None,
+        plot_func_resolver_init_kwargs: dict = None,
         creator_init_kwargs: Dict[str, dict] = None,
         default_creator: str = None,
-        auto_detect_creator: bool = False,
         save_plot_cfg: bool = True,
         raise_exc: bool = False,
         cfg_exists_action: str = "raise",
@@ -170,15 +179,13 @@ class PlotManager:
                 Additionally, for ``sweep``: ``state_no``, ``state_vector``,
                     ``state``.
 
+            plot_func_resolver_init_kwargs (dict, optional): Initialization
+                arguments for the plot function resolver.
             creator_init_kwargs (Dict[str, dict], optional): If given, these
                 kwargs are passed to the initialization calls of the respective
                 creator classes.
             default_creator (str, optional): If given, a plot without explicit
                 ``creator`` declaration will use this creator as default.
-            auto_detect_creator (bool, optional): If true, and no default
-                creator is given, will try to automatically deduce the creator
-                using the given plot arguments. All creators registered with
-                this PlotManager instance are candidates.
             save_plot_cfg (bool, optional): If True, the plot configuration is
                 saved to a yaml file alongside the created plot.
             raise_exc (bool, optional): Whether to raise exceptions if there
@@ -199,7 +206,11 @@ class PlotManager:
         self._dm = dm
         self._out_dir = out_dir
         self._plot_info = []
-        self._auto_detect_creator = auto_detect_creator
+        self._pfr_kwargs = (
+            plot_func_resolver_init_kwargs
+            if plot_func_resolver_init_kwargs
+            else {}
+        )
         self._cckwargs = creator_init_kwargs if creator_init_kwargs else {}
         self._cfg_exists_action = cfg_exists_action
         self.default_creator = default_creator
@@ -522,138 +533,76 @@ class PlotManager:
                 f"plot function name: {_bad_name_chars}"
             )
 
+    def _get_plot_func(self, **resolver_kwargs) -> Callable:
+        """Instantiates a plot function resolver,
+        :py:class:`~dantro.plot.utils.plot_func.PlotFuncResolver`, and uses
+        it to get the desired plot function callable.
+        """
+        pf_resolver = self.PLOT_FUNC_RESOLVER(**self._pfr_kwargs)
+        return pf_resolver.resolve(**resolver_kwargs)
+
     def _get_plot_creator(
         self,
-        creator: Union[str, None],
         *,
+        creator: Union[str, Callable],
+        plot_func: Callable,
         name: str,
         init_kwargs: dict,
-        from_pspace: ParamSpace = None,
-        plot_cfg: dict,
-        auto_detect: bool = None,
     ) -> BasePlotCreator:
         """Determines which plot creator to use by looking at the given
-        arguments. If set, tries to auto-detect from the arguments, which
-        creator is to be used.
+        arguments and the plotting function.
 
         Then, sets up the corresponding creator and returns it.
 
-        This method is called from the plot() method.
+        This method is called from :py:meth:`._plot`.
 
         Args:
-            creator (Union[str, None]): The name of the creator to be found.
-                Can be None, if no argument was given to the plot method.
-            name (str): The name of the plot
+            creator (Union[str, Callable]): The name of the creator to be
+                looked up in :py:attr:`.CREATORS`. Can also be None, in
+                which case it is attempted to look it up from the ``plot_func``
+                's ``creator`` attribute. If that was not possible either, the
+                :py:attr:`.default_creator` is used. If a callable is given,
+                will use that as a factory to construct the creator instance.
+            name (str): The name that will be used for the plot creator,
+                typically the plot name itself.
             init_kwargs (dict): Additional creator initialization parameters
-            from_pspace (paramspace.paramspace.ParamSpace, optional): If the
-                plot is to be creatd from a parameter space, that parameter
-                space.
-            plot_cfg (dict): The plot configuration
-            auto_detect (bool, optional): Whether to auto-detect the creator.
-                If none, the value given at initialization is used.
 
         Returns:
             BasePlotCreator: The selected creator object, fully initialized.
-
-        Raises:
-            InvalidCreator: If the ``creator`` argument was invalid or auto-
-                detection failed.
         """
-        # If no creator is given, check if a default one can be used
+        # If no creator is given, try to retrieve it by some other means
         if creator is None:
-            # Combine auto-detect related settings
-            auto_detect = (
-                auto_detect
-                if auto_detect is not None
-                else self._auto_detect_creator
-            )
-
-            # Find other ways to determine the name of the creator
-            if self.default_creator:
-                # Just use the default
-                creator = self.default_creator
-
-            elif auto_detect:
-                # Can try to auto-detect from the arguments, which creator
-                # could uniquely fit to the arguments
-                log.debug("Attempting auto-detection of creator ...")
-                log.warning(
-                    "Auto-detection of a plot creator is deprecated!\n"
-                    "To avoid future breakage, specify the `creator` argument "
-                    "explicitly."
+            log.debug("No creator specified.")
+            if hasattr(plot_func, "creator"):
+                creator = plot_func.creator
+                log.debug(
+                    "  Using creator specified by plot function instead:  %s",
+                    creator,
                 )
 
-                # If a ParamSpace plot is to be made, detect feasibility by
-                # using its default parameters
-                cfg = plot_cfg if not from_pspace else from_pspace.default
-
-                # (name, plot creator) tuples for each candidate
-                pc_candidates = []
-
-                # Go over all registered plot creators
-                for pc_name in self.CREATORS.keys():
-                    try:
-                        # Instantiate them by calling this function recursively
-                        pc = self._get_plot_creator(
-                            pc_name,
-                            name=name,
-                            init_kwargs=init_kwargs,
-                            from_pspace=from_pspace,
-                            plot_cfg=plot_cfg,
-                        )
-
-                    except:
-                        # Failed to initialize for whatever reason, thus not
-                        # a candidate
-                        continue
-
-                    # Successfully initialized. Check if it's a candidate for
-                    # this plot configuration
-                    if pc.can_plot(pc_name, **cfg):
-                        log.debug(
-                            "Plot creator '%s' declared itself a candidate.",
-                            pc_name,
-                        )
-                        pc_candidates.append((pc_name, pc))
-
-                # If there is more than one candidate, cannot decide
-                if len(pc_candidates) > 1:
-                    _pcc = ", ".join([n for n, _ in pc_candidates])
-                    raise InvalidCreator(
-                        "Tried to auto-detect a plot creator for plot "
-                        f"'{name}' but could not unambiguously do so! There "
-                        f"were {len(pc_candidates)} plot creators declaring "
-                        f"themselves as candidates: {_pcc}. Consider "
-                        "specifying the creator explicitly."
-                    )
-
-                elif len(pc_candidates) < 1:
-                    _pc = ", ".join([k for k in self.CREATORS.keys()])
-                    raise InvalidCreator(
-                        "Tried to auto-detect a plot creator for plot "
-                        f"'{name}' but none of the available creators ({_pc}) "
-                        "declared itself a candidate! This might also be due "
-                        "to a plot configuration that the candidate plot "
-                        "creators could not interpret. Consider specifying "
-                        "the creator explicitly to find out why "
-                        "auto-detection failed."
-                    )
-
-                # else: there was only one, use that
-                pc_name, pc = pc_candidates[0]
-                log.debug("Auto-detected plot creator: %s", pc.logstr)
-
-                # As it is already initialized, can just return it
-                return pc
+            elif self.default_creator:
+                creator = self.default_creator
+                log.debug("  Using default creator instead:  %s", creator)
 
             else:
                 raise InvalidCreator(
-                    "No `creator` argument given and neither "
-                    "`default_creator` specified during initialization nor "
-                    "auto-detection enabled. Cannot plot!"
+                    f"Could not determine a plot creator for plot '{name}'!\n"
+                    "Either specify it directly via the `creator` argument, "
+                    "associate one with the plot function via the decorator, "
+                    "or set the `default_creator` argument during the "
+                    "initialization of the PlotManager."
                 )
 
+        # Determine the actual creator *type* now.
+        # More precisely, this can also be a factory that then generates the
+        # BasePlotCreator-like object.
+        if not callable(creator):
+            PlotCreator = self.CREATORS[creator]
+        else:
+            PlotCreator = creator
+
         # Parse initialization kwargs, based on the defaults set in __init__
+        # FIXME This is not working properly if ``creator`` is not a string!
         pc_kwargs = self._cckwargs.get(creator, {})
         if init_kwargs:
             log.debug("Recursively updating creator initialization kwargs ...")
@@ -662,13 +611,15 @@ class PlotManager:
         if "raise_exc" not in pc_kwargs:
             pc_kwargs["raise_exc"] = self.raise_exc
 
-        # Instantiate the creator class
-        pc = self.CREATORS[creator](name=name, dm=self._dm, **pc_kwargs)
+        # Can now instantiate the creator object
+        pc = PlotCreator(
+            name=name, plot_func=plot_func, dm=self._dm, **pc_kwargs
+        )
 
         log.debug("Initialized %s.", pc.logstr)
         return pc
 
-    def _invoke_creator(
+    def _invoke_plot_creation(
         self,
         plot_creator: BasePlotCreator,
         *,
@@ -1046,7 +997,7 @@ class PlotManager:
             "Performed plots from %d plot configuration%s in %s.\n",
             len(plots_cfg),
             "s" if len(plots_cfg) != 1 else "",
-            fmt_time(time.time() - t0),
+            _fmt_time(time.time() - t0),
         )
 
     def plot(
@@ -1060,12 +1011,15 @@ class PlotManager:
         """Create plot(s) from a single configuration entry.
 
         A call to this function resolves the ``based_on`` feature and passes
-        the derived plot configuration to self._plot(), which actually carries
-        out the plots.
+        the derived plot configuration to :py:meth:`._plot`, which actually
+        carries out the plotting. See there for documentation of further
+        arguments.
 
         Note that more than one plot can result from a single configuration
         entry, e.g. when plots were configured that have more dimensions than
         representable in a single file.
+
+        For
 
         Args:
             name (str): The name of this plot. This will be used for generating
@@ -1131,11 +1085,13 @@ class PlotManager:
         kwargs = {
             k: from_pspace.pop(k, None)
             for k in (
+                "plot_func",
+                "module",
+                "module_file",
                 "creator",
                 "out_dir",
                 "default_out_dir",
                 "save_plot_cfg",
-                "auto_detect_creator",
                 "creator_init_kwargs",
             )
         }
@@ -1146,20 +1102,26 @@ class PlotManager:
         self,
         name: str,
         *,
-        creator: str = None,
+        plot_func: Union[str, Callable] = None,
+        module: str = None,
+        module_file: str = None,
+        creator: Union[str, Callable] = None,
         out_dir: str = None,
         default_out_dir: str = None,
         file_ext: str = None,
         save_plot_cfg: bool = None,
-        auto_detect_creator: bool = None,
         creator_init_kwargs: dict = None,
         from_pspace: dict = None,
         **plot_cfg,
     ) -> BasePlotCreator:
         """Create plot(s) from a single configuration entry.
 
-        A call to this function creates a single PlotCreator, which is also
-        returned after all plots are finished.
+        This first resolves the plot function using the plot function resolver
+        class: :py:class:`~dantro.plot.utils.plot_func.PlotFuncResolver` or a
+        derived class (depending on the :py:attr:`.PLOT_FUNC_RESOLVER`).
+
+        A call to this function creates a :ref:`plot creator <plot_creator>`,
+        which is also returned after all plots are finished.
 
         Note that more than one plot can result from a single configuration
         entry, e.g. when plots were configured that have more dimensions than
@@ -1167,9 +1129,23 @@ class PlotManager:
 
         Args:
             name (str): The name of this plot
-            creator (str, optional): The name of the creator to use. Has to be
-                part of the CREATORS class variable. If not given, the argument
-                `default_creator` given at initialization will be used.
+            plot_func (Union[str, Callable], optional): The name or module
+                string of the plot function as it can be imported from
+                ``module``. If this is a callable will directly return that
+                callable. This argument *needs* be given.
+            module (str): If ``plot_func`` was the name of the plot
+                function, this needs to be the name of the module to import
+                that name from.
+            module_file (str): Path to the file to load and look for
+                the ``plot_func`` in. If ``base_module_file_dir`` is given
+                during initialization, this can also be a path relative to that
+                directory.
+            creator (Union[str, Callable]): The name of the creator to
+                be looked up in :py:attr:`.CREATORS`. Can also be None, in
+                which case it is attempted to look it up from the ``plot_func``
+                's ``creator`` attribute. If that was not possible either, the
+                :py:attr:`.default_creator` is used. If a callable is given,
+                will use that as a factory to set up the creator.
             out_dir (str, optional): If given, will use this directory as out
                 directory. If not, will use the default value given by
                 ``default_out_dir`` or that given at initialization.
@@ -1180,9 +1156,6 @@ class PlotManager:
                 leading dot!
             save_plot_cfg (bool, optional): Whether to save the plot config.
                 If not given, uses the default value from initialization.
-            auto_detect_creator (bool, optional): Whether to attempt auto-
-                detection of the ``creator`` argument. If given, this argument
-                overwrites the value given at PlotManager initialization.
             creator_init_kwargs (dict, optional): Passed to the plot creator
                 during initialization. Note that the arguments given at
                 initialization of the PlotManager are updated by this.
@@ -1208,7 +1181,7 @@ class PlotManager:
         log.debug("Preparing plot '%s' ...", name)
         t0 = time.time()
 
-        # Decide on the output directory to use ...
+        # Evaluate the output directory and whether to save plot configs
         if not out_dir:
             if default_out_dir:
                 out_dir = default_out_dir
@@ -1222,18 +1195,22 @@ class PlotManager:
                     "initialization; cannot perform plot."
                 )
 
-        # Whether to save the plot config
         if save_plot_cfg is None:
             save_plot_cfg = self.save_plot_cfg
 
-        # Get the plot creator, either by name or using auto-detect feature
+        # Retrieve the plot function callable
+        if plot_func is None:
+            raise PlotConfigError("Missing `plot_func` argument!")
+        plot_func = self._get_plot_func(
+            plot_func=plot_func, module=module, module_file=module_file
+        )
+
+        # Set up the plot creator instance
         plot_creator = self._get_plot_creator(
-            creator,
+            creator=creator,
+            plot_func=plot_func,
             name=name,
             init_kwargs=creator_init_kwargs,
-            from_pspace=from_pspace,
-            plot_cfg=plot_cfg,
-            auto_detect=auto_detect_creator,
         )
 
         # Let the creator process arguments
@@ -1260,7 +1237,7 @@ class PlotManager:
 
             # Call the plot creator to perform the plot, using the private
             # method to perform exception handling
-            rv = self._invoke_creator(
+            rv = self._invoke_plot_creation(
                 plot_creator, out_path=out_path, **plot_cfg
             )
 
@@ -1279,7 +1256,7 @@ class PlotManager:
                 log.progress(
                     "Performed '%s' plot in %s.\n",
                     name,
-                    fmt_time(time.time() - t0),
+                    _fmt_time(time.time() - t0),
                 )
 
             return plot_creator
@@ -1362,7 +1339,7 @@ class PlotManager:
 
             # Call the plot creator to perform the plot, using the private
             # method to perform exception handling
-            rv = self._invoke_creator(
+            rv = self._invoke_plot_creation(
                 plot_creator, out_path=out_path, **cfg, **plot_cfg
             )
             # NOTE The **plot_cfg is passed here in order to not lose any
@@ -1402,7 +1379,7 @@ class PlotManager:
                     log.note(
                         "Estimated time needed for %d remaining plots:  %s\n",
                         n_max - (n + 1),
-                        fmt_time(etl),
+                        _fmt_time(etl),
                     )
 
         # Finished parameter space iteration.
@@ -1421,7 +1398,7 @@ class PlotManager:
         dt = time.time() - t0
         if not num_skipped:
             log.progress(
-                "Performed all '%s' plots in %s.\n", name, fmt_time(dt)
+                "Performed all '%s' plots in %s.\n", name, _fmt_time(dt)
             )
         else:
             log.progress(
@@ -1429,7 +1406,7 @@ class PlotManager:
                 (n + 1) - num_skipped,
                 n + 1,
                 name,
-                fmt_time(dt),
+                _fmt_time(dt),
                 num_skipped,
             )
 

@@ -421,4 +421,3 @@ Further Reading
 * :doc:`faq`
 * :doc:`plot_cfg_ref`
 * :doc:`plot_data_selection`
-* :doc:`auto_detection`

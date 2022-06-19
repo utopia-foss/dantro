@@ -438,23 +438,6 @@ class AbstractPlotCreator(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def can_plot(self, creator_name: str, **plot_cfg) -> bool:
-        """Whether this plot creator is able to make a plot for the given plot
-        configuration.
-
-        This function is used by the :py:class:`~dantro.plot_mngr.PlotManager`
-        for its creator auto-detection feature.
-
-        Args:
-            creator_name (str): The name for this creator used within the
-                PlotManager.
-            **plot_cfg: The plot configuration with which to decide this.
-
-        Returns:
-            bool: Whether this creator can be used for the given plot config
-        """
-
-    @abc.abstractmethod
     def _prepare_path(self, out_path: str) -> str:
         """Prepares the output path, creating directories if needed, then
         returning the full absolute path.

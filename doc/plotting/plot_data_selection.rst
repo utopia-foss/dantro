@@ -185,7 +185,7 @@ After computation, the results are made available to the selected python plot fu
 
 With this additional keyword argument being passed to the plot function, the plot function's signature also needs to support DAG usage, which makes it less comfortable to control DAG usage via the ``use_dag`` argument in the plot *configuration*.
 
-Instead, the **best way** of implementing DAG support is via the :py:func:`~dantro.plot.utils.is_plot_func.is_plot_func` decorator.
+Instead, the **best way** of implementing DAG support is via the :py:func:`~dantro.plot.utils.plot_func.is_plot_func` decorator.
 It provides the following arguments that affect DAG usage:
 
 - ``use_dag``: to enable or disable DAG usage. Disabled by default.
@@ -203,7 +203,7 @@ Decorator usage puts all the relevant arguments for using the DAG framework into
 
 Defining a generic plot function
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-A plot function can then be defined via the following signature and the :py:func:`~dantro.plot.utils.is_plot_func.is_plot_func` decorator:
+A plot function can then be defined via the following signature and the :py:func:`~dantro.plot.utils.plot_func.is_plot_func` decorator:
 
 .. testcode::
 

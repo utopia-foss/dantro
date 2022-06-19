@@ -134,7 +134,7 @@ def test_config_based(pm, dag_plots_cfg):
 
     # .. Automate creation of individual plots with their respective config ...
     for case_name, case_cfg in dag_plots_cfg["config_based"].items():
-        log.info("\n\n\n--- Testing plot case '%s' ... ---\n", case_name)
+        print(f"\n\n\n--- Testing plot case '{case_name}' ... ---\n")
 
         # Find out whether this is expected to succeed or not
         _raises = case_cfg.get("_raises", False)
@@ -151,14 +151,12 @@ def test_config_based(pm, dag_plots_cfg):
             invoke_plot(pm, name=case_name, plot_cfg=case_cfg["plot_cfg"])
 
         elif _warns and not _raises:
-            log.info(
-                "Expecting %s (match: %s) ...", _exp_warning.__name__, _match
-            )
+            print(f"Expecting {_exp_warning.__name__} (match: {_match}) ...")
             with pytest.warns(_exp_warning, match=_match):
                 invoke_plot(pm, name=case_name, plot_cfg=case_cfg["plot_cfg"])
 
         elif _raises and not _warns:
-            log.info("Expecting %s (match: %s) ...", _exp_exc.__name__, _match)
+            print(f"Expecting {_exp_exc.__name__} (match: {_match}) ...")
 
             with pytest.raises(_exp_exc, match=_match):
                 invoke_plot(pm, name=case_name, plot_cfg=case_cfg["plot_cfg"])
@@ -169,4 +167,4 @@ def test_config_based(pm, dag_plots_cfg):
                 f"Check config of case {case_name}"
             )
 
-        log.info("\n\n\n--- Test case '%s' succeeded ---\n", case_name)
+        print(f"\n\n\n--- Test case '{case_name}' succeeded ---\n")

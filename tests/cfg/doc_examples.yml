@@ -113,9 +113,6 @@ plot_cfg_ref:
       # Manually
       creator: pyplot
 
-      # If the above is not given, auto-detection *may* be able to deduce it
-      auto_detect_creator: true
-
       # Initialization parameters for the selected plot creator. The ones given
       # here recursively update those given to PlotManager.__init__
       creator_init_kwargs:

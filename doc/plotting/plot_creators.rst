@@ -17,7 +17,6 @@ For further reading on the individual plot creators, see:
    creators/base
    creators/pyplot
    creators/psp
-   auto_detection
 
 .. hint::
 

@@ -17,6 +17,10 @@ from dantro.plot import MultiversePlotCreator, SkipPlot, UniversePlotCreator
 from ...groups.test_psp import psp_grp, psp_grp_default
 
 
+def dummy_plot():
+    pass
+
+
 @pytest.fixture()
 def pspace():
     """Used to setup a small pspace object to be tested on."""
@@ -38,7 +42,7 @@ def init_kwargs(psp_grp, tmpdir) -> dict:
     """Default initialisation kwargs for both plot creators"""
     dm = DataManager(tmpdir)
     dm.add(psp_grp)
-    return dict(dm=dm, psgrp_path="mv")
+    return dict(dm=dm, psgrp_path="mv", plot_func=dummy_plot)
 
 
 # Some mock callables .........................................................
@@ -100,7 +104,7 @@ def test_MultiversePlotCreator_select(init_kwargs, psp_grp_default, tmpdir):
     assert dm[psp_grp_default.name].pspace.volume == 0
 
     mpcd = MultiversePlotCreator(
-        "default", dm=dm, psgrp_path=psp_grp_default.name
+        "default", dm=dm, psgrp_path=psp_grp_default.name, plot_func=dummy_plot
     )
 
     selector = dict(field="testdata/fixedsize/state")
@@ -116,19 +120,18 @@ def test_MultiversePlotCreator_plot_skipping(tmpdir, init_kwargs):
             raise TypeError("Argument should not have been passed through!")
 
     mpc = MultiversePlotCreator("test", **init_kwargs)
+    mpc._plot_func = mock_pfunc
 
     # These should all be skipped
     with pytest.raises(SkipPlot, match=r"dimensionality 4 ∉ \{123\}"):
         mpc(
             out_path=tmpdir.join("skips"),
-            plot_func=mock_pfunc,
             expected_multiverse_ndim=123,
         )
 
     with pytest.raises(SkipPlot, match=r"dimensionality 4 ∉ \{2, 3, 5\}"):
         mpc(
             out_path=tmpdir.join("skips"),
-            plot_func=mock_pfunc,
             expected_multiverse_ndim=(3, 5, 2),
         )
 
@@ -140,36 +143,31 @@ def test_MultiversePlotCreator_plot_skipping(tmpdir, init_kwargs):
 
     mpc(
         out_path=tmpdir.join("plots0"),
-        plot_func=mock_pfunc,
         select=selector,
         expected_multiverse_ndim=4,
     )
     mpc(
         out_path=tmpdir.join("plots1"),
-        plot_func=mock_pfunc,
         select=selector,
         expected_multiverse_ndim=(1, 2, 4, 5),
     )
     mpc(
         out_path=tmpdir.join("plots2"),
-        plot_func=mock_pfunc,
         select=selector,
         expected_multiverse_ndim=None,
     )  # no check
-    mpc(out_path=tmpdir.join("plots3"), plot_func=mock_pfunc, select=selector)
+    mpc(out_path=tmpdir.join("plots3"), select=selector)
 
     # Check errors
     with pytest.raises(TypeError, match=r"Expected sequence or set of"):
         mpc(
             out_path=tmpdir.join("fails"),
-            plot_func=mock_pfunc,
             expected_multiverse_ndim=(3, "four", 2),
         )
 
     with pytest.raises(TypeError, match=r"but got: 'four'"):
         mpc(
             out_path=tmpdir.join("fails"),
-            plot_func=mock_pfunc,
             expected_multiverse_ndim="four",
         )
 
@@ -561,7 +559,9 @@ def test_UniversePlotCreator_default_only(init_kwargs):
     pspace = ParamSpace(dict(foo="bar"))
     mvd = dm.new_group("mv_default", Cls=ParamSpaceGroup, pspace=pspace)
     mvd.new_group("00")
-    upc = UniversePlotCreator("test2", dm=dm, psgrp_path="mv_default")
+    upc = UniversePlotCreator(
+        "test2", dm=dm, psgrp_path="mv_default", plot_func=dummy_plot
+    )
 
     assert upc._without_pspace is False
 
@@ -599,7 +599,9 @@ def test_UniversePlotCreator_default_only(init_kwargs):
     pspace = ParamSpace(dict(p0=ParamDim(default=-1, range=[5])))
     mvd = dm.new_group("mv_default_only", Cls=ParamSpaceGroup, pspace=pspace)
     mvd.new_group("0")
-    upc = UniversePlotCreator("test3", dm=dm, psgrp_path="mv_default_only")
+    upc = UniversePlotCreator(
+        "test3", dm=dm, psgrp_path="mv_default_only", plot_func=dummy_plot
+    )
 
     cfg, psp = upc.prepare_cfg(plot_cfg=dict(universes="all"), pspace=None)
     assert psp is None

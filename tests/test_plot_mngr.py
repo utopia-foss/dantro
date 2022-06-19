@@ -28,7 +28,6 @@ PLOTS_EXT2_PATH = resource_filename("tests", "cfg/plots_ext2.yml")
 BASE_EXT_PATH = resource_filename("tests", "cfg/base_ext.yml")
 UPDATE_BASE_EXT_PATH = resource_filename("tests", "cfg/update_base_ext.yml")
 BASED_ON_EXT_PATH = resource_filename("tests", "cfg/based_on_ext.yml")
-AUTO_DETECT_PATH = resource_filename("tests", "cfg/auto_detect.yml")
 
 # Configurations
 PLOTS_EXT = load_yml(PLOTS_EXT_PATH)
@@ -36,9 +35,6 @@ PLOTS_EXT2 = load_yml(PLOTS_EXT2_PATH)
 BASE_EXT = load_yml(BASE_EXT_PATH)
 UPDATE_BASE_EXT = load_yml(UPDATE_BASE_EXT_PATH)
 BASED_ON_EXT = load_yml(BASED_ON_EXT_PATH)
-PLOTS_AUTO_DETECT = load_yml(AUTO_DETECT_PATH)
-# PLOTS_DECL = load_yml(resource_filename("tests", "cfg/plots_decl.yml"))
-# PLOTS_VEGA = load_yml(resource_filename("tests", "cfg/plots_vega.yml"))
 
 
 # Test classes ----------------------------------------------------------------
@@ -84,13 +80,14 @@ def pm_kwargs(tmpdir) -> dict:
 
     tmpdir.join("test_module.py").write(write_something_funcdef)
 
-    # Pass the tmpdir to the PyPlotCreator __init__
-    cik = dict(
-        external=dict(default_ext="pdf", base_module_file_dir=str(tmpdir))
-    )
+    # Pass the tmpdir to the PyPlotCreator.__init__
+    cik = dict(pyplot=dict(default_ext="pdf"))
 
     return dict(
-        raise_exc=True, default_creator="external", creator_init_kwargs=cik
+        raise_exc=True,
+        default_creator="pyplot",
+        creator_init_kwargs=cik,
+        plot_func_resolver_init_kwargs=dict(base_module_file_dir=str(tmpdir)),
     )
 
 
@@ -216,19 +213,17 @@ def test_plotting(dm, pm_kwargs, pcr_pyplot_kwargs):
     assert_num_plots(pm, 4 + 1)
 
     # Otherwise, without out_dir or creator arguments, not:
-    with pytest.raises(ValueError, match="No `out_dir` specified"):
-        PlotManager(dm=dm, out_dir=None).plot("foo")
+    with pytest.raises(PlotConfigError, match="No `out_dir` specified"):
+        PlotManager(dm=dm, out_dir=None).plot("foo", plot_func=123)
 
-    with pytest.raises(ValueError, match="No `creator` argument given"):
-        PlotManager(dm=dm).plot("foo")
-
-    with pytest.raises(ValueError, match="nor auto-detection enabled."):
-        PlotManager(dm=dm, auto_detect_creator=False).plot("foo")
-        # Same as the above case
+    with pytest.raises(
+        InvalidCreator, match="Could not determine a plot creator"
+    ):
+        PlotManager(dm=dm).plot("foo", plot_func=lambda: 0)
 
     # With some error during config preparation
     with pytest.raises(PlotCreatorError, match="Missing required keyword-arg"):
-        pm.plot("foo", creator="universe")  # missing arguments
+        pm.plot("foo", creator="universe", plot_func=lambda: 0)  # missing args
 
     # Assert that config files were created
     pm.plot("bar", **pcr_pyplot_kwargs)
@@ -564,19 +559,19 @@ def test_file_ext(dm, pm_kwargs, pcr_pyplot_kwargs):
     ).plot_from_cfg()
 
     # With extension (with dot)
-    pm_kwargs["creator_init_kwargs"]["external"]["default_ext"] = "pdf"
+    pm_kwargs["creator_init_kwargs"]["pyplot"]["default_ext"] = "pdf"
     PlotManager(
         dm=dm, default_plots_cfg=PLOTS_EXT, out_dir="no2/", **pm_kwargs
     ).plot_from_cfg()
 
     # ...and without dot
-    pm_kwargs["creator_init_kwargs"]["external"]["default_ext"] = ".pdf"
+    pm_kwargs["creator_init_kwargs"]["pyplot"]["default_ext"] = ".pdf"
     PlotManager(
         dm=dm, default_plots_cfg=PLOTS_EXT, out_dir="no3/", **pm_kwargs
     ).plot_from_cfg()
 
     # ...and with None -> should result in ext == ""
-    pm_kwargs["creator_init_kwargs"]["external"]["default_ext"] = None
+    pm_kwargs["creator_init_kwargs"]["pyplot"]["default_ext"] = None
     PlotManager(
         dm=dm, default_plots_cfg=PLOTS_EXT, out_dir="no4/", **pm_kwargs
     ).plot_from_cfg()
@@ -670,19 +665,6 @@ def test_save_plot_cfg(tmpdir, dm, pm_kwargs):
         pm._save_plot_cfg(
             dict(foo="barzz"), **save_kwargs, exists_action="invalid"
         )
-
-
-def test_auto_detect_creator(dm):
-    """Tests the auto-detection feature"""
-    pm = PlotManager(dm=dm, auto_detect_creator=True)
-
-    # This should work
-    pc = pm.plot(name="pcr_ext", **PLOTS_AUTO_DETECT["pcr_ext"])
-    assert type(pc) is pm.CREATORS["external"]
-
-    # No matching candidate
-    with pytest.raises(InvalidCreator, match="declared itself a candidate!"):
-        pm.plot(name="fail", **PLOTS_AUTO_DETECT["fail"])
 
 
 def test_plot_skipping(dm, pm_kwargs):

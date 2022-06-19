@@ -5,7 +5,7 @@ import logging
 import matplotlib.pyplot as plt
 
 from ...data_mngr import DataManager
-from ..utils.is_plot_func import is_plot_func
+from ..utils.plot_func import is_plot_func
 
 log = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 
 
-@is_plot_func(creator_name="pyplot", use_helper=False)
+@is_plot_func(creator="pyplot", use_helper=False)
 def lineplot(
     dm: DataManager,
     *,
@@ -32,7 +32,7 @@ def lineplot(
         y (str): The path to get to the y-data from the data tree
         x (str, optional): The path to get to the x-data from the data tree
         save_kwargs (dict, optional): Keyword arguments for
-            :py:func:`matplotlib.pyplot.save`
+            :py:func:`matplotlib.pyplot.savefig`
         **plot_kwargs: Passed on to :py:func:`matplotlib.pyplot.plot`.
     """
     # Get the data
