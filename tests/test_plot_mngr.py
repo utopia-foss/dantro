@@ -11,6 +11,7 @@ from pkg_resources import resource_filename
 
 from dantro.containers import NumpyDataContainer as NumpyDC
 from dantro.data_mngr import DataManager
+from dantro.plot import PyPlotCreator
 from dantro.plot_mngr import (
     InvalidCreator,
     PlotConfigError,
@@ -234,6 +235,21 @@ def test_plotting(dm, pm_kwargs, pcr_pyplot_kwargs):
     pm.plot("baz", **pcr_pyplot_kwargs, save_plot_cfg=False)
     assert_num_plots(pm, 4 + 3)
     assert pm.plot_info[-1]["plot_cfg_path"] is None
+
+    # Can also pass a custom creator type or callable
+    pm.plot(
+        "custom_creator",
+        creator=PyPlotCreator,
+        **pcr_pyplot_kwargs,
+        save_plot_cfg=False,
+    )
+
+    pm.plot(
+        "custom_creator_factory",
+        creator=lambda *a, **k: PyPlotCreator(*a, **k),
+        **pcr_pyplot_kwargs,
+        save_plot_cfg=False,
+    )
 
 
 def test_plot_names(dm):

@@ -123,6 +123,44 @@ For more information, see :doc:`data_io/data_mngr`.
     For an integration example, you can have a look at `the data manager used in utopya <https://gitlab.com/utopia-project/utopia/blob/master/python/utopya/utopya/datamanager.py>`_.
 
 
+.. _spec_plot_mngr:
+
+Specializing the :py:class:`~dantro.plot_mngr.PlotManager`
+----------------------------------------------------------
+The plot manager can be specialized to support further functionality simply by overloading methods that may or may not invoke the parent methods.
+However, given the complexity of the plot manager, there is no guide on how to do this exactly: It depends a lot on what you want to achieve.
+
+In a simple situation, a specialized :py:class:`~dantro.plot_mngr.PlotManager` may simply overwrite some default values via the class variables.
+This could, for instance, be the plot function resolver, which defaults to :py:class:`~dantro.plot.utils.plot_func.PlotFuncResolver`:
+
+.. testcode::
+
+    import dantro
+
+    class MyPlotFuncResolver(dantro.plot.utils.PlotFuncResolver):
+        """A custom plot function resolver class"""
+
+        BASE_PKG = "my_custom_package.plot_functions"
+        """For relative module imports, regard this as the base package.
+        A plot configuration ``module`` argument starting with a ``.`` is
+        looked up in that module.
+
+        Note that this needs to be an importable module.
+        """
+
+    class MyPyPlotManager(dantro.PlotManager):
+        """My custom plot manager"""
+
+        PLOT_FUNC_RESOLVER = MyPlotFuncResolver
+        """Use a custom plot function resolver"""
+
+.. note::
+
+    For an operational example in a more complex framework setting, see `the specialization used in the utopya project <https://gitlab.com/utopia-project/utopya/-/blob/main/utopya/eval/plotmanager.py>`_.
+    There, the :py:class:`~dantro.plot_mngr.PlotManager` is extended such that a number of custom module paths are made available for import.
+
+
+
 .. _spec_plot_creators:
 
 Specializing :py:class:`~dantro.plot.creators.base.BasePlotCreator`
@@ -135,9 +173,9 @@ Specialization thus can be of two kinds:
 1. Using an existing plot creator and configuring it to your needs.
 2. Implementing a whole *new* plot creator, e.g. because you desire to use a different plotting backend.
 
-For the former, we suggest to refer to the individual creator's documentation, e.g. :ref:`pcr_base_specializing` or :ref:`pcr_pyplot_specializing`.
+In general, we recommend to refer to the implementation of existing :py:mod:`dantro.plot.creators` as examples for how this can be achieved.
+We are happy to support the implementation of new plot creators, so feel free to post an issue to `the project page <https://gitlab.com/utopia-project/dantro>`_.
 
-For the latter, we recommend to use the existing :py:mod:`dantro.plot.creators` as examples for how this can be achieved; we are happy to support the implementation of new plot creators, so feel free to post an issue to `the project page <https://gitlab.com/utopia-project/dantro>`_.
 
 .. note::
 

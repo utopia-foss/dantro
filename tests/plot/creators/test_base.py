@@ -262,11 +262,63 @@ def test_data_selection_interface(init_kwargs, tmpdir):
     with pytest.raises(ValueError, match="Some of the tags specified in"):
         mpc._perform_data_selection(use_dag=True, plot_kwargs=params7)
 
+    # --- With BasePlotCreator, without mocking
+    bpc = BasePlotCreator("test", **init_kwargs)
+
+    # Need a testing plot function and change some class variables for that
+    def check_kwargs(*args, _has_dm: bool, _has_kwargs: list, **kwargs):
+        if _has_dm:
+            assert len(args) == 1
+            dm = args[0]
+            assert isinstance(dm, DataManager)
+        else:
+            assert not args
+
+        for kw in _has_kwargs:
+            print("Checking existence of kwarg:  ", kw)
+            assert kw in kwargs
+
+    bpc._plot_func = check_kwargs
+
     # Perform data selection via __call__ to test it is carried through
-    # Need to change some class variables for that
-    assert mpc.DAG_INVOKE_IN_BASE
-    assert mpc.DAG_SUPPORTED
-    mpc(out_path=tmpdir.join("foo"), use_dag=True, **params0)
+    assert not bpc.DAG_USE_DEFAULT
+
+    bpc(
+        out_path=tmpdir.join("foo"),
+        use_dag=True,
+        **params2,
+        _has_dm=False,
+        _has_kwargs=("data",),
+    )
+
+    bpc(
+        out_path=tmpdir.join("bar"),
+        use_dag=False,
+        **params2,
+        _has_dm=True,
+        _has_kwargs=(),
+    )
+
+    bpc(out_path=tmpdir.join("spam"), **params2, _has_dm=True, _has_kwargs=())
+
+    # And with default enabled
+    bpc.DAG_USE_DEFAULT = True
+
+    bpc(
+        out_path=tmpdir.join("baz"),
+        **params2,
+        _has_dm=False,
+        _has_kwargs=("data",),
+    )
+
+    with pytest.raises(AssertionError):
+        bpc(
+            out_path=tmpdir.join("spam"),
+            use_dag=False,
+            **params2,
+            _has_dm=False,
+            _has_kwargs=("data",),
+        )
 
 
 def test_dag_object_cache(init_kwargs, tmpdir):

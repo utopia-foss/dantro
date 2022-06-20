@@ -83,17 +83,10 @@ class BasePlotCreator(AbstractPlotCreator):
     """Whether a warning should be shown (instead of an error), when a plot
     file already exists at the specified output path"""
 
-    DAG_SUPPORTED: bool = True
-    """Whether the data selection and transformation interface is supported by
-    this plot creator. If False, the related methods will not be called."""
-
-    DAG_INVOKE_IN_BASE: bool = True
-    """Whether the DAG should be created and computed here (in the base
-    class). If False, the base class does nothing to create or compute it and
-    the derived classes have to take care of it on their own.
-
-    Computation takes place inside :py:meth:`._prepare_plot_func_args`, right
-    before the retrieved plot function is invoked.
+    DAG_USE_DEFAULT: bool = False
+    """Whether the :ref:`data transformation framework <pcr_base_dag_support>`
+    is enabled *by default*; this can still be controlled by the ``use_dag``
+    argument of the plot configuration.
     """
 
     DAG_RESOLVE_PLACEHOLDERS: bool = True
@@ -435,12 +428,9 @@ class BasePlotCreator(AbstractPlotCreator):
         # in that case, the method below behaves like a passthrough of the cfg,
         # filtering out all transformation-related arguments.
         # The returned kwargs are the adjusted plot function keyword arguments.
-        if self.DAG_SUPPORTED and self.DAG_INVOKE_IN_BASE:
-            using_dag, kwargs = self._perform_data_selection(
-                use_dag=use_dag, plot_kwargs=kwargs
-            )
-        else:
-            using_dag = False
+        using_dag, kwargs = self._perform_data_selection(
+            use_dag=use_dag, plot_kwargs=kwargs
+        )
 
         # Aggregate as (args, kwargs), passed on to plot function. When using
         # the DAG, the DataManager is NOT passed along, as it is accessible via
@@ -547,9 +537,9 @@ class BasePlotCreator(AbstractPlotCreator):
         if use_dag is None:
             use_dag = getattr(self.plot_func, "use_dag", None)
 
-        # If still None, default to False
+        # If still None, default to the class variable default
         if use_dag is None:
-            use_dag = False
+            use_dag = self.DAG_USE_DEFAULT
 
         # Complain, if tags were required, but DAG usage was disabled
         if not use_dag and getattr(self.plot_func, "required_dag_tags", None):

@@ -30,22 +30,20 @@ def tmp_module_file(tmpdir) -> str:
 # -----------------------------------------------------------------------------
 
 
-@pytest.mark.skip(reason="Needs to be implemented")  # TODO
-def test_PlotFuncResolver():
+def test_PlotFuncResolver(tmpdir):
     """Tests the PlotFuncResolver class"""
-    pass
+    pfr = PlotFuncResolver()
+    assert pfr.base_pkg is PlotFuncResolver.BASE_PKG
+    assert pfr.base_module_file_dir is None
 
-    # TODO
-    # # Check with invalid directories
-    # with pytest.raises(ValueError, match="needs to be an absolute path"):
-    #     PyPlotCreator(
-    #         "init", **init_kwargs, base_module_file_dir="foo/bar/baz"
-    #     )
+    # Check with invalid directories
+    with pytest.raises(ValueError, match="needs to be an absolute path"):
+        PlotFuncResolver(base_module_file_dir="foo/bar/baz")
 
-    # with pytest.raises(ValueError, match="does not exists or does not point"):
-    #     PyPlotCreator(
-    #         "init", **init_kwargs, base_module_file_dir=tmpdir.join("foo.bar")
-    #     )
+    with pytest.raises(
+        FileNotFoundError, match="does not exists or does not point"
+    ):
+        PlotFuncResolver(base_module_file_dir=tmpdir.join("foo.bar"))
 
 
 def test_PlotFuncResolver_resolve(tmpdir, tmp_module_file):
@@ -112,9 +110,31 @@ def test_is_plot_func():
     assert my_func2.foo == "bar"
 
 
-@pytest.mark.skip(reason="Needs to be implemented")  # TODO
 def test_is_plot_func_deprecations():
-    pass
+
+    with pytest.warns(DeprecationWarning, match="`creator_type`"):
+
+        @is_plot_func(creator_type=MockPlotCreator)
+        def my_func():
+            pass
+
+    with pytest.warns(DeprecationWarning, match="`creator_name`"):
+
+        @is_plot_func(creator_name="foo")
+        def my_func():
+            pass
+
+    with pytest.raises(ValueError, match="Cannot pass both .* deprecated"):
+
+        @is_plot_func(creator_name="foo", creator_type=MockPlotCreator)
+        def my_func():
+            pass
+
+    with pytest.raises(ValueError, match="Cannot pass both `creator`"):
+
+        @is_plot_func(creator="foo", creator_type=MockPlotCreator)
+        def my_func():
+            pass
 
 
 def test_is_plot_func_PyPlotCreator_features(tmpdir):

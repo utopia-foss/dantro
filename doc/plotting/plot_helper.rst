@@ -17,7 +17,7 @@ Due to the :py:class:`.PlotHelper` focussing on the :py:mod:`~matplotlib.pyplot`
 Most importantly, it will make your plots future-proof and let them profit from upcoming features.
 A glimpse of that can be seen in how easy it is to implement an animated plot, see :ref:`below <pcr_pyplot_animations>`.
 
-To learn, how you can enable the PlotHelper in your plot function, checkout the section on :ref:`implementing plot functions <pcr_pyplot_implement_plot_funcs>`.
+To learn, how you can enable the PlotHelper in your plot function, check out the section on :ref:`implementing plot functions <pyplot_plot_func>`.
 
 As an example, the following plot configuration sets the title of the plot as well as the labels and limits of the axes:
 

@@ -44,7 +44,7 @@ See :ref:`here <plot_helper>` for more information on the plot helper framework.
 
 .. _pcr_pyplot_style:
 
-Adjusting a plot's style
+Adjusting a Plot's Style
 ------------------------
 Using the ``style`` keyword, matplotlib RC parameters can be configured fully via the plot configuration; no need to touch the code.
 Basically, this allows setting the :py:data:`matplotlib.rcParams` and makes the matplotlib stylesheets (:py:mod:`matplotlib.style`) available.
@@ -99,22 +99,22 @@ For valid RC parameters, see the `matplotlib customization documentation <https:
 
 
 
-.. _pcr_pyplot_implement_plot_funcs:
+.. _pyplot_plot_func:
 
-Implementing plot functions
+Implementing Plot Functions
 ---------------------------
 This section details how to implement plot functions for the :py:class:`.PyPlotCreator`, making use of its specializations.
 
 
-.. _pcr_pyplot_recommended_sig:
+.. _pyplot_func_recommended:
 
 Recommended plot function signature
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Similar to the :ref:`plot function definitions for the base class <pcr_base_recommended_sig>`, the **recommended way of implementing plot functions** for this specialized plot creator makes use of the :ref:`data transformation framework <pcr_base_DAG_support>` (implemented by :ref:`the parent class <pcr_base_DAG_support>`).
-Additionally, however, it uses the :ref:`plot helper framework <plot_helper>`.
+The recommend plot function signature for this creator is not that different from the :ref:`general one <plot_func_signature>`:
+It also makes use of the :ref:`data transformation framework <plot_creator_dag>` (implemented by :ref:`the parent class <pcr_base_DAG_support>`).
 
-In the case of the :py:class:`.PyPlotCreator`, such a plot function can be **averse to any creator**, because it is compatible not only with the :py:class:`.PyPlotCreator` but also with :ref:`derived creators <pcr_psp>`.
-This makes it very flexible in its usage, serving solely as the bridge between data and their visualization:
+*Additionally*, however, it uses the :ref:`plot helper framework <plot_helper>` which requires that the plot function can handle an additional argument, ``hlpr``.
+This :py:class:`~dantro.plot.plot_helper.PlotHelper` is the bridge to :py:mod:`matplotlib.pyplot` and thus also needs to be used to invoke any plot-related commands:
 
 .. testcode::
 
@@ -137,7 +137,10 @@ This makes it very flexible in its usage, serving solely as the bridge between d
 
 Super simple, aye? :)
 
-The corresponding plot configuration could look like this:
+In the case of the :py:class:`.PyPlotCreator`, such a plot function can be **averse to any creator**, because it is compatible not only with the :py:class:`.PyPlotCreator` but also with :ref:`derived creators <pcr_psp>`.
+This makes it very flexible in its usage, serving solely as the bridge between data and their visualization:
+For that reason, the decorator does not specify a ``creator`` argument, but the plot configuration does.
+The corresponding plot configuration could then look like this:
 
 .. code-block:: yaml
 
@@ -160,8 +163,10 @@ The corresponding plot configuration could look like this:
 
 For more detail on the syntax, see :ref:`above <pcr_base_DAG_support>`.
 
-While the plot *function* signature can remain as it is regardless of the chosen specialization of the :py:class:`.PyPlotCreator`, the plot *configuration* will differ for the specializations.
-See :ref:`here <plot_data_selection_uni>` and :ref:`here <plot_data_selection_mv>` for more information.
+.. note::
+
+    While the plot *function* signature can remain as it is regardless of the chosen specialization of the :py:class:`.PyPlotCreator`, the plot *configuration* will differ for the specializations.
+    See :ref:`here <plot_data_selection_uni>` and :ref:`here <plot_data_selection_mv>` for more information.
 
 .. note::
 
@@ -170,12 +175,9 @@ See :ref:`here <plot_data_selection_uni>` and :ref:`here <plot_data_selection_mv
     Using these features not only reduces the amount of code required in a plot function but also makes the plot function future-proof.
     We **highly** recommend to use *this* interface.
 
-.. _pcr_pyplot_other_sig:
 
 Other possible plot function signatures
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Like with the :ref:`base plot creator <pcr_base_other_sig>`, other signatures are possible; see there for more details.
-
 Without data transformation framework
 """""""""""""""""""""""""""""""""""""
 There is the option to not using the transformation framework for data selection while still profiting from the plot helper.
@@ -186,7 +188,7 @@ Simply use the :ref:`plot function decorator <is_plot_func_decorator>` without p
     from dantro import DataManager
     from dantro.plot import is_plot_func, PyPlotCreator, PlotHelper
 
-    @is_plot_func(creator_type=PyPlotCreator)
+    @is_plot_func(creator=PyPlotCreator)
     def my_plot(
         *, dm: DataManager, hlpr: PlotHelper, **additional_plot_kwargs
     ):
@@ -218,7 +220,7 @@ Simply use the :ref:`plot function decorator <is_plot_func_decorator>` without p
 
 Bare basics
 """""""""""
-If you do not want to use the decorator either, the signature is the same as :ref:`in the case of the base class <pcr_base_bare_sig>`.
+If you do not want to use the decorator either, the signature is the same as :ref:`in the case of the base class <plot_func_bare_signature>`.
 
 
 

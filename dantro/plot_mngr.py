@@ -1120,7 +1120,7 @@ class PlotManager:
         class: :py:class:`~dantro.plot.utils.plot_func.PlotFuncResolver` or a
         derived class (depending on the :py:attr:`.PLOT_FUNC_RESOLVER`).
 
-        A call to this function creates a :ref:`plot creator <plot_creator>`,
+        A call to this function creates a :ref:`plot creator <plot_creators>`,
         which is also returned after all plots are finished.
 
         Note that more than one plot can result from a single configuration

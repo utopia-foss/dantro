@@ -44,7 +44,7 @@ This is done via the ``universes`` argument:
 
 Universe plots using DAG framework *(recommended)*
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Use the :ref:`creator-averse plot function definition <pcr_pyplot_recommended_sig>` and specify the ``creator`` in the plot configuration.
+Use the :ref:`creator-averse plot function definition <pyplot_func_recommended>` and specify the ``creator`` in the plot configuration.
 You can then use the :ref:`regular syntax <plot_creator_dag_args>` to select the desired data, based on the currently selected universe.
 
 When using the recommended creator-averse plot function signature, the DAG is automatically enabled and allows to select data in the following way:
@@ -160,7 +160,7 @@ Say the selected data from each universe has dimensionality three and a paramete
 
 Multiverse plots using DAG framework *(recommended)*
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Again, use the :ref:`creator-averse plot function definition <pcr_pyplot_recommended_sig>` and specify the ``creator`` in the plot configuration.
+Again, use the :ref:`creator-averse plot function definition <pyplot_func_recommended>` and specify the ``creator`` in the plot configuration.
 For this creator, a :ref:`special syntax <plot_data_selection_mv>` exists to select and combine the multiverse data.
 
 When using the recommended creator-averse plot function signature, the DAG is automatically enabled and allows to select data using the ``select_and_combine`` key:
