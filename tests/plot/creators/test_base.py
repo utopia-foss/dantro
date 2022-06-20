@@ -1,13 +1,17 @@
-"""Tests features of the base class."""
+"""Tests features of the base class.
+
+NOTE Some of the tests are easier to carry out with PyPlotCreator; see there.
+"""
 
 import logging
+import os
 
 import pytest
 
 from dantro.dag import TransformationDAG, _ResultPlaceholder
 from dantro.data_mngr import DataManager
 from dantro.exceptions import *
-from dantro.plot import BasePlotCreator
+from dantro.plot import BasePlotCreator, is_plot_func
 
 logging.getLogger("dantro.plot.creators.base").setLevel(12)  # remark
 
@@ -40,10 +44,21 @@ class MockPlotCreator3(MockPlotCreator):
 # Fixtures --------------------------------------------------------------------
 
 
+def write_something(dm, *, out_path, **kwargs):
+    """Writes the kwargs to the given path"""
+    with open(out_path, "w") as f:
+        f.write(str(kwargs))
+    return 42
+
+
 @pytest.fixture
 def init_kwargs(tmpdir) -> dict:
     """Default initialisation kwargs"""
-    return dict(dm=DataManager(data_dir=tmpdir), default_ext="ext")
+    return dict(
+        dm=DataManager(data_dir=tmpdir),
+        plot_func=write_something,
+        default_ext="ext",
+    )
 
 
 # Tests -----------------------------------------------------------------------
@@ -52,6 +67,9 @@ def init_kwargs(tmpdir) -> dict:
 def test_init(init_kwargs):
     """Tests initialisation"""
     # Basic case
+    BasePlotCreator("init", **init_kwargs)
+
+    # Mocked class also works
     MockPlotCreator("init", **init_kwargs)
 
     # Test check for existence of default extension
@@ -79,6 +97,8 @@ def test_properties(init_kwargs):
     assert mpc.plot_cfg == mpc._plot_cfg
     assert not mpc.plot_cfg is mpc._plot_cfg
     assert mpc.default_ext == "ext"
+    assert callable(mpc.plot_func)
+    assert mpc.plot_func_name == "write_something"
 
     # Assert setting of default extension checks work
     mpc.default_ext = "one"
@@ -90,13 +110,6 @@ def test_properties(init_kwargs):
 
     # Assert the get_ext method works (does nothing here)
     assert mpc.get_ext() == mpc.default_ext
-
-    # The BasePlotCreator should never mark itself as `can_plot`
-    assert not mpc.can_plot(
-        creator_name=None,  # need to specify this kwarg
-        foo="bar",
-        some_plot_param=123,
-    )
 
 
 def test_call(init_kwargs, tmpdir):
@@ -117,6 +130,35 @@ def test_call(init_kwargs, tmpdir):
     # ... or skipping is desired
     with pytest.raises(SkipPlot, match="Plot output already exists"):
         mpc(out_path=tmpdir.join("call1"), foo="bar", exist_ok="skip")
+
+
+def test_BasePlotCreator_plot(init_kwargs, tmpdir):
+    """Tests the BasePlotCreator's plot method, which also works on its own"""
+    pc = BasePlotCreator("test", **init_kwargs)
+
+    p1 = tmpdir.join("plot1")
+    pc(
+        out_path=p1,
+        some_kwargs="foobar",
+    )
+    assert os.path.isfile(p1)
+    with open(p1) as f:
+        "some_kwargs" in f.read()
+
+    # Can also explicitly pass a plot function
+    @is_plot_func(use_dag=True)
+    def my_func(*, out_path: str, data: dict, some_kwarg: int):
+        assert isinstance(out_path, str)
+        assert data == dict(foo="bar")
+        assert some_kwarg == 123
+
+    pc._plot_func = my_func
+    pc(
+        out_path=str(tmpdir.join("plot2")),
+        some_kwarg=123,
+        use_dag=True,
+        select=dict(foo=dict(path=".", transform=[dict(define="bar")])),
+    )
 
 
 def test_data_selection_interface(init_kwargs, tmpdir):
@@ -143,6 +185,7 @@ def test_data_selection_interface(init_kwargs, tmpdir):
     params4 = dict(
         **params3,
         dag_options=dict(file_cache_defaults=dict(write=False, read=True)),
+        invocation_options=dict(pass_dag_object_along=True),
     )
     params5 = dict(
         **params3,
@@ -175,8 +218,8 @@ def test_data_selection_interface(init_kwargs, tmpdir):
     flg, ds1 = mpc._perform_data_selection(use_dag=True, plot_kwargs=params1)
     assert flg is True
     assert "use_dag" not in ds1
-    assert isinstance(ds1["dag"], TransformationDAG)
-    assert ds1["dag_results"] == dict()
+    assert "dag" not in ds1
+    assert ds1["data"] == dict()
     assert ds1["foo"] == "bar"
     assert ds1["baz"] == 123
 
@@ -187,17 +230,17 @@ def test_data_selection_interface(init_kwargs, tmpdir):
     _, ds2 = mpc._perform_data_selection(use_dag=True, plot_kwargs=params2)
     assert "use_dag" not in ds2
     assert "transform" not in ds2
-    assert ds2["dag_results"] == dict(sum=3)
+    assert ds2["data"] == dict(sum=3)
 
     # It's possible to pass `compute_only`
     _, ds3 = mpc._perform_data_selection(use_dag=True, plot_kwargs=params3)
-    assert ds3["dag_results"] == dict(sub=1)
+    assert ds3["data"] == dict(sub=1)
     assert "transform" not in ds3
     assert "compute_only" not in ds3
 
     # It's possible to pass file cache default values via DAG options
     _, ds4 = mpc._perform_data_selection(use_dag=True, plot_kwargs=params4)
-    assert ds4["dag_results"] == dict(sub=1)
+    assert ds4["data"] == dict(sub=1)
     assert "transform" not in ds4
     assert "compute_only" not in ds4
     assert "file_cache_defaults" not in ds4
@@ -219,12 +262,63 @@ def test_data_selection_interface(init_kwargs, tmpdir):
     with pytest.raises(ValueError, match="Some of the tags specified in"):
         mpc._perform_data_selection(use_dag=True, plot_kwargs=params7)
 
+    # --- With BasePlotCreator, without mocking
+    bpc = BasePlotCreator("test", **init_kwargs)
+
+    # Need a testing plot function and change some class variables for that
+    def check_kwargs(*args, _has_dm: bool, _has_kwargs: list, **kwargs):
+        if _has_dm:
+            assert len(args) == 1
+            dm = args[0]
+            assert isinstance(dm, DataManager)
+        else:
+            assert not args
+
+        for kw in _has_kwargs:
+            print("Checking existence of kwarg:  ", kw)
+            assert kw in kwargs
+
+    bpc._plot_func = check_kwargs
+
     # Perform data selection via __call__ to test it is carried through
-    # Need to change some class variables for that
-    assert mpc.DAG_INVOKE_IN_BASE
-    assert not mpc.DAG_SUPPORTED
-    mpc.DAG_SUPPORTED = True
-    mpc(out_path=tmpdir.join("foo"), use_dag=True, **params0)
+    assert not bpc.DAG_USE_DEFAULT
+
+    bpc(
+        out_path=tmpdir.join("foo"),
+        use_dag=True,
+        **params2,
+        _has_dm=False,
+        _has_kwargs=("data",),
+    )
+
+    bpc(
+        out_path=tmpdir.join("bar"),
+        use_dag=False,
+        **params2,
+        _has_dm=True,
+        _has_kwargs=(),
+    )
+
+    bpc(out_path=tmpdir.join("spam"), **params2, _has_dm=True, _has_kwargs=())
+
+    # And with default enabled
+    bpc.DAG_USE_DEFAULT = True
+
+    bpc(
+        out_path=tmpdir.join("baz"),
+        **params2,
+        _has_dm=False,
+        _has_kwargs=("data",),
+    )
+
+    with pytest.raises(AssertionError):
+        bpc(
+            out_path=tmpdir.join("spam"),
+            use_dag=False,
+            **params2,
+            _has_dm=False,
+            _has_kwargs=("data",),
+        )
 
 
 def test_dag_object_cache(init_kwargs, tmpdir):
@@ -240,6 +334,7 @@ def test_dag_object_cache(init_kwargs, tmpdir):
             dict(operation="add", args=[1, 2], tag="sum"),
             dict(operation="sub", args=[3, 2], tag="sub"),
         ],
+        invocation_options=dict(pass_dag_object_along=True),
     )
 
     # Initial call: should write to object cache. Suppress copies to allow

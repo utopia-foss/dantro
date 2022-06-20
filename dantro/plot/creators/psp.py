@@ -1,7 +1,8 @@
-"""This implements the ParamSpaceGroup plot creators, based on the
-:py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` and providing
-additional functionality for data that is stored in a
-:py:class:`~dantro.groups.psp.ParamSpaceGroup`.
+"""Plot creators working on :py:class:`~dantro.groups.psp.ParamSpaceGroup`.
+These are based on the :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator`
+and provide additional functionality for data that is stored such a format.
+
+See :ref:`pcr_psp` for more information.
 """
 
 import copy
@@ -20,7 +21,6 @@ from ...tools import is_iterable, recursive_update
 from .base import SkipPlot
 from .pyplot import PyPlotCreator
 
-# Local constants and lazy module imports
 log = logging.getLogger(__name__)
 
 xr = LazyLoader("xarray")
@@ -191,7 +191,6 @@ class MultiversePlotCreator(PyPlotCreator):
     def _create_dag(
         self,
         *,
-        _plot_func: Callable,
         select_and_combine: dict,
         select: dict = None,
         transform: Sequence[dict] = None,
@@ -208,8 +207,6 @@ class MultiversePlotCreator(PyPlotCreator):
         method's behaviour is emulated in the DAG.
 
         Args:
-            _plot_func (Callable): The plot function; passed on to parent
-                method, where tag availability is checked.
             select_and_combine (dict): The parameters to define which data from
                 the universes to select and combine before applying further
                 transformations.
@@ -538,7 +535,7 @@ class MultiversePlotCreator(PyPlotCreator):
 
         # Initialize an (empty) DAG, i.e.: without select and transform args
         # and without setting the selection base
-        dag = super()._create_dag(_plot_func=_plot_func, **dag_init_params)
+        dag = super()._create_dag(**dag_init_params)
 
         # Add nodes that perform the "select and combine" operations, based on
         # selections from the DataManager

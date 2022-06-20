@@ -107,13 +107,13 @@ def is_operation(
             return data
 
         # Custom operation name
-        @is_operation("do_stuff")
+        @is_operation("do_something")
         def my_operation_with_a_custom_name(foo, bar):
             pass
 
         # Overwriting an operation of the same name
-        @is_operation("do_stuff", overwrite_existing=True)
-        def actually_do_stuff(spam, fish):
+        @is_operation("do_something", overwrite_existing=True)
+        def actually_do_something(spam, fish):
             pass
 
     .. testcode::
@@ -121,7 +121,7 @@ def is_operation(
 
         from dantro.data_ops.db import _OPERATIONS
         assert "my_operation" in _OPERATIONS
-        assert "do_stuff" in _OPERATIONS
+        assert "do_something" in _OPERATIONS
 
     See :ref:`register_data_ops` for general information.
     For instructions on how to overwrite this decorator with a custom one, see

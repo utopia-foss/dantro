@@ -1,18 +1,19 @@
-"""This module implements the base class for plot creators,
-:py:class:`~dantro.plot.creators.base.BasePlotCreator`.
-Classes derived from this class create plots for single files.
+"""This module implements :py:class:`.BasePlotCreator`, the base class for plot
+creators.
 
 The interface is defined as an abstract base class and partly implemented by
-the :py:class:`~dantro.plot.creators.base.BasePlotCreator` (which still
-remains *abstract*).
+the :py:class:`.BasePlotCreator`, which is no longer abstract but has only the
+functionality that is general enough for all derived creators to profit from.
 """
 
 import copy
 import gc
+import importlib
+import importlib.util
 import logging
 import os
 import time
-from typing import Sequence, Tuple, Union
+from typing import Callable, Dict, Sequence, Tuple, Union
 
 from paramspace import ParamSpace
 
@@ -28,11 +29,12 @@ from ...tools import recursive_update
 
 log = logging.getLogger(__name__)
 
-# A local time formatting function
 _fmt_time = lambda t: _format_time(t, ms_precision=1)
 
-# The local DAG cache object
-_DAG_OBJECT_CACHE = dict()
+_DAG_OBJECT_CACHE: Dict[str, TransformationDAG] = dict()
+"""A dict holding the previously-used :py:class:`~dantro.dag.TransformationDAG`
+objects to allow re-using them in another plot function.
+The keys are hashes of the configuration used in creating the DAG."""
 
 
 # -----------------------------------------------------------------------------
@@ -41,13 +43,22 @@ _DAG_OBJECT_CACHE = dict()
 class BasePlotCreator(AbstractPlotCreator):
     """The base class for plot creators.
 
-    .. note::
+    It provides the following functionality:
 
-        The ``plot`` method remains abstract, thus this class needs to be
-        subclassed and the method implemented!
+    - Resolving a plot function, which can be a directly given callable, an
+      importable module and name, or a path to a Python file that is to be
+      imported.
+    - Parsing plot configuration arguments.
+    - Optionally, performing data selection from the associated
+      :py:class:`~dantro.data_mngr.DataManager` using the
+      :ref:`data transformation framework <dag_framework>`.
+    - Invoking the plot function.
+
+    As such, the this base class is agnostic to the exact way of how plot
+    output is generated; the plot function is responsible for that.
     """
 
-    EXTENSIONS: tuple = "all"
+    EXTENSIONS: Union[Tuple[str], str] = "all"
     """A tuple of supported file extensions.
     If ``all``, no checks for the extensions are performed."""
 
@@ -72,25 +83,34 @@ class BasePlotCreator(AbstractPlotCreator):
     """Whether a warning should be shown (instead of an error), when a plot
     file already exists at the specified output path"""
 
-    DAG_SUPPORTED: bool = False
-    """Whether the data selection and transformation interface is supported by
-    this plot creator. If False, the related methods will not be called."""
-
-    DAG_INVOKE_IN_BASE: bool = True
-    """Whether the DAG should be created and computed here (in the base
-    class). If False, the base class does nothing to create or compute it and
-    the derived classes have to take care of it on their own."""
+    DAG_USE_DEFAULT: bool = False
+    """Whether the :ref:`data transformation framework <pcr_base_dag_support>`
+    is enabled *by default*; this can still be controlled by the ``use_dag``
+    argument of the plot configuration.
+    """
 
     DAG_RESOLVE_PLACEHOLDERS: bool = True
     """Whether placeholders in the plot config,
     :py:class:`~dantro._dag_utils.ResultPlaceholder` objects, should be
     replaced with results from the data transformations."""
 
+    DAG_TO_KWARG_MAPPING: Dict[str, str] = {
+        "results_dict": "data",
+        "dag_object": "dag",
+    }
+    """The keyword argument names by which to pass the data transformation
+    results (``results_dict``) or the :py:class:`~dantro.dag.TransformationDAG`
+    object itself (``dag_object``) to the plot function.
+    """
+
+    # .........................................................................
+
     def __init__(
         self,
         name: str,
         *,
         dm: DataManager,
+        plot_func: Callable,
         default_ext: str = None,
         exist_ok: Union[bool, str] = None,
         raise_exc: bool = None,
@@ -123,39 +143,37 @@ class BasePlotCreator(AbstractPlotCreator):
                 creator is supposed to create.
 
         Raises:
-            ValueError: On bad ``default_ext`` argument
+            ValueError: On bad ``base_module_file_dir`` or ``default_ext``
         """
         self._name = name
         self._dm = dm
         self._plot_cfg = plot_cfg
+        self._plot_func = plot_func
+        self._dag_obj_cache = _DAG_OBJECT_CACHE
         self._exist_ok = (
             self.OUT_PATH_EXIST_OK if exist_ok is None else exist_ok
         )
         self.raise_exc = raise_exc
 
-        # Initialize property-managed attributes
+        # Property-managed attributes
         self._logstr = None
         self._default_ext = None
         self._dag = None
 
-        # And others via their property setters
         # Set the default extension, first from argument, then default.
+        # Then check that it was set correctly
         if default_ext is not None:
             self.default_ext = default_ext
 
         elif self.DEFAULT_EXT is not None:
             self.default_ext = self.DEFAULT_EXT
 
-        # Check that it was set correctly
         if self.DEFAULT_EXT_REQUIRED and not self.default_ext:
             raise ValueError(
                 f"{self.logstr} requires a default extension, but neither "
                 f"the argument ('{default_ext}') nor the DEFAULT_EXT class "
-                f"variable ('{self.DEFAULT_EXT}') evaluated to True."
+                f"variable ('{self.DEFAULT_EXT}') was set."
             )
-
-        # Internal attributes, not exposed
-        self._dag_obj_cache = _DAG_OBJECT_CACHE
 
     # .. Properties ...........................................................
 
@@ -183,7 +201,18 @@ class BasePlotCreator(AbstractPlotCreator):
         return self._dm
 
     @property
-    def plot_cfg(self) -> dict:
+    def plot_func(self) -> Callable:
+        """Returns the plot function"""
+        return self._plot_func
+
+    @property
+    def plot_func_name(self) -> str:
+        """Returns a readable name of the plot function"""
+        pf = self.plot_func
+        return getattr(pf, "name", pf.__name__)
+
+    @property
+    def plot_cfg(self) -> Dict[str, dict]:
         """Returns a deepcopy of the plot configuration, assuring that plot
         configurations are completely independent of each other.
         """
@@ -196,11 +225,15 @@ class BasePlotCreator(AbstractPlotCreator):
 
     @default_ext.setter
     def default_ext(self, val: str) -> None:
-        """Sets the default extension. Needs to be in EXTENSIONS"""
+        """Sets the default extension.
+
+        Unless :py:attr:`.EXTENSIONS` is set to ``all``, needs to be a valid
+        extension.
+        """
         if self.EXTENSIONS != "all" and val not in self.EXTENSIONS:
             raise ValueError(
                 f"Extension '{val}' not supported in {self.logstr}. "
-                f"Supported extensions are: {self.EXTENSIONS}"
+                f"Supported extensions are: {', '.join(self.EXTENSIONS)}"
             )
 
         self._default_ext = val
@@ -218,7 +251,7 @@ class BasePlotCreator(AbstractPlotCreator):
 
     def __call__(self, *, out_path: str, **update_plot_cfg):
         """Perform the plot, updating the configuration passed to __init__
-        with the given values and then calling _plot.
+        with the given values and then calling :py:meth:`.plot`.
 
         Args:
             out_path (str): The full output path to store the plot at
@@ -235,17 +268,6 @@ class BasePlotCreator(AbstractPlotCreator):
         if update_plot_cfg:
             cfg = recursive_update(cfg, copy.deepcopy(update_plot_cfg))
 
-        # Perform data selection and transformation, if the plot creator class
-        # supports it.
-        # Even if the creator supports it, it might be disabled in the config;
-        # in that case, the method below behaves like a passthrough of the cfg,
-        # filtering out all transformation-related arguments.
-        if self.DAG_SUPPORTED and self.DAG_INVOKE_IN_BASE:
-            use_dag = cfg.pop("use_dag", None)
-            _, cfg = self._perform_data_selection(
-                use_dag=use_dag, plot_kwargs=cfg
-            )
-
         # Allow derived creators to check whether this plot should be skipped
         self._check_skipping(plot_kwargs=cfg)
 
@@ -257,8 +279,37 @@ class BasePlotCreator(AbstractPlotCreator):
         if not self.POSTPONE_PATH_PREPARATION:
             self._prepare_path(out_path, exist_ok=exist_ok)
 
-        # Now call the plottig function with these arguments
+        # Now call the plotting function with these arguments
         return self.plot(out_path=out_path, **cfg)
+
+    def plot(
+        self,
+        *,
+        out_path: str,
+        use_dag: bool = None,
+        **func_kwargs,
+    ):
+        """Prepares argument for the plot function and invokes it.
+
+        Args:
+            out_path (str): The output path for the resulting file
+            use_dag (bool, optional): Whether to use the :ref:`dag_framework`
+                to select and transform data that can be used in the plotting
+                function. If not given, will query the plot function attributes
+                for whether the DAG should be used. If not, the data selection
+                has to occur separately inside the plot function. Note that
+                this may require a different plot function signature.
+            **func_kwargs: Passed on to the plot function
+        """
+        # Prepare arguments, also performing plot data selection
+        args, kwargs = self._prepare_plot_func_args(
+            use_dag=use_dag, out_path=out_path, **func_kwargs
+        )
+
+        # Call the plot function
+        log.info("Now calling plotting function '%s' ...", self.plot_func_name)
+        self.plot_func(*args, **kwargs)
+        log.note("Plotting function '%s' returned.", self.plot_func_name)
 
     def get_ext(self) -> str:
         """Returns the extension to use for the upcoming plot by checking
@@ -281,25 +332,7 @@ class BasePlotCreator(AbstractPlotCreator):
         """
         return plot_cfg, pspace
 
-    def can_plot(self, creator_name: str, **plot_cfg) -> bool:
-        """Whether this creator is able to make a plot for the given plot
-        configuration.
-
-        By default, this always returns false. It can be subclassed and a
-        checking logic can be implemented to allow creator auto-detection.
-
-        Args:
-            creator_name (str): The name for this creator used within the
-                PlotManager.
-            **plot_cfg: The plot configuration with which to decide this.
-
-        Returns:
-            bool: Whether this creator can be used for the given plot config
-        """
-        return False
-
     # .........................................................................
-    # Helpers
 
     def _prepare_path(
         self, out_path: str, *, exist_ok: Union[bool, str]
@@ -307,8 +340,8 @@ class BasePlotCreator(AbstractPlotCreator):
         """Prepares the output path, creating directories if needed, then
         returning the full absolute path.
 
-        This is called from ``__call__`` and is meant to postpone directory
-        creation as far as possible.
+        This is called from :py:meth:`.__call__` and is meant to postpone
+        directory creation as far as possible.
 
         Args:
             out_path (str): The absolute output path to start with
@@ -358,6 +391,55 @@ class BasePlotCreator(AbstractPlotCreator):
         pass
 
     # .........................................................................
+    # Plot argument preparation
+
+    def _prepare_plot_func_args(
+        self, *, use_dag: bool = None, **kwargs
+    ) -> Tuple[tuple, dict]:
+        """Prepares the arguments passed to the plot function.
+
+        The passed keyword arguments are carried over; no positional arguments
+        are possible.
+        Subsequently, possible signatures look as follows:
+
+        - When using the data transformation framework, there are *no*
+          positional arguments.
+        - When *not* using the data transformation framework, the *only*
+          positional argument is the :py:class:`~dantro.data_mngr.DataManager`
+          instance that is associated with this plot.
+
+        .. note::
+
+            When subclassing this function, the parent method (this one) should
+            still be called to maintain base functionality.
+
+        Args:
+            use_dag (bool, optional): Whether to use the data transformation
+                framework
+            **kwargs: Additional kwargs
+
+        Returns:
+            Tuple[tuple, dict]: an (empty) tuple of positional arguments and a
+                dict of keyword arguments.
+        """
+        # Perform data selection and transformation, if the plot creator class
+        # supports it.
+        # Even if the creator supports it, it might be disabled in the config;
+        # in that case, the method below behaves like a passthrough of the cfg,
+        # filtering out all transformation-related arguments.
+        # The returned kwargs are the adjusted plot function keyword arguments.
+        using_dag, kwargs = self._perform_data_selection(
+            use_dag=use_dag, plot_kwargs=kwargs
+        )
+
+        # Aggregate as (args, kwargs), passed on to plot function. When using
+        # the DAG, the DataManager is NOT passed along, as it is accessible via
+        # the tags of the DAG.
+        if not using_dag:
+            return ((self.dm,), kwargs)
+        return ((), kwargs)
+
+    # .........................................................................
     # Data selection interface, using TransformationDAG
 
     def _perform_data_selection(
@@ -396,10 +478,13 @@ class BasePlotCreator(AbstractPlotCreator):
             use_dag (bool, optional): The main toggle for whether the DAG
                 should be used or not. This is passed as default value to
                 another method, which takes the final decision on whether the
-                DAG is used or not. If None, will NOT use the DAG.
+                DAG is used or not. If None, will first inspect whether the
+                plot function declared that the DAG is to be used.
+                If still None, will NOT use the DAG.
             plot_kwargs (dict): The plot configuration
             **shared_kwargs: Shared keyword arguments that are passed through
-                to the helper methods ``_use_dag`` and ``_get_dag_params``
+                to the helper methods :py:meth:`._use_dag` and
+                :py:meth:`._get_dag_params`.
 
         Returns:
             Tuple[bool, dict]: Whether data selection was used and the plot
@@ -439,6 +524,32 @@ class BasePlotCreator(AbstractPlotCreator):
         )
         return True, kws
 
+    def _use_dag(self, *, use_dag: bool, plot_kwargs: dict) -> bool:
+        """Whether the DAG should be used or not. This method extends that of
+        the base class by additionally checking the plot function attributes
+        for any information regarding the DAG.
+
+        This relies on the
+        :py:class:`~dantro.plot.utils.plot_func.is_plot_func`
+        decorator to set a number of function attributes.
+        """
+        # If None was given, check the plot function attributes
+        if use_dag is None:
+            use_dag = getattr(self.plot_func, "use_dag", None)
+
+        # If still None, default to the class variable default
+        if use_dag is None:
+            use_dag = self.DAG_USE_DEFAULT
+
+        # Complain, if tags were required, but DAG usage was disabled
+        if not use_dag and getattr(self.plot_func, "required_dag_tags", None):
+            raise ValueError(
+                f"The plot function {self.plot_func} requires DAG tags to be "
+                "computed, but DAG usage was disabled."
+            )
+
+        return use_dag
+
     def _get_dag_params(
         self,
         *,
@@ -447,9 +558,12 @@ class BasePlotCreator(AbstractPlotCreator):
         compute_only: Sequence[str] = None,
         dag_options: dict = None,
         dag_object_cache: dict = None,
+        invocation_options: dict = None,
         **plot_kwargs,
     ) -> Tuple[dict, dict]:
-        """Filters out parameters needed for DAG initialization and compute
+        """Filters out and parses parameters that are needed for initialization
+        of the :py:class:`~dantro.dag.TransformationDAG` in
+        :py:meth:`._setup_dag` and computation in :py:meth:`_compute_dag`.
 
         Args:
             select (dict, optional): DAG selection
@@ -458,7 +572,13 @@ class BasePlotCreator(AbstractPlotCreator):
             dag_options (dict, optional): Other DAG options for initialization
             dag_object_cache (dict, optional): Cache options for the DAG object
                 itself. Expected keys are ``read``, ``write``, ``clear``.
-            **plot_kwargs: The full plot configuration
+            invocation_options (dict, optional): Controls whether to pass
+                certain objects on to the plot functio or not. Supported keys
+                are ``pass_dag_object_along`` and ``unpack_dag_results``, which
+                take precedence over the plot function attributes of the same
+                name which are set by the plot function decorator
+                :py:class:`~dantro.plot.utils.plot_func.is_plot_func`.
+            **plot_kwargs: The remaining plot configuration
 
         Returns:
             Tuple[dict, dict]: Tuple of DAG parameter dict and plot kwargs
@@ -469,27 +589,29 @@ class BasePlotCreator(AbstractPlotCreator):
         cache_kwargs = dag_object_cache if dag_object_cache else {}
 
         # Options. Only add those, if available
+        dag_options = dag_options if dag_options else {}
         if dag_options:
             init_kwargs = dict(**init_kwargs, **dag_options)
 
         dag_params = dict(
             init=init_kwargs, compute=compute_kwargs, cache=cache_kwargs
         )
+
+        # Determine whether the DAG object should be passed along to the func
+        invocation_options = invocation_options if invocation_options else {}
+        _pass_dag = invocation_options.get("pass_dag_object_along")
+        if _pass_dag is None:
+            _pass_dag = getattr(self.plot_func, "pass_dag_object_along", False)
+        dag_params["pass_dag_object_along"] = _pass_dag
+
+        # Determine whether the DAG results should be unpacked when passing
+        # them to the plot function
+        _unpack = invocation_options.get("unpack_dag_results")
+        if _unpack is None:
+            _unpack = getattr(self.plot_func, "unpack_dag_results", False)
+        dag_params["unpack_dag_results"] = _unpack
+
         return dag_params, plot_kwargs
-
-    def _use_dag(self, *, use_dag: bool, plot_kwargs: dict, **_kws) -> bool:
-        """Whether the data transformation framework should be used.
-
-        Args:
-            use_dag (bool): The value from the plot configuration
-            plot_kwargs (dict): The plot configuration
-            **_kws: Any further kwargs that can be used to assess whether the
-                DAG should be used or not. Ignored here.
-
-        Returns:
-            bool: Whether the DAG should be used or not
-        """
-        return use_dag if use_dag is not None else False
 
     def _setup_dag(
         self,
@@ -586,10 +708,79 @@ class BasePlotCreator(AbstractPlotCreator):
         """Creates the actual DAG object"""
         return TransformationDAG(dm=self.dm, **dag_params)
 
-    def _compute_dag(self, dag: TransformationDAG, **compute_kwargs) -> dict:
-        """Compute the dag results"""
+    def _compute_dag(
+        self,
+        dag: TransformationDAG,
+        *,
+        compute_only: Sequence[str],
+        **compute_kwargs,
+    ) -> dict:
+        """Compute the dag results.
+
+        This checks whether all required tags (set by the
+        :py:class:`~dantro.plot.utils.plot_func.is_plot_func` decorator)
+        are set to be computed.
+        """
+        # Extract the required tags from the plot function attributes
+        required_tags = getattr(self.plot_func, "required_dag_tags", None)
+
+        # Make sure that all required tags are actually defined
+        if required_tags:
+            missing_tags = [t for t in required_tags if t not in dag.tags]
+
+            if missing_tags:
+                raise ValueError(
+                    "Plot function {} required tags that were "
+                    "not specified in the DAG: {}. Available "
+                    "tags: {}. Please adjust the DAG "
+                    "specification accordingly."
+                    "".format(
+                        self.plot_func_name,
+                        ", ".join(missing_tags),
+                        ", ".join(dag.tags),
+                    )
+                )
+
+        # If the compute_only argument was not explicitly given, determine
+        # whether to compute only the required tags
+        if (
+            compute_only is None
+            and required_tags is not None
+            and getattr(
+                self.plot_func, "compute_only_required_dag_tags", False
+            )
+        ):
+            log.remark(
+                "Tags that are required by the plot function:  %s",
+                ", ".join(required_tags),
+            )
+            compute_only = required_tags
+
+        # Make sure the compute_only argument contains all the required tags
+        elif compute_only is not None and required_tags is not None:
+            missing_tags = [t for t in required_tags if t not in compute_only]
+
+            if missing_tags:
+                raise ValueError(
+                    "Plot function {} required tags that were "
+                    "not set to be computed by the DAG: {}. Make "
+                    "sure to set the `compute_only` argument "
+                    "such that results for all required tags "
+                    "({}) will actually be computed.\n"
+                    "Available tags:  {}\n"
+                    "compute_only:    {}"
+                    "".format(
+                        self.plot_func_name,
+                        ", ".join(missing_tags),
+                        ", ".join(required_tags),
+                        ", ".join(dag.tags),
+                        ", ".join(compute_only),
+                    )
+                )
+
+        # Now compute the results
         log.info("Computing data transformation results ...")
-        results = dag.compute(**compute_kwargs)
+        results = dag.compute(compute_only=compute_only, **compute_kwargs)
         log.remark("Finished computing data transformation results.")
         return results
 
@@ -601,17 +792,43 @@ class BasePlotCreator(AbstractPlotCreator):
         dag_params: dict,
         plot_kwargs: dict,
     ) -> dict:
-        """Combines DAG reuslts and plot configuration into one dict. The
-        returned dict is then passed along to the ``plot`` method.
+        """Returns a dict of plot configuration and ``data``, where all the
+        DAG results are stored in.
+        In case where the DAG results are to be unpacked, the DAG results will
+        be made available as separate keyword arguments instead of as the
+        single ``data`` keyword argument.
 
-        The base class method ditches the ``dag_params`` and only retains the
-        results, the DAG object itself, and (of course) all the remaining plot
-        configuration.
-
-        .. note::
-
-            When subclassing, this is the method to overwrite or extend in
-            order to affect which data gets passed on.
+        Furthermore, if the plot function specified in its attributes that the
+        DAG object is to be passed along, this is the place where it is
+        included or excluded from the arguments.
         """
-        # Build a dict, delibaretly excluding the dag_params
-        return dict(dag=dag, dag_results=dag_results, **plot_kwargs)
+        if dag_params["unpack_dag_results"]:
+            # Unpack the results such that they can be specified in the plot
+            # function signature
+            try:
+                cfg = dict(**dag_results, **plot_kwargs)
+
+            except TypeError as err:
+                raise TypeError(
+                    "Failed unpacking DAG results! There were arguments of "
+                    "the same names as some DAG tags given in the plot "
+                    "configuration. Make sure they have unique names or "
+                    "disable unpacking of the DAG results.\n"
+                    "  Keys in DAG results: {}\n"
+                    "  Keys in plot config: {}\n"
+                    "".format(
+                        ", ".join(dag_results.keys()),
+                        ", ".join(plot_kwargs.keys()),
+                    )
+                ) from err
+
+        else:
+            # Make the DAG results available as `data` kwarg
+            cfg = dict(**plot_kwargs)
+            cfg[self.DAG_TO_KWARG_MAPPING["results_dict"]] = dag_results
+
+        # Add the `dag` kwarg, if configured to do so.
+        if dag_params["pass_dag_object_along"]:
+            cfg[self.DAG_TO_KWARG_MAPPING["dag_object"]] = dag
+
+        return cfg

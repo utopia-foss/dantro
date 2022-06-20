@@ -14,10 +14,13 @@ For further reading on the individual plot creators, see:
    :maxdepth: 2
    :glob:
 
-   creators/*
-   auto_detection
+   creators/base
+   creators/pyplot
+   creators/psp
 
-For specializing plot creators, see :ref:`here <spec_plot_creators>`.
+.. hint::
+
+    For guidance about specializing plot creators, see :ref:`here <spec_plot_creators>`.
 
 ----
 
@@ -37,25 +40,26 @@ Part of the interface is that a plot creator will be initialized with the knowle
 :py:class:`.base.BasePlotCreator` - Implementing shared behaviour
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The :py:class:`.base.BasePlotCreator` implements some of the abstract functions to make deriving new plot creators easier.
+The :py:class:`.base.BasePlotCreator` implements the basic functionality that all derived plot creators profit from:
+Parsing the plot configuration, selecting and transforming data, and retrieving and invoking a so-called plot function (where the actual visualization is implemented).
+
+Continue reading about this :ref:`here <pcr_base>`.
+
+.. hint::
+
+    If you want to have full control of how your plot is generated, this is the creator to use:
+    You can configure it to simply invoke an arbitrary plot function and pass it the available data – and you take care of all the rest within that function.
+
+    In case you want dantro to automate more parts of the plotting routine, continue reading about more advanced creators below.
+
 
 
 :py:class:`.PyPlotCreator` - Creating :py:mod:`matplotlib.pyplot`-based plots
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` focusses on creating plots from a python plot function:
-
-* The plot creator requires a so-called plot function that is executed to generate the plot. That plot function can be imported in various ways:
-
-   * The included :py:mod:`~dantro.plot.funcs` subpackage supplies some plot functions
-   * An already importable module, i.e. one that is installed or can be found in :py:data:`sys.path`
-   * A plot function loaded from some module file
-
-* All remaining arguments of the plot configuration are passed on to the plot function
-* The plot function can do whatever it wants, also meaning that it *has* to do everything by itself (getting data, saving plots, closing figures ...)
-
-The plot function gets passed some data or the :py:class:`~dantro.data_mngr.DataManager` (to manually select data) and the rest of the plot configuration.
-The required signature of the plot function depends on the chosen additional features of the :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator`, e.g., the :py:class:`~dantro.plot.plot_helper.PlotHelper` or :doc:`plot_data_selection`.
+The :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` specializes on creating plots using :py:mod:`matplotlib.pyplot`.
+By making these assumptions about the used plotting backend, it allows to generalize plot setup, options, and style.
+Furthermore, it allows to easily define animation update functions.
 
 For more information, have a look at :ref:`the dedicated documentation page <pcr_pyplot>`.
 
@@ -69,7 +73,6 @@ These are derived from :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` an
 There are two different plot creators to work with this kind of data.
 The :py:class:`~dantro.plot.creators.psp.UniversePlotCreator` allows selecting a certain subspace of the parameter space and creating a plot *for each* of these so-called "universes".
 
-The :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator` on the other hand uses the capabilities of the :py:class:`~dantro.groups.psp.ParamSpaceGroup` to select and combine data from many universes, thus working on the "multiverse".
-For the syntax needed to select the field and the subspace from the data, refer to :py:meth:`dantro.groups.psp.ParamSpaceGroup.select`.
+The :py:class:`~dantro.plot.creators.psp.MultiversePlotCreator` on the other hand uses the capabilities of the :py:class:`~dantro.groups.psp.ParamSpaceGroup` and the :ref:`data transformation framework <dag_framework>` to select and combine data from many universes, thus working on the "multiverse".
 
-For more information, see :ref:`pcr_psp`.
+See :ref:`pcr_psp` for more information.

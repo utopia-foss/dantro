@@ -5,7 +5,7 @@
 The :py:class:`.PlotHelper`
 ---------------------------
 
-The aim of the :py:class:`.PlotHelper` is to let the plot functions focus on what cannot easily be automated: being the bridge between some selected or :ref:`transformed <pcr_pyplot_DAG_support>` data and its visualization.
+The aim of the :py:class:`.PlotHelper` is to let the plot functions focus on what cannot easily be automated: being the bridge between some selected or :ref:`transformed <pcr_base_DAG_support>` data and its visualization.
 The plot function should not have to concern itself with things like plot aesthetics, as that can easily be automated.
 
 The :py:class:`.PlotHelper` can make your life easier by quite a lot as it already takes care of setting up and saving a figure and makes large parts of the :py:mod:`matplotlib.pyplot` interface accessible via the plot configuration.
@@ -17,7 +17,7 @@ Due to the :py:class:`.PlotHelper` focussing on the :py:mod:`~matplotlib.pyplot`
 Most importantly, it will make your plots future-proof and let them profit from upcoming features.
 A glimpse of that can be seen in how easy it is to implement an animated plot, see :ref:`below <pcr_pyplot_animations>`.
 
-To learn, how you can enable the PlotHelper in your plot function, checkout the section on :ref:`implementing plot functions <pcr_pyplot_implement_plot_funcs>`.
+To learn, how you can enable the PlotHelper in your plot function, check out the section on :ref:`implementing plot functions <pyplot_plot_func>`.
 
 As an example, the following plot configuration sets the title of the plot as well as the labels and limits of the axes:
 
@@ -177,14 +177,20 @@ Specializing the helper
 The dantro :py:class:`.PlotHelper` already provides a default set of helpers that provide access to most of the matplotlib interface.
 If you need any additional customized helpers, you can easily add new methods to a specialization of the helper:
 
-.. code-block:: python
+.. testcode::
 
-  import dantro.plot.creators
+    import dantro.plot
 
-  class MyPlotHelper(dtr.plot_creators.PlotHelper):
-      """A specialization of the dantro ``PlotHelper`` which can be used to add
-      additional helper methods.
-      """
-      # You can add new helper methods here, prefixed with _hlpr_
+    class MyPlotHelper(dantro.plot.PlotHelper):
+        """A specialization of the dantro ``PlotHelper`` which can be used to
+        add additional helper methods.
+
+        New helper methods can be added here, names prefixed with ``_hlpr_``.
+        """
+
+        def _hlpr_do_stuff(self, **kwargs):
+            """My custom ``do_stuff`` helper"""
+            # Do stuff here ...
+            pass
 
 Note that you will have to communicate this new plot helper type to the creator by setting :py:const:`~dantro.plot.creators.pyplot.PyPlotCreator.PLOT_HELPER_CLS`.

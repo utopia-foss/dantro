@@ -71,10 +71,8 @@ def dm(_dm):
 
 def test_multiplot(dm, out_dir):
     """Tests the basic features and special cases of the multiplot plot"""
-    default_kwargs = dict(module=".multiplot", plot_func="multiplot")
-
-    epc = PyPlotCreator("test_multiplot", dm=dm)
-    epc._exist_ok = True
+    ppc = PyPlotCreator("test_multiplot", dm=dm, plot_func=multiplot)
+    ppc._exist_ok = True
 
     # Shortcuts
     out_path = lambda name: dict(out_path=os.path.join(out_dir, name + ".pdf"))
@@ -90,7 +88,7 @@ def test_multiplot(dm, out_dir):
             # Expecting an error to be raised
             match = plot_cfg.pop("_match", None)
             with pytest.raises(Exception, match=match):
-                epc(
+                ppc(
                     **out_path("multiplot_" + str(case)),
                     **plot_cfg,
                     select=dict(
@@ -98,12 +96,11 @@ def test_multiplot(dm, out_dir):
                         plot_x_data="test_data/1D_x",
                         plot_y_data="test_data/1D_y",
                     ),
-                    **default_kwargs,
                 )
 
         else:
             # No error expected
-            epc(
+            ppc(
                 **out_path("multiplot_" + str(case)),
                 **plot_cfg,
                 select=dict(
@@ -111,7 +108,6 @@ def test_multiplot(dm, out_dir):
                     plot_x_data="test_data/1D_x",
                     plot_y_data="test_data/1D_y",
                 ),
-                **default_kwargs,
             )
 
     # The last figure should survive from this.
@@ -128,23 +124,21 @@ def test_multiplot(dm, out_dir):
         TypeError,
         match="`to_plot` argument needs to be list-like or a dict but",
     ):
-        epc(
+        ppc(
             **out_path("multiplot_string_func"),
             to_plot="some bad type (string)",
             select={},
-            **default_kwargs,
         )
 
     # Enable raising errors to check whether errors are risen
-    epc.raise_exc = True
+    ppc.raise_exc = True
 
     with pytest.raises(PlottingError, match="sns.regplot.*did not succeed!"):
-        epc(
+        ppc(
             **out_path("multiplot_fail"),
             to_plot=[dict(function="sns.regplot")],
             select=dict(data="test_data/2D_random"),
-            **default_kwargs,
         )
 
     # Reset raising errors
-    epc.raise_exc = False
+    ppc.raise_exc = False

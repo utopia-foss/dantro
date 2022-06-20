@@ -1,3 +1,5 @@
+.. _data_mngr:
+
 The :py:class:`~dantro.data_mngr.DataManager`
 =============================================
 

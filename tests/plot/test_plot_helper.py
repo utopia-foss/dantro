@@ -47,9 +47,13 @@ def hlpr(tmpdir) -> PlotHelper:
 
 
 @pytest.fixture
-def epc(dm) -> PyPlotCreator:
-    """External Plot Creator for integration tests"""
-    return PyPlotCreator("ph_test", dm=dm, default_ext="pdf")
+def ppc(dm) -> PyPlotCreator:
+    """PyPlotCreator for integration tests; the ``_plot_func`` needs to be set
+    manually, though!
+    """
+    return PyPlotCreator(
+        "ph_test", plot_func=lambda: 0, dm=dm, default_ext="pdf"
+    )
 
 
 # Plot functions --------------------------------------------------------------
@@ -60,7 +64,7 @@ def plot1(dm: DataManager, *, out_path: str):
     pass
 
 
-@is_plot_func(creator_name="external", supports_animation=True)
+@is_plot_func(creator="pyplot", supports_animation=True)
 def plot2(dm: DataManager, *, hlpr: PlotHelper):
     """Test plot that uses different PlotHelper methods.
 
@@ -73,7 +77,7 @@ def plot2(dm: DataManager, *, hlpr: PlotHelper):
 
 
 @is_plot_func(
-    creator_name="external",
+    creator="pyplot",
     helper_defaults={"set_title": {"title": "Title"}},
     supports_animation=True,
 )
@@ -97,7 +101,7 @@ def plot3(dm: DataManager, *, hlpr: PlotHelper):
     hlpr.register_animation_update(update)
 
 
-@is_plot_func(creator_name="external", supports_animation=True)
+@is_plot_func(creator="pyplot", supports_animation=True)
 def plot3_mode_switching(
     dm: DataManager,
     *,
@@ -117,7 +121,7 @@ def plot3_mode_switching(
     plot3(dm, hlpr=hlpr)
 
 
-@is_plot_func(creator_name="external")
+@is_plot_func(creator="pyplot")
 def plot4(dm: DataManager, *, hlpr: PlotHelper):
     """Test plot that does nothing"""
     pass
@@ -157,27 +161,33 @@ def test_init(hlpr):
         hlpr.fig
 
 
-def test_epc_integration(epc, tmpdir):
+def test_ppc_integration(ppc, tmpdir):
     """Test integration into external plot creator"""
     # call the plot method of the External Plot Creator using plot functions
     # with different decorators 'is_plot_func'
-    epc.plot(out_path=tmpdir.join("plot1.pdf"), plot_func=plot1)
-    epc.plot(out_path=tmpdir.join("plot2.pdf"), plot_func=plot2)
-    epc.plot(out_path=tmpdir.join("plot3.pdf"), plot_func=plot3)
-    epc.plot(out_path=tmpdir.join("plot4.pdf"), plot_func=plot4)
+    ppc._plot_func = plot1
+    ppc.plot(out_path=tmpdir.join("plot1.pdf"))
+
+    ppc._plot_func = plot2
+    ppc.plot(out_path=tmpdir.join("plot2.pdf"))
+
+    ppc._plot_func = plot3
+    ppc.plot(out_path=tmpdir.join("plot3.pdf"))
+
+    ppc._plot_func = plot4
+    ppc.plot(out_path=tmpdir.join("plot4.pdf"))
 
     # Check errors and warnings
     with pytest.raises(ValueError, match="'animation' was found"):
-        epc.plot(
-            out_path=tmpdir.join("anim_found.pdf"),
-            plot_func=plot1,
-            animation=dict(foo="bar"),
+        ppc._plot_func = plot1
+        ppc.plot(
+            out_path=tmpdir.join("anim_found.pdf"), animation=dict(foo="bar")
         )
 
     with pytest.raises(ValueError, match="'helpers' was found in the"):
-        epc.plot(
+        ppc._plot_func = plot1
+        ppc.plot(
             out_path=tmpdir.join("helpers_found.pdf"),
-            plot_func=plot1,
             helpers=dict(foo="bar"),
         )
 
@@ -692,24 +702,24 @@ def test_axis_specificity(hlpr):
         hlpr._compile_axis_specific_cfg()
 
 
-def test_animation(epc, tmpdir):
+def test_animation(ppc, tmpdir):
     """Test the animation feature"""
     # Test error messages . . . . . . . . . . . . . . . . . . . . . . . . . . .
     # plot function does not support animation
     with pytest.raises(
         ValueError, match="'plot4' was not marked as supporting an animation!"
     ):
-        epc.plot(
+        ppc._plot_func = plot4
+        ppc.plot(
             out_path=tmpdir.join("test.pdf"),
-            plot_func=plot4,
             animation=CFG_ANIM["complete"],
         )
 
     # no generator defined in plot function
     with pytest.raises(ValueError, match="No animation update generator"):
-        epc.plot(
+        ppc._plot_func = plot2
+        ppc.plot(
             out_path=tmpdir.join("test.pdf"),
-            plot_func=plot2,
             animation=CFG_ANIM["complete"],
         )
 
@@ -717,25 +727,25 @@ def test_animation(epc, tmpdir):
     with pytest.raises(
         TypeError, match="missing 1 required keyword-only argument: 'wri"
     ):
-        epc.plot(
+        ppc._plot_func = plot3
+        ppc.plot(
             out_path=tmpdir.join("test.pdf"),
-            plot_func=plot3,
             animation=CFG_ANIM["missing_writer"],
         )
 
     # unavailable writer
     with pytest.raises(ValueError, match="'foo' is not available"):
-        epc.plot(
+        ppc._plot_func = plot3
+        ppc.plot(
             out_path=tmpdir.join("test.pdf"),
-            plot_func=plot3,
             animation=CFG_ANIM["unavailable_writer"],
         )
 
     # Test behaviour . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     # this should work correctly
-    epc.plot(
+    ppc._plot_func = plot3
+    ppc.plot(
         out_path=tmpdir.join("basic.pdf"),
-        plot_func=plot3,
         animation=CFG_ANIM["complete"],
     )
 
@@ -750,9 +760,9 @@ def test_animation(epc, tmpdir):
 
     # test that no animation is created when marked as disabled
     # this should work correctly
-    epc.plot(
+    ppc._plot_func = plot3
+    ppc.plot(
         out_path=tmpdir.join("not_enabled.pdf"),
-        plot_func=plot3,
         animation=CFG_ANIM["not_enabled"],
     )
     assert tmpdir.join("not_enabled.pdf").isfile()
@@ -764,9 +774,8 @@ def test_animation(epc, tmpdir):
                 i, anim_cfg
             )
         )
-        epc.plot(
+        ppc.plot(
             out_path=tmpdir.join(str(i) + ".pdf"),
-            plot_func=plot3,
             animation=dict(enabled=True, **anim_cfg),
         )
 
@@ -777,14 +786,13 @@ def test_animation(epc, tmpdir):
             )
         )
         with pytest.raises(Exception):
-            epc.plot(
+            ppc.plot(
                 out_path=tmpdir.join(str(i) + ".pdf"),
-                plot_func=plot3,
                 animation=dict(enabled=True, **anim_cfg),
             )
 
 
-def test_animation_mode_switching(hlpr, epc, tmpdir):
+def test_animation_mode_switching(hlpr, ppc, tmpdir):
     """Tests the feature that allows entering and exiting animation mode"""
     # -- Part 1: Helper raises the right control exceptions . . . . . . . . . .
     # Animation mode disabled
@@ -802,11 +810,12 @@ def test_animation_mode_switching(hlpr, epc, tmpdir):
     assert not hlpr.animation_enabled
 
     # -- Part 2: Switching between modes within PyPlotCreator . . . . . .
+    ppc._plot_func = plot3_mode_switching
+
     # Animation-enabled plot --> NOT exiting --> directory with multiple plots
     plot_name = "not_exiting"
-    epc.plot(
+    ppc.plot(
         out_path=tmpdir.join(plot_name + ".pdf"),
-        plot_func=plot3_mode_switching,
         should_exit=False,
         animation=CFG_ANIM["complete"],
     )
@@ -816,9 +825,8 @@ def test_animation_mode_switching(hlpr, epc, tmpdir):
 
     # Animation-enabled plot --> exiting --> single plot
     plot_name = "exiting"
-    epc.plot(
+    ppc.plot(
         out_path=tmpdir.join(plot_name + ".pdf"),
-        plot_func=plot3_mode_switching,
         should_exit=True,
         animation=CFG_ANIM["complete"],
     )
@@ -829,9 +837,8 @@ def test_animation_mode_switching(hlpr, epc, tmpdir):
     plot_name = "entering"
     anim_cfg = copy.deepcopy(CFG_ANIM["complete"])
     anim_cfg["enabled"] = False
-    epc.plot(
+    ppc.plot(
         out_path=tmpdir.join(plot_name + ".pdf"),
-        plot_func=plot3_mode_switching,
         should_enter=True,
         animation=anim_cfg,
     )
@@ -840,9 +847,8 @@ def test_animation_mode_switching(hlpr, epc, tmpdir):
     assert len(tmpdir.join(plot_name).listdir()) == 5
 
     plot_name = "not_entering"
-    epc.plot(
+    ppc.plot(
         out_path=tmpdir.join(plot_name + ".pdf"),
-        plot_func=plot3_mode_switching,
         should_enter=False,
         animation=anim_cfg,
     )
@@ -852,9 +858,8 @@ def test_animation_mode_switching(hlpr, epc, tmpdir):
     # -- Part 3: Error messages . . . . . . . . . . . . . . . . . . . . . . . .
     plot_name = "entering_with_missing_kwargs"
     with pytest.raises(ValueError, match="Cannot dynamically enter animation"):
-        epc.plot(
+        ppc.plot(
             out_path=tmpdir.join(plot_name + ".pdf"),
-            plot_func=plot3_mode_switching,
             should_enter=True,
             animation=None,
         )  # <-- missing animation kwargs here
@@ -863,9 +868,8 @@ def test_animation_mode_switching(hlpr, epc, tmpdir):
 
     plot_name = "repeatedly_switching"
     with pytest.raises(RuntimeError, match="Cannot repeatedly enter or exit"):
-        epc.plot(
+        ppc.plot(
             out_path=tmpdir.join(plot_name + ".pdf"),
-            plot_func=plot3_mode_switching,
             should_enter=True,
             should_exit=True,  # <-- repeated switching
             animation=anim_cfg,

@@ -1,35 +1,47 @@
+.. default-domain:: dantro.plot_mngr
+
 .. _plot_manager:
 
-The :py:class:`~dantro.plot_mngr.PlotManager`
-=============================================
+The :py:class:`.PlotManager`
+============================
 
-The :py:class:`~dantro.plot_mngr.PlotManager` orchestrates the whole plotting framework.
+The :py:class:`.PlotManager` orchestrates the whole plotting framework.
 This document describes what it is and how it works together with the :doc:`plot_creators` to generate plots.
 
 .. contents::
    :local:
    :depth: 3
 
+
+**Further reading:**
+
+* :doc:`plot_creators`
+* :doc:`plot_data_selection`
+* :doc:`plot_cfg_ref`
+* :doc:`faq`
+
 ----
 
 Overview
 --------
-The :py:class:`~dantro.plot_mngr.PlotManager` manages the creation of plots.
+The :py:class:`.PlotManager` manages the creation of plots.
 So far, so obvious.
 
-The idea of the :py:class:`~dantro.plot_mngr.PlotManager` is that it is aware of all available data and then gets instructed to create a set of plots from this data.
-The :py:class`~dantro.plot_mngr.PlotManager` does not carry out any plots. Its purpose is to handle the *configuration* of some :doc:`plot creator <plot_creators>` classes; those implement the actual plotting functionality.
+The idea of the :py:class:`.PlotManager` is that it is aware of all available data and then gets instructed to create a set of plots from this data.
+The :py:class`.PlotManager` does not carry out any plots.
+Its purpose is to handle the *configuration* of some :doc:`plot creator <plot_creators>` classes; those implement the actual plotting functionality.
 This way, the plots can be configured consistently, profiting from the shared interface and the already implemented functions, while keeping the flexibility of having multiple ways to create plots.
 
-To create the plots, a set of plot configurations gets passed to the :py:class:`~dantro.plot_mngr.PlotManager` which then determines which plot creator it will need to instantiate.
-It then passes the plot configuration on to the respective plot creator, which takes care of all the actual plotting work.
+To create a plots, a so-called plot configuration gets passed to the :py:class:`.PlotManager`.
+From the plot configuration, the manager determines which so-called plot function is desired and which plot creator is to be used.
+After retrieving the plot function and instantiating the creator instance, the remaining plot configuration is passed to the plot creator, which is then responsible to create the actual plot output.
 
-The main methods to interact with the :py:class:`~dantro.plot_mngr.PlotManager` are the following:
+The main methods to interact with the :py:class:`.PlotManager` are the following:
 
-* :py:meth:`~dantro.plot_mngr.PlotManager.plot` expects the configuration for a single plot.
-* :py:meth:`~dantro.plot_mngr.PlotManager.plot_from_cfg` expects a set of plot configurations and, for each configuration, creates the specified plots using :py:meth:`~dantro.plot_mngr.PlotManager.plot`.
+* :py:meth:`.PlotManager.plot` expects the configuration for a single plot.
+* :py:meth:`.PlotManager.plot_from_cfg` expects a set of plot configurations and, for each configuration, creates the specified plots using :py:meth:`.PlotManager.plot`.
 
-This configuration-based approach makes the :py:class:`~dantro.plot_mngr.PlotManager` quite versatile and provides a set of features that the individual plot creators need *not* be aware of.
+This configuration-based approach makes the :py:class:`.PlotManager` quite versatile and provides a set of features that the individual plot creators need *not* be aware of.
 
 
 Nomenclature
@@ -38,9 +50,10 @@ To repeat, this is the basic vocabulary to understand the plotting framework and
 
 * The :ref:`plot configuration <plot_cfg_overview>` contains all the parameters required to make one or multiple plots.
 * The :ref:`plot creators <plot_creators>` create the actual plots. Given some plot configuration, they produce the plots as output.
-* The :py:class:`~dantro.plot_mngr.PlotManager` orchestrates the plotting procedure by feeding the relevant plot configuration to a specific plot creator.
+* The :ref:`plot function <plot_func>` (or plotting function) is a callable that receives the plot data and generates the output; it is retrieved by the plot manager but invoked by the creator.
+* The :py:class:`.PlotManager` orchestrates the plotting procedure by feeding the relevant plot configuration to a specific plot creator.
 
-This page focusses on the capabilities of the :py:class:`~dantro.plot_mngr.PlotManager` itself.
+This page focusses on the capabilities of the :py:class:`.PlotManager` itself.
 For creator-specific capabilities, follow the corresponding links.
 
 
@@ -91,7 +104,7 @@ A set of plot configurations may look like this:
       # ...
 
 This will create two plots: ``values_over_time`` and ``my_fancy_plot``.
-Both are using :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` (known to :py:class:`~dantro.plot_mngr.PlotManager` by its name, ``pyplot``) and are loading certain functions to use for plotting.
+Both are using :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` (known to :py:class:`.PlotManager` by its name, ``pyplot``) and are loading certain functions to use for plotting.
 
 .. hint::
 
@@ -156,7 +169,7 @@ To use this feature, add the ``based_on`` key to your plot configuration and spe
 We call those plot configurations *base configurations* to distinguish them from the configuration the ``based_on`` key is used in.
 
 These base configurations are then looked up in previously specified plot configurations, so-called *base plot configuration pools*.
-They are passed to :py:class:`~dantro.plot_mngr.PlotManager` during initialization using the ``base_cfg_pools`` argument.
+They are passed to :py:class:`.PlotManager` during initialization using the ``base_cfg_pools`` argument.
 
 For example, let's say we have a base configuration pool that specifies a lineplot with a certain style:
 
@@ -353,6 +366,302 @@ To conclude, this feature allows to assemble plot configurations from different 
 This reduces the need for copying configurations into multiple places.
 
 
+
+
+
+
+
+
+.. _plot_func:
+
+The Plot Function
+-----------------
+The plot function is the place where selected data and configuration arguments come together to generate the plot output.
+The :py:class:`.PlotManager` takes care of retrieving the plotting function, and a :ref:`plot creator <plot_creators>` takes care of invoking it.
+While these aspects are taken care of, the function itself still has to be implemented (and :ref:`communicated <plot_func_specification>`) to the plotting framework.
+
+In short, a plot function can be something like this:
+
+.. testcode::
+
+    from dantro.plot import is_plot_func
+
+    @is_plot_func(use_dag=True, required_dag_tags=("x", "y"))
+    def my_plot(*, data: dict, out_path: str, **plot_kwargs):
+        """A plot function using the data transformation framework.
+
+        Args:
+            data: The selected and transformed data, containing specified tags.
+            out_path: Where to save the plot output.
+            **plot_kwargs: Further plotting arguments
+        """
+        x = data["x"]
+        y = data["y"]
+
+        # Do something with the data
+        # ...
+
+        # Save the plot at `out_path`
+        # ...
+
+
+For examples of how to then :ref:`specify <plot_func_specification>` that function via the plot configuration and details on how to :ref:`implement <plot_func_implement>` it, see the respective sections.
+
+
+
+.. _plot_func_specification:
+
+Plot Function Specification
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Let's assume we have a plotting function defined somewhere and want to communicate to the :py:class:`.PlotManager` that this function is responsible for creating the plot output.
+
+For the moment, the exact definition of the function is irrelevant.
+You can read more about it :ref:`below <plot_func_implement>`.
+
+.. _plot_func_import_from_module:
+
+Importing a plotting function from a module
+"""""""""""""""""""""""""""""""""""""""""""
+To do this, the ``module`` and ``plot_func`` entries are required.
+The following example shows a plot that uses a plot function from a package called ``utopya.eval.plots`` and another plot that uses some (importable) package from which the module and the plot function are imported:
+
+.. code-block:: yaml
+
+   ---
+   my_plot:
+     # Import some module from utopya.plot_funcs (note the leading dot)
+     module: .distribution
+
+     # Use the function with the following name from that module
+     plot_func: my_plot_func
+
+     # ... all other arguments
+
+   my_other_plot:
+     # Import a module from any installed package
+     module: my_installed_plotting_package.some_module
+     plot_func: my_plot_func
+
+     # ... all other arguments
+
+
+
+.. _plot_func_import_from_file:
+
+Importing a plotting function from a file
+"""""""""""""""""""""""""""""""""""""""""
+There might be situations where you want or need to implement a plot function decoupled from all the existing code and without bothering about importability (which may require setting up a package, installation routine, etc).
+
+This can be achieved by specifying the ``module_file`` key instead of the ``module`` key in the plot configuration.
+That python module is then loaded from file and the ``plot_func`` key is used to retrieve the plotting function:
+
+.. code-block:: yaml
+
+   ---
+   my_plot:
+     # Load the following file as a python module
+     module_file: ~/path/to/my/python/script.py
+
+     # Use the function with the following name from that module
+     plot_func: my_plot_func
+
+     # ... all other arguments (as usual)
+
+.. note::
+
+    For those interested, the specification is interpreted by the :py:class:`~dantro.plot.utils.plot_func.PlotFuncResolver` class, which then takes care of resolving the correct plot function.
+    This class can also be specialized; the :py:class:`.PlotManager` simply uses the class defined in its :py:attr:`.PLOT_FUNC_RESOLVER` class variable.
+
+
+
+
+.. _plot_func_implement:
+
+Implementing Plot Functions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Below, you will learn how to implement a plot function.
+
+A plot function is basically any Python function that adheres to a compatible signature.
+
+.. note::
+
+    Depending on the chosen creator, the signature may vary.
+    For instance, the :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` adds a number of additional features such that the plot function may need to accept additional arguments (like ``hlpr``); see :ref:`here <pyplot_plot_func>` for more information.
+
+
+.. _is_plot_func_decorator:
+
+The :py:class:`~dantro.plot.utils.plot_func.is_plot_func` decorator
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+When defining a plot function, we recommend using this decorator.
+It takes care of providing essential information to the :py:class:`.PlotManager` and makes it easy to configure those parameters relevant for the plot function.
+
+As an example, to specify which creator can be used for the plot function, the ``creator`` argument can be set right there aside the plot function definition.
+To control the whether the plot creator should use the :ref:`data transformation framework <plot_creator_dag>`, the ``use_dag`` flag can be set and the ``required_dag_tags`` argument can specify which data tags the plot function expects.
+
+For the above reasons, the :ref:`best way <plot_func_signature>` to implement a plot function is by using the :py:class:`~dantro.plot.utils.plot_func.is_plot_func` decorator.
+
+The decorator also provides the following arguments that affect DAG usage:
+
+- ``use_dag``: to enable or disable DAG usage. Disabled by default.
+- ``required_dag_tags``: can be used to specify which tags are expected by the plot function; if these are not defined or not computed, an error will be raised.
+- ``compute_only_required_dag_tags``: if the plot function defines required tags and ``compute_only is None``, the ``compute_only`` argument will be set such that only ``required_dag_tags`` are computed.
+- ``pass_dag_object_along``: passes the :py:class:`~dantro.dag.TransformationDAG` object to the plot function as ``dag`` keyword argument.
+- ``unpack_dag_results``: instead of passing the results as the ``data`` keyword argument, it unpacks the results dictionary, such that the tags can be specified directly in the plot function signature.
+  Note that this puts some restrictions on tag names, prohibiting some characters as well as requiring that plot configuration parameters do not collide with the DAG results.
+  This feature is best used in combination with ``required_dag_tags`` and ``compute_only_required_dag_tags`` enabled (which is the default).
+
+Decorator usage puts all the relevant arguments for using the DAG framework into one place: the definition of the plot function.
+
+
+.. _plot_func_signature:
+
+Recommended plot function signature
+"""""""""""""""""""""""""""""""""""
+The **recommended way of implementing a plot function** sets the plot function up for use of the :ref:`data transformation framework <plot_creator_dag>` of the :py:class:`.BasePlotCreator` (and derived classes).
+In such a case, the data selection is taken care of by the creator and then simply passed to the plot function, allowing to control data selection right from the plot configuration.
+
+Let's say that we want to implement a plot function that requires some ``x`` and ``y`` data selected from the data tree.
+In the definition of the plot function we can use the :ref:`decorator <is_plot_func_decorator>` to specify that these tags are required; the framework will then make sure that these results are computed.
+
+An implementation then looks like this:
+
+.. testcode::
+
+    from dantro.plot import is_plot_func
+
+    @is_plot_func(use_dag=True, required_dag_tags=("x", "y"))
+    def my_plot(*, data: dict, out_path: str, **plot_kwargs):
+        """A plot function using the data transformation framework.
+
+        Args:
+            data: The selected and transformed data, containing specified tags.
+            out_path: Where to save the plot output.
+            **plot_kwargs: Further plotting arguments
+        """
+        x = data["x"]
+        y = data["y"]
+
+        # Do something with the data
+        # ...
+
+        # Save the plot at `out_path`
+        # ...
+
+The corresponding plot configuration could look like this:
+
+.. code-block:: yaml
+
+    my_plot:
+      creator: base
+
+      # Select the plot function
+      # ...
+
+      # Select data
+      select:
+        x: data/MyModel/some/path/foo
+        y:
+          path: data/MyModel/some/path/bar
+          transform:
+            - .mean
+            - increment
+
+      # ... further arguments
+
+For more detail on the data selection syntax, see :ref:`plot_creator_dag`.
+
+.. note::
+
+    Derived plot creators may require a slightly different signature, possibly containing additional arguments depending on the enabled feature set.
+    While this signature is mostly universal across creators, make sure to refer to your desired :ref:`creator <plot_creators>` for details.
+
+    For instance, the :ref:`the PyPlotCreator <pyplot_func_recommended>` would require the plot function to accept an additional argument ``hlpr``.
+
+
+
+.. _plot_func_without_dag:
+
+Plot function without data transformation framework
+"""""""""""""""""""""""""""""""""""""""""""""""""""
+To not use the data transformation framework, simply omit the ``use_dag`` flag or set it to ``False`` in the decorator or the plot configuration.
+When not using the transformation framework, the ``creator_type`` should be specified, thus making the plot function bound to one type of creator.
+
+.. testcode::
+
+    from dantro import DataManager
+    from dantro.plot import is_plot_func, BasePlotCreator
+
+    @is_plot_func(creator_type=BasePlotCreator)
+    def my_plot(*, out_path: str, dm: DataManager, **additional_plot_kwargs):
+        """A simple plot function.
+
+        Args:
+            out_path (str): The path to store the plot output at.
+            dm (dantro.data_mngr.DataManager): The loaded data tree.
+            **additional_kwargs: Anything else from the plot config.
+        """
+        # Select some data ...
+        data = dm["foo/bar"]
+
+        # Create the plot
+        # ...
+
+        # Save the plot
+        # ...
+
+.. note::
+
+    The ``dm`` argument is only provided when *not* using the DAG framework.
+
+
+.. _plot_func_bare_signature:
+
+Plot function the bare basics
+"""""""""""""""""""""""""""""
+There is an even more basic way of defining a plot function, leaving out the :py:func:`~dantro.plot.utils.plot_func.is_plot_func` decorator altogether:
+
+.. testcode::
+
+    from dantro import DataManager
+
+    def my_bare_basics_plot(
+        dm: DataManager, *, out_path: str, **additional_kwargs
+    ):
+        """Bare-basics signature required by the BasePlotCreator.
+
+        Args:
+            dm: The DataManager object that contains all loaded data.
+            out_path: The generated path at which this plot should be saved
+            **additional_kwargs: Anything else from the plot config.
+        """
+        # Select the data
+        data = dm["some/data/to/plot"]
+
+        # Generate the plot
+        # ...
+
+        # Store the plot
+        # ...
+
+.. note::
+
+    When using the bare basics version, you need to set the ``creator`` argument in the :ref:`plot configuration <plot_cfg_overview>` in order for the :py:class:`.PlotManager` to find the desired creator.
+
+.. warning::
+
+    This way of specifying plot functions is mainly retained for reasons of backwards-compatibility.
+    If you can, avoid this form of plot function definition and use the :ref:`recommended signature instead <plot_func_signature>`.
+
+
+
+
+
+
+
+
+.. _plot_mngr_features:
+
 Features
 --------
 
@@ -412,13 +721,3 @@ A few remarks regarding side effects (e.g., directories being created for plots 
     The plot configuration will **not** be saved for skipped plots.
 
     There is one exception though: if a :ref:`parameter sweep plot configuration <psweep_plot_cfg>` is being used and at least one of the plots of that sweep is *not* skipped, the corresponding plot configuration metadata will be stored alongside the plot output.
-
-
-Further Reading
----------------
-
-* :doc:`plot_creators`
-* :doc:`faq`
-* :doc:`plot_cfg_ref`
-* :doc:`plot_data_selection`
-* :doc:`auto_detection`

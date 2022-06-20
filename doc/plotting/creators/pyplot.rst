@@ -5,13 +5,21 @@
 The :py:class:`.PyPlotCreator`
 ==============================
 
-The :py:class:`.PyPlotCreator` focusses on creating plots using :py:mod:`matplotlib.pyplot` and from a Python function, the so-called *plot function*.
-These plot functions can be imported from importable modules or even from some file path.
+The :py:class:`.PyPlotCreator` focusses on creating plots using :py:mod:`matplotlib.pyplot`.
 
-.. note::
+Like the :py:class:`~dantro.plot.creators.base.BasePlotCreator`, it relies on the plots being defined in a so-called *plot function*, which can be retrieved from importable modules or even from some file path.
+These plot functions are meant to provide a bridge between the selected and transformed data and their visualization.
+The :py:class:`.PyPlotCreator` aims to make this process as smooth as possible by implementing a number of automations that reduce boilerplate code:
 
-    There are specializations of the :py:class:`.PyPlotCreator` that make plotting of data originating from parameter sweeps easier.
-    See :ref:`pcr_psp`.
+- The :ref:`plot helper interface <pcr_pyplot_helper>` provides an interface to :py:mod:`matplotlib.pyplot` and allows configuration-based manipulation of the axes limits, scales, and many other structural elements of a plot.
+- With :ref:`style contexts <pcr_pyplot_style>`, plot aesthetics can be controlled right from the plot configuration, making consistent plotting styles more accessible.
+- The integration of the :py:mod:`matplotlib.animation` framework allows to easily implement plot functions that generate animation output.
+
+
+.. hint::
+
+    There are further specializations of the :py:class:`.PyPlotCreator` that make plotting of data originating from parameter sweeps easier.
+    See :ref:`pcr_psp` or the :ref:`creator overview <plot_creators>`.
 
 .. note::
 
@@ -19,78 +27,24 @@ These plot functions can be imported from importable modules or even from some f
 
 .. contents::
    :local:
-   :depth: 2
+   :depth: 3
 
 ----
-
-
-Specifying which plotting function to use
------------------------------------------
-Let's assume we have a plotting function defined somewhere and want to communicate to the :py:class:`.PyPlotCreator` that this function should be used for some plot.
-
-For the moment, the exact definition of the function is irrelevant.
-You can read more about it :ref:`below <pcr_pyplot_implement_plot_funcs>`.
-
-Importing a plotting function from a module
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-To do this, the ``module`` and ``plot_func`` entries are required.
-The following example shows a plot that uses a plot function from ``utopya.eval.plots`` and another plot that uses some (importable) package from which the module and the plot function are imported:
-
-.. code-block:: yaml
-
-   ---
-   my_plot:
-     # Import some module from utopya.plot_funcs (note the leading dot)
-     module: .distribution
-
-     # Use the function with the following name from that module
-     plot_func: my_plot_func
-
-     # ... all other arguments
-
-   my_other_plot:
-     # Import a module from any installed package
-     module: my_installed_plotting_package.some_module
-     plot_func: my_plot_func
-
-     # ... all other arguments
-
-
-.. _pcr_pyplot_import_plot_funcs:
-
-Importing a plotting function from a file
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-There might be situations where you might want or need to implement a plot function decoupled from all the existing code and without bothering about importability (which may require setting up a package, installation routine, etc).
-
-This can be achieved by specifying the ``module_file`` key instead of the ``module`` key in the plot configuration.
-That python module is then loaded from file and the ``plot_func`` key is used to retrieve the plotting function:
-
-.. code-block:: yaml
-
-   ---
-   my_plot:
-     # Load the following file as a python module
-     module_file: ~/path/to/my/python/script.py
-
-     # Use the function with the following name from that module
-     plot_func: my_plot_func
-
-     # ... all other arguments (as usual)
 
 
 .. _pcr_pyplot_helper:
 
 The :py:class:`~dantro.plot.plot_helper.PlotHelper`
 ---------------------------------------------------
-Furthermore, the :py:class:`.PyPlotCreator` offers to automate many of the :py:mod:`matplotlib.pyplot` function calls.
-It does so via the :py:class:`~dantro.plot.plot_helper.PlotHelper`, which provides a config-accessible bridge to the matplotlib interface.
+The :py:class:`.PyPlotCreator` allows to automate many of the :py:mod:`matplotlib.pyplot` function calls that would usually have to be part of the plot function itself.
+Instead, the :py:class:`~dantro.plot.plot_helper.PlotHelper` takes up this task and provides a config-accessible bridge to the matplotlib interface.
 
 See :ref:`here <plot_helper>` for more information on the plot helper framework.
 
 
 .. _pcr_pyplot_style:
 
-Adjusting a plot's style
+Adjusting a Plot's Style
 ------------------------
 Using the ``style`` keyword, matplotlib RC parameters can be configured fully via the plot configuration; no need to touch the code.
 Basically, this allows setting the :py:data:`matplotlib.rcParams` and makes the matplotlib stylesheets (:py:mod:`matplotlib.style`) available.
@@ -145,80 +99,28 @@ For valid RC parameters, see the `matplotlib customization documentation <https:
 
 
 
-.. _pcr_pyplot_DAG_support:
+.. _pyplot_plot_func:
 
-The data transformation framework
----------------------------------
-
-As part of dantro, a :ref:`data selection and transformation framework <dag_framework>` based on a directed, acyclic graph (DAG) of operations is provided.
-This is a powerful tool, especially when combined with the plotting framework.
-
-The motivation of using this DAG framework for plotting is similar to the motivation of the :ref:`plot helper <plot_helper>`:
-Ideally, the plot function should focus on the visualization of some data; everything else before (data selection, transformation, etc.) and after (adjusting plot aesthetics, saving the plot, etc.) should be automated.
-
-It uses a configuration-based syntax that is optimized for specification via YAML, right alongside the plot configuration.
-Additionally, it allows to cache results to a file; this is very useful when the analysis of data takes a large amount of time compared to the plotting itself.
-
-To learn more about this, :ref:`see here <dag_framework>`.
-
-.. hint::
-
-    If you are missing an operation, register it yourself:
-
-    .. code-block:: python
-
-        from dantro.utils import register_operation
-
-        def my_operation(data, *, some_parameter, **more_parameters):
-            """Some operation on the given data"""
-            # Do something with data and the parameters
-            # ...
-            return new_data
-
-        register_operation(name='my_operation', func=my_operation)
-
-    Note that you are not allowed to override any existing operation.
-    To avoid naming conflicts, it is advisable to use a unique name for the custom operation, e.g. if by prefixing the model name for some model-specific operation.
-
-
-
-
-
-.. _pcr_pyplot_implement_plot_funcs:
-
-Implementing plot functions
+Implementing Plot Functions
 ---------------------------
-Below, you will learn how to implement a plot function that can be used with the :py:class:`.PyPlotCreator`.
+This section details how to implement plot functions for the :py:class:`.PyPlotCreator`, making use of its specializations.
 
 
-.. _is_plot_func_decorator:
-
-The :py:func:`~dantro.plot.utils.is_plot_func.is_plot_func` decorator
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-When defining a plot function, we recommend using this decorator.
-It takes care of providing essential information to the :py:class:`.PyPlotCreator` and makes it easy to configure those parameters relevant for the plot function.
-
-For example, to specify which creator should be used for the plot function, the ``creator_type`` can be given.
-To control usage of the data transformation framework, the ``use_dag`` flag can be used and the ``required_dag_tags`` argument can specify which data tags the plot function expects.
-
-.. _pcr_pyplot_recommended_sig:
+.. _pyplot_func_recommended:
 
 Recommended plot function signature
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The recommended way of implementing a plot function makes use of both the :ref:`plot helper framework <plot_helper>` and the :ref:`data transformation framework <pcr_pyplot_DAG_support>`.
+The recommend plot function signature for this creator is not that different from the :ref:`general one <plot_func_signature>`:
+It also makes use of the :ref:`data transformation framework <plot_creator_dag>` (implemented by :ref:`the parent class <pcr_base_DAG_support>`).
 
-When using the data transformation framework, the data selection is taken care of by that framework, moving the data selection procedure to the plot configuration.
-In the plot function, one can specify which tags are required by the plot function; the framework will then make sure that these results are computed.
-In this case, two tags called ``x`` and ``y`` are required which are then fed directly to the plot function.
+*Additionally*, however, it uses the :ref:`plot helper framework <plot_helper>` which requires that the plot function can handle an additional argument, ``hlpr``.
+This :py:class:`~dantro.plot.plot_helper.PlotHelper` is the bridge to :py:mod:`matplotlib.pyplot` and thus also needs to be used to invoke any plot-related commands:
 
-Importantly, such a plot function can be **averse to any creator**, because it is compatible not only with the :py:class:`.PyPlotCreator` but also with all its specializations.
-This makes it very flexible in its usage, serving solely as the bridge between data and visualization.
+.. testcode::
 
-.. code-block:: python
+    from dantro.plot import is_plot_func, PlotHelper
 
-    from dantro.plot.creators import is_plot_func, PlotHelper
-
-    @is_plot_func(use_dag=True, required_dag_tags=('x', 'y'))
+    @is_plot_func(use_dag=True, required_dag_tags=("x", "y"))
     def my_plot(*, data: dict, hlpr: PlotHelper, **plot_kwargs):
         """A creator-averse plot function using the data transformation
         framework and the plot helper framework.
@@ -229,13 +131,16 @@ This makes it very flexible in its usage, serving solely as the bridge between d
             **plot_kwargs: Passed on to matplotlib.pyplot.plot
         """
         # Create a lineplot on the currently selected axis
-        hlpr.ax.plot(data['x'], data['y'], **plot_kwargs)
+        hlpr.ax.plot(data["x"], data["y"], **plot_kwargs)
 
         # Done! The plot helper saves the plot :tada:
 
 Super simple, aye? :)
 
-The corresponding plot configuration could look like this:
+In the case of the :py:class:`.PyPlotCreator`, such a plot function can be **averse to any creator**, because it is compatible not only with the :py:class:`.PyPlotCreator` but also with :ref:`derived creators <pcr_psp>`.
+This makes it very flexible in its usage, serving solely as the bridge between data and their visualization:
+For that reason, the decorator does not specify a ``creator`` argument, but the plot configuration does.
+The corresponding plot configuration could then look like this:
 
 .. code-block:: yaml
 
@@ -251,92 +156,73 @@ The corresponding plot configuration could look like this:
         y:
           path: data/MyModel/some/path/bar
           transform:
-            - mean: [!dag_prev ]
-            - increment: [!dag_prev ]
-
-      # Perform some transformation on the data
-      transform: []
+            - .mean
+            - increment
 
       # ... further arguments
 
-For more detail on the syntax, see :ref:`above <pcr_pyplot_DAG_support>`.
-
-While the plot *function* signature can remain as it is regardless of the chosen specialization of the :py:class:`.PyPlotCreator`, the plot *configuration* will differ for the specializations.
-See :ref:`here <plot_data_selection_uni>` and :ref:`here <plot_data_selection_mv>` for more information.
+For more detail on the syntax, see :ref:`above <pcr_base_DAG_support>`.
 
 .. note::
 
-    This is the recommended way to define a plot function because it outsources a lot of the typical tasks (data selection and plot aesthetics) to dantro, allowing you to focus on implementing the bridge from data to visualization of the data.
+    While the plot *function* signature can remain as it is regardless of the chosen specialization of the :py:class:`.PyPlotCreator`, the plot *configuration* will differ for the specializations.
+    See :ref:`here <plot_data_selection_uni>` and :ref:`here <plot_data_selection_mv>` for more information.
+
+.. note::
+
+    This is the **recommended way to define a plot function** because it outsources a lot of the typical tasks (data selection and plot aesthetics) to dantro, allowing you to focus on implementing the bridge from data to visualization of the data.
 
     Using these features not only reduces the amount of code required in a plot function but also makes the plot function future-proof.
     We **highly** recommend to use *this* interface.
 
 
-
-
 Other possible plot function signatures
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Without data transformation framework
+"""""""""""""""""""""""""""""""""""""
+There is the option to not using the transformation framework for data selection while still profiting from the plot helper.
+Simply use the :ref:`plot function decorator <is_plot_func_decorator>` without passing ``use_dag``:
 
-Without DAG framework
-"""""""""""""""""""""
-To not use the data transformation framework, simply omit the ``use_dag`` flag or set it to ``False`` in the decorator.
-When not using the transformation framework, the ``creator_type`` should be specified, thus making the plot function bound to one type of creator.
-
-.. code-block:: python
+.. testcode::
 
     from dantro import DataManager
-    from dantro.plot.creators import is_plot_func, PlotHelper, PyPlotCreator
+    from dantro.plot import is_plot_func, PyPlotCreator, PlotHelper
 
-    @is_plot_func(creator_type=PyPlotCreator)
-    def my_plot(dm: DataManager, *, hlpr: PlotHelper, **additional_kwargs):
-        """A plot function using the plot helper framework.
+    @is_plot_func(creator=PyPlotCreator)
+    def my_plot(
+        *, dm: DataManager, hlpr: PlotHelper, **additional_plot_kwargs
+    ):
+        """A simple plot function using the plot helper framework.
 
         Args:
-            dm: The DataManager object that contains all loaded data.
-            hlpr: The associated plot helper
+            dm: The loaded data tree.
+            hlpr: The plot helper, taking care of setting up the figure and
+                saving the plot.
             **additional_kwargs: Anything else from the plot config.
         """
         # Select some data ...
-        data = dm['foo/bar']
+        data = dm["foo/bar"]
 
-        # Create a lineplot on the currently selected axis
+        # Create the plot
         hlpr.ax.plot(data)
 
-        # When exiting here, the plot helper saves the plot.
+        # Done. The helper will save the plot after the plot function returns.
 
 .. note::
 
     The ``dm`` argument is only provided when *not* using the DAG framework.
 
+.. hint::
+
+    To omit the helper as well, pass ``use_helper=False`` to the decorator.
+    In that case you will also have to take care of saving the plot to the ``out_path`` provided as argument to the plot function.
+
 
 Bare basics
 """""""""""
-If you desire to do everything by yourself, you can disable the plot helper framework by passing ``use_helper=False`` to the decorator.
-Subsequently, the ``hlpr`` argument is **not** passed to the plot function.
+If you do not want to use the decorator either, the signature is the same as :ref:`in the case of the base class <plot_func_bare_signature>`.
 
-There is an even more basic version to do this, leaving out the :py:func:`~dantro.plot.utils.is_plot_func.is_plot_func` decorator:
 
-.. code-block:: python
-
-    from dantro import DataManager
-
-    def my_bare_basics_plot(dm: DataManager, *, out_path: str,
-                            **additional_kwargs):
-        """Bare-basics signature required by the PyPlotCreator.
-
-        Args:
-            dm: The DataManager object that contains all loaded data.
-            out_path: The generated path at which this plot should be saved
-            **additional_kwargs: Anything else from the plot config.
-        """
-        # Your code here ...
-
-        # Save to the specified output path
-        plt.savefig(out_path)
-
-.. note::
-
-    When using the bare basics version, you need to set the ``creator`` argument in the plot configuration in order for the plot manager to find the desired creator.
 
 
 
@@ -348,9 +234,9 @@ With the :py:class:`~dantro.plot.plot_helper.PlotHelper` framework it is really 
 
 Say you have defined the following plot function:
 
-.. code-block:: python
+.. testcode::
 
-    from dantro.plot.creators import is_plot_func, PlotHelper
+    from dantro.plot import is_plot_func, PlotHelper
 
     @is_plot_func(use_dag=True, required_dag_tags=('time_series',))
     def plot_some_data(*, data: dict,
@@ -369,9 +255,9 @@ Say you have defined the following plot function:
 To now make this function support animation, you only need to extend it by some
 update function, register that function with the helper, and mark the plot function as supporting an animation:
 
-.. code-block:: python
+.. testcode::
 
-    from dantro.plot.creators import is_plot_func, PlotHelper
+    from dantro.plot import is_plot_func, PlotHelper
 
     @is_plot_func(use_dag=True, required_dag_tags=('time_series',),
                   supports_animation=True)
@@ -495,9 +381,9 @@ A few remarks:
 
 A plot function could then look like this:
 
-.. code-block:: python
+.. testcode::
 
-    from dantro.plot.creators import is_plot_func, PlotHelper
+    from dantro.plot import is_plot_func, PlotHelper
 
     @is_plot_func(use_dag=True, required_dag_tags=('nd_data',),
                   supports_animation=True)
@@ -533,46 +419,11 @@ A plot function could then look like this:
 .. _pcr_pyplot_specializing:
 
 Specializing :py:class:`.PyPlotCreator`
---------------------------------------------------------------------------
-As common throughout dantro, the plot creators are specialized using class variables.
-For :py:class:`.PyPlotCreator`, a specialization can look like this:
+---------------------------------------
+This is basically the same as in :ref:`the base class <pcr_base_specializing>` with the additional ability to specialize the plot helper.
 
-.. code-block:: python
-
-    import dantro as dtr
-    import dantro.plot.creators
-
-    class MyPyPlotCreator(dtr.plot_creators.PyPlotCreator):
-        """My custom pyplot-based plot creator, using
-        # For relative module imports, regard the following as the base package
-        BASE_PKG = "my_plot_funcs_package"  # some imported Python module
-        # ``module`` arguments starting with a '.' are looked up here
-
-        # Which plot helper class to use
-        PLOT_HELPER_CLS = MyPlotHelper
-
-For specializing the :py:class:`~dantro.plot.plot_helper.PlotHelper`, see :ref:`above <plot_helper_spec>`.
-
-Furthermore, if the retrieval of the plot function needs to be adjusted, the private methods can be adjusted accordingly.
-For example, the :py:meth:`.PyPlotCreator._get_module_via_import` method is responsible for importing a module.
-By overwriting it, import behaviour can be customized:
-
-.. code-block:: python
-
-    def _get_module_via_import(self, module: str):
-        """Extends the parent method by making a custom module available in
-        case the regular import failed.
-        """
-        try:
-            return super()._get_module_via_import(module)
-
-        except ModuleNotFoundError as err:
-            pass
-
-        # Make some custom imports and return the resulting module
-        # ...
+For specializing the :py:class:`~dantro.plot.plot_helper.PlotHelper`, see :ref:`here <plot_helper_spec>` and then set the :py:attr:`.PyPlotCreator.PLOT_HELPER_CLS` class variable accordingly.
 
 .. note::
 
     For an operational example in a more complex framework setting, see `the specialization used in the utopya project <https://gitlab.com/utopia-project/utopya/-/blob/main/utopya/eval/plotcreators.py>`_.
-    Here, the :py:class:`.PyPlotCreator` is extended such that a number of custom module paths are made available for import.

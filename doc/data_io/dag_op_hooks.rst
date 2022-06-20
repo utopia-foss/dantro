@@ -1,3 +1,4 @@
+.. default-domain:: dantro.data_ops.hooks
 
 .. _dag_op_hooks:
 
@@ -18,16 +19,26 @@ For the integration into the transformation framework, see :ref:`here <dag_op_ho
 
 Available Hooks
 ---------------
-In the following, the available hooks are listed.
-The section title gives the operation name they are triggered by.
+The following hooks are available by default:
 
-For a list of all available operations, see :ref:`data_ops_available`.
+.. ipython::
+
+    @suppress
+    In [1]: import dantro
+
+    @doctest
+    In [2]: ", ".join(dantro.data_ops.DAG_PARSER_OPERATION_HOOKS)
+    Out[2]: 'expression'
+
+.. NOTE: Doctest is done to ensure that operation hooks are documented below!
+
+The section titles below use the :ref:`operation name <data_ops_available>` of the hooks they are triggered by.
 
 .. _dag_op_hook_expression:
 
 ``expression``
 ^^^^^^^^^^^^^^
-The :py:func:`~dantro.data_ops.hooks.op_hook_expression` prepares arguments for the :py:func:`~dantro.data_ops.expr_ops.expression` operation, making it more convenient to perform symbolic math operations with entities defined in the DAG.
+The :py:func:`.op_hook_expression` prepares arguments for the :py:func:`~dantro.data_ops.expr_ops.expression` operation, making it more convenient to perform symbolic math operations with entities defined in the DAG.
 
 It tries to extract the free symbols from the expression string and turns them into :py:class:`~dantro._dag_utils.DAGTag` objects of the same name.
 For example, with the tags ``a``, ``b``, and ``c``:

@@ -16,9 +16,17 @@ and return a 3-tuple of the manipulated ``operation, args, kwargs``.
 The return values will be those that the Transformation object is created
 from.
 
+See the :ref:`dag_op_hooks` page for more information on integration and
+available hooks.
+
 Example of defining a hook and registering it:
 
-.. code-block:: python
+.. testcode:: register_dag_parser_hook
+    :hide:
+
+    from typing import Tuple
+
+.. testcode:: register_dag_parser_hook
 
     # Define hook function
     def _op_hook_my_operation(
@@ -28,7 +36,9 @@ Example of defining a hook and registering it:
         return operation, args, kwargs
 
     # Register with hooks registry
-    DAG_PARSER_OPERATION_HOOKS['my_operation'] = _op_hook_my_operation
+    from dantro.data_ops import DAG_PARSER_OPERATION_HOOKS
+
+    DAG_PARSER_OPERATION_HOOKS["my_operation"] = _op_hook_my_operation
 
 .. todo::
 

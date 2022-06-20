@@ -507,7 +507,7 @@ We hope that this guide helps in integrating dantro into your project!
 
 .. note::
 
-    If you encounter any difficulties with this process, have a question or suggestion, or need support of any other kind, feel free to `open an issue <https://gitlab.com/utopia-project/dantro/issues/new>`_ on the project page.
+    If you encounter any difficulties with this process, have a question or suggestion, or need support of any other kind, feel free to `open an issue <https://gitlab.com/utopia-project/dantro/issues>`_ on the project page.
     We are looking forward to your feedback!
 
 

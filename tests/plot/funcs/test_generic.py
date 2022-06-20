@@ -113,8 +113,8 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
     After each invocation, if the number of open figures is checked, which can
     be used to detect figure leakage.
     """
-    epc = PyPlotCreator("test_facet_grid", dm=dm)
-    epc._exist_ok = True
+    ppc = PyPlotCreator("test_facet_grid", dm=dm, plot_func=facet_grid)
+    ppc._exist_ok = True
 
     # Shortcuts
     animation = dict(
@@ -122,7 +122,7 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
         writer="frames",
         writer_kwargs=dict(frames=dict(saving=(dict(dpi=36)))),
     )
-    shared_kwargs = dict(plot_func=facet_grid, animation=animation)
+    shared_kwargs = dict(animation=animation)
     out_path = lambda name: dict(out_path=os.path.join(out_dir, name + ".pdf"))
 
     # Now, the generic testing, combinations of: kinds, specifier, data
@@ -172,7 +172,7 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
 
             # Now, run the plot function in that context
             with context:
-                epc(
+                ppc(
                     **out_path(
                         "{case:}__kind_{kind:}_{data:}_{specs:}".format(
                             kind=kind if kind else "None",
@@ -451,80 +451,80 @@ def test_determine_encoding():
 #      test the `errorbars` function!
 def test_errorbar(dm, out_dir, anim_disabled):
     """Tests the errorbar plot"""
-    epc = PyPlotCreator("test_errorbar", dm=dm)
-    epc._exist_ok = True
+    ppc = PyPlotCreator("test_errorbar", dm=dm, plot_func=errorbar)
+    ppc._exist_ok = True
 
     # Shortcuts
-    kws_ebar = dict(plot_func=errorbar, animation=anim_disabled)
-    kws_eband = dict(plot_func=errorbands, animation=anim_disabled)
+    kws = dict(animation=anim_disabled)
     out_path = lambda name: dict(out_path=os.path.join(out_dir, name + ".pdf"))
 
     # Invoke with different dimensionalities
-    epc(
+    ppc(
         **out_path("ebar_1D"),
-        **kws_ebar,
+        **kws,
         select=dict(y="ndim_da/1D", yerr="ndim_da/1D"),
     )
 
-    epc(
+    ppc(
         **out_path("ebar_2D"),
-        **kws_ebar,
+        **kws,
         hue="dim_0",
         select=dict(y="ndim_da/2D", yerr="ndim_da/2D"),
     )
 
-    epc(
+    ppc(
         **out_path("ebar_3D"),
-        **kws_ebar,
+        **kws,
         hue="dim_0",
         frames="dim_2",
         select=dict(y="ndim_da/3D", yerr="ndim_da/3D"),
     )
 
     # ... and again with errorbands
-    epc(
+    ppc._plot_func = errorbands
+    ppc(
         **out_path("eband_1D"),
-        **kws_eband,
+        **kws,
         select=dict(y="ndim_da/1D", yerr="ndim_da/1D"),
     )
 
-    epc(
+    ppc(
         **out_path("eband_2D"),
-        **kws_eband,
+        **kws,
         hue="dim_0",
         select=dict(y="ndim_da/2D", yerr="ndim_da/2D"),
     )
 
-    epc(
+    ppc(
         **out_path("eband_3D"),
-        **kws_eband,
+        **kws,
         hue="dim_0",
         frames="dim_2",
         select=dict(y="ndim_da/3D", yerr="ndim_da/3D"),
     )
 
     # Test auto-encoding
-    epc(
+    ppc(
         **out_path("eband_3D_auto_encoded"),
-        **kws_eband,
+        **kws,
         auto_encoding=True,
         select=dict(y="ndim_da/3D", yerr="ndim_da/3D"),
     )
 
     # Fails with missing specifiers
     with pytest.raises(ValueError, match="expected data to be 2-dimensional"):
-        epc(
+        ppc(
             **out_path("eband_3D_missing"),
-            **kws_eband,
+            **kws,
             hue="dim_0",
             select=dict(y="ndim_da/3D", yerr="ndim_da/3D"),
         )
 
     # ... or too many dimensions
     with pytest.raises(ValueError, match="expected data to be 3-dimensional"):
-        epc(
+        ppc(
             **out_path("eband_4D"),
-            **kws_eband,
+            **kws,
             hue="dim_0",
             frames="dim_2",
             select=dict(y="ndim_da/4D", yerr="ndim_da/4D"),
@@ -532,29 +532,39 @@ def test_errorbar(dm, out_dir, anim_disabled):
 
     # ... or too few dimensions
     with pytest.raises(ValueError, match="expected data to be 1-dimensional"):
-        epc(
+        ppc(
             **out_path("ebar_0D"),
-            **kws_eband,
+            **kws,
             select=dict(y="ndim_da/0D", yerr="ndim_da/0D"),
         )
 
     # ... or mismatching sizes
     with pytest.raises(ValueError, match="need to be of the same size"):
-        epc(
+        ppc(
             **out_path("ebar_1D_mismatch"),
-            **kws_eband,
+            **kws,
             select=dict(y="ndim_da/1D", yerr="ndim_da/2D"),
         )
 
     # Config-based tests
     for case_name, case_cfg in PLOTS_CFG_EBAR["success"].items():
         print("Case: ", case_name)
-        epc(**out_path(case_name), module=".generic", **case_cfg)
+        plot_func = case_cfg.pop("plot_func", None)
+        if plot_func == "errorbands":
+            ppc._plot_func = errorbands
+        else:
+            ppc._plot_func = errorbar
+        ppc(**out_path(case_name), **case_cfg)
 
     for case_name, case_cfg in PLOTS_CFG_EBAR["failure"].items():
         print("Case: ", case_name)
+        plot_func = case_cfg.pop("plot_func", None)
+        if plot_func == "errorbands":
+            ppc._plot_func = errorbands
+        else:
+            ppc._plot_func = errorbar
         with pytest.raises(ValueError, match=case_cfg["match"]):
-            epc(**out_path(case_name), module=".generic", **case_cfg["cfg"])
+            ppc(**out_path(case_name), **case_cfg["cfg"])
 
     # Finally, test helper function's errors (not invoked regularly)
     with pytest.raises(ValueError, match="Requiring 1D `y` and `yerr`"):
@@ -646,11 +656,11 @@ def test_make_facet_grid_plot():
 
 def test_facet_grid(dm, out_dir, anim_disabled):
     """Tests the basic features and special cases of the facet_grid plot"""
-    epc = PyPlotCreator("test_facet_grid", dm=dm)
-    epc._exist_ok = True
+    ppc = PyPlotCreator("test_facet_grid", dm=dm, plot_func=facet_grid)
+    ppc._exist_ok = True
 
     # Shortcuts
-    shared_kwargs = dict(plot_func=facet_grid, animation=anim_disabled)
+    shared_kwargs = dict(animation=anim_disabled)
     out_path = lambda name: dict(out_path=os.path.join(out_dir, name + ".pdf"))
 
     # Make sure there are no figures currently open, in order to be able to
@@ -662,7 +672,7 @@ def test_facet_grid(dm, out_dir, anim_disabled):
     # This should succeed even for high-dimensional data, because a plot kind
     # is not explicitly given, thus always falling back to `hist`.
     for cont_name in dm["ndim_da"]:
-        epc(
+        ppc(
             **out_path("auto__no_specs_" + cont_name),
             **shared_kwargs,
             select=dict(data="ndim_da/" + cont_name),
@@ -677,7 +687,7 @@ def test_facet_grid(dm, out_dir, anim_disabled):
 
     for cont_name in dm["ndim_da"]:
         with pytest.raises(AttributeError, match="seems not to be available"):
-            epc(
+            ppc(
                 **out_path("bad_kind__" + cont_name),
                 **shared_kwargs,
                 select=dict(data="ndim_da/" + cont_name),
@@ -688,7 +698,7 @@ def test_facet_grid(dm, out_dir, anim_disabled):
 
     # Special cases . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     # scatter: Is only valid for dataset data
-    epc(
+    ppc(
         **out_path("scatter_ds"),
         **shared_kwargs,
         kind="scatter",
@@ -698,7 +708,7 @@ def test_facet_grid(dm, out_dir, anim_disabled):
     )
 
     # errorbars: also requires dataset
-    epc(
+    ppc(
         **out_path("errorbars"),
         **shared_kwargs,
         kind="errorbars",
@@ -711,7 +721,7 @@ def test_facet_grid(dm, out_dir, anim_disabled):
         select=dict(data="datasets/mean_and_std4D"),
     )
 
-    epc(
+    ppc(
         **out_path("errorbars_single"),
         **shared_kwargs,
         kind="errorbars",
@@ -723,7 +733,7 @@ def test_facet_grid(dm, out_dir, anim_disabled):
 
     # ... will fail with unlabelled dimensions
     with pytest.raises(PlottingError, match="coordinates associated"):
-        epc(
+        ppc(
             **out_path("errorbars_unlabelled"),
             **shared_kwargs,
             kind="errorbars",
