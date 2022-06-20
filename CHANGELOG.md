@@ -24,6 +24,7 @@
     - The `dantro.containers.xrdatactr` module was renamed to `dantro.containers.xr`
 - !282 moves the former `ExternalPlotCreator`'s plot function loading functionality into `PlotManager`, making it a central component of the plotting framework rather than a creator's special feature.
     - This also makes `BasePlotCreator` a fully-functioning (no longer abstract) creator class, which is averse to any plotting backend.
+    - Adds the customizable `PlotFuncResolver` class which now takes care of these tasks in a more decoupled setting.
 - !282 also completely removes the plot creator auto detection feature, reducing implementation complexity.
 
 #### Internal
