@@ -538,8 +538,19 @@ class PlotManager:
         :py:class:`~dantro.plot.utils.plot_func.PlotFuncResolver`, and uses
         it to get the desired plot function callable.
         """
-        pf_resolver = self.PLOT_FUNC_RESOLVER(**self._pfr_kwargs)
+        pf_resolver = self._get_plot_func_resolver(**self._pfr_kwargs)
         return pf_resolver.resolve(**resolver_kwargs)
+
+    def _get_plot_func_resolver(self, **init_kwargs) -> _PlotFuncResolver:
+        """Instantiates the plot function resolver object with the given
+        initialization arguments.
+
+        This method is called from :py:meth:`._get_plot_func` and can be used
+        for more conveniently controlling how the resolver is set up.
+        By default, the ``init_kwargs`` will be equivalent to the
+        ``plot_func_resolver_init_kwargs`` given to :py:meth:`.__init__`.
+        """
+        return self.PLOT_FUNC_RESOLVER(**init_kwargs)
 
     def _get_plot_creator(
         self,
