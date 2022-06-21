@@ -14,7 +14,7 @@ help:
 
 .PHONY: help Makefile
 
-# A target to build the whole HTML documentation, including API documentation
+# A target to build the whole HTML documentation
 doc:
 	@echo "Building HTML documentation ..."
 	@echo ""

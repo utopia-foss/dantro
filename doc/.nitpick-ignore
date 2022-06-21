@@ -22,6 +22,8 @@ py:class optional
 # ... that cannot be referenced (for whatever reason)
 py:class collections._Link
 py:class weakref
+py:class module
+py:class ModuleType
 
 # -- third-party packages --
 # ...
