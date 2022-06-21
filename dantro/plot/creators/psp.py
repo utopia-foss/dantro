@@ -34,7 +34,7 @@ class MultiversePlotCreator(PyPlotCreator):
     selected before being passed to the plot function.
     """
 
-    PSGRP_PATH: ParamSpaceGroup = None
+    PSGRP_PATH: str = None
     """Where the :py:class:`~dantro.groups.psp.ParamSpaceGroup` object is
     expected within the :py:class:`~dantro.data_mngr.DataManager`"""
 
@@ -557,7 +557,7 @@ class UniversePlotCreator(PyPlotCreator):
     all or a selected subspace of universes.
     """
 
-    PSGRP_PATH: ParamSpaceGroup = None
+    PSGRP_PATH: str = None
     """Where the :py:class:`~dantro.groups.psp.ParamSpaceGroup` object is
     expected within the :py:class:`~dantro.data_mngr.DataManager`"""
 

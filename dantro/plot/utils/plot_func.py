@@ -12,6 +12,10 @@ import os
 import warnings
 from typing import Callable, Sequence, Union
 
+from ..._import_tools import (
+    import_module_from_file as _import_module_from_file,
+)
+
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
@@ -139,33 +143,20 @@ class PlotFuncResolver:
         )
 
     def _get_module_from_file(self, path: str, *, base_module_file_dir: str):
-        """Returns the module corresponding to the file at the given `path`"""
-        # Pre-processing
-        path = os.path.expanduser(path)
+        """Returns the module corresponding to the file at the given ``path``.
 
-        # Make it absolute
-        if not os.path.isabs(path):
-            if not base_module_file_dir:
-                raise ValueError(
-                    "Need to specify `base_module_file_dir` "
-                    "during initialization to use relative paths "
-                    "for `module_file` argument!"
-                )
-
-            path = os.path.join(base_module_file_dir, path)
-
-        # Extract a name from the path to use as module name
-        mod_name = "from_file." + os.path.basename(path).split(".")[0]
-        # NOTE The name does not really matter
-
-        # Is an absolute path now
-        # Create a module specification and, from that, import the module
-        spec = importlib.util.spec_from_file_location(mod_name, path)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-
-        # Now, it is loaded
-        return mod
+        This uses :py:func:`~dantro._import_tools.import_module_from_file`
+        to carry out the import.
+        """
+        try:
+            return _import_module_from_file(
+                path, base_dir=base_module_file_dir
+            )
+        except ValueError as err:
+            raise ValueError(
+                "Need to specify `base_module_file_dir` during initialization "
+                "to use relative paths for `module_file` argument!"
+            ) from err
 
     def _get_module_via_import(self, *, module: str, base_pkg: str):
         """Returns the module via import.
