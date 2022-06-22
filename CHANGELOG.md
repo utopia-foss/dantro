@@ -33,6 +33,7 @@
     - Makes use of newer language features (like consistent use of f-strings)
 - !280 separates the `dantro.utils.data_ops` module into a `dantro.data_ops` subpackage
 - !285 expands and improves the `dantro._import_tools` module and improves tests
+- !287 updates documentatioin after the main branch was renamed from `master` to `main`
 
 #### Deprecations
 - !278 deprecates use of `dantro.tools.IS_A_TTY` and `dantro.tools.TTY_COLS` constants. This information should be retrieved from the `dantro.tools.TERMINAL_INFO` dict instead.
