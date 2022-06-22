@@ -94,7 +94,7 @@ To remain a maintainable and future-proof project, we aim to adhere to the follo
 
 - **The git history is *reasonably* clean**
     - Only a conscientiously written git history is a useful git history.
-    - Every MR should either clean up the new commits (e.g. by interactively rebasing onto master) or set the GitLab's squash option.
+    - Every MR should either clean up the new commits (e.g. by interactively rebasing onto the main branch: `git rebase -i main`) or by setting the GitLab's squash option.
 
 If you have questions or remarks regarding any of these points, we are happy to answer them or provide guidance throughout any part of the contribution process.
 
@@ -110,9 +110,6 @@ You can report any unacceptable behavior via the interface provided by GitLab or
 Of course, you can always contact the developer team [directly via e-mail][devmail] if you have questions regarding dantro or this contribution guide.
 
 [devmail]: mailto:dantro-dev@iup.uni-heidelberg.de
-[ts_hp]: https://ts.iup.uni-heidelberg.de/
-[iup_hp]: https://www.iup.uni-heidelberg.de/
-[ext_user]: https://docs.gitlab.com/ee/user/permissions.html#external-users-core-only
 [dantro_project]: https://gitlab.com/utopia-project/dantro
 [request_access]: https://gitlab.com/utopia-project/dantro/-/project_members/request_access
 [new_issue]: https://gitlab.com/utopia-project/dantro/issues
