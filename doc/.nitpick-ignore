@@ -49,6 +49,7 @@ py:class dantro.utils.coords.TCoordsDict
 #
 # NOTE That the regex pattern needs to match the whole string, as if ^ and $
 #      would be inserted.
+re: py:class ruamel.*
 
 # There are a bunch of warnings from inherited code that uses a different way
 # to denote types, thus leading to invalid docstring syntax that we can't

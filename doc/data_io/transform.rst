@@ -468,7 +468,7 @@ The ``define`` interface is a combintion of these two approaches: same as ``sele
 
 Let's look at an example that combines all these ways of adding transformations:
 
-.. literalinclude:: ../../tests/cfg/transformations.yml
+.. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
     :start-after: ### Start -- dag_define
     :end-before:  ### End ---- dag_define
@@ -510,7 +510,7 @@ Minimal Syntax
 To make the definition a bit less verbose, there is a so-called *minimal syntax*, which is internally translated into the explicit and verbose one documented above.
 This can make DAG specification much easier:
 
-.. literalinclude:: ../../tests/cfg/transformations.yml
+.. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
     :start-after: ### Start -- dag_minimal_syntax
     :end-before:  ### End ---- dag_minimal_syntax
@@ -566,7 +566,7 @@ These so-called *operation hooks* are described in more detail :ref:`here <dag_o
 As an example, the ``expression`` operation can be specified much more conveniently with the use of its hook.
 Taking the example from :ref:`above <dag_minimal_syntax>`, the same can be expressed as:
 
-.. literalinclude:: ../../tests/cfg/transformations.yml
+.. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
     :start-after: ### Start -- dag_op_hooks_expression_minimal
     :end-before:  ### End ---- dag_op_hooks_expression_minimal
@@ -575,7 +575,7 @@ Taking the example from :ref:`above <dag_minimal_syntax>`, the same can be expre
 In this case, the hook automatically extracts the free symbols (``some_data`` and ``more_data``) and translates them to the corresponding :py:class:`~dantro._dag_utils.DAGTag` objects.
 Effectively, it parses the above to:
 
-.. literalinclude:: ../../tests/cfg/transformations.yml
+.. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
     :start-after: ### Start -- dag_op_hooks_expression_minimal
     :end-before:  ### End ---- dag_op_hooks_expression_minimal
@@ -696,7 +696,7 @@ The *equivalent* construct in the data transformation framework is a so-called *
 Meta-operations can be defined in just the same way as regular transformations are defined, with some additional syntax for defining positional arguments (``args``) and keyword arguments (``kwargs``).
 Let's look at an example:
 
-.. literalinclude:: ../../tests/cfg/transformations.yml
+.. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
     :start-after: ### Start -- dag_meta_ops_simple_def
     :end-before:  ### End ---- dag_meta_ops_simple_def
@@ -708,7 +708,7 @@ During initialization of :py:class:`~dantro.dag.TransformationDAG`, these can be
 **How are meta-operations used?**
 In exactly the same way as all regular data operations: simply define their name as the ``operation`` argument of a transformation.
 
-.. literalinclude:: ../../tests/cfg/transformations.yml
+.. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
     :start-after: ### Start -- dag_meta_ops_simple_use
     :end-before:  ### End ---- dag_meta_ops_simple_use
@@ -750,7 +750,7 @@ Like Python functions, meta-operations can have two kinds of arguments:
 These can be used anywhere inside the meta-operation specification and serve as placeholders for expected arguments.
 Let's look at an example:
 
-.. literalinclude:: ../../tests/cfg/transformations.yml
+.. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
     :start-after: ### Start -- dag_meta_ops_arg_def
     :end-before:  ### End ---- dag_meta_ops_arg_def
@@ -780,7 +780,7 @@ Using ``select`` within meta-operations
 """""""""""""""""""""""""""""""""""""""
 The definitions inside ``meta_operations`` can have two possible formats:
 
-.. literalinclude:: ../../tests/cfg/transformations.yml
+.. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
     :start-after: ### Start -- dag_meta_ops_definition_formats
     :end-before:  ### End ---- dag_meta_ops_definition_formats
@@ -798,7 +798,7 @@ Such meta-operations are essentially linear DAGs.
 However, to define non-linear meta-operations (or: general DAGs), it needs to be possible to use the result of *any* previously specified transformation.
 For that purpose, the ``tag`` entry and the ``!dag_tag`` YAML tag can be used, same as in the :ref:`usual specification of references between transformations <dag_referencing>`:
 
-.. literalinclude:: ../../tests/cfg/transformations.yml
+.. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
     :start-after: ### Start -- dag_meta_ops_tagging
     :end-before:  ### End ---- dag_meta_ops_tagging
@@ -816,13 +816,65 @@ Effectively, the regular tag is attached to the last transformation of the meta-
     In order to avoid silent errors and reduce unexpected behaviour, *all* internally defined tags *need* to be used within the meta-operation.
 
 
+.. _dag_meta_op_default_arguments:
+
+Argument default values
+"""""""""""""""""""""""
+Meta operation arguments ``!arg`` and ``!kwarg`` can also have default values.
+These are defined by passing a list of length 2 to the YAML tags (instead of a scalar number for positional arguments or name for keyword arguments).
+
+For instance, if you want an optional keyword argument ``foo``, define it as:
+
+.. code-block:: yaml
+
+    !kwarg [foo, my_default_value]
+
+Equivalently for positional arguments:
+
+.. code-block:: yaml
+
+    !arg [0, my_default_value]
+
+Let's look at an example where the ``my_increment`` meta-operation would increment by one per default or by some other value, if desired:
+
+.. literalinclude:: ../../tests/cfg/dag.yml
+    :language: yaml
+    :start-after: ### Start -- dag_meta_ops_args_with_defaults
+    :end-before:  ### End ---- dag_meta_ops_args_with_defaults
+    :dedent: 4
+
+The above meta-operation is equivalent to the following Python function with one required positional-only argument and one optional positional-only argument:
+
+.. testcode::
+
+    def my_increment(x, delta = 1, /):
+        return x + delta
+
+    one = my_increment(0)
+    two = my_increment(one)
+    ten = my_increment(two, 8)
+
+For a larger example that is using keyword arguments, see :ref:`below <dag_meta_ops_gauss>`.
+
+.. hint::
+
+    Default values need not be scalar, they can be anything — as long as they do not contain any :py:class:`~dantro._dag_utils.Placeholder` objects like tags, references, or other argument definitions.
+
+.. warning::
+
+    To clearly distinguish which arguments are optional and which ones are required, make sure that any ``!arg`` or ``!kwarg`` with a default value has a default value for *all* those occurrences of the arguments in your meta-operation:
+
+    There should never be a ``!arg [0, 42]`` and ``!arg 0`` in your meta-operation at the same time.
+
+
+
 Examples
 ^^^^^^^^
 ``prime_multiples``
 """""""""""""""""""
 The following example performs operations on the arguments and then uses internal tags (``!dag_tag``) to connect their output to a result.
 
-.. literalinclude:: ../../tests/cfg/transformations.yml
+.. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
     :start-after: ### Start -- dag_meta_ops_prime_multiples
     :end-before:  ### End ---- dag_meta_ops_prime_multiples
@@ -834,7 +886,7 @@ Aggregate return values
 """""""""""""""""""""""
 In this example, a ``dict`` operation is used to return multiple results from a meta-operation.
 
-.. literalinclude:: ../../tests/cfg/transformations.yml
+.. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
     :start-after: ### Start -- dag_meta_ops_multiple_return_values
     :end-before:  ### End ---- dag_meta_ops_multiple_return_values
@@ -844,23 +896,36 @@ Note that by aggregating results into an object, the DAG will not be able to dis
 In order to avoid computing more nodes than necessary, aggregated return values should be used sparingly; ideally, use them only to return an *intermediate* result.
 
 
+.. _dag_meta_ops_gauss:
+
 ``my_gauss``
 """"""""""""
 This example shows how to define a mathematical expression (also see: :ref:`operation hooks <dag_op_hooks_integration>`) and exposing its symbols as arguments of the meta-operation:
 
-.. literalinclude:: ../../tests/cfg/transformations.yml
+.. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
-    :start-after: ### Start -- dag_meta_ops_gauss
-    :end-before:  ### End ---- dag_meta_ops_gauss
+    :start-after: ### Start -- dag_meta_ops_gauss_simple
+    :end-before:  ### End ---- dag_meta_ops_gauss_simple
     :dedent: 4
 
-In case you have a lot of arguments exposed, which you would like to avoid repeating, YAML anchors and inheritance comes in handy:
+For this case, it makes a lot of sense to use :ref:`default values for meta-operation arguments <dag_meta_op_default_arguments>`, thus reducing the number of keyword arguments that *need* to be specified:
 
-.. literalinclude:: ../../tests/cfg/transformations.yml
+.. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
-    :start-after: ### Start -- dag_meta_ops_anchor_usage
-    :end-before:  ### End ---- dag_meta_ops_anchor_usage
+    :start-after: ### Start -- dag_meta_ops_gauss_with_defaults
+    :end-before:  ### End ---- dag_meta_ops_gauss_with_defaults
     :dedent: 4
+
+
+.. hint::
+
+    If you do not want to define default arguments, e.g. because you want to control the shared defaults via some YAML-based logic, you can also reduce the number of repeated arguments using YAML anchors and inheritance:
+
+    .. literalinclude:: ../../tests/cfg/dag.yml
+        :language: yaml
+        :start-after: ### Start -- dag_meta_ops_anchor_usage
+        :end-before:  ### End ---- dag_meta_ops_anchor_usage
+        :dedent: 4
 
 
 
@@ -910,7 +975,7 @@ To define more robust operations, some form of error handling is required, akin 
 In the data transformation framework, the ``allow_failure`` option handles failing data operations and allows to specify a ``fallback`` value that should be used as result in case the operation failed.
 Let's have a look:
 
-.. literalinclude:: ../../tests/cfg/transformations.yml
+.. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
     :start-after: ### Start -- dag_error_handling_example01
     :end-before:  ### End ---- dag_error_handling_example01
@@ -930,7 +995,7 @@ Subsequently, the ``result`` will be the Python floating-point ``inf``.
 
     Example:
 
-    .. literalinclude:: ../../tests/cfg/transformations.yml
+    .. literalinclude:: ../../tests/cfg/dag.yml
         :language: yaml
         :start-after: ### Start -- dag_error_handling_example02
         :end-before:  ### End ---- dag_error_handling_example02
@@ -951,7 +1016,7 @@ The analogy to Python exception handling would be to handle the error not direct
 This is also possible within the error handling framework, because ``allow_failure`` pertains to *both* the computation of the specified operation as well as the resolution of its arguments.
 As the resolution of arguments triggers the computation of dependent nodes (and their dependencies, and so forth), an upstream error may also be caught in a downstream node:
 
-.. literalinclude:: ../../tests/cfg/transformations.yml
+.. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
     :start-after: ### Start -- dag_error_handling_example03
     :end-before:  ### End ---- dag_error_handling_example03
@@ -985,7 +1050,7 @@ Error handling within ``select``
 The ``select`` operation may also specify a fallback.
 This fallback will *only* be applied to the ``getitem`` operation which is used to look up the ``path`` from the specified selection base:
 
-.. literalinclude:: ../../tests/cfg/transformations.yml
+.. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
     :start-after: ### Start -- dag_error_handling_select_simple_fallback
     :end-before:  ### End ---- dag_error_handling_select_simple_fallback
@@ -1007,7 +1072,7 @@ Subsequently, lookups within one ``select`` field are only possible from within 
 
 Using a tagged reference in the ``fallback`` works in the following example because ``'_some_fallback_data' < 'mean_data'``:
 
-.. literalinclude:: ../../tests/cfg/transformations.yml
+.. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
     :start-after: ### Start -- dag_error_handling_select_tagged_fallback
     :end-before:  ### End ---- dag_error_handling_select_tagged_fallback
