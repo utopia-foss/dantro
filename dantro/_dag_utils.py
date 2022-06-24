@@ -158,7 +158,67 @@ def resolve_placeholders(
 # Used in meta-operations
 
 
-class PositionalArgument(Placeholder):
+class PlaceholderWithFallback(Placeholder):
+    """A class expanding :py:class:`~Placeholder` that adds the ability to
+    read and store a fallback value.
+    """
+
+    __slots__ = ("_fallback", "_has_fallback")
+
+    def __init__(self, data: Any, *args):
+        super().__init__(data)
+
+        # Evaluate the fallback
+        self._fallback = None
+        self._has_fallback = False
+        if len(args) == 1:
+            self._fallback = args[0]
+            self._has_fallback = True
+
+        elif len(args) > 1:
+            raise TypeError(
+                f"{type(self).__name__} only accepts a single fallback value! "
+                f"Got:  {args}"
+            )
+
+    @property
+    def fallback(self) -> Any:
+        """Returns the fallback value"""
+        if not self.has_fallback:
+            raise ValueError(f"{self} has no fallback value defined!")
+        return self._fallback
+
+    @property
+    def has_fallback(self) -> bool:
+        """Whether there was a fallback value provided"""
+        return self._has_fallback
+
+    @classmethod
+    def from_yaml(cls, constructor, node):
+        """Constructs a PositionalArgument.
+
+        For a sequence node, will interpret it as (data, fallback).
+        With a scalar node, will not have a fallback.
+        """
+        import ruamel.yaml
+
+        if isinstance(node, ruamel.yaml.nodes.SequenceNode):
+            return cls(*constructor.construct_sequence(node))
+        return super().from_yaml(constructor, node)
+
+    @classmethod
+    def to_yaml(cls, representer, node):
+        """Create a YAML representation of a Placeholder, creating a sequence
+        representation in case a fallback value was defined.
+        """
+        if node.has_fallback:
+            return representer.represent_sequence(
+                cls.yaml_tag, (node._data, node._fallback)
+            )
+        return super().to_yaml(representer, node)
+
+
+class PositionalArgument(PlaceholderWithFallback):
     """A PositionalArgument is a placeholder that holds as payload a positional
     argument's position. This is used, e.g., for meta-operation specification.
     """
@@ -166,7 +226,7 @@ class PositionalArgument(Placeholder):
     __slots__ = ()
     yaml_tag = "!arg"
 
-    def __init__(self, pos: int):
+    def __init__(self, pos: int, *args):
         """Initialize from an integer, also accepting int-convertibles"""
         if not isinstance(pos, int):
             # Need an integer conversion to accept YAML string dumps
@@ -184,14 +244,14 @@ class PositionalArgument(Placeholder):
                 f"position, got {pos}!"
             )
 
-        self._data = pos
+        super().__init__(pos, *args)
 
     @property
     def position(self) -> int:
         return self._data
 
 
-class KeywordArgument(Placeholder):
+class KeywordArgument(PlaceholderWithFallback):
     """A KeywordArgument is a placeholder that holds as payload the name of a
     keyword argument. This is used, e.g., for meta-operation specification.
     """
@@ -199,7 +259,7 @@ class KeywordArgument(Placeholder):
     __slots__ = ()
     yaml_tag = "!kwarg"
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, *args):
         """Initialize by storing the keyword argument name"""
         if not isinstance(name, str):
             raise TypeError(
@@ -207,7 +267,7 @@ class KeywordArgument(Placeholder):
                 f"as argument name, got {type(name)}!"
             )
 
-        self._data = name
+        super().__init__(name, *args)
 
     @property
     def name(self) -> int:
