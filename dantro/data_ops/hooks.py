@@ -76,7 +76,6 @@ def op_hook_expression(operation, *args, **kwargs) -> Tuple[str, list, dict]:
 
     from .._dag_utils import DAGNode, DAGTag
 
-    print("invoked expression hook", args, kwargs)
     # Extract the expression string
     if len(args) == 1:
         expr = args[0]
@@ -114,7 +113,6 @@ def op_hook_expression(operation, *args, **kwargs) -> Tuple[str, list, dict]:
     kwargs["symbols"] = symbols
 
     # For args, return _only_ ``expr``, as expected by the operation
-    print("   ", operation, expr, kwargs)
     return operation, (expr,), kwargs
 
 
