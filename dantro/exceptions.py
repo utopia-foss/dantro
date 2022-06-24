@@ -128,6 +128,18 @@ class DataOperationFailed(DataOperationError, RuntimeError):
     """Raised upon failure to apply a data operation"""
 
 
+class MetaOperationError(DataOperationError):
+    """Base class for errors related to meta operations"""
+
+
+class MetaOperationSignatureError(MetaOperationError):
+    """If the meta-operation signature was erroneous"""
+
+
+class MetaOperationInvocationError(MetaOperationError, ValueError):
+    """If the invocation of the meta-operation was erroneous"""
+
+
 # Data transformations ........................................................
 
 

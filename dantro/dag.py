@@ -19,6 +19,7 @@ from ._copy import _deepcopy, _shallowcopy
 from ._dag_utils import DAGMetaOperationTag as _MOpTag
 from ._dag_utils import DAGNode, DAGObjects, DAGReference, DAGTag
 from ._dag_utils import KeywordArgument as _Kwarg
+from ._dag_utils import Placeholder as _Placeholder
 from ._dag_utils import PositionalArgument as _Arg
 from ._dag_utils import ResultPlaceholder as _ResultPlaceholder
 from ._dag_utils import parse_dag_minimal_syntax as _parse_dag_minimal_syntax
@@ -1225,7 +1226,7 @@ class TransformationDAG:
         placeholders for the required positional and keyword arguments.
         """
         if name in self._meta_ops or name in available_operations():
-            raise ValueError(
+            raise BadOperationName(
                 "An operation or meta-operation with the name "
                 f"'{name}' already exists!"
             )
@@ -1235,13 +1236,14 @@ class TransformationDAG:
         specs = self._parse_trfs(select=select, transform=transform)
 
         if not specs:
-            raise ValueError(
+            raise MetaOperationError(
                 "Meta-operations need to contain at least one "
                 "transformation, but there was none specified "
                 f"for meta-operation '{name}'!"
             )
 
         # Define some helper lambdas to identify placeholders and tags
+        is_placeholder = lambda obj: isinstance(obj, _Placeholder)
         is_normal_tag = lambda obj: (
             isinstance(obj, DAGTag) and obj.name not in self.SPECIAL_TAGS
         )
@@ -1260,17 +1262,60 @@ class TransformationDAG:
             args += recursive_collect(spec, select_func=is_arg)
             kwargs += recursive_collect(spec, select_func=is_kwarg)
 
+        # Positional arguments, potentially with fallback values
         _arg_pos = [arg.position for arg in args]
-        num_args = 0 if not _arg_pos else (max(_arg_pos) + 1)
-        kwarg_names = {kwarg.name for kwarg in kwargs}
+        _num_args = 0 if not _arg_pos else (max(_arg_pos) + 1)
+        required_args = {arg.position for arg in args if not arg.has_fallback}
+        optional_args = {arg.position for arg in args if arg.has_fallback}
 
-        # For positional arguments, make sure they are contiguous
-        if list(set(_arg_pos)) != list(range(num_args)):
-            raise ValueError(
+        # Keyword arguments, potentially with fallback values
+        kwarg_names = {kw.name for kw in kwargs}
+        required_kwargs = {kw.name for kw in kwargs if not kw.has_fallback}
+        optional_kwargs = {kw.name for kw in kwargs if kw.has_fallback}
+
+        # .. Need a number of checks now ......................................
+        # Make sure they are contiguous
+        if list(set(_arg_pos)) != list(range(_num_args)):
+            raise MetaOperationSignatureError(
                 "The positional arguments specified for the meta-operation "
                 f"'{name}' were not contiguous! With the highest argument "
-                f"index {num_args - 1}, there need to be positional arguments "
-                f"for all integers from 0 to {num_args - 1}. Got: {_arg_pos}."
+                f"index {_num_args - 1}, there need to be positional "
+                f"arguments for all integers from 0 to {_num_args - 1}. "
+                f"Got: {set(_arg_pos)}."
+            )
+
+        # Make sure the lists of required & optional args/kwargs are disjoint,
+        # meaning that their intersection is size zero:
+        _args_intersection = required_args.intersection(optional_args)
+        _kwargs_intersection = required_kwargs.intersection(optional_kwargs)
+
+        if _args_intersection or _kwargs_intersection:
+            _bad_args = ", ".join(f"{a}" for a in _args_intersection)
+            _bad_kwargs = ", ".join(f"{k}" for k in _kwargs_intersection)
+            raise MetaOperationSignatureError(
+                "Got (positional or keyword) arguments that were not clearly "
+                "identifiable as optional:\n"
+                f"  args:    {_bad_args}\n"
+                f"  kwargs:  {_bad_kwargs}\n"
+                "Make sure that all these args or kwargs with the same "
+                "position or name, respectively, also have the same fallback "
+                "specification."
+            )
+
+        # Make sure there is no overlap between required and optional
+        # _positional_ arguments, as association would become ambiguous
+        if max(list(required_args) + [-1]) > min(
+            list(optional_args) + [float("inf")]
+        ):
+            _req_args = ", ".join(f"{p}" for p in required_args)
+            _opt_args = ", ".join(f"{p}" for p in optional_args)
+            raise MetaOperationSignatureError(
+                "Optional positional arguments need to come strictly after "
+                "required positional arguments!\n"
+                f"  Required positions:   {_req_args}\n"
+                f"  Optional positions:   {_opt_args}\n"
+                "Remove or add fallback values such that the argument "
+                "position ranges do not overlap."
             )
 
         # Locate all newly defined tags within the meta-operation; these are
@@ -1284,12 +1329,28 @@ class TransformationDAG:
 
         if len(set(defined_tags.values())) != len(defined_tags):
             _tags = ", ".join(defined_tags.values())
-            raise ValueError(
+            raise MetaOperationError(
                 "Encountered duplicate internal tag definitions in the "
                 f"meta-operation '{name}'! Check the defined tags ({_tags}) "
                 "and make sure every internal tag's name is unique within the "
                 "meta-operation."
             )
+
+        # Need to make sure that fallback values don't contain tags or any
+        # other weird stuff
+        for arg in chain(args, kwargs):
+            if arg.has_fallback and recursive_collect(
+                [arg.fallback], select_func=is_placeholder
+            ):
+                raise MetaOperationError(
+                    "Default values of positional or keyword arguments "
+                    "to meta-operations may not contain tags or any other "
+                    "kind of placeholders!\n"
+                    "Got the following default value, which did contain "
+                    f"a placeholder:  {arg.fallback}"
+                )
+
+        # .....................................................................
 
         def to_meta_operation_tag(tag: DAGTag) -> _MOpTag:
             """Replacement function for meta-operation-internal references.
@@ -1305,7 +1366,7 @@ class TransformationDAG:
             if tag.name not in defined_tags.values():
                 _internal = ", ".join(defined_tags.values())
                 _special = ", ".join(self.SPECIAL_TAGS)
-                raise ValueError(
+                raise MetaOperationError(
                     "Encountered a tag that was not defined as part of the "
                     f"meta-operation '{name}': '{tag.name}'! Within a meta-"
                     f"operation, only internally-defined tags ({_internal}) "
@@ -1346,7 +1407,7 @@ class TransformationDAG:
 
         if unused_tags:
             _unused = ", ".join(unused_tags)
-            raise ValueError(
+            raise MetaOperationError(
                 f"Meta-operation '{name}' defines internal tags that are not "
                 f"used within the meta-operation: {_unused}! Either remove "
                 "these tags or make sure that they are all used by the "
@@ -1360,8 +1421,12 @@ class TransformationDAG:
         self._meta_ops[name] = dict(
             specs=specs,
             defined_tags=defined_tags,
-            num_args=num_args,
+            num_args=len(required_args) + len(optional_args),
+            required_args=required_args,
+            optional_args=optional_args,
             kwarg_names=kwarg_names,
+            required_kwargs=required_kwargs,
+            optional_kwargs=optional_kwargs,
         )
 
     def add_node(
@@ -1375,8 +1440,9 @@ class TransformationDAG:
         fallback: Any = None,
         **trf_kwargs,
     ) -> DAGReference:
-        """Add a new node by creating a new Transformation object and adding it
-        to the node list.
+        """Add a new node by creating a new
+        :py:class:`~dantro.dag.Transformation` object and adding it to the
+        node list.
 
         In case of ``operation`` being a meta-operation, this method will add
         multiple Transformation objects to the node list. The ``tag`` and the
@@ -1414,6 +1480,7 @@ class TransformationDAG:
                 **trf_kwargs,
             )
 
+        # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         # Some helper methods for the recursive replacement
         def not_proper_ref(obj: Any) -> bool:
             return (
@@ -1896,25 +1963,39 @@ class TransformationDAG:
         # copy, as they are recursively replaced later on.
         meta_op = self._meta_ops[operation]
         specs = _deepcopy(meta_op["specs"])
-        kwarg_names = meta_op["kwarg_names"]
 
-        # Check that all the expected args and kwargs are present
+        # Check that all the required args and kwargs are present
         args = args if args else []
         kwargs = kwargs if kwargs else {}
 
-        if len(args) != meta_op["num_args"]:
-            raise ValueError(
-                f"Meta-operation '{operation}' expects {meta_op['num_args']} "
-                f"positional argument(s) but got {len(args)}!"
+        if len(args) < len(meta_op["required_args"]):
+            raise MetaOperationInvocationError(
+                f"Meta-operation '{operation}' requires at least "
+                f"{len(meta_op['required_args'])} positional argument(s) but "
+                f"got only {len(args)}!"
+            )
+        elif len(args) > meta_op["num_args"]:
+            raise MetaOperationInvocationError(
+                f"Meta-operation '{operation}' expects "
+                f"{len(meta_op['required_args'])} required and "
+                f"{len(meta_op['optional_args'])} optional positional "
+                f"argument(s) but got {len(args)}!"
             )
 
-        if set(kwargs.keys()) != kwarg_names:
-            _exp = ", ".join(sorted(kwarg_names))
-            _got = ", ".join(sorted(kwargs))
-            raise ValueError(
-                f"Meta-operation '{operation}' requires {len(kwarg_names)} "
-                f"keyword arguments ({_exp}) but got {len(kwargs)} ({_got})! "
-                "Make sure that the sets of argument names match exactly."
+        if any(_k not in kwargs for _k in meta_op["required_kwargs"]):
+            _rq_kws = meta_op["required_kwargs"]
+            _missing = ", ".join(_k for _k in _rq_kws if _k not in kwargs)
+            raise MetaOperationInvocationError(
+                f"Meta-operation '{operation}' misses the following required "
+                f"keyword argument(s):  {_missing}"
+            )
+
+        elif any(_k not in meta_op["kwarg_names"] for _k in kwargs):
+            _allowed = meta_op["kwarg_names"]
+            _bad_kwargs = ", ".join(_k for _k in kwargs if _k not in _allowed)
+            raise MetaOperationInvocationError(
+                f"Meta-operation '{operation}' got superfluous keyword "
+                f"arguments ({_bad_kwargs})! Remove them."
             )
 
         # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -1922,8 +2003,22 @@ class TransformationDAG:
         # the positional and keyword arguments ...
         is_arg = lambda obj: isinstance(obj, _Arg)
         is_kwarg = lambda obj: isinstance(obj, _Kwarg)
-        replace_arg = lambda ph: _deepcopy(args[ph.position])
-        replace_kwarg = lambda ph: _deepcopy(kwargs[ph.name])
+
+        def perform_lookup(
+            ph: Union[_Arg, _Kwarg], lookup: Union[list, dict]
+        ) -> Any:
+            try:
+                return lookup[ph.data]
+            except (IndexError, KeyError) as err:
+                if ph.has_fallback:
+                    return ph.fallback
+                # Will never get here, because these cases where checked
+                # at the beginning of the invocation. If we get here, something
+                # is really wrong.
+                raise
+
+        replace_arg = lambda ph: _deepcopy(perform_lookup(ph, args))
+        replace_kwarg = lambda ph: _deepcopy(perform_lookup(ph, kwargs))
 
         # ... and for the internally-defined meta-operation tags:
         is_mop_tag = lambda obj: isinstance(obj, _MOpTag)

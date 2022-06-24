@@ -47,6 +47,11 @@ class Placeholder:
     def __hash__(self) -> int:
         return hash(repr(self))
 
+    @property
+    def data(self) -> Any:
+        """The payload of the placeholder"""
+        return self._data
+
     # YAML representation . . . . . . . . . . . . . . . . . . . . . . . . . . .
     yaml_tag = "!dag_placeholder"
 
@@ -195,7 +200,7 @@ class PlaceholderWithFallback(Placeholder):
 
     @classmethod
     def from_yaml(cls, constructor, node):
-        """Constructs a PositionalArgument.
+        """Constructs a placeholder object from a YAML node.
 
         For a sequence node, will interpret it as (data, fallback).
         With a scalar node, will not have a fallback.

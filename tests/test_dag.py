@@ -36,7 +36,7 @@ from dantro.groups import OrderedDataGroup
 from dantro.tools import load_yml, write_yml
 
 # Local constants
-TRANSFORMATIONS_PATH = resource_filename("tests", "cfg/transformations.yml")
+TRANSFORMATIONS_PATH = resource_filename("tests", "cfg/dag.yml")
 DAG_SYNTAX_PATH = resource_filename("tests", "cfg/dag_syntax.yml")
 
 # Class Definitions -----------------------------------------------------------
