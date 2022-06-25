@@ -868,6 +868,21 @@ For a larger example that is using keyword arguments, see :ref:`below <dag_meta_
 
 
 
+.. _dag_graph_representation:
+
+Graph representation
+^^^^^^^^^^^^^^^^^^^^
+The :py:class:`~dantro.dag.TransformationDAG` has the ability to represent the internally used directed acyclic graph as a :py:class:`networkx.classes.digraph.DiGraph`.
+By calling the :py:meth:`~dantro.dag.TransformationDAG.generate_nx_graph` method, the :py:class:`~dantro.dag.Transformation` objects are added to a graph and the dependencies between these transformations are added as directed edges towards the respective dependency.
+
+This can help to better understand the generated DAG and is useful not only for debugging but also for optimization, as it allows to show the associated profiling information.
+
+.. todo:: Add example
+
+
+
+.. _dag_examples:
+
 Examples
 ^^^^^^^^
 ``prime_multiples``
