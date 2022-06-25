@@ -1,4 +1,4 @@
-# Test cases for the TransformationsDAG
+# Configurations for the TransformationsDAG life cycle test
 ---
 # Selecting items -------------------------------------------------------------
 empty:
@@ -1728,6 +1728,64 @@ meta_ops_deeply_nested:
         compare_to: 277945762500
 
 
+meta_ops_args_and_kwargs_with_defaults:
+  params:
+    meta_operations:
+      weird_define:
+        - define:
+          - - !arg [0, 0]
+            - !arg [2, 2]
+            - !kwarg [foo, foo]
+            - !arg [1, 1]
+            - !kwarg [bar, bar]
+    transform:
+      - weird_define: []  # no args needed
+        tag: weird_list
+
+      - weird_define
+      - pass: !dag_prev
+        tag: weird_list2
+
+  expected:
+    results:
+      weird_list:
+        compare_to: &weird_list_expected [0, 2, foo, 1, bar]
+      weird_list2:
+        compare_to: [*weird_list_expected, 2, foo, 1, bar]
+
+
+meta_ops_args_and_kwargs_with_fancy_defaults:
+  params:
+    meta_operations:
+      weird_define:
+        - define:
+          - - !arg [0, zero]
+            - !arg [2, [zero, one, two]]
+            - !kwarg [foo, {some: dict, even: {with: {nested: entries}}}]
+            - !arg [1, one]
+            - !kwarg [bar, foo]
+            - !kwarg [bar, FOO]  # note the different fallback
+            - {bar: !kwarg baz}
+    transform:
+      - weird_define:
+          baz: BAZ
+        tag: weird_list
+
+  expected:
+    results:
+      weird_list:
+        compare_to:
+          - zero
+          - [zero, one, two]
+          - {some: dict, even: {with: {nested: entries}}}
+          - one
+          - foo
+          - FOO  # different fallback is implicitly possible
+          - {bar: BAZ}
+
+
+# .. meta operation errors ....................................................
+
 meta_ops_err_name_exists:
   params:
     meta_operations:
@@ -1742,7 +1800,7 @@ meta_ops_err_no_specs:
     meta_operations:
       foo: {}
 
-  _raises: ValueError
+  _raises: MetaOperationError
   _match: need to contain at least one transformation
 
 
@@ -1752,11 +1810,11 @@ meta_ops_err_non_contiguous_args:
       some_mop:
         - define: [[!arg 0, !arg 1, !arg 3]]
 
-  _raises: ValueError
+  _raises: MetaOperationError
   _match: were not contiguous! .* for all integers from 0 to 3
 
 
-meta_ops_err_bad_num_args:
+meta_ops_err_too_few_args:
   params:
     meta_operations:
       weird_define:
@@ -1764,11 +1822,23 @@ meta_ops_err_bad_num_args:
     transform:
       - weird_define: [foo, bar]
 
-  _raises: ValueError
-  _match: expects 4 positional argument\(s\) but got 2
+  _raises: MetaOperationInvocationError
+  _match: requires at least 4 positional argument\(s\) but got only 2
 
 
-meta_ops_err_bad_kwargs:
+meta_ops_err_too_many_args:
+  params:
+    meta_operations:
+      weird_define:
+        - define: [[!arg 0, !arg [3, three], !arg 1, !arg 2]]
+    transform:
+      - weird_define: [foo, bar, baz, spam, fish]
+
+  _raises: MetaOperationInvocationError
+  _match: expects 3 required and 1 optional .* but got 5
+
+
+meta_ops_err_missing_kwarg:
   params:
     meta_operations:
       weird_define:
@@ -1781,8 +1851,64 @@ meta_ops_err_bad_kwargs:
           bar: bar
           BAZ: BAZ  # wrong
 
-  _raises: ValueError
-  _match: requires 3 keyword arguments \(bar, baz, foo\) but got 3 \(BAZ, bar, foo\)
+  _raises: MetaOperationInvocationError
+  _match: misses the following required keyword argument.* baz
+
+
+meta_ops_err_too_many_kwargs:
+  params:
+    meta_operations:
+      weird_define:
+        - define: [[!kwarg foo, !kwarg bar, !arg 0, !kwarg baz]]
+    transform:
+      - operation: weird_define
+        args: [zero]
+        kwargs:
+          foo: foo
+          bar: bar
+          baz: baz
+          BAZ: BAZ  # wrong
+
+  _raises: MetaOperationInvocationError
+  _match: got superfluous keyword arguments.*BAZ
+
+
+meta_ops_err_ambiguous_arg_fallbacks:
+  params:
+    meta_operations:
+      my_operation:
+        - define: !arg [0, zero]
+        - define: !arg [1, one]
+        - define: !arg 0
+
+  _raises: MetaOperationSignatureError
+  _match: not clearly identifiable as optional
+
+
+meta_ops_err_ambiguous_kwarg_fallbacks:
+  params:
+    meta_operations:
+      my_operation:
+        - define: !kwarg [foo, FOO]
+        - define: !kwarg [bar, BAR]
+        - define: !kwarg bar
+
+  _raises: MetaOperationSignatureError
+  _match: not clearly identifiable as optional
+
+
+meta_ops_err_arg_required_optional_order:
+  params:
+    meta_operations:
+      my_operation:
+        - define: !arg 0
+        - define: !arg 1
+        - define: [!arg 2, !arg 1]
+        - define: !arg [3, three]
+        - define: !arg 4
+
+  _raises: MetaOperationSignatureError
+  _match: come strictly after required positional arguments
 
 
 meta_ops_err_external_tags:
@@ -1793,8 +1919,32 @@ meta_ops_err_external_tags:
           tag: foobarspam
         - pass: !dag_tag foobarspam
 
-  _raises: ValueError
+  _raises: MetaOperationError
   _match: not defined as part of the meta-operation .* Within a meta-operation, only internally-defined tags \(foobarspam\) or special tags \(dag, dm, select_base\) can be used
+
+
+meta_ops_err_tags_in_arg_fallback:
+  params:
+    meta_operations:
+      weird_define:
+        - define: [[!kwarg foo, !kwarg [bar, {foo: bar, baz: !dag_tag spam}]]]
+          tag: foobar
+        - pass: !dag_tag foobar
+
+  _raises: MetaOperationError
+  _match: may not contain tags or any other kind of placeholder
+
+
+meta_ops_err_tags_in_arg_fallback2:
+  params:
+    meta_operations:
+      weird_define:
+        - define: [[!kwarg foo, !kwarg [bar, {foo: bar, baz: !arg 0}]]]
+          tag: foobar
+        - pass: !dag_tag foobar
+
+  _raises: MetaOperationError
+  _match: may not contain tags or any other kind of placeholder
 
 
 meta_ops_err_unused_tags:
@@ -1807,7 +1957,7 @@ meta_ops_err_unused_tags:
           tag: fourtytwo
         - pass: !dag_tag foobarspam
 
-  _raises: ValueError
+  _raises: MetaOperationError
   _match: "defines internal tags that are not used within the meta-operation: fourtytwo! Either remove these tags"
 
 
@@ -1821,7 +1971,7 @@ meta_ops_err_duplicate_internal_tags:
           tag: foobar
         - pass: !dag_tag foobar
 
-  _raises: ValueError
+  _raises: MetaOperationError
   _match: duplicate internal tag definitions .*foobar, foobar
 
 
@@ -2307,6 +2457,33 @@ doc_examples_meta_ops_tagging:
         compare_to: -1
 
 
+doc_examples_meta_ops_args_with_defaults:
+  params:
+    ### Start -- dag_meta_ops_args_with_defaults
+    meta_operations:
+      my_increment:
+        - add: [!arg 0, !arg [1, 1]]
+
+    transform:
+      - my_increment: [0]
+        tag: one
+      - my_increment: !dag_prev
+        tag: two
+      - my_increment: [!dag_prev , 8]
+        tag: ten
+    ### End ---- dag_meta_ops_args_with_defaults
+
+  expected:
+    tags: [dag, dm, select_base, one, two, ten]
+    results:
+      one:
+        compare_to: 1
+      two:
+        compare_to: 2
+      ten:
+        compare_to: 10
+
+
 doc_examples_meta_ops_prime_multiples:
   params:
     ### Start -- dag_meta_ops_prime_multiples
@@ -2410,19 +2587,19 @@ doc_examples_meta_ops_multiple_return_values:
         compare_to: [max, mean, median, min, q25, q75, std]
 
 
-doc_examples_meta_ops_gauss:
+doc_examples_meta_ops_gauss_simple:
   params:
-    ### Start -- dag_meta_ops_gauss
+    ### Start -- dag_meta_ops_gauss_simple
     meta_operations:
       # A meta-operation that defines a gaussian
       my_gauss:
         - expression: a * exp(- (x - mu)**2 / (2 * sigma**2))
           kwargs:
             symbols:
+              x: !kwarg x
               a: !kwarg a
               mu: !kwarg mu
               sigma: !kwarg sigma
-              x: !kwarg x
 
     transform:
       # Compute the Gaussian for two values
@@ -2438,7 +2615,7 @@ doc_examples_meta_ops_gauss:
           sigma: 10.
           x: 23.
         tag: wide_gaussian_moved
-    ### End ---- dag_meta_ops_gauss
+    ### End ---- dag_meta_ops_gauss_simple
       # Some more for testing
       - my_gauss: &default_args
           a: 1.
@@ -2461,7 +2638,7 @@ doc_examples_meta_ops_gauss:
           x: 100000.
         tag: zero_gauss
 
-  expected:
+  expected: &gauss_expected
     tags: [dag, dm, select_base, default_gaussian, wide_gaussian_moved,
            gauss_at_zero, large_gauss, moved_gauss, zero_gauss]
     results:
@@ -2477,6 +2654,53 @@ doc_examples_meta_ops_gauss:
         compare_to: 1.
       zero_gauss:
         compare_to: 0.
+
+
+doc_examples_meta_ops_gauss_with_defaults:
+  params:
+    ### Start -- dag_meta_ops_gauss_with_defaults
+    meta_operations:
+      # A meta-operation that defines a gaussian
+      my_gauss:
+        - expression: a * exp(- (x - mu)**2 / (2 * sigma**2))
+          kwargs:
+            symbols:
+              x: !kwarg x
+              a: !kwarg [a, 1.]
+              mu: !kwarg [mu, 0.]
+              sigma: !kwarg [sigma, 1.]
+
+    transform:
+      # Compute the Gaussian for two values
+      - my_gauss:
+          x: 0.
+        tag: default_gaussian
+      - my_gauss:
+          x: 23.
+          a: 1.
+          mu: 23.
+          sigma: 10.
+        tag: wide_gaussian_moved
+    ### End ---- dag_meta_ops_gauss_with_defaults
+      # Some more for testing
+      - my_gauss:
+          x: 0.
+        tag: gauss_at_zero
+      - my_gauss:
+          x: 0
+          a: 42
+        tag: large_gauss
+      - my_gauss:
+          mu: 42.
+          x: 42.
+        tag: moved_gauss
+      - my_gauss:
+          a: 123.
+          x: 100000.
+        tag: zero_gauss
+
+  expected:
+    <<: *gauss_expected
 
 
 doc_examples_meta_ops_anchor_usage:

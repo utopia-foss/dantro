@@ -43,7 +43,7 @@ The :py:func:`.op_hook_expression` prepares arguments for the :py:func:`~dantro.
 It tries to extract the free symbols from the expression string and turns them into :py:class:`~dantro._dag_utils.DAGTag` objects of the same name.
 For example, with the tags ``a``, ``b``, and ``c``:
 
-.. literalinclude:: ../../tests/cfg/transformations.yml
+.. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
     :start-after: ### Start -- dag_op_hooks_expression_basics
     :end-before:  ### End ---- dag_op_hooks_expression_basics
@@ -76,7 +76,7 @@ This alleviates specifying the ``kwargs.symbols`` argument manually, thus saving
 
 Furthermore, if any of the symbols are called ``prev`` or ``previous_result``, they are turned into :py:class:`~dantro._dag_utils.DAGNode` references to the previous node, similar to the ``!dag_prev`` YAML tag:
 
-.. literalinclude:: ../../tests/cfg/transformations.yml
+.. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
     :start-after: ### Start -- dag_op_hooks_expression_prev
     :end-before:  ### End ---- dag_op_hooks_expression_prev
@@ -91,7 +91,7 @@ By default, the :py:func:`~dantro.data_ops.expr_ops.expression` operation will a
 However, this default prohibits to work with the symbolic math features of `sympy <https://sympy.org>`_.
 If you would like to keep symbolic expressions, specify the ``astype`` argument accordingly.
 
-.. literalinclude:: ../../tests/cfg/transformations.yml
+.. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
     :start-after: ### Start -- dag_op_hooks_expression_symbolic
     :end-before:  ### End ---- dag_op_hooks_expression_symbolic

@@ -36,7 +36,7 @@ from dantro.groups import OrderedDataGroup
 from dantro.tools import load_yml, write_yml
 
 # Local constants
-TRANSFORMATIONS_PATH = resource_filename("tests", "cfg/transformations.yml")
+TRANSFORMATIONS_PATH = resource_filename("tests", "cfg/dag.yml")
 DAG_SYNTAX_PATH = resource_filename("tests", "cfg/dag_syntax.yml")
 
 # Class Definitions -----------------------------------------------------------
@@ -329,6 +329,98 @@ def test_argument_placeholders():
 
     with pytest.raises(TypeError, match="requires a string"):
         Kwarg(123)
+
+    # YAML representation
+    from dantro._yaml import yaml, yaml_dumps
+
+    load_str = lambda s: yaml.load(s)
+    dump = lambda obj: yaml_dumps(obj, yaml_obj=yaml)
+    roundtrip = lambda obj: load_str(dump(obj))
+
+    assert load_str("!arg 0") == Arg(0)
+    assert load_str("!kwarg foo") == Kwarg("foo")
+    assert roundtrip(Arg(123)) == Arg(123)
+    assert roundtrip(Kwarg("foobar")) == Kwarg("foobar")
+
+
+def test_argument_placeholders_fallback():
+    """Tests the ability to store an arbitrary fallback *value*"""
+    Arg = dag_utils.PositionalArgument
+    Kwarg = dag_utils.KeywordArgument
+
+    assert Arg(0, "zero").fallback == "zero"
+    assert Arg(10, "ten").fallback == "ten"
+    assert Arg("3", 3).fallback == 3
+
+    assert Kwarg("foo", "bar").fallback == "bar"
+    assert Kwarg("foo", None).fallback is None
+    assert Kwarg("foo", None).fallback is None
+
+    # Whether there was a fallback at all
+    a = Arg(0)
+    assert not a.has_fallback
+    with pytest.raises(ValueError, match="has no fallback value defined"):
+        a.fallback
+
+    a2 = Arg(0, 1234)
+    assert a2.has_fallback
+    assert a2.fallback == 1234
+
+    # Errors
+    with pytest.raises(TypeError, match="only accepts a single"):
+        Arg(1, "abc", 123)
+    with pytest.raises(TypeError, match="unexpected keyword argument"):
+        Arg(1, "def", 123, 4, 5, bar="baz")
+
+    with pytest.raises(TypeError, match="only accepts a single"):
+        Kwarg("one", "abc", 123)
+    with pytest.raises(TypeError, match="unexpected keyword argument"):
+        Kwarg("one", fallback="baz")
+
+    # String representation
+    with_fallback = Arg(42, 1234)
+    with_None_fallback = Arg(42, None)
+    without_fallback = Arg(42)
+
+    assert "fallback: 1234" in str(with_fallback)
+    assert "fallback" not in str(without_fallback)
+
+    # Hashing
+    assert hash(with_fallback) != hash(without_fallback)
+    assert hash(with_fallback) != hash(with_None_fallback)
+
+    # YAML representation
+    import ruamel.yaml
+
+    from dantro._yaml import yaml, yaml_dumps
+
+    load_str = lambda s: yaml.load(s)
+    dump = lambda obj: yaml_dumps(obj, yaml_obj=yaml)
+    roundtrip = lambda obj: load_str(dump(obj))
+
+    a3 = load_str("!arg [123, bar]")
+    assert a3 == Arg(123, "bar")
+
+    k1 = load_str("!kwarg [foo, bar]")
+    print(k1)
+    assert k1.name == "foo"
+    assert k1.fallback == "bar"
+    assert dump(k1) == "!kwarg [foo, bar]\n"
+    assert roundtrip(k1) == k1
+
+    k1._has_fallback = False
+    assert roundtrip(k1) == k1
+    assert "!kwarg foo" in dump(k1)
+    assert "bar" not in dump(k1)
+
+    with pytest.raises(TypeError, match="only accepts a single fallback"):
+        load_str("!arg [1, bar, baz]")
+
+    with pytest.raises(TypeError, match="only accepts a single fallback"):
+        load_str("!kwarg [foo, bar, baz]")
+
+    with pytest.raises(ruamel.yaml.constructor.ConstructorError):
+        load_str("!kwarg {foo: bar}")
 
 
 def test_DAGReference():

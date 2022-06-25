@@ -110,7 +110,11 @@ def write_yml(d: Union[dict, Any], *, path: str, mode: str = "w"):
 
 
 def yaml_dumps(
-    obj: Any, *, register_classes: tuple = (), **dump_params
+    obj: Any,
+    *,
+    register_classes: tuple = (),
+    yaml_obj: ruamel.yaml.YAML = None,
+    **dump_params,
 ) -> str:
     """Serializes the given object using a newly created YAML dumper.
 
@@ -123,9 +127,17 @@ def yaml_dumps(
     needed for serialization in itself, the extra time needed to create the
     new ruamel.yaml.YAML object and register the classes is negligible.
 
+    .. note::
+
+        To use dantro's YAML object, it needs to be passed explicitly via the
+        ``yaml_obj`` argument! Otherwise a new one will be created which might
+        not have the desired classes registered.
+
     Args:
         obj (Any): The object to dump
         register_classes (tuple, optional): Additional classes to register
+        yaml_obj (ruamel.yaml.YAML, optional): If given, use this YAML object
+            for dumping. If not given, will create a new one.
         **dump_params: Dumping parameters
 
     Returns:
@@ -135,7 +147,10 @@ def yaml_dumps(
         ValueError: On failure to serialize the given object
     """
     s = io.StringIO()
-    y = ruamel.yaml.YAML()
+    if yaml_obj is not None:
+        y = yaml_obj
+    else:
+        y = ruamel.yaml.YAML()
 
     # Register classes; then apply dumping parameters via object properties
     for Cls in register_classes:

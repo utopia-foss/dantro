@@ -15,12 +15,24 @@ log = logging.getLogger(__name__)
 
 
 class Placeholder:
-    """A generic placeholder class for use in the DAG framework.
+    """A generic placeholder class for use in the
+    :ref:`data transformation framework <dag_framework>`.
 
     Objects of this class or derived classes are yaml-representable and thus
     hashable after a parent object created a YAML representation. In addition,
-    the ``__hash__`` method can be used to generate a "hash" that is
+    the :py:meth:`.__hash__` method can be used to generate a "hash" that is
     implemented simply via the string representation of this object.
+
+    There are a number of derived classes that play a role as providing
+    references within the :py:class:`~dantro.dag.TransformationDAG`:
+    :py:class:`~dantro._dag_utils.DAGReference`,
+    :py:class:`~dantro._dag_utils.DAGTag`, and
+    :py:class:`~dantro._dag_utils.DAGNode`.
+
+    In the context of :ref:`meta operations <dag_meta_ops>`, there are
+    placeholder classes for positional and keyword arguments:
+    :py:class:`~dantro._dag_utils.PositionalArgument` and
+    :py:class:`~dantro._dag_utils.KeywordArgument`.
     """
 
     __slots__ = ("_data",)
@@ -45,7 +57,13 @@ class Placeholder:
         return f"<{type(self).__name__}, payload: {repr(self._data)}>"
 
     def __hash__(self) -> int:
+        """Creates a hash by invoking ``hash(repr(self))``"""
         return hash(repr(self))
+
+    @property
+    def data(self) -> Any:
+        """The payload of the placeholder"""
+        return self._data
 
     # YAML representation . . . . . . . . . . . . . . . . . . . . . . . . . . .
     yaml_tag = "!dag_placeholder"
@@ -68,7 +86,11 @@ class Placeholder:
 
 
 class ResultPlaceholder(Placeholder):
-    """A placeholder class for a data transformation result"""
+    """A placeholder class for a data transformation result.
+
+    This is :ref:`used in the plotting framework <dag_result_placeholder>` to
+    inject data transformation results into plot arguments.
+    """
 
     __slots__ = ()
     yaml_tag = "!dag_result"
@@ -77,6 +99,9 @@ class ResultPlaceholder(Placeholder):
     def result_name(self) -> str:
         """The name of the transformation result this is a placeholder for"""
         return self._data
+
+
+# .............................................................................
 
 
 def resolve_placeholders(
@@ -158,7 +183,86 @@ def resolve_placeholders(
 # Used in meta-operations
 
 
-class PositionalArgument(Placeholder):
+class PlaceholderWithFallback(Placeholder):
+    """A class expanding :py:class:`~Placeholder` that adds the ability to
+    read and store a fallback value.
+    """
+
+    __slots__ = ("_fallback", "_has_fallback")
+
+    def __init__(self, data: Any, *args):
+        super().__init__(data)
+
+        # Evaluate the fallback
+        self._fallback = None
+        self._has_fallback = False
+        if len(args) == 1:
+            self._fallback = args[0]
+            self._has_fallback = True
+
+        elif len(args) > 1:
+            raise TypeError(
+                f"{type(self).__name__} only accepts a single fallback value! "
+                f"Got:  {args}"
+            )
+
+    def __repr__(self) -> str:
+        """Representation that includes the fallback value, if there is one."""
+        if not self.has_fallback:
+            return super().__repr__()
+        return "<{} {}, fallback: {}>".format(
+            type(self).__name__,
+            repr(self._data),
+            repr(self._fallback),
+        )
+
+    def __str__(self) -> str:
+        if not self.has_fallback:
+            return super().__str__()
+        return "<{}, payload: {}, fallback: {}>".format(
+            type(self).__name__,
+            repr(self._data),
+            repr(self._fallback),
+        )
+
+    @property
+    def fallback(self) -> Any:
+        """Returns the fallback value"""
+        if not self.has_fallback:
+            raise ValueError(f"{self} has no fallback value defined!")
+        return self._fallback
+
+    @property
+    def has_fallback(self) -> bool:
+        """Whether there was a fallback value provided"""
+        return self._has_fallback
+
+    @classmethod
+    def from_yaml(cls, constructor, node):
+        """Constructs a placeholder object from a YAML node.
+
+        For a sequence node, will interpret it as (data, fallback).
+        With a scalar node, will not have a fallback.
+        """
+        import ruamel.yaml
+
+        if isinstance(node, ruamel.yaml.nodes.SequenceNode):
+            return cls(*constructor.construct_sequence(node))
+        return super().from_yaml(constructor, node)
+
+    @classmethod
+    def to_yaml(cls, representer, node):
+        """Create a YAML representation of a Placeholder, creating a sequence
+        representation in case a fallback value was defined.
+        """
+        if node.has_fallback:
+            return representer.represent_sequence(
+                cls.yaml_tag, (node._data, node._fallback)
+            )
+        return super().to_yaml(representer, node)
+
+
+class PositionalArgument(PlaceholderWithFallback):
     """A PositionalArgument is a placeholder that holds as payload a positional
     argument's position. This is used, e.g., for meta-operation specification.
     """
@@ -166,7 +270,7 @@ class PositionalArgument(Placeholder):
     __slots__ = ()
     yaml_tag = "!arg"
 
-    def __init__(self, pos: int):
+    def __init__(self, pos: int, *args):
         """Initialize from an integer, also accepting int-convertibles"""
         if not isinstance(pos, int):
             # Need an integer conversion to accept YAML string dumps
@@ -184,14 +288,14 @@ class PositionalArgument(Placeholder):
                 f"position, got {pos}!"
             )
 
-        self._data = pos
+        super().__init__(pos, *args)
 
     @property
     def position(self) -> int:
         return self._data
 
 
-class KeywordArgument(Placeholder):
+class KeywordArgument(PlaceholderWithFallback):
     """A KeywordArgument is a placeholder that holds as payload the name of a
     keyword argument. This is used, e.g., for meta-operation specification.
     """
@@ -199,7 +303,7 @@ class KeywordArgument(Placeholder):
     __slots__ = ()
     yaml_tag = "!kwarg"
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, *args):
         """Initialize by storing the keyword argument name"""
         if not isinstance(name, str):
             raise TypeError(
@@ -207,7 +311,7 @@ class KeywordArgument(Placeholder):
                 f"as argument name, got {type(name)}!"
             )
 
-        self._data = name
+        super().__init__(name, *args)
 
     @property
     def name(self) -> int:
