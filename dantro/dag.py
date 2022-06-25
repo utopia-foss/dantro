@@ -1743,6 +1743,114 @@ class TransformationDAG:
         show_compute_profile_info()
         return results
 
+    def generate_nx_graph(
+        self, tags_to_include: Union[str, Sequence[str]] = "all"
+    ) -> "networkx.DiGraph":
+        """Generates a representation of the DAG using :py:mod:`networkx`,
+        returning a directed graph.
+        This graph object can be useful for debugging.
+
+        **Nodes** represent
+        :py:class:`Transformations <dantro.dag.Transformation>` and are
+        identified by their :py:meth:`~dantro.dag.Transformation.hashstr`.
+        The :py:class:`~dantro.dag.Transformation` objects are added as node
+        property ``obj`` and potentially existing tags are added as ``tag``.
+
+        **Edges** represent dependencies and are pointing *towards* the
+        dependency.
+
+        .. note::
+
+            The returned graph data structure is *not* used internally but is
+            a representation that is *generated* from the internally used
+            data structures.
+            Subsequently, changes to the graph *structure* will not have an
+            effect on this :py:class:`~dantro.dag.TransformationDAG`.
+
+        .. warning::
+
+            Do not modify the associated :py:class:`~dantro.dag.Transformation`
+            objects!
+
+            These objects are *not* deep-copied into the graph's node
+            properties. Thus, changes to these objects *will* reflect on the
+            state of the :py:class:`~dantro.dag.TransformationDAG` which may
+            have unexpected effects, e.g. because the hash will not be updated.
+
+        Args:
+            tags_to_include (Union[str, Sequence[str]], optional): Which tags
+                to include into the directed graph. Can be ``all`` to include
+                all tags.
+        """
+        import networkx as nx
+
+        def add_nodes_and_edges(
+            g: nx.DiGraph, trf: Transformation, *, tag: str = None
+        ) -> None:
+            """Recursively adds nodes and edges into graph ``g``: ``trf``will
+            be a new node, and recursion continues on its dependencies.
+            """
+
+            def get_tag(trf: Transformation, tag: str) -> str:
+                """To avoid repetitive tag search, see if a tag is already
+                associated."""
+                if tag:
+                    # Tag explicitly specified
+                    return tag
+
+                if trf.hashstr in g.nodes():
+                    # Node already in graph, avoid search
+                    return g.nodes()[trf.hashstr].get("tag")
+
+                # Node not yet in graph, need to search
+                return self._find_tag(trf)
+
+            g.add_node(trf.hashstr, obj=trf, tag=get_tag(trf, tag=tag))
+
+            # Can continue recursion only on Transformation objects
+            if not isinstance(trf, Transformation):
+                return
+
+            for dep in trf.resolved_dependencies:
+                add_nodes_and_edges(g, dep)
+
+                # Now have both nodes in the graph, can the edge between them
+                g.add_edge(trf.hashstr, dep.hashstr)
+
+        # .....................................................................
+
+        tags_to_include = self._parse_compute_only(tags_to_include)
+        g = nx.DiGraph()
+
+        log.note(
+            "Generating graph for %d tag%s on DAG with %d nodes ...",
+            len(tags_to_include),
+            "s" if len(tags_to_include) != 1 else "",
+            len(self.nodes),
+        )
+
+        if not len(self.nodes):
+            log.remark("The TransformationDAG is empty.")
+            return g
+
+        elif not tags_to_include:
+            log.remark("No tags were selected to be included into the graph.")
+            return g
+
+        # Build the graph by adding all tags and their dependencies.
+        # With DiGraph not allowing multi-edges and nodes with the same
+        # identifier, can simply add them directly and let networkx figure out
+        # if the node or edge is already present or not.
+        for tag in tags_to_include:
+            add_nodes_and_edges(g, self.objects[self.tags[tag]], tag=tag)
+
+        log.note("Constructed directed graph of transformations.")
+        log.remark("  Nodes:   %d", g.number_of_nodes())
+        log.remark("  Edges:   %d", g.number_of_edges())
+        # TODO Add more stats here
+
+        return g
+
     # .........................................................................
     # Helpers
 
@@ -2130,6 +2238,25 @@ class TransformationDAG:
                 )
 
         return compute_only
+
+    def _find_tag(self, trf: Union[Transformation, str]) -> Union[str, None]:
+        """Looks up a tag given a transformation or its hashstr.
+
+        If no tag is associated returns None. If multiple tags are associated,
+        returns only the first.
+
+        Args:
+            trf (Union[Transformation, str]): The transformation, either as
+                the object or as its hashstr.
+        """
+        if not isinstance(trf, str):
+            trf = trf.hashstr
+
+        candidate_tags = [n for n, h in self.tags.items() if h == trf]
+        if len(candidate_tags) > 1:
+            pass  # TODO consider warning
+
+        return candidate_tags[0] if candidate_tags else None
 
     # .........................................................................
     # Cache writing and reading

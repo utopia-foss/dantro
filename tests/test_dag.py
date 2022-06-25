@@ -7,6 +7,7 @@ from builtins import *  # to have Exception types available in globals
 from typing import Any
 
 import dill
+import networkx as nx
 import numpy as np
 import pytest
 import xarray as xr
@@ -35,9 +36,10 @@ from dantro.exceptions import *
 from dantro.groups import OrderedDataGroup
 from dantro.tools import load_yml, write_yml
 
-# Local constants
-TRANSFORMATIONS_PATH = resource_filename("tests", "cfg/dag.yml")
+# Test files
 DAG_SYNTAX_PATH = resource_filename("tests", "cfg/dag_syntax.yml")
+TRANSFORMATIONS_PATH = resource_filename("tests", "cfg/dag.yml")  # life-cycle
+DAG_NX_PATH = resource_filename("tests", "cfg/dag_nx.yml")
 
 # Class Definitions -----------------------------------------------------------
 
@@ -80,7 +82,7 @@ class MockTransformationDAG:
 
 
 @pytest.fixture
-def dm() -> FullDataManager:
+def dm_silent() -> FullDataManager:
     """A data manager with some basic testing data"""
     _dm = FullDataManager("/some/fixed/path", name="TestDM", out_dir=False)
     # NOTE This attaches to some (imaginary) fixed path, because the hashstr
@@ -161,8 +163,13 @@ def dm() -> FullDataManager:
         data="i cannot be pickled (even with dill)",
     )
 
-    print(_dm.tree)
     return _dm
+
+
+@pytest.fixture
+def dm(dm_silent):
+    print(dm_silent.tree)
+    return dm_silent
 
 
 def yaml_roundtrip(obj: Any, *, path: str) -> Any:
@@ -1126,3 +1133,81 @@ def test_TransformationDAG_specifics(dm, tmpdir):
     )
     results = tdag.compute()
     assert isinstance(results["arr_uint64_read"], xr.DataArray)
+
+
+# -----------------------------------------------------------------------------
+# networkx Graph-related stuff
+
+
+def test_generate_nx_graph(dm_silent):
+    """Tests networkx Graph generation from a TransformationDAG"""
+    dm = dm_silent
+    TransformationDAG = dag.TransformationDAG
+
+    test_cfgs = load_yml(DAG_NX_PATH)
+
+    # ... Empty ...............................................................
+    tdag = TransformationDAG(dm=dm, **test_cfgs["empty"])
+    assert len(tdag.nodes) == 0
+
+    g = tdag.generate_nx_graph()
+    assert isinstance(g, nx.DiGraph)
+    assert g.number_of_nodes() == 0
+    assert g.number_of_edges() == 0
+
+    # Different arguments for tags to include
+    assert tdag.generate_nx_graph("all").number_of_nodes() == 0
+    assert tdag.generate_nx_graph([]).number_of_nodes() == 0
+    assert tdag.generate_nx_graph(None).number_of_nodes() == 0
+
+    # ... Simple ..............................................................
+    tdag = TransformationDAG(dm=dm, **test_cfgs["simple"])
+    assert len(tdag.nodes) == 3
+
+    g = tdag.generate_nx_graph()
+    assert g.number_of_nodes() == 3 + 1  # data manager dependency
+    assert g.number_of_edges() == 3
+
+    for node, data in g.nodes(data=True):
+        print(f"- {node}:\n    {data}\n")
+
+    for src, target in g.edges():
+        print(f"{src}  ->  {target}")
+
+    # In this case, check the graph structure manually
+    assert g.nodes()[dm.hashstr]["obj"] is dm
+
+    foo_dep = "275d726a23c0c8d1becb5a4798f25336"
+    assert g.nodes()[tdag.tags["foo"]]["obj"]._args[0].ref == foo_dep
+    assert g.nodes()[tdag.tags["foo"]]["obj"]._args[1] == "foo"
+
+    assert g.nodes()[foo_dep]["obj"]._args[0].ref == dm.hashstr
+    assert g.nodes()[foo_dep]["obj"]._args[1] == "some/path"
+
+    assert g.nodes()[tdag.tags["bar"]]["obj"]._args[0].ref == dm.hashstr
+    assert g.nodes()[tdag.tags["bar"]]["obj"]._args[1] == "some/path/bar"
+
+    # ... With select and define ..............................................
+    tdag = TransformationDAG(dm=dm, **test_cfgs["with_select_and_define"])
+
+    # Reduced number of nodes if only selecting specific tags
+    assert tdag.generate_nx_graph().number_of_nodes() == 21  # all
+    assert tdag.generate_nx_graph([]).number_of_nodes() == 0
+    assert tdag.generate_nx_graph(["foo"]).number_of_nodes() == 2
+
+    # Check length of some paths
+    g = tdag.generate_nx_graph()
+
+    dm_node = dm.hashstr
+    fifty_node = tdag.tags["fifty"]
+    foo_node = tdag.tags["foo"]
+
+    assert len(nx.shortest_path(g, fifty_node, dm_node)) == 9
+    assert len(nx.shortest_path(g, foo_node, dm_node)) == 2
+
+    # ... cannot go the reverse way
+    with pytest.raises(nx.exception.NetworkXNoPath):
+        nx.shortest_path(g, dm_node, fifty_node)
+
+    with pytest.raises(nx.exception.NetworkXNoPath):
+        nx.shortest_path(g, dm_node, foo_node)

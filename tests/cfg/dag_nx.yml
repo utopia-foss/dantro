@@ -1,0 +1,57 @@
+# Configurations used for testing nx.DiGraph creation
+---
+empty: {}
+
+simple:
+  transform:
+    - operation: getitem
+      args:
+        - !dag_tag dm
+        - some/path
+    - operation: getitem
+      args:
+        - !dag_prev
+        - foo
+      tag: foo
+
+    - operation: getitem
+      args:
+        - !dag_tag dm
+        - some/path/bar
+      tag: bar
+
+with_select_and_define:
+  select:
+    foo: some/path/foo
+    bar:
+      path: some/path/bar
+      transform: []
+    zero:
+      path: data/zeros
+      transform:
+        - .min.item
+
+  define:
+    the_answer: 42
+    five:
+      - define: 0
+      - increment
+      - increment
+      - increment
+      - increment
+      - increment
+
+  transform:
+    - add: [!dag_tag zero, !dag_tag the_answer]
+    - add: [!dag_prev , !dag_tag five]
+    - increment
+    - increment
+    - increment
+    - pass: !dag_prev
+      tag: fifty
+
+    - callattr: [!dag_tag foo, path]
+      tag: foo_path
+
+    - callattr: [!dag_tag bar, path]
+      tag: bar_path
