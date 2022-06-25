@@ -377,6 +377,18 @@ def test_argument_placeholders_fallback():
     with pytest.raises(TypeError, match="unexpected keyword argument"):
         Kwarg("one", fallback="baz")
 
+    # String representation
+    with_fallback = Arg(42, 1234)
+    with_None_fallback = Arg(42, None)
+    without_fallback = Arg(42)
+
+    assert "fallback: 1234" in str(with_fallback)
+    assert "fallback" not in str(without_fallback)
+
+    # Hashing
+    assert hash(with_fallback) != hash(without_fallback)
+    assert hash(with_fallback) != hash(with_None_fallback)
+
     # YAML representation
     import ruamel.yaml
 

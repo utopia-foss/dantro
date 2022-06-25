@@ -15,12 +15,24 @@ log = logging.getLogger(__name__)
 
 
 class Placeholder:
-    """A generic placeholder class for use in the DAG framework.
+    """A generic placeholder class for use in the
+    :ref:`data transformation framework <dag_framework>`.
 
     Objects of this class or derived classes are yaml-representable and thus
     hashable after a parent object created a YAML representation. In addition,
-    the ``__hash__`` method can be used to generate a "hash" that is
+    the :py:meth:`.__hash__` method can be used to generate a "hash" that is
     implemented simply via the string representation of this object.
+
+    There are a number of derived classes that play a role as providing
+    references within the :py:class:`~dantro.dag.TransformationDAG`:
+    :py:class:`~dantro._dag_utils.DAGReference`,
+    :py:class:`~dantro._dag_utils.DAGTag`, and
+    :py:class:`~dantro._dag_utils.DAGNode`.
+
+    In the context of :ref:`meta operations <dag_meta_ops>`, there are
+    placeholder classes for positional and keyword arguments:
+    :py:class:`~dantro._dag_utils.PositionalArgument` and
+    :py:class:`~dantro._dag_utils.KeywordArgument`.
     """
 
     __slots__ = ("_data",)
@@ -45,6 +57,7 @@ class Placeholder:
         return f"<{type(self).__name__}, payload: {repr(self._data)}>"
 
     def __hash__(self) -> int:
+        """Creates a hash by invoking ``hash(repr(self))``"""
         return hash(repr(self))
 
     @property
@@ -73,7 +86,11 @@ class Placeholder:
 
 
 class ResultPlaceholder(Placeholder):
-    """A placeholder class for a data transformation result"""
+    """A placeholder class for a data transformation result.
+
+    This is :ref:`used in the plotting framework <dag_result_placeholder>` to
+    inject data transformation results into plot arguments.
+    """
 
     __slots__ = ()
     yaml_tag = "!dag_result"
@@ -82,6 +99,9 @@ class ResultPlaceholder(Placeholder):
     def result_name(self) -> str:
         """The name of the transformation result this is a placeholder for"""
         return self._data
+
+
+# .............................................................................
 
 
 def resolve_placeholders(
@@ -185,6 +205,25 @@ class PlaceholderWithFallback(Placeholder):
                 f"{type(self).__name__} only accepts a single fallback value! "
                 f"Got:  {args}"
             )
+
+    def __repr__(self) -> str:
+        """Representation that includes the fallback value, if there is one."""
+        if not self.has_fallback:
+            return super().__repr__()
+        return "<{} {}, fallback: {}>".format(
+            type(self).__name__,
+            repr(self._data),
+            repr(self._fallback),
+        )
+
+    def __str__(self) -> str:
+        if not self.has_fallback:
+            return super().__str__()
+        return "<{}, payload: {}, fallback: {}>".format(
+            type(self).__name__,
+            repr(self._data),
+            repr(self._fallback),
+        )
 
     @property
     def fallback(self) -> Any:
