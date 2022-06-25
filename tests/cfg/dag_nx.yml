@@ -29,7 +29,9 @@ with_select_and_define:
     zero:
       path: data/zeros
       transform:
-        - .min.item
+        - .data
+        - np.min
+        - int
 
   define:
     the_answer: 42
@@ -50,8 +52,8 @@ with_select_and_define:
     - pass: !dag_prev
       tag: fifty
 
-    - callattr: [!dag_tag foo, path]
+    - getattr: [!dag_tag foo, path]
       tag: foo_path
 
-    - callattr: [!dag_tag bar, path]
+    - getattr: [!dag_tag bar, path]
       tag: bar_path

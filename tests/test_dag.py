@@ -623,6 +623,12 @@ def test_Transformation():
     with pytest.raises(ValueError, match="no DAG was associated with this"):
         tfail.compute()
 
+    # Can query whether there are cached results
+    assert t0.has_result
+    assert not t1.has_result
+    assert not t2.has_result
+    assert not tfail.has_result
+
     # Read the profile property
     assert isinstance(t0.profile, dict)
 
@@ -1155,6 +1161,8 @@ def test_generate_nx_graph(dm_silent):
     assert g.number_of_nodes() == 0
     assert g.number_of_edges() == 0
 
+    tdag.compute()
+
     # Different arguments for tags to include
     assert tdag.generate_nx_graph("all").number_of_nodes() == 0
     assert tdag.generate_nx_graph([]).number_of_nodes() == 0
@@ -1187,11 +1195,15 @@ def test_generate_nx_graph(dm_silent):
     assert g.nodes()[tdag.tags["bar"]]["obj"]._args[0].ref == dm.hashstr
     assert g.nodes()[tdag.tags["bar"]]["obj"]._args[1] == "some/path/bar"
 
+    # Check that it computes and that results are available afterwards
+    tdag.compute()
+    assert g.nodes()[tdag.tags["bar"]]["obj"].has_result
+
     # ... With select and define ..............................................
     tdag = TransformationDAG(dm=dm, **test_cfgs["with_select_and_define"])
 
     # Reduced number of nodes if only selecting specific tags
-    assert tdag.generate_nx_graph().number_of_nodes() == 21  # all
+    assert tdag.generate_nx_graph().number_of_nodes() == 23  # all
     assert tdag.generate_nx_graph([]).number_of_nodes() == 0
     assert tdag.generate_nx_graph(["foo"]).number_of_nodes() == 2
 
@@ -1202,7 +1214,7 @@ def test_generate_nx_graph(dm_silent):
     fifty_node = tdag.tags["fifty"]
     foo_node = tdag.tags["foo"]
 
-    assert len(nx.shortest_path(g, fifty_node, dm_node)) == 9
+    assert len(nx.shortest_path(g, fifty_node, dm_node)) == 11
     assert len(nx.shortest_path(g, foo_node, dm_node)) == 2
 
     # ... cannot go the reverse way
@@ -1211,3 +1223,24 @@ def test_generate_nx_graph(dm_silent):
 
     with pytest.raises(nx.exception.NetworkXNoPath):
         nx.shortest_path(g, dm_node, foo_node)
+
+    # Have result available after computation
+    assert not g.nodes()[fifty_node]["obj"].has_result
+    tdag.compute()
+    assert g.nodes()[fifty_node]["obj"].has_result
+
+    # Can also include that information into the node attributes
+    g = tdag.generate_nx_graph(include_results=True)
+    assert g.nodes()[fifty_node]["has_result"]
+    assert g.nodes()[fifty_node]["result"] == 50
+
+    assert not g.nodes()[dm.hashstr]["has_result"]
+    assert g.nodes()[dm.hashstr]["result"] is None
+
+    # Test node attribute mapping
+    mappers = dict()
+    mappers["operation"] = lambda trf: trf.operation
+    g = tdag.generate_nx_graph(node_attribute_mappers=mappers)
+
+    assert not g.nodes()[dm.hashstr]["operation"]
+    assert g.nodes()[fifty_node]["operation"] == "pass"

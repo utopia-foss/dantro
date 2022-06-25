@@ -10,7 +10,7 @@ import time
 import warnings
 from collections import defaultdict as _defaultdict
 from itertools import chain
-from typing import Any, Dict, List, Sequence, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, Sequence, Set, Tuple, Union
 
 import numpy as np
 from paramspace.tools import recursive_collect, recursive_replace
@@ -409,6 +409,12 @@ class Transformation:
         """The profiling data for this transformation"""
         return self._profile
 
+    @property
+    def has_result(self) -> bool:
+        """Whether there is a memory-cached result available for this
+        transformation."""
+        return self._cache["filled"]
+
     # YAML representation .....................................................
     yaml_tag = "!dag_trf"
 
@@ -668,7 +674,6 @@ class Transformation:
             log.trace("Re-using memory-cached result for %s.", self.hashstr)
 
         elif self.dag is not None and read_opts.get("enabled", False):
-            # Setup profiling
             t0 = time.time()
 
             # Let the DAG check if there is a file cache, i.e. if a file with
@@ -1744,7 +1749,11 @@ class TransformationDAG:
         return results
 
     def generate_nx_graph(
-        self, tags_to_include: Union[str, Sequence[str]] = "all"
+        self,
+        tags_to_include: Union[str, Sequence[str]] = "all",
+        *,
+        include_results: bool = False,
+        node_attribute_mappers: Dict[str, Callable] = None,
     ) -> "networkx.DiGraph":
         """Generates a representation of the DAG using :py:mod:`networkx`,
         returning a directed graph.
@@ -1781,11 +1790,27 @@ class TransformationDAG:
             tags_to_include (Union[str, Sequence[str]], optional): Which tags
                 to include into the directed graph. Can be ``all`` to include
                 all tags.
+            include_results (bool, optional): Whether to include results into
+                the node attributes.
+
+                .. note::
+
+                    These will all be ``None`` unless :py:meth:`.compute` was
+                    invoked before generating the graph.
+
+            node_attribute_mappers (Dict[str, Callable], optional): If given,
+                will add node attributes that have as their value the result
+                of the call to the given unary function, the only argument
+                being the node's associated :py:class:`.Transformation` object.
         """
         import networkx as nx
 
         def add_nodes_and_edges(
-            g: nx.DiGraph, trf: Transformation, *, tag: str = None
+            g: nx.DiGraph,
+            trf: Transformation,
+            *,
+            tag: str = None,
+            mappers: Dict[str, Callable] = None,
         ) -> None:
             """Recursively adds nodes and edges into graph ``g``: ``trf``will
             be a new node, and recursion continues on its dependencies.
@@ -1805,14 +1830,34 @@ class TransformationDAG:
                 # Node not yet in graph, need to search
                 return self._find_tag(trf)
 
-            g.add_node(trf.hashstr, obj=trf, tag=get_tag(trf, tag=tag))
+            # Prepare node attributes
+            node_attrs = dict(obj=trf, tag=get_tag(trf, tag=tag))
+
+            if include_results:
+                if isinstance(trf, Transformation):
+                    _has_result, _result = trf._lookup_result()
+                    node_attrs["has_result"] = _has_result
+                    node_attrs["result"] = _result
+                else:
+                    node_attrs["has_result"] = False
+                    node_attrs["result"] = None
+
+            if mappers:
+                for attr_name, func in mappers.items():
+                    if isinstance(trf, Transformation):
+                        node_attrs[attr_name] = func(trf)
+                    else:
+                        node_attrs[attr_name] = None
+
+            # Now add the node
+            g.add_node(trf.hashstr, **node_attrs)
 
             # Can continue recursion only on Transformation objects
             if not isinstance(trf, Transformation):
                 return
 
             for dep in trf.resolved_dependencies:
-                add_nodes_and_edges(g, dep)
+                add_nodes_and_edges(g, dep, mappers=mappers)
 
                 # Now have both nodes in the graph, can the edge between them
                 g.add_edge(trf.hashstr, dep.hashstr)
@@ -1837,12 +1882,20 @@ class TransformationDAG:
             log.remark("No tags were selected to be included into the graph.")
             return g
 
+        # Prepare mappers
+        mappers = node_attribute_mappers if node_attribute_mappers else {}
+
+        # TODO Evaluate Dict[str, str] entries by looking up the value string
+        #      in the OPERATIONS database :sunglasses:
+
         # Build the graph by adding all tags and their dependencies.
         # With DiGraph not allowing multi-edges and nodes with the same
         # identifier, can simply add them directly and let networkx figure out
         # if the node or edge is already present or not.
         for tag in tags_to_include:
-            add_nodes_and_edges(g, self.objects[self.tags[tag]], tag=tag)
+            add_nodes_and_edges(
+                g, self.objects[self.tags[tag]], tag=tag, mappers=mappers
+            )
 
         log.note("Constructed directed graph of transformations.")
         log.remark("  Nodes:   %d", g.number_of_nodes())
