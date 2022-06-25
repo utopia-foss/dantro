@@ -3,8 +3,8 @@ image: python:3.10
 
 stages:
   - check
-  - test
   - build
+  - test
   - deploy
   - post_deploy
 
@@ -57,6 +57,41 @@ check:hooks:
     - pip install pre-commit
   script:
     - pre-commit run --all-files --verbose --show-diff-on-failure
+
+
+
+# -- Build Stage --------------------------------------------------------------
+# ... for building the documentation (and potentially more jobs)
+
+build:docs:
+  image: python:3.8   # to be identical to ReadTheDocs build
+  stage: build
+  allow_failure: true
+  needs: []
+  before_script:
+    - pip3 install .[doc]
+  script:
+    - cd doc
+    - make build_and_check
+  after_script:
+    # Append the error log such that it's more convenient to read
+    - echo "-------- Errors emitted during building of documentation --------"
+    - cat doc/build_errors.log
+
+  artifacts:
+    when: always
+    name: "doc-$CI_COMMIT_REF_NAME"
+    expire_in: 2 weeks
+    expose_as: Documentation Build Results - including error log
+    paths:
+      - doc/_build/html
+      - doc/build_errors.log
+
+  environment:
+    name: review/docs/$CI_COMMIT_REF_NAME
+    auto_stop_in: 2 months
+    url: $PAGES_URL/-/jobs/$CI_JOB_ID/artifacts/doc/_build/html/index.html
+
 
 
 
@@ -117,37 +152,7 @@ test:py310_min:
     - tox -v -e py310-minimal_deps
 
 
-# -- Build Stage --------------------------------------------------------------
-# ... for building the documentation (and potentially more jobs)
 
-build:docs:
-  image: python:3.8   # to be identical to ReadTheDocs build
-  stage: build
-  allow_failure: true
-  needs: []
-  before_script:
-    - pip3 install .[doc]
-  script:
-    - cd doc
-    - make build_and_check
-  after_script:
-    # Append the error log such that it's more convenient to read
-    - echo "-------- Errors emitted during building of documentation --------"
-    - cat doc/build_errors.log
-
-  artifacts:
-    when: always
-    name: "doc-$CI_COMMIT_REF_NAME"
-    expire_in: 2 weeks
-    expose_as: Documentation Build Results - including error log
-    paths:
-      - doc/_build/html
-      - doc/build_errors.log
-
-  environment:
-    name: review/docs/$CI_COMMIT_REF_NAME
-    auto_stop_in: 2 months
-    url: $PAGES_URL/-/jobs/$CI_JOB_ID/artifacts/doc/_build/html/index.html
 
 
 # -- Deploy Stage -------------------------------------------------------------
@@ -159,24 +164,45 @@ deploy:pypi:
   rules: &pypi_deploy_rules
     # Run after pushes to tags in original repo, not forks
     - if: $CI_COMMIT_TAG && $CI_PROJECT_PATH == "utopia-project/dantro"
-  script:
+  variables:
     # Define a regex for matching the tag name, see:
     #     https://regex101.com/r/AsCCJo/2
     # Expects fully-qualified version specifiers, like v1.2.3 or v1.2.3a4
-    # Does NOT accept tags like 1.2.3 (missing v) or v1.0 (missing patch version)
-    - export VERSION_PATTERN="v([[:digit:]]+)\.([[:digit:]]+)\.([[:digit:]]+)([[:lower:]][[:digit:]]+)?"
-    # Before checking that the tag matches the expected pattern, check the regex
-    # pattern with a few allowed versions.
+    # Does NOT accept tags like:
+    #     1.2.3   (missing v)
+    #     v1.0    (missing patch version)
+    VERSION_PATTERN: v([[:digit:]]+)\.([[:digit:]]+)\.([[:digit:]]+)([[:lower:]][[:digit:]]+)?
+
+    # Need another matching pattern to extract a version string from the
+    # __version__ line of an __init__.py file (line extracted via grep first)
+    SED_PATTERN: s/.*\"([0-9]+\.[0-9]+\.[0-9]+[a-z]{0,5}[0-9]*)\".*/\1/g
+  before_script:
+    # Test the version pattern itself behaves as expected
+    - "[[ ! \"foo\" =~ ${VERSION_PATTERN} ]]"
+    - "[[ ! \"v1.2\" =~ ${VERSION_PATTERN} ]]"
+    - "[[ ! \"1.2.3\" =~ ${VERSION_PATTERN} ]]"
     - "[[ \"v1.2.3\" =~ ${VERSION_PATTERN} ]]"
     - "[[ \"v1.23.4a5\" =~ ${VERSION_PATTERN} ]]"
-    - "[[ \"v1.23.4a56\" =~ ${VERSION_PATTERN} ]]"
+    - "[[ \"v1.23.45a67\" =~ ${VERSION_PATTERN} ]]"
 
-    # Now do the actual check
+    # Retrieve the dantro version (without importing, to avoid installation)
+    - export DANTRO_VERSION=v$(cat dantro/__init__.py | grep __version__ | sed -E $SED_PATTERN)
+    - echo "dantro version is  ${DANTRO_VERSION}"
+
+    # Now do the actual checks
+    # ... against the selected tag
     - "[[ ${CI_COMMIT_TAG} =~ ${VERSION_PATTERN} ]]"
-    # Tag is of the correct form, yay!
 
+    # ... against the package version number
+    - "[[ ${DANTRO_VERSION} =~ ${VERSION_PATTERN} ]]"
+
+    # ... and that they are the same
+    - "[[ ${DANTRO_VERSION} == ${CI_COMMIT_TAG} ]]"
+    # Checks successful
+
+    # Install dependencies needed for pushing packages
     - pip install -U twine
-
+  script:
     # Create distribution files
     - python setup.py sdist bdist_wheel
 
