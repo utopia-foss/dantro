@@ -30,7 +30,13 @@ from .abc import PATH_JOIN_CHAR, AbstractDataContainer
 from .base import BaseDataGroup
 from .containers import NumpyDataContainer, ObjectContainer, XrDataContainer
 from .data_loaders import LOADER_BY_FILE_EXT
-from .data_ops import apply_operation, available_operations, register_operation
+from .data_ops import (
+    apply_operation,
+    available_operations,
+    get_operation,
+    is_operation,
+    register_operation,
+)
 from .exceptions import *
 from .tools import adjusted_log_levels as _adjusted_log_levels
 from .tools import format_time as _format_time
@@ -824,8 +830,15 @@ class TransformationDAG:
     See :ref:`dag_framework` for more information and examples.
     """
 
-    SPECIAL_TAGS = ("dag", "dm", "select_base")
+    SPECIAL_TAGS: Sequence[str] = ("dag", "dm", "select_base")
     """Tags with special meaning"""
+
+    NODE_ATTR_MAPPER_OP_PREFIX: str = "attr_mapper"
+    """Prefix for data operations that are used for node attribute mapping when
+    :py:meth:`generating a graph object from the DAG <generate_nx_graph>`.
+    """
+
+    # .........................................................................
 
     def __init__(
         self,
@@ -1752,8 +1765,9 @@ class TransformationDAG:
         self,
         tags_to_include: Union[str, Sequence[str]] = "all",
         *,
+        node_attribute_mappers: Dict[str, Union[str, dict]] = None,
         include_results: bool = False,
-        node_attribute_mappers: Dict[str, Callable] = None,
+        lookup_tags: bool = True,
     ) -> "networkx.DiGraph":
         """Generates a representation of the DAG using :py:mod:`networkx`,
         returning a directed graph.
@@ -1790,6 +1804,23 @@ class TransformationDAG:
             tags_to_include (Union[str, Sequence[str]], optional): Which tags
                 to include into the directed graph. Can be ``all`` to include
                 all tags.
+            node_attribute_mappers (Dict[str, Union[str, dict]], optional): If
+                given, will add node attributes that have as their value the
+                result of a single data operation.
+                The dict values can either be the name of a registered data
+                operation or a dict that defines an operation and the
+                corresponding arguments, supporting the
+                :ref:`typical DAG syntax <dag_minimal_syntax>`.
+
+                .. note::
+
+                    Note that the operation needs to be part of an extended
+                    dantro operations database. It may *not* be a
+                    meta-operation and can also not be a *sequence* of
+                    operations. The operation will always get the node's
+                    associated :py:class:`~dantro.dag.Transformation` object
+                    as first positional argument.
+
             include_results (bool, optional): Whether to include results into
                 the node attributes.
 
@@ -1798,56 +1829,31 @@ class TransformationDAG:
                     These will all be ``None`` unless :py:meth:`.compute` was
                     invoked before generating the graph.
 
-            node_attribute_mappers (Dict[str, Callable], optional): If given,
-                will add node attributes that have as their value the result
-                of the call to the given unary function, the only argument
-                being the node's associated :py:class:`.Transformation` object.
+            lookup_tags (bool, optional): Whether to lookup tags for each node,
+                storing it in the ``tag`` node attribute. The tags in
+                ``tags_to_include`` are always included, but the reverse lookup
+                of tags can be costly, in which case this should be disabled.
         """
         import networkx as nx
 
         def add_nodes_and_edges(
-            g: nx.DiGraph,
+            g: "nx.DiGraph",
             trf: Transformation,
             *,
             tag: str = None,
-            mappers: Dict[str, Callable] = None,
-        ) -> None:
+        ) -> str:
             """Recursively adds nodes and edges into graph ``g``: ``trf``will
             be a new node, and recursion continues on its dependencies.
+            Returns the node index of the added node.
             """
-
-            def get_tag(trf: Transformation, tag: str) -> str:
-                """To avoid repetitive tag search, see if a tag is already
-                associated."""
-                if tag:
-                    # Tag explicitly specified
-                    return tag
-
-                if trf.hashstr in g.nodes():
-                    # Node already in graph, avoid search
-                    return g.nodes()[trf.hashstr].get("tag")
-
-                # Node not yet in graph, need to search
-                return self._find_tag(trf)
-
-            # Prepare node attributes
-            node_attrs = dict(obj=trf, tag=get_tag(trf, tag=tag))
-
-            if include_results:
-                if isinstance(trf, Transformation):
-                    _has_result, _result = trf._lookup_result()
-                    node_attrs["has_result"] = _has_result
-                    node_attrs["result"] = _result
-                else:
-                    node_attrs["has_result"] = False
-                    node_attrs["result"] = None
-
-            if mappers:
-                for attr_name, func in mappers.items():
-                    if isinstance(trf, Transformation):
-                        node_attrs[attr_name] = func(trf)
-                    else:
-                        node_attrs[attr_name] = None
+            node_attrs = self._get_node_attributes(
+                trf,
+                mappers=node_attribute_mappers,
+                g=g,
+                tag=tag,
+                include_results=include_results,
+                lookup_tags=lookup_tags,
+            )
 
             # Now add the node
             g.add_node(trf.hashstr, **node_attrs)
@@ -1857,10 +1863,12 @@ class TransformationDAG:
                 return
 
             for dep in trf.resolved_dependencies:
-                add_nodes_and_edges(g, dep, mappers=mappers)
+                add_nodes_and_edges(g, dep)
 
                 # Now have both nodes in the graph, can the edge between them
                 g.add_edge(trf.hashstr, dep.hashstr)
+
+            return trf.hashstr
 
         # .....................................................................
 
@@ -1893,9 +1901,13 @@ class TransformationDAG:
         # identifier, can simply add them directly and let networkx figure out
         # if the node or edge is already present or not.
         for tag in tags_to_include:
-            add_nodes_and_edges(
-                g, self.objects[self.tags[tag]], tag=tag, mappers=mappers
-            )
+            trf = self.objects[self.tags[tag]]
+            node = add_nodes_and_edges(g, trf, tag=tag)
+            g.nodes()[node]["tag"] = tag
+
+        # Label DataManager explicitly
+        if self.dm.hashstr in g.nodes():
+            g.nodes()[self.dm.hashstr]["tag"] = "dm"
 
         log.note("Constructed directed graph of transformations.")
         log.remark("  Nodes:   %d", g.number_of_nodes())
@@ -2306,10 +2318,133 @@ class TransformationDAG:
             trf = trf.hashstr
 
         candidate_tags = [n for n, h in self.tags.items() if h == trf]
-        if len(candidate_tags) > 1:
-            pass  # TODO consider warning
+        # TODO consider warning
+        # if len(candidate_tags) > 1:
+        #     pass
 
         return candidate_tags[0] if candidate_tags else None
+
+    def _get_node_attributes(
+        self,
+        trf: Transformation,
+        *,
+        mappers: Dict[str, Union[str, dict]],
+        g: "nx.DiGraph",
+        tag: str = None,
+        include_results: bool = False,
+        lookup_tags: bool = True,
+    ) -> dict:
+        """Retrieves a dict of node attributes for the given transformation
+        inside the DAG. Used in :py:meth:`.generate_nx_graph`.
+
+        Args:
+            trf (Transformation): The transformation that represents the node
+            mappers (Dict[str, Union[str, dict]]): A dict of node attribute
+                names and either names of data operations or dicts that define
+                an operation and the corresponding arguments. Note that the
+                operation needs to be part of the extended dantro operations
+                database. It may *not* be a meta-operation!
+            g (networkx.classes.digraph.DiGraph): The graph object the node
+                will be part of.
+            tag (str): If known, the tag to associate with the node.
+            include_results (bool, optional): Whether to include node results;
+                will only contain results if :py:meth:`.compute` has been
+                executed previously.
+            lookup_tags (bool, optional): Whether to lookup node tags that were
+                not given; this may be costly for very large DAGs.
+        """
+
+        def get_tag(trf: Transformation) -> str:
+            """To avoid repetitive tag search, see if a tag is already
+            associated. Also uses the potentially existing tag information."""
+            if tag:
+                # Tag explicitly specified (in outer scope!)
+                return tag
+
+            if trf.hashstr in g.nodes():
+                # Node already in graph, avoid search
+                return g.nodes()[trf.hashstr].get("tag")
+
+            # Node not yet in graph, need to search for it, if enabled
+            if lookup_tags:
+                return self._find_tag(trf)
+
+            # No lookup!
+            return None
+
+        # .. Define a bunch of custom attribute mappers .......................
+        _prefix = self.NODE_ATTR_MAPPER_OP_PREFIX
+
+        @is_operation(f"{_prefix}.get_operation", skip_existing=True)
+        def get_operation(trf: Transformation) -> str:
+            """Returns the operation name"""
+            return trf.operation
+
+        @is_operation(f"{_prefix}.format_arguments", skip_existing=True)
+        def format_arguments(trf: Transformation) -> str:
+            """Formats node arguments in a nice and readable way"""
+            _args = "\n".join(f"  {i}:  {v}" for i, v in enumerate(trf._args))
+            _kwargs = "\n".join(f"  {k}:  {v}" for k, v in trf._kwargs.items())
+            return f"args:\n{_args}\n\n" f"kwargs:\n{_kwargs}"
+            # TODO Improve, e.g. by hiding reference hashes
+
+        # TODO Add more
+
+        # .....................................................................
+
+        # Prepare node attributes
+        node_attrs = dict(obj=trf)
+
+        # Include results
+        if include_results:
+            if isinstance(trf, Transformation):
+                _has_result, _result = trf._lookup_result()
+                node_attrs["has_result"] = _has_result
+                node_attrs["result"] = _result
+            else:
+                node_attrs["has_result"] = False
+                node_attrs["result"] = None
+
+        # Set tags
+        if isinstance(trf, Transformation):
+            node_attrs["tag"] = get_tag(trf)
+        else:
+            node_attrs["tag"] = None
+
+        # Mappers: Parsing and node attribute setting
+
+        def parse_params(p: Union[str, dict]):
+            p = _parse_dag_minimal_syntax(p, with_previous_result=False)
+            return _parse_dag_syntax(**p)
+
+        mappers = mappers if mappers else {}
+        if mappers:
+            mappers = {
+                attr: parse_params(op_params)
+                for attr, op_params in mappers.items()
+                if op_params is not None
+            }
+            for attr_name, op_params in mappers.items():
+                if isinstance(trf, Transformation):
+                    try:
+                        node_attrs[attr_name] = apply_operation(
+                            op_params["operation"],
+                            trf,
+                            *op_params["args"],
+                            **op_params["kwargs"],
+                        )
+                    except Exception as exc:
+                        raise type(exc)(
+                            f"Failed getting node attributes! Node:\n{trf}\n"
+                            "Make sure the data operation name and arguments "
+                            "are valid and inspect the chained traceback for "
+                            "more information. Use operations prefixed with "
+                            f"'{_prefix}.' for specialized operations."
+                        ) from exc
+                else:
+                    node_attrs[attr_name] = None
+
+        return node_attrs
 
     # .........................................................................
     # Cache writing and reading

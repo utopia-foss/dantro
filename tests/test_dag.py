@@ -32,6 +32,7 @@ from dantro.data_loaders import (
     XarrayLoaderMixin,
     YamlLoaderMixin,
 )
+from dantro.data_ops import is_operation
 from dantro.exceptions import *
 from dantro.groups import OrderedDataGroup
 from dantro.tools import load_yml, write_yml
@@ -257,7 +258,21 @@ def test_Placeholder(tmpdir):
     assert ph != dag_utils.Placeholder("bar foo")
 
     assert "Placeholder" in repr(ph)
-    assert "foo bar" in repr(ph)
+    assert "'foo bar'" in repr(ph)
+
+    # String formatting
+    assert str(ph) == "<Placeholder, payload: 'foo bar'>"
+    assert ph.PAYLOAD_DESC in str(ph)
+
+    # ... can also be adjusted in subclasses
+    class MyPlaceholder(dag_utils.Placeholder):
+        PAYLOAD_DESC = "content"
+
+        def _format_payload(self):
+            return str(self._data)
+
+    mph = MyPlaceholder("foo bar baz")
+    assert str(mph) == "<MyPlaceholder, content: foo bar baz>"
 
     # YAML Roundtrip
     yaml_rt = lambda o: yaml_roundtrip(o, path=tmpdir.join(ph._data))
@@ -446,6 +461,10 @@ def test_DAGReference():
 
     assert some_hash in repr(ref)
 
+    # String representation contains shortened hash
+    assert some_hash[:12] in str(ref)
+    assert some_hash[:13] not in str(ref)
+
     # Errors
     with pytest.raises(TypeError, match="requires a string-like argument"):
         dag.DAGReference(123)
@@ -472,6 +491,8 @@ def test_DAGTag():
     assert tag != some_tag
 
     assert some_tag in repr(tag)
+
+    assert f"tag: {some_tag}" in str(tag)
 
     assert "!dag_tag" in yaml_dumps(tag, register_classes=(dag.DAGTag,))
 
@@ -519,6 +540,7 @@ def test_DAGNode():
     assert node != some_node
 
     assert str(some_node) in repr(node)
+    assert f"node ID: {some_node}" in str(node)
 
     with pytest.raises(TypeError, match="requires an int-convertible"):
         dag.DAGNode("not int-convertible")
@@ -1083,6 +1105,11 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
             if "compare_to" in to_check:
                 assert res == to_check["compare_to"]
 
+            if to_check.get("find_tag"):
+                ref = tdag.tags[tag]
+                assert tdag._find_tag(ref)
+                assert tdag._find_tag(tdag.objects[ref])
+
         print("All computation results as expected.\n")
 
     # All done.
@@ -1230,17 +1257,84 @@ def test_generate_nx_graph(dm_silent):
     assert g.nodes()[fifty_node]["obj"].has_result
 
     # Can also include that information into the node attributes
-    g = tdag.generate_nx_graph(include_results=True)
+    g = tdag.generate_nx_graph(("fifty",), include_results=True)
     assert g.nodes()[fifty_node]["has_result"]
     assert g.nodes()[fifty_node]["result"] == 50
 
     assert not g.nodes()[dm.hashstr]["has_result"]
     assert g.nodes()[dm.hashstr]["result"] is None
 
-    # Test node attribute mapping
-    mappers = dict()
-    mappers["operation"] = lambda trf: trf.operation
-    g = tdag.generate_nx_graph(node_attribute_mappers=mappers)
+    # The foo_node should not be in the graph
+    assert foo_node not in g.nodes()
 
-    assert not g.nodes()[dm.hashstr]["operation"]
+
+def test_generate_nx_graph_attr_mapping(dm_silent):
+    """Tests node attribute mapping"""
+    dm = dm_silent
+    TransformationDAG = dag.TransformationDAG
+    test_cfgs = load_yml(DAG_NX_PATH)
+
+    tdag = TransformationDAG(dm=dm, **test_cfgs["with_select_and_define"])
+
+    dm_node = dm.hashstr
+    fifty_node = tdag.tags["fifty"]
+    foo_node = tdag.tags["foo"]
+    foo_path_node = tdag.tags["foo_path"]
+
+    g = tdag.generate_nx_graph()
+
+    # Labelled nodes should always have a tag
+    assert g.nodes()[dm_node]["tag"] == "dm"
+    assert g.nodes()[fifty_node]["tag"] == "fifty"
+    assert g.nodes()[foo_node]["tag"] == "foo"
+
+    # Now again and with some mappers
+    prefix = tdag.NODE_ATTR_MAPPER_OP_PREFIX
+    assert prefix == "attr_mapper"
+
+    @is_operation("my_test_operation")
+    def my_operation(_, foo, *, bar):
+        return f"{foo} :: {bar}"
+
+    mappers = dict()
+    mappers["operation"] = f"{prefix}.get_operation"
+    mappers["arguments"] = f"{prefix}.format_arguments"
+    mappers["disabled"] = None  # --> not carried out
+    mappers["my_attr"] = {
+        f"my_test_operation": ["foo"],
+        "kwargs": dict(bar="bar"),
+    }
+
+    g = tdag.generate_nx_graph(
+        ("fifty", "foo_path"),
+        node_attribute_mappers=mappers,
+        lookup_tags=False,
+    )
+
+    assert g.nodes()[fifty_node]["tag"] == "fifty"
     assert g.nodes()[fifty_node]["operation"] == "pass"
+    assert "hash: 6d27ed1726a2…" in g.nodes()[fifty_node]["arguments"]
+    assert g.nodes()[fifty_node]["my_attr"] == "foo :: bar"
+    with pytest.raises(KeyError):
+        g.nodes()[fifty_node]["disabled"]
+
+    # DataManager should never have a value, but the attribute should be set
+    # and there should be a tag.
+    assert g.nodes()[dm.hashstr]["tag"] == "dm"
+    assert g.nodes()[dm.hashstr]["operation"] is None
+    assert g.nodes()[dm.hashstr]["arguments"] is None
+    assert g.nodes()[dm.hashstr]["my_attr"] is None
+    with pytest.raises(KeyError):
+        g.nodes()[dm.hashstr]["disabled"]
+
+    # The foo_node should still be in the graph ...
+    assert foo_node in g.nodes()
+    assert foo_path_node in g.nodes()
+
+    assert g.nodes()[foo_node]["tag"] is None  # because lookup_tags == False
+    assert g.nodes()[foo_path_node]["tag"] == "foo_path"
+
+    # Error
+    mappers["some_attr"] = "bad_operation"
+    with pytest.raises(Exception, match="Failed getting node attributes"):
+        tdag.generate_nx_graph(node_attribute_mappers=mappers)

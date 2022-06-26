@@ -37,6 +37,9 @@ class Placeholder:
 
     __slots__ = ("_data",)
 
+    PAYLOAD_DESC: str = "payload"
+    """How to refer to the payload in the ``__str__`` method"""
+
     def __init__(self, data: Any):
         """Initialize a Placeholder by storing its payload"""
         self._data = data
@@ -54,7 +57,12 @@ class Placeholder:
         return f"<{type(self).__name__} {repr(self._data)}>"
 
     def __str__(self) -> str:
-        return f"<{type(self).__name__}, payload: {repr(self._data)}>"
+        return "<{}, {}: {}>".format(
+            type(self).__name__, self.PAYLOAD_DESC, self._format_payload()
+        )
+
+    def _format_payload(self) -> str:
+        return repr(self._data)
 
     def __hash__(self) -> int:
         """Creates a hash by invoking ``hash(repr(self))``"""
@@ -93,6 +101,7 @@ class ResultPlaceholder(Placeholder):
     """
 
     __slots__ = ()
+    PAYLOAD_DESC = "result_tag"
     yaml_tag = "!dag_result"
 
     @property
@@ -219,9 +228,10 @@ class PlaceholderWithFallback(Placeholder):
     def __str__(self) -> str:
         if not self.has_fallback:
             return super().__str__()
-        return "<{}, payload: {}, fallback: {}>".format(
+        return "<{}, {}: {}, fallback: {}>".format(
             type(self).__name__,
-            repr(self._data),
+            self.PAYLOAD_DESC,
+            self._format_payload(),
             repr(self._fallback),
         )
 
@@ -268,6 +278,7 @@ class PositionalArgument(PlaceholderWithFallback):
     """
 
     __slots__ = ()
+    PAYLOAD_DESC = "position"
     yaml_tag = "!arg"
 
     def __init__(self, pos: int, *args):
@@ -301,6 +312,7 @@ class KeywordArgument(PlaceholderWithFallback):
     """
 
     __slots__ = ()
+    PAYLOAD_DESC = "name"
     yaml_tag = "!kwarg"
 
     def __init__(self, name: str, *args):
@@ -328,6 +340,7 @@ class DAGReference(Placeholder):
     """
 
     __slots__ = ()
+    PAYLOAD_DESC = "hash"
     yaml_tag = "!dag_ref"
 
     def __init__(self, ref: str):
@@ -344,6 +357,13 @@ class DAGReference(Placeholder):
     def ref(self) -> str:
         """The associated reference of this object"""
         return self._data
+
+    def _format_payload(self) -> str:
+        # Make sure to not apply this to derived classes with a different kind
+        # of payload, e.g. DAGTag ...
+        if self.PAYLOAD_DESC != "hash":
+            return str(self._data)
+        return f"{self._data[:12]}…"
 
     def _resolve_ref(self, *, dag: "TransformationDAG") -> str:
         """Return the hash reference; for the base class, the data is already
@@ -373,6 +393,7 @@ class DAGTag(DAGReference):
     """
 
     __slots__ = ()
+    PAYLOAD_DESC = "tag"
     yaml_tag = "!dag_tag"
 
     def __init__(self, name: str):
@@ -413,8 +434,12 @@ class DAGMetaOperationTag(DAGTag):
     """
 
     __slots__ = ()
+    PAYLOAD_DESC = "tag"
     yaml_tag = "!mop_tag"
-    SPLIT_STR = "::"
+
+    SPLIT_STR: str = "::"
+    """The string by which to split off the meta-operation name from the
+    fully qualified tag name."""
 
     def __init__(self, name: str):
         """Initialize the DAGMetaOperationTag object.
@@ -477,6 +502,7 @@ class DAGNode(DAGReference):
     """A DAGNode is a reference by the index within the DAG's node list."""
 
     __slots__ = ()
+    PAYLOAD_DESC = "node ID"
     yaml_tag = "!dag_node"
 
     def __init__(self, idx: int):
@@ -626,7 +652,9 @@ class DAGObjects:
 # -----------------------------------------------------------------------------
 
 
-def parse_dag_minimal_syntax(params: Union[str, dict]) -> dict:
+def parse_dag_minimal_syntax(
+    params: Union[str, dict], *, with_previous_result: bool = True
+) -> dict:
     """Parses the minimal syntax parameters, effectively translating a string-
     like argument to a dict with the string specified as the ``operation`` key.
     """
@@ -634,7 +662,9 @@ def parse_dag_minimal_syntax(params: Union[str, dict]) -> dict:
         return params
 
     elif isinstance(params, str):
-        return dict(operation=params, with_previous_result=True)
+        return dict(
+            operation=params, with_previous_result=with_previous_result
+        )
 
     # else:
     raise TypeError(

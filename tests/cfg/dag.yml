@@ -48,11 +48,13 @@ explicit_select:
         attributes:
           path: /TestDM/some/path/foo
           name: foo
+        find_tag: true
       bar:
         type: OrderedDataGroup
         attributes:
           path: /TestDM/some/path/bar
           name: bar
+        find_tag: true
 
 
 shorthand_select:

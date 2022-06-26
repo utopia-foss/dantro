@@ -881,7 +881,6 @@ This can help to better understand the generated DAG and is useful not only for 
 
 
 
-.. _dag_examples:
 
 Examples
 ^^^^^^^^
