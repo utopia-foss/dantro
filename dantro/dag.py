@@ -136,6 +136,7 @@ class Transformation:
         "_allow_failure",
         "_fallback",
         "_hashstr",
+        "_layer",
         "_profile",
         "_fc_opts",
         "_cache",
@@ -256,6 +257,7 @@ class Transformation:
         self._allow_failure = allow_failure
         self._fallback = fallback
         self._hashstr = None
+        self._layer = None
         self._profile = dict(
             compute=np.nan,
             cumulative_compute=np.nan,
@@ -420,6 +422,29 @@ class Transformation:
         """Whether there is a memory-cached result available for this
         transformation."""
         return self._cache["filled"]
+
+    @property
+    def layer(self) -> int:
+        """Returns the layer this node can be placed at within the DAG by
+        recursively going over dependencies and setting the layer to the
+        maximum layer of the dependencies plus one.
+
+        Computation occurs upon first invocation, afterwards the cached value
+        is returned.
+
+        .. note::
+
+            Transformations without dependencies have a level of zero.
+        """
+        if self._layer is None:
+            deps = self.resolved_dependencies
+            if not deps:
+                self._layer = 0
+            else:
+                get_layer = lambda obj: getattr(obj, "layer", 0)
+                self._layer = max(get_layer(dep) for dep in deps) + 1
+
+        return self._layer
 
     # YAML representation .....................................................
     yaml_tag = "!dag_trf"
@@ -1763,8 +1788,8 @@ class TransformationDAG:
 
     def generate_nx_graph(
         self,
-        tags_to_include: Union[str, Sequence[str]] = "all",
         *,
+        tags_to_include: Union[str, Sequence[str]] = "all",
         node_attribute_mappers: Dict[str, Union[str, dict]] = None,
         include_results: bool = False,
         lookup_tags: bool = True,
@@ -2378,15 +2403,28 @@ class TransformationDAG:
         @is_operation(f"{_prefix}.get_operation", skip_existing=True)
         def get_operation(trf: Transformation) -> str:
             """Returns the operation name"""
+            if not isinstance(trf, Transformation):
+                return ""
+
             return trf.operation
 
         @is_operation(f"{_prefix}.format_arguments", skip_existing=True)
         def format_arguments(trf: Transformation) -> str:
             """Formats node arguments in a nice and readable way"""
+            if not isinstance(trf, Transformation):
+                return ""
+
             _args = "\n".join(f"  {i}:  {v}" for i, v in enumerate(trf._args))
             _kwargs = "\n".join(f"  {k}:  {v}" for k, v in trf._kwargs.items())
             return f"args:\n{_args}\n\n" f"kwargs:\n{_kwargs}"
             # TODO Improve, e.g. by hiding reference hashes
+
+        @is_operation(f"{_prefix}.get_layer", skip_existing=True)
+        def get_layer(trf: Transformation) -> int:
+            """Returns the transformations layer value"""
+            if not isinstance(trf, Transformation):
+                return 0
+            return trf.layer
 
         # TODO Add more
 
@@ -2425,24 +2463,21 @@ class TransformationDAG:
                 if op_params is not None
             }
             for attr_name, op_params in mappers.items():
-                if isinstance(trf, Transformation):
-                    try:
-                        node_attrs[attr_name] = apply_operation(
-                            op_params["operation"],
-                            trf,
-                            *op_params["args"],
-                            **op_params["kwargs"],
-                        )
-                    except Exception as exc:
-                        raise type(exc)(
-                            f"Failed getting node attributes! Node:\n{trf}\n"
-                            "Make sure the data operation name and arguments "
-                            "are valid and inspect the chained traceback for "
-                            "more information. Use operations prefixed with "
-                            f"'{_prefix}.' for specialized operations."
-                        ) from exc
-                else:
-                    node_attrs[attr_name] = None
+                try:
+                    node_attrs[attr_name] = apply_operation(
+                        op_params["operation"],
+                        trf,
+                        *op_params["args"],
+                        **op_params["kwargs"],
+                    )
+                except Exception as exc:
+                    raise type(exc)(
+                        f"Failed getting node attributes! Node:\n{trf}\n"
+                        "Make sure the data operation name and arguments "
+                        "are valid and inspect the chained traceback for "
+                        "more information. Use operations prefixed with "
+                        f"'{_prefix}.' for specialized operations."
+                    ) from exc
 
         return node_attrs
 

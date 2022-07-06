@@ -659,6 +659,13 @@ def test_Transformation():
     assert "salt" not in yaml_dumps(t0, register_classes=(Transformation,))
     assert "salt: 42" in yaml_dumps(t0s, register_classes=(Transformation,))
 
+    # Get layer
+    assert t0.layer == 0
+    assert t0s.layer == 0
+    assert t1.layer == 0
+    assert t2.layer == 0
+    assert t3.layer == 0
+
 
 def test_Transformation_fallback():
     """Tests the fallback feature of the Transformation class"""
@@ -1191,9 +1198,9 @@ def test_generate_nx_graph(dm_silent):
     tdag.compute()
 
     # Different arguments for tags to include
-    assert tdag.generate_nx_graph("all").number_of_nodes() == 0
-    assert tdag.generate_nx_graph([]).number_of_nodes() == 0
-    assert tdag.generate_nx_graph(None).number_of_nodes() == 0
+    assert tdag.generate_nx_graph(tags_to_include="all").number_of_nodes() == 0
+    assert tdag.generate_nx_graph(tags_to_include=[]).number_of_nodes() == 0
+    assert tdag.generate_nx_graph(tags_to_include=None).number_of_nodes() == 0
 
     # ... Simple ..............................................................
     tdag = TransformationDAG(dm=dm, **test_cfgs["simple"])
@@ -1231,8 +1238,10 @@ def test_generate_nx_graph(dm_silent):
 
     # Reduced number of nodes if only selecting specific tags
     assert tdag.generate_nx_graph().number_of_nodes() == 23  # all
-    assert tdag.generate_nx_graph([]).number_of_nodes() == 0
-    assert tdag.generate_nx_graph(["foo"]).number_of_nodes() == 2
+    assert tdag.generate_nx_graph(tags_to_include=[]).number_of_nodes() == 0
+    assert (
+        tdag.generate_nx_graph(tags_to_include=["foo"]).number_of_nodes() == 2
+    )
 
     # Check length of some paths
     g = tdag.generate_nx_graph()
@@ -1257,7 +1266,9 @@ def test_generate_nx_graph(dm_silent):
     assert g.nodes()[fifty_node]["obj"].has_result
 
     # Can also include that information into the node attributes
-    g = tdag.generate_nx_graph(("fifty",), include_results=True)
+    g = tdag.generate_nx_graph(
+        tags_to_include=("fifty",), include_results=True
+    )
     assert g.nodes()[fifty_node]["has_result"]
     assert g.nodes()[fifty_node]["result"] == 50
 
@@ -1298,6 +1309,7 @@ def test_generate_nx_graph_attr_mapping(dm_silent):
 
     mappers = dict()
     mappers["operation"] = f"{prefix}.get_operation"
+    mappers["layer"] = f"{prefix}.get_layer"
     mappers["arguments"] = f"{prefix}.format_arguments"
     mappers["disabled"] = None  # --> not carried out
     mappers["my_attr"] = {
@@ -1306,24 +1318,26 @@ def test_generate_nx_graph_attr_mapping(dm_silent):
     }
 
     g = tdag.generate_nx_graph(
-        ("fifty", "foo_path"),
+        tags_to_include=("fifty", "foo_path"),
         node_attribute_mappers=mappers,
         lookup_tags=False,
     )
 
     assert g.nodes()[fifty_node]["tag"] == "fifty"
     assert g.nodes()[fifty_node]["operation"] == "pass"
+    assert g.nodes()[fifty_node]["layer"] == 11
     assert "hash: 6d27ed1726a2…" in g.nodes()[fifty_node]["arguments"]
     assert g.nodes()[fifty_node]["my_attr"] == "foo :: bar"
     with pytest.raises(KeyError):
         g.nodes()[fifty_node]["disabled"]
 
     # DataManager should never have a value, but the attribute should be set
-    # and there should be a tag.
+    # and there should be a tag and layer.
     assert g.nodes()[dm.hashstr]["tag"] == "dm"
-    assert g.nodes()[dm.hashstr]["operation"] is None
-    assert g.nodes()[dm.hashstr]["arguments"] is None
-    assert g.nodes()[dm.hashstr]["my_attr"] is None
+    assert g.nodes()[dm.hashstr]["layer"] == 0
+    assert g.nodes()[dm.hashstr]["operation"] == ""
+    assert g.nodes()[dm.hashstr]["arguments"] == ""
+    assert g.nodes()[dm.hashstr]["my_attr"] == "foo :: bar"
     with pytest.raises(KeyError):
         g.nodes()[dm.hashstr]["disabled"]
 
