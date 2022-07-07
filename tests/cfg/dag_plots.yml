@@ -321,8 +321,9 @@ config_based:
 
         # Whether to additionally export the graph
         export:
-          set_node_attrs_from:
-            label: description
+          map_node_attrs:
+            label:
+              attr_mapper.copy_from_attr: description
 
           keep_node_attrs:
             - label
@@ -350,7 +351,7 @@ config_based:
           tags_to_include: all
           include_results: false
           lookup_tags: true
-          node_attribute_mappers:
+          map_node_attrs:
             operation: attr_mapper.get_operation
             layer: attr_mapper.get_layer
             arguments:

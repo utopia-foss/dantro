@@ -36,6 +36,7 @@ from dantro.data_ops import is_operation
 from dantro.exceptions import *
 from dantro.groups import OrderedDataGroup
 from dantro.tools import load_yml, write_yml
+from dantro.utils.nx import ATTR_MAPPER_OP_PREFIX
 
 # Test files
 DAG_SYNTAX_PATH = resource_filename("tests", "cfg/dag_syntax.yml")
@@ -1300,11 +1301,13 @@ def test_generate_nx_graph_attr_mapping(dm_silent):
     assert g.nodes()[foo_node]["tag"] == "foo"
 
     # Now again and with some mappers
-    prefix = tdag.NODE_ATTR_OP_PREFIX
+    prefix = ATTR_MAPPER_OP_PREFIX
     assert prefix == "attr_mapper"
 
     @is_operation("my_test_operation")
-    def my_operation(_, foo, *, bar):
+    def my_operation(foo, *, bar, attrs):
+        assert "tag" in attrs
+        assert "obj" in attrs
         return f"{foo} :: {bar}"
 
     mappers = dict()
@@ -1320,7 +1323,7 @@ def test_generate_nx_graph_attr_mapping(dm_silent):
 
     g = tdag.generate_nx_graph(
         tags_to_include=("fifty", "foo_path"),
-        node_attribute_mappers=mappers,
+        map_node_attrs=mappers,
         lookup_tags=False,
     )
 
@@ -1356,4 +1359,4 @@ def test_generate_nx_graph_attr_mapping(dm_silent):
     # Error
     mappers["some_attr"] = "bad_operation"
     with pytest.raises(BadOperationName, match="Failed mapping node"):
-        tdag.generate_nx_graph(node_attribute_mappers=mappers)
+        tdag.generate_nx_graph(map_node_attrs=mappers)
