@@ -321,16 +321,20 @@ config_based:
 
         # Whether to additionally export the graph
         export:
+          set_node_attrs_from:
+            label: description
+
           keep_node_attrs:
-            - description
+            - label
 
           # Formats
           graphml: {}
-          dot: False  # not available without pygraphviz
+          gml: {}
+          dot: False  # NOTE Not available without pygraphviz (i.e.: in CI)
 
         # Output arguments
         output:
-          plot_dir: ~ # "~/Desktop/dantro_test_output"
+          plot_dir: ~  # "~/Desktop/dantro_test_output"
           path_fstr: "{plot_dir:}/{name:}_dag_{scenario:}.pdf"
 
         # When to generate the visualization (can be: false, true, debug)

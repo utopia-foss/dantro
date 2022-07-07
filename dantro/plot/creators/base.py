@@ -6,6 +6,7 @@ the :py:class:`.BasePlotCreator`, which is no longer abstract but has only the
 functionality that is general enough for all derived creators to profit from.
 """
 
+import contextlib
 import copy
 import gc
 import importlib
@@ -947,18 +948,25 @@ class BasePlotCreator(AbstractPlotCreator):
             )
             return os.path.expanduser(p)
 
-        def handle_exc(exc: Exception, desc: str):
-            msg = f"Failed {desc}!"
-            if self.raise_exc:
+        @contextlib.contextmanager
+        def exception_handling(desc: str):
+            """Exception handler for parts of the DAG representation routine"""
+            try:
+                yield
+
+            except Exception as exc:
+                msg = f"Failed {desc}!"
+                if not self.raise_exc:
+                    log.warning(msg)
+                    log.note("Enable debug mode to show traceback.")
+                    return
+
                 raise PlotCreatorError(
                     f"{msg}\n"
-                    "Inspect the chained traceback for more information or "
-                    "disable debug mode to ignore this error message.\n\n"
+                    "Inspect the chained traceback for more information "
+                    "or disable debug mode to ignore this error message.\n\n"
                     f"{type(exc).__name__}: {exc}"
                 ) from exc
-            log.warning(msg)
-            log.note("Enable debug mode to show traceback.")
-            return
 
         # .....................................................................
 
@@ -972,12 +980,13 @@ class BasePlotCreator(AbstractPlotCreator):
             log.debug("Not plotting DAG visualization.")
             return
 
-        # Create the graph object
-        try:
+        # Create the graph object.
+        # Can only return if this fails but is not configured to raise.
+        g = None
+        with exception_handling("generating DAG representation"):
             g = self._dag.generate_nx_graph(**generation)
 
-        except Exception as exc:
-            handle_exc(exc, "generating DAG representation")
+        if g is None:
             return
 
         # Generate the output path (for the plot)
@@ -987,21 +996,15 @@ class BasePlotCreator(AbstractPlotCreator):
         if export_enabled:
             from ...utils.nx import export_graph
 
-            try:
+            with exception_handling("exporting DAG representation"):
                 export_graph(g, out_path=out_path, **export)
-
-            except Exception as exc:
-                handle_exc(exc, "exporting DAG representation")
 
         # Plot it
         if plot_enabled:
-            try:
+            with exception_handling("plotting DAG representation"):
                 self._plot_DAG_vis(
                     g, out_path=out_path, **plot_kwargs, _scenario=scenario
                 )
-
-            except Exception as exc:
-                handle_exc(exc, "plotting DAG visualization")
 
         # All done
         self._dag_vis_done_for.append(scenario)
