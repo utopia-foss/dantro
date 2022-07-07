@@ -1002,9 +1002,7 @@ class BasePlotCreator(AbstractPlotCreator):
         # Plot it
         if plot_enabled:
             with exception_handling("plotting DAG representation"):
-                self._plot_DAG_vis(
-                    g, out_path=out_path, **plot_kwargs, _scenario=scenario
-                )
+                self._plot_DAG_vis(g, out_path=out_path, **plot_kwargs)
 
         # All done
         self._dag_vis_done_for.append(scenario)
@@ -1016,14 +1014,14 @@ class BasePlotCreator(AbstractPlotCreator):
         g: "networkx.DiGraph",
         *,
         out_path: str,
-        drawing: dict = None,
-        layout: dict = None,
-        figure_kwargs: dict = None,
-        save_kwargs: dict = None,
-        _scenario: str = None,
+        drawing: dict = {},
+        layout: dict = {},
+        figure_kwargs: dict = {},
+        save_kwargs: dict = {},
     ):
-        """Creates the actual DAG plot output. Can be called on its own or from
-        :py:meth:`._generate_DAG_vis`.
+        """Creates the actual DAG plot output by calling a specialized
+        :py:func:`graph drawing function <dantro.plot.funcs.graph._draw_graph>`
+        with a set of default values
 
         Args:
             g (networkx.DiGraph): The graph to plot
@@ -1038,94 +1036,31 @@ class BasePlotCreator(AbstractPlotCreator):
                 :py:func:`matplotlib.pyplot.figure` for setting up the figure
             save_kwargs (dict, optional): Passed to
                 :py:func:`matplotlib.pyplot.savefig` for saving the figure
-            _scenario (str): The name of the scenario, used to name the figure
         """
-        import matplotlib.pyplot as plt
-        import networkx as nx
 
-        def get_positions(g, **layout) -> dict:
-            """Performs layouting on the given graph"""
-            try:
-                return nx.nx_agraph.graphviz_layout(
-                    g, prog="dot", args="-y", **layout
-                )
+        from ..funcs.graph import _draw_graph
 
-            except ImportError:
-                pass
+        # Set defaults
+        drawing_defaults = dict()
+        drawing_defaults["nodes"] = dict(alpha=0, node_size=500)
+        drawing_defaults["edges"] = dict(
+            arrows=True,
+            arrowsize=12,
+            node_size=drawing_defaults["nodes"].get("node_size"),
+        )
+        drawing_defaults["labels"] = dict(
+            from_attr="description",
+            font_size=6,
+            bbox=dict(fc="w", ec="#666", linewidth=0.5, boxstyle="round"),
+        )
+        drawing = recursive_update(drawing_defaults, drawing)
 
-            return nx.multipartite_layout(
-                g, align="horizontal", subset_key="layer", scale=-1, **layout
-            )
-
-        def draw_graph(
-            g: "networkx.DiGraph",
-            *,
-            ax,
-            pos,
-            nodes: dict = None,
-            edges: dict = None,
-            labels: dict = None,
-        ):
-            """Draws the graph onto the given matplotlib axes"""
-            nodes = recursive_update(
-                dict(alpha=0, node_size=500),
-                nodes if nodes else {},
-            )
-            edges = recursive_update(
-                dict(
-                    arrows=True, arrowsize=12, node_size=nodes.get("node_size")
-                ),
-                edges if edges else {},
-            )
-            labels = recursive_update(
-                dict(
-                    from_attr="description",
-                    font_size=6,
-                    bbox=dict(
-                        fc="w", ec="#666", linewidth=0.5, boxstyle="round"
-                    ),
-                ),
-                labels if labels else {},
-            )
-
-            # Parse properties
-            if "from_attr" in labels:
-                labels["labels"] = nx.get_node_attributes(
-                    g, labels.pop("from_attr")
-                )
-
-            # Draw
-            nx.draw_networkx_nodes(g, pos=pos, ax=ax, **nodes)
-            nx.draw_networkx_edges(g, pos=pos, ax=ax, **edges)
-            nx.draw_networkx_labels(g, pos=pos, ax=ax, **labels)
-
-            # Post-process
-            ax.axis("off")
-
-        def save_plot(*, out_path: str, bbox_inches="tight", **save_kwargs):
-            """Saves the matplotlib plot to the given output path"""
-            os.makedirs(os.path.dirname(out_path), exist_ok=True)
-            plt.savefig(
-                out_path,
-                bbox_inches=bbox_inches,
-                **(save_kwargs if save_kwargs else {}),
-            )
-
-        # .....................................................................
-
-        drawing = drawing if drawing else {}
-        layout = layout if layout else {}
-        save_kwargs = save_kwargs if save_kwargs else {}
-        figure_kwargs = figure_kwargs if figure_kwargs else {}
-
-        # Create figure
-        fig = plt.figure(_scenario, constrained_layout=True, **figure_kwargs)
-
-        # Now layout, draw, and save the DAG visualization
-        try:
-            pos = get_positions(g, **layout)
-            draw_graph(g, ax=plt.gca(), pos=pos, **drawing)
-            save_plot(out_path=out_path, **save_kwargs)
-
-        finally:
-            plt.close(fig)
+        # Can now invoke drawing
+        _draw_graph(
+            g,
+            out_path=out_path,
+            drawing=drawing,
+            layout=layout,
+            figure_kwargs=figure_kwargs,
+            save_kwargs=save_kwargs,
+        )
