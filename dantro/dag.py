@@ -858,10 +858,18 @@ class TransformationDAG:
     SPECIAL_TAGS: Sequence[str] = ("dag", "dm", "select_base")
     """Tags with special meaning"""
 
-    NODE_ATTR_MAPPER_OP_PREFIX: str = "attr_mapper"
+    NODE_ATTR_OP_PREFIX: str = "attr_mapper"
     """Prefix for data operations that are used for node attribute mapping when
     :py:meth:`generating a graph object from the DAG <generate_nx_graph>`.
     """
+
+    NODE_ATTR_DEFAULT_MAPPERS: Dict[str, str] = {
+        "layer": f"{NODE_ATTR_OP_PREFIX}.get_layer",
+        "operation": f"{NODE_ATTR_OP_PREFIX}.get_operation",
+        "description": f"{NODE_ATTR_OP_PREFIX}.get_description",
+    }
+    """The default node attribute mappers when
+    :py:meth:`generating a graph object from the DAG <generate_nx_graph>`."""
 
     # .........................................................................
 
@@ -1794,9 +1802,8 @@ class TransformationDAG:
         include_results: bool = False,
         lookup_tags: bool = True,
     ) -> "networkx.DiGraph":
-        """Generates a representation of the DAG using :py:mod:`networkx`,
-        returning a directed graph.
-        This graph object can be useful for debugging.
+        """Generates a representation of the DAG as a
+        :py:class:`networkx.DiGraph` object, which can be useful for debugging.
 
         **Nodes** represent
         :py:class:`Transformations <dantro.dag.Transformation>` and are
@@ -1862,7 +1869,7 @@ class TransformationDAG:
         import networkx as nx
 
         def add_nodes_and_edges(
-            g: "nx.DiGraph",
+            g: "networkx.DiGraph",
             trf: Transformation,
             *,
             tag: str = None,
@@ -1873,6 +1880,7 @@ class TransformationDAG:
             """
             node_attrs = self._get_node_attributes(
                 trf,
+                hashstr=trf.hashstr,
                 mappers=node_attribute_mappers,
                 g=g,
                 tag=tag,
@@ -2353,8 +2361,9 @@ class TransformationDAG:
         self,
         trf: Transformation,
         *,
+        hashstr: str,
         mappers: Dict[str, Union[str, dict]],
-        g: "nx.DiGraph",
+        g: "networkx.DiGraph",
         tag: str = None,
         include_results: bool = False,
         lookup_tags: bool = True,
@@ -2364,6 +2373,7 @@ class TransformationDAG:
 
         Args:
             trf (Transformation): The transformation that represents the node
+            hashstr (str): The hash string for this node
             mappers (Dict[str, Union[str, dict]]): A dict of node attribute
                 names and either names of data operations or dicts that define
                 an operation and the corresponding arguments. Note that the
@@ -2378,6 +2388,12 @@ class TransformationDAG:
             lookup_tags (bool, optional): Whether to lookup node tags that were
                 not given; this may be costly for very large DAGs.
         """
+
+        # The node attributes dict for this transformation
+        # NOTE This is available in the operations defined below
+        node_attrs = dict(obj=trf)
+
+        # .....................................................................
 
         def get_tag(trf: Transformation) -> str:
             """To avoid repetitive tag search, see if a tag is already
@@ -2397,10 +2413,15 @@ class TransformationDAG:
             # No lookup!
             return None
 
-        # .. Define a bunch of custom attribute mappers .......................
-        _prefix = self.NODE_ATTR_MAPPER_OP_PREFIX
+        def parse_op_params(p: Union[str, dict]) -> dict:
+            """Parses operation parameters using the usual DAG syntax"""
+            p = _parse_dag_minimal_syntax(p, with_previous_result=False)
+            return _parse_dag_syntax(**p)
 
-        @is_operation(f"{_prefix}.get_operation", skip_existing=True)
+        # .. Define a bunch of custom attribute mappers .......................
+        _prefix = self.NODE_ATTR_OP_PREFIX
+
+        @is_operation(f"{_prefix}.get_operation", overwrite_existing=True)
         def get_operation(trf: Transformation) -> str:
             """Returns the operation name"""
             if not isinstance(trf, Transformation):
@@ -2408,7 +2429,7 @@ class TransformationDAG:
 
             return trf.operation
 
-        @is_operation(f"{_prefix}.format_arguments", skip_existing=True)
+        @is_operation(f"{_prefix}.format_arguments", overwrite_existing=True)
         def format_arguments(trf: Transformation) -> str:
             """Formats node arguments in a nice and readable way"""
             if not isinstance(trf, Transformation):
@@ -2419,19 +2440,36 @@ class TransformationDAG:
             return f"args:\n{_args}\n\n" f"kwargs:\n{_kwargs}"
             # TODO Improve, e.g. by hiding reference hashes
 
-        @is_operation(f"{_prefix}.get_layer", skip_existing=True)
+        @is_operation(f"{_prefix}.get_layer", overwrite_existing=True)
         def get_layer(trf: Transformation) -> int:
             """Returns the transformations layer value"""
             if not isinstance(trf, Transformation):
                 return 0
             return trf.layer
 
+        @is_operation(f"{_prefix}.get_description", overwrite_existing=True)
+        def get_description(
+            trf: Transformation, *, join_str: str = "\n"
+        ) -> str:
+            """Creates a description string from the transformation"""
+            tag = node_attrs.get("tag")
+
+            if hashstr == self.dm.hashstr:
+                tag = "dm"
+
+            op = ""
+            if isinstance(trf, Transformation):
+                op = trf.operation
+
+            desc_specs = (
+                ("{}", op),
+                ("(tag: {})", tag),
+            )
+            return join_str.join(f.format(s) for f, s in desc_specs if s)
+
         # TODO Add more
 
         # .....................................................................
-
-        # Prepare node attributes
-        node_attrs = dict(obj=trf)
 
         # Include results
         if include_results:
@@ -2449,35 +2487,42 @@ class TransformationDAG:
         else:
             node_attrs["tag"] = None
 
-        # Mappers: Parsing and node attribute setting
-
-        def parse_params(p: Union[str, dict]):
-            p = _parse_dag_minimal_syntax(p, with_previous_result=False)
-            return _parse_dag_syntax(**p)
-
+        # Mappers: Include defaults and parse arguments, allowing DAG syntax
         mappers = mappers if mappers else {}
-        if mappers:
-            mappers = {
-                attr: parse_params(op_params)
-                for attr, op_params in mappers.items()
-                if op_params is not None
-            }
-            for attr_name, op_params in mappers.items():
-                try:
-                    node_attrs[attr_name] = apply_operation(
-                        op_params["operation"],
-                        trf,
-                        *op_params["args"],
-                        **op_params["kwargs"],
-                    )
-                except Exception as exc:
-                    raise type(exc)(
-                        f"Failed getting node attributes! Node:\n{trf}\n"
-                        "Make sure the data operation name and arguments "
-                        "are valid and inspect the chained traceback for "
-                        "more information. Use operations prefixed with "
-                        f"'{_prefix}.' for specialized operations."
-                    ) from exc
+        mappers = _recursive_update(
+            copy.copy(self.NODE_ATTR_DEFAULT_MAPPERS), copy.copy(mappers)
+        )
+        mappers = {
+            attr: parse_op_params(op_params)
+            for attr, op_params in mappers.items()
+            if op_params is not None
+        }
+
+        # Apply mapping operations to certain attribute names
+        for attr_name, op_params in mappers.items():
+            try:
+                node_attrs[attr_name] = apply_operation(
+                    op_params["operation"],
+                    trf,
+                    *op_params["args"],
+                    **op_params["kwargs"],
+                )
+
+            except BadOperationName as err:
+                raise BadOperationName(
+                    "Failed mapping node attributes due to an invalid "
+                    "operation name. Use operations prefixed with "
+                    f"'{_prefix}.' for specialized operations.\n\n{err}"
+                ) from err
+
+            except Exception as exc:
+                _op_name = op_params["operation"]
+                raise type(exc)(
+                    f"Failed mapping node attributes for node:\n\n{trf}\n"
+                    f"Make sure the data operation ({_op_name}) and arguments "
+                    "are valid and inspect the chained traceback for more "
+                    f"information.\n\nGot a {type(exc).__name__}: {exc}"
+                ) from exc
 
         return node_attrs
 

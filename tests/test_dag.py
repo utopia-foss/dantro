@@ -1300,7 +1300,7 @@ def test_generate_nx_graph_attr_mapping(dm_silent):
     assert g.nodes()[foo_node]["tag"] == "foo"
 
     # Now again and with some mappers
-    prefix = tdag.NODE_ATTR_MAPPER_OP_PREFIX
+    prefix = tdag.NODE_ATTR_OP_PREFIX
     assert prefix == "attr_mapper"
 
     @is_operation("my_test_operation")
@@ -1310,6 +1310,7 @@ def test_generate_nx_graph_attr_mapping(dm_silent):
     mappers = dict()
     mappers["operation"] = f"{prefix}.get_operation"
     mappers["layer"] = f"{prefix}.get_layer"
+    mappers["description"] = f"{prefix}.get_description"
     mappers["arguments"] = f"{prefix}.format_arguments"
     mappers["disabled"] = None  # --> not carried out
     mappers["my_attr"] = {
@@ -1326,6 +1327,8 @@ def test_generate_nx_graph_attr_mapping(dm_silent):
     assert g.nodes()[fifty_node]["tag"] == "fifty"
     assert g.nodes()[fifty_node]["operation"] == "pass"
     assert g.nodes()[fifty_node]["layer"] == 11
+    assert "pass" in g.nodes()[fifty_node]["description"]
+    assert "tag: fifty" in g.nodes()[fifty_node]["description"]
     assert "hash: 6d27ed1726a2…" in g.nodes()[fifty_node]["arguments"]
     assert g.nodes()[fifty_node]["my_attr"] == "foo :: bar"
     with pytest.raises(KeyError):
@@ -1335,6 +1338,7 @@ def test_generate_nx_graph_attr_mapping(dm_silent):
     # and there should be a tag and layer.
     assert g.nodes()[dm.hashstr]["tag"] == "dm"
     assert g.nodes()[dm.hashstr]["layer"] == 0
+    assert "tag: dm" in g.nodes()[dm.hashstr]["description"]
     assert g.nodes()[dm.hashstr]["operation"] == ""
     assert g.nodes()[dm.hashstr]["arguments"] == ""
     assert g.nodes()[dm.hashstr]["my_attr"] == "foo :: bar"
@@ -1347,8 +1351,9 @@ def test_generate_nx_graph_attr_mapping(dm_silent):
 
     assert g.nodes()[foo_node]["tag"] is None  # because lookup_tags == False
     assert g.nodes()[foo_path_node]["tag"] == "foo_path"
+    assert "tag: foo_path" in g.nodes()[foo_path_node]["description"]
 
     # Error
     mappers["some_attr"] = "bad_operation"
-    with pytest.raises(Exception, match="Failed getting node attributes"):
+    with pytest.raises(BadOperationName, match="Failed mapping node"):
         tdag.generate_nx_graph(node_attribute_mappers=mappers)

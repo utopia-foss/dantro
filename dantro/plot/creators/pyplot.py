@@ -156,6 +156,9 @@ class PyPlotCreator(BasePlotCreator):
             ValueError: On superfluous ``helpers`` or ``animation`` arguments
                 in cases where these are not supported
         """
+        # Store the output path, needed by methods
+        self._out_path = out_path
+
         # Generate a style dictionary to be used for context manager creation
         rc_params = self._prepare_style_context(**(style if style else {}))
 

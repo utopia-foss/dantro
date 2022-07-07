@@ -473,8 +473,9 @@ class GraphGroup(BaseDataGroup):
 
         Returns:
             The networkx graph object. Depending on the provided information,
-            one of the following graph objects is created: ``nx.Graph``,
-            ``nx.DiGraph``, ``nx.MultiGraph``, ``nx.MultiDiGraph``.
+            one of the following graph objects is created:
+            :py:class:`networkx.Graph`, :py:class:`networkx.DiGraph`,
+            :py:class:`networkx.MultiGraph`, :py:class:`networkx.MultiDiGraph`.
         """
         # Get the node and edge data stored in the graph group
         log.debug("Checking whether node and edge data is available...")

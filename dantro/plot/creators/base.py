@@ -23,7 +23,7 @@ from ..._hash import _hash
 from ...abc import AbstractPlotCreator
 from ...dag import TransformationDAG
 from ...data_mngr import DataManager
-from ...exceptions import SkipPlot
+from ...exceptions import PlotCreatorError, SkipPlot
 from ...tools import format_time as _format_time
 from ...tools import recursive_update
 
@@ -150,6 +150,7 @@ class BasePlotCreator(AbstractPlotCreator):
         self._plot_cfg = plot_cfg
         self._plot_func = plot_func
         self._dag_obj_cache = _DAG_OBJECT_CACHE
+        self._out_path = None
         self._exist_ok = (
             self.OUT_PATH_EXIST_OK if exist_ok is None else exist_ok
         )
@@ -159,6 +160,10 @@ class BasePlotCreator(AbstractPlotCreator):
         self._logstr = None
         self._default_ext = None
         self._dag = None
+
+        # DAG visualization
+        self._dag_vis_kwargs = None
+        self._dag_vis_done_for = []
 
         # Set the default extension, first from argument, then default.
         # Then check that it was set correctly
@@ -301,6 +306,9 @@ class BasePlotCreator(AbstractPlotCreator):
                 this may require a different plot function signature.
             **func_kwargs: Passed on to the plot function
         """
+        # Store the output path, needed by downstream methods
+        self._out_path = out_path
+
         # Prepare arguments, also performing plot data selection
         args, kwargs = self._prepare_plot_func_args(
             use_dag=use_dag, out_path=out_path, **func_kwargs
@@ -504,12 +512,13 @@ class BasePlotCreator(AbstractPlotCreator):
             **plot_kwargs, **shared_kwargs
         )
 
-        # Create the DAG object, optionally performing cache reading or writing
+        # Create the DAG object, optionally reading from and/or writing to the
+        # DAG object cache. Then make available to other parts.
         dag = self._setup_dag(dag_params["init"], **dag_params["cache"])
-
-        # Then compute results, then make available for re-use elsewhere
-        dag_results = self._compute_dag(dag, **dag_params["compute"])
         self._dag = dag
+
+        # Then compute results
+        dag_results = self._compute_dag(dag, **dag_params["compute"])
 
         # If enabled, perform placeholder resolution in plot_kwargs
         if self.DAG_RESOLVE_PLACEHOLDERS:
@@ -558,6 +567,7 @@ class BasePlotCreator(AbstractPlotCreator):
         compute_only: Sequence[str] = None,
         dag_options: dict = None,
         dag_object_cache: dict = None,
+        dag_visualization: dict = None,
         invocation_options: dict = None,
         **plot_kwargs,
     ) -> Tuple[dict, dict]:
@@ -572,6 +582,9 @@ class BasePlotCreator(AbstractPlotCreator):
             dag_options (dict, optional): Other DAG options for initialization
             dag_object_cache (dict, optional): Cache options for the DAG object
                 itself. Expected keys are ``read``, ``write``, ``clear``.
+            dag_visualization (dict, optional): If given, controls whether the
+                DAG used for data transformations should also be plotted, e.g.
+                to make debugging easier.
             invocation_options (dict, optional): Controls whether to pass
                 certain objects on to the plot functio or not. Supported keys
                 are ``pass_dag_object_along`` and ``unpack_dag_results``, which
@@ -587,6 +600,7 @@ class BasePlotCreator(AbstractPlotCreator):
         init_kwargs = dict(select=select, transform=transform)
         compute_kwargs = dict(compute_only=compute_only)
         cache_kwargs = dag_object_cache if dag_object_cache else {}
+        vis_kwargs = dag_visualization if dag_visualization else {}
 
         # Options. Only add those, if available
         dag_options = dag_options if dag_options else {}
@@ -594,8 +608,15 @@ class BasePlotCreator(AbstractPlotCreator):
             init_kwargs = dict(**init_kwargs, **dag_options)
 
         dag_params = dict(
-            init=init_kwargs, compute=compute_kwargs, cache=cache_kwargs
+            init=init_kwargs,
+            compute=compute_kwargs,
+            cache=cache_kwargs,
+            visualization=vis_kwargs,
         )
+
+        # Also store visualization kwargs as attribute
+        self._dag_vis_kwargs = vis_kwargs
+        self._dag_vis_done_for = []
 
         # Determine whether the DAG object should be passed along to the func
         invocation_options = invocation_options if invocation_options else {}
@@ -780,8 +801,21 @@ class BasePlotCreator(AbstractPlotCreator):
 
         # Now compute the results
         log.info("Computing data transformation results ...")
-        results = dag.compute(compute_only=compute_only, **compute_kwargs)
-        log.remark("Finished computing data transformation results.")
+        try:
+            results = dag.compute(compute_only=compute_only, **compute_kwargs)
+
+        except:
+            self._generate_DAG_vis(
+                scenario="compute_error", **self._dag_vis_kwargs
+            )
+            raise
+
+        else:
+            log.remark("Finished computing data transformation results.")
+            self._generate_DAG_vis(
+                scenario="compute_success", **self._dag_vis_kwargs
+            )
+
         return results
 
     def _combine_dag_results_and_plot_cfg(
@@ -832,3 +866,263 @@ class BasePlotCreator(AbstractPlotCreator):
             cfg[self.DAG_TO_KWARG_MAPPING["dag_object"]] = dag
 
         return cfg
+
+    # .........................................................................
+    # DAG Visualization
+
+    def _generate_DAG_vis(
+        self,
+        *,
+        scenario: str,
+        enabled: bool = True,
+        plot_enabled: bool = True,
+        export_enabled: bool = True,
+        when: dict = None,
+        output: dict = None,
+        export: dict = None,
+        generation: dict = None,
+        **plot_kwargs,
+    ) -> "networkx.DiGraph":
+        """Generates a DAG representation according to certain criteria and
+        then invokes :py:meth:`~._plot_DAG_vis` to create the actual output.
+        """
+
+        def should_plot(
+            scenario: str,
+            *,
+            enabled: bool,
+            always: bool = False,
+            only_once: bool = False,
+            on_compute_error: Union[bool, str] = "debug",
+            on_compute_success: Union[bool, str] = False,
+            on_plot_error: Union[bool, str] = False,
+        ) -> bool:
+            """Decides whether a DAG visualization should be created in a
+            certain scenario.
+            """
+            if not enabled:
+                return False
+
+            if always:
+                return True
+
+            if only_once and scenario in self._dag_vis_done_for:
+                return False
+
+            scenarios = dict(
+                compute_error=on_compute_error,
+                compute_success=on_compute_success,
+                plot_error=on_plot_error,
+            )
+            if scenarios[scenario] == "debug" and self.raise_exc:
+                return True
+            elif scenarios[scenario] is True:
+                return True
+            return False
+
+        def parse_output_path(
+            scenario: str,
+            *,
+            plot_dir: str = None,
+            path_fstr: str = "{plot_dir:}/{name:}_dag_{scenario:}.pdf",
+            **fstr_kwargs,
+        ) -> str:
+            """Prepares the output path for the DAG visualization"""
+            if plot_dir is None and "plot_dir" in path_fstr:
+                if self._out_path is None:
+                    raise ValueError(
+                        "Missing plot output path from which to extract the "
+                        "`plot_dir` argument for the DAG visualization output "
+                        "path! This should not have happened; make sure your "
+                        "plot creator sets the _out_path attribute before "
+                        "DAG visualization is invoked."
+                    )
+                plot_dir = self._out_path
+
+            p = path_fstr.format(
+                plot_dir=plot_dir,
+                name=self.name,
+                scenario=scenario,
+                **fstr_kwargs,
+            )
+            return os.path.expanduser(p)
+
+        def handle_exc(exc: Exception, desc: str):
+            msg = f"Failed {desc}!"
+            if self.raise_exc:
+                raise PlotCreatorError(
+                    f"{msg}\n"
+                    "Inspect the chained traceback for more information or "
+                    "disable debug mode to ignore this error message.\n\n"
+                    f"{type(exc).__name__}: {exc}"
+                ) from exc
+            log.warning(msg)
+            log.note("Enable debug mode to show traceback.")
+            return
+
+        # .....................................................................
+
+        when = when if when else {}
+        output = output if output else {}
+        export = export if export else {}
+        generation = generation if generation else {}
+
+        # Decide whether to plot
+        if not should_plot(scenario, enabled=enabled, **when):
+            log.debug("Not plotting DAG visualization.")
+            return
+
+        # Create the graph object
+        try:
+            g = self._dag.generate_nx_graph(**generation)
+
+        except Exception as exc:
+            handle_exc(exc, "generating DAG representation")
+            return
+
+        # Generate the output path (for the plot)
+        out_path = parse_output_path(scenario, **output)
+
+        # Export it
+        if export_enabled:
+            from ...utils.nx import export_graph
+
+            try:
+                export_graph(g, out_path=out_path, **export)
+
+            except Exception as exc:
+                handle_exc(exc, "exporting DAG representation")
+
+        # Plot it
+        if plot_enabled:
+            try:
+                self._plot_DAG_vis(
+                    g, out_path=out_path, **plot_kwargs, _scenario=scenario
+                )
+
+            except Exception as exc:
+                handle_exc(exc, "plotting DAG visualization")
+
+        # All done
+        self._dag_vis_done_for.append(scenario)
+
+        return g
+
+    def _plot_DAG_vis(
+        self,
+        g: "networkx.DiGraph",
+        *,
+        out_path: str,
+        drawing: dict = None,
+        layout: dict = None,
+        figure_kwargs: dict = None,
+        save_kwargs: dict = None,
+        _scenario: str = None,
+    ):
+        """Creates the actual DAG plot output. Can be called on its own or from
+        :py:meth:`._generate_DAG_vis`.
+
+        Args:
+            g (networkx.DiGraph): The graph to plot
+            out_path (str): Where to store it to
+            drawing (dict, optional): Drawing arguments, containing the
+                ``nodes``, ``edges`` and ``labels`` keys. The ``labels`` key
+                can contain the ``from_attr`` key which will read the attribute
+                specified there and use it for the label.
+            layout (dict, optional): Passed to (currently hard-coded) layouting
+                functions.
+            figure_kwargs (dict, optional): Passed to
+                :py:func:`matplotlib.pyplot.figure` for setting up the figure
+            save_kwargs (dict, optional): Passed to
+                :py:func:`matplotlib.pyplot.savefig` for saving the figure
+            _scenario (str): The name of the scenario, used to name the figure
+        """
+        import matplotlib.pyplot as plt
+        import networkx as nx
+
+        def get_positions(g, **layout) -> dict:
+            """Performs layouting on the given graph"""
+            try:
+                return nx.nx_agraph.graphviz_layout(
+                    g, prog="dot", args="-y", **layout
+                )
+
+            except ImportError:
+                pass
+
+            return nx.multipartite_layout(
+                g, align="horizontal", subset_key="layer", scale=-1, **layout
+            )
+
+        def draw_graph(
+            g: "networkx.DiGraph",
+            *,
+            ax,
+            pos,
+            nodes: dict = None,
+            edges: dict = None,
+            labels: dict = None,
+        ):
+            """Draws the graph onto the given matplotlib axes"""
+            nodes = recursive_update(
+                dict(alpha=0, node_size=500),
+                nodes if nodes else {},
+            )
+            edges = recursive_update(
+                dict(
+                    arrows=True, arrowsize=12, node_size=nodes.get("node_size")
+                ),
+                edges if edges else {},
+            )
+            labels = recursive_update(
+                dict(
+                    from_attr="description",
+                    font_size=6,
+                    bbox=dict(
+                        fc="w", ec="#666", linewidth=0.5, boxstyle="round"
+                    ),
+                ),
+                labels if labels else {},
+            )
+
+            # Parse properties
+            if "from_attr" in labels:
+                labels["labels"] = nx.get_node_attributes(
+                    g, labels.pop("from_attr")
+                )
+
+            # Draw
+            nx.draw_networkx_nodes(g, pos=pos, ax=ax, **nodes)
+            nx.draw_networkx_edges(g, pos=pos, ax=ax, **edges)
+            nx.draw_networkx_labels(g, pos=pos, ax=ax, **labels)
+
+            # Post-process
+            ax.axis("off")
+
+        def save_plot(*, out_path: str, bbox_inches="tight", **save_kwargs):
+            """Saves the matplotlib plot to the given output path"""
+            os.makedirs(os.path.dirname(out_path), exist_ok=True)
+            plt.savefig(
+                out_path,
+                bbox_inches=bbox_inches,
+                **(save_kwargs if save_kwargs else {}),
+            )
+
+        # .....................................................................
+
+        drawing = drawing if drawing else {}
+        layout = layout if layout else {}
+        save_kwargs = save_kwargs if save_kwargs else {}
+        figure_kwargs = figure_kwargs if figure_kwargs else {}
+
+        # Create figure
+        fig = plt.figure(_scenario, constrained_layout=True, **figure_kwargs)
+
+        # Now layout, draw, and save the DAG visualization
+        try:
+            pos = get_positions(g, **layout)
+            draw_graph(g, ax=plt.gca(), pos=pos, **drawing)
+            save_plot(out_path=out_path, **save_kwargs)
+
+        finally:
+            plt.close(fig)

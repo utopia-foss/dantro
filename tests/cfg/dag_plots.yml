@@ -58,7 +58,7 @@ config_based:
   # .. Example cases ..........................................................
   # Example for a succeeding plot invocation
   simple_example:
-    plot_cfg:
+    plot_cfg: &simple_example
       <<: *shared_plot_cfg
       based_on: [creator.pyplot, dag.errorbars]
 
@@ -196,7 +196,9 @@ config_based:
 
     _match: bad_argument_leading_to_failure
 
+
   # .. Test conditional plot skipping .........................................
+
   skip_plot_directly:
     plot_cfg:
       <<: *shared_plot_cfg
@@ -237,7 +239,9 @@ config_based:
       y: y
       yerr: yerr
 
+
   # .. Test DAG placeholder resolution ........................................
+
   phres_simple:
     plot_cfg: &phres_simple
       <<: *shared_plot_cfg
@@ -294,6 +298,73 @@ config_based:
 
     _raises: PlotCreatorError
     _match: Operation '.format' failed with a ValueError
+
+
+  # .. Test nx.DiGraph generation and plotting ................................
+
+  # TODO WIP test definition
+  gen_nx_graph_minimal:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        enabled: true  # main switch, defaults to: true
+
+  gen_nx_graph_extended:
+    plot_cfg:
+      <<: *phres_simple
+
+      dag_visualization:
+        enabled: true
+        plot_enabled: true
+        export_enabled: true
+
+        # Whether to additionally export the graph
+        export:
+          keep_node_attrs:
+            - description
+
+          # Formats
+          graphml: {}
+          dot: False  # not available without pygraphviz
+
+        # Output arguments
+        output:
+          plot_dir: ~ # "~/Desktop/dantro_test_output"
+          path_fstr: "{plot_dir:}/{name:}_dag_{scenario:}.pdf"
+
+        # When to generate the visualization (can be: false, true, debug)
+        when:
+          on_compute_error: debug
+          on_compute_success: debug
+          on_plot_error: false
+          only_once: true
+          always: false
+
+        # Generation kwargs
+        generation:
+          tags_to_include: all
+          include_results: false
+          lookup_tags: true
+          node_attribute_mappers:
+            operation: attr_mapper.get_operation
+            layer: attr_mapper.get_layer
+            arguments:
+              operation: attr_mapper.format_arguments
+            some_disabled_attr: ~  # None --> do not set this one
+
+        # Drawing
+        drawing:
+          nodes: {}
+          edges: {}
+          labels:
+            from_attr: description
+
+        # Additional arguments
+        layout: {}
+        figure_kwargs: {}
+        save_kwargs: {}
+
 
 
   # .. PlotHelper tests .......................................................
@@ -353,7 +424,6 @@ config_based:
       row: baz
       hue: spam
 
-
   facet_grid/errorbars_standalone_failing:
     plot_cfg:
       <<: *shared_plot_cfg
@@ -375,6 +445,7 @@ config_based:
 
 
   # .. Documentation Examples .................................................
+
   doc_examples_placeholder_title:
     plot_cfg:
       # Keys that need/should not be included
@@ -425,7 +496,6 @@ config_based:
           title: !dag_result title_str
       ### End ---- placeholder_title
 
-
   doc_examples_mv_missing_data:
     plot_cfg:
       # Keys that need/should not be included
@@ -449,7 +519,6 @@ config_based:
             transform:
               - .mean: [!dag_prev , [x]]
       ### End ---- mv_missing_data
-
 
   doc_examples_multiplot_subplots:
     plot_cfg:
