@@ -19,9 +19,10 @@ def _draw_graph(
     figure_kwargs: dict = {},
     save_kwargs: dict = {},
 ):
-    """Draws a graph using :py:func:`networkx.draw_networkx_nodes`,
-    :py:func:`networkx.draw_networkx_edges`, and
-    :py:func:`networkx.draw_networkx_labels`.
+    """Draws a graph using
+    :py:func:`networkx.drawing.nx_pylab.draw_networkx_nodes`,
+    :py:func:`networkx.drawing.nx_pylab.draw_networkx_edges`, and
+    :py:func:`networkx.drawing.nx_pylab.draw_networkx_labels`.
 
     .. warning::
 

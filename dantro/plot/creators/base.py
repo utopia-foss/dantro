@@ -150,6 +150,7 @@ class BasePlotCreator(AbstractPlotCreator):
         self._dm = dm
         self._plot_cfg = plot_cfg
         self._plot_func = plot_func
+        self._using_dag = None
         self._dag_obj_cache = _DAG_OBJECT_CACHE
         self._out_path = None
         self._exist_ok = (
@@ -315,10 +316,8 @@ class BasePlotCreator(AbstractPlotCreator):
             use_dag=use_dag, out_path=out_path, **func_kwargs
         )
 
-        # Call the plot function
-        log.info("Now calling plotting function '%s' ...", self.plot_func_name)
-        self.plot_func(*args, **kwargs)
-        log.note("Plotting function '%s' returned.", self.plot_func_name)
+        # Call the plot function, optionally generating a DAG visualization
+        self._invoke_plot_func(*args, **kwargs)
 
     def get_ext(self) -> str:
         """Returns the extension to use for the upcoming plot by checking
@@ -400,7 +399,7 @@ class BasePlotCreator(AbstractPlotCreator):
         pass
 
     # .........................................................................
-    # Plot argument preparation
+    # Plot argument preparation and function invocation
 
     def _prepare_plot_func_args(
         self, *, use_dag: bool = None, **kwargs
@@ -440,6 +439,7 @@ class BasePlotCreator(AbstractPlotCreator):
         using_dag, kwargs = self._perform_data_selection(
             use_dag=use_dag, plot_kwargs=kwargs
         )
+        self._using_dag = using_dag
 
         # Aggregate as (args, kwargs), passed on to plot function. When using
         # the DAG, the DataManager is NOT passed along, as it is accessible via
@@ -447,6 +447,31 @@ class BasePlotCreator(AbstractPlotCreator):
         if not using_dag:
             return ((self.dm,), kwargs)
         return ((), kwargs)
+
+    def _invoke_plot_func(self, *args, **kwargs):
+        """Method that invokes the plot function with the prepared arguments.
+
+        This additionally allows to generate a DAG visualization in case the
+        plotting failed or succeeded.
+        """
+        log.info("Now calling plotting function '%s' ...", self.plot_func_name)
+        try:
+            self.plot_func(*args, **kwargs)
+
+        except:
+            if self._using_dag:
+                self._generate_DAG_vis(
+                    scenario="plot_error", **self._dag_vis_kwargs
+                )
+            raise
+
+        else:
+            if self._using_dag:
+                self._generate_DAG_vis(
+                    scenario="plot_success", **self._dag_vis_kwargs
+                )
+
+        log.note("Plotting function '%s' returned.", self.plot_func_name)
 
     # .........................................................................
     # Data selection interface, using TransformationDAG
@@ -878,14 +903,90 @@ class BasePlotCreator(AbstractPlotCreator):
         enabled: bool = True,
         plot_enabled: bool = True,
         export_enabled: bool = True,
+        raise_exc: bool = None,
         when: dict = None,
         output: dict = None,
         export: dict = None,
         generation: dict = None,
         **plot_kwargs,
-    ) -> "networkx.DiGraph":
+    ) -> Union["networkx.DiGraph", None]:
         """Generates a DAG representation according to certain criteria and
-        then invokes :py:meth:`~._plot_DAG_vis` to create the actual output.
+        using :py:meth:`~dantro.dag.TransformationDAG.generate_nx_graph`,
+        then invokes :py:meth:`~dantro.dag.TransformationDAG.visualize` to
+        create the actual visualization output.
+
+        This method also allows to export the DAG representation using
+        :py:func:`~dantro.utils.nx.export_graph`, which can then be used for
+        externally working with the DAG representation.
+
+        Args:
+            scenario (str): The scenario in which the generation is invoked;
+                this is used to describe the context in which this method was
+                invoked and also becomes part of the output file name.
+                See ``when`` for scenarios with certain names. If you want to
+                use a different name, make sure to set ``when.always``, such
+                that no scenario lookup occurs.
+            enabled (bool, optional): If False, will return None.
+            plot_enabled (bool, optional): Whether plotting is enabled. The
+                result of the ``when`` evaluation overrules this.
+            export_enabled (bool, optional): Whether exporting is enabled. The
+                result of the ``when`` evaluation overrules this.
+            raise_exc (bool, optional): Whether to raise exceptions if anything
+                goes wrong within this method. If None, will behave in the same
+                way as the creator does. For example, if set to False, an
+                error in generating a DAG representation will *not* lead to an
+                error being raised.
+            when (dict, optional): A dict that specifies in which situations
+                the generation should actually be carried out. May contain the
+                following keys:
+
+                    - ``always``: Will always generate output.
+                    - ``only_once``: If True, will only generate output from
+                      one scenario, skipping further invocations.
+                    - ``on_compute_error``, ``on_compute_success``, and
+                      ``on_plot_error``, ``on_plot_success``: Will generate
+                      output only in certain named **scenarios**.
+                      These can be a boolean toggle or ``'debug'`` in which
+                      case the **creator's** debug flag decides whether output
+                      is generated for that scenario.
+                      Note that the ``raise_exc`` *argument* does not play a
+                      role for that!
+
+            output (dict, optional): A dict specifying where the DAG plot and
+                potential exported files are written to. Allowed keys are:
+
+                    - ``plot_dir``: If None, will write output aside the
+                      plot output itself. Can also be an absolute path.
+                    - ``path_fstr``: A format string that specifies the actual
+                      output path and should/can contain the keys ``plot_dir``,
+                      ``name``, and ``scenario``.
+
+            export (dict, optional): Export specification, using networkx's
+                write methods. Possible keys:
+
+                    - ``manipulate_attrs``: Dict that controls manipulation of
+                      node or edge attributes, sometimes necessary for export.
+                      These are passed to
+                      :py:func:`~dantro.utils.nx.manipulate_attributes`.
+                    - any further keyword arguments define the output formats
+                      that are to be used.
+                      They can be of type ``Dict[str, Union[bool, dict]]``,
+                      where the string should correspond to the name of a
+                      networkx writer method. The boolean is used to enable
+                      or disable a writer. If a dict is given, its content is
+                      passed to the writer method.
+                      Also see :py:func:`~dantro.utils.nx.export_graph`, where
+                      this is implemented.
+
+            generation (dict, optional): Graph generation arguments passed to
+                :py:meth:`~dantro.dag.TransformationDAG.generate_nx_graph`.
+            **plot_kwargs: Plotting-related arguments, passed on to
+                :py:meth:`~dantro.dag.TransformationDAG.visualize`.
+
+        Returns:
+            Union[networkx.DiGraph, None]: Either the generated graph object
+                or None, if not enabled or ``when`` was evaluated to not
+                generating a DAG representation.
         """
 
         def should_plot(
@@ -897,6 +998,7 @@ class BasePlotCreator(AbstractPlotCreator):
             on_compute_error: Union[bool, str] = "debug",
             on_compute_success: Union[bool, str] = False,
             on_plot_error: Union[bool, str] = False,
+            on_plot_success: Union[bool, str] = False,
         ) -> bool:
             """Decides whether a DAG visualization should be created in a
             certain scenario.
@@ -914,6 +1016,7 @@ class BasePlotCreator(AbstractPlotCreator):
                 compute_error=on_compute_error,
                 compute_success=on_compute_success,
                 plot_error=on_plot_error,
+                plot_success=on_plot_success,
             )
             if scenarios[scenario] == "debug" and self.raise_exc:
                 return True
@@ -956,7 +1059,8 @@ class BasePlotCreator(AbstractPlotCreator):
 
             except Exception as exc:
                 msg = f"Failed {desc}!"
-                if not self.raise_exc:
+                _raise = raise_exc if raise_exc is not None else self.raise_exc
+                if not _raise:
                     log.warning(msg)
                     log.note("Enable debug mode to show traceback.")
                     return
@@ -1002,65 +1106,9 @@ class BasePlotCreator(AbstractPlotCreator):
         # Plot it
         if plot_enabled:
             with exception_handling("plotting DAG representation"):
-                self._plot_DAG_vis(g, out_path=out_path, **plot_kwargs)
+                self._dag.visualize(g=g, out_path=out_path, **plot_kwargs)
 
         # All done
         self._dag_vis_done_for.append(scenario)
 
         return g
-
-    def _plot_DAG_vis(
-        self,
-        g: "networkx.DiGraph",
-        *,
-        out_path: str,
-        drawing: dict = {},
-        layout: dict = {},
-        figure_kwargs: dict = {},
-        save_kwargs: dict = {},
-    ):
-        """Creates the actual DAG plot output by calling a specialized
-        :py:func:`graph drawing function <dantro.plot.funcs.graph._draw_graph>`
-        with a set of default values
-
-        Args:
-            g (networkx.DiGraph): The graph to plot
-            out_path (str): Where to store it to
-            drawing (dict, optional): Drawing arguments, containing the
-                ``nodes``, ``edges`` and ``labels`` keys. The ``labels`` key
-                can contain the ``from_attr`` key which will read the attribute
-                specified there and use it for the label.
-            layout (dict, optional): Passed to (currently hard-coded) layouting
-                functions.
-            figure_kwargs (dict, optional): Passed to
-                :py:func:`matplotlib.pyplot.figure` for setting up the figure
-            save_kwargs (dict, optional): Passed to
-                :py:func:`matplotlib.pyplot.savefig` for saving the figure
-        """
-
-        from ..funcs.graph import _draw_graph
-
-        # Set defaults
-        drawing_defaults = dict()
-        drawing_defaults["nodes"] = dict(alpha=0, node_size=500)
-        drawing_defaults["edges"] = dict(
-            arrows=True,
-            arrowsize=12,
-            node_size=drawing_defaults["nodes"].get("node_size"),
-        )
-        drawing_defaults["labels"] = dict(
-            from_attr="description",
-            font_size=6,
-            bbox=dict(fc="w", ec="#666", linewidth=0.5, boxstyle="round"),
-        )
-        drawing = recursive_update(drawing_defaults, drawing)
-
-        # Can now invoke drawing
-        _draw_graph(
-            g,
-            out_path=out_path,
-            drawing=drawing,
-            layout=layout,
-            figure_kwargs=figure_kwargs,
-            save_kwargs=save_kwargs,
-        )

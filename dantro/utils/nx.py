@@ -3,7 +3,7 @@
 import copy
 import logging
 import os
-from typing import Callable, Dict, Sequence, Union
+from typing import Any, Callable, Dict, Sequence, Union
 
 from .._dag_utils import parse_dag_minimal_syntax as _parse_dag_minimal_syntax
 from .._dag_utils import parse_dag_syntax as _parse_dag_syntax
@@ -82,6 +82,10 @@ def map_attributes(
     def copy_from_attr(attr_to_copy_from: str, *, attrs: dict):
         return copy.copy(attrs[attr_to_copy_from])
 
+    @_is_operation(f"{_prefix}.set_value", skip_existing=True)
+    def set_value(value: Any, *, attrs: dict):
+        return value
+
     # .........................................................................
 
     def parse_op_params(p: Union[str, dict]) -> dict:
@@ -129,26 +133,19 @@ def map_attributes(
                 ) from exc
 
 
-def export_graph(
+def manipulate_attributes(
     g: "networkx.Graph",
     *,
-    out_path: str,
     map_node_attrs: Dict[str, Union[str, Callable]] = None,
     map_edge_attrs: Dict[str, Union[str, Callable]] = None,
     keep_node_attrs: Union[bool, Sequence[str]] = True,
     keep_edge_attrs: Union[bool, Sequence[str]] = True,
-    **export_specs,
 ):
-    """Takes care of exporting a networkx graph object using one or many of the
-    ``nx.write_`` methods.
-
-    Allows some pre-processing or node and edge attributes.
+    """Manipulates the given graph's edge and/or node attributes
 
     Args:
-        g (networkx.Graph): The graph to export
-        out_path (str): Path to export it to; extensions will be dropped and
-            replaced by the corresponding export format. Add the ``file_ext``
-            key to a export format specification to set it to some other value.
+        g (networkx.Graph): The graph the node and edge attributes of which are
+            to be manipulated
         map_node_attrs (Dict[str, Union[str, Callable]], optional): Sets
             the node attributes given by the keys of this dict with those at
             the value. If a callable is given, is invoked with the unpacked
@@ -167,6 +164,48 @@ def export_graph(
             attributes to *keep*, all others are dropped. Set to True to keep
             all existing edge attributes; for all other values the
             :py:func:`~.keep_edge_attributes` function is invoked.
+    """
+    if map_node_attrs:
+        map_attributes(g, "nodes", map_node_attrs)
+
+    if map_edge_attrs:
+        map_attributes(g, "edges", map_edge_attrs)
+
+    # Keep only certain node and/or edge attributes
+    if keep_node_attrs is not True:
+        keep_node_attrs = keep_node_attrs if keep_node_attrs else ()
+        keep_node_attributes(g, *(keep_node_attrs if keep_node_attrs else ()))
+
+    if keep_edge_attrs is not True:
+        keep_edge_attrs = keep_edge_attrs if keep_edge_attrs else ()
+        keep_edge_attributes(g, *(keep_edge_attrs if keep_edge_attrs else ()))
+
+
+def export_graph(
+    g: "networkx.Graph",
+    *,
+    out_path: str,
+    manipulate_attrs: dict = None,
+    **export_specs,
+):
+    """Takes care of exporting a networkx graph object using one or many of the
+    ``nx.write_`` methods.
+
+    Allows some pre-processing or node and edge attributes using the
+    :py:func:`.manipulate_attributes` function.
+
+    See the networkx documentation
+    `here <https://networkx.org/documentation/stable/reference/readwrite/>`_
+    for available output formats.
+
+    Args:
+        g (networkx.Graph): The graph to export
+        out_path (str): Path to export it to; extensions will be dropped and
+            replaced by the corresponding export format. Add the ``file_ext``
+            key to a export format specification to set it to some other value.
+        manipulate_attrs (dict, optional): If given, is passed to
+            :py:func:`~dantro.utils.nx.manipulate_attributes` to manipulate the
+            node and/or edge attributes of a (copy of) the given graph ``g``.
         **export_specs: Keys need to correspond to valid ``nx.write_*``
             function names, values are passed on to the write function. There
             are two special keys ``enabled`` and ``file_ext`` that can control
@@ -183,22 +222,10 @@ def export_graph(
     except ImportError:
         pass
 
-    # Need to work on a copy because certain attributes will be dropped
-    g = copy.deepcopy(g)
-
-    # Map some attributes over
-    if map_node_attrs:
-        map_attributes(g, "nodes", map_node_attrs)
-
-    if map_edge_attrs:
-        map_attributes(g, "edges", map_edge_attrs)
-
-    # Keep only certain node and/or edge attributes
-    if keep_node_attrs is not True:
-        keep_node_attributes(g, *(keep_node_attrs if keep_node_attrs else ()))
-
-    if keep_edge_attrs is not True:
-        keep_edge_attributes(g, *(keep_edge_attrs if keep_edge_attrs else ()))
+    if manipulate_attrs:
+        # Need to work on a copy because certain attributes may be dropped
+        g = copy.deepcopy(g)
+        manipulate_attributes(g, **manipulate_attrs)
 
     # No go over the export specifications
     export_specs = copy.deepcopy(export_specs)

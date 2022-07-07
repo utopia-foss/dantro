@@ -44,7 +44,7 @@ from .tools import make_columns as _make_columns
 from .tools import recursive_update as _recursive_update
 from .utils import KeyOrderedDict
 from .utils.nx import ATTR_MAPPER_OP_PREFIX
-from .utils.nx import map_attributes as _map_attributes
+from .utils.nx import manipulate_attributes as _manipulate_attributes
 
 # Local constants .............................................................
 
@@ -866,7 +866,10 @@ class TransformationDAG:
         "description": f"{ATTR_MAPPER_OP_PREFIX}.get_description",
     }
     """The default node attribute mappers when
-    :py:meth:`generating a graph object from the DAG <generate_nx_graph>`."""
+    :py:meth:`generating a graph object from the DAG <generate_nx_graph>`.
+    These are passed to the ``map_node_attrs`` argument of
+    :py:func:`~dantro.utils.nx.manipulate_attributes`.
+    """
 
     # .........................................................................
 
@@ -1791,11 +1794,14 @@ class TransformationDAG:
         show_compute_profile_info()
         return results
 
+    # .........................................................................
+    # DAG representation as nx.DiGraph and visualization/export
+
     def generate_nx_graph(
         self,
         *,
         tags_to_include: Union[str, Sequence[str]] = "all",
-        map_node_attrs: Dict[str, Union[str, dict]] = None,
+        manipulate_attrs: dict = {},
         include_results: bool = False,
         lookup_tags: bool = True,
     ) -> "networkx.DiGraph":
@@ -1833,22 +1839,45 @@ class TransformationDAG:
             tags_to_include (Union[str, Sequence[str]], optional): Which tags
                 to include into the directed graph. Can be ``all`` to include
                 all tags.
-            map_node_attrs (Dict[str, Union[str, dict]], optional): If
-                given, will add node attributes that have as their value the
-                result of a single data operation.
-                The dict values can either be the name of a registered data
-                operation or a dict that defines an operation and the
-                corresponding arguments, supporting the
-                :ref:`typical DAG syntax <dag_minimal_syntax>`.
+            manipulate_attrs (Dict[str, Union[str, dict]], optional): Allows to
+                manipulate node and edge attributes.
+                See :py:func:`~dantro.utils.nx.manipulate_attributes` for more
+                information.
+
+                By default, this includes a number of default node attribute
+                mappers, defined in :py:attr:`.NODE_ATTR_DEFAULT_MAPPERS`.
+                These can be overwritten or extended via the ``map_node_attrs``
+                key within this argument.
 
                 .. note::
 
-                    Note that the operation needs to be part of an extended
-                    dantro operations database. It may *not* be a
-                    meta-operation and can also not be a *sequence* of
-                    operations. The operation will always get the node's
-                    associated :py:class:`~dantro.dag.Transformation` object
-                    as first positional argument.
+                    This method registers specialized data operations with the
+                    :ref:`operations database <data_ops_available>` that are
+                    meant for handling the case where node attributes
+                    are associated with :py:class:`~dantro.dag.Transformation`
+                    objects.
+
+                    Available operations (with prefix ``attr_mapper``):
+
+                        - ``{prefix}.get_operation`` returns the operation
+                          associated with a node.
+                        - ``{prefix}.get_operation`` generates a string from
+                          the positional and keyword arguments to a node.
+                        - ``{prefix}.get_layer`` returns the layer, i.e. the
+                          distance from the farthest dependency; nodes without
+                          dependencies have layer 0.
+                          See :py:attr:`dantro.dag.Transformation.layer`.
+                        - ``{prefix}.get_description`` creates a description
+                          string that is useful for visualization (e.g. as
+                          node label).
+
+                    To implement your own operation, take care to follow the
+                    syntax of :py:func:`~dantro.utils.nx.map_attributes`.
+
+                .. note::
+
+                    By default, there are *no* attributes associated with the
+                    edges of the DAG.
 
             include_results (bool, optional): Whether to include results into
                 the node attributes.
@@ -2038,17 +2067,96 @@ class TransformationDAG:
             g.nodes()[self.dm.hashstr]["tag"] = "dm"
 
         # Now apply mappings
-        mappers = _recursive_update(
+        manipulate_attrs = manipulate_attrs if manipulate_attrs else {}
+        manipulate_attrs["map_node_attrs"] = _recursive_update(
             copy.copy(self.NODE_ATTR_DEFAULT_MAPPERS),
-            map_node_attrs if map_node_attrs else {},
+            manipulate_attrs.get("map_node_attrs", {}),
         )
-        _map_attributes(g, "nodes", mappers)
+        _manipulate_attributes(g, **manipulate_attrs)
 
         # Done.
         log.note("Constructed directed graph of transformations.")
         log.remark("  Nodes:   %d", g.number_of_nodes())
         log.remark("  Edges:   %d", g.number_of_edges())
         # TODO Add more stats here
+
+        return g
+
+    def visualize(
+        self,
+        *,
+        out_path: str,
+        g: "networkx.DiGraph" = None,
+        generation: dict = {},
+        drawing: dict = {},
+        use_defaults=True,
+        layout: dict = {},
+        figure_kwargs: dict = {},
+        save_kwargs: dict = {},
+    ) -> "networkx.DiGraph":
+        """Uses :py:meth:`.generate_nx_graph` to generate a DAG representation
+        as a :py:class:`networkx.DiGraph` and then creates a visualization.
+
+        Args:
+            out_path (str): Where to store the output
+            g (networkx.DiGraph, optional): If given, will use this graph
+                instead of generating a new one.
+            generation (dict, optional): Arguments for graph generation, passed
+                on to :py:meth:`.generate_nx_graph`. Not allowed if ``g`` was
+                given.
+            drawing (dict, optional): Drawing arguments, containing the
+                ``nodes``, ``edges`` and ``labels`` keys. The ``labels`` key
+                can contain the ``from_attr`` key which will read the attribute
+                specified there and use it for the label.
+            use_defaults (dict, optional): Whether to use default drawing
+                arguments which are optimized for a suitable representation.
+            layout (dict, optional): Passed to (currently hard-coded) layouting
+                functions.
+            figure_kwargs (dict, optional): Passed to
+                :py:func:`matplotlib.pyplot.figure` for setting up the figure
+            save_kwargs (dict, optional): Passed to
+                :py:func:`matplotlib.pyplot.savefig` for saving the figure
+
+        Returns:
+            networkx.DiGraph: The passed or generated graph object.
+        """
+        from .plot.funcs.graph import _draw_graph
+
+        # Get the graph object
+        if g is None:
+            g = self.generate_nx_graph(**generation)
+
+        elif generation:
+            raise ValueError(
+                "With a graph given for visualization, the `generation` "
+                "argument is not allowed!"
+            )
+
+        # Specify defaults
+        if use_defaults:
+            drawing_defaults = dict()
+            drawing_defaults["nodes"] = dict(alpha=0, node_size=500)
+            drawing_defaults["edges"] = dict(
+                arrows=True,
+                arrowsize=12,
+                node_size=drawing_defaults["nodes"].get("node_size"),
+            )
+            drawing_defaults["labels"] = dict(
+                from_attr="description",
+                font_size=6,
+                bbox=dict(fc="w", ec="#666", linewidth=0.5, boxstyle="round"),
+            )
+            drawing = _recursive_update(drawing_defaults, drawing)
+
+        # ... and draw
+        _draw_graph(
+            g,
+            out_path=out_path,
+            drawing=drawing,
+            layout=layout,
+            figure_kwargs=figure_kwargs,
+            save_kwargs=save_kwargs,
+        )
 
         return g
 

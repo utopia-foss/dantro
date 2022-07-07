@@ -1311,9 +1311,9 @@ def test_generate_nx_graph_attr_mapping(dm_silent):
         return f"{foo} :: {bar}"
 
     mappers = dict()
-    mappers["operation"] = f"{prefix}.get_operation"
-    mappers["layer"] = f"{prefix}.get_layer"
-    mappers["description"] = f"{prefix}.get_description"
+
+    # Default mappers: operation, layer, description
+    # Add only additional mappers
     mappers["arguments"] = f"{prefix}.format_arguments"
     mappers["disabled"] = None  # --> not carried out
     mappers["my_attr"] = {
@@ -1323,7 +1323,10 @@ def test_generate_nx_graph_attr_mapping(dm_silent):
 
     g = tdag.generate_nx_graph(
         tags_to_include=("fifty", "foo_path"),
-        map_node_attrs=mappers,
+        manipulate_attrs=dict(
+            map_node_attrs=mappers,
+            keep_node_attrs=True,
+        ),
         lookup_tags=False,
     )
 
@@ -1359,4 +1362,39 @@ def test_generate_nx_graph_attr_mapping(dm_silent):
     # Error
     mappers["some_attr"] = "bad_operation"
     with pytest.raises(BadOperationName, match="Failed mapping node"):
-        tdag.generate_nx_graph(map_node_attrs=mappers)
+        tdag.generate_nx_graph(manipulate_attrs=dict(map_node_attrs=mappers))
+
+
+def test_visualize_DAG(dm_silent, tmpdir):
+    """Tests visualization"""
+    dm = dm_silent
+    TransformationDAG = dag.TransformationDAG
+    test_cfgs = load_yml(DAG_NX_PATH)
+
+    tdag = TransformationDAG(dm=dm, **test_cfgs["with_select_and_define"])
+
+    # This should just work
+    out1 = tmpdir.join("out1.pdf")
+    tdag.visualize(out_path=out1)
+    assert os.path.isfile(out1)
+
+    # Can also pass a graph explicitly
+    g = tdag.generate_nx_graph()
+    out2 = tmpdir.join("out2.pdf")
+    tdag.visualize(out_path=out2, g=g)
+    assert os.path.isfile(out2)
+
+    # ... but then cannot pass generation arguments
+    with pytest.raises(ValueError, match="argument is not allowed"):
+        tdag.visualize(out_path=out2, g=g, generation=dict(foo="bar"))
+
+    # More arguments
+    out3 = tmpdir.join("out3.pdf")
+    tdag.visualize(
+        out_path=out3,
+        generation=dict(include_results=False),
+        drawing=dict(nodes=dict(node_color="b")),
+        figure_kwargs=dict(dpi=72),
+        save_kwargs=dict(bbox_inches="tight"),
+    )
+    assert os.path.isfile(out3)

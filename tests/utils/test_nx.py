@@ -7,6 +7,8 @@ import networkx as nx
 import pytest
 
 import dantro.utils.nx as dunx
+from dantro.data_ops import is_operation
+from dantro.exceptions import *
 
 
 @pytest.fixture
@@ -14,6 +16,7 @@ def g():
     g = nx.fast_gnp_random_graph(100, 0.3)
 
     for node, attrs in g.nodes(data=True):
+        attrs["some_node_attr"] = "spam"
         attrs["foo"] = "bar"
         attrs["id_squared"] = node**2
 
@@ -74,6 +77,74 @@ def test_keep_edge_attributes(g):
         assert "as_string" in attrs
 
 
+def test_manipulate_attrs(g, g_with_more_attrs):
+
+    manipulate_attributes = dunx.manipulate_attributes
+    initial_g = copy.deepcopy(g)
+
+    # Keeping attributes
+    manipulate_attributes(g, keep_edge_attrs=True, keep_node_attrs=True)
+    assert g.nodes(data=True) == initial_g.nodes(data=True)
+
+    g_cleared = copy.deepcopy(g_with_more_attrs)
+    manipulate_attributes(
+        g_cleared, keep_edge_attrs=False, keep_node_attrs=False
+    )
+    assert not nx.get_node_attributes(g_cleared, "some_node_attr")
+    assert not nx.get_edge_attributes(g_cleared, "some_edge_attr")
+
+    # Mapping
+    assert not nx.get_node_attributes(g_with_more_attrs, "new_attr")
+    assert not nx.get_edge_attributes(g_with_more_attrs, "new_attr")
+
+    manipulate_attributes(
+        g_with_more_attrs,
+        map_node_attrs=dict(also_foo={"attr_mapper.copy_from_attr": "foo"}),
+        map_edge_attrs=dict(some_attr={"attr_mapper.set_value": "some_val"}),
+    )
+    assert nx.get_node_attributes(g_with_more_attrs, "also_foo")
+    assert nx.get_edge_attributes(g_with_more_attrs, "some_attr")
+    assert all(
+        v == "bar"
+        for v in nx.get_node_attributes(g_with_more_attrs, "also_foo").values()
+    )
+    assert all(
+        v == "some_val"
+        for v in nx.get_edge_attributes(
+            g_with_more_attrs, "some_attr"
+        ).values()
+    )
+
+    # Operation signature
+    @is_operation
+    def my_good_operation(*, attrs: dict):
+        assert attrs
+        assert isinstance(attrs, dict)
+
+    manipulate_attributes(
+        g,
+        map_node_attrs=dict(test="my_good_operation"),
+        map_edge_attrs=dict(test="my_good_operation"),
+    )
+
+    # Errors
+    with pytest.raises(BadOperationName, match="some_bad_operation_name"):
+        manipulate_attributes(
+            g,
+            map_node_attrs=dict(fish="some_bad_operation_name"),
+        )
+
+    @is_operation
+    def my_bad_operation():  # bad signature
+        pass
+
+    with pytest.raises(DataOperationFailed, match="my_bad_operation"):
+        manipulate_attributes(
+            g,
+            map_node_attrs=dict(fish="my_bad_operation"),
+        )
+
+
 def test_export_graph(tmpdir, g, g_with_more_attrs):
     export = dunx.export_graph
 
@@ -90,7 +161,7 @@ def test_export_graph(tmpdir, g, g_with_more_attrs):
     export(
         g_with_more_attrs,
         out_path=out2,
-        keep_node_attrs=("foo", "id_squared"),
+        manipulate_attrs=dict(keep_node_attrs=("foo", "id_squared")),
         graphml=True,
         gml=True,
         adjlist=True,
@@ -106,7 +177,7 @@ def test_export_graph(tmpdir, g, g_with_more_attrs):
         export(
             g_with_more_attrs,
             out_path=out2,
-            keep_node_attrs=True,
+            manipulate_attrs=dict(keep_node_attrs=True),
             graphml=True,
             gml=True,
         )

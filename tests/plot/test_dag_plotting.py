@@ -36,10 +36,12 @@ USE_TMPDIR = True
 
 # If not using a temporary directory, the desired output directory
 TEST_OUTPUT_PATH = os.path.abspath(os.path.expanduser("~/dantro_test_output"))
+# TODO This should rather be a local directory that can be gitignored
 
-# Set up logging, disabling matplotlib logger (much too verbose)
+# Set up logging, and disable some loggers (much too verbose)
 log = logging.getLogger(__name__)
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
+logging.getLogger("dantro.utils.ordereddict").setLevel(logging.DEBUG)
 
 
 # Fixtures --------------------------------------------------------------------

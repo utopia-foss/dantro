@@ -302,15 +302,65 @@ config_based:
 
   # .. Test nx.DiGraph generation and plotting ................................
 
-  # TODO WIP test definition
   gen_nx_graph_minimal:
     plot_cfg:
       <<: *simple_example
 
       dag_visualization:
-        enabled: true  # main switch, defaults to: true
+        when:
+          always: true
+          only_once: true
 
-  gen_nx_graph_extended:
+  gen_nx_graph_disabled:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        enabled: false
+
+  gen_nx_graph_on_success:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        when:
+          on_compute_success: true
+
+  gen_nx_graph_on_compute_error:
+    plot_cfg:
+      <<: *simple_example
+
+      # This will fail on compute
+      transform:
+        - pow: [2, .5, way, too, many_args]
+          tag: y
+        - pass: !dag_prev
+          tag: yerr
+        - xr.Dataset:
+            - y: !dag_tag y
+              yerr: !dag_tag yerr
+          tag: data
+
+      dag_visualization:
+        when:
+          on_compute_error: debug
+
+    _raises: PlotCreatorError
+    _match: Operation 'pow' failed with a TypeError
+
+  gen_nx_graph_only_once:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        when:
+          only_once: true
+          on_compute_error: true
+          on_compute_success: true
+          on_plot_error: true
+          on_plot_success: true
+
+  gen_nx_graph_full_syntax:
     plot_cfg:
       <<: *phres_simple
 
@@ -319,14 +369,20 @@ config_based:
         plot_enabled: true
         export_enabled: true
 
+        raise_exc: ~  # use creator's setting
+
         # Whether to additionally export the graph
         export:
-          map_node_attrs:
-            label:
-              attr_mapper.copy_from_attr: description
+          manipulate_attrs:
+            map_node_attrs:
+              label:
+                attr_mapper.copy_from_attr: description
 
-          keep_node_attrs:
-            - label
+            keep_node_attrs:
+              - label
+
+            map_edge_attrs: {}
+            keep_edge_attrs: False
 
           # Formats
           graphml: {}
@@ -351,12 +407,13 @@ config_based:
           tags_to_include: all
           include_results: false
           lookup_tags: true
-          map_node_attrs:
-            operation: attr_mapper.get_operation
-            layer: attr_mapper.get_layer
-            arguments:
-              operation: attr_mapper.format_arguments
-            some_disabled_attr: ~  # None --> do not set this one
+          manipulate_attrs:
+            map_node_attrs:
+              operation: attr_mapper.get_operation
+              layer: attr_mapper.get_layer
+              arguments:
+                operation: attr_mapper.format_arguments
+              some_disabled_attr: ~  # None --> do not set this one
 
         # Drawing
         drawing:
@@ -370,6 +427,65 @@ config_based:
         figure_kwargs: {}
         save_kwargs: {}
 
+  gen_nx_graph_no_raise_exc:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        raise_exc: false
+        when:
+          always: true
+
+        generation:
+          some_bad_argument: foo
+
+    # will NOT fail but just return and continue
+    # _raises: PlotCreatorError
+    # _match: Failed generating DAG representation
+
+  gen_nx_graph_err_generation_failed:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        when:
+          always: true
+
+        generation:
+          some_bad_argument: foo
+
+    _raises: PlotCreatorError
+    _match: Failed generating DAG representation
+
+  gen_nx_graph_err_export_failed:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        when:
+          always: true
+
+        export:
+          manipulate_attrs:
+            map_node_attrs:
+              foo: some_bad_operation_name
+
+    _raises: PlotCreatorError
+    _match: Failed exporting DAG representation
+
+  gen_nx_graph_err_plotting_failed:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        when:
+          always: true
+
+        drawing:
+          foo: this is a bad argument
+
+    _raises: PlotCreatorError
+    _match: Failed plotting DAG representation
 
 
   # .. PlotHelper tests .......................................................
