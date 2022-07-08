@@ -16,6 +16,12 @@ log = logging.getLogger(__name__)
 ATTR_MAPPER_OP_PREFIX = "attr_mapper"
 """A prefix used for registring attribute mapping data operations"""
 
+ATTR_MAPPER_OP_PREFIX_DAG = f"{ATTR_MAPPER_OP_PREFIX}.dag"
+"""A prefix used for registring attribute mapping data operations that are
+specialized for use in the DAG, e.g. in
+:py:meth:`dantro.dag.TransformationDAG.generate_nx_graph`.
+"""
+
 # -----------------------------------------------------------------------------
 
 
@@ -75,18 +81,6 @@ def map_attributes(
                 existing ``attrs`` dict as a keyword argument. The return value
                 of the operation is used as the new attribute value.
     """
-    # Register some custom data operations
-    _prefix = ATTR_MAPPER_OP_PREFIX
-
-    @_is_operation(f"{_prefix}.copy_from_attr", skip_existing=True)
-    def copy_from_attr(attr_to_copy_from: str, *, attrs: dict):
-        return copy.copy(attrs[attr_to_copy_from])
-
-    @_is_operation(f"{_prefix}.set_value", skip_existing=True)
-    def set_value(value: Any, *, attrs: dict):
-        return value
-
-    # .........................................................................
 
     def parse_op_params(p: Union[str, dict]) -> dict:
         """Parses operation parameters using the usual DAG syntax"""
@@ -117,6 +111,7 @@ def map_attributes(
                 )
 
             except BadOperationName as err:
+                _prefix = ATTR_MAPPER_OP_PREFIX
                 raise BadOperationName(
                     f"Failed mapping {kind}' attributes due to an invalid "
                     f"operation name. Use operations prefixed with {_prefix} "
@@ -189,14 +184,25 @@ def export_graph(
     **export_specs,
 ):
     """Takes care of exporting a networkx graph object using one or many of the
-    ``nx.write_`` methods.
+    ``nx.write_`` methods. See the
+    `networkx documentation <https://networkx.org/documentation/stable/reference/readwrite/>`_
+    for available output formats.
 
-    Allows some pre-processing or node and edge attributes using the
+    This also allows some pre-processing or node and edge attributes using the
     :py:func:`.manipulate_attributes` function.
 
-    See the networkx documentation
-    `here <https://networkx.org/documentation/stable/reference/readwrite/>`_
-    for available output formats.
+    Example:
+
+    .. code-block:: yaml
+
+        manipulate_attrs: {}
+
+        # Export formats
+        dot: true  # needs graphviz
+        graphml:
+          file_ext: gml
+          # ... further kwargs passed to writer
+        gml: false
 
     Args:
         g (networkx.Graph): The graph to export
@@ -210,6 +216,8 @@ def export_graph(
             function names, values are passed on to the write function. There
             are two special keys ``enabled`` and ``file_ext`` that can control
             the behaviour of the respective export operation.
+            Alternatively, values can be a boolean that enables or disables
+            the writer.
     """
     import networkx as nx
 
@@ -253,3 +261,131 @@ def export_graph(
         out_path = f"{os.path.splitext(out_path)[0]}.{file_ext}"
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
         writer(g, out_path, **specs)
+
+
+# -----------------------------------------------------------------------------
+# -- Custom attribute mappers -------------------------------------------------
+# -----------------------------------------------------------------------------
+# These rely on ``attrs["obj"]`` containing the associated node object.
+
+
+@_is_operation(f"{ATTR_MAPPER_OP_PREFIX}.copy_from_attr")
+def copy_from_attr(attr_to_copy_from: str, *, attrs: dict):
+    """:py:func:`Attribute mapper operation <map_attributes>` that copies an
+    attribute by name.
+    """
+    return copy.copy(attrs[attr_to_copy_from])
+
+
+@_is_operation(f"{ATTR_MAPPER_OP_PREFIX}.set_value")
+def set_value(value: Any, *, attrs: dict):
+    """:py:func:`Attribute mapper operation <map_attributes>` that simply sets
+    a value, regardless of other attributes.
+    """
+    return value
+
+
+# .. Specializations for use within the DAG ...................................
+
+
+@_is_operation(f"{ATTR_MAPPER_OP_PREFIX_DAG}.get_operation")
+def get_operation(*, attrs: dict) -> str:
+    """:py:func:`Attribute mapper operation <map_attributes>` that returns the
+    transformation's operation name.
+    See :py:attr:`dantro.dag.Transformation.operation`.
+
+    Used in :ref:`dag_graph_vis`.
+    """
+    obj = attrs["obj"]
+    return getattr(obj, "operation", "")
+
+
+@_is_operation(f"{ATTR_MAPPER_OP_PREFIX_DAG}.format_arguments")
+def format_arguments(*, attrs: dict, join_str: str = "\n") -> str:
+    """:py:func:`Attribute mapper operation <map_attributes>` that formats
+    node arguments in a nice and readable way.
+
+    Used in :ref:`dag_graph_vis`.
+    """
+    obj = attrs["obj"]
+    if not hasattr(obj, "_args") or not hasattr(obj, "_kwargs"):
+        return ""
+
+    _args = join_str.join(f"{v}" for _, v in enumerate(obj._args))
+    _kwargs = join_str.join(f"{k}: {v} " for k, v in obj._kwargs.items())
+    return f"args: {_args}\nkwargs: {_kwargs}"
+    # TODO Improve, e.g. by hiding reference hashes
+
+
+@_is_operation(f"{ATTR_MAPPER_OP_PREFIX_DAG}.get_layer")
+def get_layer(*, attrs: dict) -> int:
+    """:py:func:`Attribute mapper operation <map_attributes>` that returns the
+    transformations layer value.
+    See :py:attr:`dantro.dag.Transformation.layer`.
+
+    Used in :ref:`dag_graph_vis`.
+    """
+    obj = attrs["obj"]
+    return getattr(obj, "layer", 0)
+
+
+@_is_operation(f"{ATTR_MAPPER_OP_PREFIX_DAG}.get_description")
+def get_description(
+    *,
+    attrs: dict,
+    join_str: str = "\n",
+    to_include: list = "all",
+    abbreviate_result: int = 12,
+) -> str:
+    """:py:func:`Attribute mapper operation <map_attributes>` that creates a
+    description string from the transformation.
+
+    Used in :ref:`dag_graph_vis`.
+
+    Args:
+        attrs (dict): Node attributes dict
+        join_str (str, optional): How to join the individual segments together
+        to_include (list, optional): Which segments to include.
+            Can be ``'all'`` or a list of keys referring to individual
+            segments. Available segments:
+
+                - ``operation``
+                - ``tag``
+                - ``result`` (if available)
+
+            Note that the order is also given by the order in this list.
+    """
+    obj = attrs["obj"]
+    tag = attrs.get("tag")
+
+    # Operation
+    op = getattr(obj, "operation", "")
+
+    # Result
+    result_str = ""
+    if attrs.get("has_result"):
+        result = attrs.get("result")
+        result_str = str(result)
+
+        if abbreviate_result:
+            # Use only the first line
+            result_str = result_str.split("\n")[0]
+
+            # If there are more characters, abbreviate to type
+            if len(result_str) > abbreviate_result:
+                result_str = str(type(result).__name__)
+
+    # Assemble, evaluate and join descriptions
+    desc_specs = dict(
+        operation=dict(fstr="{}", content=op),
+        result=dict(fstr="result: {}", content=result_str),
+        tag=dict(fstr="— {} —", content=tag),
+    )
+    if to_include == "all":
+        to_include = list(desc_specs.keys())
+
+    return join_str.join(
+        desc_specs[name]["fstr"].format(desc_specs[name]["content"])
+        for name in to_include
+        if desc_specs[name]["content"]
+    )

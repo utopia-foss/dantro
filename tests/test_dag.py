@@ -36,7 +36,7 @@ from dantro.data_ops import is_operation
 from dantro.exceptions import *
 from dantro.groups import OrderedDataGroup
 from dantro.tools import load_yml, write_yml
-from dantro.utils.nx import ATTR_MAPPER_OP_PREFIX
+from dantro.utils.nx import ATTR_MAPPER_OP_PREFIX_DAG
 
 # Test files
 DAG_SYNTAX_PATH = resource_filename("tests", "cfg/dag_syntax.yml")
@@ -83,8 +83,7 @@ class MockTransformationDAG:
 # Fixtures and Helpers --------------------------------------------------------
 
 
-@pytest.fixture
-def dm_silent() -> FullDataManager:
+def create_dm():
     """A data manager with some basic testing data"""
     _dm = FullDataManager("/some/fixed/path", name="TestDM", out_dir=False)
     # NOTE This attaches to some (imaginary) fixed path, because the hashstr
@@ -166,6 +165,11 @@ def dm_silent() -> FullDataManager:
     )
 
     return _dm
+
+
+@pytest.fixture
+def dm_silent() -> FullDataManager:
+    return create_dm()
 
 
 @pytest.fixture
@@ -1301,8 +1305,8 @@ def test_generate_nx_graph_attr_mapping(dm_silent):
     assert g.nodes()[foo_node]["tag"] == "foo"
 
     # Now again and with some mappers
-    prefix = ATTR_MAPPER_OP_PREFIX
-    assert prefix == "attr_mapper"
+    prefix = ATTR_MAPPER_OP_PREFIX_DAG
+    assert prefix == "attr_mapper.dag"
 
     @is_operation("my_test_operation")
     def my_operation(foo, *, bar, attrs):
@@ -1334,7 +1338,7 @@ def test_generate_nx_graph_attr_mapping(dm_silent):
     assert g.nodes()[fifty_node]["operation"] == "pass"
     assert g.nodes()[fifty_node]["layer"] == 11
     assert "pass" in g.nodes()[fifty_node]["description"]
-    assert "tag: fifty" in g.nodes()[fifty_node]["description"]
+    assert "fifty" in g.nodes()[fifty_node]["description"]
     assert "hash: 6d27ed1726a2…" in g.nodes()[fifty_node]["arguments"]
     assert g.nodes()[fifty_node]["my_attr"] == "foo :: bar"
     with pytest.raises(KeyError):
@@ -1344,7 +1348,7 @@ def test_generate_nx_graph_attr_mapping(dm_silent):
     # and there should be a tag and layer.
     assert g.nodes()[dm.hashstr]["tag"] == "dm"
     assert g.nodes()[dm.hashstr]["layer"] == 0
-    assert "tag: dm" in g.nodes()[dm.hashstr]["description"]
+    assert "dm" in g.nodes()[dm.hashstr]["description"]
     assert g.nodes()[dm.hashstr]["operation"] == ""
     assert g.nodes()[dm.hashstr]["arguments"] == ""
     assert g.nodes()[dm.hashstr]["my_attr"] == "foo :: bar"
@@ -1357,7 +1361,7 @@ def test_generate_nx_graph_attr_mapping(dm_silent):
 
     assert g.nodes()[foo_node]["tag"] is None  # because lookup_tags == False
     assert g.nodes()[foo_path_node]["tag"] == "foo_path"
-    assert "tag: foo_path" in g.nodes()[foo_path_node]["description"]
+    assert "foo_path" in g.nodes()[foo_path_node]["description"]
 
     # Error
     mappers["some_attr"] = "bad_operation"

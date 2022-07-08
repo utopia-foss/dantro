@@ -16,8 +16,8 @@ import sys
 
 sys.path.insert(0, os.path.abspath("../dantro"))
 
-
-# -- Function definitions -----------------------------------------------------
+DOC_DIR = os.path.abspath(os.path.dirname(__file__))
+"""This directory"""
 
 
 def find_version(*file_paths) -> str:
@@ -28,7 +28,7 @@ def find_version(*file_paths) -> str:
 
     def read(*parts):
         """Reads a file from the given path sequence, relative to this file"""
-        here = os.path.abspath(os.path.dirname(__file__))
+        here = DOC_DIR
         with codecs.open(os.path.join(here, *parts), "r") as fp:
             return fp.read()
 
@@ -38,36 +38,6 @@ def find_version(*file_paths) -> str:
     if match:
         return match.group(1)
     raise RuntimeError(f"Unable to find version string in {file_paths}")
-
-
-def run_apidoc(_):
-    """A function to run apidoc, creating the API documentation"""
-    ignore_paths = []
-
-    # Get the required directory paths
-    cur_dir = os.path.abspath(os.path.dirname(__file__))
-    out_dir = os.path.join(cur_dir, "api")
-    module = os.path.join(cur_dir, "..", "dantro")
-
-    argv = [
-        "--force",
-        # "--separate",
-        "--private",
-        "--module-first",
-        "--no-toc",
-        "-o",
-        out_dir,
-        module,
-    ] + ignore_paths
-
-    from sphinx.ext import apidoc
-
-    apidoc.main(argv)
-
-
-def setup(app):
-    """A custom sphinx setup function, invoking run_apidoc"""
-    app.connect("builder-inited", run_apidoc)
 
 
 # -- Project information -----------------------------------------------------
@@ -391,3 +361,99 @@ for line in open(".nitpick-ignore"):
     else:
         reftype, target = line.split(" ", 1)
         nitpick_ignore.append((reftype, target.strip()))
+
+
+# -----------------------------------------------------------------------------
+# -- Functions used in sphinx setup function ----------------------------------
+# -----------------------------------------------------------------------------
+
+
+def run_apidoc(_):
+    """A function to run apidoc, creating the API documentation"""
+    ignore_paths = []
+
+    # Get the required directory paths
+    cur_dir = os.path.abspath(os.path.dirname(__file__))
+    out_dir = os.path.join(cur_dir, "api")
+    module = os.path.join(cur_dir, "..", "dantro")
+
+    argv = [
+        "--force",
+        # "--separate",
+        "--private",
+        "--module-first",
+        "--no-toc",
+        "-o",
+        out_dir,
+        module,
+    ] + ignore_paths
+
+    from sphinx.ext import apidoc
+
+    apidoc.main(argv)
+
+
+# .. Figure generation ........................................................
+
+
+def _str2bool(val: str):
+    """Copy of strtobool from deprecated distutils package"""
+    val = val.lower()
+    if val in ("y", "yes", "t", "true", "on", "1"):
+        return True
+    elif val in ("n", "no", "f", "false", "off", "0"):
+        return False
+    raise ValueError(f"Invalid truth value {repr(val)}!")
+
+
+def generate_figures():
+    """Generates output from scripts in a certain module"""
+
+    from dantro._import_tools import import_module_from_path
+
+    # Check environment variable
+    TOGGLE_ENVVAR = "DANTRO_DOC_GENERATE_FIGURES"
+    print(
+        f"Checking {TOGGLE_ENVVAR} environment variable for "
+        "whether figures should be generated ..."
+    )
+    if not os.environ.get(TOGGLE_ENVVAR) or not _str2bool(
+        os.environ.get(TOGGLE_ENVVAR, "False")
+    ):
+        print(
+            f"Not generating figures. Set the {TOGGLE_ENVVAR} "
+            "environment variable to control this behavior.\n\n"
+        )
+        return
+
+    # Generate paths
+    gen_mod_path = os.path.join(DOC_DIR, "_gen_figures")
+    out_dir = os.path.join(DOC_DIR, "_static", "_gen")
+
+    # Import the generator module
+    gen_mod = import_module_from_path(
+        mod_path=gen_mod_path, mod_str="_gen_figures"
+    )
+    gen_funcs = gen_mod.GENERATOR_FUNCS
+
+    print(f"\nFound {len(gen_funcs)} generator(s) in module...")
+    print("Now invoking them ...\n\n")
+
+    for gen_name, func in gen_funcs.items():
+        print(f"\n\n\n--- Generator:  {gen_name} ... ---")
+        func(out_dir=os.path.join(out_dir, gen_name))
+
+    print("\n\nAll done.")
+
+    # Give some stats
+    num_files = 0
+    for root_dir, cur_dir, files in os.walk(out_dir):
+        num_files += len(files)
+    print(f"Output directory ({out_dir}) contains {num_files} file(s).\n\n")
+
+
+def setup(app):
+    """A custom sphinx setup function, invoking run_apidoc"""
+    generate_figures()
+
+    app.connect("builder-inited", run_apidoc)

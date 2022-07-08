@@ -919,6 +919,8 @@ class BasePlotCreator(AbstractPlotCreator):
         :py:func:`~dantro.utils.nx.export_graph`, which can then be used for
         externally working with the DAG representation.
 
+        Also see :ref:`plot_creator_dag_vis` and :ref:`dag_graph_vis`.
+
         Args:
             scenario (str): The scenario in which the generation is invoked;
                 this is used to describe the context in which this method was

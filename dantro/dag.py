@@ -34,7 +34,6 @@ from .data_ops import (
     apply_operation,
     available_operations,
     get_operation,
-    is_operation,
     register_operation,
 )
 from .exceptions import *
@@ -43,7 +42,7 @@ from .tools import format_time as _format_time
 from .tools import make_columns as _make_columns
 from .tools import recursive_update as _recursive_update
 from .utils import KeyOrderedDict
-from .utils.nx import ATTR_MAPPER_OP_PREFIX
+from .utils.nx import ATTR_MAPPER_OP_PREFIX, ATTR_MAPPER_OP_PREFIX_DAG
 from .utils.nx import manipulate_attributes as _manipulate_attributes
 
 # Local constants .............................................................
@@ -139,6 +138,7 @@ class Transformation:
         "_fallback",
         "_hashstr",
         "_layer",
+        "_metadata",
         "_profile",
         "_fc_opts",
         "_cache",
@@ -260,6 +260,7 @@ class Transformation:
         self._fallback = fallback
         self._hashstr = None
         self._layer = None
+        self._metadata = dict()
         self._profile = dict(
             compute=np.nan,
             cumulative_compute=np.nan,
@@ -447,6 +448,13 @@ class Transformation:
                 self._layer = max(get_layer(dep) for dep in deps) + 1
 
         return self._layer
+
+    @property
+    def metadata(self) -> dict:
+        """The metadata dict that can hold various information, e.g. about the
+        context in which this transformation was created.
+        """
+        return self._metadata
 
     # YAML representation .....................................................
     yaml_tag = "!dag_trf"
@@ -861,12 +869,12 @@ class TransformationDAG:
     """Tags with special meaning"""
 
     NODE_ATTR_DEFAULT_MAPPERS: Dict[str, str] = {
-        "layer": f"{ATTR_MAPPER_OP_PREFIX}.get_layer",
-        "operation": f"{ATTR_MAPPER_OP_PREFIX}.get_operation",
-        "description": f"{ATTR_MAPPER_OP_PREFIX}.get_description",
+        "layer": f"{ATTR_MAPPER_OP_PREFIX_DAG}.get_layer",
+        "operation": f"{ATTR_MAPPER_OP_PREFIX_DAG}.get_operation",
+        "description": f"{ATTR_MAPPER_OP_PREFIX_DAG}.get_description",
     }
     """The default node attribute mappers when
-    :py:meth:`generating a graph object from the DAG <generate_nx_graph>`.
+    :py:meth:`generating a graph object from the DAG <.generate_nx_graph>`.
     These are passed to the ``map_node_attrs`` argument of
     :py:func:`~dantro.utils.nx.manipulate_attributes`.
     """
@@ -1817,6 +1825,8 @@ class TransformationDAG:
         **Edges** represent dependencies and are pointing *towards* the
         dependency.
 
+        See :ref:`dag_graph_vis` for more information.
+
         .. note::
 
             The returned graph data structure is *not* used internally but is
@@ -1824,6 +1834,12 @@ class TransformationDAG:
             data structures.
             Subsequently, changes to the graph *structure* will not have an
             effect on this :py:class:`~dantro.dag.TransformationDAG`.
+
+        .. hint::
+
+            Use :py:meth:`.visualize` to generate a visual output.
+            For processing the DAG representation elsewhere, you can use the
+            :py:func:`~dantro.utils.nx.export_graph` function.
 
         .. warning::
 
@@ -1894,56 +1910,6 @@ class TransformationDAG:
         """
         import networkx as nx
 
-        # .. Define a bunch of custom attribute mappers .......................
-        # These rely on ``attrs["obj"]`` containing the associated node object.
-
-        _prefix = ATTR_MAPPER_OP_PREFIX
-
-        @is_operation(f"{_prefix}.get_operation", skip_existing=True)
-        def get_operation(*, attrs: dict) -> str:
-            """Returns the operation name"""
-            obj = attrs["obj"]
-            if not isinstance(obj, Transformation):
-                return ""
-
-            return obj.operation
-
-        @is_operation(f"{_prefix}.format_arguments", skip_existing=True)
-        def format_arguments(*, attrs: dict) -> str:
-            """Formats node arguments in a nice and readable way"""
-            obj = attrs["obj"]
-            if not isinstance(obj, Transformation):
-                return ""
-
-            _args = "\n".join(f"  {i}:  {v}" for i, v in enumerate(obj._args))
-            _kwargs = "\n".join(f"  {k}:  {v}" for k, v in obj._kwargs.items())
-            return f"args:\n{_args}\n\n" f"kwargs:\n{_kwargs}"
-            # TODO Improve, e.g. by hiding reference hashes
-
-        @is_operation(f"{_prefix}.get_layer", skip_existing=True)
-        def get_layer(*, attrs: dict) -> int:
-            """Returns the transformations layer value"""
-            obj = attrs["obj"]
-            if not isinstance(obj, Transformation):
-                return 0
-            return obj.layer
-
-        @is_operation(f"{_prefix}.get_description", skip_existing=True)
-        def get_description(*, attrs: dict, join_str: str = "\n") -> str:
-            """Creates a description string from the transformation"""
-            obj = attrs["obj"]
-            tag = attrs.get("tag")
-
-            op = ""
-            if isinstance(obj, Transformation):
-                op = obj.operation
-
-            desc_specs = (
-                ("{}", op),
-                ("(tag: {})", tag),
-            )
-            return join_str.join(f.format(s) for f, s in desc_specs if s)
-
         # .....................................................................
 
         def get_node_attrs(
@@ -1981,8 +1947,6 @@ class TransformationDAG:
 
                 # No lookup!
                 return None
-
-            # .................................................................
 
             # Aggregate the node attributes
             node_attrs = dict(
@@ -2097,6 +2061,13 @@ class TransformationDAG:
         """Uses :py:meth:`.generate_nx_graph` to generate a DAG representation
         as a :py:class:`networkx.DiGraph` and then creates a visualization.
 
+        .. warning::
+
+            The plotted graph may contain overlapping edges or nodes, depending
+            on the size and structure of your DAG. This is less pronounced if
+            `pygraphviz <https://pygraphviz.github.io>`_ is installed, which
+            provides more capable layouting algorithms.
+
         Args:
             out_path (str): Where to store the output
             g (networkx.DiGraph, optional): If given, will use this graph
@@ -2109,7 +2080,9 @@ class TransformationDAG:
                 can contain the ``from_attr`` key which will read the attribute
                 specified there and use it for the label.
             use_defaults (dict, optional): Whether to use default drawing
-                arguments which are optimized for a suitable representation.
+                arguments which are optimized for a simple representation.
+                These are recursively updated by the ones given in ``drawing``.
+                Set to false to use the networkx defaults instead.
             layout (dict, optional): Passed to (currently hard-coded) layouting
                 functions.
             figure_kwargs (dict, optional): Passed to

@@ -477,9 +477,16 @@ Let's look at an example that combines all these ways of adding transformations:
 Here, the ``exponent`` as well as some conversion factor tags are defined not ad-hoc but *separately* via the ``define`` interface.
 As can be seen in the example, there are two ways to do this:
 
-    * If providing a ``list`` or ``tuple`` type, it is interpreted as a sequence of transformations, accepting the same syntax as ``transform``.
-      After the final transformation, another node is added that sets the specified tag, ``days_to_seconds_factor`` in this example.
-    * If prodiving *any* other type, it is interpreted directly as a definition, adding a single transformation node that holds the given argument, the integer ``4`` in the case of the ``exponent`` tag.
+* If providing a ``list`` or ``tuple`` type, it is interpreted as a sequence of transformations, accepting the same syntax as ``transform``.
+  After the final transformation, another node is added that sets the specified tag, ``days_to_seconds_factor`` in this example.
+* If prodiving *any* other type, it is interpreted directly as a definition, adding a single transformation node that holds the given argument, the integer ``4`` in the case of the ``exponent`` tag.
+
+In the :ref:`DAG visualization <dag_graph_vis>`, it can be seen that the defined arguments appear as their own nodes in the DAG:
+
+.. image:: ../_static/_gen/dag_vis/doc_examples_define.pdf
+   :target: ../_static/_gen/dag_vis/doc_examples_define.pdf
+   :width: 100%
+   :alt: DAG visualization
 
 .. note::
 
@@ -577,8 +584,8 @@ Effectively, it parses the above to:
 
 .. literalinclude:: ../../tests/cfg/dag.yml
     :language: yaml
-    :start-after: ### Start -- dag_op_hooks_expression_minimal
-    :end-before:  ### End ---- dag_op_hooks_expression_minimal
+    :start-after: ### Start -- dag_op_hooks_expression_expanded_minimal
+    :end-before:  ### End ---- dag_op_hooks_expression_expanded_minimal
     :dedent: 4
 
 If you care to **deactivate a hook**, set the ``ignore_hooks`` flag for the operation:
@@ -596,6 +603,51 @@ If you care to **deactivate a hook**, set the ``ignore_hooks`` flag for the oper
 
     Depending on the operation arguments, there can be cases where the hook will not be *able* to perform its function because it lacks information that is only available after a computation.
     In such cases, it's best to deactivate the hook as described above.
+
+
+
+.. _dag_graph_vis:
+
+Graph representation and visualization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The :py:class:`~dantro.dag.TransformationDAG` has the ability to represent the internally used directed acyclic graph as a :py:class:`networkx.classes.digraph.DiGraph`.
+By calling the :py:meth:`~dantro.dag.TransformationDAG.generate_nx_graph` method, the :py:class:`~dantro.dag.Transformation` objects are added to a graph and the dependencies between these transformations are added as directed edges towards the respective dependency.
+
+This can help to better understand the generated DAG and is useful not only for debugging but also for optimization, as it allows to show the associated profiling information.
+
+Visualization
+"""""""""""""
+Furthermore, the :py:meth:`~dantro.dag.TransformationDAG.visualize` method can generate a visual output of the DAG.
+
+.. image:: ../_static/_gen/dag_vis/doc_examples_define.pdf
+   :target: ../_static/_gen/dag_vis/doc_examples_define.pdf
+   :width: 100%
+   :alt: DAG visualization
+
+In this :ref:`example <dag_define>`, the ``- my_result -`` node is tagged at the bottom and the arrows point towards the transformations that these operations depend on.
+
+.. note::
+
+    Operation arguments cannot easily be shown as it would quickly become too crowded.
+    For that reason, the visualization typically restricts itself to showing the operation name, the result (if computed), and the tag (if set).
+
+    See :py:meth:`~dantro.dag.TransformationDAG.visualize` for more info.
+
+.. hint::
+
+    If using the data transformation framework for :ref:`plot data selection <plot_creator_dag>`, visualization is deeply integrated there; see :ref:`plot_creator_dag_vis`.
+
+.. warning::
+
+    DAG visualization works much better with `pygraphviz <https://pygraphviz.github.io>`_ installed, because this supports more capable layouting algorithms.
+
+    If not available, the resulting graphs may have overlapping edges, which can become difficult to discern.
+
+Export
+""""""
+To post-process the DAG data elsewhere, use the standalone :py:func:`~dantro.utils.nx.export_graph` function.
+
+
 
 
 .. _dag_transform_full_syntax_spec:
@@ -868,19 +920,6 @@ For a larger example that is using keyword arguments, see :ref:`below <dag_meta_
 
 
 
-.. _dag_graph_representation:
-
-Graph representation
-^^^^^^^^^^^^^^^^^^^^
-The :py:class:`~dantro.dag.TransformationDAG` has the ability to represent the internally used directed acyclic graph as a :py:class:`networkx.classes.digraph.DiGraph`.
-By calling the :py:meth:`~dantro.dag.TransformationDAG.generate_nx_graph` method, the :py:class:`~dantro.dag.Transformation` objects are added to a graph and the dependencies between these transformations are added as directed edges towards the respective dependency.
-
-This can help to better understand the generated DAG and is useful not only for debugging but also for optimization, as it allows to show the associated profiling information.
-
-.. todo:: Add example
-
-
-
 
 Examples
 ^^^^^^^^
@@ -893,6 +932,13 @@ The following example performs operations on the arguments and then uses interna
     :start-after: ### Start -- dag_meta_ops_prime_multiples
     :end-before:  ### End ---- dag_meta_ops_prime_multiples
     :dedent: 4
+
+As can be seen in the following plot, the meta-operation is unpacked into individual transformation nodes:
+
+.. image:: ../_static/_gen/dag_vis/doc_examples_meta_ops_prime_multiples.pdf
+   :target: ../_static/_gen/dag_vis/doc_examples_meta_ops_prime_multiples.pdf
+   :width: 100%
+   :alt: DAG visualization
 
 .. _dag_meta_ops_aggregate_return_values:
 
@@ -908,6 +954,13 @@ In this example, a ``dict`` operation is used to return multiple results from a 
 
 Note that by aggregating results into an object, the DAG will not be able to discern whether a branch of the ``compute_stats`` meta-operation is *actually* needed, thus *potentially* computing more results than required.
 In order to avoid computing more nodes than necessary, aggregated return values should be used sparingly; ideally, use them only to return an *intermediate* result.
+
+This packing and unpacking can also be observed in the DAG plot:
+
+.. image:: ../_static/_gen/dag_vis/doc_examples_meta_ops_multiple_return_values.pdf
+   :target: ../_static/_gen/dag_vis/doc_examples_meta_ops_multiple_return_values.pdf
+   :width: 100%
+   :alt: DAG visualization
 
 
 .. _dag_meta_ops_gauss:

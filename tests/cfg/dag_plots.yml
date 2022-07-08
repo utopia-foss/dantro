@@ -376,7 +376,8 @@ config_based:
           manipulate_attrs:
             map_node_attrs:
               label:
-                attr_mapper.copy_from_attr: description
+                operation: attr_mapper.copy_from_attr
+                args: [description]
 
             keep_node_attrs:
               - label
@@ -409,11 +410,13 @@ config_based:
           lookup_tags: true
           manipulate_attrs:
             map_node_attrs:
-              operation: attr_mapper.get_operation
-              layer: attr_mapper.get_layer
+              operation: attr_mapper.dag.get_operation
+              layer: attr_mapper.dag.get_layer
               arguments:
-                operation: attr_mapper.format_arguments
+                operation: attr_mapper.dag.format_arguments
               some_disabled_attr: ~  # None --> do not set this one
+              foo_attr:
+                call_lambda: "lambda *, attrs: attrs.get('foo', '(no foo)')"
 
         # Drawing
         drawing:
@@ -687,3 +690,103 @@ config_based:
               - !dag_result x_coords
               - !dag_result std
       ### End ---- multiplot_subplots
+
+  doc_examples_dag_visualization:
+    plot_cfg:
+      <<: *phres_simple
+
+      ### Start -- dag_visualization_interface
+      # DAG Visualization interface; values given here are default values
+      dag_visualization:
+        enabled: true           # Main toggle
+        plot_enabled: true      # Whether to generate a plot
+        export_enabled: true    # Whether to export the graph
+
+        # Whether to raise an exception if graph generation, plotting or
+        # exporting failed. If None, will use the creator's setting.
+        raise_exc: ~
+
+        # Whether to *additionally* export the graph
+        export:
+          # Manipulate node or edge attributes (for export only)
+          manipulate_attrs:
+            map_node_attrs: {}
+            map_edge_attrs: {}
+            keep_node_attrs: True
+            keep_edge_attrs: True
+
+          # Export formats
+          # ... need to be specified here. Examples:
+          gml: True
+          graphml:  # arguments passed on to writer
+            infer_numeric_types: True
+          # dot: True  # Needs pygraphviz
+
+        # Output arguments
+        output:
+          plot_dir: ~  # None: Output will be aside the just-generated plot
+
+          # A format string that is used to create the actual output path.
+          # The `plot_dir` key is the one evaluated from the above argument.
+          path_fstr: "{plot_dir:}/{name:}_dag_{scenario:}.pdf"
+
+        # When to generate the visualization
+        when:
+          # General toggles
+          always: false       # If true: always generate a DAG plot
+          only_once: false    # If true: only generate one DAG plot
+
+          # Scenarios: After which events to generate a DAG plot
+          # Values can be: false, true, debug.
+          # In case of 'debug', output is only generated if the creator was in
+          # debug mode itself.
+          on_compute_error: debug
+          on_compute_success: false
+          on_plot_error: false
+          on_plot_success: false
+
+        # Generation kwargs
+        generation:
+          tags_to_include: all
+          include_results: false
+          lookup_tags: true
+          manipulate_attrs:
+            map_node_attrs:
+              # Default operations: these are set by default
+              operation: attr_mapper.dag.get_operation
+              layer: attr_mapper.dag.get_layer
+              description: attr_mapper.dag.get_description
+
+              # Other available operations:
+              # arguments: attr_mapper.dag.format_arguments
+              # arguments: attr_mapper.copy_from_attrs
+              # arguments: attr_mapper.set_value
+
+              # ... or any other registered data operation:
+              # my_attr:
+              #   call_lambda: "lambda *, attrs: attrs.get('foo')"
+
+        # Drawing
+        drawing:
+          # Whether to include default values for nodes, edges, and labels.
+          # If true, will recursively update these defaults with the values
+          # given below.
+          # Set to false to use the networkx defaults instead.
+          use_defaults: true
+
+          # Arguments to nx.draw_networkx_nodes
+          nodes: {}
+
+          # Arguments to nx.draw_networkx_edges
+          edges: {}
+
+          # Arguments to nx.draw_networkx_labels
+          labels:
+            # Use the 'description' attribute for labels
+            from_attr: description
+
+        # Additional arguments for layouting, figure generation and saving
+        layout: {}
+        figure_kwargs: {}
+        save_kwargs: {}
+      ### End ---- dag_visualization_interface

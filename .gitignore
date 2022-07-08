@@ -14,6 +14,7 @@ tests/_output
 
 # Ignore documentation build directory and auto-generated API reference
 doc/_build
+doc/_static/_gen
 doc/api
 doc/**/*.log
 

@@ -164,18 +164,25 @@ Given that the interpreter is available, the test for a specific environment can
 
 ### Documentation
 #### Locally building the documentation
-To build `dantro`'s documentation locally via [Sphinx][sphinx], install the required dependencies and invoke the `make doc` command:
+To build `dantro`'s documentation locally via [Sphinx][sphinx], first install the required dependencies and invoke the `make doc` command:
 
 ```bash
+(dantro) $ pip install .[dev]
 (dantro) $ cd doc
-(dantro) $ make doc
+(dantro) $ DANTRO_DOC_GENERATE_FIGURES=True make doc
 ```
 
-You can then view the documentation by opening the `doc/_build/html/index.html` file.
+The `DANTRO_DOC_GENERATE_FIGURES` environment variable controls whether figures will be built.
+This only needs to happen once, the figures are stored in the `doc/_static/_gen` directory.
+
+Optionally, you can invoke `make doctest` and `make linkcheck` to run documentation tests and a check of the validity of all links in the docs.
+
+The documentation can then be viewed by opening the `doc/_build/html/index.html` file.
 
 _Note:_ Sphinx is configured such that warnings will be regarded as errors, making detection of markup mistakes easier.
 You can inspect the error logs gathered in the `doc/build_errors.log` file.
 For Python-related Sphinx referencing errors, see the [`doc/.nitpick-ignore` file](doc/.nitpick-ignore) for exceptions
+
 
 #### GitLab Documentation Environment
 When developing dantro and pushing to the feature branch, the `build:doc` job of the CI pipeline additionally creates a documentation preview.
