@@ -411,6 +411,7 @@ config_based:
           manipulate_attrs:
             map_node_attrs:
               operation: attr_mapper.dag.get_operation
+              meta_operation: attr_mapper.dag.get_meta_operation
               layer: attr_mapper.dag.get_layer
               arguments:
                 operation: attr_mapper.dag.format_arguments

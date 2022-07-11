@@ -63,6 +63,9 @@ minimal:
         - !dag_node -1
       kwargs: {}
       tag: ~
+      context:
+        from_minimal_syntax: true
+        spec: invert
 
 
 minimal_error_bad_type:

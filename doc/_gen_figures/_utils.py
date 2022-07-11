@@ -22,7 +22,7 @@ def import_from_dantro_tests(mod_file_path: str):
     print(f"  modstr:    {modstr}")
     print(f"  base_dir:  {base_dir}\n")
 
-    # Additionally add it to sys.path
+    # Additionally add it to sys.path; needed for pkg_resources to work
     if parent_dir not in sys.path:
         sys.path.insert(0, parent_dir)
 

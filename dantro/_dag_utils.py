@@ -659,11 +659,14 @@ def parse_dag_minimal_syntax(
     like argument to a dict with the string specified as the ``operation`` key.
     """
     if isinstance(params, dict):
+        # Not actually minimal syntax, but a passthrough
         return params
 
     elif isinstance(params, str):
         return dict(
-            operation=params, with_previous_result=with_previous_result
+            operation=params,
+            with_previous_result=with_previous_result,
+            context=dict(from_minimal_syntax=True, spec=params),
         )
 
     # else:
@@ -685,14 +688,19 @@ def parse_dag_syntax(
     ignore_hooks: bool = False,
     allow_failure: Union[bool, str] = None,
     fallback: Any = None,
+    context: dict = None,
     **ops,
 ) -> dict:
     """Given the parameters of a transform operation, possibly in a shorthand
     notation, returns a dict with normalized content by expanding the
-    shorthand notation.
+    shorthand notation. The return value is then suited to initialize a
+    :py:class:`~dantro.dag.Transformation` object.
 
     Keys that will always be available in the resulting dict:
         ``operation``, ``args``, ``kwargs``, ``tag``.
+
+    Optionally available keys:
+        ``salt``, ``file_cache``, ``allow_failure``, ``fallback``, ``context``.
 
     Args:
         operation (str, optional): Which operation to carry out; can only be
@@ -709,15 +717,21 @@ def parse_dag_syntax(
             changing its hash.
         file_cache (dict, optional): File cache parameters
         ignore_hooks (bool, optional): If True, there will be no lookup in the
-            operation hooks.
+            operation hooks. See :ref:`dag_op_hooks` for more info.
         allow_failure (Union[bool, str], optional): Whether this Transformation
-            allows failure during computation.
-        fallback (Any, optional): The fallback value to use in case of failure
+            allows failure during computation. See :ref:`dag_error_handling`.
+        fallback (Any, optional): The fallback value to use in case of failure.
+        context (dict, optional): Context information, which may be a dict
+            containing any form of data and which is carried through to the
+            :py:attr:`~dantro.dag.Transformation.context` attribute.
         **ops: The operation that is to be carried out. May contain one and
-            only one operation.
+            only one operation where the key refers to the name of the
+            operation and the value refers to positional or keyword arguments,
+            depending on type.
 
     Returns:
-        dict: The normalized dict of transform parameters.
+        dict: The normalized dict of transform parameters, suitable for
+            initializing a :py:class:`~dantro.dag.Transformation` object.
 
     Raises:
         ValueError: For invalid notation, e.g. unambiguous specification of
@@ -840,5 +854,8 @@ def parse_dag_syntax(
 
     if fallback is not None:
         d["fallback"] = fallback
+
+    if context is not None:
+        d["context"] = context
 
     return d

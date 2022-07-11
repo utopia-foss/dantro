@@ -10,16 +10,16 @@ It is sometimes also referred to as *DAG framework* or *data selection and trans
 This page is an introduction to the DAG framework and a description of its inner workings.
 To learn more about its practical usage, make sure to look at the :doc:`examples`.
 
+.. contents::
+   :local:
+   :depth: 2
+
 Related pages:
 
 .. toctree::
 
     dag_op_hooks
     examples
-
-.. contents::
-   :local:
-   :depth: 2
 
 ----
 
@@ -934,6 +934,12 @@ As can be seen in the following plot, the meta-operation is unpacked into indivi
    :target: ../_static/_gen/dag_vis/doc_examples_meta_ops_prime_multiples.pdf
    :width: 100%
    :alt: DAG visualization
+
+.. hint::
+
+    The :ref:`DAG visualization <dag_graph_vis>` also shows which operation
+    originated from which meta-operation.
+    Here, all originate from ``prime_multiples``.
 
 .. _dag_meta_ops_aggregate_return_values:
 

@@ -300,6 +300,19 @@ def get_operation(*, attrs: dict) -> str:
     return getattr(obj, "operation", "")
 
 
+@_is_operation(f"{ATTR_MAPPER_OP_PREFIX_DAG}.get_meta_operation")
+def get_meta_operation(*, attrs: dict) -> str:
+    """:py:func:`Attribute mapper operation <map_attributes>` that returns the
+    transformation's meta-operation name, *if* it was added as part of a meta-
+    operation. Otherwise returns an empty string. This information stems from
+    the :py:attr:`dantro.dag.Transformation.context` attribute.
+
+    Used in :ref:`dag_graph_vis`.
+    """
+    obj = attrs["obj"]
+    return getattr(obj, "context", {}).get("meta_operation", "")
+
+
 @_is_operation(f"{ATTR_MAPPER_OP_PREFIX_DAG}.format_arguments")
 def format_arguments(*, attrs: dict, join_str: str = "\n") -> str:
     """:py:func:`Attribute mapper operation <map_attributes>` that formats
@@ -350,6 +363,7 @@ def get_description(
             segments. Available segments:
 
                 - ``operation``
+                - ``meta_operation``
                 - ``tag``
                 - ``result`` (if available)
 
@@ -375,9 +389,13 @@ def get_description(
             if len(result_str) > abbreviate_result:
                 result_str = str(type(result).__name__)
 
+    # Meta-operation this node may have been part of
+    meta_op = getattr(obj, "context", {}).get("meta_operation")
+
     # Assemble, evaluate and join descriptions
     desc_specs = dict(
         operation=dict(fstr="{}", content=op),
+        meta_operation=dict(fstr="meta-op: {}", content=meta_op),
         result=dict(fstr="result: {}", content=result_str),
         tag=dict(fstr="— {} —", content=tag),
     )

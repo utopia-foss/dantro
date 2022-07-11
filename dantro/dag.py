@@ -138,7 +138,7 @@ class Transformation:
         "_fallback",
         "_hashstr",
         "_layer",
-        "_metadata",
+        "_context",
         "_profile",
         "_fc_opts",
         "_cache",
@@ -155,6 +155,7 @@ class Transformation:
         allow_failure: Union[bool, str] = None,
         fallback: Any = None,
         file_cache: dict = None,
+        context: dict = None,
     ):
         """Initialize a Transformation object.
 
@@ -250,6 +251,9 @@ class Transformation:
                             Arguments passed on to the pickle.dump function.
                         further keyword arguments:
                             Passed on to the chosen storage method.
+            context (dict, optional): Some meta-data stored alongside the
+                Transformation, e.g. containing information about the context
+                it was created in. This is not taken into account for the hash.
         """
         self._operation = operation
         self._args = args
@@ -260,7 +264,7 @@ class Transformation:
         self._fallback = fallback
         self._hashstr = None
         self._layer = None
-        self._metadata = dict()
+        self._context = context if context else {}
         self._profile = dict(
             compute=np.nan,
             cumulative_compute=np.nan,
@@ -450,11 +454,10 @@ class Transformation:
         return self._layer
 
     @property
-    def metadata(self) -> dict:
-        """The metadata dict that can hold various information, e.g. about the
-        context in which this transformation was created.
-        """
-        return self._metadata
+    def context(self) -> dict:
+        """Returns a dict that holds information about the context this
+        transformation was created in."""
+        return self._context
 
     # YAML representation .....................................................
     yaml_tag = "!dag_trf"
@@ -491,6 +494,9 @@ class Transformation:
         if node._allow_failure:
             d["allow_failure"] = node._allow_failure
             d["fallback"] = node._fallback
+
+        if node._context:
+            d["context"] = node._context
 
         # Let YAML represent this as a mapping with an additional tag
         return representer.represent_mapping(cls.yaml_tag, d)
@@ -1283,6 +1289,16 @@ class TransformationDAG:
     ) -> None:
         """Registers a new meta-operation, i.e. a transformation sequence with
         placeholders for the required positional and keyword arguments.
+        After registration, these operations are available in the same way as
+        other operations; unlike non-meta-operations, they will lead to
+        multiple nodes being added to the DAG.
+
+        See :ref:`dag_meta_ops` for more information.
+
+        Args:
+            name (str): The name of the meta-operation; can only be used once.
+            select (dict, optional): Select specifications
+            transform (Sequence[dict], optional): Transform specifications
         """
         if name in self._meta_ops or name in available_operations():
             raise BadOperationName(
@@ -1518,7 +1534,8 @@ class TransformationDAG:
             file_cache (dict, optional): File cache options for this node. If
                 defaults were given during initialization, those defaults will
                 be updated with the given dict.
-            **trf_kwargs: Passed on to Transformation.__init__
+            **trf_kwargs: Passed on to
+                :py:meth:`~dantro.dag.Transformation.__init__`
 
         Raises:
             ValueError: If the tag already exists
@@ -1526,7 +1543,7 @@ class TransformationDAG:
         Returns:
             DAGReference: The reference to the created node. In case of the
                 operation being a meta operation, the return value is a
-                reference to the result node of the meta-operation.
+                reference to the *result* node of the meta-operation.
         """
         # May have to delegate node addition ...
         if operation in self._meta_ops:
@@ -2054,6 +2071,7 @@ class TransformationDAG:
         generation: dict = {},
         drawing: dict = {},
         use_defaults=True,
+        scale_figsize: Union[bool, Tuple[float, float]] = (0.25, 0.2),
         layout: dict = {},
         figure_kwargs: dict = {},
         save_kwargs: dict = {},
@@ -2083,6 +2101,19 @@ class TransformationDAG:
                 arguments which are optimized for a simple representation.
                 These are recursively updated by the ones given in ``drawing``.
                 Set to false to use the networkx defaults instead.
+            scale_figsize (Union[bool, Tuple[float, float]], optional): If True
+                or a tuple, will set the figure size according to:
+                ``(width_0 * max_occup. * s_w,  height_0 * max_level * s_h)``
+                where ``s_w`` and ``s_h`` are the scaling factors. The maximum
+                occupation refers to the highest number of nodes on a single
+                layer. This figure size scaling avoids nodes overlapping for
+                larger graphs.
+
+                .. note::
+
+                    The default values here are a heuristic and depend very
+                    much on the size of the node labels and the font size.
+
             layout (dict, optional): Passed to (currently hard-coded) layouting
                 functions.
             figure_kwargs (dict, optional): Passed to
@@ -2094,6 +2125,7 @@ class TransformationDAG:
             networkx.DiGraph: The passed or generated graph object.
         """
         import matplotlib.pyplot as plt
+        import networkx as nx
 
         from .plot.funcs.graph import _draw_graph
 
@@ -2126,8 +2158,11 @@ class TransformationDAG:
 
         # Specify defaults
         if use_defaults:
+            figure_defaults = dict()
             layout_defaults = dict()
             drawing_defaults = dict()
+
+            figure_defaults["figsize"] = (12, 8)
 
             layout_defaults["model"] = "graphviz_dot"
             layout_defaults["args"] = "-y"
@@ -2145,13 +2180,39 @@ class TransformationDAG:
             )
             drawing_defaults["labels"] = dict(
                 from_attr="description",
-                font_size=6,
+                font_size=7,
                 bbox=dict(fc="w", ec="#666", linewidth=0.5, boxstyle="round"),
             )
 
             # Use them as basis ...
+            figure_kwargs = _recursive_update(figure_defaults, figure_kwargs)
             layout = _recursive_update(layout_defaults, layout)
             drawing = _recursive_update(drawing_defaults, drawing)
+
+        if scale_figsize:
+            if isinstance(scale_figsize, bool):
+                scale_figsize = (0.25, 0.2)
+
+            sw, sh = scale_figsize
+
+            figsize = figure_kwargs.pop(
+                "figsize", plt.rcParams["figure.figsize"]
+            )
+
+            # Compute the maximum layer (assuming starting from 0) and the
+            # maximum layer occupation (count of the mode of the layers list)
+            layers = [
+                lyr if lyr else 0
+                for _, lyr in nx.get_node_attributes(g, "layer").items()
+            ]
+            layers.append(1)  # to ensure that there is at least one element
+            max_layer = max(layers)
+            max_occupation = layers.count(max(set(layers), key=layers.count))
+
+            figure_kwargs["figsize"] = (
+                figsize[0] * sw * max_occupation,
+                figsize[1] * sh * max_layer,
+            )
 
         # ... and draw
         try:
@@ -2473,6 +2534,15 @@ class TransformationDAG:
             # tags registered via add_node.
             tag = spec.pop("tag", None)
 
+            # Update the context
+            spec["context"] = _recursive_update(
+                spec.get("context", {}), dict(meta_operation=operation)
+            )
+            spec["context"] = _recursive_update(
+                spec["context"], node_kwargs.pop("context", {})
+            )
+            spec["context"]["meta_op_internal_tag"] = tag
+
             # Can now add the node
             ref = self.add_node(**spec, **node_kwargs)
 
@@ -2500,6 +2570,7 @@ class TransformationDAG:
             file_cache=file_cache,
             allow_failure=allow_failure,
             fallback=fallback,
+            context=dict(meta_operation=operation),
         )
 
         # With all nodes added now, can pop off all the references for the tags

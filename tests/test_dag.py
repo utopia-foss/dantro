@@ -671,6 +671,13 @@ def test_Transformation():
     assert t2.layer == 0
     assert t3.layer == 0
 
+    # Can pass some context, which is NOT part of the hash
+    t0c = Transformation(
+        operation="add", args=[1, 2], kwargs=dict(), context=dict(foo="bar")
+    )
+    assert t0.hashstr == t0c.hashstr
+    assert t0.context != t0c.context
+
 
 def test_Transformation_fallback():
     """Tests the fallback feature of the Transformation class"""
@@ -742,13 +749,19 @@ def test_Transformation_fallback():
         t3.compute()
 
     # YAML serialization includes fallback
-    assert "fallback: 3" in yaml_dumps(t1, register_classes=(Transformation,))
-    assert "allow_failure: true" in yaml_dumps(
-        t1, register_classes=(Transformation,)
+    get_yaml = lambda o: yaml_dumps(o, register_classes=(Transformation,))
+    assert "fallback: 3" in get_yaml(t1)
+    assert "allow_failure: true" in get_yaml(t1)
+    assert "allow_failure: warn" in get_yaml(t3)
+
+    # Context can be passed ot Transformation
+    t4 = Transformation(
+        operation="add",
+        args=[1, 2],
+        kwargs=dict(),
+        context=dict(foobar="my_custom_context"),
     )
-    assert "allow_failure: warn" in yaml_dumps(
-        t3, register_classes=(Transformation,)
-    )
+    assert "foobar: my_custom_context" in get_yaml(t4)
 
 
 def test_Transformation_dependencies(dm):
@@ -1398,6 +1411,8 @@ def test_visualize_DAG(dm_silent, tmpdir):
         out_path=out3,
         generation=dict(include_results=False),
         drawing=dict(nodes=dict(node_color="b")),
+        use_defaults=True,
+        scale_figsize=True,
         figure_kwargs=dict(dpi=72),
         save_kwargs=dict(bbox_inches="tight"),
     )
