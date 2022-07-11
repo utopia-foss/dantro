@@ -430,6 +430,40 @@ config_based:
         figure_kwargs: {}
         save_kwargs: {}
 
+  gen_nx_label_from_operation:
+    plot_cfg:
+      <<: *phres_simple
+
+      ### Start -- dag_gen_nx_label_from_operation
+      dag_visualization:
+        drawing:
+          labels:
+            from_attr: operation
+            # available attributes: tag, description, operation
+      ### End ---- dag_gen_nx_label_from_operation
+
+  gen_nx_label_from_mapped_attr:
+    plot_cfg:
+      <<: *phres_simple
+
+      ### Start -- dag_gen_nx_label_from_mapped_attr
+      dag_visualization:
+        generation:
+          include_results: true
+          manipulate_attrs:
+            map_node_attrs:
+              my_custom_attr:
+                # Invoke *some* function; as an example, use a lambda to copy
+                # over some node attribute data into `my_attr`
+                call_lambda: "lambda *, attrs: attrs.get('result', '(no result)')"
+
+        drawing:
+          labels:
+            # Use the custom attribute as a label
+            from_attr: my_custom_attr
+      ### End ---- dag_gen_nx_label_from_mapped_attr
+
+
   gen_nx_graph_no_raise_exc:
     plot_cfg:
       <<: *simple_example

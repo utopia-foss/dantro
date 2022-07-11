@@ -670,7 +670,20 @@ All parameters for controlling DAG visualization can be passed via the ``dag_vis
 
 Such a plot may look like this:
 
-.. TODO add plot here!
+.. image:: ../_static/_gen/dag_vis/doc_examples_define.pdf
+   :target: ../_static/_gen/dag_vis/doc_examples_define.pdf
+   :width: 100%
+   :alt: DAG visualization
+
+.. image:: ../_static/_gen/dag_vis/doc_examples_op_hooks_expression_symbolic.pdf
+   :target: ../_static/_gen/dag_vis/doc_examples_op_hooks_expression_symbolic.pdf
+   :width: 100%
+   :alt: DAG visualization
+
+.. image:: ../_static/_gen/dag_vis/doc_examples_select_with_transform.pdf
+   :target: ../_static/_gen/dag_vis/doc_examples_select_with_transform.pdf
+   :width: 100%
+   :alt: DAG visualization
 
 
 Controlling when to generate a DAG plot
@@ -692,9 +705,30 @@ For instance, if we'd like to always generate a DAG plot upon a computation, we 
 Changing plot content
 ^^^^^^^^^^^^^^^^^^^^^
 What is shown in the plot depends mostly on the ``label`` attribute of the nodes.
-By default, that content is generated from ...
+By default, that content is generated via the :py:func:`~dantro.utils.nx.get_description` operation function, which takes into account the name of the tag, the operation, and potential results.
 
-.. TODO
+What is shown in the plot is the ``label`` attribute, so in order to show something else there, we need to tell the :py:meth:`~dantro.dag.TransformationDAG.visualize` method to use something else for the label.
+By default, the ``description`` attribute is shown.
+In the following example, we will instead show simply the ``operation`` attribute by setting the ``drawing.labels.from_attr`` entry of the configuration:
+
+.. literalinclude:: ../../tests/cfg/dag_plots.yml
+    :language: yaml
+    :start-after: ### Start -- dag_gen_nx_label_from_operation
+    :end-before:  ### End ---- dag_gen_nx_label_from_operation
+    :dedent: 6
+
+Using the :py:func:`~dantro.utils.nx.manipulate_attributes` function, we can also generate custom attributes.
+In the following example, the name of that attribute is ``my_custom_attr``, which is then also set as the label.
+
+.. literalinclude:: ../../tests/cfg/dag_plots.yml
+    :language: yaml
+    :start-after: ### Start -- dag_gen_nx_label_from_mapped_attr
+    :end-before:  ### End ---- dag_gen_nx_label_from_mapped_attr
+    :dedent: 6
+
+.. note::
+
+    If not setting ``drawing.labels.from_attr`` explicitly, it will always use the ``description`` attribute as the label.
 
 
 Setting plot aesthetics

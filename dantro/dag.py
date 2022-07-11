@@ -2093,7 +2093,26 @@ class TransformationDAG:
         Returns:
             networkx.DiGraph: The passed or generated graph object.
         """
+        import matplotlib.pyplot as plt
+
         from .plot.funcs.graph import _draw_graph
+
+        def setup_figure(
+            constrained_layout=True, **figure_kwargs
+        ) -> "matplotlib.figure.Figure":
+            """Creates a new figure"""
+            return plt.figure(
+                constrained_layout=constrained_layout, **figure_kwargs
+            )
+
+        def save_plot(*, out_path: str, bbox_inches="tight", **save_kwargs):
+            """Saves the matplotlib plot to the given output path"""
+            os.makedirs(os.path.dirname(out_path), exist_ok=True)
+            plt.savefig(
+                out_path,
+                bbox_inches=bbox_inches,
+                **(save_kwargs if save_kwargs else {}),
+            )
 
         # Get the graph object
         if g is None:
@@ -2107,8 +2126,18 @@ class TransformationDAG:
 
         # Specify defaults
         if use_defaults:
+            layout_defaults = dict()
             drawing_defaults = dict()
-            drawing_defaults["nodes"] = dict(alpha=0, node_size=500)
+
+            layout_defaults["model"] = "graphviz_dot"
+            layout_defaults["args"] = "-y"
+            layout_defaults["fallback_model"] = "multipartite"
+            layout_defaults["fallback_kwargs"] = dict(
+                align="horizontal", subset_key="layer", scale=-1
+            )
+            layout_defaults["silent_fallback"] = True
+
+            drawing_defaults["nodes"] = dict(alpha=0, node_size=600)
             drawing_defaults["edges"] = dict(
                 arrows=True,
                 arrowsize=12,
@@ -2119,17 +2148,19 @@ class TransformationDAG:
                 font_size=6,
                 bbox=dict(fc="w", ec="#666", linewidth=0.5, boxstyle="round"),
             )
+
+            # Use them as basis ...
+            layout = _recursive_update(layout_defaults, layout)
             drawing = _recursive_update(drawing_defaults, drawing)
 
         # ... and draw
-        _draw_graph(
-            g,
-            out_path=out_path,
-            drawing=drawing,
-            layout=layout,
-            figure_kwargs=figure_kwargs,
-            save_kwargs=save_kwargs,
-        )
+        try:
+            fig = setup_figure(**figure_kwargs)
+            _draw_graph(g, ax=plt.gca(), layout=layout, drawing=drawing)
+            save_plot(out_path=out_path, **save_kwargs)
+
+        finally:
+            plt.close(fig)
 
         return g
 

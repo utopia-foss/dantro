@@ -2845,3 +2845,29 @@ doc_examples_error_handling_select_tagged_fallback:
     results:
       my_result:
         type: float64
+
+
+doc_examples_gen_nx_custom_description:
+  params:
+    ### Start -- dag_gen_nx_custom_description
+    define:
+      exponent: 4               # directly define some object
+      days_to_seconds_factor:   # use a sequence of TransformationsDAG
+        - expression: "60 * 60 * 24"
+        - float
+    select:
+      some_data: path/to/some_data
+      more_data: path/to/more_data
+    transform:
+      - add: [!dag_tag some_data, !dag_tag more_data]
+      - mul: [!dag_prev , !dag_tag days_to_seconds_factor]
+      - print
+      - pow: [!dag_prev , !dag_tag exponent]
+        tag: my_result
+    ### End ---- dag_gen_nx_custom_description
+
+  expected:
+    tags: [dag, dm, select_base, some_data, more_data, my_result, exponent, days_to_seconds_factor]
+    results:
+      my_result:
+        type: NumpyDataContainer

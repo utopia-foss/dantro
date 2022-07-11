@@ -5,19 +5,115 @@
     Should really integrate utopya ``GraphPlot`` here!
 """
 
+import logging
 import os
+from typing import Callable, Union
+
+log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
+
+
+def _get_positions(
+    g: "networkx.Graph",
+    *,
+    model: Union[str, Callable],
+    fallback_model: str = None,
+    fallback_kwargs: dict = None,
+    silent_fallback: bool = False,
+    **kwargs,
+) -> dict:
+    """Returns the positions dict for the given graph, created from a networkx
+    layouting algorithm.
+
+    Args:
+        g (networkx.Graph): The graph object for which to create the layout
+        model (Union[str, Callable]): Name of the layouting model. If starting
+            with ``graphviz_<prog>``, will invoke
+            :py:func:`networkx.drawing.nx_agraph.graphviz_layout` with the
+            given value for ``prog``. Note that these only take a single
+            keyword argument, ``args``.
+            If it is a string, it's looked up from the networkx namespace.
+            If it is a callable, it is invoked with ``g`` as only positional
+            argument and ``**kwargs`` as keyword arguments.
+        fallback_model (str, optional): If given, and ``model`` fails for *any*
+            reason, will use this fallback model instead.
+        fallback_kwargs (dict, optional): Keyword arguments for the fallback
+            model invocation.
+        silent_fallback (bool, optional): If True, will not log warnings in
+            case there was need to switch to the fallback.
+        **kwargs: Passed on to layouting algorithm.
+    """
+
+    import networkx as nx
+
+    _suffix = "_layout"
+    POSITIONING_MODELS_NETWORKX = {
+        l[: -len(_suffix)]: getattr(nx, l)
+        for l in dir(nx)
+        if l.endswith(_suffix)
+    }
+
+    def invoke_model(model, **kwargs) -> dict:
+        if callable(model):
+            log.remark("Invoking callable for node layouting ...")
+            return model(g, **kwargs)
+
+        elif model.startswith("graphviz_"):
+            log.remark("Invoking %s model for node layouting ...", model)
+            try:
+                model = model[len("graphviz_") :]
+                return nx.drawing.nx_agraph.graphviz_layout(
+                    g, prog=model, **kwargs
+                )
+
+            except ImportError as err:
+                raise ImportError(
+                    "Could not apply graphviz layout, probably because "
+                    "pygraphviz is not installed!"
+                ) from err
+
+        else:
+            try:
+                log.remark("Invoking %s model for node layouting ...", model)
+                return POSITIONING_MODELS_NETWORKX[model](g, **kwargs)
+
+            except KeyError as err:
+                _avail = ", ".join(POSITIONING_MODELS_NETWORKX)
+                raise ValueError(
+                    f"No layouting model '{model}' available in networkx! "
+                    f"Available models: {_avail}"
+                ) from err
+
+    # .........................................................................
+
+    if not fallback_model:
+        return invoke_model(model, **kwargs)
+
+    # Fallback available
+    try:
+        return invoke_model(model, **kwargs)
+
+    except Exception as exc:
+        if not silent_fallback:
+            log.caution(
+                "Node layouting failed with a %s: %s", type(exc).__name__, exc
+            )
+            log.remark("Invoking fallback model ...")
+        else:
+            log.remark("Node layouting failed; invoking fallback model ...")
+
+    return invoke_model(
+        fallback_model, **(fallback_kwargs if fallback_kwargs else {})
+    )
 
 
 def _draw_graph(
     g: "networkx.Graph",
     *,
-    out_path: str,
+    ax: "matplotlib.axes.Axes" = None,
     drawing: dict = {},
     layout: dict = {},
-    figure_kwargs: dict = {},
-    save_kwargs: dict = {},
 ):
     """Draws a graph using
     :py:func:`networkx.drawing.nx_pylab.draw_networkx_nodes`,
@@ -35,76 +131,31 @@ def _draw_graph(
             ``nodes``, ``edges`` and ``labels`` keys. The ``labels`` key
             can contain the ``from_attr`` key which will read the attribute
             specified there and use it for the label.
-        layout (dict, optional): Passed to (currently hard-coded) layouting
-            functions.
-        figure_kwargs (dict, optional): Passed to
-            :py:func:`matplotlib.pyplot.figure` for setting up the figure
-        save_kwargs (dict, optional): Passed to
-            :py:func:`matplotlib.pyplot.savefig` for saving the figure
+        layout (dict, optional): Used to generate node positions via the
+            :py:func:`~dantro.plot.funcs.graph._get_positions` function.
     """
     import matplotlib.pyplot as plt
     import networkx as nx
 
-    def get_positions(g, model=None, **layout) -> dict:
-        """Performs layouting on the given graph"""
-        if model:
-            raise NotImplementedError("Cannot change the layouting model yet!")
-
-        try:
-            return nx.nx_agraph.graphviz_layout(
-                g, prog="dot", args="-y", **layout
-            )
-
-        except ImportError:
-            pass
-
-        return nx.multipartite_layout(
-            g, align="horizontal", subset_key="layer", scale=-1, **layout
-        )
-
-    def draw_graph(
-        g: "networkx.Graph",
-        *,
-        ax,
-        pos,
-        nodes: dict = {},
-        edges: dict = {},
-        labels: dict = {},
+    def draw(
+        g, *, ax, pos, nodes: dict = {}, edges: dict = {}, labels: dict = {}
     ):
-        """Draws the graph onto the given matplotlib axes"""
         # Parse some attributes
         if "from_attr" in labels:
             labels["labels"] = nx.get_node_attributes(
                 g, labels.pop("from_attr")
             )
 
-        # Draw
+        # Now draw
         nx.draw_networkx_nodes(g, pos=pos, ax=ax, **nodes)
         nx.draw_networkx_edges(g, pos=pos, ax=ax, **edges)
         nx.draw_networkx_labels(g, pos=pos, ax=ax, **labels)
 
-        # Post-process
-        ax.axis("off")
+    ax = ax if ax is not None else plt.gca()
+    pos = _get_positions(g, **layout)
 
-    def save_plot(*, out_path: str, bbox_inches="tight", **save_kwargs):
-        """Saves the matplotlib plot to the given output path"""
-        os.makedirs(os.path.dirname(out_path), exist_ok=True)
-        plt.savefig(
-            out_path,
-            bbox_inches=bbox_inches,
-            **(save_kwargs if save_kwargs else {}),
-        )
+    # Draw
+    draw(g, ax=ax, pos=pos, **drawing)
 
-    # .....................................................................
-
-    # Create figure
-    fig = plt.figure(constrained_layout=True, **figure_kwargs)
-
-    # Now layout, draw, and save the DAG visualization
-    try:
-        pos = get_positions(g, **layout)
-        draw_graph(g, ax=plt.gca(), pos=pos, **drawing)
-        save_plot(out_path=out_path, **save_kwargs)
-
-    finally:
-        plt.close(fig)
+    # Post-process
+    ax.axis("off")

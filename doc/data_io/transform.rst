@@ -481,13 +481,6 @@ As can be seen in the example, there are two ways to do this:
   After the final transformation, another node is added that sets the specified tag, ``days_to_seconds_factor`` in this example.
 * If prodiving *any* other type, it is interpreted directly as a definition, adding a single transformation node that holds the given argument, the integer ``4`` in the case of the ``exponent`` tag.
 
-In the :ref:`DAG visualization <dag_graph_vis>`, it can be seen that the defined arguments appear as their own nodes in the DAG:
-
-.. image:: ../_static/_gen/dag_vis/doc_examples_define.pdf
-   :target: ../_static/_gen/dag_vis/doc_examples_define.pdf
-   :width: 100%
-   :alt: DAG visualization
-
 .. note::
 
     The ``define`` argument is evaluated *before* the other two.
@@ -617,7 +610,7 @@ This can help to better understand the generated DAG and is useful not only for 
 
 Visualization
 """""""""""""
-Furthermore, the :py:meth:`~dantro.dag.TransformationDAG.visualize` method can generate a visual output of the DAG.
+Furthermore, the :py:meth:`~dantro.dag.TransformationDAG.visualize` method can generate a visual output of the DAG:
 
 .. image:: ../_static/_gen/dag_vis/doc_examples_define.pdf
    :target: ../_static/_gen/dag_vis/doc_examples_define.pdf
@@ -625,6 +618,8 @@ Furthermore, the :py:meth:`~dantro.dag.TransformationDAG.visualize` method can g
    :alt: DAG visualization
 
 In this :ref:`example <dag_define>`, the ``- my_result -`` node is tagged at the bottom and the arrows point towards the transformations that these operations depend on.
+Effectively, calculation starts at the top, with data being read from the ``dm`` node, the associated :py:class:`~dantro.data_mngr.DataManager`.
+It can also be seen that the ``define`` nodes from the example are represented by individual nodes.
 
 .. note::
 
