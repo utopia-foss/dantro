@@ -397,11 +397,12 @@ config_based:
 
         # When to generate the visualization (can be: false, true, debug)
         when:
-          on_compute_error: debug
-          on_compute_success: debug
-          on_plot_error: false
-          only_once: true
           always: false
+          only_once: true
+          on_compute_error: debug
+          on_compute_success: false
+          on_plot_error: false
+          on_plot_success: false
 
         # Generation kwargs
         generation:
@@ -419,16 +420,32 @@ config_based:
               foo_attr:
                 call_lambda: "lambda *, attrs: attrs.get('foo', '(no foo)')"
 
-        # Drawing
+        # Whether to base visualization on optimized default values or not.
+        # For illustration, the defaults are used below; they do NOT have to be
+        # set explicitly as done here!
+        use_defaults: true
+
+        # Drawing, using networkx.draw_networkx_<...>
         drawing:
           nodes: {}
           edges: {}
+
           labels:
+            # Which attribute to use as node label
             from_attr: description
 
-        # Additional arguments
+        # Layouting algorithm (and fallback)
         layout: {}
+
+        # Figure creation via matplotlib.pyplot.figure
         figure_kwargs: {}
+
+        # Scale figure size with "width" and "height" of the resulting graph
+        # to avoid node overlapping; using these scaling factors.
+        # Set to False to disable.
+        scale_figsize: true
+
+        # Saving via matplotlib.pyplot.savefig
         save_kwargs: {}
 
   gen_nx_label_from_operation:
@@ -463,7 +480,6 @@ config_based:
             # Use the custom attribute as a label
             from_attr: my_custom_attr
       ### End ---- dag_gen_nx_label_from_mapped_attr
-
 
   gen_nx_graph_no_raise_exc:
     plot_cfg:
@@ -751,11 +767,13 @@ config_based:
             keep_edge_attrs: True
 
           # Export formats
-          # ... need to be specified here. Examples:
+          # ... need to be specified here.
+          # Examples:
           gml: True
           graphml:  # arguments passed on to writer
             infer_numeric_types: True
           # dot: True  # Needs pygraphviz
+          # ... more formats here ...
 
         # Output arguments
         output:
@@ -793,35 +811,63 @@ config_based:
               description: attr_mapper.dag.get_description
 
               # Other available operations:
+              # meta_operation: attr_mapper.dag.get_meta_operation
               # arguments: attr_mapper.dag.format_arguments
-              # arguments: attr_mapper.copy_from_attrs
-              # arguments: attr_mapper.set_value
+              # some_attr: attr_mapper.copy_from_attrs
+              # another_attr: attr_mapper.set_value
 
               # ... or any other registered data operation:
               # my_attr:
               #   call_lambda: "lambda *, attrs: attrs.get('foo')"
 
-        # Drawing
+        # Whether to base layouting and visualization on optimized default
+        # values or not. For illustration, the actual default values are used
+        # below; they do NOT have to be set explicitly as done here!
+        use_defaults: true
+
+        # Layouting algorithm (and fallback)
+        layout:
+          model: graphviz_dot  # requires graphviz and pygraphviz
+          args: "-y"
+          fallback_model: multipartite
+          fallback_kwargs:
+            align: horizontal
+            subset_key: layer
+            scale: -1
+          silent_fallback: true
+
+        # Drawing, using networkx.draw_networkx_<...>
         drawing:
-          # Whether to include default values for nodes, edges, and labels.
-          # If true, will recursively update these defaults with the values
-          # given below.
-          # Set to false to use the networkx defaults instead.
-          use_defaults: true
+          nodes:
+            alpha: 0.
+            node_size: &node_size 600
+          edges:
+            arrows: true
+            arrowsize: 12
+            node_size: *node_size
 
-          # Arguments to nx.draw_networkx_nodes
-          nodes: {}
-
-          # Arguments to nx.draw_networkx_edges
-          edges: {}
-
-          # Arguments to nx.draw_networkx_labels
           labels:
-            # Use the 'description' attribute for labels
+            # Which attribute to use as node label
             from_attr: description
 
-        # Additional arguments for layouting, figure generation and saving
-        layout: {}
-        figure_kwargs: {}
-        save_kwargs: {}
+            # Aesthetics; see matplotlib.patches.FancyBboxPatch
+            font_size: 7
+            bbox:
+              fc: w
+              ec: "#666"
+              linewidth: 0.5
+              boxstyle: round
+
+        # Figure creation via matplotlib.pyplot.figure
+        figure_kwargs:
+          figsize: [9, 6]
+
+        # Scale figure size with "width" and "height" of the resulting graph
+        # to avoid node overlapping; using these scaling factors.
+        # Set to False to disable.
+        scale_figsize: [0.25, 0.20]
+
+        # Saving via matplotlib.pyplot.savefig
+        save_kwargs:
+          bbox_inches: tight
       ### End ---- dag_visualization_interface

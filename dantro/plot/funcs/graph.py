@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 def _get_positions(
     g: "networkx.Graph",
     *,
-    model: Union[str, Callable],
+    model: Union[str, Callable] = "spring",
     fallback_model: str = None,
     fallback_kwargs: dict = None,
     silent_fallback: bool = False,
@@ -28,8 +28,8 @@ def _get_positions(
 
     Args:
         g (networkx.Graph): The graph object for which to create the layout
-        model (Union[str, Callable]): Name of the layouting model. If starting
-            with ``graphviz_<prog>``, will invoke
+        model (Union[str, Callable], optional): Name of the layouting model.
+            If starting with ``graphviz_<prog>``, will invoke
             :py:func:`networkx.drawing.nx_agraph.graphviz_layout` with the
             given value for ``prog``. Note that these only take a single
             keyword argument, ``args``.

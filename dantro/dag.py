@@ -2161,7 +2161,7 @@ class TransformationDAG:
             layout_defaults = dict()
             drawing_defaults = dict()
 
-            figure_defaults["figsize"] = (12, 8)
+            figure_defaults["figsize"] = (9, 6)
 
             layout_defaults["model"] = "graphviz_dot"
             layout_defaults["args"] = "-y"
