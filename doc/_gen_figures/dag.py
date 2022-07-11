@@ -5,7 +5,7 @@ import os
 from dantro.dag import TransformationDAG
 from dantro.tools import load_yml
 
-from . import import_from_dantro_tests
+from ._utils import import_from_dantro_tests
 
 
 def visualize_dag_examples(*, out_dir: str):
