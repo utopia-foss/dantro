@@ -1043,7 +1043,7 @@ class BasePlotCreator(AbstractPlotCreator):
                         "plot creator sets the _out_path attribute before "
                         "DAG visualization is invoked."
                     )
-                plot_dir = self._out_path
+                plot_dir = os.path.dirname(self._out_path)
 
             p = path_fstr.format(
                 plot_dir=plot_dir,
@@ -1083,8 +1083,10 @@ class BasePlotCreator(AbstractPlotCreator):
 
         # Decide whether to plot
         if not should_plot(scenario, enabled=enabled, **when):
-            log.debug("Not plotting DAG visualization.")
+            log.debug("Not creating DAG visualization.")
             return
+
+        log.note("Creating DAG visualization (scenario: '%s') ...", scenario)
 
         # Create the graph object.
         # Can only return if this fails but is not configured to raise.
@@ -1109,6 +1111,15 @@ class BasePlotCreator(AbstractPlotCreator):
         if plot_enabled:
             with exception_handling("plotting DAG representation"):
                 self._dag.visualize(g=g, out_path=out_path, **plot_kwargs)
+
+                if "error" in scenario:
+                    log.caution(
+                        "Created DAG visualization for scenario '%s'. "
+                        "For debugging, inspecting the generated plot and the "
+                        "traceback information may be helpful:\n  %s",
+                        scenario,
+                        out_path,
+                    )
 
         # All done
         self._dag_vis_done_for.append(scenario)

@@ -2020,10 +2020,9 @@ class TransformationDAG:
         g = nx.DiGraph()
 
         log.note(
-            "Generating graph for %d tag%s on DAG with %d nodes ...",
+            "Generating DAG representation for %d tag%s ...",
             len(tags_to_include),
             "s" if len(tags_to_include) != 1 else "",
-            len(self.nodes),
         )
 
         if not len(self.nodes):
@@ -2056,11 +2055,11 @@ class TransformationDAG:
         _manipulate_attributes(g, **manipulate_attrs)
 
         # Done.
-        log.note("Constructed directed graph of transformations.")
-        log.remark("  Nodes:   %d", g.number_of_nodes())
-        log.remark("  Edges:   %d", g.number_of_edges())
-        # TODO Add more stats here
-
+        log.remark(
+            "Generated DAG representation with %d nodes and %d edges.",
+            g.number_of_nodes(),
+            g.number_of_edges(),
+        )
         return g
 
     def visualize(

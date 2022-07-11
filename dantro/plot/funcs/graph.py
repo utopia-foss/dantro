@@ -56,11 +56,11 @@ def _get_positions(
 
     def invoke_model(model, **kwargs) -> dict:
         if callable(model):
-            log.remark("Invoking callable for node layouting ...")
+            log.debug("Invoking callable for node layouting ...")
             return model(g, **kwargs)
 
         elif model.startswith("graphviz_"):
-            log.remark("Invoking %s model for node layouting ...", model)
+            log.debug("Invoking %s model for node layouting ...", model)
             try:
                 model = model[len("graphviz_") :]
                 return nx.drawing.nx_agraph.graphviz_layout(
@@ -75,7 +75,7 @@ def _get_positions(
 
         else:
             try:
-                log.remark("Invoking %s model for node layouting ...", model)
+                log.debug("Invoking %s model for node layouting ...", model)
                 return POSITIONING_MODELS_NETWORKX[model](g, **kwargs)
 
             except KeyError as err:
@@ -97,11 +97,19 @@ def _get_positions(
     except Exception as exc:
         if not silent_fallback:
             log.caution(
-                "Node layouting failed with a %s: %s", type(exc).__name__, exc
+                "Node layouting with '%s' model failed with a %s: %s",
+                model,
+                type(exc).__name__,
+                exc,
             )
-            log.remark("Invoking fallback model ...")
+            log.remark("Invoking fallback model '%s' ...", fallback_model)
         else:
-            log.remark("Node layouting failed; invoking fallback model ...")
+            log.remark(
+                "Node layouting with '%s' model failed; "
+                "invoking fallback model '%s' ...",
+                model,
+                fallback_model,
+            )
 
     return invoke_model(
         fallback_model, **(fallback_kwargs if fallback_kwargs else {})
