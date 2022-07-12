@@ -12,7 +12,7 @@ an automated sequence of predefined, configurable operations.
 See :ref:`the user manual <welcome>` for more information.
 """
 
-__version__ = "0.18.0a12"
+__version__ = "0.18.0a13"
 """Package version"""
 
 from .logging import getLogger
