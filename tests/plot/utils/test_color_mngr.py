@@ -90,7 +90,12 @@ def test_ColorManager(tmpdir_or_local_dir):
             np.arange(10), np.arange(10), c=np.arange(10), cmap=cmap, norm=norm
         )
 
-        cb = colormanager.create_cbar(scatter, **cbar_kwargs)
+        cb = colormanager.create_cbar(
+            scatter,
+            label="my_label",
+            tick_params=dict(size=7),
+            **cbar_kwargs,
+        )
 
         assert isinstance(cb, mpl.colorbar.Colorbar)
         assert cb.norm == norm
@@ -122,3 +127,40 @@ def test_ColorManager(tmpdir_or_local_dir):
         norm=mpl.colors.BoundaryNorm([-2, 1, 2], ncolors=2),
     )
     assert colormanager.cmap(0) == mpl.colors.to_rgba("r")
+
+
+def test_ColorManager_yaml():
+    """Tests ColorManager yaml representation"""
+    import matplotlib as mpl
+
+    from dantro._yaml import yaml, yaml_dumps
+    from dantro.plot.utils.color_mngr import NORMS
+
+    read_yaml = lambda s: yaml.load(s)
+    dump_yaml = lambda s: yaml_dumps(s, yaml_obj=yaml)
+    roundtrip = lambda o: read_yaml(dump_yaml(o))
+    rev_roundtrip = lambda s: dump_yaml(read_yaml(s))
+
+    # Simple case
+    cmap = read_yaml("!cmap viridis")
+    assert isinstance(cmap, mpl.colors.Colormap)
+    assert "!cmap viridis" in dump_yaml(cmap)
+
+    # Representation works for all registered types
+    rev_roundtrip("!cmap_norm NoNorm")
+    rev_roundtrip("!cmap_norm Normalize")
+    rev_roundtrip("!cmap_norm CenteredNorm")
+    rev_roundtrip("!cmap_norm LogNorm")
+
+    rev_roundtrip("!cmap_norm {name: Normalize}")
+    rev_roundtrip(
+        "!cmap_norm {name: BoundaryNorm, boundaries: [0, 1], ncolors: 123}"
+    )
+    rev_roundtrip("!cmap_norm {name: CenteredNorm}")
+    rev_roundtrip("!cmap_norm {name: LogNorm}")
+    rev_roundtrip("!cmap_norm {name: PowerNorm, gamma: 2}")
+    rev_roundtrip("!cmap_norm {name: SymLogNorm, linthresh: 1.e-3}")
+    rev_roundtrip("!cmap_norm {name: TwoSlopeNorm, vcenter: -123}")
+
+    # Not testable via YAML and also (probably) not representable
+    # rev_roundtrip("!cmap_norm {name: FuncNorm, functions: …}")

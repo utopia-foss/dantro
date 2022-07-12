@@ -6,13 +6,11 @@ import logging
 from typing import Union
 
 import matplotlib as mpl
-import matplotlib.colorbar
 import matplotlib.colors
 import numpy as np
+from matplotlib.colors import to_rgb
 
 log = logging.getLogger(__name__)
-
-to_rgb = mpl.colors.to_rgb
 
 # -----------------------------------------------------------------------------
 
@@ -40,6 +38,9 @@ class ColorManager:
     :py:mod:`matplotlib.colors` module and aims to simplify working with
     colormaps, colorbars, and different normalizations.
     """
+
+    _NORMS_NOT_SUPPORTING_VMIN_VMAX = ("BoundaryNorm", "CenteredNorm")
+    """Names of norms that do not support getting passed ``vmin`` & ``vmax``"""
 
     def __init__(
         self,
@@ -84,6 +85,17 @@ class ColorManager:
             :language: yaml
             :start-after: ### START -- continuous_with_boundaries
             :end-before:  ### END ---- continuous_with_boundaries
+            :dedent: 2
+
+        Furthermore, YAML *tags* can be used to generate colormaps or norms in
+        places where the color manager is not integrated but a corresponding
+        :py:class:`matplotlib.colors.Colormap` object or norm object is
+        accepted / required:
+
+        .. literalinclude:: ../../tests/cfg/color_manager_cfg.yml
+            :language: yaml
+            :start-after: ### START -- yaml_constructors
+            :end-before:  ### END ---- yaml_constructors
             :dedent: 2
 
         Args:
@@ -225,7 +237,10 @@ class ColorManager:
                 )
 
         # BoundaryNorm has no vmin/vmax argument
-        if not norm_kwargs.get("name", None) == "BoundaryNorm":
+        if (
+            norm_kwargs.get("name", None)
+            not in self._NORMS_NOT_SUPPORTING_VMIN_VMAX
+        ):
             norm_kwargs["vmin"] = vmin
             norm_kwargs["vmax"] = vmax
 
@@ -283,7 +298,7 @@ class ColorManager:
         label_kwargs: dict = None,
         tick_params: dict = None,
         **cbar_kwargs,
-    ) -> mpl.colorbar.Colorbar:
+    ) -> "matplotlib.colorbar.Colorbar":
         """Creates a colorbar of a given mappable
 
         Args:
@@ -299,7 +314,7 @@ class ColorManager:
                 :py:meth:`matplotlib.colorbar.Colorbar.set_label`
             tick_params (dict, optional): Set colorbar tick parameters via the
                 :py:meth:`matplotlib.axes.Axes.tick_params` method of the
-                :py:class:`matplotlib.colors.Colorbar` axes.
+                :py:class:`matplotlib.colorbar.Colorbar` axes.
             **cbar_kwargs: Passed on to
                 :py:meth:`matplotlib.figure.Figure.colorbar`
 

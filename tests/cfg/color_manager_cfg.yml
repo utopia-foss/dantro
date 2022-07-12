@@ -140,6 +140,27 @@ continuous_with_boundaries:
     boundaries: [0, 0.2, 0.7, 1]
   ### END ---- continuous_with_boundaries
 
+# -- YAML constructor ---------------------------------------------------------
+
+from_yaml_scalars:
+  cmap: !cmap viridis
+  norm: !cmap_norm NoNorm
+
+from_yaml_mappings:
+  ### START -- yaml_constructors
+  cmap: !cmap         # will create a matplotlib.colors.Colormap object
+    continuous: true
+    from_values:
+      0: "#EC7070"
+      0.5: "#EC9F7E"
+      1: black
+    bad: white
+  norm: !cmap_norm    # will create a matplotlib.colors.BoundaryNorm object
+    name: BoundaryNorm
+    ncolors: 256
+    boundaries: [0, 0.2, 0.7, 1]
+  ### END ---- yaml_constructors
+
 # -- Failing configurations ---------------------------------------------------
 invalid_norm:
   norm: norrrm
