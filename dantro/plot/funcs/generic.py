@@ -490,7 +490,7 @@ class make_facet_grid_plot:
             }
 
             # Now invoke the single-axis plotting function
-            plot_single_axis(*args, hlpr=hlpr, **kwargs)
+            return plot_single_axis(*args, hlpr=hlpr, **kwargs)
 
         # Get the mapping function
         map_to_facet_grid = self.map_func
@@ -1101,9 +1101,9 @@ def facet_grid(
             fig = rv.fig
             axes = rv.axes
         else:
-            # Best guess: there's only one axis and figure, use those
-            fig = plt.gcf()
-            axes = plt.gca()
+            # Use figure already attached to helper if exists, or let mpl decide
+            fig = plt.gcf() if hlpr._fig is None else hlpr.fig
+            axes = plt.gca() if hlpr._axes is None else hlpr.axes
 
         # When now attaching the new figure and axes, the previously existing
         # figure (the one .clear()-ed above) is closed and discarded.
