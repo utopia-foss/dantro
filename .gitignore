@@ -9,6 +9,9 @@ report.xml
 # Ignore packaging-related files and directories
 dantro.egg-info
 
+# Ignore test artifacts
+tests/_output
+
 # Ignore documentation build directory and auto-generated API reference
 doc/_build
 doc/api
