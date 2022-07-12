@@ -115,6 +115,10 @@ class ColorManager:
                     :py:class:`matplotlib.colors.LinearSegmentedColormap`.
                     In such a case, keys in ``from_values`` can only be scalar,
                     bin *intervals* cannot be specified.
+                continuous (bool, optional): If True, will interpret the
+                    ``from_values`` data as specifying points between which a
+                    linear interpolation is carried out. Will create a
+                    :py:class:`matplotlib.colors.LinearSegmentedColormap`.
                 under (Union[str, dict], optional): Passed on to
                     :py:meth:`matplotlib.colors.Colormap.set_under`
                 over (Union[str, dict], optional): Passed on to
@@ -184,18 +188,41 @@ class ColorManager:
                 for k, v in mapping.items()
             }
 
-            cmap_kwargs["name"] = "ListedColormap"
-            cmap_kwargs["colors"] = list(mapping.values())
-            norm_kwargs = {
-                "name": "BoundaryNorm",
-                "ncolors": len(mapping),
-                "boundaries": self._parse_boundaries(list(mapping.keys())),
-            }
-            log.remark(
-                "Configuring a discrete colormap 'from values'. "
-                "Overwriting 'norm' to BoundaryNorm with %s colors.",
-                norm_kwargs["ncolors"],
-            )
+            # Distinguish between continous and discrete case
+            if cmap_kwargs.pop("continuous", False):
+                # Get the colordict used to generate the continuous colormap,
+                # complying to the interface of LinearSegmentedColormap.
+                # Replace all None entries by the placeholder color.
+                cdict = dict()
+                for num, col in enumerate(("red", "green", "blue")):
+                    cdict[col] = [
+                        [
+                            k,
+                            to_rgb(v)[num],
+                            to_rgb(v)[num],
+                        ]
+                        for k, v in mapping.items()
+                    ]
+                mapping = cdict
+                cmap_kwargs["name"] = "LinearSegmentedColormap"
+                cmap_kwargs["segmentdata"] = mapping
+
+                log.remark("Configuring a linear colormap 'from values'. ")
+
+            else:
+                # Discrete, binned case
+                cmap_kwargs["name"] = "ListedColormap"
+                cmap_kwargs["colors"] = list(mapping.values())
+                norm_kwargs = {
+                    "name": "BoundaryNorm",
+                    "ncolors": len(mapping),
+                    "boundaries": self._parse_boundaries(list(mapping.keys())),
+                }
+                log.remark(
+                    "Configuring a discrete colormap 'from values'. "
+                    "Overwriting 'norm' to BoundaryNorm with %s colors.",
+                    norm_kwargs["ncolors"],
+                )
 
         # BoundaryNorm has no vmin/vmax argument
         if not norm_kwargs.get("name", None) == "BoundaryNorm":
@@ -272,7 +299,7 @@ class ColorManager:
                 :py:meth:`matplotlib.colorbar.Colorbar.set_label`
             tick_params (dict, optional): Set colorbar tick parameters via the
                 :py:meth:`matplotlib.axes.Axes.tick_params` method of the
-                :py:class:`matplotlib.colorbar.Colorbar` axes.
+                :py:class:`matplotlib.colors.Colorbar` axes.
             **cbar_kwargs: Passed on to
                 :py:meth:`matplotlib.figure.Figure.colorbar`
 
