@@ -27,6 +27,8 @@
     - This also makes `BasePlotCreator` a fully-functioning (no longer abstract) creator class, which is averse to any plotting backend.
     - Adds the customizable `PlotFuncResolver` class which now takes care of these tasks in a more decoupled setting.
 - !282 also completely removes the plot creator auto detection feature, reducing implementation complexity.
+- !292 migrates the `ColorManager`, which helps in generating colormaps and norms, from [utopya][utopya-repo] over to dantro.
+  In addition, the `!cmap` and `!cmap_norm` tags are implemented and allow to generate these objects from a YAML configuration.
 
 #### Internal
 - !267 performs some code clean-up and improves the sphinx setup
@@ -34,7 +36,7 @@
     - Makes use of newer language features (like consistent use of f-strings)
 - !280 separates the `dantro.utils.data_ops` module into a `dantro.data_ops` subpackage
 - !285 expands and improves the `dantro._import_tools` module and improves tests
-- !287 updates documentatioin after the main branch was renamed from `master` to `main`
+- !287 updates documentation after the main branch was renamed from `master` to `main`
 
 #### Deprecations
 - !278 deprecates use of `dantro.tools.IS_A_TTY` and `dantro.tools.TTY_COLS` constants. This information should be retrieved from the `dantro.tools.TERMINAL_INFO` dict instead.
@@ -536,6 +538,7 @@ First minor release. Contains basic features. API is mostly established, but not
 
 [dantro-docs]: https://dantro.readthedocs.io/
 [dantro-repo]: https://gitlab.com/utopia-project/dantro
+[utopya-repo]: https://gitlab.com/utopia-project/utopya
 [utopia-project]: https://utopia-project.org/
 [paramspace]: https://gitlab.com/blsqr/paramspace
 [paramspace-pypi]: https://pypi.org/project/paramspace/

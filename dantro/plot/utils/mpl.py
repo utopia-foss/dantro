@@ -5,6 +5,8 @@
 import logging
 from typing import List, Tuple
 
+from .color_mngr import ColorManager
+
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------

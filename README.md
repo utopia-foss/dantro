@@ -246,16 +246,20 @@ A copy of the [GNU General Public License Version 3][GPLv3], and the [GNU Lesser
 
 The copyright holders of dantro are collectively referred to as _dantro developers_ in the respective copyright notices and disclaimers.
 
-dantro has been developed by (in alphabetical order):
+Maintainers:
+
+* Benjamin Herdeanu (@herdeanu)
+* Yunus Sevinchan (@blsqr)
+* Jeremias Traub (@jeremiastraub)
+
+Contributors (in alphabetical order):
 
 * Unai Fischer Abaigar
-* Benjamin Herdeanu
+* Thomas Gaskin (@tgaskin)
 * Daniel Lake
-* Yunus Sevinchan
-* Jeremias Traub
-* Julian Weninger
+* Julian Weninger (@julianweninger)
 
-Contact the developers via: [`dantro-dev@iup.uni-heidelberg.de`][devmail]
+Contact the maintainers via: [`dantro-dev@iup.uni-heidelberg.de`][devmail]
 
 [dantro-project]: https://gitlab.com/utopia-project/dantro
 [dantro-docs]: https://dantro.readthedocs.io/
