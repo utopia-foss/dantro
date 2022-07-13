@@ -18,7 +18,7 @@ def g():
 
 def test_get_positions(g):
     """Tests the node layouting helper function"""
-    get_positions = dg._get_positions
+    get_positions = dg.get_positions
 
     pos = get_positions(g, model="spring", iterations=23)
     assert isinstance(pos, dict)
@@ -38,18 +38,16 @@ def test_get_positions(g):
         g,
         model="spring",
         bad_arg="some_bad_arg",
-        fallback_model="spring",
-        fallback_kwargs=dict(iterations=23),
+        fallback=dict(model="spring", iterations=23),
     )
     get_positions(
         g,
         model="spring",
         bad_arg="some_bad_arg",
-        fallback_model="spring",
-        fallback_kwargs=dict(iterations=23),
+        fallback=dict(model="spring", iterations=23),
         silent_fallback=True,
     )
 
-    # Bad layouting name
+    # Bad layouting name without fallback
     with pytest.raises(ValueError, match="No layouting model"):
         get_positions(g, model="bad_layouting_model")

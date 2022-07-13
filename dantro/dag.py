@@ -2164,11 +2164,15 @@ class TransformationDAG:
             figure_defaults["figsize"] = (9, 6)
 
             layout_defaults["model"] = "graphviz_dot"
-            layout_defaults["args"] = "-y"
-            layout_defaults["fallback_model"] = "multipartite"
-            layout_defaults["fallback_kwargs"] = dict(
-                align="horizontal", subset_key="layer", scale=-1
+            layout_defaults["model_kwargs"] = dict(
+                graphviz_dot=dict(args="-y"),
+                multipartite=dict(
+                    align="horizontal",
+                    subset_key="layer",
+                    scale=-1,
+                ),
             )
+            layout_defaults["fallback"] = "multipartite"
             layout_defaults["silent_fallback"] = True
 
             drawing_defaults["nodes"] = dict(alpha=0, node_size=600)

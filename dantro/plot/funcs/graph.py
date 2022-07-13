@@ -5,9 +5,12 @@
     Should really integrate utopya ``GraphPlot`` here!
 """
 
+import copy
 import logging
 import os
 from typing import Callable, Union
+
+from ...tools import recursive_update as _recursive_update
 
 log = logging.getLogger(__name__)
 
@@ -17,18 +20,16 @@ log = logging.getLogger(__name__)
 def _get_positions(
     g: "networkx.Graph",
     *,
-    model: Union[str, Callable] = "spring",
-    fallback_model: str = None,
-    fallback_kwargs: dict = None,
-    silent_fallback: bool = False,
+    model: Union[str, Callable],
     **kwargs,
 ) -> dict:
     """Returns the positions dict for the given graph, created from a networkx
-    layouting algorithm.
+    layouting algorithm of a certain name or an arbitrary callable.
 
     Args:
         g (networkx.Graph): The graph object for which to create the layout
-        model (Union[str, Callable], optional): Name of the layouting model.
+        model (Union[str, Callable]): Name of the layouting model or the
+            layouting function itself.
             If starting with ``graphviz_<prog>``, will invoke
             :py:func:`networkx.drawing.nx_agraph.graphviz_layout` with the
             given value for ``prog``. Note that these only take a single
@@ -36,65 +37,115 @@ def _get_positions(
             If it is a string, it's looked up from the networkx namespace.
             If it is a callable, it is invoked with ``g`` as only positional
             argument and ``**kwargs`` as keyword arguments.
-        fallback_model (str, optional): If given, and ``model`` fails for *any*
-            reason, will use this fallback model instead.
-        fallback_kwargs (dict, optional): Keyword arguments for the fallback
-            model invocation.
-        silent_fallback (bool, optional): If True, will not log warnings in
-            case there was need to switch to the fallback.
-        **kwargs: Passed on to layouting algorithm.
+        **kwargs: Passed on to the layouting algorithm.
     """
 
     import networkx as nx
 
-    _suffix = "_layout"
-    POSITIONING_MODELS_NETWORKX = {
-        l[: -len(_suffix)]: getattr(nx, l)
-        for l in dir(nx)
-        if l.endswith(_suffix)
-    }
+    if callable(model):
+        log.debug("Invoking callable for node layouting ...")
+        return model(g, **kwargs)
 
-    def invoke_model(model, **kwargs) -> dict:
-        if callable(model):
-            log.debug("Invoking callable for node layouting ...")
-            return model(g, **kwargs)
+    elif model.startswith("graphviz_"):
+        log.debug("Invoking %s model for node layouting ...", model)
+        try:
+            model = model[len("graphviz_") :]
+            return nx.drawing.nx_agraph.graphviz_layout(
+                g, prog=model, **kwargs
+            )
 
-        elif model.startswith("graphviz_"):
+        except ImportError as err:
+            raise ImportError(
+                "Could not apply graphviz layout, probably because "
+                "pygraphviz is not installed!"
+            ) from err
+
+    else:
+        _suffix = "_layout"
+        POSITIONING_MODELS_NETWORKX = {
+            l[: -len(_suffix)]: getattr(nx, l)
+            for l in dir(nx)
+            if l.endswith(_suffix)
+        }
+
+        try:
             log.debug("Invoking %s model for node layouting ...", model)
-            try:
-                model = model[len("graphviz_") :]
-                return nx.drawing.nx_agraph.graphviz_layout(
-                    g, prog=model, **kwargs
-                )
+            layout_func = POSITIONING_MODELS_NETWORKX[model]
+            return layout_func(g, **kwargs)
 
-            except ImportError as err:
-                raise ImportError(
-                    "Could not apply graphviz layout, probably because "
-                    "pygraphviz is not installed!"
-                ) from err
+        except KeyError as err:
+            _avail = ", ".join(POSITIONING_MODELS_NETWORKX)
+            raise ValueError(
+                f"No layouting model '{model}' available in networkx! "
+                f"Available models: {_avail}"
+            ) from err
 
-        else:
-            try:
-                log.debug("Invoking %s model for node layouting ...", model)
-                return POSITIONING_MODELS_NETWORKX[model](g, **kwargs)
 
-            except KeyError as err:
-                _avail = ", ".join(POSITIONING_MODELS_NETWORKX)
-                raise ValueError(
-                    f"No layouting model '{model}' available in networkx! "
-                    f"Available models: {_avail}"
-                ) from err
+def get_positions(
+    g: "networkx.Graph",
+    *,
+    model: Union[str, Callable] = "spring",
+    model_kwargs: dict = {},
+    fallback: Union[str, dict] = None,
+    silent_fallback: bool = False,
+    **kwargs,
+) -> dict:
+    """Returns the positions dict for the given graph, created from a networkx
+    layouting algorithm of a certain name or an arbitrary callable.
 
-    # .........................................................................
+    This is a wrapper around :py:func:`._get_positions` which allows to specify
+    a fallback layouting model to use in case the first one fails for whatever
+    reason.
 
-    if not fallback_model:
-        return invoke_model(model, **kwargs)
+    Args:
+        g (networkx.Graph): The graph object for which to create the layout
+        model (Union[str, Callable], optional): Name of the layouting model or
+            the layouting function itself.
+            If starting with ``graphviz_<prog>``, will invoke
+            :py:func:`networkx.drawing.nx_agraph.graphviz_layout` with the
+            given value for ``prog``. Note that these only take a single
+            keyword argument, ``args``.
+            If it is a string, it's looked up from the networkx namespace.
+            If it is a callable, it is invoked with ``g`` as only positional
+            argument and ``**kwargs`` as keyword arguments.
+        model_kwargs (dict, optional): A dict where keys correspond to names
+            of layouting models and values are parameters that are to be passed
+            to the layouting function. This dict may contain more arguments
+            than required, only the ``model`` key is looked up here. This can
+            be useful for providing a wider set of defaults. These defaults
+            are not considered when ``model`` is a callable.
+        fallback (Union[str, dict], optional): The fallback model name (if
+            a string) or a dict containing the key ``model`` and further
+            kwargs.
+        silent_fallback (bool, optional): Whether to log a visible message
+            about the fallback or a more discrete one.
+        **kwargs: Passed on to the layouting algorithm in addition to the
+            selected entry from ``model_kwargs``. Keys given here update those
+            from ``model_kwargs``.
+            Also, these are *not* passed on to the fallback invocation.
+    """
 
-    # Fallback available
+    def parse_kwargs(model: Union[str, Callable], **kwargs) -> dict:
+        """Performs lookup and update of the layouting model arguments"""
+        if callable(model):
+            return kwargs
+
+        return _recursive_update(
+            copy.deepcopy(model_kwargs.get(model, {})), kwargs
+        )
+
+    # Prepare arguments
+    if isinstance(fallback, str):
+        fallback = dict(model=fallback)
+
+    # Get the positions, potentially using a fallback
     try:
-        return invoke_model(model, **kwargs)
+        return _get_positions(g, model=model, **parse_kwargs(model, **kwargs))
 
     except Exception as exc:
+        if not fallback:
+            raise
+
         if not silent_fallback:
             log.caution(
                 "Node layouting with '%s' model failed with a %s: %s",
@@ -102,18 +153,20 @@ def _get_positions(
                 type(exc).__name__,
                 exc,
             )
-            log.remark("Invoking fallback model '%s' ...", fallback_model)
+            log.remark("Invoking fallback layouting:  %s", fallback)
         else:
             log.remark(
-                "Node layouting with '%s' model failed; "
-                "invoking fallback model '%s' ...",
+                "Node layouting with '%s' model failed; using fallback:  %s",
                 model,
-                fallback_model,
+                fallback,
             )
 
-    return invoke_model(
-        fallback_model, **(fallback_kwargs if fallback_kwargs else {})
+    return _get_positions(
+        g, model=fallback["model"], **parse_kwargs(**fallback)
     )
+
+
+# .............................................................................
 
 
 def _draw_graph(
@@ -140,7 +193,7 @@ def _draw_graph(
             can contain the ``from_attr`` key which will read the attribute
             specified there and use it for the label.
         layout (dict, optional): Used to generate node positions via the
-            :py:func:`~dantro.plot.funcs.graph._get_positions` function.
+            :py:func:`~dantro.plot.funcs.graph.get_positions` function.
     """
     import matplotlib.pyplot as plt
     import networkx as nx
@@ -160,7 +213,7 @@ def _draw_graph(
         nx.draw_networkx_labels(g, pos=pos, ax=ax, **labels)
 
     ax = ax if ax is not None else plt.gca()
-    pos = _get_positions(g, **layout)
+    pos = get_positions(g, **layout)
 
     # Draw
     draw(g, ax=ax, pos=pos, **drawing)

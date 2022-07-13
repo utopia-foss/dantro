@@ -225,6 +225,8 @@ def export_graph(
         f[6:]: getattr(nx, f) for f in dir(nx) if f.startswith("write_")
     }
     try:
+        import nx.drawing.nx_agraph
+
         NX_WRITERS["dot"] = nx.drawing.nx_agraph.write_dot
 
     except ImportError:

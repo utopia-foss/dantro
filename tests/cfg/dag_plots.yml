@@ -361,6 +361,7 @@ config_based:
           on_plot_success: true
 
   gen_nx_graph_full_syntax:
+    # NOTE does not use default values but aims to hit many branches
     plot_cfg:
       <<: *phres_simple
 
@@ -387,8 +388,11 @@ config_based:
 
           # Formats
           graphml: {}
-          gml: {}
-          dot: False  # NOTE Not available without pygraphviz (i.e.: in CI)
+          gml:
+            file_ext: gee.em.el
+          adjlist:
+            enabled: true
+          dot: false  # NOTE Not available without pygraphviz (i.e.: in CI)
 
         # Output arguments
         output:
@@ -397,8 +401,8 @@ config_based:
 
         # When to generate the visualization (can be: false, true, debug)
         when:
-          always: false
-          only_once: true
+          always: true
+          only_once: false
           on_compute_error: debug
           on_compute_success: false
           on_plot_error: false
@@ -434,7 +438,7 @@ config_based:
             # Which attribute to use as node label
             from_attr: description
 
-        # Layouting algorithm (and fallback)
+        # Layouting algorithm
         layout: {}
 
         # Figure creation via matplotlib.pyplot.figure
@@ -523,6 +527,21 @@ config_based:
           manipulate_attrs:
             map_node_attrs:
               foo: some_bad_operation_name
+
+    _raises: PlotCreatorError
+    _match: Failed exporting DAG representation
+
+  gen_nx_graph_err_export_failed_graphviz_missing_or_bad:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        when:
+          always: true
+
+        export:
+          dot:
+            bad_arg: foobar
 
     _raises: PlotCreatorError
     _match: Failed exporting DAG representation
@@ -827,14 +846,18 @@ config_based:
 
         # Layouting algorithm (and fallback)
         layout:
-          model: graphviz_dot  # requires graphviz and pygraphviz
-          args: "-y"
-          fallback_model: multipartite
-          fallback_kwargs:
-            align: horizontal
-            subset_key: layer
-            scale: -1
+          model: graphviz_dot      # requires graphviz and pygraphviz
+          fallback: multipartite   # will use this one if the one above fails
           silent_fallback: true
+
+          # Arguments for the respective layouting models
+          model_kwargs:
+            graphviz_dot:
+              args: "-y"
+            multipartite:
+              align: horizontal
+              subset_key: layer
+              scale: -1
 
         # Drawing, using networkx.draw_networkx_<...>
         drawing:
