@@ -6,14 +6,18 @@ creators.
 import copy
 import logging
 import math
+import numbers
 import warnings
 from typing import Callable, Dict, List, Tuple, Union
+
+import matplotlib.colors as mcolors
 
 from ..._import_tools import LazyLoader
 from ...exceptions import PlottingError
 from ...tools import recursive_update
 from ..plot_helper import PlotHelper
 from ..utils import figure_leak_prevention, is_plot_func
+from ..utils.color_mngr import ColorManager
 from ._utils import plot_errorbar as _plot_errorbar
 
 # Local constants and lazy module imports
@@ -1040,3 +1044,124 @@ def errorbars(
         hlpr.track_handles_labels(_handles, _labels)
         if add_legend:
             hlpr.provide_defaults("set_figlegend", title=hue)
+
+
+@make_facet_grid_plot(
+    map_as="dataset",
+    register_as_kind="scatter",
+    overwrite_existing=True,
+    encodings=("x", "y", "z", "hue"),
+    add_guide=True,
+)
+def scatter(
+    ds: "xarray.Dataset",
+    *,
+    _is_facetgrid: bool,
+    hlpr: PlotHelper,
+    x: str,
+    y: str,
+    hue: str = None,
+    z: str = None,
+    markersize: Union[float, str] = None,
+    size_mapping: dict = None,
+    cmap: Union[str, dict, mcolors.Colormap] = None,
+    norm: Union[str, dict, mcolors.Normalize] = None,
+    labels: dict = None,
+    vmin: float = None,
+    vmax: float = None,
+    **kwargs,
+):
+
+    """A scatter plot supporting facet grid. If a 'z'-argument is passed,
+    a 3-dimensional scatter plot is created, else the plot will be two-dimensional.
+
+    This function makes use of a decorator to implement faceting support:
+    :py:class:`~dantro.plot.funcs.generic.make_facet_grid_plot`.
+    It additionally registers this plot as an available plot ``kind`` in
+    :py:func:`~dantro.plot.funcs.generic.facet_grid`.
+
+    .. note::
+
+        This plot function is heavily wrapped by the decorator, which is why
+        not all functionality is exposed here. Instead, the arguments seen here
+        are those that apply to a *single* subplot of a facet grid.
+
+    Args:
+        ds (xarray.Dataset): The dataset containing the data
+        _is_facetgrid (bool): Indicates whether this plot is called as part of
+            a facet grid or whether no faceting takes place (i.e. when neither
+            columns nor rows are available for faceting). In such a case, this
+            plot supplies metadata to the plot helper to draw axis labels etc.
+        hlpr (PlotHelper): The plot helper, exposing the currently selected
+            axis via ``hlpr.ax``.
+        x (str): Which data dimension to plot on the x-axis
+        y (str): Which data dimension to plot on the y-axis
+        z (str, optional): Which data dimension to plot on the z-axis. If None, a 2d-plot is created.
+        hue (str, optional): Which data dimension to represent via hues
+        markersize: (Union[str, float], optional): Which data dimension to plot on the markersize. Can also be a
+            fixed value.
+        size_mapping: (dict, optional): A dictionary containing the facet_grid size_mapping. Is overwritten by
+            markersize, if passed.
+        cmap (Union[str, dict, matplotlib.colors.Colormap], optional): The colormap, passed to the
+            :py:class:`~dantro.plot.utils.color_mngr.ColorManager`.
+        norm (Union[str, dict, matplotlib.colors.Normalize], optional):
+                The norm that is applied for the color-mapping.
+        labels (Union[dict, list], optional): Colorbar tick-labels keyed by
+            tick position, passed to the :py:class:`~dantro.plot.utils.color_mngr.ColorManager`.
+        vmin (float, optional): The lower bound of the color-mapping,
+            passed to the :py:class:`~dantro.plot.utils.color_mngr.ColorManager`.
+            Ignored if norm is *BoundaryNorm*.
+        vmax (float, optional): The upper bound of the color-mapping,
+            passed to the :py:class:`~dantro.plot.utils.color_mngr.ColorManager`.
+            Ignored if norm is *BoundaryNorm*.
+        **kwargs: Passed on to ``matplotlib.pyplot.scatter``.
+    """
+
+    cm = ColorManager(
+        cmap=cmap,
+        norm=norm,
+        labels=labels,
+        vmin=vmin,
+        vmax=vmax,
+    )
+
+    # Add the 's' key to the kwargs. If both size_mapping and markersize are passed, 'markersize' will take
+    # precedent.
+    if size_mapping is not None:
+        kwargs.update({"s": size_mapping.values})
+
+    if markersize is not None:
+        # 'markersize' is a float
+        if isinstance(markersize, numbers.Number):
+            kwargs.update({"s": float(markersize)})
+
+        # 'markersize' is a data dimension
+        else:
+            kwargs.update({"s": ds[markersize].values})
+
+    # 1-dimensional case
+    if z is None:
+        im = hlpr.ax.scatter(
+            ds[x],
+            ds[y],
+            c=ds[hue] if hue is not None else None,
+            cmap=cm.cmap,
+            vmin=vmin,
+            vmax=vmax,
+            **kwargs,
+        )
+
+    # 2-dimensional case
+    else:
+        im = hlpr.ax.scatter(
+            ds[x],
+            ds[y],
+            ds[z],
+            c=ds[hue] if hue is not None else None,
+            cmap=cm.cmap,
+            vmin=vmin,
+            vmax=vmax,
+            **kwargs,
+        )
+
+    return im

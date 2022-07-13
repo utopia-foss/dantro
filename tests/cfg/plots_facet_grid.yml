@@ -134,11 +134,21 @@ kinds:
     plot_kwargs:
       x: foo
       y: bar
-      markersize: baz
       hue: spam
       auto_encoding: true
 
-
+  scatter3d:
+    kinds: [ scatter ]
+    specifiers: [ col, frames ]
+    min_dims: 2
+    max_dims: 4
+    test_data_path: ds_labelled
+    plot_kwargs:
+      x: foo
+      y: bar
+      z: baz
+      hue: spam
+      auto_encoding: true
 
 # NOTE: All below are extended tests, i.e.: only run if FULL_TEST is set!
 # .. line-like plots . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
