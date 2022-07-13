@@ -534,6 +534,7 @@ class make_facet_grid_plot:
                     kwargs,
                 )
 
+                hlpr.setup_figure()
                 return wrapped_plot_func(
                     data, hlpr=hlpr, _is_facetgrid=False, **kwargs
                 )
