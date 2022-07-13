@@ -46,33 +46,54 @@
     only_label_outer: true
 - set_labels:
     x: foo
+    y: baz
+    z:
+      label: bar
+      fontsize: 13
+    rotate_z_label: False
+- set_labels:
+    x: foo
     y:
       label: bar
       invalid_param: 123
   _raises: AttributeError
   _match: has no property 'invalid_param'
-
 # .............................................................................
 - set_limits: {}
 - set_limits:
     x: [~, ~]
     y: [23, 42]
+    z: [0.4, 1.2]
 - set_limits:
     x: [~, 42]
     y: [23, ~]
+    z: [~, 20]
 - set_limits:
     x:
       lower: 23
     y:
       upper: 42
+    z:
+      lower: 10
 - set_limits:
     x: {}
     y:
       lower: ~
       upper: 42
 - set_limits:
+    x: {}
+    y: ~
+    z:
+      lower: ~
+      upper: 42
+- set_limits:
     x: [min, max]
-    y: [min, ~]
+    y: [min, ~ ]
+  _plot_values: [1,2,3]
+- set_limits:
+    x: [ min, max ]
+    y: [ min, ~ ]
+    z: [ min, max ]
   _plot_values: [1,2,3]
 - set_limits:
     x: [min, 10.]
@@ -82,6 +103,16 @@
     x: [min, max]
     y: [max, min]
   _plot_values: [1,2,3]
+- set_limits:
+    x: [min, max]
+  _plot_values: [1,2,3]
+- set_limits:
+    z: [min, max]
+- set_limits:
+    x: [min, 10.]
+    z: [max, min]
+  _plot_values: [1,2,3]
+
 - set_limits:
     x: [1,2,3]
   _raises: ValueError
@@ -269,6 +300,10 @@
       scale: linear
     y:
       scale: log
+- set_scales:
+    x: linear
+    y: log
+    z: symlog
 
 # .............................................................................
 - set_ticks: {}
@@ -286,6 +321,11 @@
     y:
       major:
         locs: [0, 3, 6]
+    z:
+      major:
+        locs: [ 0, 3, 6 ]
+      minor:
+        locs: [ 0.5, 3.5, 6.5 ]
 - set_ticks:
     x:
       major:
@@ -301,6 +341,16 @@
       minor:
         locs: [0, 3, 6]
         labels: ['first', 'second', 'third']
+- set_ticks:
+    z:
+      major:
+        locs: [0, 3, 6]
+        labels: ['FIRST', 'SECOND', 'THIRD']
+        color: g
+      minor:
+        locs: [1.5, 4.5, 7.5]
+        labels: ['first', 'second', 'third']
+        rotation: vertical
 - set_ticks:
     x:
       major:
@@ -337,6 +387,13 @@
       major:
         name: MultipleLocator
         base: 2.5
+- set_tick_locators:
+    z:
+      major:
+        name: MaxNLocator
+        nbins: 6
+        integer: true
+        min_n_ticks: 3
 - set_tick_locators:
     x:
       major:
@@ -379,6 +436,13 @@
       minor:
         name: StrMethodFormatter
         args: ['{x:.3g}']
+    z:
+      major:
+        name: StrMethodFormatter
+        args: [ '{x:.3g}' ]
+      minor:
+        name: StrMethodFormatter
+        args: [ '{x:.3g}' ]
 - set_tick_formatters:
     x:
       major:

@@ -517,6 +517,7 @@ class PlotHelper:
                 figure setup parameters stored in ``setup_figure``.
         """
         # Prepare arguments
+
         fig_kwargs = self.base_cfg.get("setup_figure", {})
 
         if update_fig_kwargs:
@@ -1509,9 +1510,11 @@ class PlotHelper:
         *,
         x: Union[str, dict] = None,
         y: Union[str, dict] = None,
+        z: Union[str, dict] = None,
         only_label_outer: bool = False,
+        rotate_z_label: bool = True,
     ):
-        """Sets the x and y label of the current axis.
+        """Sets the x, y, and z label of the current axis.
 
         Args:
             x (Union[str, dict], optional): Either the label as a string or
@@ -1520,12 +1523,18 @@ class PlotHelper:
             y (Union[str, dict], optional): Either the label as a string or
                 a dict with key ``label``, where all further keys are passed on
                 to :py:meth:`matplotlib.axes.Axes.set_ylabel`
+            z (Union[str, dict], optional): Either the label as a string or
+                a dict with key ``label``, where all further keys are passed on
+                to :py:meth:`mpl_toolkits.mplot3d.axes3d.Axes3D.set_zlabel`
             only_label_outer (bool, optional): If True, call
                 :py:meth:`matplotlib.axes.SubplotBase.label_outer` such that
                 only tick labels on "outer" axes are visible:
                 x-labels are only kept for subplots on the last row; y-labels
                 only for subplots on the first column. Note that this applies
                 to both axes and may lead to existing axes being hidden.
+            rotate_z_label (bool, optional): Sets :py:meth:`mpl_toolkits.mplot3d.axis3d.Axis.set_rotate_label`.
+                True by default.
+
         """
 
         def set_label(func: Callable, *, label: str = None, **label_kwargs):
@@ -1542,18 +1551,27 @@ class PlotHelper:
         if only_label_outer:
             self.ax.label_outer()
 
+        if hasattr(self.ax, "zaxis"):
+            if z:
+                z = z if not isinstance(z, str) else dict(label=z)
+                set_label(self.ax.set_zlabel, **z)
+
+            self.ax.zaxis.set_rotate_label(rotate_z_label)
+
     def _hlpr_set_limits(
         self,
         *,
         x: Union[Sequence[Union[float, str]], dict] = None,
         y: Union[Sequence[Union[float, str]], dict] = None,
+        z: Union[Sequence[Union[float, str]], dict] = None,
     ):
-        """Sets the x and y limit for the current axis. Allows some convenience
+        """Sets the x, y, and z limits for the current axis. Allows some convenience
         definitions for the arguments and then calls
         :py:meth:`matplotlib.axes.Axes.set_xlim` and/or
         :py:meth:`matplotlib.axes.Axes.set_ylim`.
+        :py:meth:`mpl_toolkits.mplot3d.axes3d.Axes3D.set_zlim`.
 
-        The ``x`` and ``y`` arguments can have the following form:
+        The ``x``, ``y``, and ``z`` arguments can have the following form:
 
             - None:         Limits are not set
             - sequence:     Specify lower and upper values
@@ -1571,6 +1589,8 @@ class PlotHelper:
                 to set on the x-axis
             y (Union[Sequence[Union[float, str]], dict], optional): The limits
                 to set on the y-axis
+            z (Union[Sequence[Union[float, str]], dict], optional): The limits
+                to set on the z-axis
         """
 
         def parse_args(
@@ -1630,6 +1650,10 @@ class PlotHelper:
 
         if y is not None:
             self.ax.set_ylim(*parse_args(y, ax=self.ax.yaxis))
+
+        if hasattr(self.ax, "zaxis"):
+            if z is not None:
+                self.ax.set_zlim(*parse_args(z, ax=self.ax.zaxis))
 
     def _hlpr_set_margins(
         self,
@@ -1896,13 +1920,18 @@ class PlotHelper:
                     set_line(self.ax.axvline, pos=line_spec)
 
     def _hlpr_set_scales(
-        self, *, x: Union[str, dict] = None, y: Union[str, dict] = None
+        self,
+        *,
+        x: Union[str, dict] = None,
+        y: Union[str, dict] = None,
+        z: Union[str, dict] = None,
     ):
         """Sets the scales for the current axis
 
         The arguments are used to call
         :py:meth:`matplotlib.axes.Axes.set_xscale` and/or
-        :py:meth:`matplotlib.axes.Axes.set_yscale`, respectively.
+        :py:meth:`matplotlib.axes.Axes.set_yscale` and
+        :py:meth:`mpl_toolkits.mplot3d.axes3d.Axes3D.set_zscale`, respectively.
         For string-like arguments, the value is directly used to set the scale
         for that axis, e.g. ``linear``, ``log``, ``symlog``.
         Otherwise, dict-like arguments are expected where a ``scale`` key is
@@ -1913,6 +1942,7 @@ class PlotHelper:
         Args:
             x (Union[str, dict], optional): The scales to use on the x-axis
             y (Union[str, dict], optional): The scales to use on the y-axis
+            z (Union[str, dict], optional): The scales to use on the z-axis
         """
 
         def set_scale(func: Callable, *, scale: str = None, **scale_kwargs):
@@ -1926,23 +1956,32 @@ class PlotHelper:
             y = y if not isinstance(y, str) else dict(scale=y)
             set_scale(self.ax.set_yscale, **y)
 
-    def _hlpr_set_ticks(self, *, x: dict = None, y: dict = None):
+        if hasattr(self.ax, "zaxis"):
+            if z:
+                z = z if not isinstance(z, str) else dict(scale=z)
+                set_scale(self.ax.set_zscale, **z)
+
+    def _hlpr_set_ticks(
+        self, *, x: dict = None, y: dict = None, z: dict = None
+    ):
         """Sets the ticks for the current axis
 
         The arguments are used to call
         :py:meth:`matplotlib.axes.Axes.set_xticks` or
-        :py:meth:`matplotlib.axes.Axes.set_yticks`,
+        :py:meth:`matplotlib.axes.Axes.set_yticks` or
+        :py:meth:`mpl_toolkits.mplot3d.axes3d.Axes3D.set_zticks`,
         and :py:meth:`matplotlib.axes.Axes.set_xticklabels` or
-        :py:meth:`matplotlib.axes.Axes.set_yticklabels`, respectively.
+        :py:meth:`matplotlib.axes.Axes.set_yticklabels` or
+        :py:meth:`mpl_toolkits.mplot3d.axes3d.Axes3D.set_zticklabels`, respectively.
 
         The dict-like arguments may contain the keys ``major`` and/or
         ``minor``, referring to major or minor tick locations and labels,
         respectively.
         They should either be list-like, directly specifying the ticks'
         locations, or dict-like requiring a ``locs`` key that contains the
-        ticks' locations and is passed on to the ``set_<x/y>ticks`` call.
+        ticks' locations and is passed on to the ``set_<x/y/z>ticks`` call.
         as ``ticks`` argument. Further kwargs such as ``labels`` can be given
-        and are passed on to the ``set_<x/y>ticklabels`` call.
+        and are passed on to the ``set_<x/y/z>ticklabels`` call.
 
         Example:
 
@@ -1964,6 +2003,8 @@ class PlotHelper:
                 labels to set on the x-axis
             y (Union[list, dict], optional): The ticks and optionally their
                 labels to set on the y-axis
+            z (Union[list, dict], optional): The ticks and optionally their
+                labels to set on the z-axis
         """
 
         def set_ticks(
@@ -2000,6 +2041,9 @@ class PlotHelper:
             elif axis == "y":
                 ticks_func = self.ax.set_yticks
                 tickslabel_func = self.ax.set_yticklabels
+            elif axis == "z":
+                ticks_func = self.ax.set_zticks
+                tickslabel_func = self.ax.set_zticklabels
 
             # Set the ticks
             set_ticks(ticks_func, ticks=axis_cfg.pop("locs"), minor=minor)
@@ -2026,17 +2070,31 @@ class PlotHelper:
             if y.get("minor"):
                 set_ticks_and_labels(axis="y", minor=True, axis_cfg=y["minor"])
 
-    def _hlpr_set_tick_locators(self, *, x: dict = None, y: dict = None):
+        if hasattr(self.ax, "zaxis"):
+            if z:
+                if z.get("major"):
+                    set_ticks_and_labels(
+                        axis="z", minor=False, axis_cfg=z["major"]
+                    )
+
+                if z.get("minor"):
+                    set_ticks_and_labels(
+                        axis="z", minor=True, axis_cfg=z["minor"]
+                    )
+
+    def _hlpr_set_tick_locators(
+        self, *, x: dict = None, y: dict = None, z: dict = None
+    ):
         """Sets the tick locators for the current axis
 
         The arguments are used to call
-        ``ax.{x,y}axis.set_{major/minor}_locator``, respectively.
+        ``ax.{x,y, z}axis.set_{major/minor}_locator``, respectively.
         The dict-like arguments must contain the keys ``major`` and/or
         ``minor``, referring to major or minor tick locators. These need to
         specify a name that is looked up in :py:mod:`matplotlib.ticker`.
         They can contain a list-like ``args`` keyword argument that defines
         the arguments to pass on as positional args to the called function.
-        Further kwargs are passed on to ``ax.{x,y}axis.set_{major/minor}_locator``.
+        Further kwargs are passed on to ``ax.{x,y, z}axis.set_{major/minor}_locator``.
 
         Example:
 
@@ -2064,21 +2122,26 @@ class PlotHelper:
         Args:
             x (dict, optional): The configuration of the x-axis tick locator
             y (dict, optional): The configuration of the y-axis tick locator
+            z (dict, optional): The configuration of the z-axis tick locator
         """
-        set_tick_locators_or_formatters(ax=self.ax, kind="locator", x=x, y=y)
+        set_tick_locators_or_formatters(
+            ax=self.ax, kind="locator", x=x, y=y, z=z
+        )
 
-    def _hlpr_set_tick_formatters(self, *, x: dict = None, y: dict = None):
+    def _hlpr_set_tick_formatters(
+        self, *, x: dict = None, y: dict = None, z: dict = None
+    ):
         """Sets the tick formatters for the current axis
 
         The arguments are used to call
-        ``ax.{x,y}axis.set_{major/minor}_formatter``, respectively. The
+        ``ax.{x,y, z}axis.set_{major/minor}_formatter``, respectively. The
         dict-like arguments must contain the keys ``major`` and/or ``minor``,
         referring to major or minor tick formatters. These need to specify a
         name that is looked up in :py:mod:`matplotlib.ticker`.
         They can contain a list-like ``args`` keyword argument that defines
         the arguments to pass on as positional args to the called function.
         Further kwargs are passed on to
-        ``ax.{x,y}axis.set_{major/minor}_formatter``.
+        ``ax.{x,y, z}axis.set_{major/minor}_formatter``.
 
         Example:
 
@@ -2105,8 +2168,11 @@ class PlotHelper:
         Args:
             x (dict, optional): The configuration of the x-axis tick formatter
             y (dict, optional): The configuration of the y-axis tick formatter
+            z (dict, optional): The configuration of the z-axis tick formatter
         """
-        set_tick_locators_or_formatters(ax=self.ax, kind="formatter", x=x, y=y)
+        set_tick_locators_or_formatters(
+            ax=self.ax, kind="formatter", x=x, y=y, z=z
+        )
 
     def _hlpr_call(
         self,
