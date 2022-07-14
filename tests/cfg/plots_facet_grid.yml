@@ -137,8 +137,22 @@ kinds:
       hue: spam
       auto_encoding: true
 
-  scatter3d:
+  scatter_autoenc:
     kinds: [ scatter ]
+    specifiers: [ col, frames ]
+    min_dims: 2
+    max_dims: 4
+    test_data_path: ds_labelled
+    plot_kwargs:
+      x: foo
+      y: bar
+      hue: spam
+      auto_encoding: true
+
+
+  # Failing: fails because axis not set to 3D
+  scatter3d:
+    kinds: [ scatter3d ]
     specifiers: [ col, frames ]
     min_dims: 2
     max_dims: 4
@@ -149,6 +163,11 @@ kinds:
       z: baz
       hue: spam
       auto_encoding: true
+    raises:
+      2: &z-Exception [ PlottingError, "Missing z-axis" ]
+      3: *z-Exception
+      4: *z-Exception
+
 
 # NOTE: All below are extended tests, i.e.: only run if FULL_TEST is set!
 # .. line-like plots . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

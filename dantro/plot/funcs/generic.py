@@ -1050,10 +1050,14 @@ def errorbars(
 
 @make_facet_grid_plot(
     map_as="dataset",
-    register_as_kind="scatter",
+    register_as_kind="scatter3d",
     overwrite_existing=True,
-    encodings=("x", "y", "z", "hue", "markersize"),
-    #
+    encodings=(
+        "x",
+        "y",
+        "z",
+        "hue",
+    ),
     # defaults
     # hue_style="discrete",  # FIXME setting to 'discrete' fails, but shouldn't
 )
@@ -1064,8 +1068,8 @@ def scatter(
     hlpr: PlotHelper,
     x: str,
     y: str,
+    z: str,
     hue: str = None,
-    z: str = None,
     markersize: Union[float, str] = None,
     size_mapping: dict = None,
     cmap: Union[str, dict, mcolors.Colormap] = None,
@@ -1075,10 +1079,7 @@ def scatter(
     vmax: float = None,
     **kwargs,
 ):
-    """A scatter plot supporting facet grid.
-
-    If ``z`` is given, a 3-dimensional scatter plot is created, otherwise the
-    plot will be 2-dimensional.
+    """A 3-dimensional scatter plot supporting facet grid.
 
     This function makes use of a decorator to implement faceting support:
     :py:class:`~dantro.plot.funcs.generic.make_facet_grid_plot`.
@@ -1102,35 +1103,9 @@ def scatter(
             axis via ``hlpr.ax``.
         x (str): Which data dimension to plot on the x-axis
         y (str): Which data dimension to plot on the y-axis
-        z (str, optional): Which data dimension to plot on the z-axis.
-            If None, a 2D plot is created.
-
-            .. note::
-
-                This assumes that the projection of the figure was already set
-                to ``3D``. This plot function can *not* change the projection.
-                Make sure to set the following arguments in the plot config:
-
-                .. code-block::
-
-                    my_3d_scatter_plot:
-                      # ...
-                      subplot_kws: &projection
-                        projection: 3d
-                        elev: 10
-                        azim: -23
-
-                      # without col/row, need to use the helper
-                      helpers:
-                        setup_figure:
-                          subplot_kw:  # sic
-                            <<: *projection
-
-                .. TODO Update this once we have automated this
-
+        z (str): Which data dimension to plot on the z-axis.
         hue (str, optional): Which data dimension to represent via hues
-        markersize: (Union[str, float], optional): Which data dimension to
-            plot on the markersize. Can also be a fixed value.
+        markersize: (str, optional): Which data dimension to plot on the markersize.
         size_mapping: (dict, optional): A dictionary containing the facet grid
             ``size_mapping``. Is overwritten by ``markersize``, if passed.
         cmap (Union[str, dict, matplotlib.colors.Colormap], optional): The
@@ -1174,46 +1149,28 @@ def scatter(
     if size_mapping is not None:
         shared_kwargs["s"] = size_mapping.values
 
-    if markersize is not None:
-        # 'markersize' is a float
-        if isinstance(markersize, numbers.Number):
-            shared_kwargs["s"] = float(markersize)
+    if not _is_facetgrid and markersize is not None:
+        shared_kwargs["s"] = ds[markersize].values
 
-        # 'markersize' is a data dimension
-        else:
-            shared_kwargs["s"] = ds[markersize].values
-
-    # 2D case
-    if z is None:
-        im = hlpr.ax.scatter(
-            ds[x],
-            ds[y],
-            **shared_kwargs,
-            **kwargs,
+    if not hasattr(hlpr.ax, "zaxis"):
+        raise AttributeError(
+            "Missing z-axis! Did you set the "
+            "projection (via `subplot_kws` or `setup_figure` helper)?"
         )
 
-    # 3D case
-    else:
-        if not hasattr(hlpr.ax, "zaxis"):
-            raise AttributeError(
-                "Got `z` encoding but missing z-axis! Did you set the "
-                "projection (via `subplot_kws` or `setup_figure` helper)?"
-            )
-
-        im = hlpr.ax.scatter(
-            ds[x],
-            ds[y],
-            ds[z],
-            **shared_kwargs,
-            **kwargs,
-        )
+    im = hlpr.ax.scatter(
+        ds[x],
+        ds[y],
+        ds[z],
+        **shared_kwargs,
+        **kwargs,
+    )
 
     # Postprocess
     # FIXME Should do this via helper, but not working (see #82)
     # hlpr.provide_defaults("set_labels", x=x, y=y, z=z)
     hlpr.ax.set_xlabel(x)
     hlpr.ax.set_ylabel(y)
-    if z:
-        hlpr.ax.set_zlabel(z)
+    hlpr.ax.set_zlabel(z)
 
     return im
