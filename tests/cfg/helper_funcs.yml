@@ -1,6 +1,5 @@
 # Configuration file to test all helper functions
 ---
-
 # .............................................................................
 - set_suptitle: {}
 - set_suptitle:
@@ -12,6 +11,7 @@
   _raises: true
   _match: has no property 'invalid_param'
 
+
 # .............................................................................
 - set_figlegend: {}
 - set_figlegend:
@@ -20,7 +20,7 @@
 - set_figlegend:
     hiding_threshold: 10
 
-# .............................................................................
+
 # .............................................................................
 - set_title: {}
 - set_title:
@@ -30,6 +30,7 @@
     invalid_param: 123
   _raises: true
   _match: has no property 'invalid_param'
+
 
 # .............................................................................
 - set_labels: {}
@@ -44,6 +45,7 @@
       label: bar
       fontsize: 20
     only_label_outer: true
+
 - set_labels:
     x: foo
     y: baz
@@ -51,6 +53,15 @@
       label: bar
       fontsize: 13
     rotate_z_label: False
+  setup_figure: &3dprojection
+    subplot_kw:
+      projection: 3d
+- set_labels:
+    x: foo
+    y: bar
+    z: baz
+  setup_figure: *3dprojection
+
 - set_labels:
     x: foo
     y:
@@ -58,16 +69,34 @@
       invalid_param: 123
   _raises: AttributeError
   _match: has no property 'invalid_param'
+
+- set_labels:  # without projection, z is ignored, does not raise
+    z: {some_bad_argument: i will be ignored}
+
 # .............................................................................
 - set_limits: {}
 - set_limits:
     x: [~, ~]
     y: [23, 42]
+- set_limits:
+    x: [~, 42]
+    y: [23, ~]
+- set_limits:
+    x:
+      lower: 23
+    y:
+      upper: 42
+
+- set_limits:
+    x: [~, ~]
+    y: [23, 42]
     z: [0.4, 1.2]
+  setup_figure: *3dprojection
 - set_limits:
     x: [~, 42]
     y: [23, ~]
     z: [~, 20]
+  setup_figure: *3dprojection
 - set_limits:
     x:
       lower: 23
@@ -75,6 +104,8 @@
       upper: 42
     z:
       lower: 10
+  setup_figure: *3dprojection
+
 - set_limits:
     x: {}
     y:
@@ -138,6 +169,9 @@
     x: [foo, ~]
   _raises: ValueError
   _match: Got an invalid str-type argument 'foo' to the set_limits helper
+
+- set_limits:  # without projection, z is ignored, does not raise
+    z: {some_bad_argument: i will be ignored}
 
 # .............................................................................
 - set_margins: {}
@@ -304,6 +338,10 @@
     x: linear
     y: log
     z: symlog
+  setup_figure: *3dprojection
+
+- set_scales:  # without projection, z is ignored, does not raise
+    z: {some_bad_argument: i will be ignored}
 
 # .............................................................................
 - set_ticks: {}
@@ -323,9 +361,10 @@
         locs: [0, 3, 6]
     z:
       major:
-        locs: [ 0, 3, 6 ]
+        locs: [0, 3, 6]
       minor:
-        locs: [ 0.5, 3.5, 6.5 ]
+        locs: [0.5, 3.5, 6.5]
+  setup_figure: *3dprojection
 - set_ticks:
     x:
       major:
@@ -351,12 +390,16 @@
         locs: [1.5, 4.5, 7.5]
         labels: ['first', 'second', 'third']
         rotation: vertical
+  setup_figure: *3dprojection
 - set_ticks:
     x:
       major:
         labels: ['first', 'second', 'third']
   _raises: ValueError
   _match: Labels can only be set
+
+- set_ticks:  # without projection, z is ignored, does not raise
+    z: {some_bad_argument: i will be ignored}
 
 
 # .............................................................................
@@ -394,6 +437,7 @@
         nbins: 6
         integer: true
         min_n_ticks: 3
+  setup_figure: *3dprojection
 - set_tick_locators:
     x:
       major:
@@ -407,6 +451,9 @@
         args: [bad, argument, list]
   _raises: ValueError
   _match: Failed setting minor locator
+
+- set_tick_locators:  # without projection, z is ignored, does not raise
+    z: {some_bad_argument: i will be ignored}
 
 
 # .............................................................................
@@ -443,6 +490,7 @@
       minor:
         name: StrMethodFormatter
         args: [ '{x:.3g}' ]
+  setup_figure: *3dprojection
 - set_tick_formatters:
     x:
       major:
@@ -457,6 +505,8 @@
   _raises: ValueError
   _match: Failed setting major formatter
 
+- set_tick_formatters:  # without projection, z is ignored, does not raise
+    z: {some_bad_argument: i will be ignored}
 
 # .............................................................................
 - despine: {}
