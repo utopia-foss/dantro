@@ -844,6 +844,18 @@ config_based:
         # below; they do NOT have to be set explicitly as done here!
         use_defaults: true
 
+        # Whether to show the node status and which colors to use for it
+        show_node_status: true
+        node_status_color:
+          initialized: lightskyblue
+          queued: cornflowerblue
+          computed: limegreen
+          looked_up: forestgreen
+          failed_here: red
+          failed_in_dependency: firebrick
+          used_fallback: gold
+          no_status: silver
+
         # Layouting algorithm (and fallback)
         layout:
           model: graphviz_dot      # requires graphviz and pygraphviz
@@ -867,6 +879,8 @@ config_based:
           edges:
             arrows: true
             arrowsize: 12
+            min_target_margin: 20
+            min_source_margin: 20
             node_size: *node_size
 
           labels:
@@ -876,7 +890,7 @@ config_based:
             # Aesthetics; see matplotlib.patches.FancyBboxPatch
             font_size: 7
             bbox:
-              fc: w
+              fc: "#fffa"
               ec: "#666"
               linewidth: 0.5
               boxstyle: round

@@ -659,10 +659,27 @@ def test_Transformation():
     # Read the profile property
     assert isinstance(t0.profile, dict)
 
+    # Can pass some context, which is NOT part of the hash
+    t0c = Transformation(
+        operation="add", args=[1, 2], kwargs=dict(), context=dict(foo="bar")
+    )
+    assert t0.hashstr == t0c.hashstr
+    assert t0.context != t0c.context
+
     # Serialize as yaml
-    assert "!dag_trf" in yaml_dumps(t0, register_classes=(Transformation,))
-    assert "salt" not in yaml_dumps(t0, register_classes=(Transformation,))
-    assert "salt: 42" in yaml_dumps(t0s, register_classes=(Transformation,))
+    get_yaml = lambda o: yaml_dumps(o, register_classes=(Transformation,))
+    assert "!dag_trf" in get_yaml(t0)
+    assert "salt" not in get_yaml(t0)
+    assert "salt: 42" in get_yaml(t0s)
+
+    # Context can be passed on to Transformation's YAML representation
+    t4 = Transformation(
+        operation="add",
+        args=[1, 2],
+        kwargs=dict(),
+        context=dict(foobar="my_custom_context"),
+    )
+    assert "foobar: my_custom_context" in get_yaml(t4)
 
     # Get layer
     assert t0.layer == 0
@@ -671,12 +688,35 @@ def test_Transformation():
     assert t2.layer == 0
     assert t3.layer == 0
 
-    # Can pass some context, which is NOT part of the hash
-    t0c = Transformation(
-        operation="add", args=[1, 2], kwargs=dict(), context=dict(foo="bar")
-    )
-    assert t0.hashstr == t0c.hashstr
-    assert t0.context != t0c.context
+    # Status
+    assert t0.status == "computed"
+    assert t1.status == "initialized"
+    assert t2.status == "initialized"
+    assert t3.status == "initialized"
+
+
+def test_Transformation_status():
+    """Tests Transformation.status property (as far as that's possible in a
+    standalone scenario.
+    """
+    Transformation = dag.Transformation
+
+    t0 = Transformation(operation="add", args=[1, 2], kwargs=dict())
+    assert t0.status == "initialized"
+
+    # Compute it
+    t0.compute()
+    assert t0.status == "computed"
+
+    # Failure is correctly associated
+    t0f = Transformation(operation="add", args=[1, "baz"], kwargs=dict())
+    with pytest.raises(DataOperationFailed):
+        t0f.compute()
+    assert t0f.status == "failed_here"
+
+    # Cannot set it to arbitrary values
+    with pytest.raises(ValueError, match="Invalid status"):
+        t0f.status = "foobar"
 
 
 def test_Transformation_fallback():
@@ -704,6 +744,7 @@ def test_Transformation_fallback():
         fallback=3,
     )
     assert t1.hashstr == "2c04f856d659dd1a70d75770e4e11610"
+    assert t1.status == "initialized"
     assert hash(t1.hashstr) == hash(t1)
 
     assert "operation: add, 2 args, 0 kwargs, allows failure" in str(t1)
@@ -731,11 +772,13 @@ def test_Transformation_fallback():
         fallback=np.inf,
     )
     assert t2.compute() == np.inf
+    assert t2.status == "used_fallback"
 
     # ... on an operation that would fail without fallback
     t2_fail = Transformation(operation="div", args=[1, 0], kwargs=dict())
     with pytest.raises(RuntimeError, match="ZeroDivisionError"):
         t2_fail.compute()
+    assert t2_fail.status == "failed_here"
 
     # Can get a warning when using the fallback
     t3 = Transformation(
@@ -747,21 +790,13 @@ def test_Transformation_fallback():
     )
     with pytest.warns(DataOperationWarning, match="ZeroDivisionError"):
         t3.compute()
+    assert t3.status == "used_fallback"
 
     # YAML serialization includes fallback
     get_yaml = lambda o: yaml_dumps(o, register_classes=(Transformation,))
     assert "fallback: 3" in get_yaml(t1)
     assert "allow_failure: true" in get_yaml(t1)
     assert "allow_failure: warn" in get_yaml(t3)
-
-    # Context can be passed ot Transformation
-    t4 = Transformation(
-        operation="add",
-        args=[1, 2],
-        kwargs=dict(),
-        context=dict(foobar="my_custom_context"),
-    )
-    assert "foobar: my_custom_context" in get_yaml(t4)
 
 
 def test_Transformation_dependencies(dm):

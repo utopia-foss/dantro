@@ -137,6 +137,7 @@ class Transformation:
         "_allow_failure",
         "_fallback",
         "_hashstr",
+        "_status",
         "_layer",
         "_context",
         "_profile",
@@ -263,6 +264,7 @@ class Transformation:
         self._allow_failure = allow_failure
         self._fallback = fallback
         self._hashstr = None
+        self._status = None
         self._layer = None
         self._context = context if context else {}
         self._profile = dict(
@@ -304,6 +306,9 @@ class Transformation:
 
         # Cache dict, containing the result and whether the cache is in memory
         self._cache = dict(result=None, filled=False)
+
+        # Set the status
+        self.status = "initialized"
 
     # .........................................................................
     # String representation and hashing
@@ -431,6 +436,40 @@ class Transformation:
         return self._cache["filled"]
 
     @property
+    def status(self) -> str:
+        """Return this Transformation's status which is one of:
+
+        - ``initialized``: set after initialization
+        - ``queued``: queued for computation
+        - ``computed``: successfully computed
+        - ``used_fallback``: if a fallback value was used instead
+        - ``looked_up``: after *file* cache lookup
+        - ``failed``: if computation failed for whatever reason and there was
+          no fallback.
+        """
+        return self._status
+
+    @status.setter
+    def status(self, new_status: str):
+        """Sets the status of this Transformation"""
+        ALLOWED_STATUS = (
+            "initialized",
+            "queued",
+            "computed",
+            "used_fallback",
+            "looked_up",
+            "failed_here",
+            "failed_in_dependency",
+        )
+        if new_status not in ALLOWED_STATUS:
+            _avail = ", ".join(ALLOWED_STATUS)
+            raise ValueError(
+                f"Invalid status '{new_status}'! Choose from: {_avail}"
+            )
+
+        self._status = new_status
+
+    @property
     def layer(self) -> int:
         """Returns the layer this node can be placed at within the DAG by
         recursively going over dependencies and setting the layer to the
@@ -520,13 +559,20 @@ class Transformation:
 
         if not success:
             # Did not find a result in memory or file cache -> Compute it.
+
+            # Set the status; at this point, this node is not yet computed
+            # (first the dependencies need to be resolved) but queued for it.
+            self.status = "queued"
+
             # First, compute the result of the references in the arguments.
             try:
                 args = self._resolve_refs(self._args)
                 kwargs = self._resolve_refs(self._kwargs)
 
             except DataOperationFailed as err:
-                # Upstream error; skip computation and use fallback as result
+                # Upstream error; skip further computation, potentially use
+                # fallback as result (if allowed)
+                self.status = "failed_in_dependency"
                 res = self._handle_error_and_fallback(
                     err,
                     context="resolution of positional and keyword arguments",
@@ -535,6 +581,7 @@ class Transformation:
             else:
                 # No error; carry out the operation with the resolved arguments
                 res = self._perform_operation(args=args, kwargs=kwargs)
+                self._status = "computed"
 
         # Allow caching the result, even if it comes from the cache
         self._cache_result(res)
@@ -563,6 +610,7 @@ class Transformation:
             res = apply_operation(self._operation, *args, **kwargs)
 
         except BadOperationName as err:
+            self.status = "failed_here"
             _meta_ops = self.dag.meta_operations
             if _meta_ops:
                 _meta_ops = "\n" + _make_columns(self.dag.meta_operations)
@@ -580,8 +628,11 @@ class Transformation:
 
         except DataOperationFailed as err:
             # Operation itself failed. Handle error, potentially re-raising.
+            self.status = "failed_here"
             res = self._handle_error_and_fallback(err, context="computation")
 
+        else:
+            self.status = "computed"
         # Parse profiling info and return the result
         self._update_profile(cumulative_compute=(time.time() - t0))
 
@@ -647,6 +698,7 @@ class Transformation:
         the fallback value.
         """
         if not self._allow_failure:
+            self._status = "failed"
             raise
 
         # Generate and communicate the message
@@ -664,7 +716,9 @@ class Transformation:
 
         # Use the fallback; wrapping it in a 1-list to allow scalars
         log.debug("Using fallback for operation '%s' ...", self.operation)
-        return self._resolve_refs([self._fallback])[0]
+        res = self._resolve_refs([self._fallback])[0]
+        self.status = "used_fallback"
+        return res
 
     def _update_profile(
         self, *, cumulative_compute: float = None, **times
@@ -719,6 +773,7 @@ class Transformation:
             success = True
             res = self._cache["result"]
             log.trace("Re-using memory-cached result for %s.", self.hashstr)
+            # Not setting status here because it was set previously
 
         elif self.dag is not None and read_opts.get("enabled", False):
             t0 = time.time()
@@ -733,6 +788,7 @@ class Transformation:
             if success:
                 self._cache["result"] = res
                 self._cache["filled"] = True
+                self.status = "looked_up"
 
             self._update_profile(cache_lookup=(time.time() - t0))
 
@@ -1975,10 +2031,17 @@ class TransformationDAG:
                 # No lookup!
                 return None
 
+            def get_status(obj) -> str:
+                """Retrieves the node status"""
+                if isinstance(obj, Transformation):
+                    return obj.status
+                return "none"
+
             # Aggregate the node attributes
             node_attrs = dict(
                 obj=obj,
                 tag=get_tag(hashstr),
+                status=get_status(obj),
             )
 
             if include_results:
@@ -2084,6 +2147,8 @@ class TransformationDAG:
         drawing: dict = {},
         use_defaults=True,
         scale_figsize: Union[bool, Tuple[float, float]] = (0.25, 0.2),
+        show_node_status: bool = True,
+        node_status_color: dict = None,
         layout: dict = {},
         figure_kwargs: dict = {},
         save_kwargs: dict = {},
@@ -2126,6 +2191,21 @@ class TransformationDAG:
                     The default values here are a heuristic and depend very
                     much on the size of the node labels and the font size.
 
+            show_node_status (bool, optional): If true, will color-code the
+                node status (computed, not computed, failed), setting the
+                ``nodes.node_color`` key correspondingly.
+
+                .. note::
+
+                    Node color is plotted *behind* labels, thus requiring some
+                    transparency for the labels.
+
+            node_status_color (dict, optional): If ``show_node_status`` is set,
+                will use this map to determine the node colours. It should
+                contain keys for all possible values of
+                :py:attr:`dantro.dag.Transformation.status`. In addition, there
+                needs to be a ``fallback`` key that is used for nodes where no
+                status can be determined.
             layout (dict, optional): Passed to (currently hard-coded) layouting
                 functions.
             figure_kwargs (dict, optional): Passed to
@@ -2158,7 +2238,11 @@ class TransformationDAG:
                 **(save_kwargs if save_kwargs else {}),
             )
 
-        # Get the graph object
+        # .....................................................................
+
+        drawing = drawing if drawing else dict(nodes={}, edges={}, labels={})
+
+        # Generate the graph object
         if g is None:
             g = self.generate_nx_graph(**generation)
 
@@ -2188,7 +2272,12 @@ class TransformationDAG:
             layout_defaults["fallback"] = "multipartite"
             layout_defaults["silent_fallback"] = True
 
-            drawing_defaults["nodes"] = dict(alpha=0, node_size=600)
+            drawing_defaults["nodes"] = dict(
+                alpha=0.7,
+                node_color="w",
+                node_size=600,
+                linewidths=0,
+            )
             drawing_defaults["edges"] = dict(
                 arrows=True,
                 arrowsize=12,
@@ -2199,7 +2288,9 @@ class TransformationDAG:
             drawing_defaults["labels"] = dict(
                 from_attr="description",
                 font_size=7,
-                bbox=dict(fc="w", ec="#666", linewidth=0.5, boxstyle="round"),
+                bbox=dict(
+                    fc="#fffa", ec="#666", linewidth=0.5, boxstyle="round"
+                ),
             )
 
             # Use them as basis ...
@@ -2207,6 +2298,7 @@ class TransformationDAG:
             layout = _recursive_update(layout_defaults, layout)
             drawing = _recursive_update(drawing_defaults, drawing)
 
+        # Figure size scaling
         if scale_figsize:
             if isinstance(scale_figsize, bool):
                 scale_figsize = (0.25, 0.2)
@@ -2231,6 +2323,24 @@ class TransformationDAG:
                 figsize[0] * sw * max_occupation,
                 figsize[1] * sh * max_layer,
             )
+
+        # Show status
+        if show_node_status:
+            if node_status_color is None:
+                node_status_color = dict(
+                    initialized="lightskyblue",
+                    queued="cornflowerblue",
+                    computed="limegreen",
+                    looked_up="forestgreen",
+                    failed_here="red",
+                    failed_in_dependency="firebrick",
+                    used_fallback="gold",
+                    no_status="silver",
+                )
+            drawing["nodes"]["node_color"] = [
+                node_status_color.get(status, node_status_color["fallback"])
+                for _, status in nx.get_node_attributes(g, "status").items()
+            ]
 
         # ... and draw
         try:

@@ -1089,7 +1089,8 @@ class BasePlotCreator(AbstractPlotCreator):
         log.note("Creating DAG visualization (scenario: '%s') ...", scenario)
 
         # Create the graph object.
-        # Can only return if this fails but is not configured to raise.
+        # If this fails and we are not allowed to raise, we have no other
+        # option but to return None; would not make sense to continue.
         g = None
         with exception_handling("generating DAG representation"):
             g = self._dag.generate_nx_graph(**generation)
