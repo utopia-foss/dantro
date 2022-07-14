@@ -1268,15 +1268,15 @@ def test_generate_nx_graph(dm_silent):
     fifty_node = tdag.tags["fifty"]
     foo_node = tdag.tags["foo"]
 
-    assert len(nx.shortest_path(g, fifty_node, dm_node)) == 11
-    assert len(nx.shortest_path(g, foo_node, dm_node)) == 2
+    assert len(nx.shortest_path(g, dm_node, fifty_node)) == 11
+    assert len(nx.shortest_path(g, dm_node, foo_node)) == 2
 
     # ... cannot go the reverse way
     with pytest.raises(nx.exception.NetworkXNoPath):
-        nx.shortest_path(g, dm_node, fifty_node)
+        nx.shortest_path(g, fifty_node, dm_node)
 
     with pytest.raises(nx.exception.NetworkXNoPath):
-        nx.shortest_path(g, dm_node, foo_node)
+        nx.shortest_path(g, foo_node, dm_node)
 
     # Have result available after computation
     assert not g.nodes()[fifty_node]["obj"].has_result
@@ -1295,6 +1295,18 @@ def test_generate_nx_graph(dm_silent):
 
     # The foo_node should not be in the graph
     assert foo_node not in g.nodes()
+
+    # What about reverse edges, pointing towards dependencies?
+    g = tdag.generate_nx_graph(edges_as_flow=False)
+
+    assert len(nx.shortest_path(g, fifty_node, dm_node)) == 11
+    assert len(nx.shortest_path(g, foo_node, dm_node)) == 2
+
+    with pytest.raises(nx.exception.NetworkXNoPath):
+        nx.shortest_path(g, dm_node, fifty_node)
+
+    with pytest.raises(nx.exception.NetworkXNoPath):
+        nx.shortest_path(g, dm_node, foo_node)
 
 
 def test_generate_nx_graph_attr_mapping(dm_silent):

@@ -1829,6 +1829,7 @@ class TransformationDAG:
         manipulate_attrs: dict = {},
         include_results: bool = False,
         lookup_tags: bool = True,
+        edges_as_flow: bool = True,
     ) -> "networkx.DiGraph":
         """Generates a representation of the DAG as a
         :py:class:`networkx.DiGraph` object, which can be useful for debugging.
@@ -1839,8 +1840,14 @@ class TransformationDAG:
         The :py:class:`~dantro.dag.Transformation` objects are added as node
         property ``obj`` and potentially existing tags are added as ``tag``.
 
-        **Edges** represent dependencies and are pointing *towards* the
-        dependency.
+        **Edges** represent dependencies between nodes.
+        They can be visualized in two ways:
+
+            - With ``edges_as_flow: true``, edges point in the direction of
+              results being computed, representing a flow of results.
+            - With ``edges_as_flow: false``, edges point towards the
+              dependency of a node that needs to be computed before the node
+              itself can be computed.
 
         See :ref:`dag_graph_vis` for more information.
 
@@ -1924,6 +1931,9 @@ class TransformationDAG:
                 storing it in the ``tag`` node attribute. The tags in
                 ``tags_to_include`` are always included, but the reverse lookup
                 of tags can be costly, in which case this should be disabled.
+            edges_as_flow (bool, optional): If true, edges point from a node
+                towards the nodes that *require* the computed result; if false,
+                they point towards the *dependency* of a node.
         """
         import networkx as nx
 
@@ -2010,7 +2020,10 @@ class TransformationDAG:
                 add_nodes_and_edges(g, dep)
 
                 # Now have both nodes in the graph, can the edge between them
-                g.add_edge(obj.hashstr, dep.hashstr)
+                if edges_as_flow:
+                    g.add_edge(dep.hashstr, obj.hashstr)
+                else:
+                    g.add_edge(obj.hashstr, dep.hashstr)
 
             return obj.hashstr
 
@@ -2179,6 +2192,8 @@ class TransformationDAG:
             drawing_defaults["edges"] = dict(
                 arrows=True,
                 arrowsize=12,
+                min_target_margin=20,
+                min_source_margin=20,
                 node_size=drawing_defaults["nodes"].get("node_size"),
             )
             drawing_defaults["labels"] = dict(

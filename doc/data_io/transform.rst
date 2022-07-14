@@ -604,26 +604,33 @@ If you care to **deactivate a hook**, set the ``ignore_hooks`` flag for the oper
 Graph representation and visualization
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The :py:class:`~dantro.dag.TransformationDAG` has the ability to represent the internally used directed acyclic graph as a :py:class:`networkx.classes.digraph.DiGraph`.
-By calling the :py:meth:`~dantro.dag.TransformationDAG.generate_nx_graph` method, the :py:class:`~dantro.dag.Transformation` objects are added to a graph and the dependencies between these transformations are added as directed edges towards the respective dependency.
+By calling the :py:meth:`~dantro.dag.TransformationDAG.generate_nx_graph` method, the :py:class:`~dantro.dag.Transformation` objects are added to a graph and the dependencies between these transformations are added as directed edges.
 
 This can help to better understand the generated DAG and is useful not only for debugging but also for optimization, as it allows to show the associated profiling information.
 
+.. hint::
+
+    It can be configured whether the edges should represent the "flow" of results through the DAG (edges pointing towards the node that *requires* a certain result) or whether they should point towards a node's *dependency*.
+
+    By default, :py:meth:`~dantro.dag.TransformationDAG.generate_nx_graph` has ``edges_as_flow`` set to ``True``, thus having edges point in the effective direction of computation.
+
+
 Visualization
 """""""""""""
-Furthermore, the :py:meth:`~dantro.dag.TransformationDAG.visualize` method can generate a visual output of the DAG:
+In addition to generating the graph object, the :py:meth:`~dantro.dag.TransformationDAG.visualize` method can generate a visual output of the DAG:
 
 .. image:: ../_static/_gen/dag_vis/doc_examples_define.pdf
    :target: ../_static/_gen/dag_vis/doc_examples_define.pdf
    :width: 100%
    :alt: DAG visualization
 
-In this :ref:`example <dag_define>`, the ``- my_result -`` node is tagged at the bottom and the arrows point towards the transformations that these operations depend on.
-Effectively, calculation starts at the top, with data being read from the ``dm`` node, the associated :py:class:`~dantro.data_mngr.DataManager`.
-It can also be seen that the ``define`` nodes from the example are represented by individual nodes.
+In this :ref:`example <dag_define>`, the ``- my_result -`` node is tagged at the bottom and the arrows come from the transformations that these operations depend on.
+Effectively, calculation starts at the top, with data being read from the ``dm`` node, the associated :py:class:`~dantro.data_mngr.DataManager`, then following the arrows towards the ``my_result`` node.
+It can also be seen that the ``define`` entries from the example are represented by individual nodes.
 
 .. note::
 
-    Operation arguments cannot easily be shown as it would quickly become too crowded.
+    Operation arguments cannot easily be shown as it would quickly become too cluttered.
     For that reason, the visualization typically restricts itself to showing the operation name, the result (if computed), and the tag (if set).
 
     See :py:meth:`~dantro.dag.TransformationDAG.visualize` for more info.

@@ -660,7 +660,7 @@ For the above operations, functions from `the paramspace package <https://gitlab
 
 DAG Visualization
 -----------------
-The DAG used for plot data selection and transformation can also be visualized.
+The DAG used for plot data selection and transformation :ref:`can also be visualized <dag_graph_vis>`.
 This can be helpful to understand what kind of operations are carried out on which kind of data; this can be a big assistance during debugging.
 
 By default, DAG visualization is enabled if the creator runs in debug mode (with ``raise_exc`` set) and will generate output if there was an error during the *computation* of data transformation results.
@@ -668,7 +668,7 @@ By default, DAG visualization is enabled if the creator runs in debug mode (with
 However, there are many ways to further control when a visualization is created and how it looks like.
 All parameters for controlling DAG visualization can be passed via the ``dag_visualization`` in a plot configuration.
 
-Such a plot may look like this:
+Such a plot may look like these:
 
 .. image:: ../_static/_gen/dag_vis/doc_examples_define.pdf
    :target: ../_static/_gen/dag_vis/doc_examples_define.pdf
@@ -684,6 +684,11 @@ Such a plot may look like this:
    :target: ../_static/_gen/dag_vis/doc_examples_select_with_transform.pdf
    :width: 100%
    :alt: DAG visualization
+
+DAG generation
+^^^^^^^^^^^^^^
+The way the DAG is generated is controlled by the ``generation`` arguments, which are evaluated by :py:meth:`~dantro.dag.TransformationDAG.generate_nx_graph`.
+Also see :ref:`dag_graph_vis` for more information.
 
 
 Controlling when to generate a DAG plot
@@ -733,7 +738,7 @@ In the following example, the name of that attribute is ``my_custom_attr``, whic
 
 Setting plot aesthetics
 ^^^^^^^^^^^^^^^^^^^^^^^
-The looks of the DAG plot are set via the ``drawing`` keyword:
+The looks of the DAG plot are set via the ``drawing`` keyword, which end up in the :py:meth:`~dantro.dag.TransformationDAG.visualize` method:
 
 .. code-block:: yaml
 
