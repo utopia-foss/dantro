@@ -2492,13 +2492,13 @@ doc_examples_meta_ops_prime_multiples:
     meta_operations:
       prime_multiples:
         # Define powers of primes 2, 3, 5, and 7
-        - pow: [2, !kwarg base2]
+        - pow: [2, !kwarg [base2, 0]]
           tag: b2
-        - pow: [3, !kwarg base3]
+        - pow: [3, !kwarg [base3, 0]]
           tag: b3
-        - pow: [5, !kwarg base5]
+        - pow: [5, !kwarg [base5, 0]]
           tag: b5
-        - pow: [7, !kwarg base7]
+        - pow: [7, !kwarg [base7, 0]]
           tag: b7
         # Compute their product
         - np.: [prod, [!dag_tag b2, !dag_tag b3, !dag_tag b5, !dag_tag b7]]
@@ -2507,7 +2507,7 @@ doc_examples_meta_ops_prime_multiples:
       - prime_multiples:
           base2: 2
           base3: 1
-          base5: 0
+          # base5: 0
           base7: 3
         tag: result
     ### End ---- dag_meta_ops_prime_multiples
@@ -2859,11 +2859,12 @@ doc_examples_err_and_fallback:
         allow_failure: true
         fallback: !dag_prev
       - increment: !dag_prev
-      - sub: [!dag_prev , foo]
+      - sub: [!dag_prev , foo]  # bad argument
       - increment: !dag_prev
         tag: my_result
     ### End ---- dag_err_and_fallback
   _raises_on_compute: true
+  _raises: DataOperationError
   expected:
     tags: [dag, dm, select_base, some_data, more_data, my_result]
 

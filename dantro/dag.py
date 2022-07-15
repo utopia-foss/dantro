@@ -933,6 +933,7 @@ class TransformationDAG:
         "layer": f"{ATTR_MAPPER_OP_PREFIX_DAG}.get_layer",
         "operation": f"{ATTR_MAPPER_OP_PREFIX_DAG}.get_operation",
         "description": f"{ATTR_MAPPER_OP_PREFIX_DAG}.get_description",
+        "status": f"{ATTR_MAPPER_OP_PREFIX_DAG}.get_status",
     }
     """The default node attribute mappers when
     :py:meth:`generating a graph object from the DAG <.generate_nx_graph>`.
@@ -2150,6 +2151,7 @@ class TransformationDAG:
         node_status_color: dict = None,
         layout: dict = {},
         figure_kwargs: dict = {},
+        annotate_kwargs: dict = {},
         save_kwargs: dict = {},
     ) -> "networkx.DiGraph":
         """Uses :py:meth:`.generate_nx_graph` to generate a DAG representation
@@ -2213,6 +2215,10 @@ class TransformationDAG:
                 functions.
             figure_kwargs (dict, optional): Passed to
                 :py:func:`matplotlib.pyplot.figure` for setting up the figure
+            annotate_kwargs (dict, optional): Used for annotating the graph
+                with a title and a legend (for ``show_node_status``).
+                Supported keys: ``title``, ``title_kwargs``, ``add_legend``,
+                ``legend_kwargs``, ``handle_kwargs``.
             save_kwargs (dict, optional): Passed to
                 :py:func:`matplotlib.pyplot.savefig` for saving the figure
 
@@ -2224,13 +2230,56 @@ class TransformationDAG:
 
         from .plot.funcs.graph import _draw_graph
 
-        def setup_figure(
-            constrained_layout=True, **figure_kwargs
-        ) -> "matplotlib.figure.Figure":
+        def setup_figure(**figure_kwargs) -> "matplotlib.figure.Figure":
             """Creates a new figure"""
-            return plt.figure(
-                constrained_layout=constrained_layout, **figure_kwargs
-            )
+            return plt.figure(**figure_kwargs)
+
+        def annotate_plot(
+            *,
+            ax,
+            show_node_status: bool,
+            node_status_color: dict,
+            title: str = None,
+            title_kwargs: dict = None,
+            add_legend: bool = True,
+            handle_kwargs: dict = None,
+            legend_kwargs: bool = None,
+        ) -> list:
+            """Add a few annotations to the plot: title & legend for the
+            various node status colours.
+
+            Uses figure-level legend and title to reduce overlapping within
+            the axes.
+            """
+            fig = ax.get_figure()
+            artists = []
+
+            def create_patch(c, label, **kws):
+                from matplotlib.lines import Line2D
+
+                label = label.replace("_", " ")
+                return Line2D(
+                    [0], [0], marker="o", label=label, markerfacecolor=c, **kws
+                )
+
+            if title is not None:
+                t = fig.suptitle(
+                    title, **(title_kwargs if title_kwargs else {})
+                )
+                artists.append(t)
+
+            if show_node_status and add_legend:
+                handle_kwargs = handle_kwargs if handle_kwargs else {}
+                legend_kwargs = legend_kwargs if legend_kwargs else {}
+                handles = [
+                    create_patch(c, l, **handle_kwargs)
+                    for l, c in node_status_color.items()
+                ]
+
+                lgd = fig.legend(handles=handles, **legend_kwargs)
+                artists.append(lgd)
+
+            return artists
 
         def save_plot(*, out_path: str, bbox_inches="tight", **save_kwargs):
             """Saves the matplotlib plot to the given output path"""
@@ -2256,12 +2305,13 @@ class TransformationDAG:
             )
 
         # Specify defaults
+        # TODO Consider defining these elsewhere
         if use_defaults:
             figure_defaults = dict()
             layout_defaults = dict()
             drawing_defaults = dict()
 
-            figure_defaults["figsize"] = (9, 6)
+            figure_defaults["figsize"] = (9, 7)
 
             layout_defaults["model"] = "graphviz_dot"
             layout_defaults["model_kwargs"] = dict(
@@ -2292,21 +2342,43 @@ class TransformationDAG:
             )
             drawing_defaults["labels"] = dict(
                 from_attr="description",
-                font_size=7,
+                font_size=6,
                 bbox=dict(
                     fc="#fffa", ec="#666", linewidth=0.5, boxstyle="round"
                 ),
             )
 
+            annotate_defaults = dict(
+                # FIXME Positioning is not ideal ...
+                # title_kwargs=dict(y=1.02),
+                legend_kwargs=dict(
+                    loc="lower center",  # upper center is better
+                    # bbox_to_anchor=(0.5, 0.98),
+                    fontsize=5,
+                    ncol=4,
+                    framealpha=0,
+                ),
+                handle_kwargs=dict(
+                    color="k",
+                    linewidth=0,
+                    markersize=6,
+                    markeredgewidth=0.2,
+                    alpha=0.7,
+                ),
+            )
+
             # Use them as basis ...
             figure_kwargs = _recursive_update(figure_defaults, figure_kwargs)
+            annotate_kwargs = _recursive_update(
+                annotate_defaults, annotate_kwargs
+            )
             layout = _recursive_update(layout_defaults, layout)
             drawing = _recursive_update(drawing_defaults, drawing)
 
         # Figure size scaling
         if scale_figsize:
             if isinstance(scale_figsize, bool):
-                scale_figsize = (0.25, 0.2)
+                scale_figsize = (0.25, 0.22)
 
             sw, sh = scale_figsize
 
@@ -2332,7 +2404,7 @@ class TransformationDAG:
         # Show status
         if show_node_status:
             if node_status_color is None:
-                # START -- default_node_status_color
+                # TODO Is there a better location for this?!
                 node_status_color = dict(
                     initialized="lightskyblue",
                     queued="cornflowerblue",
@@ -2343,17 +2415,24 @@ class TransformationDAG:
                     used_fallback="gold",
                     no_status="silver",
                 )
-                # END ---- default_node_status_color
             drawing["nodes"]["node_color"] = [
-                node_status_color.get(s, node_status_color["fallback_color"])
+                node_status_color.get(s, node_status_color["no_status"])
                 for _, s in nx.get_node_attributes(g, "status").items()
             ]
 
+        annotate_kwargs["show_node_status"] = show_node_status
+        annotate_kwargs["node_status_color"] = node_status_color
+
         # ... and draw
+        artists = []
         try:
             fig = setup_figure(**figure_kwargs)
-            _draw_graph(g, ax=plt.gca(), layout=layout, drawing=drawing)
-            save_plot(out_path=out_path, **save_kwargs)
+            ax = plt.gca()
+            artists += _draw_graph(g, ax=ax, layout=layout, drawing=drawing)
+            artists += annotate_plot(ax=ax, **annotate_kwargs)
+            save_plot(
+                out_path=out_path, bbox_extra_artists=artists, **save_kwargs
+            )
 
         finally:
             plt.close(fig)

@@ -627,15 +627,9 @@ In addition to generating the graph object, the :py:meth:`~dantro.dag.Transforma
 In this example, the ``- my_result -`` node is tagged at the bottom and the arrows come from the transformations that these operations depend on.
 Effectively, calculation starts at the top, with data being read from the ``dm`` node, the associated :py:class:`~dantro.data_mngr.DataManager`, then following the arrows towards the ``my_result`` node and applying the specified operations like ``squared``, ``increment`` and so on.
 
-The circles in the background show the status of the computation, green meaning that a node's result was computed as expected.
-Depending on the ``show_node_status`` argument, these colors can indicate where in a DAG computation routine an error occurred.
-Default colors are the following:
-
-.. literalinclude:: ../../dantro/dag.py
-    :language: python
-    :start-after: # START -- default_node_status_color
-    :end-before: # END ---- default_node_status_color
-    :dedent: 16
+The circles in the background show the status of the computation, green meaning that a node's result was computed as expected; other colors and their corresponding status are detailed in the legend.
+The node status can indicate where in a DAG computation routine an error occurred.
+To control this, have a look at the ``show_node_status`` argument and the ``annotation_kwargs``, where the legend can be controlled.
 
 .. note::
 

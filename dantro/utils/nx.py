@@ -335,7 +335,7 @@ def format_arguments(*, attrs: dict, join_str: str = "\n") -> str:
 @_is_operation(f"{ATTR_MAPPER_OP_PREFIX_DAG}.get_layer")
 def get_layer(*, attrs: dict) -> int:
     """:py:func:`Attribute mapper operation <map_attributes>` that returns the
-    transformations layer value.
+    transformation's layer value.
     See :py:attr:`dantro.dag.Transformation.layer`.
 
     Used in :ref:`dag_graph_vis`.
@@ -344,12 +344,24 @@ def get_layer(*, attrs: dict) -> int:
     return getattr(obj, "layer", 0)
 
 
+@_is_operation(f"{ATTR_MAPPER_OP_PREFIX_DAG}.get_status")
+def get_status(*, attrs: dict) -> str:
+    """:py:func:`Attribute mapper operation <map_attributes>` that returns the
+    transformation's status value.
+    See :py:attr:`dantro.dag.Transformation.status`.
+
+    Used in :ref:`dag_graph_vis`.
+    """
+    obj = attrs["obj"]
+    return getattr(obj, "status", "none")
+
+
 @_is_operation(f"{ATTR_MAPPER_OP_PREFIX_DAG}.get_description")
 def get_description(
     *,
     attrs: dict,
     join_str: str = "\n",
-    to_include: list = "all",
+    to_include: list = ("operation", "meta_operation", "tag", "result"),
     abbreviate_result: int = 12,
 ) -> str:
     """:py:func:`Attribute mapper operation <map_attributes>` that creates a
@@ -361,13 +373,14 @@ def get_description(
         attrs (dict): Node attributes dict
         join_str (str, optional): How to join the individual segments together
         to_include (list, optional): Which segments to include.
-            Can be ``'all'`` or a list of keys referring to individual
+            Can be ``'all'`` or a sequence of keys referring to individual
             segments. Available segments:
 
                 - ``operation``
                 - ``meta_operation``
                 - ``tag``
                 - ``result`` (if available)
+                - ``status`` (if available)
 
             Note that the order is also given by the order in this list.
     """
@@ -391,6 +404,9 @@ def get_description(
             if len(result_str) > abbreviate_result:
                 result_str = str(type(result).__name__)
 
+    # Status
+    status = getattr(obj, "status", "none").replace("_", " ")
+
     # Meta-operation this node may have been part of
     meta_op = getattr(obj, "context", {}).get("meta_operation")
 
@@ -400,6 +416,7 @@ def get_description(
         meta_operation=dict(fstr="meta-op: {}", content=meta_op),
         result=dict(fstr="result: {}", content=result_str),
         tag=dict(fstr="— {} —", content=tag),
+        status=dict(fstr="status: {}", content=status),
     )
     if to_include == "all":
         to_include = list(desc_specs.keys())

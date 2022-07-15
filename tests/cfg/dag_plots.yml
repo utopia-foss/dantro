@@ -908,12 +908,23 @@ config_based:
 
         # Figure creation via matplotlib.pyplot.figure
         figure_kwargs:
-          figsize: [9, 6]
+          figsize: [9, 7]
 
         # Scale figure size with "width" and "height" of the resulting graph
         # to avoid node overlapping; using these scaling factors.
         # Set to False to disable.
-        scale_figsize: [0.25, 0.20]
+        scale_figsize: [0.25, 0.22]
+
+        # Figure-level plot annotations: suptitle, figure legend for node color
+        annotate_kwargs:
+          # Title
+          title: my custom DAG visualization
+          title_kwargs: {}
+
+          # Legend
+          add_legend: true
+          legend_kwargs: {}
+          handle_kwargs: {}
 
         # Saving via matplotlib.pyplot.savefig
         save_kwargs:

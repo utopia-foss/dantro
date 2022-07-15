@@ -30,8 +30,6 @@ def visualize_dag_examples(*, out_dir: str):
     for cfg_name, cfg in load_yml(test_dag.TRANSFORMATIONS_PATH).items():
         if cfg_name not in to_plot:
             continue
-        if cfg.get("_raises"):
-            continue
 
         print(f"... Case: '{cfg_name}' ...")
 
@@ -39,7 +37,8 @@ def visualize_dag_examples(*, out_dir: str):
         try:
             tdag.compute(compute_only=cfg.get("compute_only", "all"))
         except:
-            if not cfg.get("_raises_on_compute", False):
+            if not cfg.get("_raises_on_compute"):
+                # Should not have raised
                 raise
             pass
 

@@ -713,7 +713,7 @@ In the ``on_compute_error`` scenario, it is advisable to activate the ``show_nod
    :width: 100%
    :alt: DAG visualization
 
-The colors indicate the following node status:
+The colors indicate the following node status, as detailed in the legend:
 
 - green: computation succeeded
 - yellow: computation failed but a :ref:`fallback value <dag_error_handling>` was used

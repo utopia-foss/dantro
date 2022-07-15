@@ -1101,7 +1101,19 @@ class BasePlotCreator(AbstractPlotCreator):
         # Generate the output path (for the plot)
         out_path = parse_output_path(scenario, **output)
 
-        # Export it
+        # Set some parameter defaults
+        title_fstr = "DAG @ scenario '{}'"
+        default_plot_kwargs = dict(
+            annotate_kwargs=dict(
+                title=title_fstr.format(scenario.replace("_", " ")),
+                add_legend=True,
+            )
+        )
+        plot_kwargs = recursive_update(
+            default_plot_kwargs, copy.deepcopy(plot_kwargs)
+        )
+
+        # Export the graph object
         if export_enabled:
             from ...utils.nx import export_graph
 

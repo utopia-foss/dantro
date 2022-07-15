@@ -209,7 +209,7 @@ def _draw_graph(
     ax: "matplotlib.axes.Axes" = None,
     drawing: dict = {},
     layout: dict = {},
-):
+) -> list:
     """Draws a graph using
     :py:func:`networkx.drawing.nx_pylab.draw_networkx_nodes`,
     :py:func:`networkx.drawing.nx_pylab.draw_networkx_edges`, and
@@ -242,15 +242,25 @@ def _draw_graph(
             )
 
         # Now draw
-        nx.draw_networkx_nodes(g, pos=pos, ax=ax, **nodes)
-        nx.draw_networkx_edges(g, pos=pos, ax=ax, **edges)
-        nx.draw_networkx_labels(g, pos=pos, ax=ax, **labels)
+        _nodes = nx.draw_networkx_nodes(g, pos=pos, ax=ax, **nodes)
+        _edges = nx.draw_networkx_edges(g, pos=pos, ax=ax, **edges)
+        _labels = nx.draw_networkx_labels(g, pos=pos, ax=ax, **labels)
+
+        # Gather artists, adapting to the specific way they are passed back
+        artists = []
+        artists.append(_nodes)
+        artists += _edges
+        artists += list(_labels.values())
+
+        return artists
 
     ax = ax if ax is not None else plt.gca()
     pos = get_positions(g, **layout)
 
     # Draw
-    draw(g, ax=ax, pos=pos, **drawing)
+    artists = draw(g, ax=ax, pos=pos, **drawing)
 
     # Post-process
     ax.axis("off")
+
+    return artists
