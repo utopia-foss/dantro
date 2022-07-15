@@ -2847,6 +2847,27 @@ doc_examples_error_handling_select_tagged_fallback:
         type: float64
 
 
+doc_examples_err_and_fallback:
+  params:
+    ### Start -- dag_err_and_fallback
+    select:
+      some_data: path/to/some_data
+      more_data: path/to/more_data
+    transform:
+      - add: [!dag_tag some_data, !dag_tag more_data]
+      - pow: [!dag_prev , 4, some_bad_argument]
+        allow_failure: true
+        fallback: !dag_prev
+      - increment: !dag_prev
+      - sub: [!dag_prev , foo]
+      - increment: !dag_prev
+        tag: my_result
+    ### End ---- dag_err_and_fallback
+  _raises_on_compute: true
+  expected:
+    tags: [dag, dm, select_base, some_data, more_data, my_result]
+
+
 doc_examples_gen_nx_custom_description:
   params:
     ### Start -- dag_gen_nx_custom_description

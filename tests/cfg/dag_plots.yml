@@ -859,7 +859,9 @@ config_based:
         # Layouting algorithm (and fallback)
         layout:
           model: graphviz_dot      # requires graphviz and pygraphviz
-          fallback: multipartite   # will use this one if the one above fails
+
+          # In case the above model fails, silently switch to another one
+          fallback: multipartite
           silent_fallback: true
 
           # Arguments for the respective layouting models
@@ -870,6 +872,15 @@ config_based:
               align: horizontal
               subset_key: layer
               scale: -1
+
+              # Whether to wiggle layouted positions to reduce edge overlap.
+              # This is recommended for the multipartite layout, because it
+              # does not handle edges going over multiple layers very well,
+              # producing confusing edge overlaps ...
+              wiggle:
+                x: 0.005
+                y: ~
+                seed: 123  # set to None to always get new wiggles
 
         # Drawing, using networkx.draw_networkx_<...>
         drawing:

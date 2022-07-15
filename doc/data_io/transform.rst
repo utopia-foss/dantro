@@ -619,14 +619,23 @@ Visualization
 """""""""""""
 In addition to generating the graph object, the :py:meth:`~dantro.dag.TransformationDAG.visualize` method can generate a visual output of the DAG:
 
-.. image:: ../_static/_gen/dag_vis/doc_examples_define.pdf
-   :target: ../_static/_gen/dag_vis/doc_examples_define.pdf
+.. image:: ../_static/_gen/dag_vis/doc_examples_select_with_transform.pdf
+   :target: ../_static/_gen/dag_vis/doc_examples_select_with_transform.pdf
    :width: 100%
    :alt: DAG visualization
 
-In this :ref:`example <dag_define>`, the ``- my_result -`` node is tagged at the bottom and the arrows come from the transformations that these operations depend on.
-Effectively, calculation starts at the top, with data being read from the ``dm`` node, the associated :py:class:`~dantro.data_mngr.DataManager`, then following the arrows towards the ``my_result`` node.
-It can also be seen that the ``define`` entries from the example are represented by individual nodes.
+In this example, the ``- my_result -`` node is tagged at the bottom and the arrows come from the transformations that these operations depend on.
+Effectively, calculation starts at the top, with data being read from the ``dm`` node, the associated :py:class:`~dantro.data_mngr.DataManager`, then following the arrows towards the ``my_result`` node and applying the specified operations like ``squared``, ``increment`` and so on.
+
+The circles in the background show the status of the computation, green meaning that a node's result was computed as expected.
+Depending on the ``show_node_status`` argument, these colors can indicate where in a DAG computation routine an error occurred.
+Default colors are the following:
+
+.. literalinclude:: ../../dantro/dag.py
+    :language: python
+    :start-after: # START -- default_node_status_color
+    :end-before: # END ---- default_node_status_color
+    :dedent: 16
 
 .. note::
 
@@ -639,11 +648,9 @@ It can also be seen that the ``define`` entries from the example are represented
 
     If using the data transformation framework for :ref:`plot data selection <plot_creator_dag>`, visualization is deeply integrated there; see :ref:`plot_creator_dag_vis`.
 
-.. warning::
+.. hint::
 
-    DAG visualization works much better with `pygraphviz <https://pygraphviz.github.io>`_ installed, because this supports more capable layouting algorithms.
-
-    If not available, the resulting graphs may have overlapping edges, which can become difficult to discern.
+    DAG visualization works much better with `pygraphviz <https://pygraphviz.github.io>`_ installed, because it gives access to more capable layouting algorithms.
 
 Export
 """"""

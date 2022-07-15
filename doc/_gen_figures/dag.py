@@ -16,6 +16,7 @@ def visualize_dag_examples(*, out_dir: str):
     to_plot = (
         "meta_ops_deeply_nested",
         "doc_examples_define",
+        "doc_examples_err_and_fallback",
         "doc_examples_select_with_transform",
         "doc_examples_op_hooks_expression_symbolic",
         "doc_examples_meta_ops_prime_multiples",
@@ -35,7 +36,13 @@ def visualize_dag_examples(*, out_dir: str):
         print(f"... Case: '{cfg_name}' ...")
 
         tdag = TransformationDAG(dm=dm, **cfg["params"])
-        tdag.compute(compute_only=cfg.get("compute_only", "all"))
+        try:
+            tdag.compute(compute_only=cfg.get("compute_only", "all"))
+        except:
+            if not cfg.get("_raises_on_compute", False):
+                raise
+            pass
+
         tdag.visualize(
             out_path=os.path.join(out_dir, f"{cfg_name}.pdf"),
             **vis_params,

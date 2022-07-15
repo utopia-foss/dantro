@@ -444,8 +444,8 @@ class Transformation:
         - ``computed``: successfully computed
         - ``used_fallback``: if a fallback value was used instead
         - ``looked_up``: after *file* cache lookup
-        - ``failed``: if computation failed for whatever reason and there was
-          no fallback.
+        - ``failed_here``: if computation failed *in this node*
+        - ``failed_in_dependency``: if computation failed *in a dependency*
         """
         return self._status
 
@@ -581,7 +581,6 @@ class Transformation:
             else:
                 # No error; carry out the operation with the resolved arguments
                 res = self._perform_operation(args=args, kwargs=kwargs)
-                self._status = "computed"
 
         # Allow caching the result, even if it comes from the cache
         self._cache_result(res)
@@ -633,6 +632,7 @@ class Transformation:
 
         else:
             self.status = "computed"
+
         # Parse profiling info and return the result
         self._update_profile(cumulative_compute=(time.time() - t0))
 
@@ -698,7 +698,6 @@ class Transformation:
         the fallback value.
         """
         if not self._allow_failure:
-            self._status = "failed"
             raise
 
         # Generate and communicate the message
@@ -2161,7 +2160,11 @@ class TransformationDAG:
             The plotted graph may contain overlapping edges or nodes, depending
             on the size and structure of your DAG. This is less pronounced if
             `pygraphviz <https://pygraphviz.github.io>`_ is installed, which
-            provides more capable layouting algorithms.
+            provides vastly more capable layouting algorithms.
+
+            To alleviate this, the default layouting and drawing arguments will
+            generate a graph with partly transparent nodes and edges and wiggle
+            node positions around, thus making edges more discernible.
 
         Args:
             out_path (str): Where to store the output
@@ -2267,6 +2270,7 @@ class TransformationDAG:
                     align="horizontal",
                     subset_key="layer",
                     scale=-1,
+                    wiggle=dict(x=0.005, seed=123),
                 ),
             )
             layout_defaults["fallback"] = "multipartite"
@@ -2280,6 +2284,7 @@ class TransformationDAG:
             )
             drawing_defaults["edges"] = dict(
                 arrows=True,
+                alpha=0.7,
                 arrowsize=12,
                 min_target_margin=20,
                 min_source_margin=20,
@@ -2327,6 +2332,7 @@ class TransformationDAG:
         # Show status
         if show_node_status:
             if node_status_color is None:
+                # START -- default_node_status_color
                 node_status_color = dict(
                     initialized="lightskyblue",
                     queued="cornflowerblue",
@@ -2337,9 +2343,10 @@ class TransformationDAG:
                     used_fallback="gold",
                     no_status="silver",
                 )
+                # END ---- default_node_status_color
             drawing["nodes"]["node_color"] = [
-                node_status_color.get(status, node_status_color["fallback"])
-                for _, status in nx.get_node_attributes(g, "status").items()
+                node_status_color.get(s, node_status_color["fallback_color"])
+                for _, s in nx.get_node_attributes(g, "status").items()
             ]
 
         # ... and draw

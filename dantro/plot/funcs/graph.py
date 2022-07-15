@@ -17,10 +17,39 @@ log = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 
 
+def _wiggle_pos(
+    pos: dict, *, x: float = None, y: float = None, seed: int = None
+) -> dict:
+    """Wiggles positions by absolute random amplitudes in x and y direction
+
+    Args:
+        pos (dict): Positions dict with values being x and y positions
+        x (float, optional): Absolute wiggle amplitude
+        y (float, optional): Absolute wiggle amplitude
+        seed (int, optional): Seed for the :py:class:`numpy.random.RandomState`
+            that is used for drawing random numbers. Set to a fixed value to
+            always get the same positions.
+    """
+    import numpy as np
+    import numpy.random
+
+    rng = np.random.RandomState(seed)
+    wiggle = lambda old_pos, amp: old_pos + amp * rng.uniform(-1, +1)
+
+    if x is not None:
+        pos = {n: [wiggle(p[0], x), p[1]] for n, p in pos.items()}
+
+    if y is not None:
+        pos = {n: [p[0], wiggle(p[1], y)] for n, p in pos.items()}
+
+    return pos
+
+
 def _get_positions(
     g: "networkx.Graph",
     *,
     model: Union[str, Callable],
+    wiggle: dict = None,
     **kwargs,
 ) -> dict:
     """Returns the positions dict for the given graph, created from a networkx
@@ -37,6 +66,9 @@ def _get_positions(
             If it is a string, it's looked up from the networkx namespace.
             If it is a callable, it is invoked with ``g`` as only positional
             argument and ``**kwargs`` as keyword arguments.
+        wiggle (dict, optional): If given, will postprocess the positions dict
+            by randomly wiggling x and y coordinates according to the absolute
+            amplitudes given as values.
         **kwargs: Passed on to the layouting algorithm.
     """
 
@@ -44,15 +76,13 @@ def _get_positions(
 
     if callable(model):
         log.debug("Invoking callable for node layouting ...")
-        return model(g, **kwargs)
+        pos = model(g, **kwargs)
 
     elif model.startswith("graphviz_"):
         log.debug("Invoking %s model for node layouting ...", model)
         try:
             model = model[len("graphviz_") :]
-            return nx.drawing.nx_agraph.graphviz_layout(
-                g, prog=model, **kwargs
-            )
+            pos = nx.drawing.nx_agraph.graphviz_layout(g, prog=model, **kwargs)
 
         except ImportError as err:
             raise ImportError(
@@ -71,7 +101,7 @@ def _get_positions(
         try:
             log.debug("Invoking %s model for node layouting ...", model)
             layout_func = POSITIONING_MODELS_NETWORKX[model]
-            return layout_func(g, **kwargs)
+            pos = layout_func(g, **kwargs)
 
         except KeyError as err:
             _avail = ", ".join(POSITIONING_MODELS_NETWORKX)
@@ -79,6 +109,10 @@ def _get_positions(
                 f"No layouting model '{model}' available in networkx! "
                 f"Available models: {_avail}"
             ) from err
+
+    if wiggle:
+        pos = _wiggle_pos(pos, **wiggle)
+    return pos
 
 
 def get_positions(

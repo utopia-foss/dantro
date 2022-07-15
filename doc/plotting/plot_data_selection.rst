@@ -706,6 +706,24 @@ For instance, if we'd like to always generate a DAG plot upon a computation, we 
           on_compute_error: true     # ... either upon failing computation
           on_compute_success: true   # ... or upon a successful one.
 
+In the ``on_compute_error`` scenario, it is advisable to activate the ``show_node_status`` option for visualization, which will indicate at which node an error occurred:
+
+.. image:: ../_static/_gen/dag_vis/doc_examples_err_and_fallback.pdf
+   :target: ../_static/_gen/dag_vis/doc_examples_err_and_fallback.pdf
+   :width: 100%
+   :alt: DAG visualization
+
+The colors indicate the following node status:
+
+- green: computation succeeded
+- yellow: computation failed but a :ref:`fallback value <dag_error_handling>` was used
+- red: computation failed in this node
+- dark red: computation failed in a node that this node depends on
+
+.. hint::
+
+    To adjust the status colors, set the ``node_status_colors`` argument; see :py:meth:`~dantro.dag.TransformationDAG.visualize` docstring for more info.
+
 
 Changing plot content
 ^^^^^^^^^^^^^^^^^^^^^
