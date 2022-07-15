@@ -403,7 +403,7 @@ config_based:
         when:
           always: true
           only_once: false
-          on_compute_error: debug
+          on_compute_error: true
           on_compute_success: false
           on_plot_error: false
           on_plot_success: false
@@ -812,7 +812,7 @@ config_based:
           # Values can be: false, true, debug.
           # In case of 'debug', output is only generated if the creator was in
           # debug mode itself.
-          on_compute_error: debug
+          on_compute_error: true
           on_compute_success: false
           on_plot_error: false
           on_plot_success: false

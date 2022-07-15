@@ -997,7 +997,7 @@ class BasePlotCreator(AbstractPlotCreator):
             enabled: bool,
             always: bool = False,
             only_once: bool = False,
-            on_compute_error: Union[bool, str] = "debug",
+            on_compute_error: Union[bool, str] = True,
             on_compute_success: Union[bool, str] = False,
             on_plot_error: Union[bool, str] = False,
             on_plot_success: Union[bool, str] = False,

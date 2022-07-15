@@ -663,7 +663,8 @@ DAG Visualization
 The DAG used for plot data selection and transformation :ref:`can also be visualized <dag_graph_vis>`.
 This can be helpful to understand what kind of operations are carried out on which kind of data; this can be a big assistance during debugging.
 
-By default, DAG visualization is enabled if the creator runs in debug mode (with ``raise_exc`` set) and will generate output if there was an error during the *computation* of data transformation results.
+By default, DAG visualization is enabled and will generate output if there was an error during the *computation* of data transformation results.
+This can be controlled; see below.
 
 However, there are many ways to further control when a visualization is created and how it looks like.
 All parameters for controlling DAG visualization can be passed via the ``dag_visualization`` in a plot configuration.
@@ -699,12 +700,24 @@ For instance, if we'd like to always generate a DAG plot upon a computation, we 
 
     my_dag_plot:
       # ...
-
       dag_visualization:
         when:
           only_once: true            # only generate a single DAG plot
           on_compute_error: true     # ... either upon failing computation
           on_compute_success: true   # ... or upon a successful one.
+
+.. hint::
+
+    To only plot if the creator runs in debug mode (i.e., with ``raise_exc`` set), set the scenario to ``debug`` instead of a boolean.
+
+    .. code-block:: yaml
+
+        my_dag_plot:
+          # ...
+          dag_visualization:
+            when:
+              on_compute_error: debug
+
 
 In the ``on_compute_error`` scenario, it is advisable to activate the ``show_node_status`` option for visualization, which will indicate at which node an error occurred:
 
