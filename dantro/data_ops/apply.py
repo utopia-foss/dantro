@@ -7,7 +7,7 @@ from typing import Any
 from ..exceptions import *
 from ..tools import make_columns as _make_columns
 from .db import _OPERATIONS
-from .db_tools import available_operations
+from .db_tools import get_operation
 
 log = logging.getLogger(__name__)
 
@@ -46,24 +46,7 @@ def apply_operation(
     if _ops is None:
         _ops = _OPERATIONS
 
-    try:
-        op = _ops[op_name]
-
-    except KeyError as err:
-        # Find some close matches to make operation discovery easier
-        _close_matches = available_operations(match=op_name, n=8, _ops=_ops)
-        _did_you_mean = (
-            f" Did you mean: {', '.join(_close_matches)} ?"
-            if _close_matches
-            else ""
-        )
-        _available = _make_columns(available_operations(_ops=_ops))
-
-        raise BadOperationName(
-            f"No operation '{op_name}' registered!{_did_you_mean} "
-            f"\nAvailable operations:\n{_available}If you need to register "
-            "a new operation, use dantro.utils.register_operation."
-        ) from err
+    op = get_operation(op_name, _ops=_ops)
 
     # Compute and return the results, allowing messaging exceptions through ...
     log.log(_log_level, "Performing operation '%s' ...", op_name)

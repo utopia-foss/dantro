@@ -37,6 +37,9 @@ class Placeholder:
 
     __slots__ = ("_data",)
 
+    PAYLOAD_DESC: str = "payload"
+    """How to refer to the payload in the ``__str__`` method"""
+
     def __init__(self, data: Any):
         """Initialize a Placeholder by storing its payload"""
         self._data = data
@@ -54,7 +57,12 @@ class Placeholder:
         return f"<{type(self).__name__} {repr(self._data)}>"
 
     def __str__(self) -> str:
-        return f"<{type(self).__name__}, payload: {repr(self._data)}>"
+        return "<{}, {}: {}>".format(
+            type(self).__name__, self.PAYLOAD_DESC, self._format_payload()
+        )
+
+    def _format_payload(self) -> str:
+        return repr(self._data)
 
     def __hash__(self) -> int:
         """Creates a hash by invoking ``hash(repr(self))``"""
@@ -93,6 +101,7 @@ class ResultPlaceholder(Placeholder):
     """
 
     __slots__ = ()
+    PAYLOAD_DESC = "result_tag"
     yaml_tag = "!dag_result"
 
     @property
@@ -219,9 +228,10 @@ class PlaceholderWithFallback(Placeholder):
     def __str__(self) -> str:
         if not self.has_fallback:
             return super().__str__()
-        return "<{}, payload: {}, fallback: {}>".format(
+        return "<{}, {}: {}, fallback: {}>".format(
             type(self).__name__,
-            repr(self._data),
+            self.PAYLOAD_DESC,
+            self._format_payload(),
             repr(self._fallback),
         )
 
@@ -268,6 +278,7 @@ class PositionalArgument(PlaceholderWithFallback):
     """
 
     __slots__ = ()
+    PAYLOAD_DESC = "position"
     yaml_tag = "!arg"
 
     def __init__(self, pos: int, *args):
@@ -301,6 +312,7 @@ class KeywordArgument(PlaceholderWithFallback):
     """
 
     __slots__ = ()
+    PAYLOAD_DESC = "name"
     yaml_tag = "!kwarg"
 
     def __init__(self, name: str, *args):
@@ -328,6 +340,7 @@ class DAGReference(Placeholder):
     """
 
     __slots__ = ()
+    PAYLOAD_DESC = "hash"
     yaml_tag = "!dag_ref"
 
     def __init__(self, ref: str):
@@ -344,6 +357,13 @@ class DAGReference(Placeholder):
     def ref(self) -> str:
         """The associated reference of this object"""
         return self._data
+
+    def _format_payload(self) -> str:
+        # Make sure to not apply this to derived classes with a different kind
+        # of payload, e.g. DAGTag ...
+        if self.PAYLOAD_DESC != "hash":
+            return str(self._data)
+        return f"{self._data[:12]}…"
 
     def _resolve_ref(self, *, dag: "TransformationDAG") -> str:
         """Return the hash reference; for the base class, the data is already
@@ -373,6 +393,7 @@ class DAGTag(DAGReference):
     """
 
     __slots__ = ()
+    PAYLOAD_DESC = "tag"
     yaml_tag = "!dag_tag"
 
     def __init__(self, name: str):
@@ -413,8 +434,12 @@ class DAGMetaOperationTag(DAGTag):
     """
 
     __slots__ = ()
+    PAYLOAD_DESC = "tag"
     yaml_tag = "!mop_tag"
-    SPLIT_STR = "::"
+
+    SPLIT_STR: str = "::"
+    """The string by which to split off the meta-operation name from the
+    fully qualified tag name."""
 
     def __init__(self, name: str):
         """Initialize the DAGMetaOperationTag object.
@@ -477,6 +502,7 @@ class DAGNode(DAGReference):
     """A DAGNode is a reference by the index within the DAG's node list."""
 
     __slots__ = ()
+    PAYLOAD_DESC = "node ID"
     yaml_tag = "!dag_node"
 
     def __init__(self, idx: int):
@@ -626,15 +652,22 @@ class DAGObjects:
 # -----------------------------------------------------------------------------
 
 
-def parse_dag_minimal_syntax(params: Union[str, dict]) -> dict:
+def parse_dag_minimal_syntax(
+    params: Union[str, dict], *, with_previous_result: bool = True
+) -> dict:
     """Parses the minimal syntax parameters, effectively translating a string-
     like argument to a dict with the string specified as the ``operation`` key.
     """
     if isinstance(params, dict):
+        # Not actually minimal syntax, but a passthrough
         return params
 
     elif isinstance(params, str):
-        return dict(operation=params, with_previous_result=True)
+        return dict(
+            operation=params,
+            with_previous_result=with_previous_result,
+            context=dict(from_minimal_syntax=True, spec=params),
+        )
 
     # else:
     raise TypeError(
@@ -655,14 +688,19 @@ def parse_dag_syntax(
     ignore_hooks: bool = False,
     allow_failure: Union[bool, str] = None,
     fallback: Any = None,
+    context: dict = None,
     **ops,
 ) -> dict:
     """Given the parameters of a transform operation, possibly in a shorthand
     notation, returns a dict with normalized content by expanding the
-    shorthand notation.
+    shorthand notation. The return value is then suited to initialize a
+    :py:class:`~dantro.dag.Transformation` object.
 
     Keys that will always be available in the resulting dict:
         ``operation``, ``args``, ``kwargs``, ``tag``.
+
+    Optionally available keys:
+        ``salt``, ``file_cache``, ``allow_failure``, ``fallback``, ``context``.
 
     Args:
         operation (str, optional): Which operation to carry out; can only be
@@ -679,15 +717,21 @@ def parse_dag_syntax(
             changing its hash.
         file_cache (dict, optional): File cache parameters
         ignore_hooks (bool, optional): If True, there will be no lookup in the
-            operation hooks.
+            operation hooks. See :ref:`dag_op_hooks` for more info.
         allow_failure (Union[bool, str], optional): Whether this Transformation
-            allows failure during computation.
-        fallback (Any, optional): The fallback value to use in case of failure
+            allows failure during computation. See :ref:`dag_error_handling`.
+        fallback (Any, optional): The fallback value to use in case of failure.
+        context (dict, optional): Context information, which may be a dict
+            containing any form of data and which is carried through to the
+            :py:attr:`~dantro.dag.Transformation.context` attribute.
         **ops: The operation that is to be carried out. May contain one and
-            only one operation.
+            only one operation where the key refers to the name of the
+            operation and the value refers to positional or keyword arguments,
+            depending on type.
 
     Returns:
-        dict: The normalized dict of transform parameters.
+        dict: The normalized dict of transform parameters, suitable for
+            initializing a :py:class:`~dantro.dag.Transformation` object.
 
     Raises:
         ValueError: For invalid notation, e.g. unambiguous specification of
@@ -810,5 +854,8 @@ def parse_dag_syntax(
 
     if fallback is not None:
         d["fallback"] = fallback
+
+    if context is not None:
+        d["context"] = context
 
     return d

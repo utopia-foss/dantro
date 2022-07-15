@@ -7,6 +7,7 @@ from builtins import *  # to have Exception types available in globals
 from typing import Any
 
 import dill
+import networkx as nx
 import numpy as np
 import pytest
 import xarray as xr
@@ -31,13 +32,16 @@ from dantro.data_loaders import (
     XarrayLoaderMixin,
     YamlLoaderMixin,
 )
+from dantro.data_ops import is_operation
 from dantro.exceptions import *
 from dantro.groups import OrderedDataGroup
 from dantro.tools import load_yml, write_yml
+from dantro.utils.nx import ATTR_MAPPER_OP_PREFIX_DAG
 
-# Local constants
-TRANSFORMATIONS_PATH = resource_filename("tests", "cfg/dag.yml")
+# Test files
 DAG_SYNTAX_PATH = resource_filename("tests", "cfg/dag_syntax.yml")
+TRANSFORMATIONS_PATH = resource_filename("tests", "cfg/dag.yml")  # life-cycle
+DAG_NX_PATH = resource_filename("tests", "cfg/dag_nx.yml")
 
 # Class Definitions -----------------------------------------------------------
 
@@ -79,8 +83,7 @@ class MockTransformationDAG:
 # Fixtures and Helpers --------------------------------------------------------
 
 
-@pytest.fixture
-def dm() -> FullDataManager:
+def create_dm():
     """A data manager with some basic testing data"""
     _dm = FullDataManager("/some/fixed/path", name="TestDM", out_dir=False)
     # NOTE This attaches to some (imaginary) fixed path, because the hashstr
@@ -161,8 +164,18 @@ def dm() -> FullDataManager:
         data="i cannot be pickled (even with dill)",
     )
 
-    print(_dm.tree)
     return _dm
+
+
+@pytest.fixture
+def dm_silent() -> FullDataManager:
+    return create_dm()
+
+
+@pytest.fixture
+def dm(dm_silent):
+    print(dm_silent.tree)
+    return dm_silent
 
 
 def yaml_roundtrip(obj: Any, *, path: str) -> Any:
@@ -250,7 +263,21 @@ def test_Placeholder(tmpdir):
     assert ph != dag_utils.Placeholder("bar foo")
 
     assert "Placeholder" in repr(ph)
-    assert "foo bar" in repr(ph)
+    assert "'foo bar'" in repr(ph)
+
+    # String formatting
+    assert str(ph) == "<Placeholder, payload: 'foo bar'>"
+    assert ph.PAYLOAD_DESC in str(ph)
+
+    # ... can also be adjusted in subclasses
+    class MyPlaceholder(dag_utils.Placeholder):
+        PAYLOAD_DESC = "content"
+
+        def _format_payload(self):
+            return str(self._data)
+
+    mph = MyPlaceholder("foo bar baz")
+    assert str(mph) == "<MyPlaceholder, content: foo bar baz>"
 
     # YAML Roundtrip
     yaml_rt = lambda o: yaml_roundtrip(o, path=tmpdir.join(ph._data))
@@ -439,6 +466,10 @@ def test_DAGReference():
 
     assert some_hash in repr(ref)
 
+    # String representation contains shortened hash
+    assert some_hash[:12] in str(ref)
+    assert some_hash[:13] not in str(ref)
+
     # Errors
     with pytest.raises(TypeError, match="requires a string-like argument"):
         dag.DAGReference(123)
@@ -465,6 +496,8 @@ def test_DAGTag():
     assert tag != some_tag
 
     assert some_tag in repr(tag)
+
+    assert f"tag: {some_tag}" in str(tag)
 
     assert "!dag_tag" in yaml_dumps(tag, register_classes=(dag.DAGTag,))
 
@@ -512,6 +545,7 @@ def test_DAGNode():
     assert node != some_node
 
     assert str(some_node) in repr(node)
+    assert f"node ID: {some_node}" in str(node)
 
     with pytest.raises(TypeError, match="requires an int-convertible"):
         dag.DAGNode("not int-convertible")
@@ -616,13 +650,73 @@ def test_Transformation():
     with pytest.raises(ValueError, match="no DAG was associated with this"):
         tfail.compute()
 
+    # Can query whether there are cached results
+    assert t0.has_result
+    assert not t1.has_result
+    assert not t2.has_result
+    assert not tfail.has_result
+
     # Read the profile property
     assert isinstance(t0.profile, dict)
 
+    # Can pass some context, which is NOT part of the hash
+    t0c = Transformation(
+        operation="add", args=[1, 2], kwargs=dict(), context=dict(foo="bar")
+    )
+    assert t0.hashstr == t0c.hashstr
+    assert t0.context != t0c.context
+
     # Serialize as yaml
-    assert "!dag_trf" in yaml_dumps(t0, register_classes=(Transformation,))
-    assert "salt" not in yaml_dumps(t0, register_classes=(Transformation,))
-    assert "salt: 42" in yaml_dumps(t0s, register_classes=(Transformation,))
+    get_yaml = lambda o: yaml_dumps(o, register_classes=(Transformation,))
+    assert "!dag_trf" in get_yaml(t0)
+    assert "salt" not in get_yaml(t0)
+    assert "salt: 42" in get_yaml(t0s)
+
+    # Context can be passed on to Transformation's YAML representation
+    t4 = Transformation(
+        operation="add",
+        args=[1, 2],
+        kwargs=dict(),
+        context=dict(foobar="my_custom_context"),
+    )
+    assert "foobar: my_custom_context" in get_yaml(t4)
+
+    # Get layer
+    assert t0.layer == 0
+    assert t0s.layer == 0
+    assert t1.layer == 0
+    assert t2.layer == 0
+    assert t3.layer == 0
+
+    # Status
+    assert t0.status == "computed"
+    assert t1.status == "initialized"
+    assert t2.status == "initialized"
+    assert t3.status == "initialized"
+
+
+def test_Transformation_status():
+    """Tests Transformation.status property (as far as that's possible in a
+    standalone scenario.
+    """
+    Transformation = dag.Transformation
+
+    t0 = Transformation(operation="add", args=[1, 2], kwargs=dict())
+    assert t0.status == "initialized"
+
+    # Compute it
+    t0.compute()
+    assert t0.status == "computed"
+
+    # Failure is correctly associated
+    t0f = Transformation(operation="add", args=[1, "baz"], kwargs=dict())
+    with pytest.raises(DataOperationFailed):
+        t0f.compute()
+    assert t0f.status == "failed_here"
+
+    # Cannot set it to arbitrary values
+    with pytest.raises(ValueError, match="Invalid status"):
+        t0f.status = "foobar"
 
 
 def test_Transformation_fallback():
@@ -650,6 +744,7 @@ def test_Transformation_fallback():
         fallback=3,
     )
     assert t1.hashstr == "2c04f856d659dd1a70d75770e4e11610"
+    assert t1.status == "initialized"
     assert hash(t1.hashstr) == hash(t1)
 
     assert "operation: add, 2 args, 0 kwargs, allows failure" in str(t1)
@@ -677,11 +772,13 @@ def test_Transformation_fallback():
         fallback=np.inf,
     )
     assert t2.compute() == np.inf
+    assert t2.status == "used_fallback"
 
     # ... on an operation that would fail without fallback
     t2_fail = Transformation(operation="div", args=[1, 0], kwargs=dict())
     with pytest.raises(RuntimeError, match="ZeroDivisionError"):
         t2_fail.compute()
+    assert t2_fail.status == "failed_here"
 
     # Can get a warning when using the fallback
     t3 = Transformation(
@@ -693,15 +790,13 @@ def test_Transformation_fallback():
     )
     with pytest.warns(DataOperationWarning, match="ZeroDivisionError"):
         t3.compute()
+    assert t3.status == "used_fallback"
 
     # YAML serialization includes fallback
-    assert "fallback: 3" in yaml_dumps(t1, register_classes=(Transformation,))
-    assert "allow_failure: true" in yaml_dumps(
-        t1, register_classes=(Transformation,)
-    )
-    assert "allow_failure: warn" in yaml_dumps(
-        t3, register_classes=(Transformation,)
-    )
+    get_yaml = lambda o: yaml_dumps(o, register_classes=(Transformation,))
+    assert "fallback: 3" in get_yaml(t1)
+    assert "allow_failure: true" in get_yaml(t1)
+    assert "allow_failure: warn" in get_yaml(t3)
 
 
 def test_Transformation_dependencies(dm):
@@ -1070,6 +1165,11 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
             if "compare_to" in to_check:
                 assert res == to_check["compare_to"]
 
+            if to_check.get("find_tag"):
+                ref = tdag.tags[tag]
+                assert tdag._find_tag(ref)
+                assert tdag._find_tag(tdag.objects[ref])
+
         print("All computation results as expected.\n")
 
     # All done.
@@ -1126,3 +1226,241 @@ def test_TransformationDAG_specifics(dm, tmpdir):
     )
     results = tdag.compute()
     assert isinstance(results["arr_uint64_read"], xr.DataArray)
+
+
+# -----------------------------------------------------------------------------
+# networkx Graph-related stuff
+
+
+def test_generate_nx_graph(dm_silent):
+    """Tests networkx Graph generation from a TransformationDAG"""
+    dm = dm_silent
+    TransformationDAG = dag.TransformationDAG
+
+    test_cfgs = load_yml(DAG_NX_PATH)
+
+    # ... Empty ...............................................................
+    tdag = TransformationDAG(dm=dm, **test_cfgs["empty"])
+    assert len(tdag.nodes) == 0
+
+    g = tdag.generate_nx_graph()
+    assert isinstance(g, nx.DiGraph)
+    assert g.number_of_nodes() == 0
+    assert g.number_of_edges() == 0
+
+    tdag.compute()
+
+    # Different arguments for tags to include
+    assert tdag.generate_nx_graph(tags_to_include="all").number_of_nodes() == 0
+    assert tdag.generate_nx_graph(tags_to_include=[]).number_of_nodes() == 0
+    assert tdag.generate_nx_graph(tags_to_include=None).number_of_nodes() == 0
+
+    # ... Simple ..............................................................
+    tdag = TransformationDAG(dm=dm, **test_cfgs["simple"])
+    assert len(tdag.nodes) == 3
+
+    g = tdag.generate_nx_graph()
+    assert g.number_of_nodes() == 3 + 1  # data manager dependency
+    assert g.number_of_edges() == 3
+
+    for node, data in g.nodes(data=True):
+        print(f"- {node}:\n    {data}\n")
+
+    for src, target in g.edges():
+        print(f"{src}  ->  {target}")
+
+    # In this case, check the graph structure manually
+    assert g.nodes()[dm.hashstr]["obj"] is dm
+
+    foo_dep = "275d726a23c0c8d1becb5a4798f25336"
+    assert g.nodes()[tdag.tags["foo"]]["obj"]._args[0].ref == foo_dep
+    assert g.nodes()[tdag.tags["foo"]]["obj"]._args[1] == "foo"
+
+    assert g.nodes()[foo_dep]["obj"]._args[0].ref == dm.hashstr
+    assert g.nodes()[foo_dep]["obj"]._args[1] == "some/path"
+
+    assert g.nodes()[tdag.tags["bar"]]["obj"]._args[0].ref == dm.hashstr
+    assert g.nodes()[tdag.tags["bar"]]["obj"]._args[1] == "some/path/bar"
+
+    # Check that it computes and that results are available afterwards
+    tdag.compute()
+    assert g.nodes()[tdag.tags["bar"]]["obj"].has_result
+
+    # ... With select and define ..............................................
+    tdag = TransformationDAG(dm=dm, **test_cfgs["with_select_and_define"])
+
+    # Reduced number of nodes if only selecting specific tags
+    assert tdag.generate_nx_graph().number_of_nodes() == 23  # all
+    assert tdag.generate_nx_graph(tags_to_include=[]).number_of_nodes() == 0
+    assert (
+        tdag.generate_nx_graph(tags_to_include=["foo"]).number_of_nodes() == 2
+    )
+
+    # Check length of some paths
+    g = tdag.generate_nx_graph()
+
+    dm_node = dm.hashstr
+    fifty_node = tdag.tags["fifty"]
+    foo_node = tdag.tags["foo"]
+
+    assert len(nx.shortest_path(g, dm_node, fifty_node)) == 11
+    assert len(nx.shortest_path(g, dm_node, foo_node)) == 2
+
+    # ... cannot go the reverse way
+    with pytest.raises(nx.exception.NetworkXNoPath):
+        nx.shortest_path(g, fifty_node, dm_node)
+
+    with pytest.raises(nx.exception.NetworkXNoPath):
+        nx.shortest_path(g, foo_node, dm_node)
+
+    # Have result available after computation
+    assert not g.nodes()[fifty_node]["obj"].has_result
+    tdag.compute()
+    assert g.nodes()[fifty_node]["obj"].has_result
+
+    # Can also include that information into the node attributes
+    g = tdag.generate_nx_graph(
+        tags_to_include=("fifty",), include_results=True
+    )
+    assert g.nodes()[fifty_node]["has_result"]
+    assert g.nodes()[fifty_node]["result"] == 50
+
+    assert not g.nodes()[dm.hashstr]["has_result"]
+    assert g.nodes()[dm.hashstr]["result"] is None
+
+    # The foo_node should not be in the graph
+    assert foo_node not in g.nodes()
+
+    # What about reverse edges, pointing towards dependencies?
+    g = tdag.generate_nx_graph(edges_as_flow=False)
+
+    assert len(nx.shortest_path(g, fifty_node, dm_node)) == 11
+    assert len(nx.shortest_path(g, foo_node, dm_node)) == 2
+
+    with pytest.raises(nx.exception.NetworkXNoPath):
+        nx.shortest_path(g, dm_node, fifty_node)
+
+    with pytest.raises(nx.exception.NetworkXNoPath):
+        nx.shortest_path(g, dm_node, foo_node)
+
+
+def test_generate_nx_graph_attr_mapping(dm_silent):
+    """Tests node attribute mapping"""
+    dm = dm_silent
+    TransformationDAG = dag.TransformationDAG
+    test_cfgs = load_yml(DAG_NX_PATH)
+
+    tdag = TransformationDAG(dm=dm, **test_cfgs["with_select_and_define"])
+
+    dm_node = dm.hashstr
+    fifty_node = tdag.tags["fifty"]
+    foo_node = tdag.tags["foo"]
+    foo_path_node = tdag.tags["foo_path"]
+
+    g = tdag.generate_nx_graph()
+
+    # Labelled nodes should always have a tag
+    assert g.nodes()[dm_node]["tag"] == "dm"
+    assert g.nodes()[fifty_node]["tag"] == "fifty"
+    assert g.nodes()[foo_node]["tag"] == "foo"
+
+    # Now again and with some mappers
+    prefix = ATTR_MAPPER_OP_PREFIX_DAG
+    assert prefix == "attr_mapper.dag"
+
+    @is_operation("my_test_operation")
+    def my_operation(foo, *, bar, attrs):
+        assert "tag" in attrs
+        assert "obj" in attrs
+        return f"{foo} :: {bar}"
+
+    mappers = dict()
+
+    # Default mappers: operation, layer, description
+    # Add only additional mappers
+    mappers["arguments"] = f"{prefix}.format_arguments"
+    mappers["disabled"] = None  # --> not carried out
+    mappers["my_attr"] = {
+        f"my_test_operation": ["foo"],
+        "kwargs": dict(bar="bar"),
+    }
+
+    g = tdag.generate_nx_graph(
+        tags_to_include=("fifty", "foo_path"),
+        manipulate_attrs=dict(
+            map_node_attrs=mappers,
+            keep_node_attrs=True,
+        ),
+        lookup_tags=False,
+    )
+
+    assert g.nodes()[fifty_node]["tag"] == "fifty"
+    assert g.nodes()[fifty_node]["operation"] == "pass"
+    assert g.nodes()[fifty_node]["layer"] == 11
+    assert "pass" in g.nodes()[fifty_node]["description"]
+    assert "fifty" in g.nodes()[fifty_node]["description"]
+    assert "hash: 6d27ed1726a2…" in g.nodes()[fifty_node]["arguments"]
+    assert g.nodes()[fifty_node]["my_attr"] == "foo :: bar"
+    with pytest.raises(KeyError):
+        g.nodes()[fifty_node]["disabled"]
+
+    # DataManager should never have a value, but the attribute should be set
+    # and there should be a tag and layer.
+    assert g.nodes()[dm.hashstr]["tag"] == "dm"
+    assert g.nodes()[dm.hashstr]["layer"] == 0
+    assert "dm" in g.nodes()[dm.hashstr]["description"]
+    assert g.nodes()[dm.hashstr]["operation"] == ""
+    assert g.nodes()[dm.hashstr]["arguments"] == ""
+    assert g.nodes()[dm.hashstr]["my_attr"] == "foo :: bar"
+    with pytest.raises(KeyError):
+        g.nodes()[dm.hashstr]["disabled"]
+
+    # The foo_node should still be in the graph ...
+    assert foo_node in g.nodes()
+    assert foo_path_node in g.nodes()
+
+    assert g.nodes()[foo_node]["tag"] is None  # because lookup_tags == False
+    assert g.nodes()[foo_path_node]["tag"] == "foo_path"
+    assert "foo_path" in g.nodes()[foo_path_node]["description"]
+
+    # Error
+    mappers["some_attr"] = "bad_operation"
+    with pytest.raises(BadOperationName, match="Failed mapping node"):
+        tdag.generate_nx_graph(manipulate_attrs=dict(map_node_attrs=mappers))
+
+
+def test_visualize_DAG(dm_silent, tmpdir):
+    """Tests visualization"""
+    dm = dm_silent
+    TransformationDAG = dag.TransformationDAG
+    test_cfgs = load_yml(DAG_NX_PATH)
+
+    tdag = TransformationDAG(dm=dm, **test_cfgs["with_select_and_define"])
+
+    # This should just work
+    out1 = tmpdir.join("out1.pdf")
+    tdag.visualize(out_path=out1)
+    assert os.path.isfile(out1)
+
+    # Can also pass a graph explicitly
+    g = tdag.generate_nx_graph()
+    out2 = tmpdir.join("out2.pdf")
+    tdag.visualize(out_path=out2, g=g)
+    assert os.path.isfile(out2)
+
+    # ... but then cannot pass generation arguments
+    with pytest.raises(ValueError, match="argument is not allowed"):
+        tdag.visualize(out_path=out2, g=g, generation=dict(foo="bar"))
+
+    # More arguments
+    out3 = tmpdir.join("out3.pdf")
+    tdag.visualize(
+        out_path=out3,
+        generation=dict(include_results=False),
+        drawing=dict(nodes=dict(node_color="b")),
+        use_defaults=True,
+        scale_figsize=True,
+        figure_kwargs=dict(dpi=72),
+        save_kwargs=dict(bbox_inches="tight"),
+    )
+    assert os.path.isfile(out3)

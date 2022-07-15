@@ -11,6 +11,7 @@
     - Use `__slots__` in DAG placeholder classes to reduce memory load
     - In DAG, only load from cache file if the content was *not* already loaded
 - !289 implements the ability to define optional positional and keyword arguments for meta-operations in the data transformation framework.
+- !290 introduces the ability to *visualize* DAGs, which can be helpful for understanding the structure of the computations.
 - !270 drops official support and testing for Python 3.7
 - !271 strongly reduces the time it takes to `import dantro` by delaying imports of dependencies
 - !277 improves the [dantro documentation][dantro-docs] by adding cross-referencing to other sphinx-based docs and tweaking many minor aspects of the dantro docs.

@@ -3,7 +3,7 @@
 # You can set these variables from the command line
 # For available options, see:
 # 	http://www.sphinx-doc.org/en/stable/man/sphinx-build.html
-SPHINXOPTS    = -W --keep-going -w build_errors.log
+SPHINXOPTS    = -W --keep-going -w build_errors.log -T
 SPHINXBUILD   = sphinx-build
 SOURCEDIR     = .
 BUILDDIR      = _build

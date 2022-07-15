@@ -65,6 +65,8 @@ You then have the following arguments available to control its behaviour:
     - ``select`` and ``transform``: select data and perform transformations on it, see :py:meth:`~dantro.dag.TransformationDAG.add_nodes`.
     - ``compute_only``: controls which tags are to be computed, see :py:meth:`~dantro.dag.TransformationDAG.compute`
     - ``dag_options``: passed to :py:class:`~dantro.dag.TransformationDAG` initialization, e.g. to control ``file_cache_defaults``, ``verbosity``, or adding transformations via the ``define`` interface, see :ref:`dag_define`.
+    - ``dag_visualization``: controls visualization of the DAG which can be very helpful for debugging, see :ref:`below <plot_creator_dag_vis>`.
+      These arguments are passed to :py:meth:`~dantro.plot.creators.base.BasePlotCreator._generate_DAG_vis`.
 
 The creation of the DAG and its computation is controlled by the chosen plot creator and can be specialized to suit that plot creator's needs.
 
@@ -193,6 +195,8 @@ Example
       based_on: my_plot          # --> identical DAG arguments (if not overwritten below)
 
       # ... some plot arguments ...
+
+
 
 
 
@@ -644,3 +648,215 @@ The :py:meth:`~dantro.dag.TransformationDAG.compute` method is then invoked to r
 Subsequently, the placeholder entries in the plot configuration are replaced with the result from the computation.
 
 For the above operations, functions from `the paramspace package <https://gitlab.com/blsqr/paramspace>`_ are used, specifically: ``paramspace.tools.recursive_collect`` and ``paramspace.tools.recursive_replace``.
+
+
+
+
+
+
+
+
+.. _plot_creator_dag_vis:
+
+DAG Visualization
+-----------------
+The DAG used for plot data selection and transformation :ref:`can also be visualized <dag_graph_vis>`.
+This can be helpful to understand what kind of operations are carried out on which kind of data; this can be a big assistance during debugging.
+
+By default, DAG visualization is enabled and will generate output if there was an error during the *computation* of data transformation results.
+This can be controlled; see below.
+
+However, there are many ways to further control when a visualization is created and how it looks like.
+All parameters for controlling DAG visualization can be passed via the ``dag_visualization`` in a plot configuration.
+
+Such a plot may look like these:
+
+.. image:: ../_static/_gen/dag_vis/doc_examples_define.pdf
+   :target: ../_static/_gen/dag_vis/doc_examples_define.pdf
+   :width: 100%
+   :alt: DAG visualization
+
+.. image:: ../_static/_gen/dag_vis/doc_examples_op_hooks_expression_symbolic.pdf
+   :target: ../_static/_gen/dag_vis/doc_examples_op_hooks_expression_symbolic.pdf
+   :width: 100%
+   :alt: DAG visualization
+
+.. image:: ../_static/_gen/dag_vis/doc_examples_select_with_transform.pdf
+   :target: ../_static/_gen/dag_vis/doc_examples_select_with_transform.pdf
+   :width: 100%
+   :alt: DAG visualization
+
+DAG generation
+^^^^^^^^^^^^^^
+The way the DAG is generated is controlled by the ``generation`` arguments, which are evaluated by :py:meth:`~dantro.dag.TransformationDAG.generate_nx_graph`.
+Also see :ref:`dag_graph_vis` for more information.
+
+
+Controlling when to generate a DAG plot
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+For instance, if we'd like to always generate a DAG plot upon a computation, we can pass the following parameters:
+
+.. code-block:: yaml
+
+    my_dag_plot:
+      # ...
+      dag_visualization:
+        when:
+          only_once: true            # only generate a single DAG plot
+          on_compute_error: true     # ... either upon failing computation
+          on_compute_success: true   # ... or upon a successful one.
+
+.. hint::
+
+    To only plot if the creator runs in debug mode (i.e., with ``raise_exc`` set), set the scenario to ``debug`` instead of a boolean.
+
+    .. code-block:: yaml
+
+        my_dag_plot:
+          # ...
+          dag_visualization:
+            when:
+              on_compute_error: debug
+
+
+In the ``on_compute_error`` scenario, it is advisable to activate the ``show_node_status`` option for visualization, which will indicate at which node an error occurred:
+
+.. image:: ../_static/_gen/dag_vis/doc_examples_err_and_fallback.pdf
+   :target: ../_static/_gen/dag_vis/doc_examples_err_and_fallback.pdf
+   :width: 100%
+   :alt: DAG visualization
+
+The colors indicate the following node status, as detailed in the legend:
+
+- green: computation succeeded
+- yellow: computation failed but a :ref:`fallback value <dag_error_handling>` was used
+- red: computation failed in this node
+- dark red: computation failed in a node that this node depends on
+
+.. hint::
+
+    To adjust the status colors, set the ``node_status_colors`` argument; see :py:meth:`~dantro.dag.TransformationDAG.visualize` docstring for more info.
+
+
+Changing plot content
+^^^^^^^^^^^^^^^^^^^^^
+What is shown in the plot depends mostly on the ``label`` attribute of the nodes.
+By default, that content is generated via the :py:func:`~dantro.utils.nx.get_description` operation function, which takes into account the name of the tag, the operation, and potential results.
+
+What is shown in the plot is the ``label`` attribute, so in order to show something else there, we need to tell the :py:meth:`~dantro.dag.TransformationDAG.visualize` method to use something else for the label.
+By default, the ``description`` attribute is shown.
+In the following example, we will instead show simply the ``operation`` attribute by setting the ``drawing.labels.from_attr`` entry of the configuration:
+
+.. literalinclude:: ../../tests/cfg/dag_plots.yml
+    :language: yaml
+    :start-after: ### Start -- dag_gen_nx_label_from_operation
+    :end-before:  ### End ---- dag_gen_nx_label_from_operation
+    :dedent: 6
+
+Using the :py:func:`~dantro.utils.nx.manipulate_attributes` function, we can also generate custom attributes.
+In the following example, the name of that attribute is ``my_custom_attr``, which is then also set as the label.
+
+.. literalinclude:: ../../tests/cfg/dag_plots.yml
+    :language: yaml
+    :start-after: ### Start -- dag_gen_nx_label_from_mapped_attr
+    :end-before:  ### End ---- dag_gen_nx_label_from_mapped_attr
+    :dedent: 6
+
+.. note::
+
+    If not setting ``drawing.labels.from_attr`` explicitly, it will always use the ``description`` attribute as the label.
+
+
+Setting plot aesthetics
+^^^^^^^^^^^^^^^^^^^^^^^
+The looks of the DAG plot are set via the ``drawing`` keyword, which end up in the :py:meth:`~dantro.dag.TransformationDAG.visualize` method:
+
+.. code-block:: yaml
+
+    my_dag_plot:
+      # ...
+
+      dag_visualization:
+        drawing:
+          # Whether to include default values for nodes, edges, and labels.
+          # If true, will recursively update these defaults with the values
+          # given below.
+          # Set to false to use the networkx defaults instead.
+          use_defaults: true
+
+          # Arguments to networkx.draw_networkx_*
+          nodes:
+            node_color: blue
+            # ...
+          edges:
+            width: 2.5
+            # ...
+          labels:
+            font_size: 10
+            # ...
+
+.. note::
+
+    With networkx using matplotlib as drawing backend, there are a number of limitations:
+    For instance, it is not possible to let edges terminate exactly at the edge of the label's box.
+
+    If this is desired, you may want to have a look at :ref:`plot_creator_dag_vis_export`.
+
+
+.. _plot_creator_dag_vis_export:
+
+Exporting a DAG representation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+For more control over the looks of the DAG, you can use the ``export`` keyword and use whatever other program you like to look at the plot output.
+This will invoke :py:func:`~dantro.utils.nx.export_graph`.
+
+In that case you may want to set ``plot_enabled: False`` as well:
+
+.. code-block:: yaml
+
+    my_dag_plot:
+      # ...
+
+      dag_visualization:
+        plot_enabled: false
+        export_enabled: true
+
+        # ...
+
+        export:
+          manipulate_attrs:
+            # Use the description as label and keep only that attribute
+            map_node_attrs:
+              label:
+                attr_mapper.copy_from_attr: description
+            keep_node_attrs:
+              - label
+
+          # Export formats
+          graphml: true
+          dot: true
+          # ...
+
+
+Remarks
+^^^^^^^
+For more information on possible arguments, see :py:meth:`~dantro.plot.creators.base.BasePlotCreator._generate_DAG_vis`.
+For a background on DAG representation as a :py:class:`networkx.DiGraph`, see :ref:`dag_graph_vis`.
+
+.. note::
+
+    The layouting algorithm cannot be changed yet.
+
+    If GraphViz and pygraphviz are installed, :py:func:`~networkx.drawing.nx_agraph.graphviz_layout` is used with the ``dot`` algorithm.
+    If those are not installed, a :py:func:`~networkx.drawing.layout.multipartite_layout` is carried out.
+
+
+Full Interface
+^^^^^^^^^^^^^^
+The following documents the full interface and the corresponding default values:
+
+.. literalinclude:: ../../tests/cfg/dag_plots.yml
+    :language: yaml
+    :start-after: ### Start -- dag_visualization_interface
+    :end-before:  ### End ---- dag_visualization_interface
+    :dedent: 6

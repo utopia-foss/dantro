@@ -58,7 +58,7 @@ config_based:
   # .. Example cases ..........................................................
   # Example for a succeeding plot invocation
   simple_example:
-    plot_cfg:
+    plot_cfg: &simple_example
       <<: *shared_plot_cfg
       based_on: [creator.pyplot, dag.errorbars]
 
@@ -196,7 +196,9 @@ config_based:
 
     _match: bad_argument_leading_to_failure
 
+
   # .. Test conditional plot skipping .........................................
+
   skip_plot_directly:
     plot_cfg:
       <<: *shared_plot_cfg
@@ -237,7 +239,9 @@ config_based:
       y: y
       yerr: yerr
 
+
   # .. Test DAG placeholder resolution ........................................
+
   phres_simple:
     plot_cfg: &phres_simple
       <<: *shared_plot_cfg
@@ -294,6 +298,267 @@ config_based:
 
     _raises: PlotCreatorError
     _match: Operation '.format' failed with a ValueError
+
+
+  # .. Test nx.DiGraph generation and plotting ................................
+
+  gen_nx_graph_minimal:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        when:
+          always: true
+          only_once: true
+
+  gen_nx_graph_disabled:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        enabled: false
+
+  gen_nx_graph_on_success:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        when:
+          on_compute_success: true
+
+  gen_nx_graph_on_compute_error:
+    plot_cfg:
+      <<: *simple_example
+
+      # This will fail on compute
+      transform:
+        - pow: [2, .5, way, too, many_args]
+          tag: y
+        - pass: !dag_prev
+          tag: yerr
+        - xr.Dataset:
+            - y: !dag_tag y
+              yerr: !dag_tag yerr
+          tag: data
+
+      dag_visualization:
+        when:
+          on_compute_error: debug
+
+    _raises: PlotCreatorError
+    _match: Operation 'pow' failed with a TypeError
+
+  gen_nx_graph_only_once:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        when:
+          only_once: true
+          on_compute_error: true
+          on_compute_success: true
+          on_plot_error: true
+          on_plot_success: true
+
+  gen_nx_graph_full_syntax:
+    # NOTE does not use default values but aims to hit many branches
+    plot_cfg:
+      <<: *phres_simple
+
+      dag_visualization:
+        enabled: true
+        plot_enabled: true
+        export_enabled: true
+
+        raise_exc: ~  # use creator's setting
+
+        # Whether to additionally export the graph
+        export:
+          manipulate_attrs:
+            map_node_attrs:
+              label:
+                operation: attr_mapper.copy_from_attr
+                args: [description]
+
+            keep_node_attrs:
+              - label
+
+            map_edge_attrs: {}
+            keep_edge_attrs: False
+
+          # Formats
+          graphml: {}
+          gml:
+            file_ext: gee.em.el
+          adjlist:
+            enabled: true
+          dot: false  # NOTE Not available without pygraphviz (i.e.: in CI)
+
+        # Output arguments
+        output:
+          plot_dir: ~  # "~/Desktop/dantro_test_output"
+          path_fstr: "{plot_dir:}/{name:}_dag_{scenario:}.pdf"
+
+        # When to generate the visualization (can be: false, true, debug)
+        when:
+          always: true
+          only_once: false
+          on_compute_error: true
+          on_compute_success: false
+          on_plot_error: false
+          on_plot_success: false
+
+        # Generation kwargs
+        generation:
+          tags_to_include: all
+          include_results: false
+          lookup_tags: true
+          manipulate_attrs:
+            map_node_attrs:
+              operation: attr_mapper.dag.get_operation
+              meta_operation: attr_mapper.dag.get_meta_operation
+              layer: attr_mapper.dag.get_layer
+              arguments:
+                operation: attr_mapper.dag.format_arguments
+              some_disabled_attr: ~  # None --> do not set this one
+              foo_attr:
+                call_lambda: "lambda *, attrs: attrs.get('foo', '(no foo)')"
+
+        # Whether to base visualization on optimized default values or not.
+        # For illustration, the defaults are used below; they do NOT have to be
+        # set explicitly as done here!
+        use_defaults: true
+
+        # Drawing, using networkx.draw_networkx_<...>
+        drawing:
+          nodes: {}
+          edges: {}
+
+          labels:
+            # Which attribute to use as node label
+            from_attr: description
+
+        # Layouting algorithm
+        layout: {}
+
+        # Figure creation via matplotlib.pyplot.figure
+        figure_kwargs: {}
+
+        # Scale figure size with "width" and "height" of the resulting graph
+        # to avoid node overlapping; using these scaling factors.
+        # Set to False to disable.
+        scale_figsize: true
+
+        # Saving via matplotlib.pyplot.savefig
+        save_kwargs: {}
+
+  gen_nx_label_from_operation:
+    plot_cfg:
+      <<: *phres_simple
+
+      ### Start -- dag_gen_nx_label_from_operation
+      dag_visualization:
+        drawing:
+          labels:
+            from_attr: operation
+            # available attributes: tag, description, operation
+      ### End ---- dag_gen_nx_label_from_operation
+
+  gen_nx_label_from_mapped_attr:
+    plot_cfg:
+      <<: *phres_simple
+
+      ### Start -- dag_gen_nx_label_from_mapped_attr
+      dag_visualization:
+        generation:
+          include_results: true
+          manipulate_attrs:
+            map_node_attrs:
+              my_custom_attr:
+                # Invoke *some* function; as an example, use a lambda to copy
+                # over some node attribute data into `my_attr`
+                call_lambda: "lambda *, attrs: attrs.get('result', '(no result)')"
+
+        drawing:
+          labels:
+            # Use the custom attribute as a label
+            from_attr: my_custom_attr
+      ### End ---- dag_gen_nx_label_from_mapped_attr
+
+  gen_nx_graph_no_raise_exc:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        raise_exc: false
+        when:
+          always: true
+
+        generation:
+          some_bad_argument: foo
+
+    # will NOT fail but just return and continue
+    # _raises: PlotCreatorError
+    # _match: Failed generating DAG representation
+
+  gen_nx_graph_err_generation_failed:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        when:
+          always: true
+
+        generation:
+          some_bad_argument: foo
+
+    _raises: PlotCreatorError
+    _match: Failed generating DAG representation
+
+  gen_nx_graph_err_export_failed:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        when:
+          always: true
+
+        export:
+          manipulate_attrs:
+            map_node_attrs:
+              foo: some_bad_operation_name
+
+    _raises: PlotCreatorError
+    _match: Failed exporting DAG representation
+
+  gen_nx_graph_err_export_failed_graphviz_missing_or_bad:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        when:
+          always: true
+
+        export:
+          dot:
+            bad_arg: foobar
+
+    _raises: PlotCreatorError
+    _match: Failed exporting DAG representation
+
+  gen_nx_graph_err_plotting_failed:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        when:
+          always: true
+
+        drawing:
+          foo: this is a bad argument
+
+    _raises: PlotCreatorError
+    _match: Failed plotting DAG representation
 
 
   # .. PlotHelper tests .......................................................
@@ -353,7 +618,6 @@ config_based:
       row: baz
       hue: spam
 
-
   facet_grid/errorbars_standalone_failing:
     plot_cfg:
       <<: *shared_plot_cfg
@@ -375,6 +639,7 @@ config_based:
 
 
   # .. Documentation Examples .................................................
+
   doc_examples_placeholder_title:
     plot_cfg:
       # Keys that need/should not be included
@@ -425,7 +690,6 @@ config_based:
           title: !dag_result title_str
       ### End ---- placeholder_title
 
-
   doc_examples_mv_missing_data:
     plot_cfg:
       # Keys that need/should not be included
@@ -449,7 +713,6 @@ config_based:
             transform:
               - .mean: [!dag_prev , [x]]
       ### End ---- mv_missing_data
-
 
   doc_examples_multiplot_subplots:
     plot_cfg:
@@ -497,3 +760,173 @@ config_based:
               - !dag_result x_coords
               - !dag_result std
       ### End ---- multiplot_subplots
+
+  doc_examples_dag_visualization:
+    plot_cfg:
+      <<: *phres_simple
+
+      ### Start -- dag_visualization_interface
+      # DAG Visualization interface; values given here are default values
+      dag_visualization:
+        enabled: true           # Main toggle
+        plot_enabled: true      # Whether to generate a plot
+        export_enabled: true    # Whether to export the graph
+
+        # Whether to raise an exception if graph generation, plotting or
+        # exporting failed. If None, will use the creator's setting.
+        raise_exc: ~
+
+        # Whether to *additionally* export the graph
+        export:
+          # Manipulate node or edge attributes (for export only)
+          manipulate_attrs:
+            map_node_attrs: {}
+            map_edge_attrs: {}
+            keep_node_attrs: True
+            keep_edge_attrs: True
+
+          # Export formats
+          # ... need to be specified here.
+          # Examples:
+          gml: True
+          graphml:  # arguments passed on to writer
+            infer_numeric_types: True
+          # dot: True  # Needs pygraphviz
+          # ... more formats here ...
+
+        # Output arguments
+        output:
+          plot_dir: ~  # None: Output will be aside the just-generated plot
+
+          # A format string that is used to create the actual output path.
+          # The `plot_dir` key is the one evaluated from the above argument.
+          path_fstr: "{plot_dir:}/{name:}_dag_{scenario:}.pdf"
+
+        # When to generate the visualization
+        when:
+          # General toggles
+          always: false       # If true: always generate a DAG plot
+          only_once: false    # If true: only generate one DAG plot
+
+          # Scenarios: After which events to generate a DAG plot
+          # Values can be: false, true, debug.
+          # In case of 'debug', output is only generated if the creator was in
+          # debug mode itself.
+          on_compute_error: true
+          on_compute_success: false
+          on_plot_error: false
+          on_plot_success: false
+
+        # Generation kwargs
+        generation:
+          tags_to_include: all
+          include_results: false
+          lookup_tags: true
+          manipulate_attrs:
+            map_node_attrs:
+              # Default operations: these are set by default
+              operation: attr_mapper.dag.get_operation
+              layer: attr_mapper.dag.get_layer
+              description: attr_mapper.dag.get_description
+
+              # Other available operations:
+              # meta_operation: attr_mapper.dag.get_meta_operation
+              # arguments: attr_mapper.dag.format_arguments
+              # some_attr: attr_mapper.copy_from_attrs
+              # another_attr: attr_mapper.set_value
+
+              # ... or any other registered data operation:
+              # my_attr:
+              #   call_lambda: "lambda *, attrs: attrs.get('foo')"
+
+        # Whether to base layouting and visualization on optimized default
+        # values or not. For illustration, the actual default values are used
+        # below; they do NOT have to be set explicitly as done here!
+        use_defaults: true
+
+        # Whether to show the node status and which colors to use for it
+        show_node_status: true
+        node_status_color:
+          initialized: lightskyblue
+          queued: cornflowerblue
+          computed: limegreen
+          looked_up: forestgreen
+          failed_here: red
+          failed_in_dependency: firebrick
+          used_fallback: gold
+          no_status: silver
+
+        # Layouting algorithm (and fallback)
+        layout:
+          model: graphviz_dot      # requires graphviz and pygraphviz
+
+          # In case the above model fails, silently switch to another one
+          fallback: multipartite
+          silent_fallback: true
+
+          # Arguments for the respective layouting models
+          model_kwargs:
+            graphviz_dot:
+              args: "-y"
+            multipartite:
+              align: horizontal
+              subset_key: layer
+              scale: -1
+
+              # Whether to wiggle layouted positions to reduce edge overlap.
+              # This is recommended for the multipartite layout, because it
+              # does not handle edges going over multiple layers very well,
+              # producing confusing edge overlaps ...
+              wiggle:
+                x: 0.005
+                y: ~
+                seed: 123  # set to None to always get new wiggles
+
+        # Drawing, using networkx.draw_networkx_<...>
+        drawing:
+          nodes:
+            alpha: 0.
+            node_size: &node_size 600
+          edges:
+            arrows: true
+            arrowsize: 12
+            min_target_margin: 20
+            min_source_margin: 20
+            node_size: *node_size
+
+          labels:
+            # Which attribute to use as node label
+            from_attr: description
+
+            # Aesthetics; see matplotlib.patches.FancyBboxPatch
+            font_size: 7
+            bbox:
+              fc: "#fffa"
+              ec: "#666"
+              linewidth: 0.5
+              boxstyle: round
+
+        # Figure creation via matplotlib.pyplot.figure
+        figure_kwargs:
+          figsize: [9, 7]
+
+        # Scale figure size with "width" and "height" of the resulting graph
+        # to avoid node overlapping; using these scaling factors.
+        # Set to False to disable.
+        scale_figsize: [0.25, 0.22]
+
+        # Figure-level plot annotations: suptitle, figure legend for node color
+        annotate_kwargs:
+          # Title
+          title: my custom DAG visualization
+          title_kwargs: {}
+
+          # Legend
+          add_legend: true
+          legend_kwargs: {}
+          handle_kwargs: {}
+
+        # Saving via matplotlib.pyplot.savefig
+        save_kwargs:
+          bbox_inches: tight
+      ### End ---- dag_visualization_interface

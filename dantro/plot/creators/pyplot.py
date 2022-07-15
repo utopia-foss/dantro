@@ -156,6 +156,9 @@ class PyPlotCreator(BasePlotCreator):
             ValueError: On superfluous ``helpers`` or ``animation`` arguments
                 in cases where these are not supported
         """
+        # Store the output path, needed by methods
+        self._out_path = out_path
+
         # Generate a style dictionary to be used for context manager creation
         rc_params = self._prepare_style_context(**(style if style else {}))
 
@@ -247,13 +250,9 @@ class PyPlotCreator(BasePlotCreator):
                 use_dag=use_dag, out_path=out_path, **func_kwargs
             )
 
-            # Enter the stlye context
+            # Enter the style context and plot
             with self._build_style_context(**rc_params):
-                log.debug(
-                    "Calling plotting function '%s' ...", self.plot_func_name
-                )
-                self.plot_func(*args, **kwargs)
-            # Done.
+                self._invoke_plot_func(*args, **kwargs)
 
     # .........................................................................
     # Plotting with the PlotHelper
@@ -327,11 +326,7 @@ class PyPlotCreator(BasePlotCreator):
         with style_context, leak_prev:
             hlpr.setup_figure()
 
-            log.info(
-                "Now calling plotting function '%s' ...", self.plot_func_name
-            )
-            self.plot_func(*args, **kwargs)
-            log.note("Plotting function '%s' returned.", self.plot_func_name)
+            self._invoke_plot_func(*args, **kwargs)
 
             log.info("Invoking helpers ...")
             hlpr.invoke_enabled(axes="all")
@@ -545,11 +540,7 @@ class PyPlotCreator(BasePlotCreator):
             hlpr.setup_figure()
 
             # Call the plot function
-            log.info(
-                "Now calling plotting function '%s' ...", self.plot_func_name
-            )
-
-            self.plot_func(*plot_args, **plot_kwargs)
+            self._invoke_plot_func(*plot_args, **plot_kwargs)
             # NOTE This plot is NOT saved as the first frame in order to allow
             #      the animation update generator be a more general method.
 

@@ -96,3 +96,10 @@ If you would like to keep symbolic expressions, specify the ``astype`` argument 
     :start-after: ### Start -- dag_op_hooks_expression_symbolic
     :end-before:  ### End ---- dag_op_hooks_expression_symbolic
     :dedent: 4
+
+In the DAG visualization this would look like this:
+
+.. image:: ../_static/_gen/dag_vis/doc_examples_op_hooks_expression_symbolic.pdf
+   :target: ../_static/_gen/dag_vis/doc_examples_op_hooks_expression_symbolic.pdf
+   :width: 100%
+   :alt: DAG visualization

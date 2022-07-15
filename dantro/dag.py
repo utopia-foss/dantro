@@ -10,7 +10,7 @@ import time
 import warnings
 from collections import defaultdict as _defaultdict
 from itertools import chain
-from typing import Any, Dict, List, Sequence, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, Sequence, Set, Tuple, Union
 
 import numpy as np
 from paramspace.tools import recursive_collect, recursive_replace
@@ -30,13 +30,20 @@ from .abc import PATH_JOIN_CHAR, AbstractDataContainer
 from .base import BaseDataGroup
 from .containers import NumpyDataContainer, ObjectContainer, XrDataContainer
 from .data_loaders import LOADER_BY_FILE_EXT
-from .data_ops import apply_operation, available_operations, register_operation
+from .data_ops import (
+    apply_operation,
+    available_operations,
+    get_operation,
+    register_operation,
+)
 from .exceptions import *
 from .tools import adjusted_log_levels as _adjusted_log_levels
 from .tools import format_time as _format_time
 from .tools import make_columns as _make_columns
 from .tools import recursive_update as _recursive_update
 from .utils import KeyOrderedDict
+from .utils.nx import ATTR_MAPPER_OP_PREFIX, ATTR_MAPPER_OP_PREFIX_DAG
+from .utils.nx import manipulate_attributes as _manipulate_attributes
 
 # Local constants .............................................................
 
@@ -130,6 +137,9 @@ class Transformation:
         "_allow_failure",
         "_fallback",
         "_hashstr",
+        "_status",
+        "_layer",
+        "_context",
         "_profile",
         "_fc_opts",
         "_cache",
@@ -146,6 +156,7 @@ class Transformation:
         allow_failure: Union[bool, str] = None,
         fallback: Any = None,
         file_cache: dict = None,
+        context: dict = None,
     ):
         """Initialize a Transformation object.
 
@@ -241,6 +252,9 @@ class Transformation:
                             Arguments passed on to the pickle.dump function.
                         further keyword arguments:
                             Passed on to the chosen storage method.
+            context (dict, optional): Some meta-data stored alongside the
+                Transformation, e.g. containing information about the context
+                it was created in. This is not taken into account for the hash.
         """
         self._operation = operation
         self._args = args
@@ -250,6 +264,9 @@ class Transformation:
         self._allow_failure = allow_failure
         self._fallback = fallback
         self._hashstr = None
+        self._status = None
+        self._layer = None
+        self._context = context if context else {}
         self._profile = dict(
             compute=np.nan,
             cumulative_compute=np.nan,
@@ -289,6 +306,9 @@ class Transformation:
 
         # Cache dict, containing the result and whether the cache is in memory
         self._cache = dict(result=None, filled=False)
+
+        # Set the status
+        self.status = "initialized"
 
     # .........................................................................
     # String representation and hashing
@@ -409,6 +429,75 @@ class Transformation:
         """The profiling data for this transformation"""
         return self._profile
 
+    @property
+    def has_result(self) -> bool:
+        """Whether there is a memory-cached result available for this
+        transformation."""
+        return self._cache["filled"]
+
+    @property
+    def status(self) -> str:
+        """Return this Transformation's status which is one of:
+
+        - ``initialized``: set after initialization
+        - ``queued``: queued for computation
+        - ``computed``: successfully computed
+        - ``used_fallback``: if a fallback value was used instead
+        - ``looked_up``: after *file* cache lookup
+        - ``failed_here``: if computation failed *in this node*
+        - ``failed_in_dependency``: if computation failed *in a dependency*
+        """
+        return self._status
+
+    @status.setter
+    def status(self, new_status: str):
+        """Sets the status of this Transformation"""
+        ALLOWED_STATUS = (
+            "initialized",
+            "queued",
+            "computed",
+            "used_fallback",
+            "looked_up",
+            "failed_here",
+            "failed_in_dependency",
+        )
+        if new_status not in ALLOWED_STATUS:
+            _avail = ", ".join(ALLOWED_STATUS)
+            raise ValueError(
+                f"Invalid status '{new_status}'! Choose from: {_avail}"
+            )
+
+        self._status = new_status
+
+    @property
+    def layer(self) -> int:
+        """Returns the layer this node can be placed at within the DAG by
+        recursively going over dependencies and setting the layer to the
+        maximum layer of the dependencies plus one.
+
+        Computation occurs upon first invocation, afterwards the cached value
+        is returned.
+
+        .. note::
+
+            Transformations without dependencies have a level of zero.
+        """
+        if self._layer is None:
+            deps = self.resolved_dependencies
+            if not deps:
+                self._layer = 0
+            else:
+                get_layer = lambda obj: getattr(obj, "layer", 0)
+                self._layer = max(get_layer(dep) for dep in deps) + 1
+
+        return self._layer
+
+    @property
+    def context(self) -> dict:
+        """Returns a dict that holds information about the context this
+        transformation was created in."""
+        return self._context
+
     # YAML representation .....................................................
     yaml_tag = "!dag_trf"
 
@@ -445,6 +534,9 @@ class Transformation:
             d["allow_failure"] = node._allow_failure
             d["fallback"] = node._fallback
 
+        if node._context:
+            d["context"] = node._context
+
         # Let YAML represent this as a mapping with an additional tag
         return representer.represent_mapping(cls.yaml_tag, d)
 
@@ -467,13 +559,20 @@ class Transformation:
 
         if not success:
             # Did not find a result in memory or file cache -> Compute it.
+
+            # Set the status; at this point, this node is not yet computed
+            # (first the dependencies need to be resolved) but queued for it.
+            self.status = "queued"
+
             # First, compute the result of the references in the arguments.
             try:
                 args = self._resolve_refs(self._args)
                 kwargs = self._resolve_refs(self._kwargs)
 
             except DataOperationFailed as err:
-                # Upstream error; skip computation and use fallback as result
+                # Upstream error; skip further computation, potentially use
+                # fallback as result (if allowed)
+                self.status = "failed_in_dependency"
                 res = self._handle_error_and_fallback(
                     err,
                     context="resolution of positional and keyword arguments",
@@ -510,6 +609,7 @@ class Transformation:
             res = apply_operation(self._operation, *args, **kwargs)
 
         except BadOperationName as err:
+            self.status = "failed_here"
             _meta_ops = self.dag.meta_operations
             if _meta_ops:
                 _meta_ops = "\n" + _make_columns(self.dag.meta_operations)
@@ -527,7 +627,11 @@ class Transformation:
 
         except DataOperationFailed as err:
             # Operation itself failed. Handle error, potentially re-raising.
+            self.status = "failed_here"
             res = self._handle_error_and_fallback(err, context="computation")
+
+        else:
+            self.status = "computed"
 
         # Parse profiling info and return the result
         self._update_profile(cumulative_compute=(time.time() - t0))
@@ -611,7 +715,9 @@ class Transformation:
 
         # Use the fallback; wrapping it in a 1-list to allow scalars
         log.debug("Using fallback for operation '%s' ...", self.operation)
-        return self._resolve_refs([self._fallback])[0]
+        res = self._resolve_refs([self._fallback])[0]
+        self.status = "used_fallback"
+        return res
 
     def _update_profile(
         self, *, cumulative_compute: float = None, **times
@@ -666,9 +772,9 @@ class Transformation:
             success = True
             res = self._cache["result"]
             log.trace("Re-using memory-cached result for %s.", self.hashstr)
+            # Not setting status here because it was set previously
 
         elif self.dag is not None and read_opts.get("enabled", False):
-            # Setup profiling
             t0 = time.time()
 
             # Let the DAG check if there is a file cache, i.e. if a file with
@@ -681,6 +787,7 @@ class Transformation:
             if success:
                 self._cache["result"] = res
                 self._cache["filled"] = True
+                self.status = "looked_up"
 
             self._update_profile(cache_lookup=(time.time() - t0))
 
@@ -819,8 +926,22 @@ class TransformationDAG:
     See :ref:`dag_framework` for more information and examples.
     """
 
-    SPECIAL_TAGS = ("dag", "dm", "select_base")
+    SPECIAL_TAGS: Sequence[str] = ("dag", "dm", "select_base")
     """Tags with special meaning"""
+
+    NODE_ATTR_DEFAULT_MAPPERS: Dict[str, str] = {
+        "layer": f"{ATTR_MAPPER_OP_PREFIX_DAG}.get_layer",
+        "operation": f"{ATTR_MAPPER_OP_PREFIX_DAG}.get_operation",
+        "description": f"{ATTR_MAPPER_OP_PREFIX_DAG}.get_description",
+        "status": f"{ATTR_MAPPER_OP_PREFIX_DAG}.get_status",
+    }
+    """The default node attribute mappers when
+    :py:meth:`generating a graph object from the DAG <.generate_nx_graph>`.
+    These are passed to the ``map_node_attrs`` argument of
+    :py:func:`~dantro.utils.nx.manipulate_attributes`.
+    """
+
+    # .........................................................................
 
     def __init__(
         self,
@@ -1224,6 +1345,16 @@ class TransformationDAG:
     ) -> None:
         """Registers a new meta-operation, i.e. a transformation sequence with
         placeholders for the required positional and keyword arguments.
+        After registration, these operations are available in the same way as
+        other operations; unlike non-meta-operations, they will lead to
+        multiple nodes being added to the DAG.
+
+        See :ref:`dag_meta_ops` for more information.
+
+        Args:
+            name (str): The name of the meta-operation; can only be used once.
+            select (dict, optional): Select specifications
+            transform (Sequence[dict], optional): Transform specifications
         """
         if name in self._meta_ops or name in available_operations():
             raise BadOperationName(
@@ -1459,7 +1590,8 @@ class TransformationDAG:
             file_cache (dict, optional): File cache options for this node. If
                 defaults were given during initialization, those defaults will
                 be updated with the given dict.
-            **trf_kwargs: Passed on to Transformation.__init__
+            **trf_kwargs: Passed on to
+                :py:meth:`~dantro.dag.Transformation.__init__`
 
         Raises:
             ValueError: If the tag already exists
@@ -1467,7 +1599,7 @@ class TransformationDAG:
         Returns:
             DAGReference: The reference to the created node. In case of the
                 operation being a meta operation, the return value is a
-                reference to the result node of the meta-operation.
+                reference to the *result* node of the meta-operation.
         """
         # May have to delegate node addition ...
         if operation in self._meta_ops:
@@ -1742,6 +1874,570 @@ class TransformationDAG:
 
         show_compute_profile_info()
         return results
+
+    # .........................................................................
+    # DAG representation as nx.DiGraph and visualization/export
+
+    def generate_nx_graph(
+        self,
+        *,
+        tags_to_include: Union[str, Sequence[str]] = "all",
+        manipulate_attrs: dict = {},
+        include_results: bool = False,
+        lookup_tags: bool = True,
+        edges_as_flow: bool = True,
+    ) -> "networkx.DiGraph":
+        """Generates a representation of the DAG as a
+        :py:class:`networkx.DiGraph` object, which can be useful for debugging.
+
+        **Nodes** represent
+        :py:class:`Transformations <dantro.dag.Transformation>` and are
+        identified by their :py:meth:`~dantro.dag.Transformation.hashstr`.
+        The :py:class:`~dantro.dag.Transformation` objects are added as node
+        property ``obj`` and potentially existing tags are added as ``tag``.
+
+        **Edges** represent dependencies between nodes.
+        They can be visualized in two ways:
+
+            - With ``edges_as_flow: true``, edges point in the direction of
+              results being computed, representing a flow of results.
+            - With ``edges_as_flow: false``, edges point towards the
+              dependency of a node that needs to be computed before the node
+              itself can be computed.
+
+        See :ref:`dag_graph_vis` for more information.
+
+        .. note::
+
+            The returned graph data structure is *not* used internally but is
+            a representation that is *generated* from the internally used
+            data structures.
+            Subsequently, changes to the graph *structure* will not have an
+            effect on this :py:class:`~dantro.dag.TransformationDAG`.
+
+        .. hint::
+
+            Use :py:meth:`.visualize` to generate a visual output.
+            For processing the DAG representation elsewhere, you can use the
+            :py:func:`~dantro.utils.nx.export_graph` function.
+
+        .. warning::
+
+            Do not modify the associated :py:class:`~dantro.dag.Transformation`
+            objects!
+
+            These objects are *not* deep-copied into the graph's node
+            properties. Thus, changes to these objects *will* reflect on the
+            state of the :py:class:`~dantro.dag.TransformationDAG` which may
+            have unexpected effects, e.g. because the hash will not be updated.
+
+        Args:
+            tags_to_include (Union[str, Sequence[str]], optional): Which tags
+                to include into the directed graph. Can be ``all`` to include
+                all tags.
+            manipulate_attrs (Dict[str, Union[str, dict]], optional): Allows to
+                manipulate node and edge attributes.
+                See :py:func:`~dantro.utils.nx.manipulate_attributes` for more
+                information.
+
+                By default, this includes a number of default node attribute
+                mappers, defined in :py:attr:`.NODE_ATTR_DEFAULT_MAPPERS`.
+                These can be overwritten or extended via the ``map_node_attrs``
+                key within this argument.
+
+                .. note::
+
+                    This method registers specialized data operations with the
+                    :ref:`operations database <data_ops_available>` that are
+                    meant for handling the case where node attributes
+                    are associated with :py:class:`~dantro.dag.Transformation`
+                    objects.
+
+                    Available operations (with prefix ``attr_mapper``):
+
+                        - ``{prefix}.get_operation`` returns the operation
+                          associated with a node.
+                        - ``{prefix}.get_operation`` generates a string from
+                          the positional and keyword arguments to a node.
+                        - ``{prefix}.get_layer`` returns the layer, i.e. the
+                          distance from the farthest dependency; nodes without
+                          dependencies have layer 0.
+                          See :py:attr:`dantro.dag.Transformation.layer`.
+                        - ``{prefix}.get_description`` creates a description
+                          string that is useful for visualization (e.g. as
+                          node label).
+
+                    To implement your own operation, take care to follow the
+                    syntax of :py:func:`~dantro.utils.nx.map_attributes`.
+
+                .. note::
+
+                    By default, there are *no* attributes associated with the
+                    edges of the DAG.
+
+            include_results (bool, optional): Whether to include results into
+                the node attributes.
+
+                .. note::
+
+                    These will all be ``None`` unless :py:meth:`.compute` was
+                    invoked before generating the graph.
+
+            lookup_tags (bool, optional): Whether to lookup tags for each node,
+                storing it in the ``tag`` node attribute. The tags in
+                ``tags_to_include`` are always included, but the reverse lookup
+                of tags can be costly, in which case this should be disabled.
+            edges_as_flow (bool, optional): If true, edges point from a node
+                towards the nodes that *require* the computed result; if false,
+                they point towards the *dependency* of a node.
+        """
+        import networkx as nx
+
+        # .....................................................................
+
+        def get_node_attrs(
+            obj: Union[Transformation, Any],
+            *,
+            hashstr: str,
+            g: "networkx.DiGraph",
+            tag: str = None,
+        ) -> dict:
+            """Retrieves a dict of node attributes for the given node object.
+
+            Args:
+                obj: The object that represents the node
+                hashstr (str): The hash string for this node
+                g (networkx.classes.digraph.DiGraph): The graph object the node
+                    will be part of.
+                tag (str): If known, the tag to associate with the node.
+            """
+
+            def get_tag(hashstr: str) -> str:
+                """To avoid repetitive tag search, see if a tag is already
+                associated. Also uses the potentially existing tag information.
+                """
+                if tag:
+                    # Tag explicitly specified (in outer scope!)
+                    return tag
+
+                if hashstr in g.nodes():
+                    # Node already in graph, avoid search
+                    return g.nodes()[hashstr].get("tag")
+
+                # Node not yet in graph, need to search for it, if enabled
+                if lookup_tags:
+                    return self._find_tag(hashstr)
+
+                # No lookup!
+                return None
+
+            def get_status(obj) -> str:
+                """Retrieves the node status"""
+                if isinstance(obj, Transformation):
+                    return obj.status
+                return "none"
+
+            # Aggregate the node attributes
+            node_attrs = dict(
+                obj=obj,
+                tag=get_tag(hashstr),
+                status=get_status(obj),
+            )
+
+            if include_results:
+                if isinstance(obj, Transformation):
+                    _has_result, _result = obj._lookup_result()
+                    node_attrs["has_result"] = _has_result
+                    node_attrs["result"] = _result
+                else:
+                    node_attrs["has_result"] = False
+                    node_attrs["result"] = None
+
+            return node_attrs
+
+        def add_nodes_and_edges(
+            g: "networkx.DiGraph",
+            obj: Union[Transformation, Any],
+            *,
+            tag: str = None,
+        ) -> str:
+            """Recursively adds nodes and edges into graph ``g``: ``obj``will
+            be a new node, and recursion continues on its dependencies.
+            Returns the node index of the added node.
+            """
+            node_attrs = get_node_attrs(
+                obj,
+                hashstr=obj.hashstr,
+                g=g,
+                tag=tag,
+            )
+
+            # Now add the node
+            g.add_node(obj.hashstr, **node_attrs)
+
+            # Can continue recursion only on Transformation objects
+            if not isinstance(obj, Transformation):
+                return
+
+            for dep in obj.resolved_dependencies:
+                add_nodes_and_edges(g, dep)
+
+                # Now have both nodes in the graph, can the edge between them
+                if edges_as_flow:
+                    g.add_edge(dep.hashstr, obj.hashstr)
+                else:
+                    g.add_edge(obj.hashstr, dep.hashstr)
+
+            return obj.hashstr
+
+        # .....................................................................
+
+        tags_to_include = self._parse_compute_only(tags_to_include)
+        g = nx.DiGraph()
+
+        log.note(
+            "Generating DAG representation for %d tag%s ...",
+            len(tags_to_include),
+            "s" if len(tags_to_include) != 1 else "",
+        )
+
+        if not len(self.nodes):
+            log.remark("The TransformationDAG is empty.")
+            return g
+
+        elif not tags_to_include:
+            log.remark("No tags were selected to be included into the graph.")
+            return g
+
+        # Build the graph by adding all tags and their dependencies.
+        # With DiGraph not allowing multi-edges and nodes with the same
+        # identifier, can simply add them directly and let networkx figure out
+        # if the node or edge is already present or not.
+        for tag in tags_to_include:
+            obj = self.objects[self.tags[tag]]
+            node = add_nodes_and_edges(g, obj, tag=tag)
+            g.nodes()[node]["tag"] = tag
+
+        # Label DataManager explicitly
+        if self.dm.hashstr in g.nodes():
+            g.nodes()[self.dm.hashstr]["tag"] = "dm"
+
+        # Now apply mappings
+        manipulate_attrs = manipulate_attrs if manipulate_attrs else {}
+        manipulate_attrs["map_node_attrs"] = _recursive_update(
+            copy.copy(self.NODE_ATTR_DEFAULT_MAPPERS),
+            manipulate_attrs.get("map_node_attrs", {}),
+        )
+        _manipulate_attributes(g, **manipulate_attrs)
+
+        # Done.
+        log.remark(
+            "Generated DAG representation with %d nodes and %d edges.",
+            g.number_of_nodes(),
+            g.number_of_edges(),
+        )
+        return g
+
+    def visualize(
+        self,
+        *,
+        out_path: str,
+        g: "networkx.DiGraph" = None,
+        generation: dict = {},
+        drawing: dict = {},
+        use_defaults=True,
+        scale_figsize: Union[bool, Tuple[float, float]] = (0.25, 0.2),
+        show_node_status: bool = True,
+        node_status_color: dict = None,
+        layout: dict = {},
+        figure_kwargs: dict = {},
+        annotate_kwargs: dict = {},
+        save_kwargs: dict = {},
+    ) -> "networkx.DiGraph":
+        """Uses :py:meth:`.generate_nx_graph` to generate a DAG representation
+        as a :py:class:`networkx.DiGraph` and then creates a visualization.
+
+        .. warning::
+
+            The plotted graph may contain overlapping edges or nodes, depending
+            on the size and structure of your DAG. This is less pronounced if
+            `pygraphviz <https://pygraphviz.github.io>`_ is installed, which
+            provides vastly more capable layouting algorithms.
+
+            To alleviate this, the default layouting and drawing arguments will
+            generate a graph with partly transparent nodes and edges and wiggle
+            node positions around, thus making edges more discernible.
+
+        Args:
+            out_path (str): Where to store the output
+            g (networkx.DiGraph, optional): If given, will use this graph
+                instead of generating a new one.
+            generation (dict, optional): Arguments for graph generation, passed
+                on to :py:meth:`.generate_nx_graph`. Not allowed if ``g`` was
+                given.
+            drawing (dict, optional): Drawing arguments, containing the
+                ``nodes``, ``edges`` and ``labels`` keys. The ``labels`` key
+                can contain the ``from_attr`` key which will read the attribute
+                specified there and use it for the label.
+            use_defaults (dict, optional): Whether to use default drawing
+                arguments which are optimized for a simple representation.
+                These are recursively updated by the ones given in ``drawing``.
+                Set to false to use the networkx defaults instead.
+            scale_figsize (Union[bool, Tuple[float, float]], optional): If True
+                or a tuple, will set the figure size according to:
+                ``(width_0 * max_occup. * s_w,  height_0 * max_level * s_h)``
+                where ``s_w`` and ``s_h`` are the scaling factors. The maximum
+                occupation refers to the highest number of nodes on a single
+                layer. This figure size scaling avoids nodes overlapping for
+                larger graphs.
+
+                .. note::
+
+                    The default values here are a heuristic and depend very
+                    much on the size of the node labels and the font size.
+
+            show_node_status (bool, optional): If true, will color-code the
+                node status (computed, not computed, failed), setting the
+                ``nodes.node_color`` key correspondingly.
+
+                .. note::
+
+                    Node color is plotted *behind* labels, thus requiring some
+                    transparency for the labels.
+
+            node_status_color (dict, optional): If ``show_node_status`` is set,
+                will use this map to determine the node colours. It should
+                contain keys for all possible values of
+                :py:attr:`dantro.dag.Transformation.status`. In addition, there
+                needs to be a ``fallback`` key that is used for nodes where no
+                status can be determined.
+            layout (dict, optional): Passed to (currently hard-coded) layouting
+                functions.
+            figure_kwargs (dict, optional): Passed to
+                :py:func:`matplotlib.pyplot.figure` for setting up the figure
+            annotate_kwargs (dict, optional): Used for annotating the graph
+                with a title and a legend (for ``show_node_status``).
+                Supported keys: ``title``, ``title_kwargs``, ``add_legend``,
+                ``legend_kwargs``, ``handle_kwargs``.
+            save_kwargs (dict, optional): Passed to
+                :py:func:`matplotlib.pyplot.savefig` for saving the figure
+
+        Returns:
+            networkx.DiGraph: The passed or generated graph object.
+        """
+        import matplotlib.pyplot as plt
+        import networkx as nx
+
+        from .plot.funcs.graph import _draw_graph
+
+        def setup_figure(**figure_kwargs) -> "matplotlib.figure.Figure":
+            """Creates a new figure"""
+            return plt.figure(**figure_kwargs)
+
+        def annotate_plot(
+            *,
+            ax,
+            show_node_status: bool,
+            node_status_color: dict,
+            title: str = None,
+            title_kwargs: dict = None,
+            add_legend: bool = True,
+            handle_kwargs: dict = None,
+            legend_kwargs: bool = None,
+        ) -> list:
+            """Add a few annotations to the plot: title & legend for the
+            various node status colours.
+
+            Uses figure-level legend and title to reduce overlapping within
+            the axes.
+            """
+            fig = ax.get_figure()
+            artists = []
+
+            def create_patch(c, label, **kws):
+                from matplotlib.lines import Line2D
+
+                label = label.replace("_", " ")
+                return Line2D(
+                    [0], [0], marker="o", label=label, markerfacecolor=c, **kws
+                )
+
+            if title is not None:
+                t = fig.suptitle(
+                    title, **(title_kwargs if title_kwargs else {})
+                )
+                artists.append(t)
+
+            if show_node_status and add_legend:
+                handle_kwargs = handle_kwargs if handle_kwargs else {}
+                legend_kwargs = legend_kwargs if legend_kwargs else {}
+                handles = [
+                    create_patch(c, l, **handle_kwargs)
+                    for l, c in node_status_color.items()
+                ]
+
+                lgd = fig.legend(handles=handles, **legend_kwargs)
+                artists.append(lgd)
+
+            return artists
+
+        def save_plot(*, out_path: str, bbox_inches="tight", **save_kwargs):
+            """Saves the matplotlib plot to the given output path"""
+            os.makedirs(os.path.dirname(out_path), exist_ok=True)
+            plt.savefig(
+                out_path,
+                bbox_inches=bbox_inches,
+                **(save_kwargs if save_kwargs else {}),
+            )
+
+        # .....................................................................
+
+        drawing = drawing if drawing else dict(nodes={}, edges={}, labels={})
+
+        # Generate the graph object
+        if g is None:
+            g = self.generate_nx_graph(**generation)
+
+        elif generation:
+            raise ValueError(
+                "With a graph given for visualization, the `generation` "
+                "argument is not allowed!"
+            )
+
+        # Specify defaults
+        # TODO Consider defining these elsewhere
+        if use_defaults:
+            figure_defaults = dict()
+            layout_defaults = dict()
+            drawing_defaults = dict()
+
+            figure_defaults["figsize"] = (9, 7)
+
+            layout_defaults["model"] = "graphviz_dot"
+            layout_defaults["model_kwargs"] = dict(
+                graphviz_dot=dict(args="-y"),
+                multipartite=dict(
+                    align="horizontal",
+                    subset_key="layer",
+                    scale=-1,
+                    wiggle=dict(x=0.005, seed=123),
+                ),
+            )
+            layout_defaults["fallback"] = "multipartite"
+            layout_defaults["silent_fallback"] = True
+
+            drawing_defaults["nodes"] = dict(
+                alpha=0.7,
+                node_color="w",
+                node_size=600,
+                linewidths=0,
+            )
+            drawing_defaults["edges"] = dict(
+                arrows=True,
+                alpha=0.7,
+                arrowsize=12,
+                min_target_margin=20,
+                min_source_margin=20,
+                node_size=drawing_defaults["nodes"].get("node_size"),
+            )
+            drawing_defaults["labels"] = dict(
+                from_attr="description",
+                font_size=6,
+                bbox=dict(
+                    fc="#fffa", ec="#666", linewidth=0.5, boxstyle="round"
+                ),
+            )
+
+            annotate_defaults = dict(
+                # FIXME Positioning is not ideal ...
+                # title_kwargs=dict(y=1.02),
+                legend_kwargs=dict(
+                    loc="lower center",  # upper center is better
+                    # bbox_to_anchor=(0.5, 0.98),
+                    fontsize=5,
+                    ncol=4,
+                    framealpha=0,
+                ),
+                handle_kwargs=dict(
+                    color="k",
+                    linewidth=0,
+                    markersize=6,
+                    markeredgewidth=0.2,
+                    alpha=0.7,
+                ),
+            )
+
+            # Use them as basis ...
+            figure_kwargs = _recursive_update(figure_defaults, figure_kwargs)
+            annotate_kwargs = _recursive_update(
+                annotate_defaults, annotate_kwargs
+            )
+            layout = _recursive_update(layout_defaults, layout)
+            drawing = _recursive_update(drawing_defaults, drawing)
+
+        # Figure size scaling
+        if scale_figsize:
+            if isinstance(scale_figsize, bool):
+                scale_figsize = (0.25, 0.22)
+
+            sw, sh = scale_figsize
+
+            figsize = figure_kwargs.pop(
+                "figsize", plt.rcParams["figure.figsize"]
+            )
+
+            # Compute the maximum layer (assuming starting from 0) and the
+            # maximum layer occupation (count of the mode of the layers list)
+            layers = [
+                lyr if lyr else 0
+                for _, lyr in nx.get_node_attributes(g, "layer").items()
+            ]
+            layers.append(1)  # to ensure that there is at least one element
+            max_layer = max(layers)
+            max_occupation = layers.count(max(set(layers), key=layers.count))
+
+            figure_kwargs["figsize"] = (
+                figsize[0] * sw * max_occupation,
+                figsize[1] * sh * max_layer,
+            )
+
+        # Show status
+        if show_node_status:
+            if node_status_color is None:
+                # TODO Is there a better location for this?!
+                node_status_color = dict(
+                    initialized="lightskyblue",
+                    queued="cornflowerblue",
+                    computed="limegreen",
+                    looked_up="forestgreen",
+                    failed_here="red",
+                    failed_in_dependency="firebrick",
+                    used_fallback="gold",
+                    no_status="silver",
+                )
+            drawing["nodes"]["node_color"] = [
+                node_status_color.get(s, node_status_color["no_status"])
+                for _, s in nx.get_node_attributes(g, "status").items()
+            ]
+
+        annotate_kwargs["show_node_status"] = show_node_status
+        annotate_kwargs["node_status_color"] = node_status_color
+
+        # ... and draw
+        artists = []
+        try:
+            fig = setup_figure(**figure_kwargs)
+            ax = plt.gca()
+            artists += _draw_graph(g, ax=ax, layout=layout, drawing=drawing)
+            artists += annotate_plot(ax=ax, **annotate_kwargs)
+            save_plot(
+                out_path=out_path, bbox_extra_artists=artists, **save_kwargs
+            )
+
+        finally:
+            plt.close(fig)
+
+        return g
 
     # .........................................................................
     # Helpers
@@ -2052,6 +2748,15 @@ class TransformationDAG:
             # tags registered via add_node.
             tag = spec.pop("tag", None)
 
+            # Update the context
+            spec["context"] = _recursive_update(
+                spec.get("context", {}), dict(meta_operation=operation)
+            )
+            spec["context"] = _recursive_update(
+                spec["context"], node_kwargs.pop("context", {})
+            )
+            spec["context"]["meta_op_internal_tag"] = tag
+
             # Can now add the node
             ref = self.add_node(**spec, **node_kwargs)
 
@@ -2079,6 +2784,7 @@ class TransformationDAG:
             file_cache=file_cache,
             allow_failure=allow_failure,
             fallback=fallback,
+            context=dict(meta_operation=operation),
         )
 
         # With all nodes added now, can pop off all the references for the tags
@@ -2130,6 +2836,26 @@ class TransformationDAG:
                 )
 
         return compute_only
+
+    def _find_tag(self, trf: Union[Transformation, str]) -> Union[str, None]:
+        """Looks up a tag given a transformation or its hashstr.
+
+        If no tag is associated returns None. If multiple tags are associated,
+        returns only the first.
+
+        Args:
+            trf (Union[Transformation, str]): The transformation, either as
+                the object or as its hashstr.
+        """
+        if not isinstance(trf, str):
+            trf = trf.hashstr
+
+        candidate_tags = [n for n, h in self.tags.items() if h == trf]
+        # TODO consider warning
+        # if len(candidate_tags) > 1:
+        #     pass
+
+        return candidate_tags[0] if candidate_tags else None
 
     # .........................................................................
     # Cache writing and reading

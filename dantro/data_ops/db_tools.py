@@ -2,8 +2,10 @@
 
 import logging
 from difflib import get_close_matches as _get_close_matches
-from typing import Callable, Sequence, Union
+from typing import Callable, Dict, Sequence, Union
 
+from ..exceptions import *
+from ..tools import make_columns as _make_columns
 from .db import _OPERATIONS
 
 log = logging.getLogger(__name__)
@@ -195,3 +197,37 @@ def available_operations(
 
     # Use fuzzy matching to return close matches
     return _get_close_matches(match, _ops.keys(), n=n)
+
+
+def get_operation(
+    op_name: str, *, _ops: Dict[str, Callable] = None
+) -> Callable:
+    """Retrieve the operation's callable
+
+    Args:
+        op_name (str): Name of the operation
+        _ops (Dict[str, Callable], optional): The operations database object
+            to use; if None, uses the
+            :ref:`dantro operations database <data_ops_available>`.
+
+    Raises:
+        BadOperationName: Upon invalid operation name
+    """
+    try:
+        return _ops[op_name]
+
+    except KeyError as err:
+        # Find some close matches to make operation discovery easier
+        _close_matches = available_operations(match=op_name, n=8, _ops=_ops)
+        _did_you_mean = (
+            f" Did you mean: {', '.join(_close_matches)} ?"
+            if _close_matches
+            else ""
+        )
+        _available = _make_columns(available_operations(_ops=_ops))
+
+        raise BadOperationName(
+            f"No operation '{op_name}' registered!{_did_you_mean} "
+            f"\nAvailable operations:\n{_available}If you need to register "
+            "a new operation, use dantro.utils.register_operation."
+        ) from err
