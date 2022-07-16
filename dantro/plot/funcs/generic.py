@@ -28,8 +28,6 @@ xr = LazyLoader("xarray")
 
 # fmt: off
 
-# The available plot kinds for the *xarray* plotting interface, together with
-# the supported layout specifier keywords.
 _XR_PLOT_KINDS = {  # --- start literalinclude
     "scatter":      ("hue", "col", "row"),
     "line":         ("x", "hue", "col", "row"),
@@ -40,9 +38,9 @@ _XR_PLOT_KINDS = {  # --- start literalinclude
     "pcolormesh":   ("x", "y", "col", "row"),
     "hist":         (),
 }   # --- end literalinclude
+"""The available plot kinds for the *xarray* plotting interface, together with
+the supported layout specifier keywords."""
 
-# The available plot kinds for the *dantro* plotting interface, together with
-# the supported layout specifiers, which include the ``frames`` option.
 _FACET_GRID_KINDS = {
     # based on xarray plotting functions
     "scatter":      ("hue", "col", "row", "frames"),
@@ -57,10 +55,11 @@ _FACET_GRID_KINDS = {
     # based on dantro plotting functions
     # NOTE These are dynamically added but generally look similar to the above:
     # "errorbars":    ("x", "hue", "col", "row", "frames"),
+    # "scatter3d":    ("hue", "col", "row", "frames"),
 }
+"""The available plot kinds for the *dantro* plotting interface, together with
+the supported layout specifiers, which include the ``frames`` option."""
 
-# A mapping from data dimensionality to preferred plot kind, used in automatic
-# plot kind selection. This assumes the specifiers of ``_FACET_GRID_KINDS``.
 _AUTO_PLOT_KINDS = {  # --- start literalinclude
     1:               "line",
     2:               "pcolormesh",
@@ -72,12 +71,14 @@ _AUTO_PLOT_KINDS = {  # --- start literalinclude
     "dataset":       "scatter",      # used for xr.Dataset-like data
     "fallback":      "hist",         # used when none of the above matches
 }   # --- end literalinclude
+"""A mapping from data dimensionality to preferred plot kind, used in automatic
+plot kind selection. This assumes the specifiers of ``_FACET_GRID_KINDS``"""
 
 # fmt: on
 
-# A dict mapping additional facet grid kinds to callables.
-# This is populated by the ``make_facet_grid_plot`` decorator.
-_FACET_GRID_FUNCS = {}
+_FACET_GRID_FUNCS: Dict[str, Callable] = {}
+"""A dict mapping additional facet grid kinds to callables.
+This is populated by the ``make_facet_grid_plot`` decorator."""
 
 
 # -----------------------------------------------------------------------------
@@ -398,6 +399,12 @@ class make_facet_grid_plot:
                 ``dataarray`` and ``dataarray_line``.
             encodings (Tuple[str]): The encodings supported by the wrapped
                 plot function, e.g. ``("x", "hue")``.
+                Note that these *need to be dimensionality-reducing encodings*
+                that have a qualitatively similar effect as ``col`` & ``row``
+                in that they consume a data *dimension*. This is in contrast to
+                plots that may represent multiple data *variables*, e.g. if the
+                data comes from a  :py:class:`xarray.Dataset`; those should not
+                be specified here.
             supported_hue_styles (Tuple[str]): Which hue styles are
                 supported by the wrapped plot function. It is suggested to set
                 this value if mapping via ``dataset`` or ``dataarray_line`` in
@@ -534,7 +541,7 @@ class make_facet_grid_plot:
                     kwargs,
                 )
 
-                hlpr.setup_figure()
+                hlpr.setup_figure()  # TODO Find out why this is necessary ...
                 return wrapped_plot_func(
                     data, hlpr=hlpr, _is_facetgrid=False, **kwargs
                 )
@@ -1048,20 +1055,18 @@ def errorbars(
             hlpr.provide_defaults("set_figlegend", title=hue)
 
 
+# .............................................................................
+
+
 @make_facet_grid_plot(
     map_as="dataset",
     register_as_kind="scatter3d",
-    overwrite_existing=True,
-    encodings=(
-        "x",
-        "y",
-        "z",
-        "hue",
-    ),
+    encodings=("hue", "markersize"),  # TODO correct?!
+    supported_hue_styles=("continuous",),
     # defaults
     # hue_style="discrete",  # FIXME setting to 'discrete' fails, but shouldn't
 )
-def scatter(
+def scatter3d(
     ds: "xarray.Dataset",
     *,
     _is_facetgrid: bool,
@@ -1077,6 +1082,8 @@ def scatter(
     labels: dict = None,
     vmin: float = None,
     vmax: float = None,
+    add_colorbar: bool = True,
+    cbar_kwargs: dict = None,
     **kwargs,
 ):
     """A 3-dimensional scatter plot supporting facet grid.
@@ -1085,6 +1092,34 @@ def scatter(
     :py:class:`~dantro.plot.funcs.generic.make_facet_grid_plot`.
     It additionally registers this plot as an available plot ``kind`` in
     :py:func:`~dantro.plot.funcs.generic.facet_grid`.
+
+    .. note::
+
+        This plot relies on the figure projection having been set to 3D,
+        which can be achieved via:
+
+        .. code-block:: yaml
+
+            my_3d_plot:
+              # ...
+              # for faceting:
+              subplot_kws: &projection
+                projection: 3d
+
+              # for single plot:
+              helpers:
+                set_figure:
+                  subplot_kw:  # sic
+                    <<: *projection
+
+        There *may* also be a base plot configuration that does this.
+
+    .. warning::
+
+        Support of :ref:`auto-encoding <dag_generic_auto_encoding>` and of the
+        ``hue`` and ``markersize`` encodings is not as general as it could be.
+        If you get dimensionality- or size-related errors, that's probably due
+        to an incompatible combination of encodings.
 
     .. note::
 
@@ -1101,11 +1136,16 @@ def scatter(
             (For internal use only, no need to pass this parameter.)
         hlpr (PlotHelper): The plot helper, exposing the currently selected
             axis via ``hlpr.ax``.
-        x (str): Which data dimension to plot on the x-axis
-        y (str): Which data dimension to plot on the y-axis
-        z (str): Which data dimension to plot on the z-axis.
-        hue (str, optional): Which data dimension to represent via hues
-        markersize: (str, optional): Which data dimension to plot on the markersize.
+        x (str): Which data variable to plot on the x-axis
+        y (str): Which data variable to plot on the y-axis
+        z (str): Which data variable to plot on the z-axis
+        hue (str, optional): Which dimension or variable to represent via hues
+        markersize: (str, optional): Which data *dimension* to plot using the
+            markersize. Note that if ``hue`` is given this needs to match the
+            size of that dimension.
+            Whether using data *variables*  here depends on the dimensionality
+            of the data; don't be surprised by a cryptic error message from
+            deep within xarray.
         size_mapping: (dict, optional): A dictionary containing the facet grid
             ``size_mapping``. Is overwritten by ``markersize``, if passed.
         cmap (Union[str, dict, matplotlib.colors.Colormap], optional): The
@@ -1124,9 +1164,33 @@ def scatter(
             passed to the
             :py:class:`~dantro.plot.utils.color_mngr.ColorManager`.
             Ignored if norm evaluates to ``BoundaryNorm``.
+        add_colorbar (bool, optional): Whether to add a colorbar
+        cbar_kwargs (dict, optional): Arguments for colorbar creation.
         **kwargs: Passed on to :py:func:`matplotlib.axes.Axes.scatter` or, if
             ``z`` is given, the equivalent 3D axes.
+
+    Raises:
+        AttributeError: If the active axes does not have a ``zaxis``.
+            In that case, you probably forgot to set the figure's projection,
+            see above.
     """
+
+    def get_var(v: str) -> xr.DataArray:
+        """Retrieves a data variable from the dataset, making some checks"""
+        d = ds[v]
+        if d.ndim != 1:
+            raise ValueError(
+                f"Unexpected data dimensionality for variable '{v}'! "
+                "On the subplot-level, data variables should be 1D, but "
+                f"ds['{v}'] was {d.ndim}-dimensional: {dict(d.sizes)}"
+            )
+        return d
+
+    if not hasattr(hlpr.ax, "zaxis"):
+        raise AttributeError(
+            "Missing z-axis! Did you set the "
+            "projection (via `subplot_kws` or `setup_figure` helper)?"
+        )
 
     cm = ColorManager(
         cmap=cmap,
@@ -1137,11 +1201,11 @@ def scatter(
     )
 
     shared_kwargs = dict(
-        c=ds[hue] if hue is not None else None,
-        cmap=cm.cmap,
-        norm=cm.norm,
-        vmin=vmin,
-        vmax=vmax,
+        c=get_var(hue) if hue is not None else None,
+        cmap=cm.cmap if cmap is not None else None,
+        norm=cm.norm if norm is not None else None,
+        vmin=vmin if norm is None else None,
+        vmax=vmax if norm is None else None,
     )
 
     # Add the 's' key to the kwargs. If both size_mapping and markersize are
@@ -1150,23 +1214,27 @@ def scatter(
         shared_kwargs["s"] = size_mapping.values
 
     if not _is_facetgrid and markersize is not None:
-        shared_kwargs["s"] = ds[markersize].values
-
-    if not hasattr(hlpr.ax, "zaxis"):
-        raise AttributeError(
-            "Missing z-axis! Did you set the "
-            "projection (via `subplot_kws` or `setup_figure` helper)?"
-        )
+        shared_kwargs["s"] = get_var(markersize).values
 
     im = hlpr.ax.scatter(
-        ds[x],
-        ds[y],
-        ds[z],
+        get_var(x),
+        get_var(y),
+        get_var(z),
         **shared_kwargs,
         **kwargs,
     )
 
     # Postprocess
+    if not _is_facetgrid and hue is not None and add_colorbar:
+        # TODO This should read information from the FacetGrid's cbar_kwargs,
+        #      which are also parsed there...
+        cm.create_cbar(
+            im,
+            fig=hlpr.fig,
+            ax=hlpr.ax,
+            **(cbar_kwargs if cbar_kwargs else {}),
+        )
+
     # FIXME Should do this via helper, but not working (see #82)
     # hlpr.provide_defaults("set_labels", x=x, y=y, z=z)
     hlpr.ax.set_xlabel(x)

@@ -1,5 +1,18 @@
 # Configuration for the generic DAG facet grid plotting function
 ---
+# Shared YAML specifications
+_:
+  use_3d_projection: &use_3d_projection
+    sharex: false
+    sharey: false
+    subplot_kws:
+      projection: 3d
+    helpers:
+      setup_figure:
+        subplot_kw:
+          projection: 3d
+
+# -----------------------------------------------------------------------------
 # .. No `kind` specified ......................................................
 no_kind:
   no_hue: &no_hue
@@ -135,11 +148,10 @@ kinds:
       x: foo
       y: bar
       hue: spam
-      auto_encoding: true
 
   scatter_autoenc:
-    kinds: [ scatter ]
-    specifiers: [ col, frames ]
+    kinds: [scatter]
+    specifiers: [col, frames]
     min_dims: 2
     max_dims: 4
     test_data_path: ds_labelled
@@ -149,11 +161,35 @@ kinds:
       hue: spam
       auto_encoding: true
 
-
-  # Failing: fails because axis not set to 3D
   scatter3d:
-    kinds: [ scatter3d ]
-    specifiers: [ col, frames ]
+    kinds: [scatter]
+    specifiers: [col]
+    min_dims: 2
+    max_dims: 2
+    test_data_path: ds_labelled
+    plot_kwargs:
+      x: foo
+      y: bar
+      hue: spam
+      <<: *use_3d_projection
+
+  scatter3d_autoenc:
+    kinds: [scatter3d]
+    specifiers: [col]
+    min_dims: 2
+    max_dims: 4
+    test_data_path: ds_labelled
+    plot_kwargs:
+      x: foo
+      y: bar
+      z: baz
+      hue: spam
+      auto_encoding: true
+      <<: *use_3d_projection
+
+  scatter3d_fail:
+    kinds: [scatter3d]
+    specifiers: [col]
     min_dims: 2
     max_dims: 4
     test_data_path: ds_labelled
@@ -164,7 +200,7 @@ kinds:
       hue: spam
       auto_encoding: true
     raises:
-      2: &z-Exception [ PlottingError, "Missing z-axis" ]
+      2: &z-Exception [PlottingError, "Missing z-axis"]
       3: *z-Exception
       4: *z-Exception
 
@@ -188,6 +224,7 @@ line:
     raises:
       0: *Exception
       5: *Exception
+
 
 # .. errorbar plots . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 errorbars:
@@ -236,6 +273,153 @@ errorbars:
       2: &bad_hue_style [PlottingError, "May only be:  discrete"]
       3: *bad_hue_style
       4: *bad_hue_style
+
+
+# .. scatter3d plots  . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+scatter3d:
+  no_facet: &scatter3d_no_facet
+    kinds: [scatter3d]
+    specifiers: []
+    min_dims: 1
+    max_dims: 1
+    test_data_path: ds_labelled
+    plot_kwargs: &scatter3d_no_facet_kwargs
+      x: foo
+      y: bar
+      z: baz
+      # need to tell PlotHelper to setup figure using 3D projection
+      helpers:
+        setup_figure:
+          constrained_layout: true
+          subplot_kw:
+            projection: 3d
+        set_labels:
+          rotate_z_label: true
+
+  no_facet_with_cbar:
+    <<: *scatter3d_no_facet
+    plot_kwargs: &scatter3d_with_cbar
+      <<: *scatter3d_no_facet_kwargs
+      #
+      # need a hue to have a cbar
+      hue: spam
+      #
+      # set colormap, utilizing ColorManager
+      cmap:
+        name: inferno
+        bad: red
+        under: k
+        over: w
+      vmin: 0
+      vmax: 1
+      #
+      # can also set cbar kwargs from here
+      cbar_kwargs:
+        label: this represents the hue  # ColorManager feature
+        extend: both
+        fraction: 0.04
+        pad: 0.13
+        shrink: 0.6
+
+  no_facet_no_cbar:
+    <<: *scatter3d_no_facet
+    plot_kwargs:
+      <<: *scatter3d_with_cbar
+      add_colorbar: false
+
+  xy_facet: &scatter3d_facet
+    kinds: [scatter3d]
+    specifiers: [col, row]
+    min_dims: 3
+    max_dims: 3
+    test_data_path: ds_labelled
+    plot_kwargs:
+      x: foo
+      y: bar
+      z: baz
+      # need to tell FacetGrid to use 3D projection
+      subplot_kws:
+        projection: 3d
+
+  with_hue:
+    <<: *scatter3d_facet
+    plot_kwargs:
+      x: foo
+      y: bar
+      z: baz
+      hue: spam
+      <<: *use_3d_projection
+
+  with_hue_as_dim:
+    <<: *scatter3d_facet
+    specifiers: [col, hue]
+    min_dims: 2
+    max_dims: 2
+    plot_kwargs:
+      x: foo
+      y: bar
+      z: baz
+      <<: *use_3d_projection
+
+  with_markersize_like_hue:
+    <<: *scatter3d_facet
+    plot_kwargs:
+      x: foo
+      y: bar
+      z: baz
+      hue: dim_0
+      markersize: dim_0  # cannot be a data variable here
+      <<: *use_3d_projection
+
+  with_markersize_no_facet:
+    <<: *scatter3d_no_facet
+    plot_kwargs:
+      x: foo
+      y: bar
+      z: baz
+      hue: spam
+      markersize: fish  # here it can be a data variable!
+      <<: *use_3d_projection
+
+  with_markersize_as_data_var:
+    <<: *scatter3d_facet
+    plot_kwargs:
+      x: foo
+      y: bar
+      z: baz
+      hue: spam
+      markersize: fish
+      <<: *use_3d_projection
+    raises:
+      3: [PlottingError, s must be a scalar]  # size mismatch
+
+  with_markersize_as_dim:
+    <<: *scatter3d_facet
+    specifiers: [col, row, markersize]
+    min_dims: 3
+    max_dims: 3
+    plot_kwargs:
+      x: foo
+      y: bar
+      z: baz
+      <<: *use_3d_projection
+
+  with_auto_encoding:
+    <<: *scatter3d_facet
+    specifiers: []
+    min_dims: 3
+    max_dims: 5
+    plot_kwargs:
+      auto_encoding: true
+      x: foo
+      y: bar
+      z: baz
+      hue: spam
+      markersize: dim_2
+      <<: *use_3d_projection
+    raises:
+      5: &bad_dimensionality [PlottingError, "Unexpected data dimensionality"]
+
 
 # .. 2D plots . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 2d:
