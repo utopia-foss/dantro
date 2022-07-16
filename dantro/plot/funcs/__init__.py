@@ -4,5 +4,5 @@ creators.
 """
 
 from .basic import lineplot
-from .generic import errorbands, errorbar, facet_grid
+from .generic import errorbars, facet_grid
 from .multiplot import multiplot

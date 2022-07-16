@@ -12,7 +12,6 @@
     - In DAG, only load from cache file if the content was *not* already loaded
 - !289 implements the ability to define optional positional and keyword arguments for meta-operations in the data transformation framework.
 - !290 introduces the ability to *visualize* DAGs, which can be helpful for understanding the structure of the computations.
-- !270 drops official support and testing for Python 3.7
 - !271 strongly reduces the time it takes to `import dantro` by delaying imports of dependencies
 - !277 improves the [dantro documentation][dantro-docs] by adding cross-referencing to other sphinx-based docs and tweaking many minor aspects of the dantro docs.
 - !278 implements the `TERMINAL_INFO` dict which holds information about the terminal size and can be updated using `dantro.tools.update_terminal_info()`.
@@ -27,7 +26,6 @@
 - !282 moves the former `ExternalPlotCreator`'s plot function loading functionality into `PlotManager`, making it a central component of the plotting framework rather than a creator's special feature.
     - This also makes `BasePlotCreator` a fully-functioning (no longer abstract) creator class, which is averse to any plotting backend.
     - Adds the customizable `PlotFuncResolver` class which now takes care of these tasks in a more decoupled setting.
-- !282 also completely removes the plot creator auto detection feature, reducing implementation complexity.
 - !292 migrates the `ColorManager`, which helps in generating colormaps and norms, from [utopya][utopya-repo] over to dantro.
   In addition, the `!cmap` and `!cmap_norm` tags are implemented and allow to generate these objects from a YAML configuration.
 
@@ -43,6 +41,11 @@
 - !278 deprecates use of `dantro.tools.IS_A_TTY` and `dantro.tools.TTY_COLS` constants. This information should be retrieved from the `dantro.tools.TERMINAL_INFO` dict instead.
 - !280 deprecates imports from `dantro.utils.data_ops`; use `dantro.data_ops` instead.
 - !282 deprecates `creator_type` and `creator_name` arguments to the `is_plot_func` decorator; use `creator` instead.
+
+#### Removals
+- !270 drops official support and testing for Python 3.7
+- !282 completely removes the plot creator auto detection feature, reducing implementation complexity.
+- !294 removes the deprecated `errorbar` and `errorbands` non-faceting plot functions; their functionality is easily replaceable by the facet grid `errorbars`plot and its `use_bands` argument.
 
 
 ## v0.17.2

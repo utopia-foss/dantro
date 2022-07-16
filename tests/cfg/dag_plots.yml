@@ -34,13 +34,14 @@ _pm_init_kwargs:
           module: .generic
           plot_func: facet_grid
 
-        dag.errorbar:  # NOTE DEPRECATED -- will be removed in 1.0
-          module: .generic
-          plot_func: errorbar
-
         dag.errorbars:
           module: .generic
           plot_func: errorbars
+
+        dag.errorbands:
+          module: .generic
+          plot_func: errorbars
+          use_bands: true
 
         # .. Selection ........................................................
         select.randints_3D:
@@ -92,15 +93,22 @@ config_based:
   uni_specific_IDs:
     plot_cfg:
       <<: *shared_plot_cfg
-      based_on: [creator.uni, dag.errorbar, select.randints_3D]
-      # TODO Migrate to dag.errorbars
+      based_on: [creator.uni, dag.errorbars, select.randints_3D]
       universes: [32, 33, 37, 68]
 
       transform:
         - .mean: [!dag_tag randints, [x, z]]
+        - .rename: [!dag_prev , mean]
           tag: y
+
         - .std: [!dag_tag randints, [x, z]]
+        - .rename: [!dag_prev , std]
           tag: yerr
+
+        - xr.merge: [[!dag_tag y, !dag_tag yerr]]
+          tag: data
+      y: mean
+      yerr: std
 
 
   # .. Test handling of missing data in MultiversePlotCreator .................
@@ -245,14 +253,20 @@ config_based:
   phres_simple:
     plot_cfg: &phres_simple
       <<: *shared_plot_cfg
-      based_on: [creator.uni, dag.errorbar, select.randints_3D]
+      based_on: [creator.uni, dag.errorbars, select.randints_3D]
       # TODO Migrate to dag.errorbars
 
       transform:
         - .mean: [!dag_tag randints, [x, z]]
+        - .rename: [!dag_prev , mean]
           tag: y
+
         - .std: [!dag_tag randints, [x, z]]
+        - .rename: [!dag_prev , std]
           tag: yerr
+
+        - xr.merge: [[!dag_tag y, !dag_tag yerr]]
+          tag: data
 
         # Transformations for ResultPlaceholders
         - .mean: [!dag_tag y]
@@ -265,6 +279,9 @@ config_based:
           tag: use_errorbands
 
       # Below here, the placeholders above should be resolved
+      y: mean
+      yerr: std
+
       use_bands: !dag_result use_errorbands
 
       helpers:
@@ -285,9 +302,15 @@ config_based:
       <<: *phres_simple
       transform:
         - .mean: [!dag_tag randints, [x, z]]
+        - .rename: [!dag_prev , mean]
           tag: y
+
         - .std: [!dag_tag randints, [x, z]]
+        - .rename: [!dag_prev , std]
           tag: yerr
+
+        - xr.merge: [[!dag_tag y, !dag_tag yerr]]
+          tag: data
 
         - .format: ["{:d}", 1.23]  # fails due to bad format string
           tag: i_fail
