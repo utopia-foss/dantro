@@ -21,8 +21,6 @@ from dantro.plot.funcs.generic import (
     _FACET_GRID_KINDS,
     determine_encoding,
     determine_plot_kind,
-    errorbands,
-    errorbar,
     facet_grid,
     make_facet_grid_plot,
 )
@@ -445,135 +443,9 @@ def test_determine_encoding():
     assert kws["row"] == "foo"
 
 
-# .. Errorbar Tests ...........................................................
-
-# NOTE Rather than removing this test when removing `errorbar`, migrate it to
-#      test the `errorbars` function!
-def test_errorbar(dm, out_dir, anim_disabled):
-    """Tests the errorbar plot"""
-    ppc = PyPlotCreator("test_errorbar", dm=dm, plot_func=errorbar)
-    ppc._exist_ok = True
-
-    # Shortcuts
-    kws = dict(animation=anim_disabled)
-    out_path = lambda name: dict(out_path=os.path.join(out_dir, name + ".pdf"))
-
-    # Invoke with different dimensionalities
-    ppc(
-        **out_path("ebar_1D"),
-        **kws,
-        select=dict(y="ndim_da/1D", yerr="ndim_da/1D"),
-    )
-
-    ppc(
-        **out_path("ebar_2D"),
-        **kws,
-        hue="dim_0",
-        select=dict(y="ndim_da/2D", yerr="ndim_da/2D"),
-    )
-
-    ppc(
-        **out_path("ebar_3D"),
-        **kws,
-        hue="dim_0",
-        frames="dim_2",
-        select=dict(y="ndim_da/3D", yerr="ndim_da/3D"),
-    )
-
-    # ... and again with errorbands
-    ppc._plot_func = errorbands
-    ppc(
-        **out_path("eband_1D"),
-        **kws,
-        select=dict(y="ndim_da/1D", yerr="ndim_da/1D"),
-    )
-
-    ppc(
-        **out_path("eband_2D"),
-        **kws,
-        hue="dim_0",
-        select=dict(y="ndim_da/2D", yerr="ndim_da/2D"),
-    )
-
-    ppc(
-        **out_path("eband_3D"),
-        **kws,
-        hue="dim_0",
-        frames="dim_2",
-        select=dict(y="ndim_da/3D", yerr="ndim_da/3D"),
-    )
-
-    # Test auto-encoding
-    ppc(
-        **out_path("eband_3D_auto_encoded"),
-        **kws,
-        auto_encoding=True,
-        select=dict(y="ndim_da/3D", yerr="ndim_da/3D"),
-    )
-
-    # Fails with missing specifiers
-    with pytest.raises(ValueError, match="expected data to be 2-dimensional"):
-        ppc(
-            **out_path("eband_3D_missing"),
-            **kws,
-            hue="dim_0",
-            select=dict(y="ndim_da/3D", yerr="ndim_da/3D"),
-        )
-
-    # ... or too many dimensions
-    with pytest.raises(ValueError, match="expected data to be 3-dimensional"):
-        ppc(
-            **out_path("eband_4D"),
-            **kws,
-            hue="dim_0",
-            frames="dim_2",
-            select=dict(y="ndim_da/4D", yerr="ndim_da/4D"),
-        )
-
-    # ... or too few dimensions
-    with pytest.raises(ValueError, match="expected data to be 1-dimensional"):
-        ppc(
-            **out_path("ebar_0D"),
-            **kws,
-            select=dict(y="ndim_da/0D", yerr="ndim_da/0D"),
-        )
-
-    # ... or mismatching sizes
-    with pytest.raises(ValueError, match="need to be of the same size"):
-        ppc(
-            **out_path("ebar_1D_mismatch"),
-            **kws,
-            select=dict(y="ndim_da/1D", yerr="ndim_da/2D"),
-        )
-
-    # Config-based tests
-    for case_name, case_cfg in PLOTS_CFG_EBAR["success"].items():
-        print("Case: ", case_name)
-        plot_func = case_cfg.pop("plot_func", None)
-        if plot_func == "errorbands":
-            ppc._plot_func = errorbands
-        else:
-            ppc._plot_func = errorbar
-        ppc(**out_path(case_name), **case_cfg)
-
-    for case_name, case_cfg in PLOTS_CFG_EBAR["failure"].items():
-        print("Case: ", case_name)
-        plot_func = case_cfg.pop("plot_func", None)
-        if plot_func == "errorbands":
-            ppc._plot_func = errorbands
-        else:
-            ppc._plot_func = errorbar
-        with pytest.raises(ValueError, match=case_cfg["match"]):
-            ppc(**out_path(case_name), **case_cfg["cfg"])
-
-    # Finally, test helper function's errors (not invoked regularly)
-    with pytest.raises(ValueError, match="Requiring 1D `y` and `yerr`"):
-        plot_errorbar(
-            ax=None, x=None, y=np.array([[1, 2]]), yerr=np.array([[1, 2]])
-        )
-
-
+# -----------------------------------------------------------------------------
 # -- FacetGrid tests ----------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 # .. make_facet_grid_plot decorator ...........................................
 

@@ -16,7 +16,7 @@ To use these plot functions, the following information needs to be specified in 
     my_plot:
       creator: pyplot        # or: universe, multiverse, ...
       module: .generic       # absolute: dantro.plot.funcs.generic
-      plot_func: facet_grid  # or: errorbar, errorbands, ...
+      plot_func: facet_grid
 
       # ...
 
@@ -38,6 +38,7 @@ Handling, transforming, and plotting high-dimensional data is difficult and ofte
 The idea is that high-dimensional raw data first is transformed using the :ref:`dag_framework`.
 The :py:func:`~.facet_grid` function then gets the ready-to-plot data as input and visualizes it by automatically choosing an appropriate kind of plot – if possible and not explicitly given – in a declarative way through the specification of layout keywords such as ``col``\ ums, ``row``\ s, or ``hue``.
 This approach is called `faceting <https://xarray.pydata.org/en/stable/user-guide/plotting.html#faceting>`_; dantro makes use of the `excellent plotting functionality of xarray <https://xarray.pydata.org/en/stable/plotting.html>`_ for this feature.
+
 The :py:func:`~.facet_grid` plot function further extends the xarray plotting functionality by adding the possibility to create :ref:`animations <pcr_pyplot_animations>`, simply by using the ``frames`` argument to specify the data dimension to represent as individual frames of an animation.
 
 The :py:class:`~dantro.plot.plot_helper.PlotHelper` interface then copes with the plot :ref:`style <pcr_pyplot_style>` and further layout.
@@ -115,31 +116,7 @@ It can be used if the following requirements are fulfilled:
 - Will only plot to the *current* axis and not create a figure
 - It is desired to have *the same kind of plot* repeated over multiple axes, the plots differing only in the slice of data passed to them.
 
-As an example, have a look at the :py:func:`~.errorbars` plot function, which supercedes :ref:`the explicitly implemented <dag_generic_errorbar>` plot.
-
-
-
-----
-
-.. _dag_generic_errorbar:
-
-:py:func:`~.errorbar` and :py:func:`~.errorbands`: Visualizing Confidence Intervals
-----------------------------------------------------------------------------------------
-
-.. deprecated:: 0.15
-
-    **This function is deprecated and will be removed with version 1.0.**
-    Instead, use :ref:`the generic facet grid function <dag_generic_facet_grid>` with ``kind: errorbars``, which has additional capabilities and almost the same interface (only difference being that it works with an ``xr.Dataset`` instead of two ``xr.DataArray``\ s).
-
-The :py:func:`~.errorbar` and :py:func:`~.errorbands` plotting functions provide the ability to visualize data together with corresponding confidence intervals.
-Similar to :py:func:`~.facet_grid`, these functions offer the ``hue`` and ``frames`` arguments, allowing to represent data with up to three dimensions.
-
-.. hint::
-
-    These plot functions also support the :ref:`auto-encoding feature <dag_generic_auto_encoding>`, similar to the facet grid plot.
-    The available specifiers are: ``x``, ``hue`` and ``frames``.
-
-
+As an example, have a look at the implementation of the :py:func:`~.errorbars` plot function.
 
 
 ----

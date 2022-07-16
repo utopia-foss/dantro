@@ -183,6 +183,19 @@ errorbars:
           hiding_threshold: 5
 
   # .. failing plots
+  ebars_err_bad_dimensionality:
+    <<: *ebars
+    min_dims: 3
+    max_dims: 4
+    specifiers: [x, col]
+    plot_kwargs:
+      <<: *ebars_kwargs
+      hue: ~
+      auto_encoding: false
+    raises:
+      3: [PlottingError, Expected 1D .* but selected data was 2-]
+      4: [PlottingError, Expected 1D .* but selected data was 3-]
+
   ebars_err_continuous_hue:
     <<: *ebars
     min_dims: 2
