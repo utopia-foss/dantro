@@ -1,7 +1,15 @@
 # Read the Docs configuration file
+#
+# -----------------------------------------------------------------------------
 # See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+#
+# NOTE
+#
+#   In order for figures to be generated within the RTD build, the
+#       DANTRO_DOC_GENERATE_FIGURES=True
+#   environment variable needs to be set from the RTD admin interface.
 
-# Required
+# Version of *this* file's format
 version: 2
 
 # Build documentation in the doc/ directory with Sphinx
@@ -11,11 +19,12 @@ sphinx:
 # Optionally build your docs in additional formats such as PDF and ePub
 formats: all
 
-# Optionally set the version of Python and requirements required to build your docs
+# Optionally set the Python version and requirements required to build the docs
 python:
   version: 3.8
   install:
     - method: pip
       path: .
       extra_requirements:
-        - doc  # This is relevant as it specifies the Sphinx version
+        - doc  # this is relevant as it specifies the Sphinx version
+        - dev  # required by _gen_figures module to generate figures
