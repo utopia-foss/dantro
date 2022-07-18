@@ -505,3 +505,60 @@ class ColorManager:
             )
 
         return NORMS[name](**norm_kwargs)
+
+
+# -- Supporting functions -----------------------------------------------------
+
+
+def parse_cmap_and_norm_kwargs(
+    *, _key_map: dict = None, use_color_manager: bool = True, **kws
+) -> dict:
+    """A function that parses colormap-related keyword arguments and passes
+    them through the :py:class:`.ColorManager`, making its functionality
+    available in places that would otherwise not be able to use the expanded
+    syntax of the color manager.
+
+    .. note::
+
+        The resulting dict will only have the ``cmap`` and ``cbar`` kwargs
+        (or their mapped equivalents) set from the color manager, all other
+        arguments are simply passed through.
+
+    Args:
+        _key_map (dict, optional): If custom keyword argument keys are
+            expected as output, e.g. ``hue_cmap`` instead of ``cmap``, set the
+            values to these custom names: ``{"cmap": "hue_cmap"}``.
+            Expected keys are ``cmap``, ``norm``, ``vmin``, ``vmax``. If not
+            set or partially not set, will use defaults.
+        use_color_manager (bool, optional): If false, will simply pass through
+        **kws: Keyword arguments to parse
+
+    No Longer Returned:
+        dict: The updated keyword arguments with ``cmap`` and ``norm`` (or
+            equivalent keys according to ``_key_map``).
+    """
+    if not use_color_manager:
+        return kws
+
+    _key = dict(cmap="cmap", norm="norm", vmin="vmin", vmax="vmax")
+    if _key_map is not None:
+        _key.update(_key_map)
+
+    if _key["cmap"] not in kws and _key["norm"] not in kws:
+        return kws
+
+    # otherwise: Create a ColorManager
+    cm = ColorManager(
+        cmap=kws.get(_key["cmap"]),
+        norm=kws.get(_key["norm"]),
+        vmin=kws.get(_key["vmin"]),
+        vmax=kws.get(_key["vmax"]),
+    )
+
+    # Evaluate it, only setting keys if they were there before
+    if kws.get(_key["cmap"]) is not None:
+        kws[_key["cmap"]] = cm.cmap
+    if kws.get(_key["norm"]) is not None:
+        kws[_key["norm"]] = cm.norm
+
+    return kws

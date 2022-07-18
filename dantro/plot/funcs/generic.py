@@ -17,7 +17,7 @@ from ...exceptions import PlottingError
 from ...tools import recursive_update
 from ..plot_helper import PlotHelper
 from ..utils import figure_leak_prevention, is_plot_func
-from ..utils.color_mngr import ColorManager
+from ..utils.color_mngr import ColorManager, parse_cmap_and_norm_kwargs
 from ._utils import plot_errorbar as _plot_errorbar
 
 # Local constants and lazy module imports

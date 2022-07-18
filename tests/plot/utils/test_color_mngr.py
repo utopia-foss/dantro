@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from pkg_resources import resource_filename
 
-from dantro.plot.utils import ColorManager
+from dantro.plot.utils import ColorManager, parse_cmap_and_norm_kwargs
 from dantro.tools import load_yml
 
 from ..._fixtures import tmpdir_or_local_dir
@@ -164,3 +164,44 @@ def test_ColorManager_yaml():
 
     # Not testable via YAML and also (probably) not representable
     # rev_roundtrip("!cmap_norm {name: FuncNorm, functions: …}")
+
+
+def test_parse_cmap_and_norm_kwargs():
+    import matplotlib as mpl
+
+    parse = parse_cmap_and_norm_kwargs
+
+    # Passthrough because there were no relevant arguments
+    d = dict()
+    d_out = parse(**d)
+    assert d_out == d
+
+    # Colormap set
+    d = dict(cmap="inferno", ignored="foo")
+    d_out = parse(**d)
+    assert d_out != d
+    assert d_out["ignored"] == "foo"
+    assert isinstance(d_out["cmap"], mpl.colors.Colormap)
+
+    # Passthrough because colormanager was set to be ignored
+    d_out = parse(use_color_manager=False, **d)
+    assert d_out == d
+
+    # Custom key map, here leading to `cmap` key not being parsed
+    d_out = parse(_key_map=dict(cmap="my_cmap"), **d)
+    assert d_out == d
+
+    # Can also use dict-based ColorManager features, even when mapped
+    d["my_cmap"] = dict(name="inferno", bad="r", under="k", over="w")
+    d["my_norm"] = dict(name="SymLogNorm", linthresh=1.0e-3)
+    d["vmin"] = 0
+    d["vmax"] = 1
+    d_out = parse(_key_map=dict(cmap="my_cmap", norm="my_norm"), **d)
+    assert isinstance(d_out["my_cmap"], mpl.colors.Colormap)
+    assert isinstance(d_out["my_norm"], mpl.colors.SymLogNorm)
+    assert d_out["cmap"] == "inferno"  # ignored because it was not key-mapped
+    assert d_out["vmin"] == 0
+    assert d_out["vmax"] == 1
+
+    assert (d_out["my_cmap"].get_over() == np.array([1, 1, 1, 1])).all()
+    assert (d_out["my_cmap"].get_under() == np.array([0, 0, 0, 1])).all()
