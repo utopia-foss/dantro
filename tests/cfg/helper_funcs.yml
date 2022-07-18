@@ -45,6 +45,16 @@
       label: bar
       fontsize: 20
     only_label_outer: true
+- set_labels:
+    x:
+      label: foo
+      fontdict: {}
+    y:
+      label: bar
+      labelpad: 20
+      fontfamily: monospace
+      wrap: true
+      y: -0.2
 
 - set_labels:
     x: foo

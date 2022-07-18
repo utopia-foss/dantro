@@ -1539,7 +1539,7 @@ class PlotHelper:
         """
 
         def set_label(func: Callable, *, label: str = None, **label_kwargs):
-            return func(label, label_kwargs)
+            return func(label, **label_kwargs)
 
         if x:
             x = x if not isinstance(x, str) else dict(label=x)
