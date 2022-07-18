@@ -12,6 +12,18 @@ _:
         subplot_kw:
           projection: 3d
 
+  cm_support_kwargs: &cm_support_kwargs
+    cmap:
+      name: inferno
+      bad: r
+      under: k
+      over: w
+    norm:
+      name: SymLogNorm
+      linthresh: 1.e-3
+    vmin: 0
+    vmax: 1
+
 # -----------------------------------------------------------------------------
 # .. No `kind` specified ......................................................
 no_kind:
@@ -77,6 +89,18 @@ auto:
     raises:
       5: *line_plots_1d_or_2d
 
+  scatter_autoenc:
+    kinds: [scatter]
+    specifiers: [col, frames]
+    min_dims: 2
+    max_dims: 4
+    test_data_path: ds_labelled
+    plot_kwargs:
+      x: foo
+      y: bar
+      hue: spam
+      auto_encoding: true
+
 
 # .. With `kind` specified ....................................................
 # Tests of all various kinds; not in-depth but covering most cases
@@ -136,7 +160,6 @@ kinds:
     min_dims: 4
     max_dims: 4
 
-  # NOTE errorbars kind is tested separately below
 
   scatter:
     kinds: [scatter]
@@ -149,81 +172,7 @@ kinds:
       y: bar
       hue: spam
 
-  scatter_autoenc:
-    kinds: [scatter]
-    specifiers: [col, frames]
-    min_dims: 2
-    max_dims: 4
-    test_data_path: ds_labelled
-    plot_kwargs:
-      x: foo
-      y: bar
-      hue: spam
-      auto_encoding: true
-
-  scatter3d:
-    kinds: [scatter]
-    specifiers: [col]
-    min_dims: 2
-    max_dims: 2
-    test_data_path: ds_labelled
-    plot_kwargs:
-      x: foo
-      y: bar
-      hue: spam
-      <<: *use_3d_projection
-
-  scatter3d_autoenc:
-    kinds: [scatter3d]
-    specifiers: [col]
-    min_dims: 2
-    max_dims: 4
-    test_data_path: ds_labelled
-    plot_kwargs:
-      x: foo
-      y: bar
-      z: baz
-      hue: spam
-      auto_encoding: true
-      <<: *use_3d_projection
-
-  scatter3d_fail:
-    kinds: [scatter3d]
-    specifiers: [col]
-    min_dims: 2
-    max_dims: 4
-    test_data_path: ds_labelled
-    plot_kwargs:
-      x: foo
-      y: bar
-      z: baz
-      hue: spam
-      auto_encoding: true
-    raises:
-      2: &z-Exception [PlottingError, "Missing z-axis"]
-      3: *z-Exception
-      4: *z-Exception
-
-
-# NOTE: All below are extended tests, i.e.: only run if FULL_TEST is set!
-# .. line-like plots . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-line:
-  line_ext:
-    kinds: [line]
-    specifiers: [x, row, col, hue, frames]
-    max_dims: 6
-    raises:
-      0: &Exception [Exception, '']
-      6: *line_plots_1d_or_2d
-
-  # basically the same as line, but does not support hue (for some reason)
-  step_ext:
-    kinds: [step]
-    specifiers: [x, row, col, frames]
-    max_dims: 5
-    raises:
-      0: *Exception
-      5: *Exception
+  # NOTE errorbars and scatter3d kinds are tested separately below
 
 
 # .. errorbar plots . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -420,6 +369,101 @@ scatter3d:
     raises:
       5: &bad_dimensionality [PlottingError, "Unexpected data dimensionality"]
 
+  scatter3d_autoenc:
+    kinds: [scatter3d]
+    specifiers: [col]
+    min_dims: 2
+    max_dims: 4
+    test_data_path: ds_labelled
+    plot_kwargs:
+      x: foo
+      y: bar
+      z: baz
+      hue: spam
+      auto_encoding: true
+      <<: *use_3d_projection
+
+  scatter3d_fail:
+    kinds: [scatter3d]
+    specifiers: [col]
+    min_dims: 2
+    max_dims: 4
+    test_data_path: ds_labelled
+    plot_kwargs:
+      x: foo
+      y: bar
+      z: baz
+      hue: spam
+      auto_encoding: true
+    raises:
+      2: &z-Exception [PlottingError, "Missing z-axis"]
+      3: *z-Exception
+      4: *z-Exception
+
+
+# .. ColorManager support .....................................................
+cm_support:
+  # for dantro-implemented plot functions that support cmap
+  scatter3d:
+    <<: *scatter3d_facet
+    plot_kwargs:
+      x: foo
+      y: bar
+      z: baz
+      hue: spam
+      <<: [*use_3d_projection, *cm_support_kwargs]
+
+  # also test for (some) xarray facet grid kinds that support cmap
+  pcolormesh:
+    <<: *contour
+    kinds: [pcolormesh]
+    plot_kwargs:
+      <<: *cm_support_kwargs
+
+  pcolormesh_no_cm:
+    <<: *contour
+    kinds: [pcolormesh]
+    plot_kwargs:
+      <<: *cm_support_kwargs
+      use_color_manager: false  # can deactivate cm but will raise
+    raises:
+      3: [PlottingError, has no attribute]
+      4: [PlottingError, has no attribute]
+
+  scatter:
+    kinds: [scatter]
+    specifiers: [col]
+    min_dims: 1
+    max_dims: 3
+    test_data_path: ds_labelled
+    plot_kwargs:
+      <<: *cm_support_kwargs
+      x: foo
+      y: bar
+      hue: spam
+
+
+
+# -----------------------------------------------------------------------------
+# NOTE: All below are extended tests, i.e.: only run if FULL_TEST is set!
+# .. line-like plots . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+line:
+  line_ext:
+    kinds: [line]
+    specifiers: [x, row, col, hue, frames]
+    max_dims: 6
+    raises:
+      0: &Exception [Exception, '']
+      6: *line_plots_1d_or_2d
+
+  # basically the same as line, but does not support hue (for some reason)
+  step_ext:
+    kinds: [step]
+    specifiers: [x, row, col, frames]
+    max_dims: 5
+    raises:
+      0: *Exception
+      5: *Exception
 
 # .. 2D plots . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 2d:

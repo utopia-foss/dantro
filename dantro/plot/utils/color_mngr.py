@@ -524,6 +524,10 @@ def parse_cmap_and_norm_kwargs(
         (or their mapped equivalents) set from the color manager, all other
         arguments are simply passed through.
 
+        In particular, this means that the ``labels`` feature of the color
+        manager is *not* supported, because this function has no ability to
+        set the colorbar.
+
     Args:
         _key_map (dict, optional): If custom keyword argument keys are
             expected as output, e.g. ``hue_cmap`` instead of ``cmap``, set the
