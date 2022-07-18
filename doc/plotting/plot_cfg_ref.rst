@@ -3,7 +3,7 @@
 Plot Configuration Reference
 ============================
 This page attempts to give an overview of the available configuration options in a plot configuration.
-It distinguishes features that are handled by :doc:`plot_manager` and those handled by the plot creators.
+It distinguishes features that are handled by :doc:`plot_manager` and those handled by the chosen :ref:`plot creators <plot_creators>`.
 
 In the following, all examples are given on the level of a single plot configuration, specifically:
 
@@ -51,5 +51,6 @@ Options handled by the :doc:`Plot Creators <plot_creators>`
 The options made available by the individual plot creators, see their respective documentation entries:
 
 * :doc:`plot_creators`
+* :doc:`creators/base`
 * :doc:`creators/pyplot`
 * :doc:`creators/psp`

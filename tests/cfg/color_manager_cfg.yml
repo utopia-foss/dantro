@@ -42,11 +42,12 @@ advanced_syntax:
   cmap:
     name: Greys
     over:
-      color: k
+      color: black
       alpha: 0.5
     under:
-      color: k
+      color: black
       alpha: 0.5
+    bad: red
   vmin: 0
   vmax: 1
   norm:
