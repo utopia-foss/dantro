@@ -31,7 +31,10 @@
 - !292 migrates the `ColorManager`, which helps generating colormaps and norms, from [utopya][utopya-repo] over to dantro.
   In addition, the `!cmap` and `!cmap_norm` tags are implemented and allow to generate these objects from a YAML configuration.
   - !295 integrates the `ColorManager` into all `facet_grid`-related plot functions, where it will parse the `cmap` and `norm` arguments.
-_ !293 fixes a bug in the `make_facet_grid_plot` decorator that prohibited generating a correct colorbar for the faceted data.
+
+#### Bug fixes
+- !293 fixes a bug in the `make_facet_grid_plot` decorator that prohibited generating a correct colorbar for the faceted data.
+- !296 fixes an error in the `set_labels` helper that prevented passing additional arguments like `labelpad`.
 
 #### Internal
 - !267 performs some code clean-up and improves the sphinx setup
