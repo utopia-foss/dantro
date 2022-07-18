@@ -926,8 +926,10 @@ def test_helper_functions(hlpr):
 
     # Go over the helpers to be tested
     for i, test_cfg in enumerate(CFG_HELPER_FUNCS):
+        test_cfg = copy.deepcopy(test_cfg)
+
         # Always work on a new figure
-        hlpr.setup_figure()
+        hlpr.setup_figure(**test_cfg.pop("setup_figure", {}))
 
         # There is a single key that is used to identify the helper
         helper_names = [k for k in test_cfg if not k.startswith("_")]

@@ -26,8 +26,11 @@
 - !282 moves the former `ExternalPlotCreator`'s plot function loading functionality into `PlotManager`, making it a central component of the plotting framework rather than a creator's special feature.
     - This also makes `BasePlotCreator` a fully-functioning (no longer abstract) creator class, which is averse to any plotting backend.
     - Adds the customizable `PlotFuncResolver` class which now takes care of these tasks in a more decoupled setting.
-- !292 migrates the `ColorManager`, which helps in generating colormaps and norms, from [utopya][utopya-repo] over to dantro.
+- !291 expands the `PlotHelper` to support 3D projection plots and their z-axis.
+  Furthermore, this implements the `scatter3d` facet grid plot.
+- !292 migrates the `ColorManager`, which helps generating colormaps and norms, from [utopya][utopya-repo] over to dantro.
   In addition, the `!cmap` and `!cmap_norm` tags are implemented and allow to generate these objects from a YAML configuration.
+_ !293 fixes a bug in the `make_facet_grid_plot` decorator that prohibited generating a correct colorbar for the faceted data.
 
 #### Internal
 - !267 performs some code clean-up and improves the sphinx setup

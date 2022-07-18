@@ -1,5 +1,3 @@
-"""Tests the generic external plot functions."""
-
 import copy
 import logging
 import os
@@ -28,18 +26,11 @@ from dantro.tools import DoNothingContext, load_yml
 
 # Local variables and configuration ...........................................
 # If True, runs all tests. If False, runs only the basics (much faster)
+# TODO Make this controllable via environment variables
 FULL_TEST = False
 skip_if_not_full = pytest.mark.skipif(
     not FULL_TEST, reason="Will only run with FULL_TEST."
 )
-
-# Whether to write test output to a temporary directory
-# NOTE When manually debugging, it's useful to set this to False, such that the
-#      output can be inspected in TEST_OUTPUT_PATH
-USE_TMPDIR = True
-
-# If not using a temporary directory, the desired output directory
-TEST_OUTPUT_PATH = os.path.abspath(os.path.expanduser("~/dantro_test_output"))
 
 # Test configurations
 PLOTS_CFG_EBAR = load_yml(resource_filename("tests", "cfg/plots_ebar.yml"))
@@ -203,9 +194,16 @@ class MockDataArray:
         self.ndim = ndim
 
 
+from ..._fixtures import *
+
 # -- Fixtures -----------------------------------------------------------------
 # Import fixtures from other tests
 from ...test_plot_mngr import dm as _dm
+
+# Use the fixture that's controlled via global variables
+out_dir = tmpdir_or_local_dir
+
+# .. Generate test data .......................................................
 
 
 @pytest.fixture
@@ -305,6 +303,7 @@ def dm(_dm):
                         bar=create_nd_data(n, with_coords=True),
                         baz=create_nd_data(n, with_coords=True),
                         spam=create_nd_data(n, with_coords=True),
+                        fish=create_nd_data(n, with_coords=True),
                     )
                 ),
             )
@@ -323,16 +322,6 @@ def anim_disabled() -> dict:
         writer="frames",
         writer_kwargs=dict(frames=dict(saving=(dict(dpi=36)))),
     )
-
-
-@pytest.fixture
-def out_dir(tmpdir) -> str:
-    if USE_TMPDIR:
-        return str(tmpdir)
-
-    # else: Create an output path if it does not yet exist, use that one
-    os.makedirs(TEST_OUTPUT_PATH, exist_ok=True)
-    return TEST_OUTPUT_PATH
 
 
 # -- Tests --------------------------------------------------------------------
@@ -639,6 +628,13 @@ def test_facet_grid_errorbars(dm, out_dir):
     """Tests the facet_grid for ``kind == 'errorbars'``"""
     invoke_facet_grid(
         dm=dm, out_dir=out_dir, to_test=PLOTS_CFG_FG["errorbars"]
+    )
+
+
+def test_facet_grid_scatter3d(dm, out_dir):
+    """Tests the facet_grid for ``kind == 'scatter3d'``"""
+    invoke_facet_grid(
+        dm=dm, out_dir=out_dir, to_test=PLOTS_CFG_FG["scatter3d"]
     )
 
 

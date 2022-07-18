@@ -203,6 +203,7 @@ def set_tick_locators_or_formatters(
     kind: str,
     x: dict = None,
     y: dict = None,
+    z: dict = None,
 ):
     """Sets the tick locators or formatters.
     Look at the :py:class:`~dantro.plot.plot_helper.PlotHelper` methods
@@ -213,6 +214,7 @@ def set_tick_locators_or_formatters(
         kind (str): Whether to set a ``locator`` or a ``formatter``.
         x (dict, optional): The config for the x-axis tick locator/formatter
         y (dict, optional): The config for the y-axis tick locator/formatter
+        z (dict, optional): The config for the z-axis tick locator/formatter
     """
     # Safe guard against calling this with unexpected arguments from
     # within the actual helper methods; not part of public interface.
@@ -315,4 +317,22 @@ def set_tick_locators_or_formatters(
                 **y["minor"],
             )
 
-    # TODO z-axis support
+    if hasattr(ax, "zaxis"):
+        if z:
+            if z.get("major"):
+                _set_locator_or_formatter(
+                    _ax=ax,
+                    _kind=kind,
+                    _axis="z",
+                    _major=True,
+                    **z["major"],
+                )
+
+            if z.get("minor"):
+                _set_locator_or_formatter(
+                    _ax=ax,
+                    _kind=kind,
+                    _axis="z",
+                    _major=False,
+                    **z["minor"],
+                )
