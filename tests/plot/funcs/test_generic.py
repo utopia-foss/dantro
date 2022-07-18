@@ -1,6 +1,10 @@
+"""Tests the generic plotting functions, mostly the facet_grid method and the
+related functions and decorators.
+"""
 import copy
 import logging
 import os
+from builtins import *  # to have Exception types available in globals
 from itertools import product
 from typing import Tuple
 
@@ -636,6 +640,16 @@ def test_facet_grid_scatter3d(dm, out_dir):
     invoke_facet_grid(
         dm=dm, out_dir=out_dir, to_test=PLOTS_CFG_FG["scatter3d"]
     )
+
+
+def test_facet_grid_cm_support(dm, out_dir):
+    """Test ColorManager support for facet grid kinds"""
+    invoke_facet_grid(
+        dm=dm, out_dir=out_dir, to_test=PLOTS_CFG_FG["cm_support"]
+    )
+
+
+# -- Extended tests -----------------------------------------------------------
 
 
 @skip_if_not_full

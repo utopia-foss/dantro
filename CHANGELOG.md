@@ -30,6 +30,7 @@
   Furthermore, this implements the `scatter3d` facet grid plot.
 - !292 migrates the `ColorManager`, which helps generating colormaps and norms, from [utopya][utopya-repo] over to dantro.
   In addition, the `!cmap` and `!cmap_norm` tags are implemented and allow to generate these objects from a YAML configuration.
+  - !295 integrates the `ColorManager` into all `facet_grid`-related plot functions, where it will parse the `cmap` and `norm` arguments.
 _ !293 fixes a bug in the `make_facet_grid_plot` decorator that prohibited generating a correct colorbar for the faceted data.
 
 #### Internal

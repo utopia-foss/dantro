@@ -16,7 +16,7 @@ To use these plot functions, the following information needs to be specified in 
     my_plot:
       creator: pyplot        # or: universe, multiverse, ...
       module: .generic       # absolute: dantro.plot.funcs.generic
-      plot_func: facet_grid
+      plot_func: facet_grid  # or some other plot function name
 
       # ...
 
@@ -117,6 +117,35 @@ It can be used if the following requirements are fulfilled:
 - It is desired to have *the same kind of plot* repeated over multiple axes, the plots differing only in the slice of data passed to them.
 
 As an example, have a look at the implementation of the :py:func:`~.errorbars` plot function.
+
+
+.. _dag_facet_grid_color_mngr:
+
+:py:class:`~dantro.plot.utils.color_mngr.ColorManager` integration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+All facet grid plots in dantro integrate the :py:class:`~dantro.plot.utils.color_mngr.ColorManager` to parse the colormap-related plotting arguments ``cmap`` and ``norm``.
+
+This allows to specify colormap properties right from the plot configuration.
+For instance, it can be used to specify a colormap of a certain name, including the ``over``, ``under``, and ``bad`` color values, and additionally specifying a normalization:
+
+.. literalinclude:: ../../tests/cfg/color_manager_cfg.yml
+    :language: yaml
+    :start-after: ### START -- advanced_syntax
+    :end-before:  ### END ---- advanced_syntax
+    :dedent: 2
+
+For more examples, see the :py:class:`~dantro.plot.utils.color_mngr.ColorManager` docstring.
+
+.. hint::
+
+
+    YAML *tags* can be used to generate colormaps or norms in places where the color manager is not integrated but a corresponding :py:class:`matplotlib.colors.Colormap` object or norm object is accepted / required:
+
+    .. literalinclude:: ../../tests/cfg/color_manager_cfg.yml
+        :language: yaml
+        :start-after: ### START -- yaml_constructors
+        :end-before:  ### END ---- yaml_constructors
+        :dedent: 2
 
 
 ----

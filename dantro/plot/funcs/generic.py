@@ -8,6 +8,7 @@ import logging
 import math
 import numbers
 import warnings
+from functools import partial as _partial
 from typing import Callable, Dict, List, Tuple, Union
 
 import matplotlib.colors as mcolors
@@ -17,7 +18,7 @@ from ...exceptions import PlottingError
 from ...tools import recursive_update
 from ..plot_helper import PlotHelper
 from ..utils import figure_leak_prevention, is_plot_func
-from ..utils.color_mngr import ColorManager
+from ..utils.color_mngr import ColorManager, parse_cmap_and_norm_kwargs
 from ._utils import plot_errorbar as _plot_errorbar
 
 # Local constants and lazy module imports
@@ -359,9 +360,12 @@ def determine_encoding(
 
 class make_facet_grid_plot:
     """This is a decorator class that transforms a plot function that works on
-    a single axis into one that supports faceting. Additionally, it allows to
-    register the plotting function with the generic facet grid plot by adding
-    the callable to ``_FACET_GRID_FUNCS``.
+    a single axis into one that supports faceting via
+    :py:class:`xarray.plot.FacetGrid`.
+
+    Additionally, it allows to register the plotting function with the generic
+    :py:func:`~dantro.plot.funcs.generic.facet_grid` plot by adding the
+    callable to ``_FACET_GRID_FUNCS``.
     """
 
     MAP_FUNCS = {
@@ -389,6 +393,7 @@ class make_facet_grid_plot:
         register_as_kind: Union[bool, str] = True,
         overwrite_existing: bool = False,
         drop_kwargs: Tuple[str] = DEFAULT_DROP_KWARGS,
+        parse_cmap_and_norm_kwargs: bool = True,
         **default_kwargs,
     ):
         """Initialize the decorator, making the decorated function capable of
@@ -421,6 +426,11 @@ class make_facet_grid_plot:
             drop_kwargs (Tuple[str], optional): Which keyword arguments to
                 drop before invocation of the wrapped function; this can be
                 useful to trim down the signature of the wrapped function.
+            parse_cmap_and_norm_kwargs (bool, optional): Whether to parse
+                colormap-related plot function arguments using the
+                :py:func:`~dantro.plot.utils.color_mngr.parse_cmap_and_norm_kwargs`
+                function. Should be set to false if the decorated plot function
+                takes care of these arguments itself.
             **default_kwargs: Additional arguments that are passed to the
                 single-axis plotting function. These are used both when calling
                 it via the selected mapping function and when invoking it
@@ -442,13 +452,14 @@ class make_facet_grid_plot:
         self.overwrite_existing = overwrite_existing
         self.drop_kwargs = drop_kwargs if drop_kwargs else ()
         self.default_kwargs = default_kwargs
+        self.parse_cmap_and_norm_kwargs = parse_cmap_and_norm_kwargs
 
     def parse_wpf_kwargs(self, data, **kwargs) -> dict:
         """Parses the keyword arguments in preparation for invoking the wrapped
         plot function. This can happen both in context of a facet grid mapping
         and a single invocation.
         """
-        # Update defaults
+        # Update from defaults
         kwargs = recursive_update(copy.deepcopy(self.default_kwargs), kwargs)
 
         # Some checks
@@ -462,6 +473,10 @@ class make_facet_grid_plot:
                 "supported for this plotting function! May only be:  "
                 f"{', '.join(self.supported_hue_styles)}"
             )
+
+        # Parse colormap-related arguments
+        if self.parse_cmap_and_norm_kwargs:
+            kwargs = parse_cmap_and_norm_kwargs(**copy.deepcopy(kwargs))
 
         # Can do more pre-processing here
         # ...
@@ -527,8 +542,9 @@ class make_facet_grid_plot:
             """A facet-grid capable version of the given plot function.
 
             Explicitly named arguments here are passed to the setup of the
-            facet grid; all ``kwargs`` are passed on to the selected mapping
-            function and subsequently: the wrapped single-axis plot function.
+            :py:class:`xarray.plot.FacetGrid`; all ``kwargs`` are passed on to
+            the selected mapping function and subsequently: the wrapped
+            single-axis plot function.
             """
             # Without columns or rows, cannot use facet grid. Make a primitive
             # plot instead, directly using the wrapped plot function.
@@ -567,8 +583,10 @@ class make_facet_grid_plot:
             # Make the FacetGrid object available to the helper
             hlpr._attrs["facet_grid"] = fg
 
-            # Prepare mapping keyword arguments and apply the mapping
+            # Parse arguments expected by wrapped plot function
             kwargs = self.parse_wpf_kwargs(data, **kwargs)
+
+            # Prepare mapping keyword arguments and apply the mapping
             log.debug("Invoking mapping function with kwargs  %s  ...", kwargs)
             try:
                 map_to_facet_grid(
@@ -579,7 +597,7 @@ class make_facet_grid_plot:
                 raise PlottingError(
                     f"Failed mapping {type(data)} data to facet grid! Check "
                     "the given arguments, dimensionality, dimension names, "
-                    "and whether the dimensions have coordinates associated. "
+                    "and whether the dimensions have coordinates associated.\n"
                     f"Got a {type(exc).__name__}: {exc}"
                 ) from exc
 
@@ -606,6 +624,7 @@ class make_facet_grid_plot:
                         f"{_in_use}"
                     )
 
+            # Register the callable for the non-standalone case
             _FACET_GRID_FUNCS[regname] = fgplot
             log.debug("Registered '%s' as special facet grid kind.", regname)
 
@@ -628,7 +647,7 @@ class make_facet_grid_plot:
             except Exception as exc:
                 raise PlottingError(
                     "Standalone facet grid plotting for plot function "
-                    f"'{plot_single_axis.__name__}' failed! "
+                    f"'{plot_single_axis.__name__}' failed!\n"
                     f"Got {type(exc).__name__}: {exc}\n\n"
                     f"Given arguments:\n  {kwargs}\n\n"
                     f"Selected data:\n  {data['data']}\n"
@@ -787,7 +806,7 @@ def facet_grid(
             _plot_func = _FACET_GRID_FUNCS[kind]
 
             # Bind the data and helper to the function
-            plot_func = lambda **kws: _plot_func(_d, hlpr=hlpr, **kws)
+            plot_func = _partial(_plot_func, _d, hlpr=hlpr)
 
         else:
             try:
@@ -845,7 +864,9 @@ def facet_grid(
             fig = rv.fig
             axes = rv.axes
         else:
-            # Use figure already attached to helper if exists, or let mpl decide
+            # Use figure already attached to helper if they exist; these are
+            # certain to be the currently relevant figure and axes.
+            # If not available, let matplotlib decide.
             fig = plt.gcf() if hlpr._fig is None else hlpr.fig
             axes = plt.gca() if hlpr._axes is None else hlpr.axes
 
@@ -882,6 +903,10 @@ def facet_grid(
     )
     frames = plot_kwargs.pop("frames", None)
 
+    # Parse colorbar-related arguments
+    plot_kwargs = parse_cmap_and_norm_kwargs(**plot_kwargs)
+
+    # Done parsing arguments
     log.note("Facet grid plot of kind '%s' now commencing ...", kind)
 
     # If no animation is desired, the plotting routine is really simple
@@ -1063,6 +1088,7 @@ def errorbars(
     register_as_kind="scatter3d",
     encodings=("hue", "markersize"),  # TODO correct?!
     supported_hue_styles=("continuous",),
+    parse_cmap_and_norm_kwargs=False,
     # defaults
     # hue_style="discrete",  # FIXME setting to 'discrete' fails, but shouldn't
 )
@@ -1079,7 +1105,6 @@ def scatter3d(
     size_mapping: dict = None,
     cmap: Union[str, dict, mcolors.Colormap] = None,
     norm: Union[str, dict, mcolors.Normalize] = None,
-    labels: dict = None,
     vmin: float = None,
     vmax: float = None,
     add_colorbar: bool = True,
@@ -1153,9 +1178,6 @@ def scatter3d(
             :py:class:`~dantro.plot.utils.color_mngr.ColorManager`.
         norm (Union[str, dict, matplotlib.colors.Normalize], optional):
             The norm that is applied for the color-mapping.
-        labels (Union[dict, list], optional): Colorbar tick-labels keyed by
-            tick position, passed to the
-            :py:class:`~dantro.plot.utils.color_mngr.ColorManager`.
         vmin (float, optional): The lower bound of the color-mapping,
             passed to the
             :py:class:`~dantro.plot.utils.color_mngr.ColorManager`.
@@ -1195,7 +1217,6 @@ def scatter3d(
     cm = ColorManager(
         cmap=cmap,
         norm=norm,
-        labels=labels,
         vmin=vmin,
         vmax=vmax,
     )

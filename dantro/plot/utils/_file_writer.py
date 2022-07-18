@@ -5,6 +5,7 @@ import os
 
 import matplotlib as mpl
 import matplotlib.animation
+import matplotlib.figure
 
 # -----------------------------------------------------------------------------
 
