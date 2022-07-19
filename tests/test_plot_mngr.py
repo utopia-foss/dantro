@@ -146,7 +146,7 @@ def test_init(dm, tmpdir):
     # Based on a updated configuration file
     PlotManager(
         dm=dm,
-        base_cfg_pools=OrderedDict([("base1", BASE_EXT_PATH)]),
+        base_cfg_pools=OrderedDict([("base1", BASE_EXT_PATH)]).items(),
         default_plots_cfg=BASED_ON_EXT_PATH,
     )
 
@@ -160,16 +160,6 @@ def test_init(dm, tmpdir):
     # Giving an invalid default creator
     with pytest.raises(ValueError, match="No such creator 'invalid'"):
         PlotManager(dm=dm, default_creator="invalid")
-
-    # Deprecation warnings for `base_cfg`, `update_base_cfg` and `plots_cfg`
-    with pytest.warns(DeprecationWarning, match="arguments are deprecated"):
-        PlotManager(dm=dm, base_cfg={"some_dummy_plot_1": {}})
-
-    with pytest.warns(DeprecationWarning, match="arguments are deprecated"):
-        PlotManager(dm=dm, update_base_cfg={"some_dummy_plot_2": {}})
-
-    with pytest.warns(DeprecationWarning, match="argument was renamed"):
-        PlotManager(dm=dm, plots_cfg={"some_dummy_plot_3": {}})
 
 
 def test_plotting(dm, pm_kwargs, pcr_pyplot_kwargs):
@@ -454,13 +444,6 @@ def test_base_cfg_pool(dm, pm_kwargs):
 
     with pytest.raises(ValueError, match="special labels"):
         pm.add_base_cfg_pool(label="plot", plots_cfg={})
-
-    # Old deprecated interface
-    with pytest.warns(DeprecationWarning, match="The `base_cfg` and `upd"):
-        pm = PlotManager(
-            base_cfg=BASE_EXT, update_base_cfg=UPDATE_BASE_EXT, **pm_kwargs
-        )
-        assert "base" in pm.base_cfg_pools
 
 
 def test_plotting_based_on(dm, pm_kwargs):

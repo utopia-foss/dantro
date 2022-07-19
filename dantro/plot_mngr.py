@@ -86,7 +86,7 @@ class PlotManager:
     """The default values for the output format strings, used when composing
     the file name of a plot."""
 
-    SPECIAL_BASE_CFG_POOL_LABELS: Tuple[str] = (
+    SPECIAL_BASE_CFG_POOL_LABELS: Sequence[str] = (
         "plot",
         "plot_from_cfg",
         "plot_from_cfg_unused",
@@ -102,10 +102,7 @@ class PlotManager:
         *,
         dm: DataManager,
         base_cfg_pools: Sequence[Tuple[str, Union[dict, str]]] = (),
-        plots_cfg: Union[dict, str] = None,
         default_plots_cfg: Union[dict, str] = None,
-        base_cfg: Union[str, dict] = None,
-        update_base_cfg: Union[str, dict] = None,
         out_dir: Union[str, None] = "{timestamp:}/",
         out_fstrs: dict = None,
         plot_func_resolver_init_kwargs: dict = None,
@@ -122,18 +119,16 @@ class PlotManager:
         To avoid copy-paste of plot configurations, the PlotManager comes with
         versatile capabilities to define default plots and re-use other plots.
 
-            - The ``default_plots_cfg`` specifies plot configurations that are
-              to be carried out by default when calling the plotting method
-              :py:meth:`.plot_from_cfg`.
-            - When calling any of the plot methods
-              :py:meth:`.plot_from_cfg` or
-              :py:meth:`.plot`, there is the
-              possibility to update the existing configuration dict with new
-              entries.
-            - At each stage, the ``based_on`` feature allows to make a plot
-              configuration inherit entries from an existing configuration.
-              These are looked up from the ``base_cfg_pools`` following the
-              rules described in :py:func:`~dantro.plot._cfg.resolve_based_on`.
+        - The ``default_plots_cfg`` specifies plot configurations that are
+          to be carried out by default when calling the plotting method
+          :py:meth:`.plot_from_cfg`.
+        - When calling any of the plot methods :py:meth:`.plot_from_cfg` or
+          :py:meth:`.plot`, there is the possibility to update the existing
+          configuration dict with new entries.
+        - At each stage, the ``based_on`` feature allows to make a plot
+          configuration inherit entries from an existing configuration.
+          These are looked up from the ``base_cfg_pools`` following the
+          rules described in :py:func:`~dantro.plot._cfg.resolve_based_on`.
 
         For more information on how the plot configuration can be defined, see
         :ref:`plot_cfg_inheritance`.
@@ -143,20 +138,13 @@ class PlotManager:
                 data from.
             base_cfg_pools (Sequence[Tuple[str, Union[dict, str]]], optional):
                 The base configuration pools are used to perform the lookups of
-                ``based_on`` entries. The tuples in these sequence consist of
-                ``(label, plots_cfg)`` pairs and are fed to
-                :py:meth:`.add_base_cfg_pool`.
-                This argument can also be provided as an ``OrderedDict``.
+                ``based_on`` entries, see :ref:`plot_cfg_inheritance`.
+                The tuples in these sequence consist of ``(label, plots_cfg)``
+                pairs and are fed to :py:meth:`.add_base_cfg_pool`; see there
+                for more information.
             default_plots_cfg (Union[dict, str], optional): The default plots
                 config or a path to a YAML file to import. Used as defaults
-                when calling
-                :py:meth:`.plot_from_cfg`
-            base_cfg (Union[str, dict], optional): *Deprecated!* Legacy
-                interface for defining base plot configurations. During the
-                deprecation period, these entries are automatically added
-                to ``base_cfg_pools`` under the label ``base``.
-            update_base_cfg (Union[str, dict], optional): *Deprecated!* Used to
-                update the ``base_cfg`` before adding ot to ``base_cfg_pools``.
+                when calling :py:meth:`.plot_from_cfg`
             out_dir (Union[str, None], optional): If given, will use this
                 output directory as basis for the output path for each plot.
                 The path can be a format-string; it is evaluated upon call to
@@ -194,9 +182,6 @@ class PlotManager:
             cfg_exists_action (str, optional): Behaviour when a config file
                 already exists. Can be: ``raise`` (default), ``skip``,
                 ``append``, ``overwrite``, or ``overwrite_nowarn``.
-
-        Raises:
-            InvalidCreator: When trying to set an invalid ``default_creator``
         """
         # Public
         self.save_plot_cfg = save_plot_cfg
@@ -218,42 +203,10 @@ class PlotManager:
 
         # Base configuration pools
         self._base_cfg_pools = OrderedDict()
-        if not isinstance(base_cfg_pools, OrderedDict):
-            base_cfg_pools = OrderedDict(list(base_cfg_pools))
-
-        for _label, _plots_cfg in base_cfg_pools.items():
+        for _label, _plots_cfg in base_cfg_pools:
             self.add_base_cfg_pool(label=_label, plots_cfg=_plots_cfg)
 
-        # Legacy base configuration -- DEPRECATED
-        if base_cfg or update_base_cfg:
-            warnings.warn(
-                "The `base_cfg` and `update_base_cfg` arguments are "
-                "deprecated and will be removed. Use the more-capable "
-                "`base_cfg_pools` instead.",
-                DeprecationWarning,
-            )
-            if update_base_cfg:
-                # Need to resolve it here already to retain old behaviour
-                base_cfg = self._prepare_cfg(base_cfg if base_cfg else {})
-                update_base_cfg = _resolve_based_on(
-                    self._prepare_cfg(update_base_cfg),
-                    label="update_base_cfg",
-                    base_pools=[("base", base_cfg)],
-                )
-
-                base_cfg = recursive_update(base_cfg, update_base_cfg)
-
-            self.add_base_cfg_pool(label="base", plots_cfg=base_cfg)
-
         # Default plot configuration
-        if plots_cfg:
-            warnings.warn(
-                "The `plots_cfg` argument was renamed to `default_plots_cfg`! "
-                "This will become an error in an upcoming release.",
-                DeprecationWarning,
-            )
-            self._default_plots_cfg = self._prepare_cfg(plots_cfg)
-
         if default_plots_cfg:
             self._default_plots_cfg = self._prepare_cfg(default_plots_cfg)
 
