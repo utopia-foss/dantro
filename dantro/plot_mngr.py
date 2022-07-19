@@ -15,6 +15,7 @@ from difflib import get_close_matches as _get_close_matches
 from typing import Any, Callable, Dict, List, Sequence, Tuple, Union
 
 from paramspace import ParamDim, ParamSpace
+from pkg_resources import resource_filename as _resource_filename
 
 from .abc import BAD_NAME_CHARS as _BAD_NAME_CHARS
 from .data_mngr import DataManager
@@ -26,6 +27,8 @@ from .plot.creators import ALL_PLOT_CREATORS as ALL_PCRS
 from .plot.utils import PlotFuncResolver as _PlotFuncResolver
 from .tools import format_time as _format_time
 from .tools import load_yml, make_columns, recursive_update, write_yml
+
+# .............................................................................
 
 log = logging.getLogger(__name__)
 
@@ -40,6 +43,15 @@ Unlike the :py:data:`~dantro.abc.BAD_NAME_CHARS`, these *allow* the ``/`` char
 (such that new directories can be created) and disallows the ``.`` character
 (in order to not get confused with file extensions).
 """
+
+BASE_PLOTS_CFG_PATH: str = _resource_filename("dantro", "cfg/base_plots.yml")
+"""The path to the base plot configurations pool for dantro.
+
+If the ``use_dantro_base_cfg_pool`` flag is set when initializing a
+:py:class:`~dantro.plot_mngr.PlotManager`, this file will be used as the first
+entry in the sequence of config pools.
+
+Also see :ref:`dantro_base_plots` for more information."""
 
 
 # -----------------------------------------------------------------------------
@@ -70,15 +82,19 @@ class PlotManager:
 
     DEFAULT_OUT_FSTRS: Dict[str, str] = dict(
         timestamp="%y%m%d-%H%M%S",
+        #
+        # representing the parameter space sweep state and its coordinate
         state_no="{no:0{digits:d}d}",
         state="{name:}_{val:}",
         state_name_replace_chars=[],  # (".", "-")
         state_val_replace_chars=[("/", "-")],
         state_join_char="__",
         state_vector_join_char="-",
+        #
         # final fstr for single plot and config path
         path="{name:}{ext:}",
         plot_cfg="{basename:}_cfg.yml",
+        #
         # and for sweep
         sweep="{name:}/{state_no:}__{state:}{ext:}",
         plot_cfg_sweep="{name:}/sweep_cfg.yml",
@@ -101,9 +117,10 @@ class PlotManager:
         self,
         *,
         dm: DataManager,
-        base_cfg_pools: Sequence[Tuple[str, Union[dict, str]]] = (),
         default_plots_cfg: Union[dict, str] = None,
         out_dir: Union[str, None] = "{timestamp:}/",
+        base_cfg_pools: Sequence[Tuple[str, Union[dict, str]]] = (),
+        use_dantro_base_cfg_pool: bool = True,
         out_fstrs: dict = None,
         plot_func_resolver_init_kwargs: dict = None,
         creator_init_kwargs: Dict[str, dict] = None,
@@ -136,12 +153,6 @@ class PlotManager:
         Args:
             dm (DataManager): The DataManager-derived object to read the plot
                 data from.
-            base_cfg_pools (Sequence[Tuple[str, Union[dict, str]]], optional):
-                The base configuration pools are used to perform the lookups of
-                ``based_on`` entries, see :ref:`plot_cfg_inheritance`.
-                The tuples in these sequence consist of ``(label, plots_cfg)``
-                pairs and are fed to :py:meth:`.add_base_cfg_pool`; see there
-                for more information.
             default_plots_cfg (Union[dict, str], optional): The default plots
                 config or a path to a YAML file to import. Used as defaults
                 when calling :py:meth:`.plot_from_cfg`
@@ -153,10 +164,21 @@ class PlotManager:
                 output directory. Absolute paths remain absolute.
                 If this argument evaluates to False, the DataManager's output
                 directory will be the output directory.
+            base_cfg_pools (Sequence[Tuple[str, Union[dict, str]]], optional):
+                The base configuration pools are used to perform the lookups of
+                ``based_on`` entries, see :ref:`plot_cfg_inheritance`.
+                The tuples in these sequence consist of ``(label, plots_cfg)``
+                pairs and are fed to :py:meth:`.add_base_cfg_pool`; see there
+                for more information.
+            use_dantro_base_cfg_pool (bool, optional): If set, will use
+                dantro's own base plot configuration pool as the *first* entry
+                in the pool sequence. Refer to the
+                :ref:`corresponding documentation page <dantro_base_plots>`
+                for more information on available entries.
             out_fstrs (dict, optional): Format strings that define how the
                 output path is generated. The dict given here updates the
-                ``DEFAULT_OUT_FSTRS`` class variable which holds the default
-                values.
+                :py:attr:`.DEFAULT_OUT_FSTRS` class variable which holds the
+                default values.
 
                 Keys: ``timestamp`` (%-style), ``path``, ``sweep``, ``state``,
                 ``plot_cfg``, ``state``, ``state_no``, ``state_join_char``,
@@ -168,10 +190,14 @@ class PlotManager:
                     ``state``.
 
             plot_func_resolver_init_kwargs (dict, optional): Initialization
-                arguments for the plot function resolver.
+                arguments for the plot function resolver, by default
+                :py:class:`~dantro.plot.utils.plot_func.PlotFuncResolver`.
             creator_init_kwargs (Dict[str, dict], optional): If given, these
                 kwargs are passed to the initialization calls of the respective
-                creator classes.
+                creator classes. These are resolved by the *names* given in the
+                :py:attr:`.CREATORS` class variable and are passed to the
+                :py:class:`~dantro.plot.creators.base.BasePlotCreator` or the
+                respective derived class.
             default_creator (str, optional): If given, a plot without explicit
                 ``creator`` declaration will use this creator as default.
             save_plot_cfg (bool, optional): If True, the plot configuration is
@@ -203,6 +229,11 @@ class PlotManager:
 
         # Base configuration pools
         self._base_cfg_pools = OrderedDict()
+        if use_dantro_base_cfg_pool:
+            self.add_base_cfg_pool(
+                label="dantro_base", plots_cfg=BASE_PLOTS_CFG_PATH
+            )
+
         for _label, _plots_cfg in base_cfg_pools:
             self.add_base_cfg_pool(label=_label, plots_cfg=_plots_cfg)
 

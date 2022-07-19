@@ -157,6 +157,7 @@ setup(
     #
     # Distribution details, dependencies, ...
     packages=find_packages(exclude=["tests.*", "tests"]),
+    package_data=dict(dantro=["cfg/*.yml"]),
     data_files=[("", ["COPYING", "COPYING.LESSER", "README.md"])],
     python_requires=">=3.8",
     install_requires=install_deps,

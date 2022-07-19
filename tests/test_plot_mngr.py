@@ -436,7 +436,15 @@ def test_base_cfg_pool(dm, pm_kwargs):
     )
 
     # Were added in the correct order
-    assert ["base", "update"] == list(pm.base_cfg_pools.keys())
+    assert list(pm.base_cfg_pools.keys()) == ["dantro_base", "base", "update"]
+
+    # Can suppress the dantro-internal base config
+    pm = PlotManager(
+        base_cfg_pools=(("base", BASE_EXT), ("update", UPDATE_BASE_EXT)),
+        use_dantro_base_cfg_pool=False,
+        **pm_kwargs,
+    )
+    assert list(pm.base_cfg_pools.keys()) == ["base", "update"]
 
     # Errors when adding already existing or special entries
     with pytest.raises(ValueError, match="already exists"):
