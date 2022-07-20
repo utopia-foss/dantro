@@ -1492,6 +1492,13 @@ class PlotHelper:
         """
         self._hlpr_call(functions=functions, **shared_kwargs)
 
+    def _hlpr_autofmt_xdate(self, **kwargs):
+        """Invokes :py:meth:`~matplotlib.figure.Figure.autofmt_xdate` on the
+        figure, passing all arguments along. This can be useful when x-labels
+        are overlapping (e.g. because they are dates).
+        """
+        self.fig.autofmt_xdate(**kwargs)
+
     # .........................................................................
     # ... acting on a single axis
 
@@ -1966,7 +1973,11 @@ class PlotHelper:
                 set_scale(self.ax.set_zscale, **z)
 
     def _hlpr_set_ticks(
-        self, *, x: dict = None, y: dict = None, z: dict = None
+        self,
+        *,
+        x: Union[list, dict] = None,
+        y: Union[list, dict] = None,
+        z: Union[list, dict] = None,
     ):
         """Sets the ticks for the current axis
 
@@ -2003,6 +2014,8 @@ class PlotHelper:
                   labels: [0, 1k, 2k, 3k]
                   # ... further kwargs here specify label aesthetics
 
+              z: [-1, 0, +1]  # same as z: {major: {locs: [-1, 0, +1]}}
+
         Args:
             x (Union[list, dict], optional): The ticks and optionally their
                 labels to set on the x-axis
@@ -2026,7 +2039,9 @@ class PlotHelper:
         ):
             func(labels, **ticklabels_kwargs)
 
-        def set_ticks_and_labels(*, axis: str, minor: bool, axis_cfg: dict):
+        def set_ticks_and_labels(
+            *, axis: str, minor: bool, axis_cfg: Union[dict, list, tuple]
+        ):
             axis_cfg = (
                 axis_cfg
                 if not isinstance(axis_cfg, (list, tuple))
@@ -2059,31 +2074,40 @@ class PlotHelper:
                 set_ticklabels(tickslabel_func, minor=minor, **axis_cfg)
 
         if x:
-            if x.get("major"):
+            if isinstance(x, (list, tuple)):
+                x = dict(major=dict(locs=x))
+
+            if x.get("major") is not None:
                 set_ticks_and_labels(
                     axis="x", minor=False, axis_cfg=x["major"]
                 )
 
-            if x.get("minor"):
+            if x.get("minor") is not None:
                 set_ticks_and_labels(axis="x", minor=True, axis_cfg=x["minor"])
 
         if y:
-            if y.get("major"):
+            if isinstance(y, (list, tuple)):
+                y = dict(major=dict(locs=y))
+
+            if y.get("major") is not None:
                 set_ticks_and_labels(
                     axis="y", minor=False, axis_cfg=y["major"]
                 )
 
-            if y.get("minor"):
+            if y.get("minor") is not None:
                 set_ticks_and_labels(axis="y", minor=True, axis_cfg=y["minor"])
 
         if hasattr(self.ax, "zaxis"):
             if z:
-                if z.get("major"):
+                if isinstance(z, (list, tuple)):
+                    z = dict(major=dict(locs=z))
+
+                if z.get("major") is not None:
                     set_ticks_and_labels(
                         axis="z", minor=False, axis_cfg=z["major"]
                     )
 
-                if z.get("minor"):
+                if z.get("minor") is not None:
                     set_ticks_and_labels(
                         axis="z", minor=True, axis_cfg=z["minor"]
                     )
@@ -2166,6 +2190,10 @@ class PlotHelper:
                   args: [!dag_result my_formatter_lambda]
                   # any kwargs here passed also to FuncFormatter
 
+              z:
+                major:
+                  name: DateFormatter  # looked up from matplotlib.dates
+                  args: ["%H:%M:%S"]  # or "%Y-%m-%d"
 
         For more information, see:
 

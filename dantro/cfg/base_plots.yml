@@ -394,6 +394,12 @@ _:
       hiding_threshold: 10
 
 
+# .. Automatically formatting x tick labels (on figure level) .................
+.hlpr.autofmt_xdate:
+  helpers:
+    autofmt_xdate:
+      enabled: true
+
 
 # .. Tick locators and formatters .............................................
 .hlpr.ticks.x.hide:
@@ -466,6 +472,27 @@ _:
           <<: *ticker_maxn_fewer
 
 
+.hlpr.ticks.x.date:
+  helpers:
+    set_tick_formatters:
+      x:
+        major: &date_formatter
+          name: DateFormatter
+          args: ["%Y-%m-%d"]
+
+.hlpr.ticks.y.date:
+  helpers:
+    set_tick_formatters:
+      y:
+        major:
+          <<: *date_formatter
+
+.hlpr.ticks.z.date:
+  helpers:
+    set_tick_formatters:
+      z:
+        major:
+          <<: *date_formatter
 
 
 

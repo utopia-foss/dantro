@@ -3,6 +3,7 @@
 """
 
 import logging
+from itertools import chain
 from typing import List, Tuple
 
 from .color_mngr import ColorManager
@@ -209,6 +210,9 @@ def set_tick_locators_or_formatters(
     Look at the :py:class:`~dantro.plot.plot_helper.PlotHelper` methods
     ``_hlpr_set_tick_{locators/formatters}`` for more information.
 
+    Names are looked up in the :py:mod:`matplotlib.ticker` and
+    :py:mod:`matplotlib.dates` modules.
+
     Args:
         ax (matplotlib.axes.Axes): The axes object
         kind (str): Whether to set a ``locator`` or a ``formatter``.
@@ -239,7 +243,8 @@ def set_tick_locators_or_formatters(
             _major (bool):  Whether to set the major or minor ticks
             _kind (str):    The kind of function to set: ``locator`` or
                 ``formatter``
-            name (str):     The name of the locator or formatter
+            name (str):     The name of the locator or formatter, looked up in
+                :py:mod:`matplotlib.ticker` and :py:mod:`matplotlib.dates`.
             args (tuple):   Args passed on to the respective locator
                             or formatter setter function.
             **kwargs:       Kwargs passed on to the respective locator
@@ -247,19 +252,25 @@ def set_tick_locators_or_formatters(
         """
         import matplotlib as mpl
 
-        # Get the ticker from the name.
-        # Customize the error message for (i) no name (ii) wrong name
-        # for locators and formatters.
+        # Get the ticker from the name, looking it up in both the mpl.ticker
+        # and the mpl.dates modules
         try:
             ticker = getattr(mpl.ticker, name)
         except AttributeError as err:
-            _avail = ", ".join(
-                [s for s in dir(mpl.ticker) if _kind.capitalize() in s]
-            )
-            raise AttributeError(
-                f"The given {_kind} name '{name}' is not valid! "
-                f"Choose from: {_avail}"
-            ) from err
+            try:
+                ticker = getattr(mpl.dates, name)
+            except AttributeError as err:
+                # Customize the error message for (i) no name (ii) wrong name
+                # for locators and formatters.
+                _avail = ", ".join(
+                    s
+                    for s in chain(dir(mpl.ticker), dir(mpl.dates))
+                    if _kind.capitalize() in s
+                )
+                raise AttributeError(
+                    f"The given {_kind} name '{name}' is not valid! "
+                    f"Choose from: {_avail}"
+                ) from err
 
         # Get the locator or formatter function for the respective
         # major or minor axis.

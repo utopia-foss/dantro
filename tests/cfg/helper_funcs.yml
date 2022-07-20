@@ -358,8 +358,13 @@
 - set_ticks:
     x:
       major: [0, 3, 6]
+      minor: [1.5, 4.5]
     y:
-      minor: [0, 3, 6]
+      major: [0, 3, 6]
+      minor: [1.5, 4.5]
+    z:
+      major: [0, 3, 6]
+      minor: [1.5, 4.5]
 - set_ticks:
     x:
       major:
@@ -390,6 +395,10 @@
       minor:
         locs: [0, 3, 6]
         labels: ['first', 'second', 'third']
+- set_ticks:
+    x: [-1, 0, +1]
+    y: [-1, 0, +1]
+    z: [-1, 0, +1]
 - set_ticks:
     z:
       major:
@@ -440,6 +449,8 @@
       major:
         name: MultipleLocator
         base: 2.5
+      minor:
+        name: MinuteLocator
 - set_tick_locators:
     z:
       major:
@@ -481,6 +492,11 @@
       minor:
         name: PercentFormatter
         args: [5]
+- set_tick_formatters:
+    y:
+      minor:
+        name: DateFormatter
+        args: ["%H.%M.%s"]
 - set_tick_formatters:
     x:
       major:
@@ -571,7 +587,18 @@
     right: 0.9
     hspace: 0.2
 
+
+
+# .............................................................................
 - align_labels: {}
 - align_labels:
     x: true
     y: false
+
+
+# .............................................................................
+- autofmt_xdate: {}
+- autofmt_xdate:
+    rotation: 30
+    ha: left
+    which: minor

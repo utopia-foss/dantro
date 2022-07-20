@@ -673,11 +673,9 @@ config_based:
 
       ### Start -- placeholder_title
       # Select the creator and use the generic errorbar plotting function
-      creator: universe
-      universes: any
-
-      module: .generic
-      plot_func: errorbars
+      based_on:
+        - .creator.universe
+        - .plot.facet_grid.errorbars
 
       select:
         # 3D data with random integers
@@ -721,10 +719,9 @@ config_based:
 
       ### Start -- mv_missing_data
       # Select the creator and use the generic facet grid plotting function
-      creator: multiverse
-
-      module: .generic
-      plot_func: facet_grid
+      based_on:
+        - .creator.multiverse
+        - .plot.facet_grid
 
       # Select data, allowing for missing universes or failing .mean operation
       select_and_combine:
@@ -745,8 +742,8 @@ config_based:
         psgrp_path: psp/regular
 
       ### Start -- multiplot_subplots
-      module: .multiplot
-      plot_func: multiplot
+      based_on:
+        - .plot.multiplot
 
       # Select some example data
       select:
@@ -953,3 +950,48 @@ config_based:
         save_kwargs:
           bbox_inches: tight
       ### End ---- dag_visualization_interface
+
+
+  doc_examples_errorbars:
+    plot_cfg:
+      ### Start -- errorbars_example
+      # Select the creator and use the generic errorbar plotting function
+      based_on:
+        - .creator.pyplot
+        - .plot.facet_grid.with_auto_encoding
+        - .plot.facet_grid.errorbands
+        - .dag.meta_ops.compute_mean_and_stddev
+        - .dag.meta_ops.rolling
+        - .hlpr.ticks.x.date
+        - .hlpr.autofmt_xdate
+        - .hlpr.limits.x.min_max
+
+      select:
+        air_temps:
+          path: xr_tutorial/arrays/air_temperature
+          transform:
+            - .squeeze_with_drop
+            - date2num: [!dag_prev , time]  # for matplotlib to accept this
+
+      transform:
+        # Compute the mean and standard deviation using included meta-operation
+        - compute_mean_and_stddev: [!dag_tag air_temps, [lat, lon]]
+
+        # Apply a rolling mean over 10 data points
+        - rolling.mean: [!dag_prev , {time: 10}]
+          tag: data
+
+      # Specify which data variable to plot as line and which as errorbands
+      x: time
+      y: mean
+      yerr: stddev
+      # ... all others are set via auto-encoding
+
+      # Pretty it up a bit using helpers
+      helpers:
+        set_labels:
+          x: Time
+          y: Temperature [K]
+        set_title:
+          title: Mean Air Temperature
+      ### End ---- errorbars_example
