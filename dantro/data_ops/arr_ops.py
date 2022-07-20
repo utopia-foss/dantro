@@ -702,18 +702,29 @@ def expand_object_array(
 # .. Coordinate transformations ...............................................
 
 
-def date2num(d: "xarray.DataArray", dim: str) -> "xarray.DataArray":
-    """Uses :py:func:`matplotlib.dates.date2num` to convert a coordinate
-    dimension
+def transform_coords(
+    d: "xarray.DataArray",
+    dim: Union[str, Sequence[str]],
+    func: Callable,
+    *,
+    func_kwargs: dict = None,
+) -> "xarray.DataArray":
+    """Assigns new, transformed coordinates to a data array by applying a
+    function on the existing coordinates.
+
+    Uses :py:meth:`xarray.DataArray.assign_coords` to set the new coordinates,
+    which returns a shallow copy of the given object.
 
     Args:
-        d (xarray.DataArray): The data array to convert the coordinate
-            dimension of.
-        dim (str): The name of the coordinate dimension where
-            :py:func:`matplotlib.dates.date2num` is to be applied to
-        copy (bool, optional): Whether to work on a shallow copy of the data.
+        d (xarray.DataArray): The array to transform the ``dim`` coordinates of
+        dim (Union[str, Sequence[str]]): The name or names of the coordinate
+            dimension(s) to apply ``func`` to.
+        func (Callable): The callable to apply to ``d.coords[dim]``
+        func_kwargs (dict, optional): Passed to the function invocation like
+            ``func(d.coords[dim], **func_kwargs)``
     """
-    from matplotlib.dates import date2num as _date2num
+    if isinstance(dim, str):
+        dim = [dim]
 
-    new_coords = _date2num(d.coords[dim])
-    return d.assign_coords({dim: new_coords})
+    kws = func_kwargs if func_kwargs else {}
+    return d.assign_coords({_dim: func(d.coords[_dim], **kws) for _dim in dim})

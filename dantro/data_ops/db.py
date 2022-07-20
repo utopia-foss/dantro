@@ -221,7 +221,8 @@ _OPERATIONS = KeyOrderedDict({
     "dantro.expand_dims":           expand_dims,
 
     # coordinate transformations, working on shallow copies by default
-    "date2num":                     date2num,
+    "transform_coords":             transform_coords,
+    ".coords.transform":            transform_coords,
 
     # evaluating symbolic expressions using sympy
     "expression":                   expression,

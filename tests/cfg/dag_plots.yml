@@ -886,8 +886,7 @@ config_based:
 
           # Arguments for the respective layouting models
           model_kwargs:
-            graphviz_dot:
-              args: "-y"
+            graphviz_dot: {}
             multipartite:
               align: horizontal
               subset_key: layer
@@ -960,8 +959,13 @@ config_based:
         - .creator.pyplot
         - .plot.facet_grid.with_auto_encoding
         - .plot.facet_grid.errorbands
+
+        # include some meta operations
         - .dag.meta_ops.compute_mean_and_stddev
         - .dag.meta_ops.rolling
+        - .dag.meta_ops.transform.coords.date2num
+
+        # call some pre-defined helpers
         - .hlpr.ticks.x.date
         - .hlpr.autofmt_xdate
         - .hlpr.limits.x.min_max
@@ -971,7 +975,9 @@ config_based:
           path: xr_tutorial/arrays/air_temperature
           transform:
             - .squeeze_with_drop
-            - date2num: [!dag_prev , time]  # for matplotlib to accept this
+
+            # for matplotlib to accept this, need to transform the time coords
+            - .transform.coords.date2num: [!dag_prev , time]
 
       transform:
         # Compute the mean and standard deviation using included meta-operation

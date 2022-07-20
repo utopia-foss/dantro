@@ -789,6 +789,28 @@ _:
 
 
 
+# .. Coordinate transformations ...............................................
+.dag.meta_ops.transform.coords.date2num:
+  dag_options:
+    meta_operations:
+      #
+      # Applies the matplotlib.dates.date2num operation to the specified
+      # coordinate dimensions.
+      # This becomes necessary if trying to use np.datetime objects for ticks.
+      #
+      # Args:
+      #   0: the data with the to-be-transformed coordinates
+      #   1: names of the coordinate dimensions to transform using date2num
+      #
+      .transform.coords.date2num:
+        - define: !arg 0
+          tag: d
+        - define: !arg 1
+          tag: dim
+        - import: [matplotlib.dates, date2num]
+        - .coords.transform: [!dag_tag d, !dag_tag dim, !dag_prev ]
+
+
 # .. Misc .....................................................................
 .dag.meta_ops.as_dataset:
   dag_options:
