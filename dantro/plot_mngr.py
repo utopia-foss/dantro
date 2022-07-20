@@ -123,6 +123,7 @@ class PlotManager:
         use_dantro_base_cfg_pool: bool = True,
         out_fstrs: dict = None,
         plot_func_resolver_init_kwargs: dict = None,
+        shared_creator_init_kwargs: dict = None,
         creator_init_kwargs: Dict[str, dict] = None,
         default_creator: str = None,
         save_plot_cfg: bool = True,
@@ -192,6 +193,9 @@ class PlotManager:
             plot_func_resolver_init_kwargs (dict, optional): Initialization
                 arguments for the plot function resolver, by default
                 :py:class:`~dantro.plot.utils.plot_func.PlotFuncResolver`.
+            shared_creator_init_kwargs (dict, optional): Initialization
+                arguments to the plot creator that are passed to *all* creators
+                regardless of type (in contrast to ``creator_init_kwargs``).
             creator_init_kwargs (Dict[str, dict], optional): If given, these
                 kwargs are passed to the initialization calls of the respective
                 creator classes. These are resolved by the *names* given in the
@@ -221,6 +225,9 @@ class PlotManager:
             plot_func_resolver_init_kwargs
             if plot_func_resolver_init_kwargs
             else {}
+        )
+        self._shared_cckwargs = (
+            shared_creator_init_kwargs if shared_creator_init_kwargs else {}
         )
         self._cckwargs = creator_init_kwargs if creator_init_kwargs else {}
         self._cfg_exists_action = cfg_exists_action
@@ -391,7 +398,7 @@ class PlotManager:
         timefstr = self._out_fstrs.get("timestamp", "%y%m%d-%H%M%S")
         timestr = time.strftime(timefstr)
 
-        out_dir = fstr.format(timestamp=timestr, name=name)
+        out_dir = str(fstr).format(timestamp=timestr, name=name)
 
         # Make sure it is absolute
         out_dir = os.path.expanduser(out_dir)
@@ -598,7 +605,10 @@ class PlotManager:
 
         # Parse initialization kwargs, based on the defaults set in __init__
         # FIXME This is not working properly if ``creator`` is not a string!
-        pc_kwargs = self._cckwargs.get(creator, {})
+        pc_kwargs = recursive_update(
+            copy.deepcopy(self._shared_cckwargs),
+            self._cckwargs.get(creator, {}),
+        )
         if init_kwargs:
             log.debug("Recursively updating creator initialization kwargs ...")
             pc_kwargs = recursive_update(copy.deepcopy(pc_kwargs), init_kwargs)

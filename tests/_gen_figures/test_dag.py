@@ -5,13 +5,15 @@ import os
 from dantro.dag import TransformationDAG
 from dantro.tools import load_yml
 
-from ._utils import import_from_dantro_tests
+from .._fixtures import *
+from ..test_dag import TRANSFORMATIONS_PATH, create_dm
+
+# -----------------------------------------------------------------------------
 
 
-def visualize_dag_examples(*, out_dir: str):
+def test_dag_vis(out_dir):
     """Creates output from DAG doc_examples"""
-    test_dag = import_from_dantro_tests("test_dag.py")
-    dm = test_dag.create_dm()
+    dm = create_dm()
 
     to_plot = (
         "meta_ops_deeply_nested",
@@ -27,7 +29,7 @@ def visualize_dag_examples(*, out_dir: str):
         generation=dict(include_results=True),
     )
 
-    for cfg_name, cfg in load_yml(test_dag.TRANSFORMATIONS_PATH).items():
+    for cfg_name, cfg in load_yml(TRANSFORMATIONS_PATH).items():
         if cfg_name not in to_plot:
             continue
 

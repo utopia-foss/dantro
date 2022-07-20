@@ -42,6 +42,7 @@ variables:
     paths:
       - coverage.xml
       - report.xml
+      - tests/_output
     reports:
       coverage_report:
         coverage_format: cobertura
@@ -71,6 +72,8 @@ test:py38:
   extends:
     - .reports
   needs: []
+  variables:
+    DANTRO_USE_TEST_OUTPUT_DIR: "yes"  # have output in tests/_output
   before_script:
     - pip3 install tox
   script:

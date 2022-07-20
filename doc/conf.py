@@ -409,8 +409,6 @@ def _str2bool(val: str):
 def generate_figures():
     """Generates output from scripts in a certain module"""
 
-    from dantro._import_tools import import_module_from_path
-
     # Check environment variable
     TOGGLE_ENVVAR = "DANTRO_DOC_GENERATE_FIGURES"
     print(
@@ -427,29 +425,48 @@ def generate_figures():
         return
 
     # Generate paths
-    gen_mod_path = os.path.join(DOC_DIR, "_gen_figures")
+    gen_fig_dir = os.path.join(DOC_DIR, "..", "tests", "_gen_figures")
     out_dir = os.path.join(DOC_DIR, "_static", "_gen")
 
-    # Import the generator module
-    gen_mod = import_module_from_path(
-        mod_path=gen_mod_path, mod_str="_gen_figures"
-    )
-    gen_funcs = gen_mod.GENERATOR_FUNCS
+    # Set environment variables such that test output ends up in the desired
+    # output directory. The abbreviated path means that not the full module
+    # string of the test module is included into the path but only the name of
+    # the test function (with the `test_` prefix dropped).
+    os.environ["DANTRO_USE_TEST_OUTPUT_DIR"] = "yes"
+    os.environ["DANTRO_TEST_OUTPUT_DIR"] = str(out_dir)
+    os.environ["DANTRO_ABBREVIATE_TEST_OUTPUT_DIR"] = "yes"
+    os.environ["DANTRO_TEST_VERBOSITY"] = "1"  # to not be overly verbose
 
-    print(f"\nFound {len(gen_funcs)} generator(s) in module...")
-    print("Now invoking them ...\n\n")
+    # Let pytest do the rest
+    print("Now invoking (pytest-based) figure generation module ...\n")
 
-    for gen_name, func in gen_funcs.items():
-        print(f"\n\n\n--- Generator:  {gen_name} ... ---")
-        func(out_dir=os.path.join(out_dir, gen_name))
+    import pytest
 
-    print("\n\nAll done.")
+    rv = pytest.main(["-v", gen_fig_dir])
+    if rv != 0:
+        raise RuntimeError(
+            "Figure generation failed! See error log above for more info."
+        )
+    print("\nFigure generation finished successfully. Yay :)\n")
 
     # Give some stats
     num_files = 0
-    for root_dir, cur_dir, files in os.walk(out_dir):
+    all_files = []
+    for dirpath, dirnames, filenames in os.walk(out_dir):
+        rel_dir = os.path.relpath(dirpath, out_dir)
+        files = [
+            os.path.join(rel_dir, f)
+            for f in filenames
+            if not f.startswith(".")
+        ]
         num_files += len(files)
-    print(f"Output directory ({out_dir}) contains {num_files} file(s).\n\n")
+        all_files += files
+
+    _files = "\n".join(f"  {f}" for f in all_files)
+    print(
+        f"Output directory\n  {out_dir}\ncontains {num_files} files:\n"
+        f"{_files}\n\n"
+    )
 
 
 def setup(app):

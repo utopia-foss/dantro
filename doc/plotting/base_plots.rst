@@ -101,24 +101,17 @@ The following entries can be included into a plot configuration to make pre-defi
     :class: dropdown
 
     As an example, let's include the ``.dag.meta_ops.compute_mean_and_stddev`` operation to calculate these values over the ``time`` and ``space`` dimensions and combine them into an :py:class:`xarray.Dataset`.
+    This approach is very useful for generating a ``errorbars`` facet grid plot.
 
-    .. code-block:: yaml
+    .. literalinclude:: ../../tests/cfg/dag_plots.yml
+        :language: yaml
+        :start-after: ### Start -- errorbars_example
+        :end-before: ### End ---- errorbars_example
 
-        my_mean_and_stddev_plot:
-          based_on:
-            - .creator.universe
-            - .plot.facet_grid.errorbars
-            - .dag.meta_ops.compute_mean_and_stddev
-
-          select:
-            some_data: path/to/some/data
-
-          transform:
-            - compute_mean_and_stddev: [!dag_tag some_data, [time, space]]
-              tag: data
-
-          y: mean
-          yerr: stddev
+    .. image:: ../_static/_gen/plots/doc_examples_errorbars.pdf
+        :target: ../_static/_gen/plots/doc_examples_errorbars.pdf
+        :width: 90%
+        :alt: Errorbars plot example
 
 
 .. literalinclude:: ../../dantro/cfg/base_plots.yml

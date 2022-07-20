@@ -70,6 +70,7 @@ _Note_ that if you have both Python 2 and Python 3 installed, you might have to 
 | [scipy][scipy]                | 1.7.3            | As engine for NetCDF files |
 | [sympy][sympy]                | 1.7              | For symbolic math operations |
 | [h5py][h5py]                  | 3.6              | For reading HDF5 datasets |
+| [h5netcdf][h5netcdf]          | 1.0              | h5py-based netcdf backend |
 | [matplotlib][matplotlib]      | 3.3              | For data visualization |
 | [seaborn][seaborn]            | 0.11             | For advanced data visualization |
 | [networkx][networkx]          | 2.8              | For network visualization |
@@ -292,6 +293,7 @@ Contact the maintainers via: [`dantro-dev@iup.uni-heidelberg.de`][devmail]
 [dask-delayed]: https://docs.dask.org/en/latest/delayed.html
 [distributed]: https://distributed.dask.org/en/latest/
 [h5py]: http://www.h5py.org
+[h5netcdf]: https://github.com/h5netcdf/h5netcdf
 [sympy]: https://www.sympy.org/
 [matplotlib]: https://matplotlib.org
 [seaborn]: https://seaborn.pydata.org
