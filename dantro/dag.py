@@ -1,4 +1,11 @@
-"""This is an implementation of a DAG for transformations on dantro objects"""
+"""This is an implementation of a DAG for transformations on dantro objects.
+It revolves around two main classes:
+
+- :py:class:`~dantro.dag.Transformation` that represents a data transformation.
+- :py:class:`~dantro.dag.TransformationDAG` that aggregates those
+  transformations into a directed acyclic graph.
+
+For more information, see :ref:`data transformation framework <dag_framework>`."""
 
 import copy
 import glob
