@@ -30,11 +30,18 @@
   Furthermore, this implements the `scatter3d` facet grid plot.
 - !292 migrates the `ColorManager`, which helps generating colormaps and norms, from [utopya][utopya-repo] over to dantro.
   In addition, the `!cmap` and `!cmap_norm` tags are implemented and allow to generate these objects from a YAML configuration.
-  - !295 integrates the `ColorManager` into all `facet_grid`-related plot functions, where it will parse the `cmap` and `norm` arguments.
+    - !295 integrates the `ColorManager` into all `facet_grid`-related plot functions, where it will parse the `cmap` and `norm` arguments.
+- !298 adds a base plot configuration pool to dantro, supplying useful defaults and exemplifying how such a configuration pool may look like.
+    - There is a new example page in the documentation that showcases some of the base configurations.
+    - Use of this config pool can be controlled via the `PlotManager`'s new `use_dantro_base_cfg_pool` argument.
+    - Additionally, the new `shared_creator_init_kwargs` argument is added, which passes initialization arguments to plot creators, regardless of their name.
+    - Adds the `.coords.transform` data operation, which can be used to apply a function to coordinate dimensions of a `xr.DataArray`.
+    - Makes the tick locators and formatters from `matplotlib.dates` available in the plot helper.
 
 #### Bug fixes
 - !293 fixes a bug in the `make_facet_grid_plot` decorator that prohibited generating a correct colorbar for the faceted data.
 - !296 fixes an error in the `set_labels` helper that prevented passing additional arguments like `labelpad`.
+- !298 fixes a bug in the `set_ticks` helper that prevented setting ticks via a shorthand syntax.
 
 #### Internal
 - !267 performs some code clean-up and improves the sphinx setup
@@ -43,6 +50,7 @@
 - !280 separates the `dantro.utils.data_ops` module into a `dantro.data_ops` subpackage
 - !285 expands and improves the `dantro._import_tools` module and improves tests
 - !287 updates documentation after the main branch was renamed from `master` to `main`
+- !298 reworks the figure generation functions to be part of the test suite and be controllable via environment variables.
 
 #### Deprecations
 - !278 deprecates use of `dantro.tools.IS_A_TTY` and `dantro.tools.TTY_COLS` constants. This information should be retrieved from the `dantro.tools.TERMINAL_INFO` dict instead.
@@ -53,6 +61,7 @@
 - !270 drops official support and testing for Python 3.7
 - !282 completely removes the plot creator auto detection feature, reducing implementation complexity.
 - !294 removes the deprecated `errorbar` and `errorbands` non-faceting plot functions; their functionality is easily replaceable by the facet grid `errorbars`plot and its `use_bands` argument.
+- !298 removes deprecated `PlotManager` initialization arguments: `plots_cfg`, `base_cfg` and `update_base_cfg`.
 
 
 ## v0.17.2
