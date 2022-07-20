@@ -61,6 +61,19 @@ In addition, a rolling mean is applied to smoothe out the data, and a coordinate
         :end-before: ### End ---- errorbars_example
 
 
+.. admonition:: DAG Visualization
+    :class: dropdown
+
+    The corresponding :ref:`DAG visualization <dag_graph_vis>` looks like this:
+
+    .. image:: ../_static/_gen/plots/doc_examples_errorbars_dag_compute_success.pdf
+        :target: ../_static/_gen/plots/doc_examples_errorbars_dag_compute_success.pdf
+        :width: 90%
+        :alt: DAG Visualization for errorbars example
+
+
+
+
 3D scatter plot
 ---------------
 Here, a 3D random walk is visualized using the :py:func:`~dantro.plot.funcs.generic.scatter3d` plot, accessible via the :ref:`facet grid interface <dag_generic_facet_grid>`.

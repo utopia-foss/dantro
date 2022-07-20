@@ -637,6 +637,51 @@ _:
 
 
 
+# -- Visualization ------------------------------------------------------------
+# Parameters controlling DAG visualization
+.dag.vis.defaults:
+  based_on:
+    - .dag.vis.enabled
+    - .dag.vis.style
+
+
+# .. Controlling when to generate a visualization .............................
+.dag.vis.disabled:
+  dag_visualization:
+    enabled: false
+
+.dag.vis.enabled:
+  dag_visualization:
+    enabled: false
+
+.dag.vis.always:
+  dag_visualization:
+    enabled: true
+    when:
+      always: true
+      only_once: true
+
+.dag.vis.only_on_error:
+  dag_visualization:
+    enabled: true
+    when:
+      on_compute_error: true
+      on_plot_error: true
+
+.dag.vis.only_in_debug_mode:
+  dag_visualization:
+    enabled: true
+    when:
+      on_compute_error: debug
+      on_plot_error: debug
+
+
+# .. Controlling DAG visualization style ......................................
+.dag.vis.style:
+  dag_visualization: {}
+  # NOTE Will add entries here in the future
+
+
 # -- Definitions --------------------------------------------------------------
 # The entries below set certain tags using the `dag_options.define` argument.
 # This should not be confused with the .dag.meta_ops defined below.

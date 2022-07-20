@@ -1015,6 +1015,10 @@ config_based:
         - .hlpr.autofmt_xdate
         - .hlpr.limits.x.min_max
 
+        # always create a DAG visualization
+        - .dag.vis.defaults
+        - .dag.vis.always
+
       select:
         air_temps:
           path: xr_tutorial/arrays/air_temperature
