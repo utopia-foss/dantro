@@ -2315,7 +2315,7 @@ class TransformationDAG:
 
             layout_defaults["model"] = "graphviz_dot"
             layout_defaults["model_kwargs"] = dict(
-                graphviz_dot=dict(args="-y"),
+                graphviz_dot=dict(),
                 multipartite=dict(
                     align="horizontal",
                     subset_key="layer",

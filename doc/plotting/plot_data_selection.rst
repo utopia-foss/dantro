@@ -80,6 +80,8 @@ The creation of the DAG and its computation is controlled by the chosen plot cre
 
     Same for adding nodes via the ``define`` interface (see :ref:`dag_define`), which is also only available via ``dag_options.define``.
 
+    Also check out the :ref:`dantro base plot configs <dantro_base_plots_ref>` from which some pre-defined meta-operations can be included using ``based_on``.
+
 .. hint::
 
     Specialized plot creators, like :ref:`those based on paramspace operations <pcr_psp>` may implement an expanded syntax.

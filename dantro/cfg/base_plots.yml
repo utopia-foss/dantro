@@ -1,0 +1,884 @@
+# dantro base plot configuration pool
+---
+# YAML variable definitions that are used below to avoid repetition
+_:
+  variables:
+    plots_module:       &dantro_plots           dantro.plot.funcs
+
+  aesthetics:
+    hvline: &style_hvline
+      linestyle: solid
+      color: grey
+      alpha: .4
+      linewidth: 2.
+      zorder: -42
+
+    # Defaults for a colorbar
+    # https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.colorbar.html
+    cbar_kwargs: &cbar_kwargs
+      shrink: .65
+      aspect: 30
+      orientation: vertical
+      pad: 0.05
+
+  colors: {}
+  cyclers:
+    # -- General purpose qualitative cyclers, based on tab20
+    tab20: &cy_tab20 >
+      cycler("color", ["1f77b4", "aec7e8", "ff7f0e", "ffbb78", "2ca02c",
+                       "98df8a", "d62728", "ff9896", "9467bd", "c5b0d5",
+                       "8c564b", "c49c94", "e377c2", "f7b6d2", "7f7f7f",
+                       "c7c7c7", "bcbd22", "dbdb8d", "17becf", "9edae5"])
+
+    tab20_split: &cy_tab20_split >
+      cycler("color", ["1f77b4", "ff7f0e", "2ca02c", "d62728", "9467bd",
+                       "8c564b", "e377c2", "7f7f7f", "bcbd22", "17becf",
+                       "aec7e8", "ffbb78", "98df8a", "ff9896", "c5b0d5",
+                       "c49c94", "f7b6d2", "c7c7c7", "dbdb8d", "9edae5"])
+
+
+# =============================================================================
+#  ╔╦╗╔═╗╔═╗╔═╗╦ ╦╦ ╔╦╗╔═╗
+#   ║║║╣ ╠╣ ╠═╣║ ║║  ║ ╚═╗
+#  ═╩╝╚═╝╚  ╩ ╩╚═╝╩═╝╩ ╚═╝
+# =============================================================================
+# start: .defaults
+# This section defines defaults that are (meant to be) used in all plots.
+# These find their way into the plot configuration via the `.creator` configs.
+
+# .. Aggregated defaults ......................................................
+.defaults:
+  based_on:
+    - .hlpr.tight_layout
+    - .defaults.style
+
+  file_ext: pdf
+
+# .. Individual defaults ......................................................
+.defaults.style:
+  based_on:
+    - .style.use_grid
+
+  style:
+    base_style: seaborn-notebook
+
+    figure.dpi: 254       # important also for PDF to avoid rasterization bugs
+
+    lines.linewidth: 1.2
+    axes.prop_cycle: *cy_tab20_split
+    legend.fontsize: x-small
+
+.defaults.file_ext:
+  file_ext: pdf
+
+
+
+
+
+
+
+# =============================================================================
+#  ╔═╗╦  ╔═╗╔╦╗  ╔═╗╦═╗╔═╗╔═╗╔╦╗╔═╗╦═╗╔═╗
+#  ╠═╝║  ║ ║ ║   ║  ╠╦╝║╣ ╠═╣ ║ ║ ║╠╦╝╚═╗
+#  ╩  ╩═╝╚═╝ ╩   ╚═╝╩╚═╚═╝╩ ╩ ╩ ╚═╝╩╚═╚═╝
+# =============================================================================
+# start: .creator
+.creator.base:
+  based_on: .defaults
+  creator: base
+
+.creator.pyplot:
+  based_on: .defaults
+  creator: pyplot
+
+.creator.universe:
+  based_on: .defaults
+  creator: universe
+  universes: all
+
+.creator.multiverse:
+  based_on: .defaults
+  creator: multiverse
+
+
+# .. Specializations ..........................................................
+.creator.universe.any:
+  based_on: .creator.universe
+  universes: any
+
+.creator.universe.first:
+  based_on: .creator.universe
+  universes: first
+
+.creator.universe.all:
+  based_on: .creator.universe
+  universes: all
+
+
+
+
+
+
+# =============================================================================
+#  ╔═╗╦  ╔═╗╔╦╗  ╔═╗╦ ╦╔╗╔╔═╗╔╦╗╦╔═╗╔╗╔╔═╗
+#  ╠═╝║  ║ ║ ║   ╠╣ ║ ║║║║║   ║ ║║ ║║║║╚═╗
+#  ╩  ╩═╝╚═╝ ╩   ╚  ╚═╝╝╚╝╚═╝ ╩ ╩╚═╝╝╚╝╚═╝
+# =============================================================================
+# start: .plot
+# -- Facet grid ---------------------------------------------------------------
+.plot.facet_grid:
+  module: !add [*dantro_plots, .generic]
+  plot_func: facet_grid
+
+# .. Modifiers ................................................................
+.plot.facet_grid.with_auto_encoding:
+  based_on: .plot.facet_grid
+  auto_encoding: true
+  col_wrap: auto
+
+.plot.facet_grid.with_auto_kind:
+  based_on: .plot.facet_grid
+  kind: auto
+
+# .. Specializations: working on xr.DataArray .................................
+.plot.facet_grid.line:
+  based_on: .plot.facet_grid
+  kind: line
+
+.plot.facet_grid.step:
+  based_on: .plot.facet_grid
+  kind: step
+
+.plot.facet_grid.errorbars:
+  based_on: .plot.facet_grid
+  kind: errorbars
+
+.plot.facet_grid.errorbands:
+  based_on: .plot.facet_grid.errorbars
+  use_bands: true
+
+.plot.facet_grid.hist:
+  based_on: .plot.facet_grid
+  kind: hist
+
+.plot.facet_grid.pcolormesh:
+  based_on: .plot.facet_grid
+  kind: pcolormesh
+
+.plot.facet_grid.contour:
+  based_on: .plot.facet_grid
+  kind: contour
+
+.plot.facet_grid.contourf:
+  based_on: .plot.facet_grid
+  kind: contourf
+
+.plot.facet_grid.imshow:
+  based_on: .plot.facet_grid
+  kind: imshow
+
+# .. Specializations: working on xr.Dataset ...................................
+.plot.facet_grid.scatter:
+  based_on: .plot.facet_grid
+  kind: scatter
+
+.plot.facet_grid.scatter3d:
+  based_on:
+    - .plot.facet_grid
+    - .hlpr.projection.3d
+  kind: scatter3d
+
+  # For faceting, projection needs to be set via xr.plot.FacetGrid.
+  # For the non-faceting case, `.hlpr.projection3d` takes care of that.
+  subplot_kws:
+    projection: 3d
+
+  # Need to set some better defaults
+  cbar_kwargs:
+    pad: 0.1
+  sharex: False
+  sharey: False
+  helpers:
+    subplots_adjust:
+      wspace: 0.1
+      hspace: 0.1
+
+
+# -- Multiplot ----------------------------------------------------------------
+.plot.multiplot:
+  module: !add [*dantro_plots, .multiplot]
+  plot_func: multiplot
+
+
+
+# -- Legacy plots -------------------------------------------------------------
+.plot.lineplot:
+  module: !add [*dantro_plots, .basic]
+  plot_func: lineplot
+
+
+
+
+
+
+# =============================================================================
+#  ╔═╗╔╦╗╦ ╦╦  ╔═╗
+#  ╚═╗ ║ ╚╦╝║  ║╣
+#  ╚═╝ ╩  ╩ ╩═╝╚═╝
+# =============================================================================
+# start: .style
+# More information:
+#   https://matplotlib.org/gallery/style_sheets/style_sheets_reference.html
+#   https://matplotlib.org/stable/tutorials/introductory/customizing.html
+
+.style.use_grid:
+  style:
+    axes.grid: true
+    grid.linewidth: .4
+    grid.alpha: .5
+
+.style.no_grid:
+  style:
+    axes.grid: false
+
+.style.use_tex:
+  style:
+    text.usetex: true
+    # Requires LaTeX to be installed
+    # More info: https://matplotlib.org/tutorials/text/pgf.html
+
+
+# -- Property cyclers ---------------------------------------------------------
+.style.prop_cycle.tab20:
+  style:
+    axes.prop_cycle: *cy_tab20
+
+.style.prop_cycle.tab20_split:
+  style:
+    axes.prop_cycle: *cy_tab20_split
+
+
+
+
+
+
+# =============================================================================
+#  ╔═╗╦  ╔═╗╔╦╗  ╦ ╦╔═╗╦  ╔═╗╔═╗╦═╗╔═╗
+#  ╠═╝║  ║ ║ ║   ╠═╣║╣ ║  ╠═╝║╣ ╠╦╝╚═╗
+#  ╩  ╩═╝╚═╝ ╩   ╩ ╩╚═╝╩═╝╩  ╚═╝╩╚═╚═╝
+# =============================================================================
+# start: .hlpr
+# .. Figure setup .............................................................
+.hlpr.projection.3d:
+  helpers:
+    setup_figure:
+      subplot_kw:
+        projection: 3d
+
+
+# .. Saving a figure ..........................................................
+.hlpr.tight_layout:
+  helpers:
+    save_figure:
+      bbox_inches: tight
+
+.hlpr.no_tight_layout:
+  helpers:
+    save_figure:
+      bbox_inches: ~
+
+
+# .. Limits ...................................................................
+.hlpr.limits.x.min_max:
+  helpers:
+    set_limits:
+      x: [min, max]
+
+.hlpr.limits.x.from_zero:
+  helpers:
+    set_limits:
+      x: [0, ~]
+
+.hlpr.limits.y.min_max:
+  helpers:
+    set_limits:
+      y: [min, max]
+
+.hlpr.limits.y.from_zero:
+  helpers:
+    set_limits:
+      y: [0, ~]
+
+.hlpr.limits.z.min_max:
+  helpers:
+    set_limits:
+      z: [min, max]
+
+.hlpr.limits.z.from_zero:
+  helpers:
+    set_limits:
+      z: [0, ~]
+
+
+# .. Scales ...................................................................
+.hlpr.scales.x.log_hist:
+  helpers:
+    set_scales:
+      x: &symlog_thresh1
+        scale: symlog
+        linthresh: 1
+
+.hlpr.scales.y.log_hist:
+  helpers:
+    set_scales:
+      y:
+        <<: *symlog_thresh1
+
+.hlpr.scales.z.log_hist:
+  helpers:
+    set_scales:
+      z:
+        <<: *symlog_thresh1
+
+
+# .. Lines ....................................................................
+.hlpr.lines.h_zero:
+  helpers:
+    set_hv_lines:
+      hlines:
+        - pos: 0.
+          <<: *style_hvline
+
+.hlpr.lines.v_zero:
+  helpers:
+    set_hv_lines:
+      vlines:
+        - pos: 0.
+          <<: *style_hvline
+
+
+# .. Legend ...................................................................
+.hlpr.legend.use:
+  helpers:
+    set_legend:
+      use_legend: true
+
+.hlpr.legend.gather_from_fig:
+  helpers:
+    set_legend:
+      use_legend: true
+      gather_from_fig: true
+
+.hlpr.legend.hide:
+  helpers:
+    set_legend:
+      use_legend: false
+
+.hlpr.legend.hide_if_large:
+  helpers:
+    set_legend:
+      use_legend: true
+      hiding_threshold: 10
+
+
+# .. Figure legend ............................................................
+.hlpr.figlegend.use:
+  helpers:
+    set_figlegend:
+      gather_from_fig: true
+
+.hlpr.figlegend.hide_if_large:
+  helpers:
+    set_figlegend:
+      gather_from_fig: true
+      hiding_threshold: 10
+
+
+# .. Automatically formatting x tick labels (on figure level) .................
+.hlpr.autofmt_xdate:
+  helpers:
+    autofmt_xdate:
+      enabled: true
+
+
+# .. Tick locators and formatters .............................................
+.hlpr.ticks.x.hide:
+  helpers:
+    set_ticks:
+      x: &hide_major
+        major:
+          locs: []
+          labels: []
+
+.hlpr.ticks.y.hide:
+  helpers:
+    set_ticks:
+      y:
+        <<: *hide_major
+
+.hlpr.ticks.z.hide:
+  helpers:
+    set_ticks:
+      z:
+        <<: *hide_major
+
+
+.hlpr.ticks.x.si_suffixes:
+  helpers:
+    set_tick_formatters:
+      x:
+        major: &eng_formatter
+          name: EngFormatter
+          # places: 0
+          sep: '$\,$'
+
+.hlpr.ticks.y.si_suffixes:
+  helpers:
+    set_tick_formatters:
+      y:
+        major:
+          <<: *eng_formatter
+
+.hlpr.ticks.z.si_suffixes:
+  helpers:
+    set_tick_formatters:
+      z:
+        major:
+          <<: *eng_formatter
+
+
+.hlpr.ticks.x.fewer_ticks:
+  helpers:
+    set_tick_locators:
+      x:
+        major: &ticker_maxn_fewer
+          name: MaxNLocator
+          nbins: 5  # -->  max. 6 ticks
+          steps: [1, 2, 5, 10]
+          min_n_ticks: 4
+
+.hlpr.ticks.y.fewer_ticks:
+  helpers:
+    set_tick_locators:
+      y:
+        major:
+          <<: *ticker_maxn_fewer
+
+.hlpr.ticks.z.fewer_ticks:
+  helpers:
+    set_tick_locators:
+      z:
+        major:
+          <<: *ticker_maxn_fewer
+
+
+.hlpr.ticks.x.date:
+  helpers:
+    set_tick_formatters:
+      x:
+        major: &date_formatter
+          name: DateFormatter
+          args: ["%Y-%m-%d"]
+
+.hlpr.ticks.y.date:
+  helpers:
+    set_tick_formatters:
+      y:
+        major:
+          <<: *date_formatter
+
+.hlpr.ticks.z.date:
+  helpers:
+    set_tick_formatters:
+      z:
+        major:
+          <<: *date_formatter
+
+
+
+# =============================================================================
+#  ╔═╗╔╗╔╦╔╦╗╔═╗╔╦╗╦╔═╗╔╗╔
+#  ╠═╣║║║║║║║╠═╣ ║ ║║ ║║║║
+#  ╩ ╩╝╚╝╩╩ ╩╩ ╩ ╩ ╩╚═╝╝╚╝
+# =============================================================================
+# start: .animation
+.animation.defaults:
+  based_on:
+    - .animation.use_frames  # ffmpeg might not be installed
+
+  animation:
+    writer_kwargs:
+      frames:
+        saving:
+          dpi: 92
+
+      ffmpeg:
+        init:
+          fps: 10
+        saving:
+          dpi: 92
+
+.animation.enabled:
+  based_on: .animation.defaults
+  animation:
+    enabled: true
+
+.animation.disabled:
+  based_on:
+    - .animation.defaults
+    - .defaults.file_ext
+  animation:
+    enabled: false
+
+.animation.use_ffmpeg:
+  file_ext: mp4
+  animation:
+    writer: ffmpeg
+
+.animation.use_frames:
+  based_on:
+    - .defaults.file_ext
+  animation:
+    writer: frames
+
+.animation.high_dpi:
+  animation:
+    writer_kwargs:
+      frames:
+        saving:
+          dpi: 144
+      ffmpeg:
+        saving:
+          dpi: 144
+
+.animation.higher_dpi:
+  animation:
+    writer_kwargs:
+      frames:
+        saving:
+          dpi: 254
+      ffmpeg:
+        saving:
+          dpi: 254
+
+
+
+
+
+
+
+# =============================================================================
+#  ╔╦╗╔═╗╔═╗  ╔═╗╦═╗╔═╗╔╦╗╔═╗╦ ╦╔═╗╦═╗╦╔═
+#   ║║╠═╣║ ╦  ╠╣ ╠╦╝╠═╣║║║║╣ ║║║║ ║╠╦╝╠╩╗
+#  ═╩╝╩ ╩╚═╝  ╚  ╩╚═╩ ╩╩ ╩╚═╝╚╩╝╚═╝╩╚═╩ ╩
+# =============================================================================
+# start: .dag
+# -- Options ------------------------------------------------------------------
+# .. Verbosity ................................................................
+.dag.quiet:
+  dag_options:
+    verbosity: 0
+
+.dag.verbose:
+  dag_options:
+    verbosity: 2
+
+
+# .. Caching ..................................................................
+.dag.cache.disabled:
+  dag_options:
+    file_cache_defaults:
+      read: false
+      write: false
+
+.dag.cache.use:
+  dag_options:
+    file_cache_defaults:
+      read: true
+      write:
+        enabled: true
+        min_compute_time: 1.
+
+.dag.cache.read_only:
+  dag_options:
+    file_cache_defaults:
+      read: true
+      write: false
+
+
+# .. TransformationDAG object cache ...........................................
+.dag.object_cache.use:
+  dag_object_cache:
+    read: true
+    write: true
+    use_copy: false
+
+.dag.object_cache.disabled:
+  dag_object_cache:
+    read: false
+    write: false
+
+.dag.object_cache.clear:
+  based_on: .dag.object_cache.use
+  dag_object_cache:
+    write: false
+    clear: true
+    collect_garbage: true
+
+
+# .. Aggregated DAG default options ...........................................
+.dag.defaults:
+  based_on:
+    - .dag.cache.use
+    - .dag.object_cache.use
+
+  dag_options:
+    verbosity: 1
+
+
+
+# -- Visualization ------------------------------------------------------------
+# Parameters controlling DAG visualization
+.dag.vis.defaults:
+  based_on:
+    - .dag.vis.enabled
+    - .dag.vis.style
+
+
+# .. Controlling when to generate a visualization .............................
+.dag.vis.disabled:
+  dag_visualization:
+    enabled: false
+
+.dag.vis.enabled:
+  dag_visualization:
+    enabled: false
+
+.dag.vis.always:
+  dag_visualization:
+    enabled: true
+    when:
+      always: true
+      only_once: true
+
+.dag.vis.only_on_error:
+  dag_visualization:
+    enabled: true
+    when:
+      on_compute_error: true
+      on_plot_error: true
+
+.dag.vis.only_in_debug_mode:
+  dag_visualization:
+    enabled: true
+    when:
+      on_compute_error: debug
+      on_plot_error: debug
+
+
+# .. Controlling DAG visualization style ......................................
+.dag.vis.style:
+  dag_visualization: {}
+  # NOTE Will add entries here in the future
+
+
+# -- Definitions --------------------------------------------------------------
+# The entries below set certain tags using the `dag_options.define` argument.
+# This should not be confused with the .dag.meta_ops defined below.
+
+.dag.define.defaults:
+  based_on:
+    - .dag.define._SkipPlot
+
+
+# The `_skip_plot` tag can be used as a fallback option and will trigger the
+# plot to be skipped if the fallback is used.
+# Usage:
+#     - ...
+#       allow_failure: true
+#       fallback: !dag_tag _skip_plot
+#
+.dag.define._SkipPlot:
+  dag_options:
+    define:
+      _skip_plot:
+        - operation: raise_SkipPlot
+          args: [true]
+
+
+# Imports and wraps a bunch of seaborn functions that can be invoked elsewhere.
+# Usage:
+#     - call: [!dag_tag _create_sns_palette, "husl", 9]
+#
+.dag.define.sns_cmap_funcs:
+  dag_options:
+    define:
+      _create_sns_palette:
+        - import: [seaborn, color_palette]
+        - import_and_call: [functools, partial, !dag_prev ]
+
+      _create_sns_cmap:
+        - import: [seaborn, color_palette]
+        - import_and_call: [functools, partial, !dag_prev ]
+          kwargs:
+            as_cmap: true
+
+      _create_sns_diverging_cmap:
+        - import: [seaborn, diverging_palette]
+        - import_and_call: [functools, partial, !dag_prev ]
+          kwargs:
+            as_cmap: true
+
+
+
+
+
+# =============================================================================
+#  ╔╦╗╔═╗╔═╗  ╔╦╗╔═╗╔╦╗╔═╗  ╔═╗╔═╗╔═╗╦═╗╔═╗╔╦╗╦╔═╗╔╗╔╔═╗
+#   ║║╠═╣║ ╦  ║║║║╣  ║ ╠═╣  ║ ║╠═╝║╣ ╠╦╝╠═╣ ║ ║║ ║║║║╚═╗
+#  ═╩╝╩ ╩╚═╝  ╩ ╩╚═╝ ╩ ╩ ╩  ╚═╝╩  ╚═╝╩╚═╩ ╩ ╩ ╩╚═╝╝╚╝╚═╝
+# =============================================================================
+# start: .dag.meta_ops
+# The following entries can be included into a plot configuration to make
+# certain meta-operations available for the data transformation framework.
+
+# .. Data selection operations ................................................
+
+.dag.meta_ops.select_all:
+  dag_options:
+    meta_operations:
+      #
+      # Explicitly select all elements.
+      # This can be called on a dantro LabelledDataGroup to resolve all data.
+      #
+      # Args:
+      #   0:             The object to call `.sel` on
+      #
+      select_all:
+        - operation: .sel
+          args: [!arg 0]
+          kwargs: {}  # equivalent to {combination_method: auto}
+
+
+# .. Computation ..............................................................
+.dag.meta_ops.compute_mean_and_stddev:
+  dag_options:
+    meta_operations:
+      #
+      # Compute mean and std over some dimensions and combine it into a dataset
+      #
+      # Args:
+      #   0:              The xr.DataArray to calculate the values from
+      #   1 (optional):   Dimension names to reduce, if not given reduces all
+      #
+      # Returns:
+      #   xr.Dataset with data variables `mean` and `stddev`
+      #
+      compute_mean_and_stddev:
+        - define: !arg 0
+          tag: data
+        - define: !arg [1, ~]
+          tag: dims
+
+        - .mean: [!dag_tag data, !dag_tag dims]
+          tag: mean
+
+        - .std: [!dag_tag data, !dag_tag dims]
+          tag: stddev
+
+        - xr.Dataset:
+          - mean: !dag_tag mean
+            stddev: !dag_tag stddev
+
+.dag.meta_ops.rolling:
+  dag_options:
+    define:
+      # A default window for `.rolling` operations on time dimension.
+      # Still needs to be passed explicitly.
+      _rolling_time_window: {time: 5}
+
+    meta_operations:
+      #
+      # Performs a rolling-window operation on an xr.DataArray
+      #
+      # Note: This exposes only part of the interface ...
+      #
+      # Args:
+      #   0:      the data to call `.rolling` on
+      #   1:      the window operation name, e.g. `mean`
+      #   2:      window arguments, e.g. `{time: 5}`, can also use the
+      #           pre-defined `!dag_tag _rolling_time_window` here.
+      #   center: (optional, default: false) whether to center the coordinates
+      #           on the windows (default: false)
+      #   min_periods: (optional, default: None) Minimum number of
+      #           observations in window required to have a value (otherwise
+      #           result is NaN). If None, uses the window size.
+      #
+      rolling:
+        - .rolling: [!arg 0, !arg 2]
+          kwargs:
+            center: !kwarg [center, false]
+            min_periods: !kwarg [min_periods, ~]
+        - callattr: [!dag_prev , !arg 1]
+
+      #
+      # Special case of rolling *mean*
+      #
+      # Args:
+      #   0:      the data to call `.rolling` on
+      #   1:      window arguments, e.g. `{time: 5}` or the pre-defined
+      #           `!dag_tag _rolling_time_window`
+      #
+      rolling.mean:
+        - rolling: [!arg 0 , mean, !arg 1]
+
+
+
+# .. Coordinate transformations ...............................................
+.dag.meta_ops.transform.coords.date2num:
+  dag_options:
+    meta_operations:
+      #
+      # Applies the matplotlib.dates.date2num operation to the specified
+      # coordinate dimensions.
+      # This becomes necessary if trying to use np.datetime objects for ticks.
+      #
+      # Args:
+      #   0: the data with the to-be-transformed coordinates
+      #   1: names of the coordinate dimensions to transform using date2num
+      #
+      .transform.coords.date2num:
+        - define: !arg 0
+          tag: d
+        - define: !arg 1
+          tag: dim
+        - import: [matplotlib.dates, date2num]
+        - .coords.transform: [!dag_tag d, !dag_tag dim, !dag_prev ]
+
+
+# .. Misc .....................................................................
+.dag.meta_ops.as_dataset:
+  dag_options:
+    meta_operations:
+      #
+      # Loads a dantro group into a xr.Dataset
+      #
+      # Args:
+      #   0: the group to load data from
+      #   1: paths of properties to load as data variables
+      #
+      as_dataset:
+        - call_lambda:
+          - "lambda grp, only: {k:v.data for k, v in grp.items() if k in only}"
+          - !arg 0
+          - !arg 1
+        - xr.Dataset
+
+
+
+# =============================================================================
+# end of dantro base plots
+# -----------------------------------------------------------------------------
+# Maintenance remark: ASCII headings were created using the Calvin S font at
+#   https://patorjk.com/software/taag/#p=display&c=bash&f=Calvin%20S
+#

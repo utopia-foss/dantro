@@ -220,6 +220,7 @@ It is then recursively updated with the other keys, here ``x`` and ``y``, result
     **Reminder:** *Recursively* updating means that all levels of the configuration hierarchy can be updated.
     This happens by traversing along with all mapping-like parts of the configuration and updating their keys.
 
+.. _multiple_based_on:
 
 Multiple inheritance
 """"""""""""""""""""
@@ -366,9 +367,65 @@ To conclude, this feature allows to assemble plot configurations from different 
 This reduces the need for copying configurations into multiple places.
 
 
+.. _dantro_base_plots:
+
+dantro base plot configuration pool
+"""""""""""""""""""""""""""""""""""
+The dantro plotting framework also includes its own set of base plot configuration pools.
+These provide a bridge to the functionality that is implemented in dantro itself, making it more robust for projects downstream that use the plotting framework.
+
+The base plot config pool contains a wide variety of entries.
+For instance, entries like ``.plot.<name>`` refer to a plot function definition, while entries like ``.creator.<name>`` only set a certain plot creator and its defaults.
+
+You may notice that many entries contain not much more than a few configuration keys.
+This is intentional: By keeping base configs short, they can be more easily combined using :ref:`multiple inheritance <multiple_based_on>`.
+
+The full dantro base plot configuration can be found on its :ref:`dedicated page <dantro_base_plots_ref>`.
+
+.. hint::
+
+    To *not* use the dantro base plot config pool, set the ``use_dantro_base_cfg_pool`` initialization argument for the :py:meth:`~dantro.plot_mngr.PlotManager` accordingly.
 
 
 
+.. _base_plots_naming_conventions:
+
+Naming conventions
+""""""""""""""""""
+As you may have noticed from looking at :ref:`dantro_base_plots`, there are some naming conventions underlying the names of those base config pool entries.
+Let's make the main ideas explicit here:
+
+- Base configs that are meant to be aggregated and that cannot be used for plotting *on their own* should start with a leading dot (``.``).
+  Base configs that are ready for plotting should *not* have that leading dot.
+- Depending on the intended effect, base configs are grouped into certain *namespaces*, (``.<namespace>``):
+
+  - ``.plot.<name>`` defines a certain :ref:`plot function <plot_func>` and its defaults; these may be :ref:`implemented in dantro <pcr_pyplot_plot_funcs>` or elsewhere.
+  - ``.creator.<name>`` defines a :ref:`plot creator <plot_creators>` and its defaults.
+  - ``.dag`` contains arguments related to the :ref:`data transformation framework <plot_creator_dag>`.
+  - ``.style`` sets certain :ref:`overall aesthetic elements <pcr_pyplot_style>` of a plot.
+  - ``.hlpr`` calls individual :ref:`plot helper functions <plot_helper>`.
+  - ``.animation`` sets :ref:`animation-related <pcr_pyplot_animations>` arguments.
+  - ``.defaults`` contain entries that are included *by default*, e.g. via the ``.creator`` configs.
+  - ... and potential other namespaces.
+
+- These namespaces can be further nested, for instance:
+
+  - ``.plot.facet_grid.scatter`` defines a facet-grid scatter plot as a specialization of the generic ``.plot.facet_grid`` which does not specify the ``kind``.
+  - ``.creator.universe.any`` sets the creator and *additionally* its :ref:```universes`` argument <pcr_uni>`.
+  - ``.hlpr.limits.x.from_zero`` sets x-axis limits to ``[0, ~]``.
+  - ``.animation.disable`` ... does what the name says.
+
+- Ideally, the effect of base configs should not overlap too much, as this makes the result depend on the order of inheritance as specified in ``based_on``, which may be confusing.
+
+  - This is most important *within* a namespace, because it makes no sense to include multiple ``.plot`` entries into ``based_on``.
+  - One reasonable exception can be the definition of modifier base configs.
+    For example, ``.plot.facet_grid.with_auto_encoding`` will inherit from ``.plot.facet_grid`` and *additionally* set some entries.
+
+.. TODO are there other conventions?!
+
+.. note::
+
+    While we would encourage you to follow these conventions, you are of course totally free to name your base plot configs any way you like; there are no enforcements.
 
 
 

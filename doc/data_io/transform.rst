@@ -946,7 +946,7 @@ As can be seen in the following plot, the meta-operation is unpacked into indivi
 .. hint::
 
     The :ref:`DAG visualization <dag_graph_vis>` also shows which operation
-    originated from which meta-operation.
+    originated from which meta-operation (in parentheses below the operation name).
     Here, all originate from ``prime_multiples``.
 
 .. _dag_meta_ops_aggregate_return_values:

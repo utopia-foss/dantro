@@ -220,6 +220,10 @@ _OPERATIONS = KeyOrderedDict({
     "dantro.merge":                 merge,
     "dantro.expand_dims":           expand_dims,
 
+    # coordinate transformations, working on shallow copies by default
+    "transform_coords":             transform_coords,
+    ".coords.transform":            transform_coords,
+
     # evaluating symbolic expressions using sympy
     "expression":                   expression,
     # NOTE: The `^` operator acts as XOR; use `**` for exponentiation!

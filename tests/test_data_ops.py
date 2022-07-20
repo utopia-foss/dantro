@@ -595,6 +595,38 @@ def test_op_expand_object_array():
         expand(da, combination_method="bad method")
 
 
+def test_op_transform_coords():
+    """Tests the dantro transform_coords operation"""
+    data = np.random.randint(0, 5, size=(20, 20))
+    da = xr.DataArray(
+        data=data,
+        dims=("x", "y"),
+        coords=dict(x=list(range(20)), y=list(range(20))),
+    )
+
+    da_e1 = dops.transform_coords(da, "x", lambda c: c)
+    assert da_e1 is not da
+    assert (da_e1 == da).all()
+    assert (da_e1.coords["x"] == da.coords["x"]).all()
+
+    da_e2 = dops.transform_coords(da, "x", lambda c: 2 * c)
+    assert (da_e2.coords["x"].data == da.coords["x"].data * 2).all()
+
+    da_e3 = dops.transform_coords(da, ["x"], lambda c: 2 * c)
+    assert (da_e3.coords["x"].data == da.coords["x"].data * 2).all()
+
+    da_e4 = dops.transform_coords(da, ["x", "y"], lambda c: 2 * c)
+    assert (da_e4.coords["x"].data == da.coords["x"].data * 2).all()
+    assert (da_e4.coords["y"].data == da.coords["y"].data * 2).all()
+
+    # Can also pass function arguments
+    da_e4 = dops.transform_coords(
+        da, ["x", "y"], lambda c, exp: c**exp, func_kwargs=dict(exp=3)
+    )
+    assert (da_e4.coords["x"].data == da.coords["x"].data ** 3).all()
+    assert (da_e4.coords["y"].data == da.coords["y"].data ** 3).all()
+
+
 def test_op_expression():
     """Tests the ``expression`` data operation"""
     expr = dops.expression

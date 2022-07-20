@@ -45,6 +45,7 @@ It was developed alongside the `Utopia project <https://gitlab.com/utopia-projec
     :hidden:
 
     Repository <https://gitlab.com/utopia-project/dantro>
+    Changelog <https://gitlab.com/utopia-project/dantro/-/blob/main/CHANGELOG.md>
     JOSS Publication <https://doi.org/10.21105/joss.02316>
     how-to-cite
     Utopia Project <https://utopia-project.org/>
@@ -78,6 +79,7 @@ It was developed alongside the `Utopia project <https://gitlab.com/utopia-projec
     plotting/plot_data_selection
     plotting/plot_functions
     plotting/faq
+    plotting/examples
 
 .. toctree::
     :caption: Reference
@@ -86,5 +88,6 @@ It was developed alongside the `Utopia project <https://gitlab.com/utopia-projec
 
     API Reference <api/dantro>
     plotting/plot_cfg_ref
+    plotting/base_plots
     LGPLv3 License <https://www.gnu.org/licenses/lgpl-3.0.html>
     index_pages

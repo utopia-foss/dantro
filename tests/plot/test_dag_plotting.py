@@ -12,6 +12,7 @@ from builtins import *  # to have Exception types available in globals
 
 import numpy as np
 import pytest
+import seaborn as sns
 import xarray as xr
 from pkg_resources import resource_filename
 
@@ -29,28 +30,16 @@ from dantro.plot_mngr import (
 # The associated configuration file
 DAG_PLOTS_CONFIG = resource_filename("tests", "cfg/dag_plots.yml")
 
-# Whether to write test output to a temporary directory
-# NOTE When manually debugging, it's useful to set this to False, such that the
-#      output can be inspected in TEST_OUTPUT_PATH
-USE_TMPDIR = True
-
-# If not using a temporary directory, the desired output directory
-TEST_OUTPUT_PATH = os.path.abspath(os.path.expanduser("~/dantro_test_output"))
-# TODO This should rather be a local directory that can be gitignored
-
 # Set up logging, and disable some loggers (much too verbose)
 log = logging.getLogger(__name__)
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
-logging.getLogger("dantro.utils.ordereddict").setLevel(logging.DEBUG)
+logging.getLogger("dantro.utils.ordereddict").setLevel(logging.INFO)
 
+
+from .. import TEST_VERBOSITY
 
 # Fixtures --------------------------------------------------------------------
-from ..groups.test_psp import (
-    psp_grp,
-    psp_grp_default,
-    psp_grp_missing_data,
-    pspace,
-)
+from .._fixtures import *
 
 
 @pytest.fixture
@@ -92,20 +81,60 @@ def dm(psp_grp, psp_grp_default, psp_grp_missing_data, tmpdir) -> DataManager:
         Cls=PassthroughContainer,
     )
 
+    # Add xarrax tutorial examples as xr.Dataset and XrDataContainer
+    xr_tut_dsets = dm.new_group("xr_tutorial")
+    xr_tut_darrs = dm.new_group("xr_tutorial/arrays")
+    XR_TUT_DATASETS = (
+        "air_temperature",
+        "rasm",
+        "ROMS_example",
+    )
+    try:
+        for ds_name in XR_TUT_DATASETS:
+            ds = xr.tutorial.open_dataset(ds_name, decode_times=True)
+            xr_tut_dsets.new_container(
+                path=ds_name,
+                data=ds,
+                Cls=PassthroughContainer,
+            )
+            xr_tut_darrs.new_container(
+                path=ds_name,
+                data=ds.to_array(),
+                Cls=XrDataContainer,
+            )
+    except Exception as exc:
+        log.error(
+            "Failed loading xr.tutorial datasets; probably because there is "
+            "no locally cached copy available and you have no internet "
+            f"connection.\nError was a {type(exc).__name__}: {exc}"
+        )
+
+    # Add some seaborn datasets
+    sns_dsets = dm.new_group("sns_dsets")
+    SNS_DATASETS = (
+        "penguins",
+        "fmri",
+    )
+    try:
+        for ds_name in SNS_DATASETS:
+            ds = sns.load_dataset(ds_name)
+            sns_dsets.new_container(
+                path=ds_name,
+                data=ds,
+                Cls=PassthroughContainer,
+            )
+    except Exception as exc:
+        log.error(
+            "Failed loading seaborn datasets; probably because there is "
+            "no locally cached copy available and you have no internet "
+            f"connection.\nError was a {type(exc).__name__}: {exc}"
+        )
+
     # NOTE Can add more test data here, if desired
 
-    print(dm.tree_condensed)
+    if TEST_VERBOSITY >= 2:
+        print(dm.tree_condensed)
     return dm
-
-
-@pytest.fixture
-def out_dir(tmpdir) -> str:
-    if USE_TMPDIR:
-        return str(tmpdir)
-
-    # else: Create an output path if it does not yet exist, use that one
-    os.makedirs(TEST_OUTPUT_PATH, exist_ok=True)
-    return TEST_OUTPUT_PATH
 
 
 @pytest.fixture
@@ -119,7 +148,7 @@ def pm(dm, out_dir, dag_plots_cfg) -> PlotManager:
     """Creates a PlotManager instance with the specified output directory"""
     return PlotManager(
         dm=dm,
-        out_dir=out_dir,
+        out_dir=str(out_dir),
         raise_exc=True,
         **dag_plots_cfg["_pm_init_kwargs"],
     )

@@ -13,6 +13,7 @@ install_deps = [
     "scipy>=1.7.3",         # Used as a netcdf4 storage engine for xarray
     "sympy>=1.7",
     "h5py>=3.6",
+    "h5netcdf>=1.0.1",      # A more capable, h5py-based netcdf backend
     "matplotlib>=3.3",
     "seaborn>=0.11",
     "networkx>=2.8",
@@ -41,6 +42,10 @@ test_deps = [
     "pytest-cov>=2.5",
     "tox>=3.1",
     "pre-commit>=2.15",
+    #
+    # dependencies that expand xarray functionality
+    "pooch",
+    "cftime",
 ]
 
 # Dependencies for building the dantro documentation
@@ -157,6 +162,7 @@ setup(
     #
     # Distribution details, dependencies, ...
     packages=find_packages(exclude=["tests.*", "tests"]),
+    package_data=dict(dantro=["cfg/*.yml"]),
     data_files=[("", ["COPYING", "COPYING.LESSER", "README.md"])],
     python_requires=">=3.8",
     install_requires=install_deps,

@@ -413,8 +413,8 @@ def get_description(
     # Assemble, evaluate and join descriptions
     desc_specs = dict(
         operation=dict(fstr="{}", content=op),
-        meta_operation=dict(fstr="meta-op: {}", content=meta_op),
-        result=dict(fstr="result: {}", content=result_str),
+        meta_operation=dict(fstr="({})", content=meta_op),
+        result=dict(fstr="= {}", content=result_str),
         tag=dict(fstr="— {} —", content=tag),
         status=dict(fstr="status: {}", content=status),
     )
