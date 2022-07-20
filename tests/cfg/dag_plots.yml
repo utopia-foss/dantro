@@ -524,6 +524,37 @@ config_based:
     # _raises: PlotCreatorError
     # _match: Failed generating DAG representation
 
+  gen_nx_graph_fallback_layout:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        when:
+          always: true
+
+        layout:
+          model: graphviz_bad      # does not exist
+
+          # In case the above model fails, silently switch to another one
+          fallback: multipartite
+          silent_fallback: true
+
+          # Arguments for the respective layouting models
+          model_kwargs:
+            multipartite:
+              align: horizontal
+              subset_key: layer
+              scale: -1
+
+              # Whether to wiggle layouted positions to reduce edge overlap.
+              # This is recommended for the multipartite layout, because it
+              # does not handle edges going over multiple layers very well,
+              # producing confusing edge overlaps ...
+              wiggle:
+                x: 0.005
+                y: ~
+                seed: 123  # set to None to always get new wiggles
+
   gen_nx_graph_err_generation_failed:
     plot_cfg:
       <<: *simple_example
@@ -670,6 +701,7 @@ config_based:
         psgrp_path: psp/regular
       dag_options:
         select_path_prefix: labelled
+      universes: any
 
       ### Start -- placeholder_title
       # Select the creator and use the generic errorbar plotting function
@@ -736,49 +768,64 @@ config_based:
 
   doc_examples_multiplot_subplots:
     plot_cfg:
-      creator: universe
-      universes: single
-      creator_init_kwargs:
-        psgrp_path: psp/regular
+      dag_options:
+        select_path_prefix: psp/regular/40
 
       ### Start -- multiplot_subplots
       based_on:
+        - .creator.pyplot
         - .plot.multiplot
+
+        # use helpers for styling
+        - .hlpr.limits.x.min_max
+        - .hlpr.lines.h_zero
 
       # Select some example data
       select:
-        mean:
-          path: labelled/randints
-          transform:
-            - .mean: [!dag_prev , [x, y]]
-        std:
-          path: labelled/randints
-          transform:
-            - .std: [!dag_prev , [x, y]]
+        some_data: labelled/time_series
 
       transform:
+        # Compute mean and std. deviation over the space dimension
+        - .mean: [!dag_tag some_data, [space]]
+          tag: mean
+
+        - .std: [!dag_tag some_data, [space]]
+          tag: std
+
         # Explicitly extract coordinates, needed by plt.plot
-        - .coords: [!dag_tag mean, z]
-          tag: x_coords
+        - .coords: [!dag_tag mean, time]
+          tag: time_coords
 
       # Use PlotHelper to configure figure to have two subplots
       helpers:
         setup_figure:
           ncols: 1
           nrows: 2
+          sharex: true
 
-      # Specify the multiplot calls
+        set_suptitle:
+          title: Some Time Series (mean and std)
+
+        set_labels:
+          x: Time
+          only_label_outer: true
+
+      # Specify the multiplot calls on the upper and lower subplots
       to_plot:
         [0, 0]:
           - function: plt.plot
             args:
-              - !dag_result x_coords
+              - !dag_result time_coords
               - !dag_result mean
+          - function: [matplotlib.pyplot, ylabel]
+            args: [mean]
         [0, 1]:
           - function: plt.plot
             args:
-              - !dag_result x_coords
+              - !dag_result time_coords
               - !dag_result std
+          - function: [matplotlib.pyplot, ylabel]
+            args: [std]
       ### End ---- multiplot_subplots
 
   doc_examples_dag_visualization:
@@ -950,14 +997,12 @@ config_based:
           bbox_inches: tight
       ### End ---- dag_visualization_interface
 
-
   doc_examples_errorbars:
     plot_cfg:
       ### Start -- errorbars_example
-      # Select the creator and use the generic errorbar plotting function
       based_on:
+        # select the creator and use the errorbands plot function
         - .creator.pyplot
-        - .plot.facet_grid.with_auto_encoding
         - .plot.facet_grid.errorbands
 
         # include some meta operations
@@ -991,7 +1036,6 @@ config_based:
       x: time
       y: mean
       yerr: stddev
-      # ... all others are set via auto-encoding
 
       # Pretty it up a bit using helpers
       helpers:
@@ -1001,3 +1045,33 @@ config_based:
         set_title:
           title: Mean Air Temperature
       ### End ---- errorbars_example
+
+  doc_examples_scatter3d:
+    plot_cfg:
+      dag_options:
+        select_path_prefix: psp/regular/40
+
+      ### Start -- scatter3d_example
+      based_on:
+        # select the creator and use the errorbands plot function
+        - .creator.pyplot
+        - .plot.facet_grid.scatter3d
+
+      select:
+        data: labelled/random_walk_dset
+
+      # Specify which data variable to use for which representation mode
+      x: x
+      y: y
+      z: z
+      hue: time
+      markersize: speed
+
+      # Pretty it up a bit
+      cmap: cividis
+
+      cbar_kwargs:
+        label: time
+        fraction: 0.05
+        shrink: 0.5
+      ### End ---- scatter3d_example

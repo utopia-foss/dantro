@@ -252,3 +252,10 @@ Example:
     :start-after: ### Start -- multiplot_subplots
     :end-before:  ### End ---- multiplot_subplots
     :dedent: 6
+
+The resulting plot looks like this:
+
+.. image:: ../_static/_gen/plots/doc_examples_multiplot_subplots.pdf
+    :target: ../_static/_gen/plots/doc_examples_multiplot_subplots.pdf
+    :width: 90%
+    :alt: Multiplot plot example with subplots and artificial time series data

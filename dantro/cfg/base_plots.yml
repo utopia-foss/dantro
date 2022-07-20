@@ -185,7 +185,7 @@ _:
 .plot.facet_grid.scatter3d:
   based_on:
     - .plot.facet_grid
-    - .hlpr.projection3d
+    - .hlpr.projection.3d
   kind: scatter3d
 
   # For faceting, projection needs to be set via xr.plot.FacetGrid.

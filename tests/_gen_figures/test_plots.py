@@ -26,7 +26,11 @@ def test_plots(dm, out_dir):
     )
 
     # Specify which plots to create
-    to_plot = ("doc_examples_errorbars",)
+    to_plot = (
+        "doc_examples_errorbars",
+        "doc_examples_scatter3d",
+        "doc_examples_multiplot_subplots",
+    )
 
     # Safety check: all plots defined above are valid names
     invalid_plot_names = [p for p in to_plot if p not in plots["config_based"]]
@@ -42,5 +46,12 @@ def test_plots(dm, out_dir):
         if name not in to_plot:
             continue
 
-        print(f"... Case: '{name}' ...")
-        pm.plot(name=name, **cfg["plot_cfg"])
+        print(f"\n\n... Case: '{name}' ...")
+
+        try:
+            pm.plot(name=name, **cfg["plot_cfg"])
+
+        except Exception as exc:
+            if not cfg.get("_raises"):
+                raise
+            print(f"Raised an exception, as expected.")

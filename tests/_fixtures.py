@@ -11,6 +11,7 @@ from paramspace import ParamDim, ParamSpace
 from dantro.containers import (
     MutableMappingContainer,
     NumpyDataContainer,
+    PassthroughContainer,
     XrDataContainer,
 )
 from dantro.groups import (
@@ -76,6 +77,9 @@ def create_psp_test_data(
     """Given a ParamSpaceGroup, adds test data to it"""
     grp = psp_grp.new_group(state_no_str)
 
+    # A shared RNG
+    rng = np.random.RandomState(int(state_no_str) % 12345)  # unique but fixed
+
     # Add the parameters as container to the group
     grp.add(MutableMappingContainer(name="cfg", data=params))
 
@@ -88,7 +92,7 @@ def create_psp_test_data(
     # Add two numpy dataset: symbolising state number and some random data
     state_no = int(state_no_str)
     state = state_no * np.ones((3, 4, 5), dtype=int)
-    randints = np.random.randint(10, size=(3, 4, 5))
+    randints = rng.randint(10, size=(3, 4, 5))
 
     farrs.add(
         NumpyDataContainer(
@@ -119,13 +123,60 @@ def create_psp_test_data(
     assert (labelled["randints"].coords["y"] == [1, 2, 3, 4]).all()
     assert (labelled["randints"].coords["z"] == [1, 2, 3, 4, 5]).all()
 
+    # Some more representative example data, a noisy time-series
+
+    time = np.linspace(0, 42.0, 169)
+    ts_data = np.empty((169, 23))
+    for i in range(23):
+        ts_data[:, i] = (
+            np.sin(rng.normal() * time)
+            + 0.4 * np.cos(time - rng.normal())
+            + rng.uniform(-0.2, +0.2)
+            + rng.normal()
+        )
+    labelled.add(
+        XrDataContainer(
+            name="time_series",
+            data=ts_data,
+            attrs=dict(
+                dims=["time", "space"],
+                coords__time=time,
+                coords__space=range(23),
+            ),
+        )
+    )
+
+    # 3D random walk
+    rw_times = np.linspace(0, 100, 501)
+    rw_steps = rng.multivariate_normal(
+        [0, 0, 0], np.identity(3), size=(rw_times.size,)
+    )
+    rw_pos = np.cumsum(rw_steps, axis=0)
+    rw_speed = np.apply_along_axis(
+        lambda d: np.sqrt(np.sum(d**2)),
+        axis=1,
+        arr=np.diff(rw_pos, axis=0),
+    )
+
+    rw_darr = xr.DataArray(
+        rw_pos,
+        dims=["time", "pos"],
+        coords=dict(time=rw_times, pos=["x", "y", "z"]),
+    )
+    rw_dset = rw_darr.to_dataset("pos")
+    rw_dset["speed"] = xr.DataArray(
+        rw_speed, dims=("time",), coords=dict(time=rw_times[1:])
+    )
+    labelled.add(XrDataContainer(name="random_walk_array", data=rw_darr))
+    labelled.add(PassthroughContainer(name="random_walk_dset", data=rw_dset))
+
     # Add some non-uniform data sets
     # 3d with last dimension differing in length
-    randlen = np.ones((3, 4, np.random.randint(10, 30)), dtype="uint8")
+    randlen = np.ones((3, 4, rng.randint(10, 30)), dtype="uint8")
     rarrs.add(NumpyDataContainer(name="randlen", data=randlen))
 
     # 3d but of different shape in all directions
-    randshape = np.ones(np.random.randint(1, 10, size=3), dtype="uint8")
+    randshape = np.ones(rng.randint(1, 10, size=3), dtype="uint8")
     rarrs.add(NumpyDataContainer(name="randshape", data=randshape))
 
 

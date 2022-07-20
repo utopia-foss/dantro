@@ -12,6 +12,7 @@ from builtins import *  # to have Exception types available in globals
 
 import numpy as np
 import pytest
+import seaborn as sns
 import xarray as xr
 from pkg_resources import resource_filename
 
@@ -104,6 +105,27 @@ def dm(psp_grp, psp_grp_default, psp_grp_missing_data, tmpdir) -> DataManager:
     except Exception as exc:
         log.error(
             "Failed loading xr.tutorial datasets; probably because there is "
+            "no locally cached copy available and you have no internet "
+            f"connection.\nError was a {type(exc).__name__}: {exc}"
+        )
+
+    # Add some seaborn datasets
+    sns_dsets = dm.new_group("sns_dsets")
+    SNS_DATASETS = (
+        "penguins",
+        "fmri",
+    )
+    try:
+        for ds_name in SNS_DATASETS:
+            ds = sns.load_dataset(ds_name)
+            sns_dsets.new_container(
+                path=ds_name,
+                data=ds,
+                Cls=PassthroughContainer,
+            )
+    except Exception as exc:
+        log.error(
+            "Failed loading seaborn datasets; probably because there is "
             "no locally cached copy available and you have no internet "
             f"connection.\nError was a {type(exc).__name__}: {exc}"
         )

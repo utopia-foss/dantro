@@ -103,15 +103,20 @@ The following entries can be included into a plot configuration to make pre-defi
     As an example, let's include the ``.dag.meta_ops.compute_mean_and_stddev`` operation to calculate these values over the ``time`` and ``space`` dimensions and combine them into an :py:class:`xarray.Dataset`.
     This approach is very useful for generating a ``errorbars`` facet grid plot.
 
+    Also note how two further meta-operations are included additionally to create a rolling mean of the data and transform a coordinate dimension into a format that matplotlib accepts.
+
     .. literalinclude:: ../../tests/cfg/dag_plots.yml
         :language: yaml
+        :dedent: 6
         :start-after: ### Start -- errorbars_example
         :end-before: ### End ---- errorbars_example
 
     .. image:: ../_static/_gen/plots/doc_examples_errorbars.pdf
         :target: ../_static/_gen/plots/doc_examples_errorbars.pdf
         :width: 90%
-        :alt: Errorbars plot example
+        :alt: Errorbars plot example with air temperature data
+
+    For background information on this dataset and example, have a look at the `xarray documentation <https://docs.xarray.dev/en/stable/examples/area_weighted_temperature.html>`__.
 
 
 .. literalinclude:: ../../dantro/cfg/base_plots.yml
