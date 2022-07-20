@@ -697,3 +697,23 @@ def expand_object_array(
         f"Invalid combination method '{combination_method}'! "
         "Choose from: 'concat', 'merge'."
     )
+
+
+# .. Coordinate transformations ...............................................
+
+
+def date2num(d: "xarray.DataArray", dim: str) -> "xarray.DataArray":
+    """Uses :py:func:`matplotlib.dates.date2num` to convert a coordinate
+    dimension
+
+    Args:
+        d (xarray.DataArray): The data array to convert the coordinate
+            dimension of.
+        dim (str): The name of the coordinate dimension where
+            :py:func:`matplotlib.dates.date2num` is to be applied to
+        copy (bool, optional): Whether to work on a shallow copy of the data.
+    """
+    from matplotlib.dates import date2num as _date2num
+
+    new_coords = _date2num(d.coords[dim])
+    return d.assign_coords({dim: new_coords})
