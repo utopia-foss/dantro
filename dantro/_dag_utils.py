@@ -1,4 +1,7 @@
-"""Private low-level helper classes and functions for the DAG framework"""
+"""Private low-level helper classes and functions used in :py:mod:`dantro.dag`.
+
+For more information, see :ref:`data transformation framework <dag_framework>`.
+"""
 
 import logging
 from typing import Any, Tuple, Union
