@@ -52,6 +52,7 @@
 - !285 expands and improves the `dantro._import_tools` module and improves tests
 - !287 updates documentation after the main branch was renamed from `master` to `main`
 - !298 reworks the figure generation functions to be part of the test suite and be controllable via environment variables.
+- !302 drops tests for minimal versions of dependencies; and drops version requirements of packages *altogether*, aiming for a more flexible development. Scheduled CI pipelines ensure that package combinations continue working.
 
 #### Deprecations
 - !278 deprecates use of `dantro.tools.IS_A_TTY` and `dantro.tools.TTY_COLS` constants. This information should be retrieved from the `dantro.tools.TERMINAL_INFO` dict instead.

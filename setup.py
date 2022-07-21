@@ -5,21 +5,21 @@ from setuptools import find_packages, setup
 
 # Dependencies for dantro itself
 install_deps = [
-    "numpy>=1.21.5",
-    "xarray>=0.16.2",
-    "dask>=2.10",
-    "toolz>=0.10",          # For dask.delayed
-    "distributed>=2.10",    # For dask's distributed scheduler
-    "scipy>=1.7.3",         # Used as a netcdf4 storage engine for xarray
-    "sympy>=1.7",
-    "h5py>=3.6",
-    "h5netcdf>=1.0.1",      # A more capable, h5py-based netcdf backend
-    "matplotlib>=3.3",
-    "seaborn>=0.11",
-    "networkx>=2.8",
-    "ruamel.yaml>=0.16.12",
-    "dill>=0.3.3",          # For faster and more powerful pickling
-    "paramspace>=2.5.6",
+    "numpy",
+    "xarray",
+    "dask",
+    "toolz",             # For dask.delayed
+    "distributed",       # For dask's distributed scheduler
+    "scipy",             # Used as a netcdf4 storage engine for xarray
+    "sympy",
+    "h5py",
+    "h5netcdf",          # A more capable, h5py-based netcdf backend
+    "matplotlib",
+    "seaborn",
+    "networkx",
+    "ruamel.yaml",
+    "dill",              # For faster and more powerful pickling
+    "paramspace",
 ]
 # NOTE When changing any of the dependencies, make sure to update the table of
 #      dependencies in README.md.
@@ -27,21 +27,12 @@ install_deps = [
 #      configuration, see pyproject.toml.
 
 
-# Minimal versions of all of the above.
-# Excluding numpy here because it would make dependency resolution very hard
-# in some cases, e.g. because of non-compatible binaries ...
-minimal_install_deps = [
-    dep.replace(">=", "==")
-    if not dep.startswith("numpy") else dep
-    for dep in install_deps
-]
-
 # Dependencies for running tests and general development of dantro
 test_deps = [
-    "pytest>=3.4",
-    "pytest-cov>=2.5",
-    "tox>=3.1",
-    "pre-commit>=2.15",
+    "pytest",
+    "pytest-cov",
+    "tox",
+    "pre-commit",
     #
     # dependencies that expand xarray functionality
     "pooch",
@@ -53,7 +44,7 @@ doc_deps = [
     "sphinx==4.*",
     "sphinx-book-theme>=0.3.*",
     "sphinx-togglebutton",
-    "ipython>=7.0",
+    "ipython",
 ]
 
 # .............................................................................
@@ -169,7 +160,6 @@ setup(
     tests_require=test_deps,
     test_suite="py.test",
     extras_require=dict(
-        minimal_deps=minimal_install_deps,
         test=test_deps,
         doc=doc_deps,
         dev=test_deps + doc_deps,
