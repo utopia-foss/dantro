@@ -87,6 +87,7 @@ It was developed alongside the `Utopia project <https://gitlab.com/utopia-projec
     :hidden:
 
     API Reference <api/dantro>
+    data_io/data_ops_ref
     plotting/plot_cfg_ref
     plotting/base_plots
     LGPLv3 License <https://www.gnu.org/licenses/lgpl-3.0.html>

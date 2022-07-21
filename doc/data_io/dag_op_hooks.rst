@@ -32,7 +32,7 @@ The following hooks are available by default:
 
 .. NOTE: Doctest is done to ensure that operation hooks are documented below!
 
-The section titles below use the :ref:`operation name <data_ops_available>` of the hooks they are triggered by.
+The section titles below use the :ref:`operation name <data_ops_ref>` of the hooks they are triggered by.
 
 .. _dag_op_hook_expression:
 
@@ -67,7 +67,7 @@ This alleviates specifying the ``kwargs.symbols`` argument manually, thus saving
 
     The ``define`` operation in the above example is just a trivial example of an operation; instead of defining extra DAG nodes, it would be much easier to simply add the parameters to the expression directly.
 
-    Typically, nodes ``a``, ``b``, ``c`` would be the result of some prior, more complicated expression, e.g using any of the :ref:`other available operations <data_ops_available>`.
+    Typically, nodes ``a``, ``b``, ``c`` would be the result of some prior, more complicated expression, e.g using any of the :ref:`other available operations <data_ops_ref>`.
 
 .. warning::
 

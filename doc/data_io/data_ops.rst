@@ -5,8 +5,8 @@ Data Processing
 Through the :py:mod:`~dantro.data_ops` module, dantro supplies some useful functionality to generically work with function calls.
 This is especially useful for numerical operations.
 
-The :py:mod:`~dantro.data_ops` module can be used on its own, but it is certainly worth to have a look at :doc:`transform`, which wraps the application and combination of modules to further generalize the processing of dantro data.
-For practical examples, of combining data processing operations with the data transformation framework, have a look at :doc:`examples`.
+The :py:mod:`~dantro.data_ops` module can be used on its own, but it is certainly worth to have a look at its use as part of the :ref:`dag_framework` or for :ref:`plot data selection <plot_creator_dag>`.
+For practical examples, of combining data processing operations with the data transformation framework, have a look at :doc:`examples` and :ref:`plot_examples`.
 
 .. contents::
     :local:
@@ -14,15 +14,15 @@ For practical examples, of combining data processing operations with the data tr
 
 ----
 
-Overview
---------
+.. _data_ops_db:
+
 The operations database
-^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------
 The core of :py:mod:`~dantro.data_ops` is the operations database.
 It is defined simply as a mapping from an operation name to a callable.
 This makes it very easy to access a certain callable.
 
-A quite expansive set of functions and numerical operations is already defined per default, see :ref:`below <data_ops_available>`.
+A quite expansive set of functions and numerical operations is already defined per default, see :ref:`the data operations reference page <data_ops_ref>`.
 
 .. hint::
 
@@ -30,16 +30,49 @@ A quite expansive set of functions and numerical operations is already defined p
     Simply pass the ``_ops`` argument to the corresponding function.
 
 
+.. _data_ops_available:
+
+Available operations
+--------------------
+To dynamically find out which operations are available, use the :py:func:`~dantro.data_ops.db_tools.available_operations` (importable from :py:mod:`dantro.data_ops`) function, which also includes the names of additionally registered operations:
+
+.. testcode:: available_operations
+
+    from dantro.data_ops import available_operations
+
+    # Show all available operation names
+    all_ops = available_operations()
+
+    # Search for the ten most similar ones to a certain name
+    mean_ops = available_operations(match="mean", n=10)
+
+.. testcode:: available_operations
+    :hide:
+
+    assert "import" in all_ops
+    assert ".mean" in mean_ops
+
+
+An up-to-date version of dantro's **default operations database** can be found :ref:`on this page <data_ops_ref>`.
+
+
+
+.. _apply_data_ops:
+
 Applying operations
-^^^^^^^^^^^^^^^^^^^
+-------------------
 The task of resolving the callable from the database, passing arguments to it, and returning the result falls to the :py:func:`~dantro.data_ops.apply.apply_operation` function.
 It also provides useful feedback in cases where the operation failed, e.g. by including the given arguments into the error message.
+
+However, chances are that you will be using the data operations from within other parts of dantro, e.g. the :ref:`data transformation framework <dag_framework>` or for :ref:`plot data selection <plot_creator_dag>`.
+
+
 
 
 .. _register_data_ops:
 
 Registering operations
-^^^^^^^^^^^^^^^^^^^^^^
+----------------------
 To register additional operations, use the :py:func:`~dantro.data_ops.db_tools.register_operation` function:
 
 .. testcode:: register_operation
@@ -78,7 +111,7 @@ If you are registering multiple custom operations, consider using a common prefi
     Operations should only be registered if you have implemented a custom operation or if the above does not work comfortably.
 
 The :py:func:`~dantro.data_ops.db_tools.is_operation` decorator
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 As an alternative to :py:func:`~dantro.data_ops.db_tools.register_operation`, the :py:func:`~dantro.data_ops.db_tools.is_operation` decorator can be used to register a function with the operations database right where its defined:
 
 .. testcode:: register_with_decorator
@@ -110,10 +143,12 @@ As an alternative to :py:func:`~dantro.data_ops.db_tools.register_operation`, th
     assert "do_stuff" in _OPERATIONS
 
 
+
+
 .. _customize_db_tools:
 
 Customizing database tools
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------
 
 There is the option to customize the tools that work with or on the operations database.
 For instance, if it is desired to use a custom operations database, the toolchain can be adapted as follows:
@@ -175,44 +210,58 @@ For instance, if it is desired to use a custom operations database, the toolchai
     .. warning::
 
         The :py:class:`~dantro.dag.TransformationDAG` does *not* automatically use the custom operations database and functions!
-        This remains to be implemented.
+        Being able to specify this is a task that remains to be implemented; contributions welcome.
 
 
 
-.. _data_ops_available:
 
-Available operations
---------------------
-Below, you will find a full list of operations that are available by default.
 
-For some entries, functions defined in the :py:mod:`~dantro.data_ops` module are used as callables; see there for more information.
-Also, the callables are frequently defined as lambdas to concur with the requirement that all operations need to be callable via positional and keyword arguments.
-For example, an attribute call needs to be wrapped to a regular function call where — by convention — the first positional argument is regarded as the object whose attribute is to be called.
 
-To dynamically find out which operations are available, use the :py:func:`~dantro.data_ops.db_tools.available_operations` (importable from :py:mod:`dantro.data_ops`) function, which also includes the names of additionally registered operations.
+.. _data_ops_troubleshooting:
 
-.. literalinclude:: ../../dantro/data_ops/db.py
-   :start-after: _OPERATIONS = KeyOrderedDict({
-   :end-before: }) # End of default operation definitions
-   :dedent: 4
+Troubleshooting
+---------------
 
-Additionally, the following boolean operations are available.
+.. _data_ops_troubleshooting_missing_op:
 
-.. literalinclude:: ../../dantro/data_ops/_base_ops.py
-   :start-after: BOOLEAN_OPERATORS = {
-   :end-before: } # End of boolean operator definitions
-   :dedent: 4
+Missing an operation?
+^^^^^^^^^^^^^^^^^^^^^
+If you are missing a certain operation, there are multiple ways to go about this, either by importing it or by defining one ad-hoc.
+
+- If it is a function call, e.g. from :py:mod:`numpy`, use the ``np.`` operation to easily import a callable (using :py:func:`~dantro._import_tools.get_from_module` under the hood).
+  The same can be done for other frequently-used packages via the ``xr.``, ``pd.``, ``scipy.`` and ``nx.`` operations.
+- Use the ``from_module`` (:py:func:`~dantro._import_tools.get_from_module`) or ``import`` (:py:func:`~dantro._import_tools.import_module_or_object`) operations for arbitrary imports.
+- Use the ``lambda`` (:py:func:`~dantro.data_ops.expr_ops.generate_lambda`) operation to ad-hoc define a lambda.
+- :ref:`Register <register_data_ops>` your own data operation.
+- If you are using data operations as part of the :ref:`data transformation framework <dag_framework>`, e.g. during :ref:`plotting <plot_creator_dag>`, consider adding a :ref:`meta-operation <dag_meta_ops>`; that one will not be part of the operations database but will behave in an equivalent way.
+- Make a `contribution to dantro <https://gitlab.com/utopia-project/dantro>`_ to add an operation by default.
+
+
+.. _data_ops_troubleshooting_why_fail:
+
+Why does my operation fail?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+In case you get :py:exc:`~dantro.exceptions.DataOperationFailed` or similar errors, there are a few things you can do:
+
+- Carefully read the error message
+
+  - Is the number and name of the given arguments correct?
+
+- Inspect the given traceback
+
+  - Is there something more insightful further up in the chain of errors?
+  - It is worth scrolling through it a bit more, as this may be deeply nested.
+  - If you do not get a traceback (e.g. when using the :py:class:`~dantro.plot_mngr.PlotManager`), make sure you are in debug mode.
+
+- Have a look at the operation definition and docstrings
+
+  - Many functions are merely ad-hoc defined lambdas; see :ref:`the data operations database <data_ops_ref>` for more info on how an operation is defined.
+  - The implementation for dantro-based operations can be found in :py:mod:`dantro.data_ops`.
+
+- Still stuck with an error? Might this be a bug? Consider opening an issue in the `dantro GitLab project <https://gitlab.com/utopia-project/dantro>`_.
 
 .. hint::
 
-    If you can't find a desired operation, e.g. from ``numpy`` or ``xarray``, use the ``np.`` and ``xr.`` operations to easily import a callable from those modules.
-    This is also possible for ``pd.``, ``scipy.`` and ``nx.``.
+    If using the data operations as part of the :ref:`data transformation framework <dag_framework>`, note that you can also :ref:`visualize the context <dag_graph_vis>` in which the operation failed.
 
-    With ``from_module`` (:py:func:`~dantro._import_tools.get_from_module`), you can achieve the same for every other module.
-
-    See :py:mod:`dantro.data_ops` for more information on function signatures.
-
-.. warning::
-
-    While the operations database should be regarded as an append-only database and changing it is highly discouraged, it *can* be changed, e.g. via the ``overwrite_existing`` argument to :py:func:`~dantro.data_ops.db_tools.register_operation`, importable from :py:mod:`dantro.data_ops`.
-    Therefore, the list above *might* not reflect the current status of the database.
+    As part of the plotting framework, these visualization may be :ref:`automatically created <plot_creator_dag_vis>` alongside your (potentially failing) plot.

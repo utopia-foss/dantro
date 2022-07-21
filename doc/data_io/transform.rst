@@ -321,7 +321,7 @@ Let's have a brief look into how the ``operation`` argument is actually resolved
 This feature is not specific to the DAG, but the DAG uses the :py:mod:`~dantro.data_ops` module, which implements a database of available operations and the :py:func:`~dantro.data_ops.apply.apply_operation` function to apply an operation.
 Basically, this is a thin wrapper around a function lookup and its invocation.
 
-For a full list of available data operations, see :ref:`here <data_ops_available>`.
+For a full list of available data operations, see :ref:`here <data_ops_ref>`.
 
 .. hint::
 
@@ -781,7 +781,7 @@ As a brief summary:
 
 * Meta-operations are defined via the ``meta_operations`` argument of :py:class:`~dantro.dag.TransformationDAG`, using the same syntax as for other transformations.
 * They can specify positional and keyword arguments and have a return value.
-* They can be used for the ``operation`` argument of *any* transformation, same as other :ref:`available data operations <data_ops_available>`.
+* They can be used for the ``operation`` argument of *any* transformation, same as other :ref:`available data operations <data_ops_ref>`.
 * Meta-operations allow modularization and thereby simplify the definition of data transformations.
 
 
