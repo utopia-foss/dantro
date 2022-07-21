@@ -6,7 +6,6 @@ import logging
 import os
 from typing import Callable, List, Sequence, Tuple, Union
 
-from ..._import_tools import LazyLoader
 from ...tools import DoNothingContext, load_yml, recursive_update
 from ..plot_helper import (
     EnterAnimationMode,
@@ -19,9 +18,6 @@ from ..utils import figure_leak_prevention
 from .base import BasePlotCreator, _resolve_placeholders
 
 log = logging.getLogger(__name__)
-
-mpl = LazyLoader("matplotlib")
-plt = LazyLoader("matplotlib.pyplot")
 
 # -----------------------------------------------------------------------------
 
@@ -365,6 +361,8 @@ class PyPlotCreator(BasePlotCreator):
         Raises:
             ValueError: On invalid arguments
         """
+        import matplotlib.pyplot as plt
+
         # Determine what to base this
         if self._default_rc_params and not ignore_defaults:
             log.debug("Composing RC parameters based on defaults ...")
@@ -438,7 +436,7 @@ class PyPlotCreator(BasePlotCreator):
         """Constructs the matplotlib style context manager, if parameters were
         given, otherwise returns the DoNothingContext
         """
-        import matplotlib.pyplot as plt  # FIXME Should not be necessary
+        import matplotlib.pyplot as plt
 
         if rc_params:
             log.remark(
@@ -489,6 +487,10 @@ class PyPlotCreator(BasePlotCreator):
             ValueError: if the animation is not supported by the ``plot_func``
                 or if the writer is not available
         """
+        import matplotlib as mpl
+
+        from ..utils._file_writer import FileWriter
+
         if not getattr(self.plot_func, "supports_animation", False):
             raise ValueError(
                 f"Plotting function '{self.plot_func_name}' was not "
@@ -508,7 +510,6 @@ class PyPlotCreator(BasePlotCreator):
 
         # Retrieve the writer; to trigger writer registration with matplotlib,
         # make sure that the movie writers module is actually imported
-        from ..utils._file_writer import FileWriter
 
         if mpl.animation.writers.is_available(writer_name):
             wCls = mpl.animation.writers[writer_name]
