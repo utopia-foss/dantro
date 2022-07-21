@@ -22,8 +22,9 @@ from .utils.mpl import *
 log = logging.getLogger(__name__)
 
 mpl = LazyLoader("matplotlib")
-plt = LazyLoader("matplotlib.pyplot")
 sns = LazyLoader("seaborn")
+# NOTE matplotlib.pyplot is included on demand because lazy-loading is
+#      somewhat unreliable for that module
 
 # -----------------------------------------------------------------------------
 
@@ -516,7 +517,7 @@ class PlotHelper:
             **update_fig_kwargs: Parameters that are used to update the
                 figure setup parameters stored in ``setup_figure``.
         """
-        # Prepare arguments
+        import matplotlib.pyplot as plt
 
         fig_kwargs = self.base_cfg.get("setup_figure", {})
 
@@ -573,6 +574,8 @@ class PlotHelper:
         configuration. All information provided via provide_defaults and the
         ``mark_*`` methods is lost.
         """
+        import matplotlib.pyplot as plt
+
         if self._fig is None:
             log.debug("No figure currently associated; nothing to close.")
             return
@@ -632,6 +635,8 @@ class PlotHelper:
                 :py:meth:`.attach_figure_and_axes` method.
 
         """
+        import matplotlib.pyplot as plt
+
         # Column and row need either both be given or both NOT be given. (XOR)
         if (col is None) != (row is None):
             raise ValueError(

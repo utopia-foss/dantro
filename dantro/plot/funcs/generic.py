@@ -24,8 +24,9 @@ from ._utils import plot_errorbar as _plot_errorbar
 # Local constants and lazy module imports
 log = logging.getLogger(__name__)
 
-plt = LazyLoader("matplotlib.pyplot")
 xr = LazyLoader("xarray")
+
+# .............................................................................
 
 # fmt: off
 
@@ -786,6 +787,8 @@ def facet_grid(
             provides additional information that helps to track down why the
             plotting failed.
     """
+    import matplotlib.pyplot as plt
+
     # Make sure to have the latest module-level variables available here; this
     # is important to ensure that those `kind`s registered by the
     # make_facet_grid_plot decorator are available here.
