@@ -51,8 +51,7 @@ _:
   based_on:
     - .hlpr.tight_layout
     - .defaults.style
-
-  file_ext: pdf
+    - .defaults.file_ext
 
 # .. Individual defaults ......................................................
 .defaults.style:

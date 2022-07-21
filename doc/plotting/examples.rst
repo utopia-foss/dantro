@@ -15,7 +15,7 @@ Further reading:
 - :ref:`plot_creators`
 - :ref:`dantro_base_plots_ref`
 - :ref:`plot_creator_dag`
-- :ref:`data_ops_available`
+- :ref:`data_ops_ref`
 
 
 .. admonition:: How to include the given examples into your plots
