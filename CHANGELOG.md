@@ -2,7 +2,7 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
-## v0.18.0 *(WIP)*
+## v0.18.0
 - !263 implements various improvements to the plotting and data transformation framework, improving performance, communication and overall usability:
     - Allow caching whole `TransformationDAG` trees in order to avoid re-building them (which can be very time-consuming if there are many nodes)
     - Improve logging (formulation of messages, choice of level, removal)
@@ -65,10 +65,12 @@
 - !298 removes deprecated `PlotManager` initialization arguments: `plots_cfg`, `base_cfg` and `update_base_cfg`.
 
 
+
 ## v0.17.2
 - !266 Updates versions of pre-commit hooks to improve compatibility
 - !265 Adds CI test environment for Python 3.10
 - !269 Update requirements to more recent and more compatible version combinations
+
 
 ## v0.17.1
 - !261 allows skipping plots if a file already exists at the desired plot output path; to use this option, set the `exist_ok` argument of a plot or plot creator to `skip`.
@@ -97,15 +99,19 @@
         - The `print_data` data operation now allows specifying the output format using a format string, greatly simplifying debugging of DAGs
         - New data operations added (see !256 changes for details)
 
+
+
 ## v0.16.3
 - !254 adds the `define` syntax to the data transformation framework, allowing to specify transformations in a dict-based fashion
 - !254 improves `MultiversePlotCreator`:
     - The `select_and_combine.transform_after_combine` argument can now be used to apply transformations to the data *after* the combination happened.
     - The `select_and_combine.combination_method` argument can now also be used to specify a custom combination operation, which can be just any data operation available elsewhere in the data operation framework.
 
+
 ## v0.16.2
 - !253 implements parallel loading of files via the `DataManager` and is usable for all data loaders.
   Refer to the [`DataManager.load` docstring](https://dantro.readthedocs.io/en/stable/api/dantro.data_mngr.html#dantro.data_mngr.DataManager.load) for more information.
+
 
 ## v0.16.1
 #### Features
@@ -116,6 +122,7 @@
 #### Enhancements
 - !247, !248, and !250 make dependency version specifications more compatible and make testing infrastructure more robust
 - !243 slightly extends the available data operations
+
 
 ## v0.16.0
 #### Features and Improvements
@@ -131,17 +138,22 @@
 - !241 deprecates the `PlotManager` arguments `base_cfg` and `update_base_cfg` and replaces them by `base_cfg_pool`.
   Furthermore, `plots_cfg` is renamed to `default_plots_cfg`.
 
+
+
 ## v0.15.4
 #### Bug Fixes
 - !237 fixes the `set_suptitle` helper, now allowing to set the suptitle's y-position.
+
 
 ## v0.15.3
 #### Enhancements
 - !232 generalizes the `determine_encoding` interface, no longer requiring xarray data and more easily allowing to use the tool in custom plot functions outside of dantro.
 
+
 ## v0.15.2
 #### Enhancements
 - !233 Speeds up `import dantro` by about 50%; this is achieved by delaying imports of packages that take a long time to load.
+
 
 ## v0.15.1
 #### Enhancements
@@ -214,6 +226,7 @@
 - !209 addresses #125 by reformatting all code using [black](https://black.readthedocs.io/en/stable/).
 - !209 sets up [pre-commit infrastructure](https://pre-commit.com/) to automate code formatting.
 - !218 moves custom dantro exception types into their own module and provides a common base class.
+
 
 
 ## v0.14.1
