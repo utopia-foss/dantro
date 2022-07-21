@@ -60,24 +60,28 @@ _Note_ that if you have both Python 2 and Python 3 installed, you might have to 
 ### Dependencies
 `dantro` is implemented and tested for [Python >= 3.8][Python3] and depends on the following packages:
 
-| Package Name                  | Minimum Version  | Purpose                  |
-| ----------------------------- | ---------------- | ------------------------ |
-| [numpy][numpy]                | 1.21             | |
-| [xarray][xarray]              | 0.16.2           | For labelled N-dimensional arrays |
-| [dask][dask]                  | 2.10             | To work with large data |
-| [toolz][toolz]                | 0.10             | For [dask.delayed][dask-delayed]
-| [distributed][distributed]    | 2.10             | For distributed computing |
-| [scipy][scipy]                | 1.7.3            | As engine for NetCDF files |
-| [sympy][sympy]                | 1.7              | For symbolic math operations |
-| [h5py][h5py]                  | 3.6              | For reading HDF5 datasets |
-| [h5netcdf][h5netcdf]          | 1.0              | h5py-based netcdf backend |
-| [matplotlib][matplotlib]      | 3.3              | For data visualization |
-| [seaborn][seaborn]            | 0.11             | For advanced data visualization |
-| [networkx][networkx]          | 2.8              | For network visualization |
-| [ruamel.yaml][ruamelyaml]     | 0.16.12          | For parsing YAML configuration files |
-| [dill][dill]                  | 0.3.3            | For advanced pickling |
-| [paramspace][paramspace]      | 2.5.6            | For dictionary- or YAML-based parameter spaces |
+| Package Name                  | Purpose                                     |
+| ----------------------------- | ------------------------------------------- |
+| [numpy][numpy]                | For fast and versatile array operations |
+| [xarray][xarray]              | For labelled N-dimensional arrays |
+| [dask][dask]                  | To work with large data |
+| [toolz][toolz]                | For [dask.delayed][dask-delayed]
+| [distributed][distributed]    | For distributed computing |
+| [scipy][scipy]                | As engine for NetCDF files |
+| [sympy][sympy]                | For symbolic math operations |
+| [h5py][h5py]                  | For reading HDF5 datasets |
+| [h5netcdf][h5netcdf]          | h5py-based netcdf backend |
+| [matplotlib][matplotlib]      | For data visualization |
+| [seaborn][seaborn]            | For advanced data visualization |
+| [networkx][networkx]          | For network visualization |
+| [dill][dill]                  | For advanced pickling |
+| [ruamel.yaml][ruamelyaml]     | For parsing YAML configuration files |
+| [paramspace][paramspace]      | For dictionary- or YAML-based parameter spaces |
 
+If not specified further, dantro does not impose lower or upper bounds on package versions.
+Effectively, dantro works with the latest versions of all dependencies and the scheduled CI jobs make sure that combination continues working.
+
+In case you have trouble with dependencies, make sure you have the most recent version of dantro installed.
 
 
 ## Developing dantro
