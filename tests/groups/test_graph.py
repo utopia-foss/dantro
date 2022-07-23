@@ -387,7 +387,7 @@ def test_set_property_functions(graph_grps, graph_data):
         grp.set_edge_property(g=g, name="foo")
 
     # invalid time key
-    with pytest.raises(KeyError, match="42"):
+    with pytest.raises(KeyError):
         grp.set_node_property(g=g, name="np", at_time=42)
 
     with pytest.raises(IndexError, match="42"):
