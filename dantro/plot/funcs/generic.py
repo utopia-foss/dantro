@@ -862,16 +862,17 @@ def facet_grid(
         #      Gaining a deeper understanding of this issue and corresponding
         #      xarray functionality is something to investigate in the future.
 
-        # Determine which figure and axes to attach to the PlotHelper
+        # Determine which figure and axes to attach to the PlotHelper.
+        # This is necessary because a figure might have been created in the
+        # invoked plot function and we need to make sure that we attach it
+        # correctly, otherwise there will be no plot output.
         if isinstance(rv, xr.plot.FacetGrid):
             fig = rv.fig
             axes = rv.axes
         else:
-            # Use figure already attached to helper if they exist; these are
-            # certain to be the currently relevant figure and axes.
-            # If not available, let matplotlib decide.
-            fig = plt.gcf() if hlpr._fig is None else hlpr.fig
-            axes = plt.gca() if hlpr._axes is None else hlpr.axes
+            # Use the currently set figure and its axes.
+            fig = plt.gcf()
+            axes = plt.gca()
 
         # When now attaching the new figure and axes, the previously existing
         # figure (the one .clear()-ed above) is closed and discarded.
@@ -917,7 +918,6 @@ def facet_grid(
         # Exit animation mode, if it was enabled. Then plot the figure. Done.
         hlpr.disable_animation()
         plot_frame(d, kind=kind, plot_kwargs=plot_kwargs)
-
         return
 
     # else: Animation is desired. Might have to enable it.
