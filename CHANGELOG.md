@@ -2,6 +2,10 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.18.1
+- !304 fixes a bug in `.plot.facet_grid` where a non-faceting plot with `size` and/or `aspect` arguments would cause an empty output.
+
+
 ## v0.18.0
 - !263 implements various improvements to the plotting and data transformation framework, improving performance, communication and overall usability:
     - Allow caching whole `TransformationDAG` trees in order to avoid re-building them (which can be very time-consuming if there are many nodes)
