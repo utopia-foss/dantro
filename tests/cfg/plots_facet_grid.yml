@@ -401,6 +401,27 @@ scatter3d:
       4: *z-Exception
 
 
+# .. Figure creation ..........................................................
+fig_creation:
+  figure_not_created:
+    kinds: [auto]
+    specifiers: []
+    max_dims: 4
+    plot_kwargs:
+      auto_encoding: true
+
+  figure_created:
+    kinds: [auto]
+    specifiers: []
+    max_dims: 4
+    plot_kwargs:
+      auto_encoding: true
+
+      # The following arguments trigger figure creation for non-faceting plots:
+      size: 4
+      aspect: 1
+
+
 # .. ColorManager support .....................................................
 cm_support:
   # for dantro-implemented plot functions that support cmap

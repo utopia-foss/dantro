@@ -649,6 +649,13 @@ def test_facet_grid_cm_support(dm, out_dir):
     )
 
 
+def test_facet_grid_fig_creation(dm, out_dir):
+    """Test figure creation for faceting and non-faceting plots"""
+    invoke_facet_grid(
+        dm=dm, out_dir=out_dir, to_test=PLOTS_CFG_FG["fig_creation"]
+    )
+
+
 # -- Extended tests -----------------------------------------------------------
 
 

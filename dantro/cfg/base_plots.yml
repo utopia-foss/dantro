@@ -651,7 +651,7 @@ _:
 
 .dag.vis.enabled:
   dag_visualization:
-    enabled: false
+    enabled: true
 
 .dag.vis.always:
   dag_visualization:
