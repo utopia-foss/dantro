@@ -51,7 +51,8 @@ def print_data(
         end (str, optional): The ``end`` argument to the ``print`` call
         fstr (str, optional): If given, will use this to format the data for
             printing. The data will be the passed as first *positional*
-            argument to the format string, thus addressable by ``{0:}``.
+            argument to the format string, thus addressable by ``{0:}`` or
+            ``data`` (e.g. to access attributes via format-string syntax).
             If the format string is not ``None``, will *always* use the format
             string and not use the custom formatting for dantro objects.
         **fstr_kwargs: Keyword arguments passed to the :py:func:`format`
@@ -61,13 +62,13 @@ def print_data(
         Any: the given ``data``
     """
     if fstr is None and isinstance(data, BaseDataContainer):
-        print(f"{data}, with data:\n{data.data}\n", end=end)
+        print(f"{data}, with data:\n{str(data.data)}\n", end=end)
 
     elif fstr is None and isinstance(data, BaseDataGroup):
         print(f"{data.tree}\n", end=end)
 
     else:
         fstr = fstr if fstr is not None else "{0:}"
-        print(fstr.format(data, **fstr_kwargs), end=end)
+        print(fstr.format(str(data), data=data, **fstr_kwargs), end=end)
 
     return data

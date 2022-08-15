@@ -11,7 +11,7 @@ import xarray as xr
 
 import dantro
 import dantro.data_ops.db as dops
-from dantro.containers import ObjectContainer
+from dantro.containers import ObjectContainer, XrDataContainer
 from dantro.data_ops import _OPERATIONS as OPERATIONS
 from dantro.data_ops import apply_operation, is_operation, register_operation
 from dantro.exceptions import *
@@ -235,7 +235,7 @@ def test_apply_operation():
 # -----------------------------------------------------------------------------
 
 
-def test_op_print_data():
+def test_op_print_data(capsys):
     """Tests the print_data operation
 
     Does not test the print output; but that should be ok.
@@ -244,9 +244,41 @@ def test_op_print_data():
     d = dict(foo="bar")
     assert dops.print_data(d) is d
 
-    # Coverage test for dantro objects
-    dops.print_data(OrderedDataGroup(name="foo"))
-    dops.print_data(ObjectContainer(name="objs", data=d))
+    # dantro opjects are shown differently
+    dops.print_data(OrderedDataGroup(name="spam"))
+    dops.print_data(ObjectContainer(name="my_dict", data=d))
+
+    # Can also format more complex objects
+    da = xr.DataArray(
+        [1, 2, 3], dims=("some_dim",), coords=dict(some_dim=range(3))
+    )
+    da.attrs["some_attr"] = "this is an attribute"
+    dops.print_data(XrDataContainer(name="my_xr_array", data=da))
+
+    # And use an fstr for more control
+    dops.print_data(
+        ObjectContainer(name="my_list", data=["FOO", "BAR", "SPAM"]),
+        fstr="my custom fstr: {data[2]}",
+    )
+
+    # Check the output
+    captured = capsys.readouterr()
+    print(captured.out)
+
+    assert str(d) in captured.out
+
+    assert "Tree of OrderedDataGroup 'spam'" in captured.out
+
+    assert "<ObjectContainer 'my_dict'" in captured.out
+    assert f"with data:\n{repr(d)}" in captured.out
+
+    assert "xarray.DataArray" in captured.out
+    assert "some_dim" in captured.out
+    assert "some_attr" in captured.out
+
+    assert "FOO" not in captured.out
+    assert "my custom fstr" in captured.out
+    assert "SPAM" in captured.out
 
 
 def test_op_import_module_or_object():
