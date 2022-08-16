@@ -2,6 +2,9 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.18.2
+- !305 fixes a regression in the `print_data` data operation, which led to uninformative output for xarray objects.
+
 ## v0.18.1
 - !304 fixes a bug in `.plot.facet_grid` where a non-faceting plot with `size` and/or `aspect` arguments would cause an empty output.
 
