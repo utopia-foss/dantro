@@ -2,6 +2,10 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.18.3 *(work in progress)*
+- !306 fixes a bug that prohibited re-creating a plot from the plot configuration file saved alongside the plot output.
+
+
 ## v0.18.2
 - !305 fixes a regression in the `print_data` data operation, which led to uninformative output for xarray objects.
 
