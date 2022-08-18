@@ -1,5 +1,7 @@
 """Tests the PyPlotCreator class."""
 
+import os
+
 import matplotlib.pyplot as plt
 import pytest
 from pkg_resources import resource_filename
@@ -14,6 +16,8 @@ from dantro.plot import (
 )
 from dantro.plot.utils import figure_leak_prevention
 from dantro.tools import load_yml, recursive_update
+
+from ..._fixtures import *
 
 # Fixtures --------------------------------------------------------------------
 # Import some from other tests
@@ -31,14 +35,15 @@ def init_kwargs(dm) -> dict:
 
 
 @pytest.fixture
-def tmp_rc_file(tmpdir) -> str:
+def tmp_rc_file(out_dir) -> str:
     """Creates a temporary yaml file with matplotlib rcParams"""
     rc_paramaters = "figure.dpi: 10 \naxes.grid: True\n"
 
-    path = tmpdir.join("test_rc_file.yml")
-    path.write(rc_paramaters)
+    fpath = os.path.join(out_dir, "test_rc_file.yml")
+    with open(fpath, "x") as f:
+        f.write(rc_paramaters)
 
-    return path
+    return fpath
 
 
 # Tests -----------------------------------------------------------------------

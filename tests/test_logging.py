@@ -2,20 +2,20 @@
 
 import pytest
 
-from dantro import log
-
 # -----------------------------------------------------------------------------
 
 
 def test_logging():
     """...using the root logger"""
-    log.trace("Trace")
-    log.debug("Debug")
-    log.note("Note")
-    log.info("Info")
-    log.progress("Progress")
-    log.hilight("Hilight")
-    log.warning("Warning")
-    log.success("Success")
-    log.error("Error")
-    log.critical("Critical")
+    from dantro import _log
+
+    _log.trace("Trace")
+    _log.debug("Debug")
+    _log.note("Note")
+    _log.info("Info")
+    _log.progress("Progress")
+    _log.hilight("Hilight")
+    _log.warning("Warning")
+    _log.success("Success")
+    _log.error("Error")
+    _log.critical("Critical")

@@ -43,12 +43,15 @@ DOC_EXAMPLES_CFG = resource_filename("tests", "cfg/doc_examples.yml")
 
 
 # Fixtures --------------------------------------------------------------------
+from ._fixtures import *
 
 
 @pytest.fixture
 def data_dir(tmpdir):
-    """Writes some dummy data to a tmpdir, returning the tmpdir object"""
+    """Writes some dummy data to a tmpdir, returning the Path object"""
     from dantro.tools import write_yml
+
+    out_dir = tmpdir
 
     # Create YAML dummy data and write it out
     foobar = dict(
@@ -56,12 +59,12 @@ def data_dir(tmpdir):
     )
     barbaz = dict(nothing="to see here")
 
-    write_yml(foobar, path=tmpdir.join("foobar.yml"))
-    write_yml(barbaz, path=tmpdir.join("barbaz.yml"))
-    write_yml(barbaz, path=tmpdir.join("also_barbaz.yml"))
+    write_yml(foobar, path=out_dir.join("foobar.yml"))
+    write_yml(barbaz, path=out_dir.join("barbaz.yml"))
+    write_yml(barbaz, path=out_dir.join("also_barbaz.yml"))
 
     # Create a directory with some "config" files
-    cfgdir = tmpdir.mkdir("config")
+    cfgdir = out_dir.mkdir("config")
 
     for cfg_name in ("defaults", "user", "machine", "update", "combined"):
         write_yml(
@@ -70,7 +73,7 @@ def data_dir(tmpdir):
         )
 
     # Create some dummy HDF5 data
-    h5dir = tmpdir.mkdir("measurements")
+    h5dir = out_dir.mkdir("measurements")
 
     # Create files of the same structure, containing groups and datasets
     for i in range(42):
@@ -107,7 +110,7 @@ def data_dir(tmpdir):
 
         f.close()
 
-    return tmpdir
+    return out_dir
 
 
 @pytest.fixture
@@ -167,13 +170,13 @@ def test_usage_all(data_dir):
 
     ### Start -- usage_loading_work_with_objects
     # Get the loaded objects
-    foobar = dm['my_cfg_files']['foobar']
-    barbaz = dm['my_cfg_files/barbaz']
+    foobar = dm["my_cfg_files"]["foobar"]
+    barbaz = dm["my_cfg_files/barbaz"]
     # ... can now work with these as if they were dicts
     ### End ---- usage_loading_work_with_objects
 
     ### Start -- usage_loading_iteration
-    for container_name, container in dm['my_cfg_files'].items():
+    for container_name, container in dm["my_cfg_files"].items():
         print("Got container:", container_name, container)
         # ... do something with the containers also_barbaz, barbaz, and foobar
     ### End ---- usage_loading_iteration
@@ -346,7 +349,7 @@ def test_data_io_data_mngr(data_dir):
             glob_str="*.yml")  # which files to find and load
 
     # Access it
-    dm['some_data']
+    dm["some_data"]
     # ...
     ### End ---- data_io_data_mngr_example01
 
@@ -368,7 +371,7 @@ def test_data_io_load_cfg(data_dir, cfg):
 
     # Use a new DataManager, without output directory
     dm = MyDataManager(data_dir=my_data_dir, out_dir=False,
-                       load_cfg=cfg['example01'])
+                       load_cfg=cfg["example01"])
     ### Start -- data_io_load_cfg_example01
     dm.load_from_cfg(print_tree=True)
     # Will print something like:
@@ -382,9 +385,9 @@ def test_data_io_load_cfg(data_dir, cfg):
     ### End ---- data_io_load_cfg_example01
 
     dm = MyDataManager(data_dir=my_data_dir, out_dir=False,
-                       load_cfg=cfg['example02'])
+                       load_cfg=cfg["example02"])
     ### Start -- data_io_load_cfg_example02
-    dm.load_from_cfg(print_tree='condensed')
+    dm.load_from_cfg(print_tree="condensed")
     # Will print something like:
     # Tree of MyDataManager, 1 member, 0 attributes
     #  └─ measurements                <OrderedDataGroup, 42 members, 0 attributes>
@@ -411,9 +414,9 @@ def test_data_io_load_cfg(data_dir, cfg):
     ### End ---- data_io_load_cfg_example02
 
     dm = MyDataManager(data_dir=my_data_dir, out_dir=False,
-                       load_cfg=cfg['example03'])
+                       load_cfg=cfg["example03"])
     ### Start -- data_io_load_cfg_example03
-    dm.load_from_cfg(print_tree='condensed')
+    dm.load_from_cfg(print_tree="condensed")
     # Will print something like:
     # Tree of MyDataManager , 1 member, 0 attributes
     #  └─ measurements                <OrderedDataGroup, 42 members, 0 attributes>
@@ -435,21 +438,21 @@ def test_data_io_load_cfg(data_dir, cfg):
     #            ├ ...
 
     # Check attribute access to the parameters
-    for cont_name, data in dm['measurements'].items():
-        params = data.attrs['params']
-        assert params['day'] == int(cont_name)
+    for cont_name, data in dm["measurements"].items():
+        params = data.attrs["params"]
+        assert params["day"] == int(cont_name)
     ### End ---- data_io_load_cfg_example03
 
-    my_load_cfg = cfg['example04']
+    my_load_cfg = cfg["example04"]
     ### Start -- data_io_load_cfg_example04
     from dantro.groups import TimeSeriesGroup
 
     dm = MyDataManager(data_dir=my_data_dir, out_dir=False,
                        load_cfg=my_load_cfg,
-                       create_groups=[dict(path='measurements',
+                       create_groups=[dict(path="measurements",
                                            Cls=TimeSeriesGroup)])
 
-    dm.load_from_cfg(print_tree='condensed')
+    dm.load_from_cfg(print_tree="condensed")
     # Will print something like:
     # Tree of MyDataManager , 1 member, 0 attributes
     #  └─ measurements                <TimeSeriesGroup, 42 members, 0 attributes>
@@ -463,7 +466,7 @@ def test_data_io_load_cfg(data_dir, cfg):
     ### End ---- data_io_load_cfg_example04
 
 
-    my_load_cfg = cfg['example05']
+    my_load_cfg = cfg["example05"]
     ### Start -- data_io_load_cfg_example05
     from dantro.containers import XrDataContainer
     from dantro.mixins import Hdf5ProxySupportMixin
@@ -480,7 +483,7 @@ def test_data_io_load_cfg(data_dir, cfg):
 
     dm = MyDataManager(data_dir=my_data_dir, out_dir=False,
                        load_cfg=my_load_cfg)
-    dm.load_from_cfg(print_tree='condensed')
+    dm.load_from_cfg(print_tree="condensed")
     # Will print something like:
     # Tree of MyDataManager , 1 member, 0 attributes
     #  └─ measurements                <OrderedDataGroup, 42 members, 0 attributes>
@@ -494,8 +497,8 @@ def test_data_io_load_cfg(data_dir, cfg):
 
     # Work with the data in the same way as before; it's loaded on the fly
     total_precipitation = 0.
-    for day_data in dm['measurements'].values():
-        total_precipitation += day_data['precipitation'].sum()
+    for day_data in dm["measurements"].values():
+        total_precipitation += day_data["precipitation"].sum()
     ### End ---- data_io_load_cfg_example05
 
 
@@ -638,12 +641,12 @@ def test_plot_cfg_ref(cfg, tmpdir, pm_dm, pm_kwargs, pcr_pyplot_kwargs):
     """Tests the examples for the plot configuration reference"""
     from dantro import PlotManager
 
-    cfg = cfg['plot_cfg_ref']
+    cfg = cfg["plot_cfg_ref"]
     dm = pm_dm
 
     # Use a tmpdir for the custom plot output directory
-    cfg['mngr_overview']['my_plot']['out_dir'] = str(tmpdir.join("overview"))
+    cfg["mngr_overview"]["my_plot"]["out_dir"] = str(tmpdir.join("overview"))
 
     # Run the examples
     pm = PlotManager(dm=dm, raise_exc=True)
-    pm.plot_from_cfg(plots_cfg=cfg['mngr_overview'])
+    pm.plot_from_cfg(plots_cfg=cfg["mngr_overview"])

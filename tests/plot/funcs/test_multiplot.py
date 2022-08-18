@@ -39,6 +39,8 @@ logging.getLogger("matplotlib").setLevel(logging.WARNING)
 # -- Helpers ------------------------------------------------------------------
 
 
+from ..._fixtures import *
+
 # -- Fixtures -----------------------------------------------------------------
 # Import fixtures from other tests
 from ...test_plot_mngr import dm as _dm

@@ -3,8 +3,9 @@
 # This can be used to couple to external methods and use the PlotManager only
 # as a basic configuration frontend.
 ---
+# From a pre-defined plot function
 from_func: &from_func
-  # creator: pyplot  (already set by default here)
+  # creator: pyplot  (automatically determined)
 
   # Specify the module to find the function in
   module: .basic  # relative to the dantro.plot.funcs subpackage
@@ -21,6 +22,8 @@ from_func: &from_func
 
   fmt: go-
 
+
+# From a plot function stored in a custom test module
 from_file:
   # It is also possible to import a plot function from a file, e.g. a module
   # that might not have been installed.
@@ -38,6 +41,8 @@ from_file:
   foo: bar
   spam: eggs
 
+
+# A parameter sweep plot configuration
 sweep: !pspace
   <<: *from_func
 
@@ -46,3 +51,38 @@ sweep: !pspace
     values:
       - vectors/values
       - vectors/more_values
+
+
+# With plot config inheritance *and* sweeps
+from_base_plots: !pspace
+  based_on:
+    - .creator.pyplot
+    - .plot.facet_grid.line
+
+  dag_options:
+    define:
+      exp: !pdim
+        default: 2
+        values: [2, 3, 4]
+
+  transform:
+    - .format: ["exponent: {}", !dag_tag exp]
+      tag: title
+
+    - np.array: !range [24]
+    - pow: [!dag_prev , !dag_tag exp]
+    - np.reshape: [!dag_prev , [8, 3]]
+    - xr.DataArray: !dag_prev
+      kwargs:
+        dims: [x, h]
+        coords:
+          x: !range [8]
+          h: [foo, bar, baz]
+      tag: data
+
+  x: x
+  hue: h
+
+  helpers:
+    set_title:
+      title: !dag_result title

@@ -33,17 +33,18 @@ CFG_HELPER = load_yml(CFG_HELPER_PATH)
 CFG_HELPER_FUNCS = load_yml(CFG_HELPER_FUNCS_PATH)
 CFG_ANIM = load_yml(CFG_ANIM_PATH)
 
+from .._fixtures import *
+
 # Fixtures --------------------------------------------------------------------
 # Import some from other tests
 from ..test_plot_mngr import dm
 
 
 @pytest.fixture
-def hlpr(tmpdir) -> PlotHelper:
+def hlpr(out_dir) -> PlotHelper:
     """Plot Helper for testing methods directly"""
-    return PlotHelper(
-        out_path=tmpdir.join("test.pdf"), helper_defaults=CFG_HELPER
-    )
+    test_path = os.path.join(out_dir, "test.pdf")
+    return PlotHelper(out_path=test_path, helper_defaults=CFG_HELPER)
 
 
 @pytest.fixture

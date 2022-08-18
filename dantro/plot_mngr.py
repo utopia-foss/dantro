@@ -676,20 +676,24 @@ class PlotManager:
         name: str,
         *,
         plot_cfg: dict,
+        plot_cfg_extras: dict,
         creator_name: str,
         save: bool,
         target_dir: str,
+        part_of_sweep: bool = False,
         **info,
     ):
-        """Stores all plot information in the plot_info list and, if `save` is
-        set, also saves it using the _save_plot_cfg method.
+        """Stores all plot information in the plot_info list and, if ``save``
+        is set, also saves it using :py:meth:`._save_plot_cfg`.
         """
         # Prepare the entry
         entry = dict(
             name=name,
             plot_cfg=plot_cfg,
+            plot_cfg_extras=plot_cfg_extras,
             target_dir=target_dir,
             creator_name=creator_name,
+            part_of_sweep=part_of_sweep,
             **info,
             plot_cfg_path=None,
         )
@@ -700,7 +704,7 @@ class PlotManager:
                 plot_cfg,
                 name=name,
                 target_dir=target_dir,
-                creator_name=creator_name,
+                **plot_cfg_extras,
             )
 
             # Store the path the configuration was saved at
@@ -714,10 +718,10 @@ class PlotManager:
         cfg: dict,
         *,
         name: str,
-        creator_name: str,
         target_dir: str,
         exists_action: str = None,
         is_sweep: bool = False,
+        **plot_cfg_extras,
     ) -> str:
         """Saves the given configuration under the top-level entry ``name`` to
         a yaml file.
@@ -725,7 +729,6 @@ class PlotManager:
         Args:
             cfg (dict): The plot configuration to save
             name (str): The name of the plot
-            creator_name (str): The name of the creator
             target_dir (str): The directory path to store the file in
             exists_action (str, optional): What to do if a plot configuration
                 already exists. Can be: ``overwrite``, ``overwrite_nowarn``,
@@ -733,6 +736,8 @@ class PlotManager:
                 ``cfg_exists_action`` argument given during initialization.
             is_sweep (bool, optional): Set if the configuration refers to a
                 plot in sweep mode, for which a different format string is used
+            **plot_cfg_extras: Added to the plot configuration via recursive
+                update.
 
         Returns:
             str: The path the config was saved at (mainly used for testing)
@@ -748,12 +753,14 @@ class PlotManager:
         d = dict()
         d[name] = copy.deepcopy(cfg)
 
+        # Need to include some extra information like the creator and the
+        # plot function that was used
         if not isinstance(cfg, ParamSpace):
-            d[name]["creator"] = creator_name
+            d[name] = recursive_update(d[name], plot_cfg_extras)
 
         else:
             # FIXME hacky, should not use the internal API!
-            d[name]._dict["creator"] = creator_name
+            d[name]._dict = recursive_update(d[name]._dict, plot_cfg_extras)
 
         # Generate the filename and save path
         fn_fstr = self.out_fstrs["plot_cfg_sweep" if is_sweep else "plot_cfg"]
@@ -787,9 +794,9 @@ class PlotManager:
 
             else:
                 raise ValueError(
-                    "Invalid value '{}' for argument `exists_action`!".format(
-                        exists_action
-                    )
+                    f"Invalid value '{exists_action}' for argument "
+                    "`exists_action`! Choose from: raise, skip, append, "
+                    "overwrite, overwrite_nowarn"
                 )
 
         else:
@@ -1155,7 +1162,7 @@ class PlotManager:
                 directory. If not, will use the default value given by
                 ``default_out_dir`` or that given at initialization.
             default_out_dir (str, optional): An output directory that was
-                determined in the calling context and which should be used as
+                determined *in the calling context* and which should be used as
                 default if no ``out_dir`` was given explicitly.
             file_ext (str, optional): The file extension to use, including the
                 leading dot!
@@ -1185,6 +1192,22 @@ class PlotManager:
 
         log.debug("Preparing plot '%s' ...", name)
         t0 = time.time()
+
+        # Gather arguments that are explicitly handled here; they may still be
+        # needed downstream, e.g. when storing the plot configuration to file.
+        plot_cfg_extras = dict(
+            out_dir=out_dir,
+            file_ext=file_ext,
+            creator=creator,
+            plot_func=str(plot_func),  # ... to not have a callable in here
+            module=module,
+            module_file=module_file,
+            creator_init_kwargs=copy.deepcopy(creator_init_kwargs),
+            save_plot_cfg=save_plot_cfg,
+        )
+        plot_cfg_extras = {
+            k: v for k, v in plot_cfg_extras.items() if v is not None
+        }
 
         # Evaluate the output directory and whether to save plot configs
         if not out_dir:
@@ -1252,9 +1275,11 @@ class PlotManager:
                 creator_name=creator,
                 out_path=out_path,
                 plot_cfg=plot_cfg,
+                plot_cfg_extras=plot_cfg_extras,
                 save=save_plot_cfg and rv != "skipped",
                 target_dir=os.path.dirname(out_path),
                 creator_rv=rv,
+                part_of_sweep=False,
             )
 
             if rv is True:
@@ -1266,7 +1291,7 @@ class PlotManager:
 
             return plot_creator
 
-        # else: Is a parameter sweep over the plot configuration.
+        # else: Is a parameter sweep over the plot configuration ..............
         # NOTE The parameter space is allowed to have volume 0!
 
         # Make sure it's a ParamSpace
@@ -1363,11 +1388,13 @@ class PlotManager:
                 creator_name=creator,
                 out_path=out_path,
                 plot_cfg=dict(**cfg, **plot_cfg),
+                plot_cfg_extras=plot_cfg_extras,
                 state_no=state_no,
                 state_vector=state_vector,
                 save=(save_plot_cfg and psp_vol == 0 and rv != "skipped"),
                 target_dir=os.path.dirname(out_path),
                 creator_rv=rv,
+                part_of_sweep=True,
             )
 
             # Count skipped plots
@@ -1395,9 +1422,9 @@ class PlotManager:
             self._save_plot_cfg(
                 from_pspace,
                 name=name,
-                creator_name=creator,
                 target_dir=out_dir,
                 is_sweep=True,
+                **plot_cfg_extras,
             )
 
         dt = time.time() - t0

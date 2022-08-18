@@ -22,7 +22,11 @@ from dantro.plot_mngr import (
 )
 from dantro.tools import load_yml
 
+from ._fixtures import *
+
 # Local constants .............................................................
+# TODO Find better names for files
+
 # Paths
 PLOTS_EXT_PATH = resource_filename("tests", "cfg/plots_ext.yml")
 PLOTS_EXT2_PATH = resource_filename("tests", "cfg/plots_ext2.yml")
@@ -38,17 +42,14 @@ UPDATE_BASE_EXT = load_yml(UPDATE_BASE_EXT_PATH)
 BASED_ON_EXT = load_yml(BASED_ON_EXT_PATH)
 
 
-# Test classes ----------------------------------------------------------------
-
-
 # Fixtures --------------------------------------------------------------------
 
 
 @pytest.fixture
-def dm(tmpdir) -> DataManager:
+def dm(tmpdir_or_local_dir) -> DataManager:
     """Returns a DataManager with some test data for plotting."""
     # Initialize it to a temporary direcotry and without load config
-    dm = DataManager(tmpdir)
+    dm = DataManager(tmpdir_or_local_dir)
 
     # Now add data to it
     # Groups
@@ -72,6 +73,7 @@ def pm_kwargs(tmpdir) -> dict:
     """Common plot manager kwargs to use; uses the PyPlotCreator for all
     the tests."""
     # Create a test module that just writes a file to the given path
+    # This does not create an image file!
     write_something_funcdef = (
         "def write_something(dm, *, out_path, **kwargs):\n"
         "    '''Writes the kwargs to the given path'''\n"
@@ -124,7 +126,7 @@ def pspace_plots() -> dict:
 # Tests -----------------------------------------------------------------------
 
 
-def test_init(dm, tmpdir):
+def test_init(dm, out_dir):
     """Tests initialisation"""
     # Test different ways to initialize
     # Only with DataManager; will then later have to pass configuration
@@ -151,7 +153,7 @@ def test_init(dm, tmpdir):
     )
 
     # With a separate output directory
-    PlotManager(dm=dm, out_dir=tmpdir.mkdir("out"))
+    PlotManager(dm=dm, out_dir=out_dir)
 
     # With updating out_fstrs
     pm = PlotManager(dm=dm, out_fstrs=dict(state="foo"))
@@ -176,11 +178,12 @@ def test_plotting(dm, pm_kwargs, pcr_pyplot_kwargs):
 
     # Plot all from the given plots config file
     pm.plot_from_cfg()
-    assert_num_plots(pm, 4)  # 3 configured, one is pspace with volume 2
+    assert_num_plots(pm, 7)
+    # 4 plots configured: two regular ones, one pspace volume 2, one volume 3
 
     # Assert that plot files were created
     for pi in pm.plot_info:
-        print("Checking plot info: ", pi)
+        print("\nChecking plot info: ", pi)
         assert pi["out_path"]
         assert os.path.exists(pi["out_path"])
 
@@ -188,12 +191,12 @@ def test_plotting(dm, pm_kwargs, pcr_pyplot_kwargs):
     # An invalid key should be propagated
     with pytest.raises(ValueError, match="Could not find a configuration"):
         pm.plot_from_cfg(plot_only=["invalid_key"])
-    assert_num_plots(pm, 4)
+    assert_num_plots(pm, 7)
 
     # Invalid plot specification
     with pytest.raises(PlotConfigError, match="invalid plots specifications"):
         pm.plot_from_cfg(invalid_entry=(1, 2, 3))
-    assert_num_plots(pm, 4)
+    assert_num_plots(pm, 7)
 
     # Now, directly using the plot function
     # If default values were given during init, this should work.
@@ -201,7 +204,7 @@ def test_plotting(dm, pm_kwargs, pcr_pyplot_kwargs):
     pm.plot(
         "foo", **pcr_pyplot_kwargs, creator_init_kwargs=dict(default_ext="pdf")
     )
-    assert_num_plots(pm, 4 + 1)
+    assert_num_plots(pm, 7 + 1)
 
     # Otherwise, without out_dir or creator arguments, not:
     with pytest.raises(PlotConfigError, match="No `out_dir` specified"):
@@ -218,12 +221,12 @@ def test_plotting(dm, pm_kwargs, pcr_pyplot_kwargs):
 
     # Assert that config files were created
     pm.plot("bar", **pcr_pyplot_kwargs)
-    assert_num_plots(pm, 4 + 2)
+    assert_num_plots(pm, 7 + 2)
     assert pm.plot_info[-1]["plot_cfg_path"]
     assert os.path.exists(pm.plot_info[-1]["plot_cfg_path"])
 
     pm.plot("baz", **pcr_pyplot_kwargs, save_plot_cfg=False)
-    assert_num_plots(pm, 4 + 3)
+    assert_num_plots(pm, 7 + 3)
     assert pm.plot_info[-1]["plot_cfg_path"] is None
 
     # Can also pass a custom creator type or callable
@@ -625,7 +628,7 @@ def test_raise_exc(dm, pm_kwargs):
         )
 
 
-def test_save_plot_cfg(tmpdir, dm, pm_kwargs):
+def test_save_plot_cfg(tmpdir_or_local_dir, dm, pm_kwargs):
     """Tests saving of the plot configuration"""
     pm_kwargs["raise_exc"] = True
     pm = PlotManager(dm=dm, **pm_kwargs)
@@ -633,7 +636,7 @@ def test_save_plot_cfg(tmpdir, dm, pm_kwargs):
     save_kwargs = dict(
         name="cfg_save_test",
         creator_name="testcreator",
-        target_dir=str(tmpdir),
+        target_dir=str(tmpdir_or_local_dir),
     )
 
     # First write
@@ -672,6 +675,58 @@ def test_save_plot_cfg(tmpdir, dm, pm_kwargs):
         pm._save_plot_cfg(
             dict(foo="barzz"), **save_kwargs, exists_action="invalid"
         )
+
+
+def test_plot_from_saved_plot_cfg(dm, pm_kwargs):
+    """Tests whether creating a plot from a saved plot configuration works
+    just as well.
+    """
+    pm_kwargs["raise_exc"] = True
+    pm = PlotManager(dm=dm, default_plots_cfg=PLOTS_EXT, **pm_kwargs)
+
+    # Perform some plots
+    pm.plot_from_cfg(out_dir="run1/")
+
+    # Check that the output files were generated and store information on the
+    # plot configuration files
+    plot_cfg_paths = set()
+    file_sizes = dict()
+
+    for pi in pm.plot_info:
+        print("\nChecking plot info: ", pi)
+        assert pi["out_path"]
+        assert os.path.exists(pi["out_path"])
+
+        if not pi["part_of_sweep"]:
+            plot_cfg_path = os.path.join(
+                os.path.dirname(pi["out_path"]),
+                pi["name"] + "_cfg.yml",
+            )
+            assert plot_cfg_path == pi["plot_cfg_path"]
+
+        else:
+            plot_cfg_path = os.path.join(
+                os.path.dirname(pi["out_path"]),
+                "sweep_cfg.yml",
+            )
+
+        assert os.path.isfile(plot_cfg_path)
+        plot_cfg_paths.add(plot_cfg_path)
+        file_sizes[pi["out_path"]] = os.path.getsize(pi["out_path"])
+
+    # Now plot again using those plot config files
+    for plot_cfg_path in plot_cfg_paths:
+        pm.plot_from_cfg(plots_cfg=plot_cfg_path, out_dir="run2/")
+
+        # Check that files have approximately the same size as the previously
+        # created ones.
+        # For sweeps, will only check the last file, but that's good enough.
+        pi = pm.plot_info[-1]
+        assert os.path.isfile(pi["out_path"])
+
+        fs_run1 = file_sizes[pi["out_path"].replace("run2", "run1")]
+        fs_run2 = os.path.getsize(pi["out_path"])
+        assert abs(fs_run2 - fs_run1) < 64
 
 
 def test_plot_skipping(dm, pm_kwargs):
