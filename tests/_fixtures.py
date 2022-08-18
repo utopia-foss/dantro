@@ -2,6 +2,7 @@
 
 import os
 import pathlib
+import shutil
 
 import numpy as np
 import pytest
@@ -55,8 +56,12 @@ def tmpdir_or_local_dir(tmpdir, request) -> pathlib.Path:
             request.node.originalname.replace("test_", ""),
         )
 
+    # Clean out that directory and then recreate it
     print(f"Using local test output directory:\n  {test_dir}")
+    if os.path.isdir(test_dir):
+        shutil.rmtree(test_dir)
     os.makedirs(test_dir, exist_ok=True)
+
     return pathlib.Path(test_dir)
 
 
