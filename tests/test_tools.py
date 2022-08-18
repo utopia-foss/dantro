@@ -4,6 +4,7 @@ import copy
 
 import numpy as np
 import pytest
+import ruamel.yaml
 
 import dantro
 import dantro.tools as t
@@ -229,6 +230,74 @@ def test_format_time():
 
 
 # Tests of package-private modules --------------------------------------------
+
+
+def test_load_yml(tmpdir):
+    """Tests _yaml.load_yml function"""
+    from ruamel.yaml.parser import ParserError
+
+    load_yml = dantro._yaml.load_yml
+
+    # Some regular file, returning a dict
+    with open(tmpdir.join("works.yml"), "x") as f:
+        f.write("---\n{foo: bar, baz: 123, nested: {spam: fish}}\n")
+
+    d = load_yml(tmpdir.join("works.yml"))
+    assert d == dict(foo="bar", baz=123, nested=dict(spam="fish"))
+
+    # An empty file, returning None
+    with open(tmpdir.join("empty.yml"), "x") as f:
+        f.write("---\n")
+
+    rv = load_yml(tmpdir.join("empty.yml"))
+    assert rv is None
+
+    # Loading fails
+    with open(tmpdir.join("fails.yml"), "x") as f:
+        f.write("---\nsome, !bad, syntax :: }")
+
+    with pytest.raises(ParserError):
+        load_yml(tmpdir.join("fails.yml"))
+
+
+def test_load_yml_hints(tmpdir):
+    """Tests the YAML error hints"""
+    from ruamel.yaml.constructor import ConstructorError
+    from ruamel.yaml.parser import ParserError
+
+    load_yml = dantro._yaml.load_yml
+
+    # Loading fails, but a hint is shown
+    with open(tmpdir.join("fails.yml"), "x") as f:
+        f.write("---\n")
+        f.write("bar: baz\n")
+        f.write("transform:\n")
+        f.write("  - [zero, !dag_prev, one, two]\n")
+        f.write("  - !dag_prev\n")
+        f.write("spam: fish\n")
+
+    with pytest.raises(ConstructorError, match=r"Hint\(s\) how to resolve"):
+        load_yml(tmpdir.join("fails.yml"))
+
+    with pytest.raises(ConstructorError, match="Did you include a space"):
+        load_yml(tmpdir.join("fails.yml"))
+
+    with pytest.raises(ConstructorError, match="details about the error loc"):
+        load_yml(tmpdir.join("fails.yml"))
+
+    # Without hints
+    with pytest.raises(ConstructorError) as exc_no_hints:
+        load_yml(tmpdir.join("fails.yml"), improve_errors=False)
+    assert "Hint(s)" not in str(exc_no_hints)
+
+    # Another scenario
+    with open(tmpdir.join("fails2.yml"), "x") as f:
+        f.write("---\n")
+        f.write("bar: baz\n")
+        f.write("transform: [foo: !dag_prev]\n")
+
+    with pytest.raises(ParserError, match=r"include a space after"):
+        load_yml(tmpdir.join("fails2.yml"))
 
 
 def test_yaml_dumps():

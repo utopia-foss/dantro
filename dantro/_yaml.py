@@ -4,15 +4,18 @@ The ``ruamel.yaml.YAML`` object used here is imported from :py:mod:`paramspace`
 and specialized such that it can load and dump dantro classes.
 """
 
+import contextlib
 import copy
 import io
 import logging
 import os
 from functools import partial as _partial
-from typing import Any, Union
+from typing import Any, Callable, List, Tuple, Union
 
 import matplotlib as mpl
 import ruamel.yaml
+
+from .exceptions import raise_improved_exception as _raise_improved_exception
 
 log = logging.getLogger(__name__)
 
@@ -117,9 +120,36 @@ for NormCls in [
     )
 
 # -----------------------------------------------------------------------------
+# -- Loading and writing ------------------------------------------------------
+# -----------------------------------------------------------------------------
+# .. Error hints ..............................................................
+
+_YAML_ERROR_HINTS: List[Tuple[Callable, str]] = [
+    (
+        lambda e: "!dag_prev" in str(e),
+        "Did you include a space after the !dag_prev tag in that line?",
+    ),
+    (
+        lambda e: "expected ',' or ']'" in str(e),
+        "Did you include a space after the YAML tag defined in that line?",
+    ),
+    (
+        lambda e: True,
+        "Read the error message above for details about the error location.",
+    ),
+]
+"""These are evaluated by :py:func:`dantro.exceptions.raise_improved_exception`
+and from within :py:func:`.load_yml`.
+
+Entries are of the form ``(match function, hint string)``.
+"""
+
+# .............................................................................
 
 
-def load_yml(path: str, *, mode: str = "r") -> Union[dict, Any]:
+def load_yml(
+    path: str, *, mode: str = "r", improve_errors: bool = True
+) -> Any:
     """Deserializes a YAML file into an object.
 
     Uses the dantro-internal ``ruamel.yaml.YAML`` object for loading and thus
@@ -128,18 +158,30 @@ def load_yml(path: str, *, mode: str = "r") -> Union[dict, Any]:
     Args:
         path (str): The path to the YAML file that should be loaded. A ``~`` in
             the path will be expanded to the current user's directory.
-        mode (str, optional): Read mode
+        mode (str, optional): Read mode for the file at ``path``
+        improve_errors (bool, optional): Whether to improve error messages that
+            come from the call to ``yaml.load``. If true, the error message
+            is inspected and hints are appended.
 
     Returns:
-        Union[dict, Any]: The result of the data loading. Typically, this will
-            be a dict, but depending on the structure of the file, it may also
-            be of another type.
+        Any: The result of the data loading. Typically, this will be a dict,
+            but depending on the structure of the file, it may be some other
+            type, including ``None``.
     """
     path = os.path.expanduser(path)
     log.debug("Loading YAML file... mode: %s, path:\n  %s", mode, path)
 
     with open(path, mode) as yaml_file:
-        return yaml.load(yaml_file)
+        try:
+            return yaml.load(yaml_file)
+
+        except Exception as exc:
+            if not improve_errors:
+                raise
+
+            # Attempt raising a new and improved error message.
+            # Will simply re-raise if that is not the case.
+            _raise_improved_exception(exc, hints=_YAML_ERROR_HINTS)
 
 
 def write_yml(d: Union[dict, Any], *, path: str, mode: str = "w"):
