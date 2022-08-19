@@ -1825,6 +1825,95 @@ meta_ops_args_and_kwargs_with_fancy_defaults:
           - {bar: BAZ}
 
 
+meta_ops_multiple_placeholder_use:
+  params:
+    meta_operations:
+      sum_by_absdiff:
+        - add: [!arg 0, !arg 1]
+          tag: sum
+
+        - sub: [!arg 0, !arg 1]
+        - np.abs: !dag_prev
+          tag: absdiff
+
+        - div: [!dag_tag sum, !dag_tag absdiff]
+
+      get_diff:
+        - getitem: [!arg 0, !arg [1, foo]]
+          tag: foo
+        - getitem: [!arg 0, !arg [2, bar]]
+          tag: bar
+        - sub: [!dag_tag foo, !dag_tag bar]
+
+    transform:
+      - np.array: [[1, 2, 3]]
+        tag: arr1
+      - np.array: [[2, 4, 6]]
+        tag: arr2
+      - xr.DataArray: !dag_prev
+        kwargs:
+          dims: [x]
+          coords:
+            x: !range [3]
+        tag: darr2
+
+      - sum_by_absdiff: [9, 11]
+        tag: ten
+
+      - sum_by_absdiff: [!dag_tag arr1, !dag_tag arr2]
+      - sum: !dag_prev
+        tag: nine
+
+      - dict:
+          foo: 50
+          bar: 8
+          hundred: 100
+          minus_one: -1
+          arr1: !dag_tag arr1
+          arr2: !dag_tag arr2
+          darr2: !dag_tag darr2
+        tag: named_numbers
+      - get_diff: !dag_tag named_numbers
+        tag: fourtytwo
+      - get_diff: [!dag_tag named_numbers, hundred, minus_one]
+        tag: hundred_and_one
+      - get_diff: [!dag_tag named_numbers, minus_one, hundred]
+        tag: ninetynine
+
+      # again with mutable objects
+      - get_diff: [!dag_tag named_numbers, arr2, arr1]
+      - sum: !dag_prev
+        tag: six
+
+      - get_diff: [!dag_tag named_numbers, darr2, darr2]
+      - list: !dag_prev
+        tag: zeros
+
+      # and with data tree objects
+      - get_diff: [!dag_tag dm, path/to/more_data, path/to/some_data]
+      - .sum: !dag_prev
+        tag: twentyfive
+
+  expected:
+    results:
+      ten:
+        compare_to: 10
+      nine:
+        compare_to: 9   # np.sum([3,6,9] / [1,2,3])
+      fourtytwo:
+        compare_to: 42
+      hundred_and_one:
+        compare_to: 101
+      ninetynine:
+        compare_to: -101
+      six:
+        compare_to: 6
+      zeros:
+        compare_to: [0, 0, 0]
+      twentyfive:
+        compare_to: 25
+
+
 # .. meta operation errors ....................................................
 
 meta_ops_err_name_exists:
