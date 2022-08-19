@@ -304,6 +304,8 @@ Computing results works as follows:
 
     To compute private tags directly, include them in ``compute_only``.
 
+    You can also force computation of a node, even if untagged, by adding ``force_compute`` to the *transformation*, see :ref:`below <dag_force_compute>`.
+
 .. hint::
 
     To learn which parts of the computation require the most time, e.g. in order to evaluate whether to :ref:`cache the result <dag_file_cache>`, inspecting the DAG profile statistics can be useful.
@@ -340,6 +342,32 @@ For a full list of available data operations, see :ref:`here <data_ops_ref>`.
 
     To specifically register additional operations, use the :py:func:`~dantro.data_ops.db_tools.register_operation` function.
     This should only be done for operations that are not easily usable via the ``import`` and ``call`` operations.
+
+
+.. _dag_force_compute:
+
+Forcing computation of individual nodes
+"""""""""""""""""""""""""""""""""""""""
+Sometimes, it's useful to force the computation of an individual node.
+To that end, simply set the ``force_compute`` option for a transformation:
+
+.. code-block:: yaml
+
+    transform:
+      - operation: div
+        args: [1, 0]
+        force_compute: true
+
+In this example, the node will always be computed, obviously leading to a ``ZeroDivisionError``.
+
+A few remarks:
+
+* Force-computed tags are computed *before* the tags specified in ``compute_only``.
+* Typical use case is during debugging, where you want to make sure that an operation really is carried out.
+* Unlike tagged nodes, their results are *not* available in the results dict.
+  Even if the node is tagged, it will only appear in the results dict if it is part of ``compute_only``.
+
+
 
 
 .. _dag_select:
@@ -655,9 +683,10 @@ To post-process the DAG data elsewhere, use the standalone :py:func:`~dantro.uti
 
 .. _dag_transform_full_syntax_spec:
 
-Full syntax specification of a single :py:class:`~dantro.dag.Transformation`
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-To illustrate the possible arguments to a :py:class:`~dantro.dag.Transformation`, the following block contains a full specification of available keys and arguments.
+Full syntax specification of a single transformation node
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+To illustrate the possible arguments for creating a transformation node via :py:meth:`~dantro.dag.TransformationDAG.add_node`, the following block contains a full specification of available keys and arguments.
+It is a combination of arguments to :py:class:`~dantro.dag.Transformation` and arguments that are handled by :py:class:`~dantro.dag.TransformationDAG`, which is aware of the whole DAG.
 
 Note that this is the *explicit* representation, which is a bit verbose.
 Except for ``operation``, ``args``, ``kwargs`` and ``tag``, all entries are set to default values.
@@ -683,6 +712,9 @@ Except for ``operation``, ``args``, ``kwargs`` and ``tag``, all entries are set 
     # arguments given below are considered equal to each other.
 
     tag: my_result                  # The tag of this transformation. Optional.
+    force_compute: ~                # Used to force computation of this node
+                                    # without needing to assign a tag.
+
     allow_failure: ~                # Whether to allow this transformation to
                                     # fail during computation or resolution of
                                     # the arguments (i.e.: upstream error).

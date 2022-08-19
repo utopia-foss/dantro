@@ -685,6 +685,7 @@ def parse_dag_syntax(
     args: list = None,
     kwargs: dict = None,
     tag: str = None,
+    force_compute: bool = None,
     with_previous_result: bool = False,
     salt: int = None,
     file_cache: dict = None,
@@ -713,6 +714,8 @@ def parse_dag_syntax(
         kwargs (dict, optional): Keyword arguments for the operation; can only
             be specified if there is no ``ops`` argument.
         tag (str, optional): The tag to attach to this transformation
+        force_compute (bool, optional): Whether to force computation for this
+            node.
         with_previous_result (bool, optional): Whether the result of the
             previous transformation is to be used as first positional argument
             of this transformation.
@@ -860,5 +863,8 @@ def parse_dag_syntax(
 
     if context is not None:
         d["context"] = context
+
+    if force_compute is not None:
+        d["force_compute"] = force_compute
 
     return d
