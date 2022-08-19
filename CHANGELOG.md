@@ -6,6 +6,7 @@
 - !306 fixes a bug that prohibited re-creating a plot from the plot configuration file saved alongside the plot output.
 - !307 adds hints to YAML-related error messages
 - !308 adds the `force_compute` argument to `TransformationDAG.add_node`, ensuring that a node's result is always computed.
+- !309 expand test cases for multiple uses of argument placeholders in meta-operations. (The aim was to address mutability issues observed in #288, but they could not be reproduced.)
 
 
 ## v0.18.2
