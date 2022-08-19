@@ -1048,6 +1048,7 @@ class TransformationDAG:
         self._nodes = list()
         self._meta_ops = dict()
         self._ref_stacks = _defaultdict(list)
+        self._force_compute_refs = []
         self._fc_opts = file_cache_defaults if file_cache_defaults else {}
         self._select_base = None
         self._profile = dict(add_node=0.0, compute=0.0)
@@ -1574,6 +1575,7 @@ class TransformationDAG:
         args: list = None,
         kwargs: dict = None,
         tag: str = None,
+        force_compute: bool = None,
         file_cache: dict = None,
         fallback: Any = None,
         **trf_kwargs,
@@ -1594,9 +1596,13 @@ class TransformationDAG:
             kwargs (dict, optional): Keyword arguments to the operation
             tag (str, optional): The tag the transformation should be made
                 available as.
+            force_compute (bool, optional): If True, the result of this node
+                will always be computed as part of :py:meth:`.compute`.
             file_cache (dict, optional): File cache options for this node. If
                 defaults were given during initialization, those defaults will
                 be updated with the given dict.
+            fallback: (Any, optional): The fallback value in case that the
+                computation of this node fails.
             **trf_kwargs: Passed on to
                 :py:meth:`~dantro.dag.Transformation.__init__`
 
@@ -1615,6 +1621,7 @@ class TransformationDAG:
                 args=args,
                 kwargs=kwargs,
                 tag=tag,
+                force_compute=force_compute,
                 file_cache=file_cache,
                 **trf_kwargs,
             )
@@ -1698,6 +1705,10 @@ class TransformationDAG:
                 )
             self.tags[tag] = trf_hash
 
+        # If it should always be computed, denote it as such
+        if force_compute:
+            self._force_compute_refs.append(trf_hash)
+
         # Finish up ...
         self._update_profile(add_node=time.time() - t0)
 
@@ -1767,7 +1778,7 @@ class TransformationDAG:
         if verbosity is None:
             verbosity = self.verbosity
 
-        def postprocess_result(res, *, tag: str):
+        def postprocess_result(res, *, tag: str = None):
             """Performs some postprocessing operations on the results of
             individual tag computations.
             """
@@ -1834,25 +1845,43 @@ class TransformationDAG:
                 "\n".join(_stats2),
             )
 
-        # Determine which tags to compute and prepare the results dict
-        compute_only = self._parse_compute_only(compute_only)
+        # The to-be-populated results dict
         results = dict()
 
-        if not compute_only:
+        # Determine which tags to compute
+        compute_only = self._parse_compute_only(compute_only)
+
+        if not compute_only and not self._force_compute_refs:
             log.remark("No tags were selected to be computed.")
             return results
 
+        t0 = time.time()
+
+        # May have to force-compute some tags (not added to the results dict)
+        if self._force_compute_refs:
+            n_fcr = len(self._force_compute_refs)
+            log.note(
+                "Computing result of %d nodes with `force_compute` set ...",
+                len(self._force_compute_refs),
+            )
+            for i, ref in enumerate(self._force_compute_refs):
+                log.remark("  %2d/%d:  '%s'  ...", i + 1, n_fcr, ref)
+                _tt = time.time()
+
+                trf = self.objects[ref]
+                trf.compute()
+
+                _dtt = time.time() - _tt
+                if _dtt > 1.0:
+                    log.remark("Finished in %s.", _fmt_time(_dtt))
+
+        # Compute results of tagged nodes and collect their results
         log.note(
             "Computing result of %d tag%s on DAG with %d nodes ...",
             len(compute_only),
             "s" if len(compute_only) != 1 else "",
             len(self.nodes),
         )
-
-        # Initiate start time for profiling
-        t0 = time.time()
-
-        # Compute and collect the results
         for i, tag in enumerate(compute_only):
             log.remark("  %2d/%d:  '%s'  ...", i + 1, len(compute_only), tag)
             _tt = time.time()
@@ -2626,6 +2655,7 @@ class TransformationDAG:
         args: list = None,
         kwargs: dict = None,
         tag: str = None,
+        force_compute: bool = None,
         file_cache: dict = None,
         allow_failure: Union[bool, str] = None,
         fallback: Any = None,
@@ -2788,6 +2818,7 @@ class TransformationDAG:
             operation="pass",
             args=[DAGNode(-1)],
             tag=tag,
+            force_compute=force_compute,
             file_cache=file_cache,
             allow_failure=allow_failure,
             fallback=fallback,

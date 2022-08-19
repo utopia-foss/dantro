@@ -2,9 +2,10 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
-## v0.18.3 *(work in progress)*
+## v0.18.3
 - !306 fixes a bug that prohibited re-creating a plot from the plot configuration file saved alongside the plot output.
 - !307 adds hints to YAML-related error messages
+- !308 adds the `force_compute` argument to `TransformationDAG.add_node`, ensuring that a node's result is always computed.
 
 
 ## v0.18.2
