@@ -24,6 +24,7 @@ from dantro.data_loaders import (
     AllAvailableLoadersMixin,
     Hdf5LoaderMixin,
     NumpyLoaderMixin,
+    PandasLoaderMixin,
     PickleLoaderMixin,
     TextLoaderMixin,
     XarrayLoaderMixin,
@@ -63,6 +64,10 @@ class PklDataManager(PickleLoaderMixin, DataManager):
 
 class NumpyDataManager(NumpyLoaderMixin, DataManager):
     """A DataManager to load numpy data"""
+
+
+class CSVDataManager(PandasLoaderMixin, NumpyLoaderMixin, DataManager):
+    """A DataManager to load CSV data"""
 
 
 class XarrayDataManager(XarrayLoaderMixin, DataManager):
@@ -199,24 +204,73 @@ def np_dm(data_dir) -> NumpyDataManager:
         np.save(str(npy_dir.join(name + ".npy")), obj)
         print("Dumped.\n")
 
-    # Manually create some CSV data as well
-    with open(npy_dir.join("simple_int.csv"), "x") as f:
+    return NumpyDataManager(data_dir, out_dir=None)
+
+
+@pytest.fixture
+def csv_dm(data_dir) -> NumpyDataManager:
+    """Manager with test CSV data"""
+    # Create a subdirectory for the pickles
+    csv_dir = data_dir.mkdir("csv")
+
+    # Manually create some CSV data
+    with open(csv_dir.join("simple_int.csv"), "x") as f:
         f.write("# some heading line\n")
         f.write("1 2 3\n")
         f.write("4 5 6\n")
 
-    with open(npy_dir.join("simple_float.csv"), "x") as f:
+    with open(csv_dir.join("simple_float.csv"), "x") as f:
         f.write("# some heading line\n")
         f.write("1.0 2.0 3.0\n")
         f.write("4.0 5.0 6.0\n")
 
-    with open(npy_dir.join("sep_comma.csv"), "x") as f:
+    with open(csv_dir.join("sep_comma.csv"), "x") as f:
         f.write("# some heading line\n")
         f.write(" 1, 2  ,   3 \n")
         f.write("40, 5.0,   6  \n")
         f.write("# some footer line\n")
 
-    return NumpyDataManager(data_dir, out_dir=None)
+    # Now with column names, inferred by pandas
+    # Subset of the penguins dataset
+    with open(csv_dir.join("penguins.csv"), "x") as f:
+        f.write(
+            "species,island,bill_length_mm,bill_depth_mm,"
+            "flipper_length_mm,body_mass_g,sex\n"
+        )
+        f.write("Adelie,Torgersen,39.1,18.7,181.0,3750.0,Male\n")
+        f.write("Adelie,Torgersen,39.5,17.4,186.0,3800.0,Female\n")
+        f.write("Adelie,Torgersen,40.3,18.0,195.0,3250.0,Female\n")
+        f.write("Adelie,Torgersen,,,,,\n")
+        f.write("Adelie,Torgersen,36.7,19.3,193.0,3450.0,Female\n")
+        f.write("Adelie,Torgersen,39.3,20.6,190.0,3650.0,Male\n")
+        f.write("Adelie,Biscoe,37.8,18.3,174.0,3400.0,Female\n")
+        f.write("Adelie,Biscoe,37.7,18.7,180.0,3600.0,Male\n")
+        f.write("Adelie,Biscoe,35.9,19.2,189.0,3800.0,Female\n")
+        f.write("Adelie,Biscoe,38.2,18.1,185.0,3950.0,Male\n")
+        f.write("Adelie,Dream,39.5,16.7,178.0,3250.0,Female\n")
+        f.write("Adelie,Dream,37.2,18.1,178.0,3900.0,Male\n")
+        f.write("Adelie,Dream,39.5,17.8,188.0,3300.0,Female\n")
+        f.write("Adelie,Dream,40.9,18.9,184.0,3900.0,Male\n")
+        f.write("Adelie,Dream,36.4,17.0,195.0,3325.0,Female\n")
+        f.write("Adelie,Dream,39.2,21.1,196.0,4150.0,Male\n")
+        f.write("Adelie,Dream,38.8,20.0,190.0,3950.0,Male\n")
+        f.write("Adelie,Biscoe,39.6,17.7,186.0,3500.0,Female\n")
+        f.write("Adelie,Biscoe,40.1,18.9,188.0,4300.0,Male\n")
+        f.write("Adelie,Biscoe,35.0,17.9,190.0,3450.0,Female\n")
+        f.write("Adelie,Biscoe,42.0,19.5,200.0,4050.0,Male\n")
+
+    # Write out some seaborn test data, csv and space-separated
+    import seaborn as sns
+
+    for dset_name in ("iris", "planets", "taxis"):
+        df = sns.load_dataset(dset_name)
+        with open(csv_dir.join(f"{dset_name}.csv"), "x") as f:
+            f.write(df.to_csv())
+
+        with open(csv_dir.join(f"{dset_name}.tsv"), "x") as f:
+            f.write(df.to_csv(sep="\t"))
+
+    return CSVDataManager(data_dir, out_dir=None)
 
 
 @pytest.fixture
@@ -1156,12 +1210,16 @@ def test_numpy_loader_binary(np_dm):
     assert np_data["zeros_float"].mean() == 0.0
 
 
-def test_numpy_loader_txt(np_dm):
+def test_numpy_loader_txt(csv_dm):
     """Tests the numpy loader for text data"""
-    np_dm.load("csv_data", loader="numpy_txt", glob_str="np_data/simple*.csv")
+    dm = csv_dm
+    dm.load("csv_data", loader="numpy_txt", glob_str="csv/simple*.csv")
 
-    csv_data = np_dm["csv_data"]
+    csv_data = dm["csv_data"]
     assert len(csv_data) == 2
+
+    assert isinstance(csv_data["simple_int"], NumpyDataContainer)
+    assert isinstance(csv_data["simple_float"], NumpyDataContainer)
 
     assert csv_data["simple_int"].shape == (2, 3)
     assert csv_data["simple_float"].shape == (2, 3)
@@ -1170,26 +1228,66 @@ def test_numpy_loader_txt(np_dm):
     assert csv_data["simple_float"].dtype is np.dtype(float)
 
     # Load again as ints, requiring a converter for float data
-    np_dm.load(
+    dm.load(
         "int_data",
         loader="numpy_txt",
-        glob_str="np_data/simple*.csv",
+        glob_str="csv/simple*.csv",
         dtype=int,
         converters=float,
     )
-    csv_data = np_dm["int_data"]
+    csv_data = dm["int_data"]
     assert csv_data["simple_int"].dtype is np.dtype(int)
     assert csv_data["simple_float"].dtype is np.dtype(int)
 
     # What about custom separators?
-    np_dm.load(
-        "actual_csv",
+    dm.load(
+        "custom_delim",
         loader="numpy_txt",
-        glob_str="np_data/sep*.csv",
+        glob_str="csv/sep*.csv",
         delimiter=",",
     )
-    csv_data = np_dm["actual_csv"]
+    csv_data = dm["custom_delim"]
     assert csv_data["sep_comma"].shape == (2, 3)
+
+    # And heterogeneous data? Needs a custom dtype
+    dm.load(
+        "mixed_dtypes",
+        loader="numpy_txt",
+        glob_str="csv/iris.csv",
+        dtype="object",
+    )
+    iris = dm["mixed_dtypes"]
+    assert iris.shape == (5, 5)
+    assert iris.dtype is np.dtype(object)
+
+
+# PandasLoaderMixin tests -----------------------------------------------------
+
+
+def test_pandas_loader_csv(csv_dm):
+    """Tests the pandas loader for CSV data"""
+    dm = csv_dm
+
+    # Can load everything, not requiring further arguments
+    dm.load("csv_data", loader="pandas_csv", glob_str="csv/*.csv")
+
+    data = dm["csv_data"]
+    print(data.tree)
+    assert len(data) == 7
+
+    # Let's look at the loaded data
+    penguins = data["penguins"]
+    print(penguins.head())
+    assert "species" in penguins.columns
+    assert not np.isnan(penguins.loc[2]["bill_length_mm"])
+    assert np.isnan(penguins.loc[3]["bill_length_mm"])
+
+    # Compare loading of datasets with different separators
+    dm.load("tsv_data", loader="pandas_csv", glob_str="csv/*.tsv", sep="\t")
+    tsv_data = dm["tsv_data"]
+    print(data["planets"].head())
+    print(tsv_data["planets"].head())
+    assert data["planets"].equals(tsv_data["planets"].data)
 
 
 # XarrayLoaderMixin tests -----------------------------------------------------

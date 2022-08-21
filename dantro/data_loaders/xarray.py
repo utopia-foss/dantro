@@ -1,10 +1,7 @@
 """Defines a loader mixin to load xarray objects"""
 
-from .._import_tools import LazyLoader
 from ..containers import PassthroughContainer, XrDataContainer
 from ._tools import add_loader
-
-xr = LazyLoader("xarray")
 
 # -----------------------------------------------------------------------------
 
@@ -38,6 +35,8 @@ class XarrayLoaderMixin:
         Returns:
             XrDataContainer: The reconstructed XrDataContainer
         """
+        import xarray as xr
+
         da = xr.load_dataarray(filepath, engine=engine, **load_kwargs)
 
         if load_completely:
@@ -79,6 +78,8 @@ class XarrayLoaderMixin:
             PassthroughContainer: The reconstructed :py:class:`xarray.Dataset`,
                 stored in a passthrough container.
         """
+        import xarray as xr
+
         ds = xr.load_dataset(filepath, engine=engine, **load_kwargs)
 
         if load_completely:

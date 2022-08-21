@@ -34,6 +34,7 @@ decorator to ``False``, making it a regular (instead of a static) method.
 from ._tools import add_loader
 from .hdf5 import Hdf5LoaderMixin
 from .numpy import NumpyLoaderMixin
+from .pandas import PandasLoaderMixin
 from .pickle import PickleLoaderMixin
 from .text import TextLoaderMixin
 from .xarray import XarrayLoaderMixin
@@ -46,6 +47,7 @@ class AllAvailableLoadersMixin(
     PickleLoaderMixin,
     Hdf5LoaderMixin,
     XarrayLoaderMixin,
+    PandasLoaderMixin,
     NumpyLoaderMixin,
 ):
     """A mixin bundling all data loaders that are available in dantro.
@@ -81,5 +83,8 @@ LOADER_BY_FILE_EXT = {
     "nc_ds":    "xr_dataset",
 
     "npy":      "numpy_binary",
+    "np_txt":   "numpy_txt",
+
+    "csv":      "pandas_csv",
 }
 """A map of file extensions to preferred loader names"""
