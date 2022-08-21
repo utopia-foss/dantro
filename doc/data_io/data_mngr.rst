@@ -31,6 +31,35 @@ By default, the following mixins are available via the :py:class:`~dantro.data_l
     :no-private-members:
     :no-members:
 
+
+Load functions
+^^^^^^^^^^^^^^
+To see which data loading functions are available for a certain :py:class:`~dantro.data_mngr.DataManager` instance, you can use :py:attr:`~dantro.data_mngr.DataManager.available_loaders`.
+The output of that property can be used as the ``loader`` argument to the :py:meth:`~dantro.data_mngr.DataManager.load` method, see :ref:`data_mngr_loading_data`.
+
+.. ipython:: python
+
+    import dantro
+
+    class MyDataManager(dantro.data_loaders.AllAvailableLoadersMixin, dantro.DataManager):
+        """My custom DataManager"""
+
+    # Instantiate it with some directory
+    dm = MyDataManager("~")
+
+    # Print the names of all available data loaders, i.e. the `loader` argument
+    print("\n".join(dm.available_loaders))
+
+.. hint::
+
+    To learn about available arguments for these loaders, have a look at the API reference for the corresponding mixin, e.g. starting from the :py:class:`~dantro.data_loaders.AllAvailableLoadersMixin`.
+
+.. admonition:: Missing a loader?
+
+    No problem.
+    You can easily specialize your data manager to :ref:`include a custom loader<spec_data_loader>`.
+
+
 .. _data_mngr_loading_data:
 
 Loading Data

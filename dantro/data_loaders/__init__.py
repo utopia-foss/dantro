@@ -51,14 +51,21 @@ class AllAvailableLoadersMixin(
     NumpyLoaderMixin,
 ):
     """A mixin bundling all data loaders that are available in dantro.
-
-    This is useful for a more convenient import in a downstream
-    :py:class:`~dantro.data_mngr.DataManager`.
-
     See the individual mixins for a more detailed documentation.
-    """
 
-    pass
+    If you want all these loaders available in your data manager, inherit from
+    this mixin class and :py:class:`~dantro.data_mngr.DataManager`:
+
+    .. testcode::
+
+        import dantro
+
+        class MyDataManager(
+            dantro.data_loaders.AllAvailableLoadersMixin,
+            dantro.DataManager,
+        ):
+            pass
+    """
 
 
 # fmt: off

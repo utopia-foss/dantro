@@ -120,7 +120,36 @@ For more information, see :doc:`data_io/data_mngr`.
 
 .. note::
 
-    For an integration example, you can have a look at `the data manager used in utopya <https://gitlab.com/utopia-project/utopia/blob/master/python/utopya/utopya/datamanager.py>`_.
+    For an integration example, you can have a look at `the data manager used in utopya <https://gitlab.com/utopia-project/utopya/-/blob/main/utopya/eval/datamanager.py>`_.
+
+
+.. _spec_data_loader:
+
+Adding data loaders
+^^^^^^^^^^^^^^^^^^^
+Adding a custom data loader is simple.
+As an example, let's look at how a data loader mixin for plain text files (:py:class:`~dantro.data_loaders.text.TextLoaderMixin`) is implemented in dantro:
+
+.. literalinclude:: ../dantro/data_loaders/text.py
+    :language: python
+
+So basically:
+
+#. Import the :py:class:`~dantro.data_loaders._tools.add_loader` decorator
+#. Define your mixin class
+#. Add a method named ``_load_<name>`` and decorate it with ``@add_loader(TargetCls=SomeClass)``.
+
+    .. note::
+
+        Here, you have to decide for a target type for the return value of the loader.
+        This can be any dantro container or group type, see :py:mod:`dantro.containers` or :py:mod:`dantro.groups`.
+
+        If there is no suitable container type, you can either :ref:`specialize one yourself <spec_data_container>`.
+        Alternatively, the :py:class:`~dantro.containers.general.PassthroughContainer` always works.
+
+#. Fill in the method's body to implement the loading of your data.
+#. Initialize and return the ``TargetCls`` object, passing the loaded ``data`` to it.
+
 
 
 .. _spec_plot_mngr:
