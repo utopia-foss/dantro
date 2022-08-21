@@ -32,5 +32,26 @@ class NumpyLoaderMixin:
             attrs=dict(filepath=filepath),
         )
 
-    # Also make the loader available under plain ``numpy``
+    @add_loader(TargetCls=NumpyDataContainer)
+    def _load_numpy_txt(
+        filepath: str, *, TargetCls: type, **load_kwargs
+    ) -> NumpyDataContainer:
+        """Loads data from a text file using :py:func:`numpy.loadtxt`.
+
+        Args:
+            filepath (str): Where the text file is located
+            TargetCls (type): The class constructor
+            **load_kwargs: Passed on to :py:func:`numpy.loadtxt`, see there for
+                supported keyword arguments.
+
+        Returns:
+            NumpyDataContainer: The container with the loaded data as payload
+        """
+        return TargetCls(
+            data=np.loadtxt(filepath, **load_kwargs),
+            attrs=dict(filepath=filepath),
+        )
+
+    # .........................................................................
+    # Make the binary loader available under plain ``numpy``
     _load_numpy = _load_numpy_binary

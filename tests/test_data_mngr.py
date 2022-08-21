@@ -193,11 +193,28 @@ def np_dm(data_dir) -> NumpyDataManager:
     to_dump["zeros_float"] = np.zeros((2, 3, 4), dtype=float)
     # TODO add some more here
 
-    # Dump the objects
+    # Dump the objects as binary
     for name, obj in to_dump.items():
         print(f"Dumping {type(obj)} '{name}' ...\n{obj}")
         np.save(str(npy_dir.join(name + ".npy")), obj)
         print("Dumped.\n")
+
+    # Manually create some CSV data as well
+    with open(npy_dir.join("simple_int.csv"), "x") as f:
+        f.write("# some heading line\n")
+        f.write("1 2 3\n")
+        f.write("4 5 6\n")
+
+    with open(npy_dir.join("simple_float.csv"), "x") as f:
+        f.write("# some heading line\n")
+        f.write("1.0 2.0 3.0\n")
+        f.write("4.0 5.0 6.0\n")
+
+    with open(npy_dir.join("sep_comma.csv"), "x") as f:
+        f.write("# some heading line\n")
+        f.write(" 1, 2  ,   3 \n")
+        f.write("40, 5.0,   6  \n")
+        f.write("# some footer line\n")
 
     return NumpyDataManager(data_dir, out_dir=None)
 
@@ -1084,7 +1101,8 @@ def test_parallel(dm, hdf5_dm):
 
 
 # =============================================================================
-# Loaders =====================================================================
+# == Data Loaders =============================================================
+# =============================================================================
 
 # TextLoaderMixin tests -------------------------------------------------------
 
@@ -1119,8 +1137,8 @@ def test_pkl_loader(pkl_dm):
 # NumpyLoaderMixin tests ------------------------------------------------------
 
 
-def test_numpy_loader(np_dm):
-    """Tests the numpy loader"""
+def test_numpy_loader_binary(np_dm):
+    """Tests the numpy loader for binary data"""
     np_dm.load("np_data", loader="numpy", glob_str="np_data/*.npy")
 
     # Check that all files are loaded and of the expected type
@@ -1136,6 +1154,42 @@ def test_numpy_loader(np_dm):
 
     assert np_data["zeros_float"].dtype is np.dtype(float)
     assert np_data["zeros_float"].mean() == 0.0
+
+
+def test_numpy_loader_txt(np_dm):
+    """Tests the numpy loader for text data"""
+    np_dm.load("csv_data", loader="numpy_txt", glob_str="np_data/simple*.csv")
+
+    csv_data = np_dm["csv_data"]
+    assert len(csv_data) == 2
+
+    assert csv_data["simple_int"].shape == (2, 3)
+    assert csv_data["simple_float"].shape == (2, 3)
+
+    assert csv_data["simple_int"].dtype is np.dtype(float)
+    assert csv_data["simple_float"].dtype is np.dtype(float)
+
+    # Load again as ints, requiring a converter for float data
+    np_dm.load(
+        "int_data",
+        loader="numpy_txt",
+        glob_str="np_data/simple*.csv",
+        dtype=int,
+        converters=float,
+    )
+    csv_data = np_dm["int_data"]
+    assert csv_data["simple_int"].dtype is np.dtype(int)
+    assert csv_data["simple_float"].dtype is np.dtype(int)
+
+    # What about custom separators?
+    np_dm.load(
+        "actual_csv",
+        loader="numpy_txt",
+        glob_str="np_data/sep*.csv",
+        delimiter=",",
+    )
+    csv_data = np_dm["actual_csv"]
+    assert csv_data["sep_comma"].shape == (2, 3)
 
 
 # XarrayLoaderMixin tests -----------------------------------------------------
