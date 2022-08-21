@@ -483,6 +483,12 @@ def test_init_with_create_groups(tmpdir):
         )
 
 
+def test_available_loaders(data_dir):
+    dm = FullDataManager(data_dir)
+    assert "yaml" in dm.available_loaders
+    assert "file" not in dm.available_loaders  # because _load_file
+
+
 def test_loading(dm):
     """Tests whether loading works by using the default DataManager, i.e. that
     with the YamlLoaderMixin ...
@@ -612,7 +618,7 @@ def test_loading_errors(dm):
     )
 
     # With name collisions, an error should be raised
-    with pytest.raises(dantro.data_mngr.ExistingDataError):
+    with pytest.raises(ExistingDataError):
         dm.load("barfoo", loader="yaml", glob_str="foobar.yml")
 
     # Unless loading is disabled anyway
@@ -629,20 +635,20 @@ def test_loading_errors(dm):
 
     # Check for missing data ..................................................
     # Check for data missing that was required
-    with pytest.raises(dantro.data_mngr.RequiredDataMissingError):
+    with pytest.raises(RequiredDataMissingError):
         dm.load(
             "i_need_this", loader="yaml", glob_str="needed.yml", required=True
         )
 
     # Check for warning being given when data was missing but not required
-    with pytest.warns(dantro.data_mngr.MissingDataWarning):
+    with pytest.warns(MissingDataWarning):
         dm.load("might_need_this", loader="yaml", glob_str="maybe_needed.yml")
 
     # Check for invalid loaders ...............................................
-    with pytest.raises(dantro.data_mngr.LoaderError):
+    with pytest.raises(LoaderError, match="Available loaders:  yaml, yaml_to"):
         dm.load("nopenopenope", loader="nope", glob_str="*")
 
-    with pytest.raises(dantro.data_mngr.LoaderError):
+    with pytest.raises(LoaderError, match="misses required attribute"):
         dm.load("nopenopenope", loader="bad_loadfunc", glob_str="*")
 
     # Loading itself may fail .................................................
@@ -653,6 +659,24 @@ def test_loading_errors(dm):
     # ... but it will only warn if the data was not required
     dm.load("failing", loader="yaml", glob_str="*.bad_yml", required=False)
     assert "failing" not in dm
+
+
+def test_load_func_name():
+    """Makes sure that a load function named ``_load_file`` is not possible"""
+    from dantro.data_loaders import add_loader
+
+    with pytest.raises(AssertionError):
+
+        class MyDataManager(DataManager):
+            @add_loader(TargetCls=ObjectContainer)
+            def _load_file(self):  # already exists, should not be overwritten!
+                pass
+
+    # This works
+    class MyDataManager(DataManager):
+        @add_loader(TargetCls=ObjectContainer)
+        def _load_from_file(self):
+            pass
 
 
 def test_loading_exists_action(dm):
@@ -739,7 +763,7 @@ def test_loading_exists_action(dm):
     assert "looooooooooong_filename" not in dm["a_group"]
 
     # Check that there is a warning for existing element in a group
-    with pytest.warns(None) as record:
+    with pytest.warns(dantro.data_mngr.ExistingDataWarning) as record:
         dm.load(
             "more_yamls",
             loader="yaml",
@@ -1256,9 +1280,11 @@ def test_numpy_loader_txt(csv_dm):
         **kws,
         glob_str="csv/iris.csv",
         dtype="object",
+        delimiter=",",
     )
     iris = dm["mixed_dtypes"]
-    assert iris.shape == (5, 5)
+    print(iris.data)
+    assert iris.shape == (151, 6)
     assert iris.dtype is np.dtype(object)
 
 
