@@ -1913,6 +1913,37 @@ meta_ops_multiple_placeholder_use:
       twentyfive:
         compare_to: 25
 
+meta_ops_dag_prev_use:
+  params:
+    meta_operations:
+      my_add:
+        - add: [0, !arg 0]
+        - add: [!dag_prev , !arg 1]
+      multi_add:
+        - my_add: [!arg 0, !arg 1]
+        - my_add: [!dag_prev , !arg 2]
+      multi_add_named:
+        - multi_add: [!kwarg s1, !kwarg s2, !kwarg s3]
+        - multi_add: [!dag_prev , !kwarg s4, !kwarg s5]
+        - multi_add: [!kwarg s6, !dag_prev , !kwarg s7]
+
+    transform:
+      - define: 4
+
+      - multi_add_named:     # (((1+2+3) + 4+5) + 6+7) = 15 + 13 = 28
+          s1: 1
+          s2: 2
+          s3: 3
+          s4: !dag_prev      # needs to be evaluated on this scope!
+          s5: 5
+          s6: 6
+          s7: 7
+        tag: result
+
+  expected:
+    results:
+      result:
+        compare_to: 28
 
 # .. meta operation errors ....................................................
 

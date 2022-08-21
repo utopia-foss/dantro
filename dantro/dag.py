@@ -2731,6 +2731,23 @@ class TransformationDAG:
                 f"arguments ({_bad_kwargs})! Remove them."
             )
 
+        # Replace potentially existing relative references in the outside
+        # scope -- like a DAGNode(-1) -- into absolute references.
+        # This needs to happen in this outer scope, before any nodes are added,
+        # because otherwise the reference would point to a node that was added
+        # as part of the meta operation.
+        # As nested meta-operations also end up at this point, this applies to
+        # all scopes.
+        is_ref = lambda o: isinstance(o, DAGReference)
+        convert_to_proper_ref = lambda ref: ref.convert_to_ref(dag=self)
+
+        args = recursive_replace(
+            args, select_func=is_ref, replace_func=convert_to_proper_ref
+        )
+        kwargs = recursive_replace(
+            kwargs, select_func=is_ref, replace_func=convert_to_proper_ref
+        )
+
         # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         # Define the helper methods and a placeholder resolution function for
         # the positional and keyword arguments ...
@@ -2750,10 +2767,12 @@ class TransformationDAG:
                 # is really wrong.
                 raise
 
+        # The replacement functions then have full access to args and kwargs,
+        # regardless of where in the meta-operation they appear.
         replace_arg = lambda ph: _deepcopy(perform_lookup(ph, args))
         replace_kwarg = lambda ph: _deepcopy(perform_lookup(ph, kwargs))
 
-        # ... and for the internally-defined meta-operation tags:
+        # For the internally-defined meta-operation tags:
         is_mop_tag = lambda obj: isinstance(obj, _MOpTag)
         replace_mop_tag = lambda tag: tag.convert_to_ref(dag=self)
 
