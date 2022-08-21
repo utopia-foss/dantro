@@ -2738,14 +2738,14 @@ class TransformationDAG:
         # as part of the meta operation.
         # As nested meta-operations also end up at this point, this applies to
         # all scopes.
-        is_ref = lambda o: isinstance(o, DAGReference)
-        convert_to_proper_ref = lambda ref: ref.convert_to_ref(dag=self)
+        is_rel_ref = lambda o: isinstance(o, DAGNode)
+        convert_to_abs_ref = lambda ref: ref.convert_to_ref(dag=self)
 
         args = recursive_replace(
-            args, select_func=is_ref, replace_func=convert_to_proper_ref
+            args, select_func=is_rel_ref, replace_func=convert_to_abs_ref
         )
         kwargs = recursive_replace(
-            kwargs, select_func=is_ref, replace_func=convert_to_proper_ref
+            kwargs, select_func=is_rel_ref, replace_func=convert_to_abs_ref
         )
 
         # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
