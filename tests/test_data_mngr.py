@@ -1213,7 +1213,8 @@ def test_numpy_loader_binary(np_dm):
 def test_numpy_loader_txt(csv_dm):
     """Tests the numpy loader for text data"""
     dm = csv_dm
-    dm.load("csv_data", loader="numpy_txt", glob_str="csv/simple*.csv")
+    kws = dict(loader="numpy_txt", required=True)
+    dm.load("csv_data", **kws, glob_str="csv/simple*.csv")
 
     csv_data = dm["csv_data"]
     assert len(csv_data) == 2
@@ -1230,7 +1231,7 @@ def test_numpy_loader_txt(csv_dm):
     # Load again as ints, requiring a converter for float data
     dm.load(
         "int_data",
-        loader="numpy_txt",
+        **kws,
         glob_str="csv/simple*.csv",
         dtype=int,
         converters=float,
@@ -1242,7 +1243,7 @@ def test_numpy_loader_txt(csv_dm):
     # What about custom separators?
     dm.load(
         "custom_delim",
-        loader="numpy_txt",
+        **kws,
         glob_str="csv/sep*.csv",
         delimiter=",",
     )
@@ -1252,7 +1253,7 @@ def test_numpy_loader_txt(csv_dm):
     # And heterogeneous data? Needs a custom dtype
     dm.load(
         "mixed_dtypes",
-        loader="numpy_txt",
+        **kws,
         glob_str="csv/iris.csv",
         dtype="object",
     )
@@ -1267,9 +1268,10 @@ def test_numpy_loader_txt(csv_dm):
 def test_pandas_loader_csv(csv_dm):
     """Tests the pandas loader for CSV data"""
     dm = csv_dm
+    kws = dict(loader="pandas_csv", required=True)
 
     # Can load everything, not requiring further arguments
-    dm.load("csv_data", loader="pandas_csv", glob_str="csv/*.csv")
+    dm.load("csv_data", **kws, glob_str="csv/*.csv")
 
     data = dm["csv_data"]
     print(data.tree)
@@ -1283,11 +1285,38 @@ def test_pandas_loader_csv(csv_dm):
     assert np.isnan(penguins.loc[3]["bill_length_mm"])
 
     # Compare loading of datasets with different separators
-    dm.load("tsv_data", loader="pandas_csv", glob_str="csv/*.tsv", sep="\t")
+    dm.load("tsv_data", **kws, glob_str="csv/*.tsv", sep="\t")
     tsv_data = dm["tsv_data"]
     print(data["planets"].head())
     print(tsv_data["planets"].head())
     assert data["planets"].equals(tsv_data["planets"].data)
+
+
+def test_pandas_loader_generic(csv_dm):
+    """Tests the pandas loader for CSV data"""
+    dm = csv_dm
+    kws = dict(loader="pandas_generic", required=True)
+
+    # Can load CSV data, just as before
+    dm.load("csv_data", **kws, glob_str="csv/*.csv", reader="csv")
+    data = dm["csv_data"]
+    print(data.tree)
+    assert len(data) == 7
+
+    # How about excel data?
+    # ... will fail because the file content is not excel and thus no engine
+    #     can be determined
+    with pytest.raises(DataLoadingError, match="file format cannot be det"):
+        dm.load("excel_data", **kws, glob_str="**/*.csv", reader="excel")
+
+    # Bad reader name
+    with pytest.raises(DataLoadingError, match="Invalid") as exc_info:
+        dm.load("fails", **kws, glob_str="*", reader="bad reader")
+
+    # ...informs about available readers, excluding some that aren't file-based
+    assert "excel, feather, fwf, hdf" in str(exc_info.value)
+    assert "sql" not in str(exc_info.value)
+    assert "clipboard" not in str(exc_info.value)
 
 
 # XarrayLoaderMixin tests -----------------------------------------------------
