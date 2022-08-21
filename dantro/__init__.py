@@ -15,7 +15,7 @@ an automated sequence of predefined, configurable operations.
 See :ref:`the user manual <welcome>` for more information.
 """
 
-__version__ = "0.18.4b0"
+__version__ = "0.18.4b1"
 """Package version"""
 
 # Set up the root logger such that the logging configuration is applied
