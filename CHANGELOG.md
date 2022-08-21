@@ -9,6 +9,7 @@
     - `numpy_txt` to load plain text files into numpy arrays.
     - `pandas_csv` to load CSV files into data frames.
     - `pandas_generic` to load other file formats from [pandas I/O](https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html) into data frames.
+- !312 generalizes the `path_regex` argument to `DataManager.load`, thus allowing multiple matching groups as well as addressing them by a name.
 
 
 ## v0.18.3

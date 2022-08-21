@@ -856,19 +856,66 @@ def test_create_groups(dm):
 
 def test_loading_regex(dm):
     """Check whether regex name extraction works"""
-    # This should raise a warning for the `abcdef` entry
+    # Regex loading is optional
+    dm.load(
+        "no_regex",
+        loader="yaml",
+        glob_str="sub/*.yml",
+        target_path="sub/{ext}/{basename}",
+        print_tree=True,
+    )
+
+    assert "sub/yml/abc123" in dm
+    assert "sub/yml/abcdef" in dm
+
+    # This should work but raise a warning for the `abcdef` entry, falling
+    # back to using the full basename
     with pytest.warns(dantro.data_mngr.NoMatchWarning):
         dm.load(
             "sub_foobar",
             loader="yaml",
             glob_str="sub/*.yml",
-            path_regex=r"sub/abc(\d+).yml",
+            path_regex=r"sub/abc(\d+)\.yml",
             target_path="sub_foobar/{match:}",
             print_tree=True,
         )
 
     assert "sub_foobar/123" in dm
     assert "sub_foobar/abcdef" in dm
+
+    # Can also use named and unnamed groups
+    dm.load(
+        "named_and_unnamed_groups",
+        loader="yaml",
+        glob_str="sub/*.yml",
+        path_regex=r"(?P<a>sub)/abc(?P<b>[\d\w]+)\.(?P<ext>.*)",
+        target_path="{match}/{groups[0]}/{named[a]}/{named[ext]}/{named[b]}",
+        print_tree=True,
+    )
+
+    assert "sub/sub/sub/yml/123" in dm
+    assert "sub/sub/sub/yml/def" in dm
+
+    # Bad group indices (or keys) will lead to errors
+    with pytest.raises(ValueError, match="Failed evaluating"):
+        dm.load(
+            "fail",
+            loader="yaml",
+            glob_str="sub/*.yml",
+            path_regex=r"sub/abc(?P<bar>[\d\w]+)\.yml",
+            target_path="spam/{groups[1]}/{basename}}",
+            print_tree=True,
+        )
+
+    with pytest.raises(ValueError, match="Failed evaluating"):
+        dm.load(
+            "fail",
+            loader="yaml",
+            glob_str="sub/*.yml",
+            path_regex=r"sub/abc(?P<bar>[\d\w]+)\.yml",
+            target_path="spam/{named[invalid]}/{basename}}",
+            print_tree=True,
+        )
 
     # There should be a warning for non-matching regex
     with pytest.warns(dantro.data_mngr.NoMatchWarning):
@@ -878,15 +925,6 @@ def test_loading_regex(dm):
             glob_str="foobar.yml",
             path_regex="will_not_match",
             target_path="sub/{match:}",
-        )
-
-    # There should be an error if the `match` key is not used in target_path
-    with pytest.raises(ValueError, match="Received the `path_regex` argument"):
-        dm.load(
-            "more_foobar2",
-            loader="yaml",
-            glob_str="foobar.yml",
-            path_regex=".*",
         )
 
     # There should be an error if the regex is creating non-unique names
@@ -992,8 +1030,8 @@ def test_load_as_attr(dm):
 def test_target_path(dm):
     """Check whether the `target_path` argument works as desired"""
 
-    # Bad format string will fail
-    with pytest.raises(ValueError, match="Invalid argument `target_path`."):
+    # Bad format string give a useful error message
+    with pytest.raises(ValueError, match="KeyError: 'bad_key'"):
         dm.load(
             "foo", loader="yaml", glob_str="*.yml", target_path="{bad_key:}"
         )

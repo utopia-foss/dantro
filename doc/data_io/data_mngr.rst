@@ -136,9 +136,13 @@ Remarks:
 * With the ``required`` argument, an error is raised when no files were matched by ``glob_str``.
 * With the ``path_regex`` argument, information from the path of the files can be used to generate a ``target_path`` within the tree, using the ``{match:}`` format string.
   In this example, this is used to drop the ``_cfg`` suffix, which would otherwise appear in the data tree.
-  The regular expression is currently limited to a single match.
 * With a ``target_path`` given, the name of the data entry (here: ``my_config_files``) is decoupled from the position where the data is loaded to.
   Without that argument and the regex, the config files would have been loaded as ``my_config_files/combined_cfg``, for example.
+
+.. hint::
+
+    The regular expression in ``path_regex`` is *not* limited to a single match, it can also have multiple matching groups, which can be unnamed or named groups.
+    See :py:meth:`~dantro.data_mngr.DataManager._prepare_target_path` for more options and examples.
 
 
 Combining data entries

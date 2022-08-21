@@ -24,6 +24,7 @@ py:class collections._Link
 py:class weakref
 py:class module
 py:class ModuleType
+py:class re.Pattern
 
 # -- third-party packages --
 # ...
