@@ -589,9 +589,10 @@ class DataManager(OrderedDataGroup):
                     If True, will raise an error if no files were found.
                     Default: False.
                 path_regex (str):
-                    This pattern can be used to match the path of the file
+                    This pattern can be used to match a part of the file path
                     that is being loaded. The match result is available to the
                     format string under the ``match`` key.
+                    See :py:meth:`._prepare_target_path` for more information.
                 exists_action (str):
                     The behaviour upon existing data.
                     Can be: ``raise`` (default), ``skip``, ``skip_nowarn``,
@@ -619,23 +620,6 @@ class DataManager(OrderedDataGroup):
         def glob_match_single(glob_str: Union[str, List[str]]) -> bool:
             """Returns True if the given glob str matches at most one file."""
             return bool(isinstance(glob_str, str) and glob_str.find("*") < 0)
-
-        def check_target_path(target_path: str):
-            """Check that the target path evaluates correctly."""
-            log.debug("Checking target path '%s' ...", target_path)
-            try:
-                _target_path = target_path.format(
-                    basename="basename", match="match"
-                )
-
-            except (IndexError, KeyError) as err:
-                raise ValueError(
-                    "Invalid argument `target_path`. Will not be able to "
-                    f"properly evaluate '{target_path}' later due to "
-                    f"a {type(err)}: {err}"
-                ) from err
-            else:
-                log.debug("Target path will be:  %s", _target_path)
 
         # Initial checks
         if not enabled:
@@ -686,9 +670,6 @@ class DataManager(OrderedDataGroup):
                 target_path = entry_name + "/{basename:}"
 
         # else: target_path was given
-
-        # ...and check that it is working.
-        check_target_path(target_path)
 
         # Try loading the data and handle specific DataManagerErrors
         try:
@@ -805,9 +786,6 @@ class DataManager(OrderedDataGroup):
 
             **loader_kwargs: passed on to the loader function
 
-        Raises:
-            ValueError: Bad ``path_regex``
-
         Returns:
             Tuple[int, int]: Tuple of number of files that matched the glob
                 strings, *including* those that may have been skipped, and
@@ -829,15 +807,6 @@ class DataManager(OrderedDataGroup):
 
         # If a regex pattern was specified, compile it
         path_sre = re.compile(path_regex) if path_regex else None
-
-        # Check if the `match` key is being used in the target_path
-        if path_sre is not None and target_path.find("{match:") < 0:
-            raise ValueError(
-                "Received the `path_regex` argument to match the "
-                "file path, but the `target_path` argument did "
-                "not contain the corresponding `{match:}` "
-                f"placeholder. `target_path` value: '{target_path}'."
-            )
 
         # Parse the parallel argument, assuming that it's a dict or boolean
         if isinstance(parallel, bool):
@@ -969,7 +938,7 @@ class DataManager(OrderedDataGroup):
         loader: str,
         load_func: Callable,
         target_path: str,
-        path_sre: str,
+        path_sre: Union[re.Pattern, None],
         load_as_attr: str,
         TargetCls: type,
         required: bool,
@@ -1162,35 +1131,105 @@ class DataManager(OrderedDataGroup):
         return files
 
     def _prepare_target_path(
-        self, target_path: str, *, filepath: str, path_sre=None
+        self, target_path: str, *, filepath: str, path_sre: re.Pattern = None
     ) -> List[str]:
-        """Prepare the target path"""
+        r"""Prepare the target path within the data tree where the loader's
+        output is to be placed.
+
+        The ``target_path`` argument can be a format string.
+        The following keys are available:
+
+        - ``dirname``: the directory path *relative* to the data directory
+        - ``basename``: the lower-case base name of the file, without extension
+        - ``ext``: the lower-case extension of the file, without leading dot
+
+        If ``path_sre`` is given, will additionally have the following keys
+        available as result of calling  :py:meth:`re.Pattern.search` on the
+        given ``filepath``:
+
+        - ``match``: the first matched group, named or unnamed.
+          This is equivalent to ``groups[0]``.
+          If no match is made, will warn and fall back to the ``basename``.
+        - ``groups``: the sequence of matched groups; individual groups can be
+          accessed via the expanded formatting syntax, where ``{groups[1]:}``
+          will access the second match.
+          *Not available if there was no match.*
+        - ``named``: contains the matches for *named* groups; individual groups
+          can be accessed via ``{named[foo]:}``, where ``foo`` is the name of
+          the group.
+          *Not available if there was no match.*
+
+        For more information on how to define named groups, refer to the
+        `Python docs <https://docs.python.org/3/howto/regex.html#non-capturing-and-named-groups>`_.
+
+        .. hint::
+
+            For more complex target path format strings, use the ``named``
+            matches for higher robustness.
+
+        Examples (using ``path_regex`` instead of ``path_sre``):
+
+        .. code-block:: yaml
+
+            # Without pattern matching
+            filepath:    data/some_file.ext
+            target_path: target/{ext}/{basename}   # -> target/ext/some_file
+
+            # With simple pattern matching
+            path_regex:  data/uni(\d+)/data.h5
+            filepath:    data/uni01234/data.h5     # matches 01234
+            target_path: multiverse/{match}/data   # -> multiverse/01234/data
+
+            # With pattern matching that uses named groups
+            path_regex:  data/no(?P<num>\d+)/data.h5
+            filepath:    data/no123/data.h5        # matches 123
+            target_path: target/{named[num]}       # -> target/123
+
+        Args:
+            target_path (str): The target path :py:func:`format` string, which
+                may contain placeholders that are replaced in this method. For
+                instance, these placeholders may be those from the path regex
+                pattern specified in ``path_sre``, see above.
+            filepath (str): The actual path of the *file*, used as input to the
+                regex pattern.
+            path_sre (re.Pattern, optional): The regex pattern that is used to
+                generate additional arguments that are useable in the format
+                string.
+
+        Returns:
+            List[str]:
+                Path sequence that represents the target path within the
+                data tree where the loaded data is to be placed.
+        """
         # The dict to be filled with formatting parameters
         fps = dict()
 
-        # Extract the file basename (without extension)
-        fps["basename"] = os.path.splitext(os.path.basename(filepath))[0]
-        fps["basename"] = fps["basename"].lower()
+        # Extract the file path and name information
+        basename, ext = os.path.splitext(os.path.basename(filepath))
+        fps["basename"] = basename.lower()
+        fps["ext"] = ext[min(1, len(ext)) :].lower()
+        fps["dirname"] = os.path.relpath(
+            os.path.dirname(filepath), start=self.dirs["data"]
+        )
 
         # Use the specified regex pattern to extract a match
         if path_sre:
-            try:
-                _match = path_sre.findall(filepath)[0]
-
-            except IndexError:
+            if (match := path_sre.search(filepath)) is None:
                 # nothing could be found
                 warnings.warn(
-                    "Could not extract a name using the "
-                    f"regex pattern '{path_sre}' on the file path:\n"
-                    f"{filepath}\nUsing the path's basename instead.",
+                    "Could not extract a name using the regex pattern "
+                    f"'{path_sre}' on the file path:\n  {filepath}\n"
+                    "Using the path's basename instead.",
                     NoMatchWarning,
                 )
-                _match = fps["basename"]
+                fps["match"] = fps["basename"]
 
             else:
-                log.debug("Matched '%s' in file path '%s'.", _match, filepath)
+                log.debug("Matched %s in file path '%s'.", match, filepath)
 
-            fps["match"] = _match
+                fps["groups"] = match.groups()
+                fps["match"] = fps["groups"][0]
+                fps["named"] = match.groupdict()
 
         # Parse the format string to generate the file path
         log.debug(
@@ -1198,7 +1237,19 @@ class DataManager(OrderedDataGroup):
             target_path,
         )
         log.debug("  kwargs: %s", fps)
-        target_path = target_path.format(**fps)
+        try:
+            target_path = target_path.format(**fps)
+        except (KeyError, IndexError) as err:
+            raise ValueError(
+                "Failed evaluating target path format string!\n"
+                f"Got {type(err).__name__}: {err}\n\n"
+                "Check the error message, the given regex pattern and the "
+                "possible file names that may occur.\n"
+                f"  target_path:  {target_path}\n"
+                f"  filepath:     {filepath}\n"
+                f"  path_regex:   {path_sre.pattern if path_sre else 'None'}\n"
+                f"  available format string keys:\n    {fps}"
+            ) from err
 
         log.debug("Generated target path:  %s", target_path)
         return target_path.split(PATH_JOIN_CHAR)
