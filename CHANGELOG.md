@@ -2,6 +2,10 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.18.4 *(work in progress)*
+- !310 fixes a bug that occurred when using relative references like `!dag_prev` in the arguments to a meta-operation.
+
+
 ## v0.18.3
 - !306 fixes a bug that prohibited re-creating a plot from the plot configuration file saved alongside the plot output.
 - !307 adds hints to YAML-related error messages
