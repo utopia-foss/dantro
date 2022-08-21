@@ -168,8 +168,7 @@ class DataManager(OrderedDataGroup):
     # The default tree file cache path, parsed by _parse_file_path
     _DEFAULT_TREE_CACHE_PATH = ".tree_cache.d3"
 
-    # .........................................................................
-    # Initialization
+    # .. Initialization .......................................................
 
     def __init__(
         self,
@@ -422,8 +421,18 @@ class DataManager(OrderedDataGroup):
         """Whether the tree cache file exists"""
         return os.path.isfile(self._tree_cache_path)
 
-    # .........................................................................
-    # Loading data
+    # .. Loading data .........................................................
+
+    @property
+    def available_loaders(self) -> List[str]:
+        """Returns a list of available loader function names"""
+
+        def is_load_func(attr: str):
+            return attr.startswith("_load_") and hasattr(
+                getattr(self, attr), "TargetCls"
+            )
+
+        return [s[6:] for s in dir(self) if is_load_func(s)]
 
     def load_from_cfg(
         self,
@@ -992,9 +1001,9 @@ class DataManager(OrderedDataGroup):
             )
             if required:
                 raise DataLoadingError(
-                    err_msg + "\nUnset `required` to ignore this error."
+                    f"{err_msg}\nUnset `required` to ignore this error."
                 ) from exc
-            log.error(err_msg + "\nSet `required` to raise an error.")
+            log.error("%s\nSet `required` to raise an error.", err_msg)
             return None, _target_path
 
         log.debug(
@@ -1006,7 +1015,8 @@ class DataManager(OrderedDataGroup):
         """Resolves the loader function and returns a 2-tuple containing the
         load function and the declared dantro target type to load data to.
         """
-        load_func_name = "_load_" + loader.lower()
+        load_func_name = f"_load_{loader.lower()}"
+
         try:
             load_func = getattr(self, load_func_name)
 
@@ -1014,7 +1024,8 @@ class DataManager(OrderedDataGroup):
             raise LoaderError(
                 f"Loader '{loader}' was not available to {self.logstr}! "
                 "Make sure to use a mixin class that supplies "
-                f"the '{load_func_name}' loader method."
+                f"the '{load_func_name}' loader method.\n"
+                f"Available loaders:  {', '.join(self.available_loaders)}"
             ) from err
         else:
             log.debug("Resolved '%s' loader function.", loader)
@@ -1025,7 +1036,8 @@ class DataManager(OrderedDataGroup):
         except AttributeError as err:
             raise LoaderError(
                 f"Load method '{load_func}' misses required attribute "
-                "'TargetCls'. Check your mixin!"
+                "'TargetCls'. Make sure the loading method in your mixin uses "
+                "the @add_loader decorator!"
             ) from err
 
         return load_func, TargetCls
@@ -1517,8 +1529,7 @@ class DataManager(OrderedDataGroup):
         # else: assume it is already a type and just return the given argument
         return Cls
 
-    # .........................................................................
-    # Dumping and restoring the DataManager
+    # .. Dumping and restoring the DataManager ................................
 
     def _parse_file_path(self, path: str, *, default_ext=None) -> str:
         """Parses a file path: if it is a relative path, makes it relative to
@@ -1624,8 +1635,7 @@ class DataManager(OrderedDataGroup):
         self.recursive_update(dm)
         log.progress("Successfully restored the data tree.")
 
-    # .........................................................................
-    # Working with the data in the tree
+    # .. Working with the data in the tree ....................................
 
     def new_group(self, path: str, *, Cls: Union[type, str] = None, **kwargs):
         """Creates a new group at the given path.

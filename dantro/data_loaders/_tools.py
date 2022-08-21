@@ -4,7 +4,15 @@ ensure correct loader function signature.
 
 
 def add_loader(*, TargetCls: type, omit_self: bool = True):
-    """This decorator should be used to specify loader methods.
+    """This decorator should be used to specify loader methods in mixin classes
+    to the :py:class:`~dantro.data_mngr.DataManager`.
+
+    .. note::
+
+        Loader methods need to be named ``_load_<name>`` and are then
+        accessible via ``<name>``.
+
+        **Important:** Loader methods may not be named ``_load_file``!
 
     Args:
         TargetCls: The return type of the load function. This is stored as an
@@ -16,6 +24,8 @@ def add_loader(*, TargetCls: type, omit_self: bool = True):
 
     def load_func_decorator(func):
         """This decorator sets the load function's ``TargetCls`` attribute."""
+
+        assert func.__name__ != "_load_file"
 
         def load_func(instance, *args, **kwargs):
             """Calls the load function, either with or without ``self``"""

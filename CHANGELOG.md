@@ -4,6 +4,11 @@
 
 ## v0.18.4 *(work in progress)*
 - !310 fixes a bug that occurred when using relative references like `!dag_prev` in the arguments to a meta-operation.
+- !311 adds the `DataManager.available_loaders` property and expands the corresponding documentation.
+- !311 adds some new data loaders:
+    - `numpy_txt` to load plain text files into numpy arrays.
+    - `pandas_csv` to load CSV files into data frames.
+    - `pandas_generic` to load other file formats from [pandas I/O](https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html) into data frames.
 
 
 ## v0.18.3

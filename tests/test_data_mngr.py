@@ -24,6 +24,7 @@ from dantro.data_loaders import (
     AllAvailableLoadersMixin,
     Hdf5LoaderMixin,
     NumpyLoaderMixin,
+    PandasLoaderMixin,
     PickleLoaderMixin,
     TextLoaderMixin,
     XarrayLoaderMixin,
@@ -63,6 +64,10 @@ class PklDataManager(PickleLoaderMixin, DataManager):
 
 class NumpyDataManager(NumpyLoaderMixin, DataManager):
     """A DataManager to load numpy data"""
+
+
+class CSVDataManager(PandasLoaderMixin, NumpyLoaderMixin, DataManager):
+    """A DataManager to load CSV data"""
 
 
 class XarrayDataManager(XarrayLoaderMixin, DataManager):
@@ -193,13 +198,79 @@ def np_dm(data_dir) -> NumpyDataManager:
     to_dump["zeros_float"] = np.zeros((2, 3, 4), dtype=float)
     # TODO add some more here
 
-    # Dump the objects
+    # Dump the objects as binary
     for name, obj in to_dump.items():
         print(f"Dumping {type(obj)} '{name}' ...\n{obj}")
         np.save(str(npy_dir.join(name + ".npy")), obj)
         print("Dumped.\n")
 
     return NumpyDataManager(data_dir, out_dir=None)
+
+
+@pytest.fixture
+def csv_dm(data_dir) -> NumpyDataManager:
+    """Manager with test CSV data"""
+    # Create a subdirectory for the pickles
+    csv_dir = data_dir.mkdir("csv")
+
+    # Manually create some CSV data
+    with open(csv_dir.join("simple_int.csv"), "x") as f:
+        f.write("# some heading line\n")
+        f.write("1 2 3\n")
+        f.write("4 5 6\n")
+
+    with open(csv_dir.join("simple_float.csv"), "x") as f:
+        f.write("# some heading line\n")
+        f.write("1.0 2.0 3.0\n")
+        f.write("4.0 5.0 6.0\n")
+
+    with open(csv_dir.join("sep_comma.csv"), "x") as f:
+        f.write("# some heading line\n")
+        f.write(" 1, 2  ,   3 \n")
+        f.write("40, 5.0,   6  \n")
+        f.write("# some footer line\n")
+
+    # Now with column names, inferred by pandas
+    # Subset of the penguins dataset
+    with open(csv_dir.join("penguins.csv"), "x") as f:
+        f.write(
+            "species,island,bill_length_mm,bill_depth_mm,"
+            "flipper_length_mm,body_mass_g,sex\n"
+        )
+        f.write("Adelie,Torgersen,39.1,18.7,181.0,3750.0,Male\n")
+        f.write("Adelie,Torgersen,39.5,17.4,186.0,3800.0,Female\n")
+        f.write("Adelie,Torgersen,40.3,18.0,195.0,3250.0,Female\n")
+        f.write("Adelie,Torgersen,,,,,\n")
+        f.write("Adelie,Torgersen,36.7,19.3,193.0,3450.0,Female\n")
+        f.write("Adelie,Torgersen,39.3,20.6,190.0,3650.0,Male\n")
+        f.write("Adelie,Biscoe,37.8,18.3,174.0,3400.0,Female\n")
+        f.write("Adelie,Biscoe,37.7,18.7,180.0,3600.0,Male\n")
+        f.write("Adelie,Biscoe,35.9,19.2,189.0,3800.0,Female\n")
+        f.write("Adelie,Biscoe,38.2,18.1,185.0,3950.0,Male\n")
+        f.write("Adelie,Dream,39.5,16.7,178.0,3250.0,Female\n")
+        f.write("Adelie,Dream,37.2,18.1,178.0,3900.0,Male\n")
+        f.write("Adelie,Dream,39.5,17.8,188.0,3300.0,Female\n")
+        f.write("Adelie,Dream,40.9,18.9,184.0,3900.0,Male\n")
+        f.write("Adelie,Dream,36.4,17.0,195.0,3325.0,Female\n")
+        f.write("Adelie,Dream,39.2,21.1,196.0,4150.0,Male\n")
+        f.write("Adelie,Dream,38.8,20.0,190.0,3950.0,Male\n")
+        f.write("Adelie,Biscoe,39.6,17.7,186.0,3500.0,Female\n")
+        f.write("Adelie,Biscoe,40.1,18.9,188.0,4300.0,Male\n")
+        f.write("Adelie,Biscoe,35.0,17.9,190.0,3450.0,Female\n")
+        f.write("Adelie,Biscoe,42.0,19.5,200.0,4050.0,Male\n")
+
+    # Write out some seaborn test data, csv and space-separated
+    import seaborn as sns
+
+    for dset_name in ("iris", "planets", "taxis"):
+        df = sns.load_dataset(dset_name)
+        with open(csv_dir.join(f"{dset_name}.csv"), "x") as f:
+            f.write(df.to_csv())
+
+        with open(csv_dir.join(f"{dset_name}.tsv"), "x") as f:
+            f.write(df.to_csv(sep="\t"))
+
+    return CSVDataManager(data_dir, out_dir=None)
 
 
 @pytest.fixture
@@ -412,6 +483,12 @@ def test_init_with_create_groups(tmpdir):
         )
 
 
+def test_available_loaders(data_dir):
+    dm = FullDataManager(data_dir)
+    assert "yaml" in dm.available_loaders
+    assert "file" not in dm.available_loaders  # because _load_file
+
+
 def test_loading(dm):
     """Tests whether loading works by using the default DataManager, i.e. that
     with the YamlLoaderMixin ...
@@ -541,7 +618,7 @@ def test_loading_errors(dm):
     )
 
     # With name collisions, an error should be raised
-    with pytest.raises(dantro.data_mngr.ExistingDataError):
+    with pytest.raises(ExistingDataError):
         dm.load("barfoo", loader="yaml", glob_str="foobar.yml")
 
     # Unless loading is disabled anyway
@@ -558,20 +635,20 @@ def test_loading_errors(dm):
 
     # Check for missing data ..................................................
     # Check for data missing that was required
-    with pytest.raises(dantro.data_mngr.RequiredDataMissingError):
+    with pytest.raises(RequiredDataMissingError):
         dm.load(
             "i_need_this", loader="yaml", glob_str="needed.yml", required=True
         )
 
     # Check for warning being given when data was missing but not required
-    with pytest.warns(dantro.data_mngr.MissingDataWarning):
+    with pytest.warns(MissingDataWarning):
         dm.load("might_need_this", loader="yaml", glob_str="maybe_needed.yml")
 
     # Check for invalid loaders ...............................................
-    with pytest.raises(dantro.data_mngr.LoaderError):
+    with pytest.raises(LoaderError, match="Available loaders:  yaml, yaml_to"):
         dm.load("nopenopenope", loader="nope", glob_str="*")
 
-    with pytest.raises(dantro.data_mngr.LoaderError):
+    with pytest.raises(LoaderError, match="misses required attribute"):
         dm.load("nopenopenope", loader="bad_loadfunc", glob_str="*")
 
     # Loading itself may fail .................................................
@@ -582,6 +659,24 @@ def test_loading_errors(dm):
     # ... but it will only warn if the data was not required
     dm.load("failing", loader="yaml", glob_str="*.bad_yml", required=False)
     assert "failing" not in dm
+
+
+def test_load_func_name():
+    """Makes sure that a load function named ``_load_file`` is not possible"""
+    from dantro.data_loaders import add_loader
+
+    with pytest.raises(AssertionError):
+
+        class MyDataManager(DataManager):
+            @add_loader(TargetCls=ObjectContainer)
+            def _load_file(self):  # already exists, should not be overwritten!
+                pass
+
+    # This works
+    class MyDataManager(DataManager):
+        @add_loader(TargetCls=ObjectContainer)
+        def _load_from_file(self):
+            pass
 
 
 def test_loading_exists_action(dm):
@@ -668,7 +763,7 @@ def test_loading_exists_action(dm):
     assert "looooooooooong_filename" not in dm["a_group"]
 
     # Check that there is a warning for existing element in a group
-    with pytest.warns(None) as record:
+    with pytest.warns(dantro.data_mngr.ExistingDataWarning) as record:
         dm.load(
             "more_yamls",
             loader="yaml",
@@ -1084,7 +1179,8 @@ def test_parallel(dm, hdf5_dm):
 
 
 # =============================================================================
-# Loaders =====================================================================
+# == Data Loaders =============================================================
+# =============================================================================
 
 # TextLoaderMixin tests -------------------------------------------------------
 
@@ -1119,8 +1215,8 @@ def test_pkl_loader(pkl_dm):
 # NumpyLoaderMixin tests ------------------------------------------------------
 
 
-def test_numpy_loader(np_dm):
-    """Tests the numpy loader"""
+def test_numpy_loader_binary(np_dm):
+    """Tests the numpy loader for binary data"""
     np_dm.load("np_data", loader="numpy", glob_str="np_data/*.npy")
 
     # Check that all files are loaded and of the expected type
@@ -1136,6 +1232,117 @@ def test_numpy_loader(np_dm):
 
     assert np_data["zeros_float"].dtype is np.dtype(float)
     assert np_data["zeros_float"].mean() == 0.0
+
+
+def test_numpy_loader_txt(csv_dm):
+    """Tests the numpy loader for text data"""
+    dm = csv_dm
+    kws = dict(loader="numpy_txt", required=True)
+    dm.load("csv_data", **kws, glob_str="csv/simple*.csv")
+
+    csv_data = dm["csv_data"]
+    assert len(csv_data) == 2
+
+    assert isinstance(csv_data["simple_int"], NumpyDataContainer)
+    assert isinstance(csv_data["simple_float"], NumpyDataContainer)
+
+    assert csv_data["simple_int"].shape == (2, 3)
+    assert csv_data["simple_float"].shape == (2, 3)
+
+    assert csv_data["simple_int"].dtype is np.dtype(float)
+    assert csv_data["simple_float"].dtype is np.dtype(float)
+
+    # Load again as ints, requiring a converter for float data
+    dm.load(
+        "int_data",
+        **kws,
+        glob_str="csv/simple*.csv",
+        dtype=int,
+        converters=float,
+    )
+    csv_data = dm["int_data"]
+    assert csv_data["simple_int"].dtype is np.dtype(int)
+    assert csv_data["simple_float"].dtype is np.dtype(int)
+
+    # What about custom separators?
+    dm.load(
+        "custom_delim",
+        **kws,
+        glob_str="csv/sep*.csv",
+        delimiter=",",
+    )
+    csv_data = dm["custom_delim"]
+    assert csv_data["sep_comma"].shape == (2, 3)
+
+    # And heterogeneous data? Needs a custom dtype
+    dm.load(
+        "mixed_dtypes",
+        **kws,
+        glob_str="csv/iris.csv",
+        dtype="object",
+        delimiter=",",
+    )
+    iris = dm["mixed_dtypes"]
+    print(iris.data)
+    assert iris.shape == (151, 6)
+    assert iris.dtype is np.dtype(object)
+
+
+# PandasLoaderMixin tests -----------------------------------------------------
+
+
+def test_pandas_loader_csv(csv_dm):
+    """Tests the pandas loader for CSV data"""
+    dm = csv_dm
+    kws = dict(loader="pandas_csv", required=True)
+
+    # Can load everything, not requiring further arguments
+    dm.load("csv_data", **kws, glob_str="csv/*.csv")
+
+    data = dm["csv_data"]
+    print(data.tree)
+    assert len(data) == 7
+
+    # Let's look at the loaded data
+    penguins = data["penguins"]
+    print(penguins.head())
+    assert "species" in penguins.columns
+    assert not np.isnan(penguins.loc[2]["bill_length_mm"])
+    assert np.isnan(penguins.loc[3]["bill_length_mm"])
+
+    # Compare loading of datasets with different separators
+    dm.load("tsv_data", **kws, glob_str="csv/*.tsv", sep="\t")
+    tsv_data = dm["tsv_data"]
+    print(data["planets"].head())
+    print(tsv_data["planets"].head())
+    assert data["planets"].equals(tsv_data["planets"].data)
+
+
+def test_pandas_loader_generic(csv_dm):
+    """Tests the pandas loader for CSV data"""
+    dm = csv_dm
+    kws = dict(loader="pandas_generic", required=True)
+
+    # Can load CSV data, just as before
+    dm.load("csv_data", **kws, glob_str="csv/*.csv", reader="csv")
+    data = dm["csv_data"]
+    print(data.tree)
+    assert len(data) == 7
+
+    # How about excel data?
+    # ... will fail because the file content is not excel and thus no engine
+    #     can be determined
+    with pytest.raises(DataLoadingError, match="file format cannot be det"):
+        dm.load("excel_data", **kws, glob_str="**/*.csv", reader="excel")
+
+    # Bad reader name
+    with pytest.raises(DataLoadingError, match="Invalid") as exc_info:
+        dm.load("fails", **kws, glob_str="*", reader="bad reader")
+
+    # ...informs about available readers, excluding some that aren't file-based
+    assert "excel, feather, fwf, hdf" in str(exc_info.value)
+    assert "sql" not in str(exc_info.value)
+    assert "clipboard" not in str(exc_info.value)
 
 
 # XarrayLoaderMixin tests -----------------------------------------------------

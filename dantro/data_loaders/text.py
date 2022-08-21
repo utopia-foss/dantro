@@ -1,19 +1,18 @@
-"""Defines a loader mixin to load plain text objects"""
+"""Defines a loader mixin to load plain text files"""
 
 from ..containers import StringContainer
 from ._tools import add_loader
 
-# -----------------------------------------------------------------------------
-
 
 class TextLoaderMixin:
-    """Supplies functionality to load plain text files"""
+    """A mixin for :py:class:`~dantro.data_mngr.DataManager` that supports
+    loading of plain text files."""
 
     @add_loader(TargetCls=StringContainer)
     def _load_plain_text(
         filepath: str, *, TargetCls: type, **load_kwargs
     ) -> StringContainer:
-        """Loads the content of a plain text file back into a
+        """Loads the content of a plain text file into a
         :py:class:`~dantro.containers.general.StringContainer`.
 
         Args:
