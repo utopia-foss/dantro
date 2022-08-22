@@ -2,7 +2,7 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
-## v0.18.4 *(work in progress)*
+## v0.18.4
 - !310 fixes a bug that occurred when using relative references like `!dag_prev` in the arguments to a meta-operation.
 - !311 adds the `DataManager.available_loaders` property and expands the corresponding documentation.
 - !311 adds some new data loaders:
