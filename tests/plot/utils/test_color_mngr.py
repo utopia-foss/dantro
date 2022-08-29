@@ -1,5 +1,7 @@
 """Test the utopya.eval.plots_mpl module"""
+import contextlib
 import os
+from builtins import *
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -7,10 +9,11 @@ import numpy as np
 import pytest
 from pkg_resources import resource_filename
 
+from dantro.exceptions import *
 from dantro.plot.utils import ColorManager, parse_cmap_and_norm_kwargs
 from dantro.tools import load_yml
 
-from ..._fixtures import tmpdir_or_local_dir
+from ..._fixtures import *
 
 COLOR_MANAGER_CFG = resource_filename("tests", "cfg/color_manager_cfg.yml")
 
@@ -20,113 +23,114 @@ COLOR_MANAGER_CFG = resource_filename("tests", "cfg/color_manager_cfg.yml")
 # Tests -----------------------------------------------------------------------
 
 
-def test_ColorManager(tmpdir_or_local_dir):
+def test_ColorManager(out_dir):
     """Tests the ColorManager class."""
-    out_dir = tmpdir_or_local_dir
-
-    # The configurations to test
-    test_configurations = load_yml(COLOR_MANAGER_CFG)
-
     # Test initializing the default ColorManager
-    colormanager = ColorManager()
-    assert colormanager.cmap.name == "viridis"
-    assert isinstance(colormanager.norm, mpl.colors.Normalize)
-    assert colormanager.labels is None
+    cm = ColorManager()
+    assert cm.cmap.name == "viridis"
+    assert isinstance(cm.norm, mpl.colors.Normalize)
+    assert cm.labels is None
+    assert cm.vmin is None
+    assert cm.vmax is None
 
-    for name, cfg in test_configurations.items():
-        cbar_kwargs = cfg.pop("cbar_kwargs", {})
-
-        # Test the failing cases explicitly
-        if name == "invalid_norm":
-            with pytest.raises(
-                ValueError, match="Received invalid norm specifier:"
-            ):
-                ColorManager(**cfg)
-            continue
-
-        elif name == "invalid_cmap":
-            with pytest.raises(
-                ValueError, match="Received invalid colormap name:"
-            ):
-                ColorManager(**cfg)
-            continue
-
-        elif name == "disconnected_intervals":
-            with pytest.raises(
-                ValueError, match="Received disconnected intervals:"
-            ):
-                ColorManager(**cfg)
-            continue
-
-        elif name == "decreasing_boundaries":
-            with pytest.raises(
-                ValueError, match="Received decreasing boundaries:"
-            ):
-                ColorManager(**cfg)
-            continue
-
-        elif name == "single_bin_center":
-            with pytest.raises(
-                ValueError, match="At least 2 bin centers must be given"
-            ):
-                ColorManager(**cfg)
-            continue
-
-        # Initialize the ColorManager and retrieve the created colormap, norm,
-        # and colorbar labels.
-        colormanager = ColorManager(**cfg)
-
-        cmap = colormanager.cmap
-        norm = colormanager.norm
-        labels = colormanager.labels
-
-        assert isinstance(cmap, mpl.colors.Colormap)
-        assert isinstance(norm, mpl.colors.Normalize)
-        assert labels is None or isinstance(labels, dict)
-
-        # Test the `ColorManager.create_cbar` method
-        fig, ax = plt.subplots()
-        scatter = ax.scatter(
-            np.arange(10), np.arange(10), c=np.arange(10), cmap=cmap, norm=norm
-        )
-
-        cb = colormanager.create_cbar(
-            scatter,
-            label="my_label",
-            tick_params=dict(size=7),
-            **cbar_kwargs,
-        )
-
-        assert isinstance(cb, mpl.colorbar.Colorbar)
-        assert cb.norm == norm
-        assert cb.cmap == cmap
-        if "labels" in cfg and isinstance(cfg["labels"], dict):
-            assert (cb.get_ticks() == list(cfg["labels"].keys())).all()
-
-        # Save and close the plot
-        plt.savefig(os.path.join(out_dir, f"{name}.pdf"))
-        plt.close()
-
-        # Test the `ColorManager.map_to_color` method
-        colors = colormanager.map_to_color(42.0)
-        assert mpl.colors.is_color_like(colors)
-        colors = colormanager.map_to_color(np.linspace(2.1, 5.3, 10))
-        assert all([mpl.colors.is_color_like(c) for c in colors])
-
-        # NOTE Some explicit color checks. If it fails check the respective
-        #      configurations.
-        if name == "from_intervals":
-            assert cmap(1) == mpl.colors.to_rgba("w")
-
-        if name == "shortcut_categorical":
-            assert cmap(0) == mpl.colors.to_rgba("g")
-
-    # Test ColorManager when passing norm and cmap (as mpl object) directly
-    colormanager = ColorManager(
+    # Test passing norm and cmap (as mpl objects) directly
+    cm = ColorManager(
         cmap=mpl.colors.ListedColormap(["r", "b"]),
         norm=mpl.colors.BoundaryNorm([-2, 1, 2], ncolors=2),
     )
-    assert colormanager.cmap(0) == mpl.colors.to_rgba("r")
+    assert cm.cmap(0) == mpl.colors.to_rgba("r")
+
+    # Test other cases via configuration
+    for name, cfg in load_yml(COLOR_MANAGER_CFG).items():
+        print(f"\n\n--- Test case: {name} ---")
+        cbar_kwargs = cfg.pop("cbar_kwargs", {})
+        _raises = cfg.pop("_raises", None)
+        _match = cfg.pop("_match", None)
+        _test_cmap = cfg.pop("_test_cmap", {})
+        _test_norm = cfg.pop("_test_norm", {})
+        _test_attrs = cfg.pop("_test_attrs", {})
+
+        if _raises is not None:
+            ctx = pytest.raises(globals()[_raises], match=_match)
+        else:
+            ctx = contextlib.nullcontext()
+
+        # Initialize the ColorManager
+        with ctx:
+            cm = ColorManager(**cfg)
+
+        if _raises:
+            print("Raised as expected.")
+            continue
+
+        # Check the general interface
+        print("vmin:         ", cm.vmin)
+        print("vmax:         ", cm.vmax)
+        print("_cmap_kwargs: ", cm._cmap_kwargs)
+        print("_norm_kwargs: ", cm._norm_kwargs)
+        print("cmap:         ", cm.cmap)
+        print("norm:         ", cm.norm)
+        print("labels:       ", cm.labels)
+
+        assert isinstance(cm.cmap, mpl.colors.Colormap)
+        assert isinstance(cm.norm, mpl.colors.Normalize)
+        assert cm.labels is None or isinstance(cm.labels, dict)
+
+        # Test the `ColorManager.create_cbar` method by creating a dummy plot
+        fig, ax = plt.subplots()
+        ax.grid(linewidth=0.1, zorder=-10)
+        ax.axhline(0.0, linewidth=0.8, color="black", alpha=0.5, zorder=-10)
+        ax.axvline(0.0, linewidth=0.8, color="black", alpha=0.5, zorder=-10)
+        vals = np.linspace(-4, 12, 17)
+        scatter = ax.scatter(
+            vals,
+            vals,
+            c=vals,
+            edgecolor="k",
+            linewidth=0.2,
+            cmap=cm.cmap,
+            norm=cm.norm,
+            zorder=10,
+        )
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        title = name.replace("_", " ")
+        ax.set_title(title)
+        cb = cm.create_cbar(
+            scatter,
+            **cbar_kwargs,
+        )
+        plt.savefig(os.path.join(out_dir, f"{name}.pdf"))
+        plt.close()
+
+        # Check the Colorbar object
+        assert isinstance(cb, mpl.colorbar.Colorbar)
+        assert cb.norm == cm.norm
+        assert cb.cmap == cm.cmap
+        if "labels" in cfg and isinstance(cfg["labels"], dict):
+            assert (cb.get_ticks() == list(cfg["labels"].keys())).all()
+            # TODO Parametrise via config?
+
+        # Test the `ColorManager.map_to_color` method
+        colors = cm.map_to_color(42.0)
+        assert mpl.colors.is_color_like(colors)
+        colors = cm.map_to_color(np.linspace(2.1, 5.3, 10))
+        assert all([mpl.colors.is_color_like(c) for c in colors])
+
+        # Some explicit attribute, colormap, and norm checks
+        if _test_attrs or _test_cmap or _test_norm:
+            print("\nChecking attributes, colormap, and norm ...")
+            for attr_name, expected in _test_attrs.items():
+                print(f"  cm.{attr_name} == {expected}")
+                assert getattr(cm, attr_name) == expected
+
+            for cmap_val, color in _test_cmap.items():
+                print(f"  cmap({cmap_val}) == 'to_rgba({color})'")
+                assert cm.cmap(cmap_val) == mpl.colors.to_rgba(color)
+
+            for val, expected in _test_norm.items():
+                print(f"  norm({val}) == {expected}")
+                assert cm.norm(val) == expected
 
 
 def test_ColorManager_yaml():

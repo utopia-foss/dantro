@@ -1,5 +1,28 @@
 # Test configurations of the dantro ColorManager
+#
+# NOTE
+#   - In `_test_cmap`, the keys need to be float values in [0, 1] OR
+#     integer values in [0, n_colors - 1]
 ---
+minimal: {}
+
+minimal_vmin_vmax:
+  cmap:
+    name: viridis
+    under: red
+    over: blue
+  vmin: 0
+  vmax: 10
+
+
+reversed:
+  cmap:
+    name: viridis
+    reversed: true
+  vmin: 0
+  vmax: 10
+
+
 from_centers:
   ### START -- labels
   cmap:
@@ -15,89 +38,428 @@ from_centers:
     1: bar
     4: baz
   ### END ---- labels
+  _test_cmap:
+    0.0: r
+    0.5: g
+    1.0: b
+
 
 from_intervals:
   ### START -- intervals
   cmap:
     from_values:
-      [-.5,0.5]: r
-      [0.5,1.5]: ~   # None --> will use placeholder color here, default: white
-      [1.5,4.5]: b
+      [-.5, 0.5]: r
+      [0.5, 1.5]: ~   # None → will use placeholder color (default: white)
+      [1.5, 4.5]: b
   ### END ---- intervals
-  norm:
-    foo: bar # will be overwritten
+  # norm:
+  #   foo: bar # will be overwritten
+  # FIXME breaking change if this is no longer possible
 
-simple_syntax:
-  cmap: Greys
-  norm: NoNorm
-  vmin: ~
-  vmax: 42
-  labels:
-    0: 0
-  cbar_kwargs:
-    orientation: horizontal
+# TODO
+#   - reversed
 
-advanced_syntax:
-  ### START -- advanced_syntax
-  cmap:
-    name: Greys
-    over:
-      color: black
-      alpha: 0.5
-    under:
-      color: black
-      alpha: 0.5
-    bad: red
-  vmin: 0
-  vmax: 1
-  norm:
-    name: PowerNorm
-    gamma: 0.5
-  ### END ---- advanced_syntax
 
-shortcut_categorical:
+# -- Categorical --------------------------------------------------------------
+
+cat_from_list: &cat_from_list
   cmap:
     from_values:
-      - # None entry, use placeholder color here
+      - green
       - blue
-    placeholder_color: g
+      - red
+      - orange
+    under: white
+    over: white
   labels:
-    - first-category
-    - second-category
+    - first
+    - second
+    - third
+    - fourth
+  _test_cmap: &cat_cmap
+    0.0: green
+    0.3334: blue
+    0.6666: red
+    1.0: orange
+  _test_attrs: &cat_attrs
+    labels: &cat_labels
+      0: first
+      1: second
+      2: third
+      3: fourth
+    vmin: -0.5
+    vmax: 3.5
+
+
+cat_from_list_with_vmin_vmax:
+  <<: *cat_from_list
+  vmin: 0
   vmax: 3
+  _test_attrs:
+    <<: *cat_attrs
+
+
+cat_from_list_with_vmin_vmax_not_discretized:
+  <<: *cat_from_list
+  vmin: 0
+  vmax: 3
+  discretized: false
+  _test_attrs:
+    <<: *cat_attrs
+    vmin: 0
+    vmax: 3
+
+
+cat_labels_and_colors:
+  ### START -- labels_and_colors_minimal
+  cmap:
+    first: green
+    second: blue
+    third: red
+    fourth: orange
+
+    # can also specify extremes here
+    under: k
+    over: w
+  ### END ---- labels_and_colors_minimal
+  _test_cmap: *cat_cmap
+  _test_attrs:
+    <<: *cat_attrs
+
+
+cat_labels_and_colors_explicit:
+  ### START -- labels_and_colors_explicit
+  cmap:
+    labels_and_colors:
+      # can use restricted labels here
+      name: green
+      colors: blue
+      reversed: red
+      gamma: orange
+  ### END ---- labels_and_colors_explicit
+  _test_cmap: *cat_cmap
+  _test_attrs:
+    <<: *cat_attrs
+    labels:
+      0: name
+      1: colors
+      2: reversed
+      3: gamma
+
+
+cat_labels_and_colors_overwrite_labels:
+  cmap:
+    first: green
+    second: blue
+    third: red
+    fourth: orange
+  labels:
+    0: FIRST
+    1: SECOND
+    2: THIRD
+    3: FOURTH
+  _test_cmap: *cat_cmap
+  _test_attrs:
+    <<: *cat_attrs
+    labels:
+      0: FIRST
+      1: SECOND
+      2: THIRD
+      3: FOURTH
+
+
+cat_labels_and_colors_shifted: &labels_and_colors_shifted
+  ### START -- labels_and_colors_vmin_vmax
+  cmap:
+    first: green
+    second: blue
+    third: red
+    fourth: orange
+  vmin: 2
+  vmax: ~
+  ### END ---- labels_and_colors_vmin_vmax
+  _test_cmap: *cat_cmap
+  _test_attrs: &cat_attrs_shifted
+    <<: *cat_attrs
+    labels:
+      2: first
+      3: second
+      4: third
+      5: fourth
+    vmin: 1.5
+    vmax: 5.5
+
+
+cat_labels_and_colors_shifted_not_discretized:
+  <<: *labels_and_colors_shifted
+  discretized: false
+  _test_cmap: *cat_cmap
+  _test_attrs:
+    <<: *cat_attrs_shifted
+    vmin: 2
+    vmax: 5.5
+
+
+cat_labels_and_colors_shifted_from_vmax:
+  <<: *labels_and_colors_shifted
+  vmin: ~
+  vmax: 5
+  _test_cmap: *cat_cmap
+  _test_attrs:
+    <<: *cat_attrs_shifted
+
+
+cat_labels_and_colors_shifted_from_vmax_not_discretized:
+  <<: *labels_and_colors_shifted
+  vmin: ~
+  vmax: 5
+  discretized: false
+  ### END ---- labels_and_colors_vmin_vmax
+  _test_cmap: *cat_cmap
+  _test_attrs:
+    <<: *cat_attrs_shifted
+    vmin: 1.5
+    vmax: 5
+
+
+cat_labels_and_colors_float_vmin_vmax:
+  <<: *labels_and_colors_shifted
+  vmin: 1.9
+  vmax: 5.2
+  _test_cmap: *cat_cmap
+  _test_attrs:
+    <<: *cat_attrs_shifted
+    vmin: 1.5
+    vmax: 5.5
+
+
+cat_labels_and_colors_float_vmin_vmax_not_discretized:
+  <<: *labels_and_colors_shifted
+  vmin: 1.9
+  vmax: 5.2
+  discretized: false
+  _test_cmap: *cat_cmap
+  _test_attrs:
+    <<: *cat_attrs_shifted
+    vmin: 1.9
+    vmax: 5.2
+
+
+cat_skip_values_and_still_have_clean_labels:
+  ### START -- cat_missing_data
+  cmap:
+    first: green
+    second: blue
+    " ": w
+    fourth: orange
+    "  ": w
+  ### END ---- cat_missing_data
+
+
+
+err_cat_bad_vmin_vmax:
+  <<: *labels_and_colors_shifted
+  vmin: 5
+  vmax: 7
+
+  _raises: ValueError
+  _match: Failed to infer data positions
+
+
+err_cat_bad_vmin_vmax_float:
+  <<: *labels_and_colors_shifted
+  vmin: 4.9
+  vmax: 7.1
+
+  _raises: ValueError
+  _match: Failed to infer data positions
+
+
+err_cat_labels_and_colors_explicit:
+  cmap:
+    # cannot specify both
+    labels_and_colors:
+      name: green
+      colors: blue
+      reversed: red
+      gamma: orange
+    foo: red
+    bar: orange
+
+  _raises: ValueError
+  _match: explicit `labels_and_colors` argument
+
+
+err_cat_labels_and_colors_with_name:
+  cmap:
+    first: green
+    second: blue
+    third: red
+    fourth: orange
+    name: foobar
+
+  _raises: ValueError
+  _match: Cannot use argument `name`
+
+
+err_cat_labels_and_colors_with_continuous:
+  cmap:
+    first: green
+    second: blue
+    third: red
+    fourth: orange
+    continuous: true
+
+  _raises: ValueError
+  _match: Cannot use the shorthand syntax for specifying labels and colors
+
+
+err_cat_labels_and_colors_with_from_values:
+  cmap:
+    first: green
+    second: blue
+    third: red
+    fourth: orange
+    from_values:
+      - foo
+      - bar
+
+  _raises: ValueError
+  _match: Cannot use the shorthand syntax for specifying labels and colors
+
+
+# -- Color syntax -------------------------------------------------------------
+
+color_syntax_simple:
+  cmap:
+    name: Greys
+    under: red
+    over: blue
+  vmin: 0
+  vmax: 10
+  labels:
+    0: 0
+    1.25: 1.25
+    2.5: 2.5
+    5: 5
+    10: 10
+  _test_cmap:
+    -0.1: red
+    0.0: white
+    1.0: black
+    +1.1: blue
+
+
+color_syntax_advanced:
+  ### START -- advanced_syntax
+  cmap:
+    name: viridis
+    under:
+      color: blue
+      alpha: 0.5
+    over:
+      color: red
+      alpha: 0.5
+    bad: darkred
+  ### END ---- advanced_syntax
+  vmin: 0
+  vmax: 10
+  norm:
+    name: Normalize
+
+
+
+# -- Colorbar stuff -----------------------------------------------------------
+
+cbar_horizontal:
+  cbar_kwargs:
+    orientation: horizontal
+    label: my cbar label
+
+cbar_extend_auto_under:
+  cmap:
+    under: blue
+  vmin: 0
+
+cbar_extend_auto_over:
+  cmap:
+    over: red
+  vmax: 10
+
+cbar_extend_suppressed:
+  cmap:
+    under: blue
+    over: red
+  vmin: 0
+  vmax: 10
+  cbar_kwargs:
+    extend: neither
+
+
+
 
 # -- Different norms ----------------------------------------------------------
-Normalize:
+
+norm_Normalize:
   norm: Normalize
 
-BoundaryNorm:
+
+norm_BoundaryNorm:
+  cmap:
+    from_values:
+      - tab:green
+      - tab:red
+      - tab:blue
+      - tab:orange
+    under: k
+    over: w
   norm:
     name: BoundaryNorm
-    boundaries: [0,1,2]
-    ncolors: 5
+    boundaries: [0, 1, 2, 3, 4]
+    ncolors: 4
+  labels:
+    0.5: 0.5
+    1.5: 1.5
+    2.5: 2.5
+    3.5: 3.5
 
-NoNorm:
+
+norm_NoNorm:
   norm: NoNorm
 
-LogNorm:
+
+norm_LogNorm:
   norm: LogNorm
 
-PowerNorm:
+
+norm_PowerNorm:
   norm:
     name: PowerNorm
     gamma: 0.5
 
-SymLogNorm:
+
+norm_SymLogNorm:
   norm:
     name: SymLogNorm
     linthresh: 1.
 
-TwoSlopeNorm:
+
+norm_TwoSlopeNorm:
+  cmap:
+    name: coolwarm
+    over: red
+    under: blue
   norm:
     name: TwoSlopeNorm
-    vcenter: 1.
+    vcenter: 0
+  vmin: -5
+  vmax: 10
+
+
+
 
 # --- Continuous Colormap -----------------------------------------------------
+
 continuous:
   cmap:
     continuous: true
@@ -107,6 +469,7 @@ continuous:
       1: black
     bad: white
 
+
 continuous_with_none:
   cmap:
     continuous: true
@@ -114,6 +477,7 @@ continuous_with_none:
       0: '#EC7070'
       0.5: ~
       1: black
+
 
 continuous_lognorm:
   cmap:
@@ -125,6 +489,7 @@ continuous_lognorm:
     bad: white
   norm:
     name: LogNorm
+
 
 continuous_with_boundaries:
   ### START -- continuous_with_boundaries
@@ -141,11 +506,26 @@ continuous_with_boundaries:
     boundaries: [0, 0.2, 0.7, 1]
   ### END ---- continuous_with_boundaries
 
+
+continuous_vmin_vmax:
+  cmap:
+    continuous: true
+    from_values:
+      0: '#EC7070'
+      0.5: ~
+      1: black
+    under: k
+    over: w
+  vmin: 0
+  vmax: 10
+
+
 # -- YAML constructor ---------------------------------------------------------
 
 from_yaml_scalars:
-  cmap: !cmap viridis
-  norm: !cmap_norm NoNorm
+  cmap: !cmap PiYG
+  norm: !cmap_norm CenteredNorm
+
 
 from_yaml_mappings:
   ### START -- yaml_constructors
@@ -156,31 +536,54 @@ from_yaml_mappings:
       0.5: "#EC9F7E"
       1: black
     bad: white
-  norm: !cmap_norm    # will create a matplotlib.colors.BoundaryNorm object
-    name: BoundaryNorm
-    ncolors: 256
-    boundaries: [0, 0.2, 0.7, 1]
+  norm: !cmap_norm    # will create a matplotlib.colors.Normalize object
+    name: Normalize
+    vmin: 0
+    vmax: 10
+    clip: true
   ### END ---- yaml_constructors
 
+
+
 # -- Failing configurations ---------------------------------------------------
-invalid_norm:
+
+err_invalid_norm:
   norm: norrrm
 
-invalid_cmap:
+  _raises: ValueError
+  _match: invalid norm specifier 'norrrm'
+
+
+err_invalid_cmap:
   cmap: cmappp
 
-disconnected_intervals:
+  _raises: ValueError
+  _match: is not a valid value.*supported.*viridis
+
+
+err_disconnected_intervals:
   cmap:
     from_values:
       [0,1]: r
       [2,3]: g
 
-decreasing_boundaries:
+  _raises: ValueError
+  _match: Received disconnected intervals
+
+
+err_decreasing_boundaries:
   cmap:
     from_values:
       [1,0]: r
 
-single_bin_center:
+  _raises: ValueError
+  _match: Received decreasing boundaries
+
+
+err_single_bin_center:
   cmap:
     from_values:
       0: r
+
+  _raises: ValueError
+  _match: At least 2 bin centers must be given to create a BoundaryNorm

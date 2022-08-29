@@ -64,7 +64,8 @@ def _cmap_constructor(loader, node) -> "matplotlib.colors.Colormap":
         cmap_kwargs = loader.construct_mapping(node, deep=True)
     else:
         cmap_kwargs = loader.construct_scalar(node)
-    cmap = ColorManager(cmap=cmap_kwargs).cmap
+    cm = ColorManager(cmap=cmap_kwargs)
+    cmap = cm.cmap
     cmap._original_yaml = copy.deepcopy(cmap_kwargs)
 
     return cmap
@@ -81,9 +82,10 @@ def _cmap_norm_constructor(loader, node) -> "matplotlib.colors.Colormap":
         norm_kwargs = loader.construct_mapping(node, deep=True)
     else:
         norm_kwargs = loader.construct_scalar(node)
-    norm = ColorManager(norm=norm_kwargs).norm
-
+    cm = ColorManager(norm=norm_kwargs)
+    norm = cm.norm
     norm._original_yaml = copy.deepcopy(norm_kwargs)
+
     return norm
 
 
