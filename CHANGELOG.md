@@ -2,6 +2,9 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.18.5
+- !329 adds `plt.errorbar` to `MULTIPLOT_FUNC_KINDS` in `_multiplot.py`
+
 ## v0.18.4
 - !310 fixes a bug that occurred when using relative references like `!dag_prev` in the arguments to a meta-operation.
 - !311 adds the `DataManager.available_loaders` property and expands the corresponding documentation.
