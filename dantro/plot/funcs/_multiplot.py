@@ -80,6 +80,7 @@ MULTIPLOT_FUNC_KINDS = { # --- start literalinclude
     "plt.loglog":           _plt.loglog,
     "plt.semilogx":         _plt.fill,
     "plt.semilogy":         _plt.semilogy,
+    "plt.errorbar":         _plt.errorbar,
 
     # Distribution plots
     "plt.hist":             _plt.hist,
