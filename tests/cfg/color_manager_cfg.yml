@@ -106,6 +106,23 @@ cat_from_list: &cat_from_list
     vmax: 3.5
 
 
+cat_from_list_shortcut:
+  ### START -- from_values_shortcut
+  cmap:
+    - green
+    - blue
+    - red
+    - orange
+  labels:
+    - first
+    - second
+    - third
+    - fourth
+  ### END ---- from_values_shortcut
+  _test_cmap: *cat_cmap
+  _test_attrs: *cat_attrs
+
+
 cat_from_list_with_vmin_vmax:
   <<: *cat_from_list
   vmin: 0
