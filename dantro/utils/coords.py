@@ -16,7 +16,7 @@ from typing import (
 import numpy as np
 
 from ..abc import AbstractDataContainer
-from ..tools import is_iterable
+from ..tools import is_iterable, try_conversion
 from .link import Link, StrongLink
 
 log = logging.getLogger(__name__)
@@ -441,29 +441,6 @@ def extract_coords_from_name(
             dimensions, if any of the strings extracted from the object's name
             were empty.
     """
-
-    def try_conversion(c: str) -> TCoord:
-        """Given a string, attempts to convert it to a numerical value"""
-        if not attempt_conversion:
-            return c
-
-        try:
-            return int(c)
-        except:
-            pass
-
-        try:
-            return float(c)
-        except:
-            pass
-
-        try:
-            return complex(c)
-        except:
-            pass
-
-        return c
-
     # Split the string and make some basic checks.
     coords = obj.name.split(separator)
 
@@ -483,7 +460,7 @@ def extract_coords_from_name(
 
     # Build the dict, attempting conversion of the objects.
     coords = {
-        dim_name: [try_conversion(c_val)]
+        dim_name: [try_conversion(c_val) if attempt_conversion else c_val]
         for dim_name, c_val in zip(dims, coords)
     }
 

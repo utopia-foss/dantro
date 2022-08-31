@@ -11,6 +11,8 @@ import matplotlib.colors
 import numpy as np
 from matplotlib.colors import to_rgb
 
+from ...tools import parse_str_to_args_and_kwargs
+
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
@@ -68,6 +70,15 @@ class ColorManager:
     construct colormaps. If using the implicit syntax for defining labels and
     colormap values, these can *not* be used for labels."""
 
+    _SNS_COLOR_PALETTE_PREFIX: str = "color_palette::"
+    """If a colormap ``name`` starts with this string, will use
+    :py:func:`seaborn.color_palette` to generate the colormap"""
+
+    _SNS_DIVERGING_PALETTE_PREFIX: str = "diverging::"
+    """If a colormap ``name`` starts with this string, will use
+    :py:func:`seaborn.diverging_palette` to generate the colormap, parsing the
+    remaining parts of the name into positional and keyword arguments."""
+
     # .........................................................................
 
     def __init__(
@@ -88,17 +99,63 @@ class ColorManager:
 
         Args:
             cmap (Union[str, dict, list, matplotlib.colors.Colormap], optional):
-                The colormap. If it is a string, it must name a registered
-                `matplotlib colormap <https://matplotlib.org/stable/gallery/color/colormap_reference.html>`_.
+                The colormap specification.
+                If this is not already a :py:class:`matplotlib.colors.Colormap`
+                instance, it will be parsed into a dict-like specification,
+                which has the options as shown below.
 
-                If ``cmap`` is a list (or tuple), it will be converted to
-                ``dict(from_values=cmap)``, creating a segmented colormap.
-                See below for more information.
+                * If ``cmap`` is a string, it is turned into
+                  ``dict(name=cmap)``.
+                * If ``cmap`` is a list (or tuple), it will be converted to
+                  ``dict(from_values=cmap)``, creating a segmented colormap.
+                  See below for more information.
 
-                If it is a dict, the following arguments are available:
+                In dict form, the following arguments are available:
 
                 ``name`` (str, optional):
-                    Name of a registered colormap.
+                    Name of a registered matplotlib colormap or None to use a
+                    default. For available colormap names, see
+                    `here <https://matplotlib.org/stable/gallery/color/colormap_reference.html>`_.
+
+                    Also **supports seaborn colormaps**. If the name starts
+                    with the :py:attr:`._SNS_COLOR_PALETTE_PREFIX` string,
+                    :py:func:`seaborn.color_palette` is used to generate the
+                    colormap.
+                    If starting with :py:attr:`._SNS_DIVERGING_PALETTE_PREFIX`,
+                    :py:func:`seaborn.diverging_palette` is invoked, using
+                    argument specified as part of the ``name``.
+
+                    This opens many possibilities, as shown in the
+                    `seaborn documentation <https://seaborn.pydata.org/tutorial/color_palettes.html>`_.
+                    For example:
+
+                    .. code-block:: text
+
+                        color_palette::YlOrBr
+                        color_palette::icefire
+                        color_palette::icefire_r          # reversed
+                        color_palette::light:b            # white -> blue
+                        color_palette::dark:b             # black -> blue
+                        color_palette::light:#69d         # custom color
+                        color_palette::light:#69d_r       # ... reversed
+                        color_palette::dark:salmon_r      # named, reversed
+                        color_palette::ch:s=-.2,r=.6      # cubehelix
+
+                        diverging::220,20
+                        diverging::145,300,s=60
+                        diverging::250, 30, l=65, center=dark
+
+                    Here, the ``ch:<key>=<val>,<key>=<val>`` syntax is used to
+                    create a :py:func:`seaborn.cubehelix_palette`.
+                    The same ``<arg>,<arg>,<key>=<val>,<key>=<val>`` syntax is
+                    used for the diverging palette.
+
+                    .. note::
+
+                        When specifying these via YAML, make sure to put the
+                        string into single or double quotes to avoid it being
+                        interpreted as a YAML mapping.
+
                 ``from_values`` (Union[dict, list], optional):
                     Dict of colors keyed by bin-specifier. If given, ``name``
                     is ignored and a discrete colormap is created from the list
@@ -765,7 +822,12 @@ class ColorManager:
         Args:
             name (str, optional): The colormap name. Can either be the name of
                 a registered colormap or ``ListedColormap``. ``None`` means
-                that the ``image.cmap`` value from the RC parameters is used.
+                that the default value from the RC parameters is used.
+                If the name starts with the
+                :py:attr:`._SNS_COLOR_PALETTE_PREFIX`, the colormap can be
+                created by :py:func:`seaborn.color_palette`.
+                See `the seaborn docs <https://seaborn.pydata.org/tutorial/color_palettes.html>`_
+                for available options.
             bad (Union[str, dict], optional): Set color to be used for masked
                 values.
             under (Union[str, dict], optional): Set the color for low
@@ -782,8 +844,13 @@ class ColorManager:
         Raises:
             ValueError: On invalid colormap name.
         """
+
         import seaborn as sns
 
+        SNS_CP_PREFIX = self._SNS_COLOR_PALETTE_PREFIX
+        SNS_DIV_PREFIX = self._SNS_DIVERGING_PALETTE_PREFIX
+
+        # Depending on the name, use different constructors
         if name == "ListedColormap":
             cmap = mpl.colors.ListedColormap(colors, name=name, N=N)
 
@@ -794,6 +861,30 @@ class ColorManager:
                 N=(N if N is not None else 256),
                 gamma=gamma,
             )
+
+        elif name is not None and name.startswith(SNS_CP_PREFIX):
+            name = name[len(SNS_CP_PREFIX) :].strip()
+            cmap = sns.color_palette(name, as_cmap=True)
+
+        elif name is not None and name.startswith(SNS_DIV_PREFIX):
+            # Parse strings like 'diverging::65,0,sep=12' into args and kwargs
+            args, kwargs = parse_str_to_args_and_kwargs(
+                name[len(SNS_DIV_PREFIX) :], sep=","
+            )
+
+            try:
+                cmap = sns.diverging_palette(*args, **kwargs, as_cmap=True)
+            except Exception as exc:
+                raise ValueError(
+                    "Failed constructing a seaborn diverging palette from the "
+                    f"given string-specification '{name}'! "
+                    f"Got a {type(exc).__name__}: {exc}\n\n"
+                    "Check that no arguments are missing and all given "
+                    "arguments are valid. The above string was parsed into "
+                    "the following positional and keyword arguments:\n"
+                    f"  args:    {args}\n"
+                    f"  kwargs:  {kwargs}\n"
+                ) from exc
 
         else:
             # Ensure it's a copy; in matplotlib < 3.6 this returns the

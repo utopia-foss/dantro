@@ -75,6 +75,118 @@ from_intervals:
   _title: ListedColormap from bin edges
 
 
+# -- Seaborn support ----------------------------------------------------------
+
+seaborn_cmap_rocket:
+  cmap: rocket
+
+
+seaborn_cmap_paired:
+  cmap: Paired
+  vmin: -2
+  vmax: 10
+  cbar_kwargs:
+    extend: both
+
+
+seaborn_custom_palette_light_blue:
+  cmap:
+    name: color_palette::light:b
+
+
+seaborn_custom_palette_dark_blue:
+  cmap:
+    name: color_palette::dark:b
+
+
+seaborn_custom_palette_named:
+  cmap:
+    name: color_palette::icefire
+
+
+seaborn_custom_palette_named_reversed:
+  cmap:
+    name: color_palette::icefire_r
+
+
+seaborn_custom_palette_dark:
+  cmap:
+    name: color_palette::dark:salmon_r
+
+
+seaborn_custom_palette_from_color:
+  cmap:
+    name: color_palette::light:#69d
+
+
+seaborn_custom_palette_from_color_reversed:
+  cmap:
+    name: color_palette::light:#69d_r
+
+
+seaborn_custom_palette_cubehelix:
+  cmap:
+    name: "color_palette::ch:start=.2,rot=-.3"
+
+
+seaborn_custom_palette_brewer:
+  cmap:
+    name: color_palette::YlOrBr
+
+
+seaborn_diverging_only_args:
+  cmap:
+    name: diverging::220,20
+
+
+seaborn_diverging_args_and_kwargs:
+  cmap:
+    name: diverging::145, 300, s=60
+
+
+seaborn_diverging_dark_center:
+  cmap:
+    name: diverging::250, 30, l=65, center=dark
+
+
+seaborn_color_palette_example:
+  ### START -- seaborn_color_palette_example
+  cmap:
+    name: color_palette::light:#69d
+  vmin: 0
+  vmax: 10
+  ### END ---- seaborn_color_palette_example
+  cbar_kwargs:
+    extend: both
+
+seaborn_diverging_example:
+  ### START -- seaborn_diverging_example
+  cmap:
+    name: diverging::250, 30, l=65, center=dark
+    under: w
+    over: w
+  vmin: -5
+  vmax: +5
+  ### END ---- seaborn_diverging_example
+
+
+err_seaborn_diverging_missing_args:
+  cmap:
+    name: diverging::250
+  _raises: ValueError
+  _match: "TypeError: .* missing 1 required positional"
+
+
+err_seaborn_diverging_bad_args:
+  cmap:
+    name: 'diverging::250, 30, l=65, invalid="foo"'
+  _raises: ValueError
+  _match: Failed constructing .* unexpected keyword argument
+
+
+
+
+
 # -- Categorical --------------------------------------------------------------
 
 cat_from_list: &cat_from_list

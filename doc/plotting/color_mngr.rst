@@ -293,6 +293,77 @@ Specifying color *and* ``alpha`` for the extremes is also possible:
     :alt: ColorManager output example
 
 
+Seaborn color maps
+^^^^^^^^^^^^^^^^^^
+It is also possible to use seaborn colormaps, which opens up `many new possibilities <https://seaborn.pydata.org/tutorial/color_palettes.html>`_ to define colormaps.
+These fall into three categories:
+
+* Named colormaps like ``icefire`` that are available after seaborn was imported (which it is when the ``ColorManager`` is invoked).
+* Color palettes defined via :py:func:`seaborn.color_palette`.
+* Divering colormaps constructed via :py:func:`seaborn.diverging_palette`.
+
+The latter two use a prefix syntax for the ``name`` argument: To use those modes, use a ``name`` argument that starts with ``color_palette::`` or ``diverging::``, respectively, followed by the corresponding arguments.
+More information and examples below.
+
+Color palettes
+""""""""""""""
+
+.. literalinclude:: ../../tests/cfg/color_manager_cfg.yml
+    :language: yaml
+    :start-after: ### START -- seaborn_color_palette_example
+    :end-before:  ### END ---- seaborn_color_palette_example
+    :dedent: 2
+
+.. image:: ../_static/_gen/color_mngr/seaborn_color_palette_example.pdf
+    :target: ../_static/_gen/color_mngr/seaborn_color_palette_example.pdf
+    :width: 100%
+    :alt: ColorManager output example
+
+More examples:
+
+.. code-block:: text
+
+    color_palette::YlOrBr
+    color_palette::icefire
+    color_palette::icefire_r          # reversed
+    color_palette::light:b            # white -> blue
+    color_palette::dark:b             # black -> blue
+    color_palette::light:#69d         # custom color
+    color_palette::light:#69d_r       # custom color reversed
+    color_palette::dark:salmon_r      # named colormap reversed
+    color_palette::ch:s=-.2,r=.6      # cubehelix with parameters
+
+.. hint::
+
+    You may have to put these prefixed strings into quotes to avoid YAML interpreting them as mappings.
+
+
+Diverging palettes
+""""""""""""""""""
+By default, :py:func:`seaborn.diverging_palette` does *not* offer the expanded string-based syntax that :py:func:`seaborn.color_palette` supports.
+However, the ``ColorManager`` has that functionality.
+
+.. literalinclude:: ../../tests/cfg/color_manager_cfg.yml
+    :language: yaml
+    :start-after: ### START -- seaborn_diverging_example
+    :end-before:  ### END ---- seaborn_diverging_example
+    :dedent: 2
+
+.. image:: ../_static/_gen/color_mngr/seaborn_diverging_example.pdf
+    :target: ../_static/_gen/color_mngr/seaborn_diverging_example.pdf
+    :width: 100%
+    :alt: ColorManager output example
+
+More examples:
+
+.. code-block:: text
+
+    diverging::220,20
+    diverging::145,300,s=60
+    diverging::250, 30, l=65, center=dark
+
+
+
 ----
 
 API Reference
