@@ -78,6 +78,7 @@ It was developed alongside the `Utopia project <https://gitlab.com/utopia-projec
     plotting/plot_helper
     plotting/plot_data_selection
     plotting/plot_functions
+    plotting/color_mngr
     plotting/faq
     plotting/examples
 

@@ -121,8 +121,8 @@ As an example, have a look at the implementation of the :py:func:`~.errorbars` p
 
 .. _dag_facet_grid_color_mngr:
 
-:py:class:`~dantro.plot.utils.color_mngr.ColorManager` integration
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``ColorManager`` integration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 All facet grid plots in dantro integrate the :py:class:`~dantro.plot.utils.color_mngr.ColorManager` to parse the colormap-related plotting arguments ``cmap`` and ``norm``.
 
 This allows to specify colormap properties right from the plot configuration.
@@ -130,22 +130,20 @@ For instance, it can be used to specify a colormap of a certain name, including 
 
 .. literalinclude:: ../../tests/cfg/color_manager_cfg.yml
     :language: yaml
-    :start-after: ### START -- advanced_syntax
-    :end-before:  ### END ---- advanced_syntax
+    :start-after: ### START -- extremes_and_norm
+    :end-before:  ### END ---- extremes_and_norm
     :dedent: 2
 
-For more examples, see the :py:class:`~dantro.plot.utils.color_mngr.ColorManager` docstring.
+.. image:: ../_static/_gen/color_mngr/extremes_and_norm.pdf
+    :target: ../_static/_gen/color_mngr/extremes_and_norm.pdf
+    :width: 100%
+    :alt: ColorManager output example
 
-.. hint::
+For more examples and instructions on how to integrate the ``ColorManager``, see the :ref:`dedicated ColorManager page <color_mngr>` or the :py:class:`~dantro.plot.utils.color_mngr.ColorManager` docstring.
 
+.. warning::
 
-    YAML *tags* can be used to generate colormaps or norms in places where the color manager is not integrated but a corresponding :py:class:`matplotlib.colors.Colormap` object or norm object is accepted / required:
-
-    .. literalinclude:: ../../tests/cfg/color_manager_cfg.yml
-        :language: yaml
-        :start-after: ### START -- yaml_constructors
-        :end-before:  ### END ---- yaml_constructors
-        :dedent: 2
+    As colorbar creation is carried out by :py:class:`xarray.plot.FacetGrid`, the ``ColorManager`` can **not** be used to define colorbar labels for facet grid plots!
 
 
 ----

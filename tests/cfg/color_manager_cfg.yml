@@ -6,13 +6,31 @@
 ---
 minimal: {}
 
+
 minimal_vmin_vmax:
+  ### START -- minimal_vmin_vmax
   cmap:
     name: viridis
-    under: red
-    over: blue
+    # ... can have more arguments here
   vmin: 0
   vmax: 10
+  ### END ---- minimal_vmin_vmax
+  _title: with colormap and vmin/vmax
+
+
+extremes_and_norm:
+  ### START -- extremes_and_norm
+  cmap:
+    name: magma
+    under: grey
+    over: white
+    bad: red
+  norm:
+    name: LogNorm
+  vmin: 1
+  vmax: 10
+  ### END ---- extremes_and_norm
+  _title: magma + extremes with LogNorm
 
 
 reversed:
@@ -24,7 +42,7 @@ reversed:
 
 
 from_centers:
-  ### START -- labels
+  ### START -- from_values_and_labels
   cmap:
     from_values:
       0: r
@@ -37,7 +55,8 @@ from_centers:
     0: foo
     1: bar
     4: baz
-  ### END ---- labels
+  ### END ---- from_values_and_labels
+  _title: ListedColormap and custom labels
   _test_cmap:
     0.0: r
     0.5: g
@@ -45,19 +64,15 @@ from_centers:
 
 
 from_intervals:
-  ### START -- intervals
+  ### START -- from_intervals
   cmap:
     from_values:
       [-.5, 0.5]: r
-      [0.5, 1.5]: ~   # None → will use placeholder color (default: white)
+      [0.5, 1.5]: ~         # None → will use placeholder color
       [1.5, 4.5]: b
-  ### END ---- intervals
-  # norm:
-  #   foo: bar # will be overwritten
-  # FIXME breaking change if this is no longer possible
-
-# TODO
-#   - reversed
+    placeholder_color: w    # default: white
+  ### END ---- from_intervals
+  _title: ListedColormap from bin edges
 
 
 # -- Categorical --------------------------------------------------------------
@@ -110,8 +125,8 @@ cat_from_list_with_vmin_vmax_not_discretized:
     vmax: 3
 
 
-cat_labels_and_colors:
-  ### START -- labels_and_colors_minimal
+cat_labels_and_colors_implicit:
+  ### START -- labels_and_colors_implicit
   cmap:
     first: green
     second: blue
@@ -121,7 +136,8 @@ cat_labels_and_colors:
     # can also specify extremes here
     under: k
     over: w
-  ### END ---- labels_and_colors_minimal
+  ### END ---- labels_and_colors_implicit
+  _title: labels and colors shorthand syntax
   _test_cmap: *cat_cmap
   _test_attrs:
     <<: *cat_attrs
@@ -136,7 +152,10 @@ cat_labels_and_colors_explicit:
       colors: blue
       reversed: red
       gamma: orange
+    under: k
+    over: w
   ### END ---- labels_and_colors_explicit
+  _title: labels and colors (explicit) shorthand
   _test_cmap: *cat_cmap
   _test_attrs:
     <<: *cat_attrs
@@ -153,6 +172,8 @@ cat_labels_and_colors_overwrite_labels:
     second: blue
     third: red
     fourth: orange
+    under: k
+    over: w
   labels:
     0: FIRST
     1: SECOND
@@ -169,15 +190,19 @@ cat_labels_and_colors_overwrite_labels:
 
 
 cat_labels_and_colors_shifted: &labels_and_colors_shifted
-  ### START -- labels_and_colors_vmin_vmax
+  ### START -- labels_and_colors_shifted
   cmap:
     first: green
     second: blue
     third: red
     fourth: orange
+
+    under: k
+    over: w
   vmin: 2
   vmax: ~
-  ### END ---- labels_and_colors_vmin_vmax
+  ### END ---- labels_and_colors_shifted
+  _title: labels and colors over custom integer range
   _test_cmap: *cat_cmap
   _test_attrs: &cat_attrs_shifted
     <<: *cat_attrs
@@ -214,7 +239,6 @@ cat_labels_and_colors_shifted_from_vmax_not_discretized:
   vmin: ~
   vmax: 5
   discretized: false
-  ### END ---- labels_and_colors_vmin_vmax
   _test_cmap: *cat_cmap
   _test_attrs:
     <<: *cat_attrs_shifted
@@ -245,15 +269,19 @@ cat_labels_and_colors_float_vmin_vmax_not_discretized:
     vmax: 5.2
 
 
-cat_skip_values_and_still_have_clean_labels:
-  ### START -- cat_missing_data
+cat_skip_vals_and_labels:
+  ### START -- skip_vals_and_labels
   cmap:
     first: green
     second: blue
-    " ": w
+    " ": ~
     fourth: orange
-    "  ": w
-  ### END ---- cat_missing_data
+    "  ": ~
+
+    under: k
+    over: w
+  ### END ---- skip_vals_and_labels
+  _title: with certain values (and labels) skipped
 
 
 
@@ -351,7 +379,7 @@ color_syntax_simple:
 
 
 color_syntax_advanced:
-  ### START -- advanced_syntax
+  ### START -- color_syntax_advanced
   cmap:
     name: viridis
     under:
@@ -361,12 +389,10 @@ color_syntax_advanced:
       color: red
       alpha: 0.5
     bad: darkred
-  ### END ---- advanced_syntax
+  ### END ---- color_syntax_advanced
+  _title: alpha values for extremes
   vmin: 0
   vmax: 10
-  norm:
-    name: Normalize
-
 
 
 # -- Colorbar stuff -----------------------------------------------------------
@@ -376,15 +402,31 @@ cbar_horizontal:
     orientation: horizontal
     label: my cbar label
 
+
+cbar_custom_label_and_tick_params:
+  cbar_kwargs:
+    orientation: horizontal
+    label: my cbar with custom label and tick parameters
+    label_kwargs:
+      color: red
+      fontsize: 9
+    tick_params:
+      labelsize: 9
+      labelcolor: blue
+      labelrotation: 45
+
+
 cbar_extend_auto_under:
   cmap:
     under: blue
   vmin: 0
 
+
 cbar_extend_auto_over:
   cmap:
     over: red
   vmax: 10
+
 
 cbar_extend_suppressed:
   cmap:
@@ -445,6 +487,7 @@ norm_SymLogNorm:
 
 
 norm_TwoSlopeNorm:
+  ### START -- norm_TwoSlopeNorm
   cmap:
     name: coolwarm
     over: red
@@ -454,6 +497,7 @@ norm_TwoSlopeNorm:
     vcenter: 0
   vmin: -5
   vmax: 10
+  ### END ---- norm_TwoSlopeNorm
 
 
 
@@ -461,16 +505,21 @@ norm_TwoSlopeNorm:
 # --- Continuous Colormap -----------------------------------------------------
 
 continuous:
+  ### START -- continuous_default_norm
   cmap:
     continuous: true
     from_values:
       0: '#EC7070'
       0.5: '#EC9F7E'
       1: black
-    bad: white
+    under: grey
+    over: white
+  vmin: 0
+  vmax: 10
+  ### END ---- continuous_default_norm
 
 
-continuous_with_none:
+continuous_with_placeholder:
   cmap:
     continuous: true
     from_values:
@@ -480,15 +529,22 @@ continuous_with_none:
 
 
 continuous_lognorm:
+  ### START -- continuous_lognorm
   cmap:
     continuous: true
     from_values:
       0: '#EC7070'
       0.5: '#EC9F7E'
       1: black
-    bad: white
+    under: grey
+    over: white
+    bad: red
   norm:
     name: LogNorm
+  vmin: 1
+  vmax: 10
+  ### END ---- continuous_lognorm
+  _title: LinearSegmentedColormap with LogNorm
 
 
 continuous_with_boundaries:
@@ -499,12 +555,15 @@ continuous_with_boundaries:
       0: "#EC7070"
       0.5: "#EC9F7E"
       1: black
-    bad: white
+    under: grey
+    over: white
+    bad: red
   norm:
     name: BoundaryNorm
     ncolors: 256
-    boundaries: [0, 0.2, 0.7, 1]
+    boundaries: [-2, 2, 6, 8, 9, 10]
   ### END ---- continuous_with_boundaries
+  _title: LinearSegmentedColormap with BoundaryNorm
 
 
 continuous_vmin_vmax:

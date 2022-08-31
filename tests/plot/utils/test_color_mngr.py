@@ -1,7 +1,9 @@
 """Test the utopya.eval.plots_mpl module"""
+
 import contextlib
 import os
 from builtins import *
+from typing import Union
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -49,6 +51,7 @@ def test_ColorManager(out_dir):
         _test_cmap = cfg.pop("_test_cmap", {})
         _test_norm = cfg.pop("_test_norm", {})
         _test_attrs = cfg.pop("_test_attrs", {})
+        title = cfg.pop("_title", name.replace("_", " "))
 
         if _raises is not None:
             ctx = pytest.raises(globals()[_raises], match=_match)
@@ -94,7 +97,6 @@ def test_ColorManager(out_dir):
         )
         ax.set_xlabel("x")
         ax.set_ylabel("y")
-        title = name.replace("_", " ")
         ax.set_title(title)
         cb = cm.create_cbar(
             scatter,
@@ -131,6 +133,66 @@ def test_ColorManager(out_dir):
             for val, expected in _test_norm.items():
                 print(f"  norm({val}) == {expected}")
                 assert cm.norm(val) == expected
+
+
+def test_ColorManager_integration(out_dir):
+    import matplotlib.pyplot as plt
+
+    # fmt: off
+    ### START -- ColorManager_integration
+    from dantro.plot import ColorManager
+
+    def my_scatter_func(
+        x,
+        y,
+        *,
+        c,
+        ax,
+        cmap=None,
+        norm=None,
+        vmin: float = None,
+        vmax: float = None,
+        cbar_labels: Union[list, dict] = None,
+        cbar_kwargs: dict = {},
+        **scatter_kwargs,
+    ):
+        """This plot function illustrates ColorManager integration"""
+
+        # Set up the ColorManager
+        cm = ColorManager(
+            cmap=cmap, norm=norm, vmin=vmin, vmax=vmax, labels=cbar_labels
+        )
+
+        # Now plot, passing the corresponding cmap and norm arguments ...
+        scatter = ax.scatter(
+            x,
+            y,
+            c=c,
+            cmap=cm.cmap,
+            norm=cm.norm,
+            **scatter_kwargs,
+        )
+
+        # ... and let the ColorManager create the colorbar
+        cbar = cm.create_cbar(
+            scatter,
+            **cbar_kwargs,
+        )
+
+        return scatter, cbar
+    ### END ---- ColorManager_integration
+    # fmt: on
+    fig, ax = plt.subplots()
+    data = np.linspace(-10, 10, 21)
+    my_scatter_func(
+        data,
+        data**2,
+        c=data,
+        ax=ax,
+        cmap=dict(name="PiYG", under="k", over="w"),
+    )
+    plt.savefig(os.path.join(out_dir, f"integration_test.pdf"))
+    plt.close()
 
 
 def test_ColorManager_yaml():

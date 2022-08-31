@@ -83,49 +83,8 @@ class ColorManager:
         """Initializes a :py:class:`.ColorManager` by building the colormap,
         the norm, and the colorbar labels.
 
-        Examples (using a YAML representation):
-
-        .. literalinclude:: ../../tests/cfg/color_manager_cfg.yml
-            :language: yaml
-            :start-after: ### START -- labels
-            :end-before:  ### END ---- labels
-            :dedent: 2
-
-        A segmented colormap with custom bin edges:
-
-        .. literalinclude:: ../../tests/cfg/color_manager_cfg.yml
-            :language: yaml
-            :start-after: ### START -- intervals
-            :end-before:  ### END ---- intervals
-            :dedent: 2
-
-        Specifying color and alpha value:
-
-        .. literalinclude:: ../../tests/cfg/color_manager_cfg.yml
-            :language: yaml
-            :start-after: ### START -- advanced_syntax
-            :end-before:  ### END ---- advanced_syntax
-            :dedent: 2
-
-        A continous colormap with linearly interpolated colors at specific
-        positions:
-
-        .. literalinclude:: ../../tests/cfg/color_manager_cfg.yml
-            :language: yaml
-            :start-after: ### START -- continuous_with_boundaries
-            :end-before:  ### END ---- continuous_with_boundaries
-            :dedent: 2
-
-        Furthermore, YAML *tags* can be used to generate colormaps or norms in
-        places where the color manager is not integrated but a corresponding
-        :py:class:`matplotlib.colors.Colormap` object or norm object is
-        accepted / required:
-
-        .. literalinclude:: ../../tests/cfg/color_manager_cfg.yml
-            :language: yaml
-            :start-after: ### START -- yaml_constructors
-            :end-before:  ### END ---- yaml_constructors
-            :dedent: 2
+        Refer to the :ref:`dedicated documentation page <color_mngr>` for
+        examples and integration instructions.
 
         Args:
             cmap (Union[str, dict, matplotlib.colors.Colormap], optional):
@@ -171,9 +130,11 @@ class ColorManager:
                 ``bad`` (Union[str, dict], optional):
                     Passed on to
                     :py:meth:`~matplotlib.colors.Colormap.set_bad`
-                ``placeholder_color`` (optional):
+                ``placeholder_color`` (str, optional):
                     ``None`` values in ``from_values`` are replaced with this
                     color (default: white).
+                ``reversed`` (bool, optional):
+                    If True, will reverse the colormap.
                 ``labels_and_colors`` (dict, optional):
                     This is a shorthand syntax for specifying colorbar labels
                     and colors at the same time.
@@ -191,7 +152,7 @@ class ColorManager:
                     ``vmin`` and ``vmax``, expecting to map to an integer
                     data positions.
 
-                    Example:
+                    **Example:**
 
                     .. code-block:: yaml
 

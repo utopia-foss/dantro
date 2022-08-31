@@ -7,6 +7,12 @@ from dantro.tools import load_yml
 
 from .._fixtures import *
 from ..plot.test_dag_plotting import DAG_PLOTS_CONFIG, dm
+from ..plot.utils.test_color_mngr import test_ColorManager as test_color_mngr
+
+# -- Include some output-generating tests from elsewhere ----------------------
+# If these use the `out_dir` fixture, the output will automatically be in the
+# desired place.
+
 
 # -----------------------------------------------------------------------------
 
