@@ -1,6 +1,7 @@
 """This module implements tools that are generally useful in dantro"""
 
 import collections
+import contextlib
 import logging
 import os
 import sys
@@ -346,6 +347,9 @@ def decode_bytestrings(obj) -> str:
 # -----------------------------------------------------------------------------
 # Misc
 
+DoNothingContext = contextlib.nullcontext
+"""An alias for a context ... that does nothing"""
+
 
 def is_iterable(obj) -> bool:
     """Tries whether the given object is iterable."""
@@ -365,19 +369,67 @@ def is_hashable(obj) -> bool:
     return True
 
 
-class DoNothingContext:
-    """A context manager that ... does nothing."""
+def try_conversion(c: str) -> Union[bool, int, float, complex, str, None]:
+    """Given a string, attempts to convert it to a numerical value or a bool."""
+    c = str(c)
 
-    def __init__(self):
+    if c.lower() == "true":
+        return True
+    elif c.lower() == "false":
+        return False
+    elif c in ("~", "None", "none"):
+        return None
+
+    try:
+        return int(c)
+    except:
         pass
 
-    def __enter__(self):
-        """Called upon entering the context using the ``with`` statement"""
+    try:
+        return float(c)
+    except:
         pass
 
-    def __exit__(self, *args):
-        """Called upon exiting context, with ``*args`` being exceptions etc."""
+    try:
+        return complex(c)
+    except:
         pass
+
+    return c
+
+
+def parse_str_to_args_and_kwargs(s: str, *, sep: str) -> Tuple[list, dict]:
+    """Parses strings like ``65,0,sep=12`` into a positional arguments list
+    and a keyword arguments dict.
+
+    Behavior:
+
+    * Positional arguments are all arguments that do *not* include ``=``.
+      Keyword arguments are those that *do* include ``=``.
+    * Will use :py:func:`.try_conversion` to convert argument values.
+    * Trailing and leading white space on argument names and values is stripped
+      away using :py:meth:`~str.strip`.
+
+    .. warning::
+
+        * Cannot handle string arguments that include ``sep`` or ``=``!
+        * Cannot handle arguments that define lists, tuples or other more
+          complex objects.
+
+    .. hint::
+
+        For more complex argument parsing, consider using a YAML parser
+        instead of this (rather simple) function!
+    """
+    all_args = s.split(sep)
+    args = [
+        try_conversion(a.strip()) for a in all_args if (a and "=" not in a)
+    ]
+    kwargs = {
+        k.strip(): try_conversion(v.strip())
+        for k, v in [kw.split("=") for kw in all_args if "=" in kw]
+    }
+    return args, kwargs
 
 
 class adjusted_log_levels:

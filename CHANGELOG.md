@@ -3,7 +3,13 @@
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
 ## v0.18.5
-- !329 adds `plt.errorbar` to `MULTIPLOT_FUNC_KINDS` in `_multiplot.py`
+- !315 adds `plt.errorbar` to `MULTIPLOT_FUNC_KINDS`, making it more easily accessible.
+- !314 reworks and extends the `ColorManager`:
+    - Now offers a shorthand syntax to define colorbar labels and colors via a single mapping.
+    - Fixes subtle errors in the handling of parameters and the resulting output.
+    - Adds a `ColorManager`-specific documentation page, including an integration example.
+    - Allows creating color palettes using seaborn.
+- !314 fixes an error where facet grid plots did not correctly display the passed data in an error message.
 
 ## v0.18.4
 - !310 fixes a bug that occurred when using relative references like `!dag_prev` in the arguments to a meta-operation.

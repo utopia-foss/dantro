@@ -132,6 +132,35 @@ def test_is_hashable():
     assert t.is_hashable(Foo(allow_hash=True))
 
 
+def test_try_conversion():
+    """Tests the try_conversion function"""
+    conv = t.try_conversion
+
+    assert conv("true") is True
+    assert conv("True") is True
+    assert conv("tRuE") is True
+
+    assert conv("false") is False
+    assert conv("False") is False
+    assert conv("fAlSe") is False
+
+    assert conv("~") is None
+    assert conv("None") is None
+    assert conv("none") is None
+
+    assert conv("0") == 0
+    assert conv("1") == 1
+    assert conv("1.0") == 1.0
+    assert conv("1.0e0") == 1.0e0
+    assert conv("1+0j") == 1 + 0j
+    assert isinstance(conv("0"), int)
+    assert isinstance(conv("1"), int)
+    assert isinstance(conv("1.0"), float)
+    assert isinstance(conv("1+0j"), complex)
+
+    assert conv("not a number") == "not a number"
+
+
 def test_decode_bytestrings():
     """Tests the decode bytestrings function"""
     decode = t.decode_bytestrings

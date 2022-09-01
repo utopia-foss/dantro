@@ -651,7 +651,7 @@ class make_facet_grid_plot:
                     f"'{plot_single_axis.__name__}' failed!\n"
                     f"Got {type(exc).__name__}: {exc}\n\n"
                     f"Given arguments:\n  {kwargs}\n\n"
-                    f"Selected data:\n  {data['data']}\n"
+                    f"Selected data:\n  {str(data['data'])}\n"
                 ) from exc
 
         return standalone
@@ -853,7 +853,7 @@ def facet_grid(
                     "information below.\n\n"
                     f"The upstream error was a {type(exc).__name__}: {exc}\n\n"
                     f"xr.plot.FacetGrid arguments:\n  {plot_kwargs}\n\n"
-                    f"Data:\n  {_d}\n"
+                    f"Data:\n  {str(_d)}\n"
                 ) from exc
         # NOTE rv usually is a xarray.FaceGrid object but not always: `hist`
         #      returns what matplotlib.pyplot.hist returns.
