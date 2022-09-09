@@ -28,3 +28,9 @@ python:
       extra_requirements:
         - doc  # this is relevant as it specifies the Sphinx version
         - dev  # required by _gen_figures module to generate figures
+
+# Need to install additional dependencies into the container such that
+# the docs build system can generate all the plots
+build:
+  apt_packages:
+    - ffmpeg
