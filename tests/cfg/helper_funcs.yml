@@ -9,7 +9,7 @@
     title: foo
     invalid_param: 123
   _raises: true
-  _match: has no property 'invalid_param'
+  _match: 'invalid_param'
 
 
 # .............................................................................
@@ -29,7 +29,7 @@
     title: foo
     invalid_param: 123
   _raises: true
-  _match: has no property 'invalid_param'
+  _match: 'invalid_param'
 
 
 # .............................................................................
@@ -78,7 +78,7 @@
       label: bar
       invalid_param: 123
   _raises: AttributeError
-  _match: has no property 'invalid_param'
+  _match: 'invalid_param'
 
 - set_labels:  # without projection, z is ignored, does not raise
     z: {some_bad_argument: i will be ignored}
@@ -259,7 +259,7 @@
   set_legend:
     invalid_param: 123
   _raises: TypeError
-  _match: got an unexpected keyword argument 'invalid_param'
+  _match: 'invalid_param'
 
 # .............................................................................
 - set_texts:
@@ -277,7 +277,7 @@
         s: some_text
         invalid_params: 123
   _raises: AttributeError
-  _match: object has no property 'invalid_params'
+  _match: 'invalid_params'
 - set_texts:
     texts:
       - missing_argument: 123
@@ -305,7 +305,7 @@
         text: some_text
         invalid_params: 123
   _raises: AttributeError
-  _match: object has no property 'invalid_params'
+  _match: 'invalid_params'
 - annotate:
     annotations:
       - missing_argument: 123
@@ -569,7 +569,7 @@
         args: [[1,2]]
         some_bad_argument: foo
   _raises: Exception
-  _match: has no property 'some_bad_argument'  # from plt.plot call
+  _match: 'some_bad_argument'  # from plt.plot call
 
 - figcall:
     <<: *call_functions
@@ -577,7 +577,7 @@
 - figcall:
     <<: *call_functions_raises
   _raises: Exception
-  _match: has no property 'some_bad_argument'  # from plt.plot call
+  _match: 'some_bad_argument'  # from plt.plot call
 
 
 
