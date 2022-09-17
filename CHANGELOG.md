@@ -2,6 +2,10 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.18.6
+- !317 address incompatibilities with [matplotlib 3.6](https://matplotlib.org/stable/users/release_notes.html#version-3-6)
+
+
 ## v0.18.5
 - !315 adds `plt.errorbar` to `MULTIPLOT_FUNC_KINDS`, making it more easily accessible.
 - !314 reworks and extends the `ColorManager`:
