@@ -59,7 +59,7 @@ _:
     - .style.use_grid
 
   style:
-    base_style: seaborn-notebook
+    base_style: ~
 
     figure.dpi: 254       # important also for PDF to avoid rasterization bugs
 

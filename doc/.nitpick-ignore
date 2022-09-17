@@ -22,6 +22,7 @@ py:class optional
 # ... that cannot be referenced (for whatever reason)
 py:class collections._Link
 py:class weakref
+py:class weakref.ReferenceType
 py:class module
 py:class ModuleType
 py:class re.Pattern

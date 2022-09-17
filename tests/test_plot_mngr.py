@@ -726,7 +726,7 @@ def test_plot_from_saved_plot_cfg(dm, pm_kwargs):
 
         fs_run1 = file_sizes[pi["out_path"].replace("run2", "run1")]
         fs_run2 = os.path.getsize(pi["out_path"])
-        assert abs(fs_run2 - fs_run1) < 64
+        assert abs(fs_run2 - fs_run1) < 128
 
 
 def test_plot_skipping(dm, pm_kwargs):
