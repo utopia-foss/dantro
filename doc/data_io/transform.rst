@@ -517,7 +517,22 @@ As can be seen in the example, there are two ways to do this:
 .. hint::
 
     In the context of **plotting**, the ``define`` interface has an important benefit over the ``select`` and ``transform`` syntax for adding nodes to the DAG:
-    It is *dictionary-based*, which makes it very easy to recursively update its content, which is very useful for :ref:`plot_cfg_inheritance`.
+    It is *dictionary-based*, which makes it very easy to recursively update its content; this is very useful for :ref:`plot_cfg_inheritance`.
+
+    ⚠️ **Note:** When using the DAG for :ref:`plot data selection <plot_creator_dag>`, not all arguments can be exposed on the top-level of the plot configuration; the ``define`` argument is one of the arguments that is nested in a DAG-specific config entry ``dag_options``:
+
+    .. code-block:: yaml
+
+        my_plot:
+          dag_options:
+            define:
+              exponent: 4
+              # ...
+
+          select:
+            # ...
+          transform:
+            - # ...
 
 
 
