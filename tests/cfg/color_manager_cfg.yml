@@ -746,7 +746,14 @@ err_invalid_cmap:
   cmap: cmappp
 
   _raises: ValueError
-  _match: is not a valid value.*supported.*viridis
+  _match: not a known colormap name
+
+
+err_invalid_cmap_get_hints:
+  cmap: cmappp
+
+  _raises: ValueError
+  _match: rocket
 
 
 err_disconnected_intervals:
