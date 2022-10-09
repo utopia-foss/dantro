@@ -21,6 +21,20 @@ multiplots:
         y: dim_1
         marker: x
 
+  cmap:
+    to_plot:
+      - function: [xarray.plot, scatter]
+        args:
+          - !dag_result data
+        x: dim_0
+        y: dim_1
+        hue: dim_0
+        cmap:
+          continuous: true
+          from_values:
+            0: yellow
+            1: red
+
   func_without_kwargs:
     to_plot:
       - function: sns.scatterplot  # will log a warning
