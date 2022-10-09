@@ -15,6 +15,7 @@ from ..._import_tools import (
 )
 from ...exceptions import *
 from ...tools import make_columns, recursive_update
+from ..utils.color_mngr import ColorManager, parse_cmap_and_norm_kwargs
 
 log = logging.getLogger(__name__)
 
@@ -173,6 +174,7 @@ def parse_function_specs(
         _funcs = MULTIPLOT_FUNC_KINDS
 
     func_kwargs = recursive_update(copy.deepcopy(_shared_kwargs), func_kwargs)
+    func_kwargs = parse_cmap_and_norm_kwargs(**func_kwargs)
 
     if pass_axis_object_as:
         func_kwargs[pass_axis_object_as] = _hlpr.ax
