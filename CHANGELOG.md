@@ -2,6 +2,10 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.18.7
+- !319 address further incompatibilities with [matplotlib 3.6](https://matplotlib.org/stable/users/release_notes.html#version-3-6), especially in `ColorManager`
+    - Colormaps are now retrieved via the new `matplotlib.colormaps` interface (instead of the deprecated `matplotlib.cm.get_cmap`)
+
 ## v0.18.6
 - !317 address incompatibilities with [matplotlib 3.6](https://matplotlib.org/stable/users/release_notes.html#version-3-6)
 
