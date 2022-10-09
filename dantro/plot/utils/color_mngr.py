@@ -11,7 +11,7 @@ import matplotlib.colors
 import numpy as np
 from matplotlib.colors import to_rgb
 
-from ...tools import parse_str_to_args_and_kwargs
+from ...tools import make_columns, parse_str_to_args_and_kwargs
 
 log = logging.getLogger(__name__)
 
@@ -59,7 +59,6 @@ class ColorManager:
         "reversed",
         "N",
         "gamma",
-        "lut",
         #
         # ColorManager-internal
         "placeholder_color",
@@ -815,28 +814,35 @@ class ColorManager:
         reversed: bool = False,
         N: int = None,
         gamma: float = 1.0,
-        lut: int = None,
     ) -> mpl.colors.Colormap:
         """Creates a colormap.
 
         Args:
             name (str, optional): The colormap name. Can either be the name of
                 a registered colormap or ``ListedColormap``. ``None`` means
-                that the default value from the RC parameters is used.
+                that the default value from the RC parameters (``image.cmap``)
+                is used.
                 If the name starts with the
                 :py:attr:`._SNS_COLOR_PALETTE_PREFIX`, the colormap can be
                 created by :py:func:`seaborn.color_palette`.
                 See `the seaborn docs <https://seaborn.pydata.org/tutorial/color_palettes.html>`_
                 for available options.
+            colors (list, optional): Passed on to
+                :py:class:`matplotlib.colors.ListedColormap`, ignored otherwise
+            segmentdata (dict, optional): Description
             bad (Union[str, dict], optional): Set color to be used for masked
                 values.
             under (Union[str, dict], optional): Set the color for low
                 out-of-range values when ``norm.clip = False``.
             over (Union[str, dict], optional): Set the color for high
                 out-of-range values when ``norm.clip = False``.
-            **cmap_kwargs: If ``name = ListedColormap``, passed on to the
-                constructor of the colormap, else passed to
-                matplotlib.cm.get_cmap.
+            reversed (bool, optional): Reverses the colormap
+            N (int, optional): Passed on to
+                :py:class:`matplotlib.colors.ListedColormap` or
+                :py:class:`matplotlib.colors.LinearSegmentedColormap`,
+                ignored otherwise.
+            gamma (float, optional): Passed on to
+                :py:class:`matplotlib.colors.LinearSegmentedColormap`
 
         Returns:
             matplotlib.colors.Colormap: The created colormap.
@@ -887,9 +893,29 @@ class ColorManager:
                 ) from exc
 
         else:
-            # Ensure it's a copy; in matplotlib < 3.6 this returns the
-            # global object instead, which is not desired.
-            cmap = copy.copy(mpl.cm.get_cmap(name, lut=lut))
+            if name is None:
+                name = mpl.rcParams["image.cmap"]
+
+            # Get the colormap from the ColormapRegistry
+            try:
+                cmap = mpl.colormaps[name]
+            except KeyError as err:
+                _avail = make_columns(
+                    sorted(
+                        [cm for cm in mpl.colormaps if not cm.endswith("_r")]
+                    )
+                )
+                raise ValueError(
+                    f"'{name}' is not a known colormap name!\n"
+                    f"Available named colormaps:\n{_avail}\n"
+                    "Additional ways to specify colormaps by name:\n"
+                    "  - Add '_r' suffix to the name to reverse it\n"
+                    f"  - Add '{SNS_CP_PREFIX}' prefix to define a seaborn "
+                    "color palette\n"
+                    f"  - Add '{SNS_DIV_PREFIX}' prefix to specify a "
+                    "diverging seaborn color map\n\n"
+                    "See dantro ColorManager documentation for more."
+                ) from err
 
         # Parse some parameters
         if isinstance(bad, str):

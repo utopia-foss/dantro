@@ -29,7 +29,7 @@
     title: foo
     invalid_param: 123
   _raises: true
-  _match: 'invalid_param'
+  _match: unexpected keyword argument 'invalid_param'
 
 
 # .............................................................................
@@ -569,7 +569,7 @@
         args: [[1,2]]
         some_bad_argument: foo
   _raises: Exception
-  _match: 'some_bad_argument'  # from plt.plot call
+  _match: unexpected keyword argument 'some_bad_argument'  # from plt.plot call
 
 - figcall:
     <<: *call_functions
@@ -577,7 +577,7 @@
 - figcall:
     <<: *call_functions_raises
   _raises: Exception
-  _match: 'some_bad_argument'  # from plt.plot call
+  _match: unexpected keyword argument 'some_bad_argument'  # from plt.plot call
 
 
 
