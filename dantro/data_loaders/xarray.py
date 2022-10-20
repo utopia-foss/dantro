@@ -20,7 +20,7 @@ class XarrayLoaderMixin:
     ) -> XrDataContainer:
         """Loads an :py:class:`xarray.DataArray` from a netcdf file into an
         :py:class:`~dantro.containers.xr.XrDataContainer`.
-        Uses :py:func:`xarray.load_dataarray`.
+        Uses :py:func:`xarray.open_dataarray`.
 
         Args:
             filepath (str): Where the xarray-dumped netcdf file is located
@@ -30,14 +30,14 @@ class XarrayLoaderMixin:
                 Also see: :py:meth:`xarray.DataArray.load`.
             engine (str, optional): Which engine to use for loading. Refer to
                 the xarray documentation for available engines.
-            **load_kwargs: Passed on to :py:func:`xarray.load_dataarray`
+            **load_kwargs: Passed on to :py:func:`xarray.open_dataarray`
 
         Returns:
             XrDataContainer: The reconstructed XrDataContainer
         """
         import xarray as xr
 
-        da = xr.load_dataarray(filepath, engine=engine, **load_kwargs)
+        da = xr.open_dataarray(filepath, engine=engine, **load_kwargs)
 
         if load_completely:
             da = da.load()
@@ -56,6 +56,7 @@ class XarrayLoaderMixin:
     ) -> PassthroughContainer:
         """Loads an :py:class:`xarray.Dataset` from a netcdf file into a
         :py:class:`~dantro.containers.general.PassthroughContainer`.
+        Uses :py:func:`xarray.open_dataset`.
 
         .. note::
 
@@ -72,7 +73,7 @@ class XarrayLoaderMixin:
                 Also see: :py:meth:`xarray.Dataset.load`.
             engine (str, optional): Which engine to use for loading. Refer to
                 the xarray documentation for available engines.
-            **load_kwargs: Passed on to :py:func:`xarray.load_dataset`
+            **load_kwargs: Passed on to :py:func:`xarray.open_dataset`
 
         Returns:
             PassthroughContainer: The reconstructed :py:class:`xarray.Dataset`,
@@ -80,7 +81,7 @@ class XarrayLoaderMixin:
         """
         import xarray as xr
 
-        ds = xr.load_dataset(filepath, engine=engine, **load_kwargs)
+        ds = xr.open_dataset(filepath, engine=engine, **load_kwargs)
 
         if load_completely:
             ds = ds.load()
