@@ -145,7 +145,7 @@ For more information on commit hooks, see [the commit hooks section below](#comm
 To assert correct functionality, tests are written alongside all features.
 The [`pytest`][pytest] and [`tox`][tox] packages are used as testing frameworks.
 
-All tests are carried out for Python 3.7 through 3.10 using the GitLab CI/CD and the newest versions of all [dependencies](#dependencies).
+All tests are carried out for Python 3.7 through 3.11 using the GitLab CI/CD and the newest versions of all [dependencies](#dependencies).
 When merging to the master branch, `dantro` is additionally tested against the specified _minimum_ versions.
 
 Test coverage and pipeline status can be seen on [the project page][dantro-project].
