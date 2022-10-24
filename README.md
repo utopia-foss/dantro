@@ -269,6 +269,7 @@ Contributors (in alphabetical order):
 * Unai Fischer Abaigar
 * Thomas Gaskin (@tgaskin)
 * Daniel Lake
+* Lukas Riedel (@peanutfun)
 * Julian Weninger (@julianweninger)
 
 Contact the maintainers via: [`dantro-dev@iup.uni-heidelberg.de`][devmail]
