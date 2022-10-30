@@ -80,6 +80,7 @@ def _parse_parallel_opts(
     processes: int = None,
     min_files: int = 2,
     min_total_size: int = None,
+    cpu_count: int = os.cpu_count(),
 ) -> int:
     """Parser function for the parallel file loading options dict
 
@@ -93,6 +94,9 @@ def _parse_parallel_opts(
             number, will *not* use parallel loading.
         min_total_size (int, optional): If the total file size is smaller than
             this file size (in bytes), will *not* use parallel loading.
+        cpu_count (int, optional): Number of CPUs to consider "available".
+            Defaults to :py:func:`os.cpu_count`, i.e. the number of actually
+            available CPUs.
 
     Returns:
         int: number of processes to use. Will return 1 if loading should *not*
@@ -124,7 +128,6 @@ def _parse_parallel_opts(
             return 1
 
     # Number of processes to use
-    cpu_count = os.cpu_count()
     if processes:
         processes = processes if processes >= 0 else (cpu_count + processes)
 

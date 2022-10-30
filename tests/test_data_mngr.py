@@ -1116,20 +1116,24 @@ def test_parse_file_path(dm):
     assert parse("~/f", default_ext=".oo") == os.path.expanduser("~/f.oo")
 
 
-def test_parallel_loading_options(dm):
+def test_parsing_parallel_loading_options(dm):
     """Tests the helper function that parses parallel loading options"""
-    parse = dantro.data_mngr._parse_parallel_opts
+    from dantro.data_mngr import _parse_parallel_opts
 
-    # Need a file list and the CPU count
-    cpus = os.cpu_count()
-    assert cpus > 3
+    # For the following tests, use an assumed CPU count (which makes handling
+    # in the CI much more robust, where multiple cores may not be available).
+    cpus = 8
+    parse = lambda f, **k: _parse_parallel_opts(f, **k, cpu_count=cpus)
 
+    # Need a file list with at least two files, otherwise will not be parallel
+    # anyway. There should be plenty of files in the fixture's data directory:
     f = glob.glob(os.path.join(dm.dirs["data"], "**/*"), recursive=True)
     assert len(f) > 2
 
     fs = total_bytesize(f)
     assert fs > 1000
 
+    # Test parsing function
     assert parse(f) == cpus
     assert parse(f, enabled=True) == cpus
     assert parse(f, enabled=False) == 1
@@ -1192,7 +1196,8 @@ def test_parallel(dm, hdf5_dm):
         required=True,
     )
 
-    # Provoke an error during loading by loading an unparseable file
+    # Force parallel loaders by fixing the available cpu count.
+    # Then provoke an error during loading by provoding an unparseable file.
     with pytest.raises(
         DataLoadingError, match="There were 2 errors during parallel loading"
     ):
@@ -1200,7 +1205,7 @@ def test_parallel(dm, hdf5_dm):
             "fail",
             loader="yaml",
             glob_str="*.bad_yml",
-            parallel=True,
+            parallel=dict(cpu_count=4),
             required=True,
         )
     assert "fail" not in dm

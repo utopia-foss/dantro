@@ -63,12 +63,14 @@ check:hooks:
 
 # -- Test Stage ---------------------------------------------------------------
 # ... for testing with different python environments
+#
+# NOTE These jobs run via GitLab SaaS, which only use a single vCPU. If more
+#      virtual CPUs should become required, custom tags can be set. See:
+#      https://docs.gitlab.com/ee/ci/runners/saas/linux_saas_runner.html
 
 test:py38:
   stage: test
   image: python:3.8
-  tags:
-    - multicore  # group runner; multiple cores are needed for some tests
   extends:
     - .reports
   needs: []
