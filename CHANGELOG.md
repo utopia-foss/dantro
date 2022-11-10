@@ -2,6 +2,10 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.18.9
+- !324 fixes a bug from interface changes in the latest xarray release.
+
+
 ## v0.18.8
 - !321 fixes a bug where `XarrayLoaderMixin` used `xr.load_` functions instead of the intended (and more memory-friendly) `xr.open_` functions.
 

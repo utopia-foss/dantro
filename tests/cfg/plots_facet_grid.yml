@@ -92,14 +92,16 @@ auto:
   scatter_autoenc:
     kinds: [scatter]
     specifiers: [col, frames]
-    min_dims: 2
-    max_dims: 4
+    min_dims: 3
+    max_dims: 5
     test_data_path: ds_labelled
     plot_kwargs:
       x: foo
       y: bar
       hue: spam
       auto_encoding: true
+    raises:
+      3: [PlottingError, No numeric data to plot]  # dataset is < 1D
 
 
 # .. With `kind` specified ....................................................
@@ -151,8 +153,8 @@ kinds:
   hist1d:
     kinds: [hist]
     specifiers: [frames]
-    min_dims: 1
-    max_dims: 1
+    min_dims: 2
+    max_dims: 2
 
   hist4d:
     kinds: [hist]
@@ -160,12 +162,11 @@ kinds:
     min_dims: 4
     max_dims: 4
 
-
   scatter:
     kinds: [scatter]
     specifiers: [col, frames]
-    min_dims: 2
-    max_dims: 4
+    min_dims: 3
+    max_dims: 5
     test_data_path: ds_labelled
     plot_kwargs:
       x: foo
@@ -462,6 +463,8 @@ cm_support:
       x: foo
       y: bar
       hue: spam
+    raises:
+      1: [PlottingError, No numeric data to plot]
 
 
 
