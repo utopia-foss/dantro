@@ -178,7 +178,12 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
                     **aspecs,
                     **plot_kwargs,
                     kind=kind,
-                    select=dict(data=f"{test_data_path}/{cont_name}"),
+                    select=dict(
+                        data=dict(
+                            path=f"{test_data_path}/{cont_name}",
+                            transform=[".data"],
+                        ),
+                    ),
                 )
 
             # Check plot figure count
@@ -281,7 +286,7 @@ def dm(_dm):
     grp_ndim_da.add(
         *[
             XrDataContainer(name=f"{n:d}D", data=create_nd_data(n))
-            for n in range(7)
+            for n in range(1, 7)
         ]
     )
 
@@ -292,7 +297,7 @@ def dm(_dm):
                 name=f"{n:d}D",
                 data=create_nd_data(n, with_coords=True),
             )
-            for n in range(7)
+            for n in range(1, 7)
         ]
     )
 

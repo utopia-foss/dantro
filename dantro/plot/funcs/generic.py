@@ -579,7 +579,7 @@ class make_facet_grid_plot:
                 size=size,
                 subplot_kws=subplot_kws if subplot_kws else {},
             )
-            hlpr.attach_figure_and_axes(fig=fg.fig, axes=fg.axes)
+            hlpr.attach_figure_and_axes(fig=fg.fig, axes=fg.axs)
 
             # Make the FacetGrid object available to the helper
             hlpr._attrs["facet_grid"] = fg
@@ -868,7 +868,7 @@ def facet_grid(
         # correctly, otherwise there will be no plot output.
         if isinstance(rv, xr.plot.FacetGrid):
             fig = rv.fig
-            axes = rv.axes
+            axes = rv.axs
         else:
             # Use the currently set figure and its axes.
             fig = plt.gcf()
