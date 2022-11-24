@@ -148,6 +148,7 @@ class Transformation:
         "_layer",
         "_context",
         "_profile",
+        "_mc_opts",
         "_fc_opts",
         "_cache",
     )
@@ -162,6 +163,7 @@ class Transformation:
         salt: int = None,
         allow_failure: Union[bool, str] = None,
         fallback: Any = None,
+        memory_cache: bool = True,
         file_cache: dict = None,
         context: dict = None,
     ):
@@ -194,16 +196,26 @@ class Transformation:
             fallback (Any, optional): If ``allow_failure`` was set, specifies
                 the alternative value to use for this operation. This may in
                 turn be a reference to another DAG node.
+            memory_cache (bool, optional): Whether to use the memory cache.
+                If false, will re-compute results each time *if the result is
+                not read from the file cache*.
             file_cache (dict, optional): File cache options. Expected keys are
                 ``write`` (boolean or dict) and ``read`` (boolean or dict).
-                Note that the options given here are NOT reflected in the hash
-                of the object!
+
+                .. note::
+
+                    The options given here are NOT reflected in the hash
+                    of the object!
 
                 The following arguments are possible under the ``read`` key:
 
                     enabled (bool, optional):
                         Whether it should be attempted to read from the file
                         cache.
+                    always (bool, optional): If given, will always read from
+                        file and ignore the memory cache. Note that this
+                        requires that a cache file was written before or will
+                        be written as part of the computation of this node.
                     load_options (dict, optional):
                         Passed on to the method that loads the cache,
                         :py:meth:`~dantro.data_mngr.DataManager.load`.
@@ -298,6 +310,10 @@ class Transformation:
                 f"from: True, False, {_allowed}."
             )
 
+        # Parse memory cache options and set up the memory cache dict
+        self._mc_opts = dict(enabled=bool(memory_cache))
+        self._cache = dict(result=None, filled=False)
+
         # Parse file cache options, making sure it's a dict with default values
         self._fc_opts = file_cache if file_cache is not None else {}
 
@@ -310,9 +326,6 @@ class Transformation:
             self._fc_opts["read"] = dict(enabled=self._fc_opts["read"])
         elif "read" not in self._fc_opts:
             self._fc_opts["read"] = dict(enabled=False)
-
-        # Cache dict, containing the result and whether the cache is in memory
-        self._cache = dict(result=None, filled=False)
 
         # Set the status
         self.status = "initialized"
@@ -592,6 +605,12 @@ class Transformation:
         # Allow caching the result, even if it comes from the cache
         self._cache_result(res)
 
+        # In some cases, it can be useful to *always* read the result from the
+        # file cache. We only need to do that if the previous cache lookup
+        # (which would have been from the cache file) was NOT successful.
+        if not success:
+            success, res = self._lookup_result()
+
         return res
 
     def _perform_operation(self, *, args: list, kwargs: dict) -> Any:
@@ -769,35 +788,45 @@ class Transformation:
         """Look up the transformation result to spare re-computation"""
         success, res = False, None
 
-        # Retrieve cache parameters
         read_opts = self._fc_opts.get("read", {})
-        load_opts = read_opts.get("load_options", {})
+        always_from_file = read_opts.get("always", False)
 
-        # Check if the cache is already filled. If not, see if the file cache
-        # can be read and is configured to be read.
-        if self._cache["filled"]:
+        # Check if the cache is already filled and is configured to be read
+        # from. If not, see if the file cache can (and should) be read from.
+        if self._cache["filled"] and not always_from_file:
             success = True
             res = self._cache["result"]
             log.trace("Re-using memory-cached result for %s.", self.hashstr)
             # Not setting status here because it was set previously
 
         elif self.dag is not None and read_opts.get("enabled", False):
-            t0 = time.time()
+            success, res = self._lookup_result_from_file()
 
-            # Let the DAG check if there is a file cache, i.e. if a file with
-            # this Transformation's hash exists in the DAG's cache directory.
-            success, res = self.dag._retrieve_from_cache_file(
-                self.hashstr, **load_opts
-            )
+        return success, res
 
-            # Store the result
-            if success:
-                self._cache["result"] = res
-                self._cache["filled"] = True
-                self.status = "looked_up"
+    def _lookup_result_from_file(self) -> Tuple[bool, Any]:
+        """Looks up a cached result from file.
 
-            self._update_profile(cache_lookup=(time.time() - t0))
+        .. note::
 
+            Unlike the more general :py:meth:`._lookup_result`, this one does
+            not check whether reading from cache is enabled or disabled.
+        """
+        read_opts = self._fc_opts.get("read", {})
+        load_opts = read_opts.get("load_options", {})
+        t0 = time.time()
+
+        # Let the DAG check if there is a file cache, i.e. if a file with
+        # this Transformation's hash exists in the DAG's cache directory.
+        success, res = self.dag._retrieve_from_cache_file(
+            self.hashstr, **load_opts
+        )
+
+        # Store the result in the memory cache
+        if success:
+            self.status = "looked_up"
+
+        self._update_profile(cache_lookup=(time.time() - t0))
         return success, res
 
     def _cache_result(self, result: Any) -> None:
@@ -883,12 +912,14 @@ class Transformation:
             # If this point is reached, the cache file should be written.
             return True
 
-        # Store a reference to the result and mark the cache as being in use
-        self._cache["result"] = result
-        self._cache["filled"] = True
-        # NOTE If instead of a proper computation, the passed result object was
-        #      previously looked up from the cache, this will not have an
-        #      effect.
+        # If the memory cache is enabled, store a reference to the result and
+        # mark the memory cache as being in use.
+        if self._mc_opts["enabled"]:
+            self._cache["result"] = result
+            self._cache["filled"] = True
+            # NOTE If instead of a proper computation, the passed result
+            #      object was previously looked up from the cache, this will
+            #      not have an effect (because it's already set accordingly).
 
         # Get file cache writing parameters; don't write if not
         write_opts = self._fc_opts["write"]
