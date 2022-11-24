@@ -2,6 +2,10 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.18.10
+- !325 allows to always load a computation result from the file cache.
+
+
 ## v0.18.9
 - !324 fixes a bug from interface changes in the latest xarray release.
 
