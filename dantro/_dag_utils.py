@@ -688,6 +688,7 @@ def parse_dag_syntax(
     force_compute: bool = None,
     with_previous_result: bool = False,
     salt: int = None,
+    memory_cache: bool = None,
     file_cache: dict = None,
     ignore_hooks: bool = False,
     allow_failure: Union[bool, str] = None,
@@ -851,6 +852,9 @@ def parse_dag_syntax(
     # Add optional parameters only if they were specified
     if salt is not None:
         d["salt"] = salt
+
+    if memory_cache is not None:
+        d["memory_cache"] = memory_cache
 
     if file_cache is not None:
         d["file_cache"] = file_cache

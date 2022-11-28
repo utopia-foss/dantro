@@ -735,9 +735,17 @@ Except for ``operation``, ``args``, ``kwargs`` and ``tag``, all entries are set 
                                     # the arguments (i.e.: upstream error).
                                     # Special options are: log, warn, silent
 
+    memory_cache: True              # If False, will not keep the computed
+                                    # result in memory but either re-compute it
+                                    # or load it from the file cache.
+
     file_cache:                     # File cache options
       read:                         # Read-related options
         enabled: false              # Whether to read from the file cache
+        always: false               # If true, will always read from the file
+                                    # cache, regardless of whether the result
+                                    # was already stored in the memory cache
+                                    # or just computed.
         load_options: {}            # Passed on to DataManager.load
       write:                        # Write-related options
         enabled: false              # Whether to write to the file cache
@@ -1303,6 +1311,25 @@ See above on how to enable it.
 
     When desiring to use the caching feature of the transformation framework, the employed :py:class:`~dantro.data_mngr.DataManager` needs to be able to load numerical data.
     If you are not already using the :py:class:`~dantro.data_loaders.AllAvailableLoadersMixin`, consider adding :py:class:`~dantro.data_loaders.numpy.NumpyLoaderMixin`, :py:class:`~dantro.data_loaders.xarray.XarrayLoaderMixin`, and :py:class:`~dantro.data_loaders.pickle.PickleLoaderMixin` to your :py:class:`~dantro.data_mngr.DataManager` specialization.
+
+.. hint::
+
+    Sometimes it can be desired to *always* read from the file cache, e.g. to make use of the ``load_options`` argument.
+    In that case, set the following arguments to make sure that a cache file will be written after a computation.
+
+    .. code-block:: yaml
+
+        file_cache:
+          read:
+            enabled: true
+            always: true
+            load_options:
+              chunks: true
+          write: true
+
+    Note that the computed result may still remain in the memory cache.
+    See :py:class:`~dantro.dag.Transformation` on how to not keep it in memory.
+
 
 
 Writing to the file cache

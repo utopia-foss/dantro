@@ -845,6 +845,64 @@ file_cache_min_cumulative_compute_time:
       - 1c7a39fea5901c7c233849b57c3028eb.xrdc  # tag twos
 
 
+file_cache_always_read:
+  params:
+    file_cache_defaults:
+      read:
+        enabled: true
+        always: true
+        load_options:
+          chunks: this is an invalid argument  # to check that it's invoked
+      write:
+        enabled: true
+        always: true
+
+    select:
+      zeros_raw: labelled_data/zeros
+
+    transform:
+      - increment: [!dag_tag zeros_raw]
+        salt: 123
+        tag: ones
+      - increment: [!dag_tag ones]
+        salt: 123
+        tag: twos
+
+  _raises: DataLoadingError  # ... because of the invalid `chunks` argument
+  _raises_on_compute: true
+  _match: chunks
+
+
+file_cache_always_read_without_memory_cache:
+  params:
+    file_cache_defaults:
+      read:
+        enabled: true
+        always: true
+        load_options:
+          chunks: this is an invalid argument  # to check that it's invoked
+      write:
+        enabled: true
+        always: true
+
+    select:
+      zeros_raw: labelled_data/zeros
+
+    transform:
+      - increment: [!dag_tag zeros_raw]
+        salt: 123
+        memory_cache: true
+        tag: ones
+      - increment: [!dag_tag ones]
+        salt: 123
+        memory_cache: false
+        tag: twos
+
+  _raises: DataLoadingError  # ... because of the invalid `chunks` argument
+  _raises_on_compute: true
+  _match: chunks
+
+
 file_cache_invariant_hash:
   params:
     select:
