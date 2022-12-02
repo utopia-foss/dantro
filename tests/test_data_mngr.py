@@ -109,7 +109,8 @@ class FullDataManager(AllAvailableLoadersMixin, DataManager):
 
 @pytest.fixture
 def data_dir(tmpdir) -> str:
-    """Writes some dummy data to a temporary directory and returns the path to that directory"""
+    """Writes some dummy data to a temporary directory and returns the path to
+    that directory"""
     # Create YAML dummy data and write it out
     foobar = dict(
         one=1, two=2, go_deeper=dict(eleven=11), a_list=list(range(10))
@@ -645,7 +646,7 @@ def test_loading_errors(dm):
         dm.load("might_need_this", loader="yaml", glob_str="maybe_needed.yml")
 
     # Check for invalid loaders ...............................................
-    with pytest.raises(LoaderError, match="Available loaders:  yaml, yaml_to"):
+    with pytest.raises(LoaderError, match="Available loaders:  hdf5, hdf5_as"):
         dm.load("nopenopenope", loader="nope", glob_str="*")
 
     with pytest.raises(LoaderError, match="misses required attribute"):
@@ -1225,6 +1226,28 @@ def test_parallel(dm, hdf5_dm):
 # == Data Loaders =============================================================
 # =============================================================================
 
+# Registry --------------------------------------------------------------------
+
+
+def test_data_loader_registry(dm):
+    """Tests that even a DataManager without mixins has the full data loader
+    registry available."""
+    # By default, all loaders the DataManager can find should be equivalent
+    # to those in the registry
+    assert dm.available_loaders == sorted(dm._loader_registry.keys())
+
+    # Can also get loaders that are not mixed in which will be read from the
+    # loader registry
+    assert not hasattr(dm, "_load_pickle")
+    loader, _ = dm._resolve_loader("pickle")
+    assert loader._orig is dm._loader_registry["pickle"]
+
+    # Also works on aliases
+    assert not hasattr(dm, "_load_pkl")
+    loader, _ = dm._resolve_loader("pkl")
+    assert loader._orig is dm._loader_registry["pkl"]
+
+
 # TextLoaderMixin tests -------------------------------------------------------
 
 
@@ -1233,6 +1256,7 @@ def test_text_loader(text_dm):
     text_dm.load("text_data", loader="text", glob_str="text_data/*.txt")
 
     # Check that the plain text data is loaded and of expected type
+    print(text_dm.tree)
     text_data = text_dm["text_data"]
 
     for name, cont in text_data.items():

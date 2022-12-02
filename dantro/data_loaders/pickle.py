@@ -2,7 +2,7 @@
 
 from .._import_tools import LazyLoader
 from ..containers import ObjectContainer
-from ._tools import add_loader
+from ._registry import add_loader
 
 pkl = LazyLoader("dill")
 
@@ -15,7 +15,9 @@ class PickleLoaderMixin:
     For unpickling, the ``dill`` package is used.
     """
 
-    @add_loader(TargetCls=ObjectContainer, omit_self=False)
+    @add_loader(
+        TargetCls=ObjectContainer, omit_self=False, register_aliases=["pkl"]
+    )
     def _load_pickle(
         self, filepath: str, *, TargetCls: type, **pkl_kwargs
     ) -> ObjectContainer:
@@ -34,6 +36,3 @@ class PickleLoaderMixin:
 
         # Populate the target container with the object
         return TargetCls(data=obj, attrs=dict(filepath=filepath))
-
-    # Also make available under `pkl`
-    _load_pkl = _load_pickle

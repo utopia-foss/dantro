@@ -428,14 +428,32 @@ class DataManager(OrderedDataGroup):
 
     @property
     def available_loaders(self) -> List[str]:
-        """Returns a list of available loader function names"""
+        """Returns a sorted list of available loader function names"""
 
         def is_load_func(attr: str):
             return attr.startswith("_load_") and hasattr(
                 getattr(self, attr), "TargetCls"
             )
 
-        return [s[6:] for s in dir(self) if is_load_func(s)]
+        # Loaders can be available both as a method and as a lookup from the
+        # data loader registry
+        # TODO Once we can be sure that all method loaders are also registered,
+        #      this should be simplified to return self._loader_registry.keys()
+        method_loaders = [s[6:] for s in dir(self) if is_load_func(s)]
+        additionally_registered_loaders = [
+            name
+            for name in self._loader_registry
+            if name not in method_loaders
+        ]
+
+        return sorted(method_loaders + additionally_registered_loaders)
+
+    @property
+    def _loader_registry(self) -> Dict[str, Callable]:
+        """Retrieves the data loader registry dict"""
+        from .data_loaders import DATA_LOADERS
+
+        return DATA_LOADERS
 
     def load_from_cfg(
         self,
@@ -987,18 +1005,45 @@ class DataManager(OrderedDataGroup):
         """Resolves the loader function and returns a 2-tuple containing the
         load function and the declared dantro target type to load data to.
         """
+
+        def resolve_from_registry(name: str) -> Callable:
+            load_func = self._loader_registry[loader]
+            log.debug(
+                "Got load func '%s' from registry, wrapping it ...", name
+            )
+
+            # Need to supply self as first positional argument to comply to the
+            # signature of the method-based invocation.
+            # This in turn requires to carry over some attributes that the
+            # decorator sets and that functools.partial does not carry over.
+            wrapped = functools.partial(load_func, self)
+            wrapped.__doc__ = load_func.__doc__
+            wrapped._orig = load_func
+
+            for attr_name in dir(load_func):
+                if attr_name.startswith("__"):
+                    continue
+                setattr(wrapped, attr_name, getattr(load_func, attr_name))
+
+            return wrapped
+
+        # Find the method name
         load_func_name = f"_load_{loader.lower()}"
 
         try:
             load_func = getattr(self, load_func_name)
 
         except AttributeError as err:
-            raise LoaderError(
-                f"Loader '{loader}' was not available to {self.logstr}! "
-                "Make sure to use a mixin class that supplies "
-                f"the '{load_func_name}' loader method.\n"
-                f"Available loaders:  {', '.join(self.available_loaders)}"
-            ) from err
+            try:
+                load_func = resolve_from_registry(loader)
+            except KeyError:
+                raise LoaderError(
+                    f"Loader '{loader}' was not available to {self.logstr}! "
+                    "Make sure to use a mixin class that supplies "
+                    f"the '{load_func_name}' loader method or that the loader "
+                    "is properly registered via the @add_loader decorator.\n"
+                    f"Available loaders:  {', '.join(self.available_loaders)}"
+                ) from err
         else:
             log.debug("Resolved '%s' loader function.", loader)
 

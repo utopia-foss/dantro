@@ -113,6 +113,13 @@ That's all.
 
 For more information, see :doc:`data_io/data_mngr`.
 
+.. hint::
+
+    It's not strictly required to define a new ``DataManager`` class to use loader mixins:
+    The :py:class:`~dantro.data_mngr.DataManager` is aware of all registered data loaders and can access them via the :py:data:`~dantro.data_loaders._registry.DATA_LOADERS` registry.
+
+    However, if you plan on extending it, it may be the more convenient approach to define this custom class and include mixins.
+
 .. note::
 
     When using :ref:`specialized container classes <spec_data_container>` such a custom :py:class:`~dantro.data_mngr.DataManager` is also the place to configure data loaders to use those classes.
@@ -135,7 +142,7 @@ As an example, let's look at how a data loader mixin for plain text files (:py:c
 
 So basically:
 
-#. Import the :py:class:`~dantro.data_loaders._tools.add_loader` decorator
+#. Import the :py:class:`~dantro.data_loaders._registry.add_loader` decorator from ``dantro.data_loaders``
 #. Define your mixin class
 #. Add a method named ``_load_<name>`` and decorate it with ``@add_loader(TargetCls=SomeClass)``.
 

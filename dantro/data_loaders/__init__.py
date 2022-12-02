@@ -18,11 +18,14 @@ All these mixin classes should follow the following signature:
             # ...
             return TargetCls(...)
 
-As ensured by the :py:func:`~dantro.data_loaders._tools.add_loader` decorator
-(implemented in :py:mod:`dantro.data_loaders._tools` module), each
-``_load_loadername`` method gets supplied with the path to a file and the
-``TargetCls`` argument, which can be called to create an object of the correct
-type and name.
+As ensured by the :py:func:`~dantro.data_loaders._registry.add_loader`
+decorator, each ``_load_loadername`` method gets supplied with the path to a
+file and the ``TargetCls`` argument, which can be called to create an object
+of the correct type and name.
+In addition, the decorator registers the load function with the dantro
+:py:data:`~dantro.data_loaders._registry.DATA_LOADERS` registry, making it
+available to :py:class:`~dantro.data_mngr.DataManager` instances that do not
+have the mixin added.
 
 By default, and to decouple the loader from the container, it should be
 considered to be a static method; in other words: the first positional argument
@@ -31,7 +34,7 @@ If ``self`` is required for some reason, set the ``omit_self`` option of the
 decorator to ``False``, making it a regular (instead of a static) method.
 """
 
-from ._tools import add_loader
+from ._registry import DATA_LOADERS, add_loader
 from .hdf5 import Hdf5LoaderMixin
 from .numpy import NumpyLoaderMixin
 from .pandas import PandasLoaderMixin

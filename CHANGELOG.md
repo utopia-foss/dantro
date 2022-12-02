@@ -2,6 +2,12 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.19.0 *(work in progress)*
+- !326 improves and extends data loading:
+    - Additionally registers data loaders in a global registry such that setting up a custom `DataManager` with mixins is no longer required.
+      To use it, simply call the `@add_loader` decorator which will take care of registration.
+
+
 ## v0.18.10
 - !325 allows to always load a computation result from the file cache.
 

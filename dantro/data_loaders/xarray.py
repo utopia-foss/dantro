@@ -1,7 +1,7 @@
 """Defines a loader mixin to load xarray objects"""
 
 from ..containers import PassthroughContainer, XrDataContainer
-from ._tools import add_loader
+from ._registry import add_loader
 
 # -----------------------------------------------------------------------------
 

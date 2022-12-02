@@ -1,7 +1,7 @@
 """Defines a loader mixin to load data via :py:mod:`pandas`"""
 
 from ..containers import PassthroughContainer
-from ._tools import add_loader
+from ._registry import add_loader
 
 # -----------------------------------------------------------------------------
 
