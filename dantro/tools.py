@@ -2,6 +2,7 @@
 
 import collections
 import contextlib
+import glob
 import logging
 import os
 import sys
@@ -13,8 +14,7 @@ import numpy as np
 
 log = logging.getLogger(__name__)
 
-# -----------------------------------------------------------------------------
-# Terminal, TTY-related
+# -- Terminal, TTY ------------------------------------------------------------
 
 TERMINAL_INFO = dict(columns=79, lines=24, is_a_tty=False)
 """Holds information about the size and properties of the used terminal.
@@ -69,13 +69,11 @@ TTY_COLS = TERMINAL_INFO["columns"]
     Use the ``dantro.tools.TERMINAL_INFO["columns"]`` entry instead.
 """
 
-# -----------------------------------------------------------------------------
-# Import private yaml module, where everything is configured
+# -- YAML ---------------------------------------------------------------------
 
 from ._yaml import load_yml, write_yml, yaml
 
-# -----------------------------------------------------------------------------
-# Dictionary operations
+# -- Dictionary operations ----------------------------------------------------
 
 
 def recursive_update(d: dict, u: dict) -> dict:
@@ -147,8 +145,7 @@ def recursive_getitem(obj: Union[Mapping, Sequence], keys: Sequence):
         handle_error(err, key=keys[0], keys=keys, obj=obj)
 
 
-# -----------------------------------------------------------------------------
-# Terminal messaging
+# -- Terminal messaging -------------------------------------------------------
 
 
 def clear_line(only_in_tty=True, break_if_not_tty=True):
@@ -306,8 +303,7 @@ def make_columns(
     return "\n".join(rows) + "\n"
 
 
-# -----------------------------------------------------------------------------
-# Fun with byte strings
+# -- Fun with byte strings ----------------------------------------------------
 
 
 def decode_bytestrings(obj) -> str:
@@ -344,8 +340,7 @@ def decode_bytestrings(obj) -> str:
     return obj
 
 
-# -----------------------------------------------------------------------------
-# Misc
+# -- Misc ---------------------------------------------------------------------
 
 DoNothingContext = contextlib.nullcontext
 """An alias for a context ... that does nothing"""
@@ -594,6 +589,125 @@ def format_time(
     if not max_num_parts:
         return " ".join(parts)
     return " ".join(parts[: max_num_parts + int(is_negative)])
+
+
+def glob_paths(
+    glob_str: Union[str, List[str]],
+    *,
+    ignore: List[str] = None,
+    base_path: str = None,
+    sort: bool = False,
+    recursive: bool = True,
+    include_files: bool = True,
+    include_directories: bool = True,
+) -> List[str]:
+    """Generates a list of paths from a glob string and a number of additional
+    options.
+
+    Paths may refer to file *and* directory paths.
+    Uses :py:func:`glob.glob` for matching glob strings.
+
+    .. note::
+
+        Internally, this uses a set, thus ensuring that there are no duplicate
+        paths in the returned list.
+
+    Args:
+        glob_str (Union[str, List[str]]): The glob pattern or a list of
+            glob patterns to use for searching for files. Relative paths will
+            be seen as relative to ``base_path``.
+        ignore (List[str]): A list of paths to ignore. Relative paths will be
+            seen as relative to ``base_path``. Supports glob patterns.
+        base_path (str, optional): The base path for the glob pattern. If not
+            given, will use the current working directory.
+        sort (bool, optional): If true, sorts the list before returning.
+        recursive (bool, optional): If true, will activate recursive glob
+            patterns (see :py:func:`glob.glob`).
+        include_files (bool, optional): If false, will remove file paths from
+            the set of paths.
+        include_directories (bool, optional): If false, will remove directory
+            paths from the set of paths.
+
+    Returns:
+        List[str]:
+            The file or directory paths that matched ``glob_str`` and were not
+            filtered out by the other options.
+
+    Raises:
+        ValueError:
+            If the given ``base_path`` was not absolute.
+    """
+
+    def prepare_path(path: str, *, base: str) -> str:
+        return os.path.abspath(os.path.join(base, os.path.expanduser(path)))
+
+    def remove_from_set(s: set, to_remove: str):
+        try:
+            s.remove(to_remove)
+        except KeyError:
+            log.debug("%s was not found in set of paths.", to_remove)
+        else:
+            log.debug("%s removed from set of paths.", to_remove)
+
+    # Create a set to assure that there are no duplicate entries
+    paths = set()
+
+    # Assure it is a list of strings
+    if isinstance(glob_str, str):
+        glob_str = [glob_str]
+
+    log.debug(
+        "Got %d glob string(s) to create set of matching file paths from.",
+        len(glob_str),
+    )
+
+    # Handle base path, defaulting to the data directory
+    if base_path is None:
+        base_path = os.getcwd()
+        log.debug("Using current working directory as base path.")
+
+    else:
+        if not os.path.isabs(base_path):
+            raise ValueError(
+                "Given base_path argument needs be an "
+                f"absolute path, was not: {base_path}"
+            )
+
+    # Go over the given glob strings and add to the paths set
+    for gs in glob_str:
+        # Make the glob string absolute and prepend the base path
+        gs = prepare_path(gs, base=base_path)
+        log.debug("Adding paths that match glob string:\n  %s", gs)
+
+        # Add to the set of paths; this assures uniqueness of the paths
+        paths.update(list(glob.glob(gs, recursive=recursive)))
+
+    # See if some paths should be ignored
+    ignore = ignore if ignore else []
+    for igs in ignore:
+        igs = prepare_path(igs, base=base_path)
+        log.debug("Removing paths that match ignore glob string:\n  %s", igs)
+
+        for ignore_path in glob.glob(igs, recursive=recursive):
+            remove_from_set(paths, to_remove=ignore_path)
+
+    # Can convert to list now, easier to continue
+    paths = list(paths)
+
+    # Finish up: May want to filter files / directories, and sort the list
+    if not include_files:
+        paths = [path for path in paths if not os.path.isfile(path)]
+
+    if not include_directories:
+        paths = [path for path in paths if not os.path.isdir(path)]
+
+    if sort:
+        paths.sort()
+
+    return paths
+
+
+# -- Multi-processing ---------------------------------------------------------
 
 
 class PoolCallbackHandler:

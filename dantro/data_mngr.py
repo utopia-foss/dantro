@@ -25,7 +25,13 @@ from .tools import (
     format_bytesize,
 )
 from .tools import format_time as _format_time
-from .tools import load_yml, print_line, recursive_update, total_bytesize
+from .tools import (
+    glob_paths,
+    load_yml,
+    print_line,
+    recursive_update,
+    total_bytesize,
+)
 
 log = logging.getLogger(__name__)
 
@@ -737,7 +743,9 @@ class DataManager(OrderedDataGroup):
         target_path: str,
         loader: str,
         glob_str: Union[str, List[str]],
-        load_as_attr: Union[str, None],
+        include_files: bool = True,
+        include_directories: bool = True,
+        load_as_attr: Union[str, None] = False,
         base_path: str = None,
         ignore: List[str] = None,
         required: bool = False,
@@ -758,9 +766,13 @@ class DataManager(OrderedDataGroup):
             loader (str): The loader to use
             glob_str (Union[str, List[str]]): A glob string or a list of glob
                 strings to match files in the data directory
-            load_as_attr (Union[str, None]): If a string, the entry will be
-                loaded into the object at ``target_path`` under a new attribute
-                with this name.
+            include_files (bool, optional): If false, will exclude paths that
+                point to files.
+            include_directories (bool, optional): If false, will exclude paths
+                that point to directories.
+            load_as_attr (Union[str, None], optional): If a string, the entry
+                will be loaded into the object at ``target_path`` under a new
+                attribute with this name.
             base_path (str, optional): The base directory to concatenate the
                 glob string to; if None, will use the DataManager's data
                 directory. With this option, it becomes possible to load data
@@ -784,7 +796,7 @@ class DataManager(OrderedDataGroup):
                 attribute.
             progress_indicator (bool, optional): Whether to print a progress
                 indicator or not
-            parallel (Union[bool, dict]): If True, data is loaded in parallel.
+            parallel (Union[bool, dict], optional): If True, data is loaded in parallel.
                 If a dict, can supply more options:
 
                     - ``enabled``: whether to use parallel loading
@@ -807,7 +819,7 @@ class DataManager(OrderedDataGroup):
 
             **loader_kwargs: passed on to the loader function
 
-        Returns:
+        No Longer Returned:
             Tuple[int, int]: Tuple of number of files that matched the glob
                 strings, *including* those that may have been skipped, and
                 number of successfully loaded and stored entries
@@ -818,11 +830,13 @@ class DataManager(OrderedDataGroup):
                 print_line(s)
 
         # Create the list of file paths to load
-        files = self._create_files_list(
+        files = self._resolve_path_list(
             glob_str=glob_str,
             ignore=ignore,
             required=required,
             base_path=base_path,
+            include_files=include_files,
+            include_directories=include_directories,
             sort=True,
         )
 
@@ -1059,124 +1073,80 @@ class DataManager(OrderedDataGroup):
 
         return load_func, TargetCls
 
-    def _create_files_list(
+    def _resolve_path_list(
         self,
         *,
         glob_str: Union[str, List[str]],
-        ignore: List[str],
+        ignore: Union[str, List[str]] = None,
         base_path: str = None,
         required: bool = False,
-        sort: bool = False,
+        **glob_kwargs,
     ) -> List[str]:
-        """Create the list of file paths to load from.
+        """Create the list of file or directory paths to load.
 
         Internally, this uses a set, thus ensuring that the paths are
         unique. The set is converted to a list before returning.
 
+        .. note::
+
+            Paths may refer to file *and* directory paths.
+
         Args:
             glob_str (Union[str, List[str]]): The glob pattern or a list of
-                glob patterns
-            ignore (List[str]): The list of files to ignore
-            base_path (str, optional): The base path for the glob pattern;
-                use data directory, if not given.
-            required (bool, optional): Will lead to an error being raised
-                if no files could be matched
-            sort (bool, optional): If true, sorts the list before returning
+                glob patterns to use for searching for files. Relative paths
+                will be seen as relative to ``base_path``.
+            ignore (List[str]): A list of paths to ignore. Relative paths will
+                be seen as relative to ``base_path``. Supports glob patterns.
+            base_path (str, optional): The base path for the glob pattern. If
+                not given, will use the ``data`` directory.
+            required (bool, optional): If true, will raise an error if at least
+                one matching path is required.
+            **glob_kwargs: Passed on to :py:func:`dantro.tools.glob_paths`.
+                See there for more available parameters.
 
         Returns:
-            list: the file paths to load
+            List[str]:
+                The (file or directory) paths to load.
 
         Raises:
-            MissingDataError: If no files could be matched
-            RequiredDataMissingError: If no files could be matched but were
-                required.
+            MissingDataError:
+                If no files could be matched.
+            RequiredDataMissingError:
+                If no files could be matched but were required.
         """
-        # Create a set to assure that all files are unique
-        files = set()
-
-        # Assure it is a list of strings
-        if isinstance(glob_str, str):
-            # Is a single glob string
-            # Put it into a list to handle the same as the given arg
-            glob_str = [glob_str]
-
-        # Assuming glob_str to be lists of strings now
-        log.debug(
-            "Got %d glob string(s) to create set of matching file "
-            "paths from.",
-            len(glob_str),
-        )
-
-        # Handle base path, defaulting to the data directory
         if base_path is None:
             base_path = self.dirs["data"]
             log.debug("Using data directory as base path.")
 
-        else:
-            if not os.path.isabs(base_path):
-                raise ValueError(
-                    "Given base_path argument needs be an "
-                    f"absolute path, was not: {base_path}"
-                )
-
-        # Go over the given glob strings and add to the files set
-        for gs in glob_str:
-            # Make the glob string absolute
-            gs = os.path.join(base_path, gs)
-            log.debug("Adding files that match glob string:\n  %s", gs)
-
-            # Add to the set of files; this assures uniqueness of the paths
-            files.update(list(glob.glob(gs, recursive=True)))
-
-        # See if some files should be ignored
-        if ignore:
-            log.debug("Got list of files to ignore:\n  %s", ignore)
-
-            # Make absolute and generate list of files to exclude
-            ignore = [os.path.join(self.dirs["data"], path) for path in ignore]
-
-            log.debug("Removing them one by one now ...")
-
-            # Remove the elements one by one
-            while ignore:
-                rmf = ignore.pop()
-                try:
-                    files.remove(rmf)
-                except KeyError:
-                    log.debug("%s was not found in set of files.", rmf)
-                else:
-                    log.debug("%s removed from set of files.", rmf)
-
-        # Now the file list is final
-        log.note(
-            "Found %d file%s with a total size of %s.",
-            len(files),
-            "s" if len(files) != 1 else "",
-            format_bytesize(total_bytesize(files)),
+        paths = glob_paths(
+            glob_str,
+            base_path=base_path,
+            ignore=ignore,
+            **glob_kwargs,
         )
-        log.debug("\n  %s", "\n  ".join(files))
 
-        if not files:
-            # No files found; exit here, one way or another
+        log.note(
+            "Found %d path%s with a total size of %s.",
+            len(paths),
+            "s" if len(paths) != 1 else "",
+            format_bytesize(total_bytesize(paths)),
+        )
+        log.debug("\n  %s", "\n  ".join(paths))
+
+        if not paths:
+            # No paths found; exit here, one way or another
             if not required:
                 raise MissingDataError(
-                    "No files found matching "
+                    "No paths found matching "
                     f"`glob_str` {glob_str} (and ignoring {ignore})."
                 )
             raise RequiredDataMissingError(
-                f"No files found matching `glob_str` {glob_str} "
+                f"No paths found matching `glob_str` {glob_str} "
                 f"(and ignoring {ignore}) were found, but were "
                 "marked as required!"
             )
 
-        # Convert to list
-        files = list(files)
-
-        # Sort, if asked to do so
-        if sort:
-            files.sort()
-
-        return files
+        return paths
 
     def _prepare_target_path(
         self, target_path: str, *, filepath: str, path_sre: re.Pattern = None
