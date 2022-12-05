@@ -58,7 +58,7 @@ class UnexpectedTypeWarning(DantroWarning):
 # General data tree errors ....................................................
 
 
-class ItemAccessError(KeyError, IndexError):
+class ItemAccessError(KeyError, IndexError, DantroError):
     """Raised upon bad access via __getitem__ or similar magic methods.
 
     This derives from both native exceptions KeyError and IndexError as these
@@ -383,3 +383,26 @@ class PlotHelperErrors(ValueError):
             s += "\n\n".join(self._docstrings.values())
 
         return s
+
+
+# .. Misc .....................................................................
+
+
+class MissingRegistryEntry(ValueError, IndexError, KeyError, DantroError):
+    """An error that is raised when trying to access an entry in
+    :py:class:`~dantro._registry.ObjectRegistry` that does not exist."""
+
+
+class MissingNameError(ValueError, DantroError):
+    """An error that is raised when a name is required but was not given for
+    :py:class:`~dantro._registry.ObjectRegistry` registration."""
+
+
+class RegistryEntryExists(ValueError, DantroError):
+    """An error that is raised when trying to set an entry in
+    :py:class:`~dantro._registry.ObjectRegistry` that already exist."""
+
+
+class InvalidRegistryEntry(TypeError, ValueError, DantroError):
+    """An error that is raised when trying to set an invalid entry in
+    :py:class:`~dantro._registry.ObjectRegistry`."""

@@ -11,6 +11,7 @@ from .db import _OPERATIONS
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
+# TODO Let operations registry use ObjectRegistry as basis
 
 
 def register_operation(

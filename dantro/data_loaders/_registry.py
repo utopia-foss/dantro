@@ -2,20 +2,14 @@
 correct loader function signature (which also automatically keeps track of the
 data loader function).
 """
+
 import logging
-from typing import Callable, Dict, List
+from typing import Any, Dict, Optional, Union
+
+from .._registry import ObjectRegistry as _ObjectRegistry
+from ..exceptions import *
 
 log = logging.getLogger(__name__)
-
-DATA_LOADERS: Dict[str, type] = dict()
-"""The dantro data loaders registry.
-
-The :py:class:`~dantro.data_mngr.DataManager` and derived classes have access
-to all data loaders via this registry (in addition to method-based access
-they have via potentially used mixins).
-
-To register a new loader, use the :py:func:`.add_loader` decorator.
-"""
 
 LOAD_FUNC_PREFIX: str = "_load_"
 """The prefix that all load functions need to start with"""
@@ -23,39 +17,55 @@ LOAD_FUNC_PREFIX: str = "_load_"
 # -----------------------------------------------------------------------------
 
 
+class DataLoaderRegistry(_ObjectRegistry):
+    """Specialization of :py:class:`~dantro._registry.ObjectRegistry` for the
+    purpose of keeping track of data loaders.
+    """
+
+    _DESC = "data loader"
+    _SKIP = False
+    _OVERWRITE = False
+    _EXPECTED_TYPE = None
+
+
+DATA_LOADERS = DataLoaderRegistry()
+"""The dantro data loaders registry.
+
+The :py:class:`~dantro.data_mngr.DataManager` and derived classes have access
+to all data loaders via this registry (in addition to method-based access
+they have via potentially used mixins).
+
+To register a new loader, use the :py:func:`.add_loader` decorator:
+"""
+
+
 def _register_loader(
     wrapped_func: Callable,
+    name: str,
     *,
-    name: str = None,
+    skip_existing: bool = False,
     overwrite_existing: bool = True,
-):
-    """Registers a loader function in :py:data:`.DATA_LOADERS`.
+) -> None:
+    """Internally used method to add an entry to the shared loader registry.
 
     Args:
-        wrapped_func (Callable): The load function, wrapped by whatever the
-            :py:func:`.add_loader` decorator does.
-        name (str, optional): The name to use in registration
-        overwrite_existing (bool, optional): Whether to overwrite an existing
-            entry. If False and the wrapped function not being identical, there
-            will be an error.
+        wrapped_func (Callable): The wrapped callable that is to be registered
+            as a loader. This is what the :py:func:`.add_loader` decorator
+            generates.
+        name (str, optional): The name to use for registration.
+        skip_existing (bool, optional): Whether to skip registration if the
+            loader name is already registered. This suppresses the
+            ValueError raised on existing loader name.
+        overwrite_existing (bool, optional): Whether to overwrite a potentially
+            already existing loader of the same name. If set, this takes
+            precedence over ``skip_existing``.
     """
-    if name in DATA_LOADERS and not overwrite_existing:
-        # May be identical though, in which case we need no error
-        existing_func = DATA_LOADERS[name]._func
-        new_func = wrapped_func._func
-
-        if existing_func is not new_func:
-            raise ValueError(
-                f"A loader function with the name '{name}' is already "
-                "registered!\n"
-                f"  Existing:  {existing_func.__name__}  {existing_func}\n"
-                f"  New:       {new_func.__name__}  {new_func}\n"
-                "Either change the name or set the `overwrite_existing` flag."
-            )
-
-    # All good, can register
-    DATA_LOADERS[name] = wrapped_func
-    log.debug("Registered data loader:  %s", name)
+    return DATA_LOADERS.register(
+        wrapped_func,
+        name=name,
+        skip_existing=skip_existing,
+        overwrite_existing=overwrite_existing,
+    )
 
 
 def add_loader(
@@ -68,8 +78,41 @@ def add_loader(
     """This decorator should be used to specify loader methods in mixin classes
     to the :py:class:`~dantro.data_mngr.DataManager`.
 
-    All decorated methods will additinoally be registered in the data
-    loaders registry.
+    All decorated methods where ``omit_self is True`` will additinoally be
+    registered in the :py:data:`.DATA_LOADERS` registry.
+
+    Example:
+
+    .. testcode::
+
+        from dantro.containers import ObjectContainer
+        from dantro.data_loaders import add_loader
+
+        class MyDataLoaderMixin:
+
+            @add_loader(TargetCls=ObjectContainer)
+            def _load_foobar(path: str, *, TargetCls: type, **kws):
+                # load something from the given file path
+                with open(path, **kws) as f:
+                    data = f.read()
+
+                return TargetCls(data=data)
+
+        # Define a DataManager that has the custom loader mixed-in
+
+        from dantro import DataManager
+
+        class MyDataManager(MyDataLoaderMixin, DataManager):
+            pass
+
+    .. testcode::
+        :hide:
+
+        from dantro.data_loaders._registry import DATA_LOADERS
+
+        assert "foobar" in DATA_LOADERS
+        del DATA_LOADERS._d["foobar"]
+        assert "foobar" not in DATA_LOADERS
 
     .. note::
 

@@ -7,11 +7,12 @@ from typing import Optional
 
 from ..containers import PathContainer
 from ..exceptions import ItemAccessError
-from . import OrderedDataGroup
+from . import OrderedDataGroup, is_group
 
 log = logging.getLogger(__name__)
 
 
+@is_group
 class DirectoryGroup(OrderedDataGroup):
     """A group that maps to a directory path in the file system.
 

@@ -4,12 +4,15 @@ import logging
 import pathlib
 from typing import Union
 
-from ..base import BaseDataContainer
 from ..mixins import ForwardAttrsToDataMixin
+from . import BaseDataContainer, is_container
 
 log = logging.getLogger(__name__)
 
+# -----------------------------------------------------------------------------
 
+
+@is_container
 class PathContainer(ForwardAttrsToDataMixin, BaseDataContainer):
     """A container that maps to a file system path.
 
@@ -33,12 +36,15 @@ class PathContainer(ForwardAttrsToDataMixin, BaseDataContainer):
     def __init__(self, *args, data: Union[str, pathlib.Path], **kwargs):
         """Sets up a container that holds a filesystem path as data.
 
+        .. note::
+
+            The filesystem path need not necessarily exist and it also need
+            not be equivalent to the path within the data tree.
+
         Args:
             *args: Passed to parent
             data (Union[str, pathlib.Path]): The filesystem path this object
-                is meant to represent. The filesystem path need not
-                necessarily exist and it also need not be equivalent to the
-                path within the data tree.
+                is meant to represent.
             **kwargs: Passed to parent
         """
         data = pathlib.Path(data)
@@ -47,15 +53,15 @@ class PathContainer(ForwardAttrsToDataMixin, BaseDataContainer):
     @property
     def fs_path(self) -> pathlib.Path:
         """Returns the filesystem path associated with this container.
-        This is equivalent to the ``data`` property.
+        This property is identical to the ``data`` property.
         """
         return self.data
 
     def __delitem__(self, key):
-        pass
+        raise NotImplementedError("Cannot delete path elements.")
 
     def __setitem__(self, key, value):
-        pass
+        raise NotImplementedError("Cannot set path elements.")
 
     def __getitem__(self, key):
-        pass
+        raise NotImplementedError("Cannot get path elements.")

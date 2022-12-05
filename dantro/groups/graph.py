@@ -13,9 +13,9 @@ from typing import List, Union
 import numpy as np
 
 from .._import_tools import LazyLoader
-from ..base import BaseDataGroup
 from ..containers import XrDataContainer
 from ..tools import recursive_update
+from . import BaseDataGroup, is_group
 from .labelled import LabelledDataGroup
 
 # Local constants
@@ -29,6 +29,7 @@ xr = LazyLoader("xarray")
 # -----------------------------------------------------------------------------
 
 
+@is_group
 class GraphGroup(BaseDataGroup):
     """The GraphGroup class manages groups of graph data containers and
     provides the possibility to create networkx graph objects using the data

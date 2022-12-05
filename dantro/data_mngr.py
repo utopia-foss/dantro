@@ -453,9 +453,9 @@ class DataManager(OrderedDataGroup):
         return sorted(method_loaders + additionally_registered_loaders)
 
     @property
-    def _loader_registry(self) -> Dict[str, Callable]:
-        """Retrieves the data loader registry dict"""
-        from .data_loaders import DATA_LOADERS
+    def _loader_registry(self) -> "DataLoaderRegistry":
+        """Retrieves the data loader registry"""
+        from .data_loaders._registry import DATA_LOADERS
 
         return DATA_LOADERS
 

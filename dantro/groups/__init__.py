@@ -4,6 +4,8 @@ isort:skip_file
 """
 
 # To avoid circular imports, need to import this first
+from ..base import BaseDataGroup
+from ._registry import register_group, is_group
 from .ordered import IndexedDataGroup, OrderedDataGroup
 
 # The groups below can be imported in whatever order

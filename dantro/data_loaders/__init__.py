@@ -34,7 +34,7 @@ If ``self`` is required for some reason, set the ``omit_self`` option of the
 decorator to ``False``, making it a regular (instead of a static) method.
 """
 
-from ._registry import DATA_LOADERS, add_loader
+from ._registry import add_loader
 from .fspath import FSPathLoaderMixin
 from .hdf5 import Hdf5LoaderMixin
 from .numpy import NumpyLoaderMixin

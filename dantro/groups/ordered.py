@@ -6,9 +6,9 @@ import collections
 import logging
 from typing import Dict, Generator, List
 
-from ..base import BaseDataGroup
 from ..mixins import IntegerItemAccessMixin
 from ..utils import IntOrderedDict
+from . import BaseDataGroup, is_group
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -16,6 +16,7 @@ log = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 
 
+@is_group
 class OrderedDataGroup(BaseDataGroup, collections.abc.MutableMapping):
     """The OrderedDataGroup class manages groups of data containers, preserving
     the order in which they were added to this group.
@@ -31,6 +32,7 @@ class OrderedDataGroup(BaseDataGroup, collections.abc.MutableMapping):
 # -----------------------------------------------------------------------------
 
 
+@is_group
 class IndexedDataGroup(IntegerItemAccessMixin, OrderedDataGroup):
     """The IndexedDataGroup class holds members that are of the same type and
     have names that can directly be interpreted as positive integers.
