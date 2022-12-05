@@ -21,6 +21,7 @@ from .tools import (
     PoolCallbackHandler,
     PoolErrorCallbackHandler,
     clear_line,
+    ensure_dict,
     fill_line,
     format_bytesize,
 )
@@ -169,10 +170,7 @@ class DataManager(OrderedDataGroup):
     _DEFAULT_GROUPS = None
 
     # Define as class variable what should be the default group type
-    _DATA_GROUP_DEFAULT_CLS = OrderedDataGroup
-
-    # For simple lookups, store class names in a dict; not set by default
-    _DATA_GROUP_CLASSES = None
+    _NEW_GROUP_CLS: type = OrderedDataGroup
 
     # The default tree file cache path, parsed by _parse_file_path
     _DEFAULT_TREE_CACHE_PATH = ".tree_cache.d3"
@@ -673,8 +671,7 @@ class DataManager(OrderedDataGroup):
             )
 
             # To communicate the attribute name, store it in the load_as_attr
-            # variable; otherwise it would require passing two arguments to
-            # _load
+            # variable; otherwise it would require passing on two arguments ...
             load_as_attr = entry_name
 
         elif target_group:
@@ -830,7 +827,7 @@ class DataManager(OrderedDataGroup):
                 print_line(s)
 
         # Create the list of file paths to load
-        files = self._resolve_path_list(
+        files, _base_path = self._resolve_path_list(
             glob_str=glob_str,
             ignore=ignore,
             required=required,
@@ -871,6 +868,7 @@ class DataManager(OrderedDataGroup):
                     load_as_attr=load_as_attr,
                     TargetCls=TargetCls,
                     required=required,
+                    _base_path=_base_path,
                     **loader_kwargs,
                 )
                 num_success += self._store_object(
@@ -896,6 +894,7 @@ class DataManager(OrderedDataGroup):
                 path_sre=path_sre,
                 load_as_attr=load_as_attr,
                 required=True,  # errors are handled via ErrorCallbackHandler
+                _base_path=_base_path,
                 **loader_kwargs,
             )
 
@@ -977,6 +976,8 @@ class DataManager(OrderedDataGroup):
         load_as_attr: str,
         TargetCls: type,
         required: bool,
+        _base_path: str,
+        target_path_kwargs: dict = None,
         **loader_kwargs,
     ) -> Tuple[Union[None, BaseDataContainer], List[str]]:
         """Loads the data of a single file into a dantro object and returns
@@ -984,14 +985,21 @@ class DataManager(OrderedDataGroup):
         """
         # Prepare the target path (will be a key sequence, ie. list of keys)
         _target_path = self._prepare_target_path(
-            target_path, filepath=filepath, path_sre=path_sre
+            target_path,
+            filepath=filepath,
+            path_sre=path_sre,
+            base_path=_base_path,
+            **ensure_dict(target_path_kwargs),
         )
 
         # Distinguish regular loading and loading as attribute, and prepare the
         # target class correspondingly to assure that the name is already
         # correct. An object of the target class will then be filled by the
         # load function.
-        _name = _target_path[-1] if not load_as_attr else load_as_attr
+        if load_as_attr:
+            _name = load_as_attr
+        else:
+            _name = _target_path[-1]
         _TargetCls = lambda **kws: TargetCls(name=_name, **kws)
 
         # Let the load function retrieve the data
@@ -1146,10 +1154,17 @@ class DataManager(OrderedDataGroup):
                 "marked as required!"
             )
 
-        return paths
+        return paths, base_path
 
     def _prepare_target_path(
-        self, target_path: str, *, filepath: str, path_sre: re.Pattern = None
+        self,
+        target_path: str,
+        *,
+        filepath: str,
+        base_path: str,
+        path_sre: re.Pattern = None,
+        join_char_replacement: str = "__",
+        **fstr_params,
     ) -> List[str]:
         r"""Prepare the target path within the data tree where the loader's
         output is to be placed.
@@ -1157,9 +1172,13 @@ class DataManager(OrderedDataGroup):
         The ``target_path`` argument can be a format string.
         The following keys are available:
 
-        - ``dirname``: the directory path *relative* to the data directory
+        - ``dirname``: the directory path *relative* to the selected base
+          directory (typically the data directory).
         - ``basename``: the lower-case base name of the file, without extension
         - ``ext``: the lower-case extension of the file, without leading dot
+        - ``relpath``: The full (relative) path (without extension)
+        - ``dirname_cleaned`` and ``relpath_cleaned``: like above but with the
+          path join character (``/``) replaced by ``join_char_replacement``.
 
         If ``path_sre`` is given, will additionally have the following keys
         available as result of calling  :py:meth:`re.Pattern.search` on the
@@ -1210,25 +1229,41 @@ class DataManager(OrderedDataGroup):
                 pattern specified in ``path_sre``, see above.
             filepath (str): The actual path of the *file*, used as input to the
                 regex pattern.
+            base_path (str): The base path used when determining the
+                ``filepath`` and from which a relative path can be computed.
+                Available as format keys ``relname`` and ``relname_cleaned``.
             path_sre (re.Pattern, optional): The regex pattern that is used to
                 generate additional arguments that are useable in the format
                 string.
+            join_char_replacement(str, optional): The string to use to replace
+                the ``PATH_JOIN_CHAR`` (``/``) in the relative paths
+            **fstr_params: Made available to the formatting operation
 
         Returns:
             List[str]:
                 Path sequence that represents the target path within the
                 data tree where the loaded data is to be placed.
         """
+        clean_path = lambda p: p.replace(PATH_JOIN_CHAR, join_char_replacement)
+
         # The dict to be filled with formatting parameters
-        fps = dict()
+        fps = dict(**fstr_params)
 
         # Extract the file path and name information
         basename, ext = os.path.splitext(os.path.basename(filepath))
         fps["basename"] = basename.lower()
         fps["ext"] = ext[min(1, len(ext)) :].lower()
-        fps["dirname"] = os.path.relpath(
-            os.path.dirname(filepath), start=self.dirs["data"]
+
+        # Relative file path information
+        dirname = os.path.relpath(os.path.dirname(filepath), start=base_path)
+        fps["dirname"] = dirname
+        fps["dirname_cleaned"] = clean_path(dirname)
+
+        relpath, _ = os.path.splitext(
+            os.path.relpath(filepath, start=base_path)
         )
+        fps["relpath"] = relpath
+        fps["relpath_cleaned"] = clean_path(relpath)
 
         # Use the specified regex pattern to extract a match
         if path_sre:
@@ -1257,7 +1292,9 @@ class DataManager(OrderedDataGroup):
         log.debug("  kwargs: %s", fps)
         try:
             target_path = target_path.format(**fps)
+
         except (KeyError, IndexError) as err:
+            _fps = "\n".join(f"    {k}: {v}" for k, v in fps.items())
             raise ValueError(
                 "Failed evaluating target path format string!\n"
                 f"Got {type(err).__name__}: {err}\n\n"
@@ -1266,7 +1303,7 @@ class DataManager(OrderedDataGroup):
                 f"  target_path:  {target_path}\n"
                 f"  filepath:     {filepath}\n"
                 f"  path_regex:   {path_sre.pattern if path_sre else 'None'}\n"
-                f"  available format string keys:\n    {fps}"
+                f"  available format string keys:\n{_fps}"
             ) from err
 
         log.debug("Generated target path:  %s", target_path)
@@ -1302,22 +1339,22 @@ class DataManager(OrderedDataGroup):
         # Distinguish different actions
         if exists_action == "raise":
             raise ExistingDataError(
-                _msg + " Adjust argument `exists_action` to allow skipping "
+                f"{_msg} Adjust argument `exists_action` to allow skipping "
                 "or overwriting of existing entries."
             )
 
-        if exists_action in ["skip", "skip_nowarn"]:
+        if exists_action in ("skip", "skip_nowarn"):
             if exists_action == "skip":
                 warnings.warn(
-                    _msg + " Loading of this entry will be skipped.",
+                    f"{_msg} Loading of this entry will be skipped.",
                     ExistingDataWarning,
                 )
             return True  # will lead to the data not being loaded
 
-        elif exists_action in ["overwrite", "overwrite_nowarn"]:
+        elif exists_action in ("overwrite", "overwrite_nowarn"):
             if exists_action == "overwrite":
                 warnings.warn(
-                    _msg + " It will be overwritten!", ExistingDataWarning
+                    f"{_msg} It will be overwritten!", ExistingDataWarning
                 )
             return False  # will lead to the data being loaded
 
@@ -1421,7 +1458,7 @@ class DataManager(OrderedDataGroup):
             # Need to assure here, that the group path points to a group.
             if group_path not in self:
                 # Needs to be created
-                self._create_groups(group_path)
+                self.new_group(group_path)
 
             elif not isinstance(self[group_path], BaseDataGroup):
                 # Already exists, but is no group. Cannot continue
@@ -1447,156 +1484,6 @@ class DataManager(OrderedDataGroup):
         group.add(obj)
         log.debug("Successfully stored %s at '%s'.", obj.logstr, obj.path)
         return True
-
-    def _contains_group(
-        self, path: Union[str, List[str]], *, base_group: BaseDataGroup = None
-    ) -> bool:
-        """Recursively checks if the given path is available _and_ a group.
-
-        Args:
-            path (Union[str, List[str]]): The path to check.
-            base_group (BaseDataGroup): The group to start from. If not
-                given, will use self.
-
-        Returns:
-            bool: Whether the path points to a group
-
-        """
-
-        def check(path: str, base_group: BaseDataGroup) -> bool:
-            """Returns True if the object at path within base_group is
-            a group. False otherwise.
-            """
-            return path in base_group and isinstance(
-                base_group[path], BaseDataGroup
-            )
-
-        if not isinstance(path, list):
-            path = path.split(PATH_JOIN_CHAR)
-
-        if not base_group:
-            base_group = self
-
-        if len(path) > 1:
-            # Need to continue recursively
-            if check(path[0], base_group):
-                return self._contains_group(
-                    path[1:], base_group=base_group[path[0]]
-                )
-            return False
-
-        # End of recursion
-        return check(path[0], base_group)
-
-    def _create_groups(
-        self,
-        path: Union[str, List[str]],
-        *,
-        base_group: BaseDataGroup = None,
-        GroupCls: Union[type, str] = None,
-        exist_ok: bool = True,
-    ):
-        """Recursively create groups for the given path. Unlike new_group, this
-        also creates the groups at the intermediate paths.
-
-        Args:
-            path (Union[str, List[str]]): The path to create groups along
-            base_group (BaseDataGroup, optional): The group to start from. If
-                not given, uses self.
-            GroupCls (Union[type, str], optional): The class to use for
-                creating the groups or None if the _DATA_GROUP_DEFAULT_CLS is
-                to be used. If a string is given, lookup happens from the
-                _DATA_GROUPS_CLASSES variable.
-            exist_ok (bool, optional): Whether it is ok that groups along the
-                path already exist. These might also be of different type.
-                Default: True
-
-        Raises:
-            ExistingDataError: If not `exist_ok`
-            ExistingGroupError: If not `exist_ok` and a group already exists
-        """
-        # Parse arguments
-        if isinstance(path, str):
-            path = path.split(PATH_JOIN_CHAR)
-
-        if base_group is None:
-            base_group = self
-
-        GroupCls = self._determine_group_class(GroupCls)
-
-        # Catch the disallowed case as early as possible
-        if path[0] in base_group:
-            # Check if it is a group that exists there
-            if isinstance(base_group[path[0]], BaseDataGroup):
-                if not exist_ok:
-                    raise ExistingGroupError(path[0])
-
-            else:
-                # There is data (that is not a group) existing at the path.
-                # Cannot continue
-                raise ExistingDataError(
-                    f"Tried to create a group '{path[0]}' in "
-                    f"{base_group.logstr}, but a container was already stored "
-                    "at that path."
-                )
-
-        # Create the group, if it does not yet exist
-        if path[0] not in base_group:
-            log.debug(
-                "Creating group '%s' in %s ...", path[0], base_group.logstr
-            )
-            base_group.new_group(path[0])
-
-        # path[0] is now created
-        # Check whether to continue recursion
-        if len(path) > 1:
-            # Continue recursion
-            self._create_groups(
-                path[1:], base_group=base_group[path[0]], GroupCls=GroupCls
-            )
-
-    def _determine_group_class(self, Cls: Union[type, str]) -> type:
-        """Helper function to determine the type of a group from an argument.
-
-        Args:
-            Cls (Union[type, str]): If None, uses the _DATA_GROUP_DEFAULT_CLS.
-                If a string, tries to extract it from the _DATA_GROUP_CLASSES
-                class variable. Otherwise, assumes this is already a type.
-
-        Returns:
-            type: The group class to use
-
-        Raises:
-            KeyError: If the string class name was not registered
-            ValueError: If no _DATA_GROUP_CLASSES variable was populated
-        """
-        if Cls is None:
-            return self._DATA_GROUP_DEFAULT_CLS
-
-        if isinstance(Cls, str):
-            cls_name = Cls
-
-            if not self._DATA_GROUP_CLASSES:
-                raise ValueError(
-                    "The class variable _DATA_GROUP_CLASSES is "
-                    "empty; cannot look up class type by the "
-                    "given name '{}'.".format(cls_name)
-                )
-
-            elif cls_name not in self._DATA_GROUP_CLASSES:
-                raise KeyError(
-                    "The given class name '{}' was not registered "
-                    "with this {}! Available classes: {}"
-                    "".format(
-                        cls_name, self.classname, self._DATA_GROUP_CLASSES
-                    )
-                )
-
-            # everything ok, retrieve the class type
-            return self._DATA_GROUP_CLASSES[cls_name]
-
-        # else: assume it is already a type and just return the given argument
-        return Cls
 
     # .. Dumping and restoring the DataManager ................................
 
@@ -1703,29 +1590,3 @@ class DataManager(OrderedDataGroup):
 
         self.recursive_update(dm)
         log.progress("Successfully restored the data tree.")
-
-    # .. Working with the data in the tree ....................................
-
-    def new_group(self, path: str, *, Cls: Union[type, str] = None, **kwargs):
-        """Creates a new group at the given path.
-
-        This is a slightly advanced version of the new_group method of the
-        BaseDataGroup. It not only adjusts the default type, but also allows
-        more ways how to specify the type of the group to create.
-
-        Args:
-            path (str): Where to create the group. Note that the intermediates
-                of this path need to already exist.
-            Cls (Union[type, str], optional): If given, use this type to
-                create the group. If a string is given, resolves the type from
-                the _DATA_GROUP_CLASSES class variable. If None, uses the
-                default data group type of the data manager.
-            **kwargs: Passed on to Cls.__init__
-
-        Returns:
-            The created group of type ``Cls``
-        """
-        # Use helper function to parse the group class correctly
-        Cls = self._determine_group_class(Cls)
-
-        return super().new_group(path, Cls=Cls, **kwargs)

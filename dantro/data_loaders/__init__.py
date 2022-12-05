@@ -35,6 +35,7 @@ decorator to ``False``, making it a regular (instead of a static) method.
 """
 
 from ._registry import DATA_LOADERS, add_loader
+from .fspath import FSPathLoaderMixin
 from .hdf5 import Hdf5LoaderMixin
 from .numpy import NumpyLoaderMixin
 from .pandas import PandasLoaderMixin
@@ -46,6 +47,7 @@ from .yaml import YamlLoaderMixin
 
 class AllAvailableLoadersMixin(
     TextLoaderMixin,
+    FSPathLoaderMixin,
     YamlLoaderMixin,
     PickleLoaderMixin,
     Hdf5LoaderMixin,

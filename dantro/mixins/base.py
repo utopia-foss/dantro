@@ -30,10 +30,10 @@ class AttrsMixin:
     """
 
     _attrs = None
-    """The class attribute that the attributes will be stored to"""
+    """The attribute that data attributes will be stored to"""
 
-    _ATTRS_CLS = None
-    """The class to use for storing attributes"""
+    _ATTRS_CLS: type = None
+    """The type of object to use for storing data attributes"""
 
     @property
     def attrs(self):

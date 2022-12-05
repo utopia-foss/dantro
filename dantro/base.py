@@ -1,15 +1,16 @@
 """This module implements the base classes of dantro, based on the abstract
-classes.
+classes implemented in :py:mod:`dantro.abc`.
 
-The base classes are classes that combine features of the abstract classes. For
-example, the data group gains attribute functionality by being a combination
-of the AbstractDataGroup and the BaseDataContainer.
-In turn, the BaseDataContainer uses the BaseDataAttrs class as an attribute and
-thereby extends the AbstractDataContainer class.
+The base classes are classes that combine features of the abstract classes.
+For example, the data group gains attribute functionality by being a
+combination of the :py:class:`~dantro.abc.AbstractDataGroup` and the
+:py:class:`.BaseDataContainer`. In turn, the :py:class:`.BaseDataContainer`
+uses the :py:class:`.BaseDataAttrs` class as an attribute and thereby extends
+the :py:class:`~dantro.abc.AbstractDataContainer` class.
 
 .. note::
 
-    These classes are not meant to be instantiated but used as a basis to
+    These classes are not meant to be instantiated but used as a *basis* to
     implement more specialized :py:class:`.BaseDataGroup`- or
     :py:class:`.BaseDataContainer`-derived classes.
 """
@@ -18,12 +19,16 @@ import abc
 import copy
 import inspect
 import logging
-from typing import Any, Callable, List, Tuple, Union
+from typing import Any, Callable, Dict, List, Tuple, Union
 
-import dantro.abc
-
-from .abc import PATH_JOIN_CHAR, AbstractDataContainer
-from .exceptions import ItemAccessError
+from .abc import (
+    PATH_JOIN_CHAR,
+    AbstractDataAttrs,
+    AbstractDataContainer,
+    AbstractDataGroup,
+    AbstractDataProxy,
+)
+from .exceptions import ExistingDataError, ExistingGroupError, ItemAccessError
 from .mixins import (
     AttrsMixin,
     BasicComparisonMixin,
@@ -41,7 +46,7 @@ log = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 
 
-class BaseDataProxy(dantro.abc.AbstractDataProxy):
+class BaseDataProxy(AbstractDataProxy):
     """The base class for data proxies.
 
     .. note::
@@ -50,7 +55,7 @@ class BaseDataProxy(dantro.abc.AbstractDataProxy):
     """
 
     # Associated tags, empty by default; may also be overwritten in the object
-    _tags = tuple()
+    _tags: tuple = tuple()
 
     @abc.abstractmethod
     def __init__(self, obj: Any = None):
@@ -69,7 +74,7 @@ class BaseDataProxy(dantro.abc.AbstractDataProxy):
 # -----------------------------------------------------------------------------
 
 
-class BaseDataAttrs(MappingAccessMixin, dantro.abc.AbstractDataAttrs):
+class BaseDataAttrs(MappingAccessMixin, AbstractDataAttrs):
     """A class to store attributes that belong to a data container.
 
     This implements a dict-like interface and serves as default attribute
@@ -82,23 +87,22 @@ class BaseDataAttrs(MappingAccessMixin, dantro.abc.AbstractDataAttrs):
         subclassing or mixin is reasonable.
     """
 
-    def __init__(self, attrs: dict = None, **dc_kwargs):
+    def __init__(self, attrs: Dict[str, Any] = None, **dc_kwargs):
         """Initialize a DataAttributes object.
 
         Args:
-            attrs (dict, optional): The attributes to store
+            attrs (Dict[str, Any], optional): The attributes to store
             **dc_kwargs: Further kwargs to the parent DataContainer
         """
         # Make sure it is a dict; initialize empty if empty
         attrs = dict(attrs) if attrs else {}
 
-        # Store them via the parent method.
         super().__init__(data=attrs, **dc_kwargs)
 
     # .........................................................................
 
     def as_dict(self) -> dict:
-        """Returns a shallow copy of the attributes as a dict"""
+        """Returns a shallow copy of the data attributes as a dict"""
         return {k: v for k, v in self.items()}
 
     # .........................................................................
@@ -116,7 +120,7 @@ class BaseDataContainer(
     AttrsMixin,
     SizeOfMixin,
     BasicComparisonMixin,
-    dantro.abc.AbstractDataContainer,
+    AbstractDataContainer,
 ):
     """The BaseDataContainer extends the abstract base class by the ability to
     hold attributes and be path-aware.
@@ -125,13 +129,14 @@ class BaseDataContainer(
     # Define which class to use for storing attributes
     _ATTRS_CLS = BaseDataAttrs
 
-    def __init__(self, *, name: str, data, attrs=None):
+    def __init__(self, *, name: str, data: Any, attrs: Dict[str, Any] = None):
         """Initialize a BaseDataContainer, which can store data and attributes.
 
         Args:
             name (str): The name of this data container
-            data: The data to store in this container
-            attrs (None, optional): A mapping that is stored as attributes
+            data (Any): The data to store in this container
+            attrs (Dict[str, Any], optional): A mapping that is stored as
+                data attributes.
         """
         # Initialize via parent, then additionally store attributes
         super().__init__(name=name, data=data)
@@ -155,7 +160,7 @@ class BaseDataGroup(
     SizeOfMixin,
     BasicComparisonMixin,
     DirectInsertionModeMixin,
-    dantro.abc.AbstractDataGroup,
+    AbstractDataGroup,
 ):
     """The BaseDataGroup serves as base group for all data groups.
 
@@ -177,6 +182,16 @@ class BaseDataGroup(
     """Which class to use for creating a new container via call to the
     :py:meth:`.new_container` method. If None, the type needs to be specified
     explicitly in the method call.
+    """
+
+    _DATA_GROUP_CLASSES: Dict[str, type] = None
+    """Mapping from strings to available data group types. Used in
+    string-based lookup of group types in :py:meth:`.new_group`.
+    """
+
+    _DATA_CONTAINER_CLASSES: Dict[str, type] = None
+    """Mapping from strings to available data container types. Used in
+    string-based lookup of container types in :py:meth:`.new_container`.
     """
 
     _ALLOWED_CONT_TYPES = None
@@ -410,7 +425,7 @@ class BaseDataGroup(
         old_cont = None
         if cont.name in self:
             if not overwrite:
-                raise ValueError(
+                raise ExistingDataError(
                     f"{self.logstr} already has a member with "
                     f"name '{cont.name}', cannot add {cont}."
                 )
@@ -468,8 +483,14 @@ class BaseDataGroup(
         pass
 
     def new_container(
-        self, path: Union[str, List[str]], *, Cls: type = None, **kwargs
-    ):
+        self,
+        path: Union[str, List[str]],
+        *,
+        Cls: Union[type, str] = None,
+        GroupCls: Union[type, str] = None,
+        _target_is_group: bool = False,
+        **kwargs,
+    ) -> "BaseDataContainer":
         """Creates a new container of type ``Cls`` and adds it at the given
         path relative to this group.
 
@@ -477,44 +498,23 @@ class BaseDataGroup(
 
         Args:
             path (Union[str, List[str]]): Where to add the container.
-            Cls (type, optional): The class of the container to add. If None,
-                the ``_NEW_CONTAINER_CLS`` class variable's value is used.
+            Cls (Union[type, str], optional): The type of the target container
+                (or group) that is to be added.
+                If None, will use the type set in ``_NEW_CONTAINER_CLS`` class
+                variable. If a string is given, the type is looked up in the
+                container type registry.
+            GroupCls (Union[type, str], optional): Like ``Cls`` but used for
+                intermediate group types only.
+            _target_is_group (bool, optional): Internally used variable.
+                If True, will look up the ``Cls`` type via
+                :py:meth:`._determine_group_type` instead of
+                :py:meth:`._determine_container_type`.
             **kwargs: passed on to ``Cls.__init__``
 
         Returns:
-            The created container of type ``Cls``
-
-        Raises:
-            ValueError: If neither the ``Cls`` argument nor the class variable
-                ``_NEW_CONTAINER_CLS`` were set or if ``path`` was empty.
-            TypeError: When ``Cls`` is not compatible to the data tree
+            BaseDataContainer:
+                The created container of type ``Cls``
         """
-        # Resolve the Cls argument, if possible from the class variable
-        if Cls is None:
-            if self._NEW_CONTAINER_CLS is None:
-                raise ValueError(
-                    "Got neither argument `Cls` nor class "
-                    "variable _NEW_CONTAINER_CLS, at least one "
-                    "of which is needed to determine the type "
-                    "of the new container!"
-                )
-
-            Cls = self._NEW_CONTAINER_CLS
-
-        # Check the class to create the container with
-        if not inspect.isclass(Cls):
-            raise TypeError(
-                "Argument `Cls` needs to be a class, but "
-                f"was of type {type(Cls)} with value '{Cls}'."
-            )
-
-        elif not issubclass(Cls, (BaseDataContainer, BaseDataGroup)):
-            raise TypeError(
-                "Argument `Cls` needs to be a subclass of "
-                f"BaseDataContainer or BaseDataGroup, was '{Cls}'."
-            )
-        # Class is checked now
-
         # Make sure the path is a list and of valid content
         if isinstance(path, str):
             path = path.split(PATH_JOIN_CHAR)
@@ -525,55 +525,82 @@ class BaseDataGroup(
 
         # Check whether recursion ends here, i.e.: the path ends here
         if len(path) == 1:
-            # Yes, and it's a string: create container, add, return
+            if not _target_is_group:
+                Cls = self._determine_container_type(Cls)
+            else:
+                Cls = self._determine_group_type(Cls)
+
+            # Create the container and add it
             cont = Cls(name=path[0], **kwargs)
             self.add(cont)
             return cont
 
-        # Recursive branch: need to split off the front section and continue
+        # -- Recursive branch
+        # Need to split off the front section and continue
         grp_name, new_path = path[0], path[1:]
 
         # Retrieve the group, creating it if it does not exist
         if grp_name not in self:
-            grp = self.new_group(grp_name)
+            # Use the group class for intermediate paths.
+            # grp_name being a single string will lead into the non-recursive
+            # branch of this method again.
+            grp = self.new_group(grp_name, Cls=GroupCls)
         else:
             grp = self[grp_name]
 
+            if not isinstance(grp, BaseDataGroup):
+                raise ExistingDataError(
+                    f"Tried to create a new group '{grp_name}' in "
+                    f"{self.logstr}, but a container was already stored "
+                    "at that path."
+                )
+
         # Can now create the container, potentially recursively creating more
         # intermediate groups along the path ...
-        return grp.new_container(new_path, Cls=Cls, **kwargs)
+        return grp.new_container(
+            new_path,
+            Cls=Cls,
+            GroupCls=GroupCls,
+            _target_is_group=_target_is_group,
+            **kwargs,
+        )
 
-    def new_group(self, path: Union[str, list], *, Cls: type = None, **kwargs):
+    def new_group(
+        self,
+        path: Union[str, List[str]],
+        *,
+        Cls: Union[type, str] = None,
+        GroupCls: Union[type, str] = None,
+        **kwargs,
+    ) -> "BaseDataGroup":
         """Creates a new group at the given path.
 
         Args:
-            path (Union[str, list]): The path to create the group at. Note
-                that the whole intermediate path needs to already exist.
-            Cls (type, optional): If given, use this type to create the
-                group. If not given, uses the class specified in the
-                _NEW_GROUP_CLS class variable or, as last resort, the type of
-                this instance.
+            path (Union[str, List[str]]): The path to create the group at.
+                If necessary, intermediate paths will be created.
+            Cls (Union[type, str], optional): If given, use this type to
+                create the target group. If not given, uses the class
+                specified in the ``_NEW_GROUP_CLS`` class variable or (if a
+                string) the one from the group type registry.
+
+                .. note::
+
+                    This argument is evaluated at each segment of the ``path``
+                    by the corresponding object in the tree. Subsequently, the
+                    types need to be available at the desired
+
+            GroupCls (Union[type, str], optional): Like ``Cls``, but this
+                applies only to the creation of intermediate groups.
             **kwargs: Passed on to ``Cls.__init__``
 
         Returns:
-            The created group of type ``Cls``
-
-        Raises:
-            TypeError: For the given class not being derived from BaseDataGroup
+            BaseDataGroup:
+                The created group of type ``Cls``
         """
-        # If no Cls is given, use this instance's type
-        if Cls is None:
-            Cls = self._NEW_GROUP_CLS if self._NEW_GROUP_CLS else type(self)
-
-        # Need to catch the case where a non-group class was given
-        if inspect.isclass(Cls) and not issubclass(Cls, BaseDataGroup):
-            raise TypeError(
-                "Argument `Cls` needs to be a subclass of "
-                f"BaseDataGroup, was '{Cls}'."
-            )
-
         # Use container method to create the entry. Recursion happens there.
-        return self.new_container(path, Cls=Cls, **kwargs)
+        return self.new_container(
+            path, Cls=Cls, GroupCls=GroupCls, _target_is_group=True, **kwargs
+        )
 
     def recursive_update(self, other, *, overwrite: bool = True):
         """Recursively updates the contents of this data group with the entries
@@ -636,6 +663,113 @@ class BaseDataGroup(
             self._unlink_child(child)
         self._data = self._STORAGE_CLS()
         log.debug("%s cleared.", self.logstr)
+
+    # .........................................................................
+
+    def _determine_container_type(self, Cls: Union[type, str]) -> type:
+        """Helper function to determine the type to use for a new container.
+
+        Args:
+            Cls (Union[type, str]): If None, uses the ``_NEW_CONTAINER_CLS``
+                class variable. If a string, tries to extract it from the class
+                variable ``_DATA_CONTAINER_CLASSES`` dict.
+                Otherwise, assumes this is already a type.
+
+        Returns:
+            type:
+                The container class to use
+
+        Raises:
+            ValueError: If the string class name was not registered
+            AttributeError: If no default class variable was set
+        """
+        default = getattr(self, "_NEW_CONTAINER_CLS", None)
+
+        Cls = self._determine_type(
+            Cls,
+            default=default,
+            registry=getattr(self, "_DATA_CONTAINER_CLASSES", None),
+        )
+        if inspect.isclass(Cls) and not issubclass(
+            Cls, (BaseDataContainer, BaseDataGroup)
+        ):
+            raise TypeError(
+                "Expected a subclass of BaseDataContainer or BaseDataGroup, "
+                f"got {Cls}."
+            )
+
+        return Cls
+
+    def _determine_group_type(self, Cls: Union[type, str]) -> type:
+        """Helper function to determine the type to use for a new group.
+
+        Args:
+            Cls (Union[type, str]): If None, uses the ``_NEW_GROUP_CLS`` class
+                variable. If that one is not set, uses ``type(self)``.
+                If a string, tries to extract it from the class variable
+                ``_DATA_GROUP_CLASSES`` dict.
+                Otherwise, assumes ``Cls`` is already a type.
+
+        Returns:
+            type:
+                The group class to use
+
+        Raises:
+            ValueError: If the string class name was not registered
+            AttributeError: If no default class variable was set
+        """
+        default = getattr(self, "_NEW_GROUP_CLS", None)
+        if default is None:
+            default = type(self)
+
+        Cls = self._determine_type(
+            Cls,
+            default=default,
+            registry=getattr(self, "_DATA_GROUP_CLASSES", None),
+        )
+
+        # Need to catch the case where a non-group class was given
+        if inspect.isclass(Cls) and not issubclass(Cls, BaseDataGroup):
+            raise TypeError(
+                f"Expected a subclass of BaseDataGroup, got {Cls}."
+            )
+
+        return Cls
+
+    def _determine_type(
+        self, T: Union[type, str], *, default: type, registry: Dict[str, type]
+    ) -> type:
+        """Helper function to determine a type by name, falling back to a
+        default type or looking it up from a dict-like registry if it is a
+        string."""
+        if T is None:
+            if not default:
+                raise AttributeError(
+                    f"Missing default container type for {self.logstr}!"
+                )
+            return default
+
+        if not isinstance(T, type):
+            cls_name = T
+
+            if registry is None:
+                raise AttributeError(
+                    f"No type registry available for {self.logstr}! Cannot "
+                    f"look up type by name '{cls_name}'."
+                )
+
+            elif cls_name not in registry:
+                _avail = "\n".join(f"  {k}: {v}" for k, v in registry.items())
+                raise ValueError(
+                    f"The given class name '{cls_name}' was not registered "
+                    f"with this {self.classname}!\nAvailable types:\n{_avail}"
+                )
+
+            # everything ok, retrieve the class type
+            return registry[cls_name]
+
+        # else: assume it is already a type and just return the given argument
+        return T
 
     # .........................................................................
     # Linking

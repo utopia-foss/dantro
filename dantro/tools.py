@@ -8,7 +8,7 @@ import os
 import sys
 from datetime import timedelta as _timedelta
 from shutil import get_terminal_size as _get_terminal_size
-from typing import List, Mapping, Sequence, Set, Tuple, Union
+from typing import List, Mapping, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
 
@@ -344,6 +344,13 @@ def decode_bytestrings(obj) -> str:
 
 DoNothingContext = contextlib.nullcontext
 """An alias for a context ... that does nothing"""
+
+
+def ensure_dict(d: Optional[dict]) -> dict:
+    """Makes sure that ``d`` is a dict and not None"""
+    if d is None:
+        return dict()
+    return d
 
 
 def is_iterable(obj) -> bool:

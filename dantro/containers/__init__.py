@@ -9,4 +9,5 @@ from .general import (
 )
 from .link import LinkContainer
 from .numeric import NumpyDataContainer
+from .path import PathContainer
 from .xr import XrDataContainer

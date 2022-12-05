@@ -15,11 +15,9 @@ class PickleLoaderMixin:
     For unpickling, the ``dill`` package is used.
     """
 
-    @add_loader(
-        TargetCls=ObjectContainer, omit_self=False, register_aliases=["pkl"]
-    )
+    @add_loader(TargetCls=ObjectContainer, register_aliases=["pkl"])
     def _load_pickle(
-        self, filepath: str, *, TargetCls: type, **pkl_kwargs
+        filepath: str, *, TargetCls: type, **pkl_kwargs
     ) -> ObjectContainer:
         """Load a pickled object using :py:func:`dill._dill.load`.
 

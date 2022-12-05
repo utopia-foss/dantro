@@ -129,14 +129,22 @@ def add_loader(
         # Carry over the docstring of the decorated function
         load_func.__doc__ = func.__doc__
 
-        # Keep track of it via the registry dict
-        _register_loader(
-            load_func, name=name, overwrite_existing=overwrite_existing
-        )
-        for alias in register_aliases if register_aliases else ():
+        # Keep track of it via the registry dict.
+        # NOTE Can only do this for class methods, which can act as standalone
+        #      functions. Load functions that require access to other
+        #      attributes or methods of the DataManager *object* can not be
+        #      registered in a sensible way because these methods may not be
+        #      available.
+        if omit_self:
             _register_loader(
-                load_func, name=alias, overwrite_existing=overwrite_existing
+                load_func, name=name, overwrite_existing=overwrite_existing
             )
+            for alias in register_aliases if register_aliases else ():
+                _register_loader(
+                    load_func,
+                    name=alias,
+                    overwrite_existing=overwrite_existing,
+                )
 
         return load_func
 

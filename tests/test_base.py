@@ -15,7 +15,7 @@ import dantro as dtr
 import dantro.base
 import dantro.containers
 import dantro.groups
-from dantro.exceptions import ItemAccessError
+from dantro.exceptions import *
 
 log = logging.getLogger()
 
@@ -128,7 +128,7 @@ def test_BaseDataGroup():
     assert foo.parent is root
 
     # And adding new containers that are not of the correct type
-    with pytest.raises(TypeError, match="needs to be a subclass of BaseData"):
+    with pytest.raises(TypeError, match="Expected a subclass of BaseData"):
         root.new_container("testpath", Cls=dict, foo="bar")
 
     # Recursive update
@@ -147,7 +147,9 @@ def test_BaseDataGroup():
     with pytest.raises(TypeError, match="Can only update (.+) with objects"):
         root.recursive_update(dict(foo="bar"))
 
-    with pytest.raises(ValueError, match="already has a member with name"):
+    with pytest.raises(
+        ExistingDataError, match="already has a member with name"
+    ):
         root.recursive_update(root2, overwrite=False)
 
     # Linking and unlinking

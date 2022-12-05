@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from dantro.containers import MutableSequenceContainer, NumpyDataContainer
-from dantro.exceptions import ItemAccessError
+from dantro.exceptions import *
 from dantro.groups import OrderedDataGroup
 
 # -----------------------------------------------------------------------------
@@ -57,7 +57,9 @@ def test_basics():
     assert root["subgroup"] is subgroup
 
     # Adding it again should fail
-    with pytest.raises(ValueError, match="has a member with name 'subgroup'"):
+    with pytest.raises(
+        ExistingDataError, match="has a member with name 'subgroup'"
+    ):
         root.new_group("subgroup")
 
     # Should also work when explicitly giving the class
@@ -66,11 +68,12 @@ def test_basics():
     # TODO pass another class here
 
     # Should _not_ work with something that is not a class or not a group
-    with pytest.raises(TypeError, match="Argument `Cls` needs to be a class"):
-        root.new_group("foobar", Cls="not_a_class")
+    with pytest.raises(ValueError, match="was not registered"):
+        root._DATA_GROUP_CLASSES = dict()
+        root.new_group("foobar", Cls=123)
 
     with pytest.raises(
-        TypeError, match="Argument `Cls` needs to be a subclass"
+        TypeError, match="Expected a subclass of BaseDataGroup"
     ):
         root.new_group("foobar", Cls=MutableSequenceContainer)
 
@@ -90,7 +93,7 @@ def test_container_creation():
     assert msc in root
 
     # Should raise an error withou Cls given
-    with pytest.raises(ValueError, match="Got neither argument `Cls` nor"):
+    with pytest.raises(AttributeError, match="Missing default container type"):
         root.new_container("spam2", Cls=None, data=[1, 2, 3])
 
     # Set the class variable and try again

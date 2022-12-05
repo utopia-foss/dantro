@@ -127,6 +127,9 @@ def data_dir(tmpdir) -> str:
     write_yml(foobar, path=subdir.join("abc123.yml"))
     write_yml(foobar, path=subdir.join("abcdef.yml"))
 
+    subsubdir = subdir.mkdir("sub")
+    write_yml(foobar, path=subsubdir.join("abc234.yml"))
+
     merged = tmpdir.mkdir("merged")
     write_yml(foobar, path=merged.join("data0.yml"))
     write_yml(foobar, path=merged.join("data1.yml"))
@@ -457,13 +460,13 @@ def test_init_with_create_groups(tmpdir):
 
     for grp_name in test_groups:
         assert grp_name in dm
-        assert isinstance(dm[grp_name], dm._DATA_GROUP_DEFAULT_CLS)
+        assert isinstance(dm[grp_name], dm._NEW_GROUP_CLS)
 
     # And from a list of mixed names and dicts
     test_groups2 = [
         "ghi",
         dict(path="grp1"),
-        dict(path="grp2", Cls=dm._DATA_GROUP_DEFAULT_CLS),
+        dict(path="grp2", Cls=dm._NEW_GROUP_CLS),
         dict(path="grp3", Cls="ordered"),
     ]
 
@@ -473,12 +476,12 @@ def test_init_with_create_groups(tmpdir):
     assert "grp1" in dm2
     assert "grp2" in dm2
     assert "grp3" in dm2
-    assert isinstance(dm2["grp1"], dm2._DATA_GROUP_DEFAULT_CLS)
-    assert isinstance(dm2["grp2"], dm2._DATA_GROUP_DEFAULT_CLS)
+    assert isinstance(dm2["grp1"], dm2._NEW_GROUP_CLS)
+    assert isinstance(dm2["grp2"], dm2._NEW_GROUP_CLS)
     assert isinstance(dm2["grp3"], OrderedDataGroup)
 
     # Without the class variable set, initialisation with a class fails
-    with pytest.raises(ValueError, match="is empty; cannot look up class"):
+    with pytest.raises(AttributeError, match="No type registry available"):
         dantro.data_mngr.DataManager(
             tmpdir, out_dir=None, create_groups=[dict(path="foo", Cls="bar")]
         )
@@ -582,16 +585,18 @@ def test_loading(dm):
         "some_more_yaml",
         loader="yaml",
         glob_str="**/*.yml",
-        ignore=["lamo.yml", "missing.yml"],
+        ignore=["*lamo*", "missing.yml"],
     )
 
     assert "some_more_yaml/foobar" in dm
     assert "some_more_yaml/missing" not in dm
     assert "some_more_yaml/lamo" not in dm
+    assert "some_more_yaml/also_lamo" not in dm
 
     print(dm.tree)
 
-    # If given a list of glob strings, possibly matching files more than once, they should only be loaded once
+    # If given a list of glob strings, possibly matching files more than once,
+    # they should only be loaded once (internally using a set)
     dm.load("multiglob", loader="yaml", glob_str=["*.yml", "*yml"])
     assert len(dm["multiglob"]) == 4  # 8 files match, only 4 should be loaded
 
@@ -604,10 +609,44 @@ def test_loading(dm):
         loader="yaml",
         base_path=dm.dirs["data"],
         glob_str=["*.yml", "*yml"],
+        ignore=["*.bad_yml"],
+        required=True,
     )
     assert len(dm["custom_base_path"]) == 4
 
     print(dm.tree)
+
+    # Can also match directory paths
+    dm.load(
+        "local_dirs",
+        loader="fspath",
+        glob_str="*",
+        recursive=False,
+        include_directories=True,
+        include_files=False,
+        required=True,
+    )
+    print(dm["local_dirs"].tree)
+    assert "local_dirs/sub" in dm
+    assert "local_dirs/merged" in dm
+    assert len(dm["local_dirs"]) == 2
+
+    dm.load(
+        "all_files",
+        loader="fspath",
+        glob_str="**/*",
+        recursive=True,
+        include_directories=False,
+        include_files=True,
+        required=True,
+    )
+    print(dm["all_files"].tree)
+    assert "all_files/foobar" in dm
+    assert "all_files/abc123" in dm
+    assert "all_files/abc234" in dm
+    assert "all_files/sub" not in dm
+    assert "all_files/merged" not in dm
+    assert len(dm["all_files"]) == 15
 
 
 def test_loading_errors(dm):
@@ -646,7 +685,7 @@ def test_loading_errors(dm):
         dm.load("might_need_this", loader="yaml", glob_str="maybe_needed.yml")
 
     # Check for invalid loaders ...............................................
-    with pytest.raises(LoaderError, match="Available loaders:  hdf5, hdf5_as"):
+    with pytest.raises(LoaderError, match="Available loaders:.*text.*yaml"):
         dm.load("nopenopenope", loader="nope", glob_str="*")
 
     with pytest.raises(LoaderError, match="misses required attribute"):
@@ -725,7 +764,7 @@ def test_loading_exists_action(dm):
     # With barfoo/foobar being a container, this should also fail
     with pytest.raises(
         dantro.data_mngr.ExistingDataError,
-        match="Tried to create a group 'barfoo'",
+        match="Tried to create a new group 'barfoo'",
     ):
         dm.load(
             "barfoo",
@@ -798,50 +837,19 @@ def test_loading_exists_action(dm):
     assert not isinstance(dm["a_group"], dantro.base.BaseDataGroup)
 
 
-def test_contains_group(dm):
-    """Assert that the contains_group method works."""
-    dm.load("group", loader="yaml", glob_str="*.yml")
-    dm.load(
-        "subgroup",
-        loader="yaml",
-        glob_str="*.yml",
-        target_path="group/subgroup/{basename:}",
-    )
-    dm.load(
-        "subsubgroup",
-        loader="yaml",
-        glob_str="*.yml",
-        target_path="group/subgroup/subsubgroup/{basename:}",
-    )
-
-    assert dm._contains_group("group")
-    assert dm._contains_group("group/subgroup")
-    assert dm._contains_group("group/subgroup/subsubgroup")
-    assert not dm._contains_group("group/foobar")
-    assert not dm._contains_group("group/subgroup/foobar")
-    assert not dm._contains_group("group/subgroup/subsubgroup/foobar")
-    assert not dm._contains_group("i_dont_exist")
-    assert not dm._contains_group("group/i_dont_exist")
-    assert not dm._contains_group("group/i_dont_exist/i_dont_exist")
-
-
-def test_create_groups(dm):
+def test_new_groups(dm):
     """Check that group creation from paths works"""
     # Simple creation
-    dm._create_groups("foobar")
+    dm.new_group("foobar")
     assert "foobar" in dm
 
     # Recursive
-    dm._create_groups("foo/bar/baz")
+    dm.new_group("foo/bar/baz")
     assert "foo/bar/baz" in dm
 
     # A group in the path already exists
-    dm._create_groups("foo/bar/baz/foooo")
+    dm.new_group("foo/bar/baz/foooo")
     assert "foo/bar/baz/foooo" in dm
-
-    # Error with exist_ok=False
-    with pytest.raises(dantro.data_mngr.ExistingGroupError):
-        dm._create_groups("foo/bar", exist_ok=False)
 
     # With data existing at a path, there should be another error
     dm.load(
@@ -852,7 +860,7 @@ def test_create_groups(dm):
     )
 
     with pytest.raises(dantro.data_mngr.ExistingDataError):
-        dm._create_groups("foo/bar/baz/foobar")
+        dm.new_group("foo/bar/baz/foobar")
 
 
 def test_loading_regex(dm):
@@ -1246,6 +1254,117 @@ def test_data_loader_registry(dm):
     assert not hasattr(dm, "_load_pkl")
     loader, _ = dm._resolve_loader("pkl")
     assert loader._orig is dm._loader_registry["pkl"]
+
+
+# FSPathLoaderMixin tests -----------------------------------------------------
+
+
+def test_fspath_loader(dm):
+    """Tests the Path-based loader"""
+    dm.load(
+        "local_dirs",
+        loader="fspath",
+        glob_str="*",
+        recursive=False,
+        include_directories=True,
+        include_files=False,
+        required=True,
+    )
+    print(dm["local_dirs"].tree)
+    assert "local_dirs/sub" in dm
+    assert "local_dirs/merged" in dm
+    assert len(dm["local_dirs"]) == 2
+
+    dm.load(
+        "all_files",
+        loader="fspath",
+        glob_str="**/*",
+        recursive=True,
+        include_directories=False,
+        include_files=True,
+        required=True,
+    )
+    print(dm["all_files"].tree)
+    assert "all_files/foobar" in dm
+    assert "all_files/abc123" in dm
+    assert "all_files/abc234" in dm
+    assert "all_files/sub" not in dm
+    assert "all_files/merged" not in dm
+    assert len(dm["all_files"]) == 15
+
+    # Loading a nested directory tree into a flat hierarchy will not work
+    with pytest.raises(
+        ExistingDataError, match="'nested_dirs_fail/sub' already exists"
+    ):
+        dm.load(
+            "nested_dirs_fail",
+            loader="fspath",
+            glob_str="**/*",
+            recursive=True,
+            include_directories=True,
+            include_files=False,
+            required=True,
+        )
+
+    # … need to adjust target path to allow for that
+    dm.load(
+        "nested_to_flat",
+        loader="fspath",
+        glob_str="**/*",
+        recursive=True,
+        target_path="nested_to_flat/{relpath_cleaned:}",
+        include_directories=True,
+        include_files=False,
+        required=True,
+        target_path_kwargs=dict(join_char_replacement="_#_"),
+    )
+
+    print(dm["nested_to_flat"].tree)
+    assert "nested_to_flat/merged" in dm
+    assert "nested_to_flat/sub" in dm
+    assert "nested_to_flat/sub_#_sub" in dm
+    assert len(dm["nested_to_flat"]) == 3
+
+
+def test_fstree_loader(dm):
+    """Tests the tree-based loader"""
+    dm.load(
+        "simple",
+        loader="fstree",
+        glob_str=".",  # the data directory path
+        required=True,
+    )
+
+    print(dm["simple"].tree)
+    assert len(dm["simple"]) == 8
+    assert "simple/merged" in dm
+    assert "simple/sub" in dm
+    assert "simple/sub/sub" in dm
+
+    assert "simple/foobar.yml" in dm
+    assert "simple/sub/sub/abc234.yml" in dm
+
+    # Apply some filters
+    dm.load(
+        "filtered",
+        loader="fstree",
+        glob_str=".",  # the data directory path
+        required=True,
+        tree_glob=dict(
+            glob_str=["merged/*", "*"],
+            ignore=["*.bad_yml", "**/data*"],
+            include_directories=False,
+        ),
+    )
+    res = dm["filtered"]
+    print(res.tree)
+
+    assert "merged" in res
+    assert "sub" not in res
+
+    assert "foobar.yml" in res
+    assert "merged/cfg0.yml" in res
+    assert "not_loadable.bad_yml" not in res
 
 
 # TextLoaderMixin tests -------------------------------------------------------

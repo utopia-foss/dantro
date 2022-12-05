@@ -7,6 +7,7 @@ isort:skip_file
 from .ordered import IndexedDataGroup, OrderedDataGroup
 
 # The groups below can be imported in whatever order
+from .dirpath import DirectoryGroup
 from .graph import GraphGroup
 from .labelled import LabelledDataGroup
 from .psp import ParamSpaceGroup, ParamSpaceStateGroup
