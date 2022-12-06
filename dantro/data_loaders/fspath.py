@@ -76,8 +76,6 @@ class FSPathLoaderMixin:
             DirectoryGroup: The group representing the root of the data tree
                 that was to be loaded, i.e. anchored at ``dirpath``.
         """
-        FS_PATH_ATTR = getattr(DirectoryGroup, "_DIRPATH_ATTR")
-
         # Prepare arguments
         if not isinstance(tree_glob, dict):
             tree_glob = dict(glob_str=tree_glob)
@@ -92,14 +90,12 @@ class FSPathLoaderMixin:
             all_paths.sort(key=lambda p: not os.path.isdir(p))
 
         # Add them to the root DirectoryGroup
-        root = TargetCls(attrs={FS_PATH_ATTR: dirpath})
+        root = TargetCls(dirpath=dirpath)
 
         for path in all_paths:
             relpath = os.path.relpath(path, start=dirpath)
             if os.path.isdir(path):
-                root.new_group(
-                    relpath, Cls=DirectoryGroup, attrs={FS_PATH_ATTR: dirpath}
-                )
+                root.new_group(relpath, Cls=DirectoryGroup, dirpath=path)
             else:
                 root.new_container(relpath, data=path, Cls=PathContainer)
 

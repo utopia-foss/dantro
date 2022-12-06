@@ -114,7 +114,7 @@ class ItemAccessError(KeyError, IndexError, DantroError):
         """
         obj, key, show_hints, prefix, suffix = self.args
         prefix = prefix + " " if prefix else ""
-        suffix = suffix if suffix else ""
+        suffix = f"\n{suffix}" if suffix else ""
 
         # If possible, add a hint.
         hint = ""

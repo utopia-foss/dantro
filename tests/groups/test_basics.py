@@ -9,7 +9,7 @@ import pytest
 
 from dantro.containers import MutableSequenceContainer, NumpyDataContainer
 from dantro.exceptions import *
-from dantro.groups import OrderedDataGroup
+from dantro.groups import GROUPS, OrderedDataGroup, is_group, register_group
 
 # -----------------------------------------------------------------------------
 
@@ -140,3 +140,31 @@ def test_list_item_access():
     # Test that access via a list-type path is possible
     sliced_arr = root[["one", "two", "arr", slice(None, 2)]]
     assert sliced_arr.shape == arr[slice(None, 2)].shape
+
+
+def test_registration():
+    """Tests registration via the groups decorator. Only tests cases that are
+    not already covered during general import of dantro"""
+
+    # Invalid type
+    with pytest.raises(TypeError, match="needs to be a subclass"):
+
+        @is_group
+        class NotAGroup:
+            pass
+
+    assert "NotAGroup" not in GROUPS
+
+    # Custom name
+    @is_group("ordered")
+    class MyOrderedDataGroup(OrderedDataGroup):
+        pass
+
+    assert "ordered" in GROUPS
+    assert "MyOrderedDataGroup" in GROUPS
+
+    register_group(MyOrderedDataGroup, "foo")
+    assert "foo" in GROUPS
+
+    register_group(MyOrderedDataGroup, "foo", overwrite_existing=True)
+    assert "foo" in GROUPS

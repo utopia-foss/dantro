@@ -1,6 +1,7 @@
 """Tests the dantro.tools module"""
 
 import copy
+import os
 
 import numpy as np
 import pytest
@@ -256,6 +257,57 @@ def test_format_time():
     assert fmt(1 * _d + 2 * _h + 3 * _m + 4, max_num_parts=3) == "1d 2h 3m"
     assert fmt(1 * _d + 2 * _h + 3 * _m + 4, max_num_parts=2) == "1d 2h"
     assert fmt(-(1 * _d + 2 * _h + 3 * _m + 4), max_num_parts=2) == "- 1d 2h"
+
+
+def test_glob_paths(tmpdir):
+    """Tests the glob_paths function"""
+    glob_paths = t.glob_paths
+
+    for i in range(10):
+        subdir = tmpdir.mkdir(f"dir{i}")
+        f = subdir.join(f"foo{i}.abc")
+        f.ensure(file=True)  # touch
+
+    p0 = glob_paths("*", base_path=tmpdir)
+    assert len(p0) == 10
+
+    p1 = glob_paths("**", base_path=tmpdir)
+    assert len(p1) == 1 + 10 + 10
+
+    p1s = glob_paths("**", base_path=tmpdir, sort=True)
+    assert len(p1s) == len(p1)
+    assert sorted(p1) == p1s
+
+    p1b = glob_paths("**", base_path=tmpdir, recursive=False)
+    assert len(p1b) == 10
+
+    p2 = glob_paths("*", ignore=["*"], base_path=tmpdir)
+    assert not p2
+
+    p3 = glob_paths(
+        "*",
+        ignore=[
+            "*",
+            "**",
+            "i_do_not_exist",
+        ],
+        base_path=tmpdir,
+    )
+    assert not p3
+
+    # no base path: use cwd
+    p4 = glob_paths("*")
+    assert p4
+    cwd = os.getcwd()
+    assert all(p.startswith(cwd) for p in p4)
+
+    # only directories
+    p5 = glob_paths("**", base_path=tmpdir, include_files=False)
+    assert not any(p.endswith(".abc") for p in p5)
+
+    # only files
+    p6 = glob_paths("**", base_path=tmpdir, include_directories=False)
+    assert all(p.endswith(".abc") for p in p6)
 
 
 # Tests of package-private modules --------------------------------------------

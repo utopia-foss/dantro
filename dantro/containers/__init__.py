@@ -6,7 +6,7 @@ isort:skip_file
 # To avoid circular imports, need to import this first
 from ..base import BaseDataContainer
 
-from ._registry import register_container, is_container
+from ._registry import register_container, is_container, CONTAINERS
 from .general import (
     MutableMappingContainer,
     MutableSequenceContainer,

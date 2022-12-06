@@ -66,7 +66,7 @@ def register_group(
             already existing group of the same name. If set, this takes
             precedence over ``skip_existing``.
     """
-    return CONTAINERS.register(
+    return GROUPS.register(
         Cls,
         name=name,
         skip_existing=skip_existing,

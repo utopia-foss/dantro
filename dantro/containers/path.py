@@ -33,7 +33,14 @@ class PathContainer(ForwardAttrsToDataMixin, BaseDataContainer):
         and not via a data attribute.
     """
 
-    def __init__(self, *args, data: Union[str, pathlib.Path], **kwargs):
+    def __init__(
+        self,
+        *args,
+        name: str,
+        data: Union[str, pathlib.Path] = None,
+        parent: "DirectoryGroup" = None,
+        **kwargs,
+    ):
         """Sets up a container that holds a filesystem path as data.
 
         .. note::
@@ -42,13 +49,33 @@ class PathContainer(ForwardAttrsToDataMixin, BaseDataContainer):
             not be equivalent to the path within the data tree.
 
         Args:
-            *args: Passed to parent
-            data (Union[str, pathlib.Path]): The filesystem path this object
-                is meant to represent.
-            **kwargs: Passed to parent
+            *args: Passed to parent class init
+            name (str): The name of this container
+            data (Union[str, pathlib.Path], optional): The filesystem path
+                this object is meant to represent. Can be empty if this
+                container is initialized from a ``parent`` directory group, in
+                which case the information stored therein and the ``name`` of
+                this container will be used to generate the path.
+            parent (DirectoryGroup, optional): If ``data`` was not given, the
+                path of this parent group and the ``name`` of this container
+                will be used to generate a path.
+            **kwargs: Passed to parent class init
         """
+        from ..groups import DirectoryGroup
+
+        if data is None:
+            if parent is not None and isinstance(parent, DirectoryGroup):
+                data = parent.fs_path.joinpath(name)
+            else:
+                raise TypeError(
+                    f"If not supplying `data` argument to {self.classname} "
+                    f"'{name}', need a parent that is a DirectoryGroup and "
+                    "that can be used to deduce a path. "
+                    f"Parent was:  {parent}"
+                )
+
         data = pathlib.Path(data)
-        super().__init__(*args, data=data, **kwargs)
+        super().__init__(*args, name=name, data=data, parent=parent, **kwargs)
 
     @property
     def fs_path(self) -> pathlib.Path:

@@ -19,7 +19,7 @@ import abc
 import copy
 import inspect
 import logging
-from typing import Any, Callable, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from .abc import (
     PATH_JOIN_CHAR,
@@ -54,8 +54,11 @@ class BaseDataProxy(AbstractDataProxy):
         This is still an abstract class and needs to be subclassed.
     """
 
-    # Associated tags, empty by default; may also be overwritten in the object
     _tags: tuple = tuple()
+    """Associated tags.
+
+    These are empty by default and may also be overwritten in the object.
+    """
 
     @abc.abstractmethod
     def __init__(self, obj: Any = None):
@@ -126,10 +129,17 @@ class BaseDataContainer(
     hold attributes and be path-aware.
     """
 
-    # Define which class to use for storing attributes
-    _ATTRS_CLS = BaseDataAttrs
+    _ATTRS_CLS: type = BaseDataAttrs
+    """The class to use for storing attributes"""
 
-    def __init__(self, *, name: str, data: Any, attrs: Dict[str, Any] = None):
+    def __init__(
+        self,
+        *,
+        name: str,
+        data: Any,
+        attrs: Dict[str, Any] = None,
+        parent: "AbstractDataGroup" = None,
+    ):
         """Initialize a BaseDataContainer, which can store data and attributes.
 
         Args:
@@ -137,6 +147,13 @@ class BaseDataContainer(
             data (Any): The data to store in this container
             attrs (Dict[str, Any], optional): A mapping that is stored as
                 data attributes.
+            parent (AbstractDataGroup, optional): If known, the parent group,
+                which can be used to extract information during initialization.
+                Note that linking occurs only after the container was added to
+                the parent group using the
+                :py:meth:`~dantro.base.BaseDataGroup.add` method. The child
+                object is not responsible of linking or adding itself to the
+                group.
         """
         # Initialize via parent, then additionally store attributes
         super().__init__(name=name, data=data)
@@ -194,9 +211,16 @@ class BaseDataGroup(
     string-based lookup of container types in :py:meth:`.new_container`.
     """
 
-    _ALLOWED_CONT_TYPES = None
-    """The types that are allowed to be stored in this group. If None,
-    the dantro base classes are allowed"""
+    _ALLOWED_CONT_TYPES: Optional[tuple] = None
+    """The types that are allowed to be stored in this group. If None, all
+    types derived from the dantro base classes are allowed.
+    This applies to both containers and groups that are added to this group.
+
+    .. hint::
+
+        To add the type of the current object, add a string entry ``self`` to
+        the tuple. This will be resolved to ``type(self)`` at invocation.
+    """
 
     _COND_TREE_MAX_LEVEL = 10
     """Condensed tree representation maximum level"""
@@ -206,7 +230,14 @@ class BaseDataGroup(
 
     # .........................................................................
 
-    def __init__(self, *, name: str, containers: list = None, attrs=None):
+    def __init__(
+        self,
+        *,
+        name: str,
+        containers: list = None,
+        attrs=None,
+        parent: "AbstractDataGroup" = None,
+    ):
         """Initialize a BaseDataGroup, which can store other containers and
         attributes.
 
@@ -216,6 +247,10 @@ class BaseDataGroup(
                 as members of this group. If given, these are added one by one
                 using the `.add` method.
             attrs (None, optional): A mapping that is stored as attributes
+            parent (AbstractDataGroup, optional): If known, the parent group,
+                which can be used to extract information during initialization.
+                Note that linking occurs only after the group was added to the
+                parent group, i.e. *after* initialization finished.
         """
         # Prepare the storage class that is used to store the members
         data = self._STORAGE_CLS()
@@ -412,13 +447,16 @@ class BaseDataGroup(
                 f" objects to {self.logstr}, got {type(cont)}!"
             )
 
-        elif self._ALLOWED_CONT_TYPES is not None and not isinstance(
-            cont, self._ALLOWED_CONT_TYPES
-        ):
-            raise TypeError(
-                "Can only add objects derived from the following "
-                f"classes: {self._ALLOWED_CONT_TYPES}. Got: {type(cont)}"
-            )
+        elif self._ALLOWED_CONT_TYPES is not None:
+            allowed_types = [
+                t if t != "self" else type(self)
+                for t in self._ALLOWED_CONT_TYPES
+            ]
+            if not isinstance(cont, tuple(allowed_types)):
+                raise TypeError(
+                    "Can only add objects derived from the following "
+                    f"classes: {allowed_types}. Got: {type(cont)}"
+                )
 
         # else: is of correct type
         # Check if one like this already exists
@@ -531,7 +569,10 @@ class BaseDataGroup(
                 Cls = self._determine_group_type(Cls)
 
             # Create the container and add it
-            cont = Cls(name=path[0], **kwargs)
+            # Let the container know about its parent here, in case it needs to
+            # do setup steps depending on that. However, linking etc will not
+            # be done there but in the `add` call after that.
+            cont = Cls(name=path[0], parent=self, **kwargs)
             self.add(cont)
             return cont
 
@@ -772,9 +813,8 @@ class BaseDataGroup(
         return T
 
     # .........................................................................
-    # Linking
+    # Linking: For correct child-parent linking, some helper methods
 
-    # For correct child-parent linking, some helper methods
     def _link_child(
         self,
         *,
