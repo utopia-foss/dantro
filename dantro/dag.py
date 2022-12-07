@@ -17,7 +17,17 @@ import time
 import warnings
 from collections import defaultdict as _defaultdict
 from itertools import chain
-from typing import Any, Callable, Dict, List, Sequence, Set, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+)
 
 import numpy as np
 from paramspace.tools import recursive_collect, recursive_replace
@@ -2951,7 +2961,7 @@ class TransformationDAG:
     #      more central entity and it is a bit easier ...
 
     def _retrieve_from_cache_file(
-        self, trf_hash: str, **load_kwargs
+        self, trf_hash: str, *, unpack: Optional[bool] = None, **load_kwargs
     ) -> Tuple[bool, Any]:
         """Retrieves a transformation's result from a cache file and stores it
         in the data manager's cache group.
@@ -2962,6 +2972,13 @@ class TransformationDAG:
             again. Thus, the DataManager acts as a persistent storage for
             loaded cache files. Consequently, these are shared among all
             TransformationDAG objects.
+
+        Args:
+            trf_hash (str): The hash to use for lookup
+            unpack (Optional[bool], optional): Whether to unpack the data from
+                the container. If None, will only do so for certain types, see
+                :py:data:`.DAG_CACHE_CONTAINER_TYPES_TO_UNPACK`.
+            **load_kwargs: Passed on to load function of associated DataManager
         """
         success, res = False, None
 
@@ -3006,8 +3023,11 @@ class TransformationDAG:
             res = self.dm[DAG_CACHE_DM_PATH][trf_hash]
             success = True
 
-        # Have to unpack some container types
-        if isinstance(res, DAG_CACHE_CONTAINER_TYPES_TO_UNPACK):
+        # Have to / may want to unpack some container types
+        if unpack is True or (
+            unpack is None
+            and isinstance(res, DAG_CACHE_CONTAINER_TYPES_TO_UNPACK)
+        ):
             res = res.data
 
         # Done.

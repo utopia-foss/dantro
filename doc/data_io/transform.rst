@@ -746,7 +746,12 @@ Except for ``operation``, ``args``, ``kwargs`` and ``tag``, all entries are set 
                                     # cache, regardless of whether the result
                                     # was already stored in the memory cache
                                     # or just computed.
-        load_options: {}            # Passed on to DataManager.load
+        load_options:
+          unpack: ~                 # Whether to unpack the result from the
+                                    # dantro container it was loaded into.
+                                    # If None, will do so only for numeric
+                                    # types (xarray and numpy arrays)
+          # ... further arguments are passed on to DataManager.load
       write:                        # Write-related options
         enabled: false              # Whether to write to the file cache
 
