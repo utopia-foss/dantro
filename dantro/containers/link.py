@@ -7,6 +7,7 @@ import logging
 
 from ..mixins import CheckDataMixin
 from ..utils import Link
+from . import is_container
 from .general import ObjectContainer, PassthroughContainer
 
 log = logging.getLogger(__name__)
@@ -14,6 +15,7 @@ log = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 
 
+@is_container
 class LinkContainer(CheckDataMixin, PassthroughContainer):
     """A LinkContainer is a container containing a
     :py:class:`~dantro.utils.link.Link` object.

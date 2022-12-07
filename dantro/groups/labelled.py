@@ -20,7 +20,7 @@ from ..data_ops.arr_ops import apply_along_axis
 from ..exceptions import *
 from ..utils import extract_coords
 from ..utils.coords import TCoord, TCoordsDict, TDims
-from . import OrderedDataGroup
+from . import OrderedDataGroup, is_group
 
 log = logging.getLogger(__name__)
 
@@ -29,6 +29,7 @@ xr = LazyLoader("xarray")
 # -----------------------------------------------------------------------------
 
 
+@is_group
 class LabelledDataGroup(OrderedDataGroup):
     """A group that assumes that the members it contains can be labelled
     with dimension names and coordinates.

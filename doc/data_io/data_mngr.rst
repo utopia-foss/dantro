@@ -31,6 +31,9 @@ By default, the following mixins are available via the :py:class:`~dantro.data_l
     :no-private-members:
     :no-members:
 
+All these are also available via the :py:data:`~dantro.data_loaders._registry.DATA_LOADERS` registry.
+The "vanilla" :py:class:`~dantro.data_mngr.DataManager` can access all these loaders directly, even without mixins.
+
 
 Load functions
 ^^^^^^^^^^^^^^

@@ -7,7 +7,6 @@ import logging
 
 import numpy as np
 
-from ..base import BaseDataContainer
 from ..mixins import (
     CheckDataMixin,
     ComparisonMixin,
@@ -15,12 +14,14 @@ from ..mixins import (
     ItemAccessMixin,
     NumbersMixin,
 )
+from . import BaseDataContainer, is_container
 
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
 
+@is_container
 class NumpyDataContainer(
     ForwardAttrsToDataMixin,
     NumbersMixin,

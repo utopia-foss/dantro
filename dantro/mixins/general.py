@@ -82,10 +82,10 @@ class ForwardAttrsMixin:
 
 
 class ForwardAttrsToDataMixin(ForwardAttrsMixin):
-    """This mixin class forwards all calls to unavailable attributes to the
-    ``data`` attribute (a property) and thus allows to replace all behaviour
-    that is not implemented in the group or container with that of the stored
-    data.
+    """This mixin class forwards all calls to *unavailable* attributes to the
+    ``data`` attribute (a property) and thus allows to replace most behaviour
+    that is not implemented in the group or container with that of the
+    underlying data.
     """
 
     FORWARD_ATTR_TO = "data"

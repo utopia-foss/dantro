@@ -4,7 +4,7 @@ import logging
 
 from .._yaml import load_yml
 from ..containers import MutableMappingContainer, ObjectContainer
-from ._tools import add_loader
+from ._registry import add_loader
 
 log = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class YamlLoaderMixin:
     Uses the :py:func:`dantro._yaml.load_yml` function for loading the files.
     """
 
-    @add_loader(TargetCls=MutableMappingContainer)
+    @add_loader(TargetCls=MutableMappingContainer, register_aliases=["yml"])
     def _load_yaml(
         filepath: str, *, TargetCls: type, **load_kwargs
     ) -> MutableMappingContainer:
@@ -36,7 +36,7 @@ class YamlLoaderMixin:
         d = load_yml(filepath, **load_kwargs)
         return TargetCls(data=d, attrs=dict(filepath=filepath))
 
-    @add_loader(TargetCls=ObjectContainer)
+    @add_loader(TargetCls=ObjectContainer, register_aliases=["yml_to_object"])
     def _load_yaml_to_object(
         filepath: str, *, TargetCls: type, **load_kwargs
     ) -> ObjectContainer:
@@ -56,7 +56,3 @@ class YamlLoaderMixin:
         # NOTE Implementation is the same as above, but the TargetCls is not!
         d = load_yml(filepath, **load_kwargs)
         return TargetCls(data=d, attrs=dict(filepath=filepath))
-
-    # Also make available under `yml` aliases
-    _load_yml = _load_yaml
-    _load_yml_to_object = _load_yaml_to_object

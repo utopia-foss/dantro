@@ -17,6 +17,7 @@ from ..base import PATH_JOIN_CHAR
 from ..containers import XrDataContainer
 from ..data_ops.arr_ops import multi_concat as _multi_concat
 from ..mixins import PaddedIntegerItemAccessMixin
+from . import is_group
 from .ordered import IndexedDataGroup, OrderedDataGroup
 
 log = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ xr = LazyLoader("xarray")
 # -----------------------------------------------------------------------------
 
 
+@is_group
 class ParamSpaceStateGroup(OrderedDataGroup):
     """A ParamSpaceStateGroup is meant to be used as a member group of the
     :py:class:`~dantro.groups.psp.ParamSpaceGroup`.
@@ -74,6 +76,7 @@ class ParamSpaceStateGroup(OrderedDataGroup):
         return {d: c.item() for d, c in coords.items()}
 
 
+@is_group
 class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
     """The ParamSpaceGroup is associated with a
     :py:class:`paramspace.paramspace.ParamSpace` object and the

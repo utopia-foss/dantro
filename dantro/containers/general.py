@@ -5,7 +5,6 @@
 import logging
 from collections.abc import MutableMapping, MutableSequence
 
-from ..base import BaseDataContainer
 from ..mixins import (
     CheckDataMixin,
     CollectionMixin,
@@ -13,12 +12,14 @@ from ..mixins import (
     ItemAccessMixin,
     MappingAccessMixin,
 )
+from . import BaseDataContainer, is_container
 
 log = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
 
+@is_container
 class ObjectContainer(ItemAccessMixin, BaseDataContainer):
     """Generically stores any Python object
 
@@ -32,12 +33,14 @@ class ObjectContainer(ItemAccessMixin, BaseDataContainer):
         )
 
 
+@is_container
 class PassthroughContainer(ForwardAttrsToDataMixin, ObjectContainer):
     """An object container that forwards all attribute calls to .data"""
 
     pass
 
 
+@is_container
 class MutableSequenceContainer(
     CheckDataMixin,
     ItemAccessMixin,
@@ -65,6 +68,7 @@ class MutableSequenceContainer(
         self.data.insert(idx, val)
 
 
+@is_container
 class MutableMappingContainer(
     CheckDataMixin, MappingAccessMixin, BaseDataContainer, MutableMapping
 ):
@@ -93,6 +97,7 @@ class MutableMappingContainer(
         # Done.
 
 
+@is_container
 class StringContainer(CollectionMixin, PassthroughContainer):
     """A data container to store string-like data."""
 

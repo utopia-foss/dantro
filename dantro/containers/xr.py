@@ -14,6 +14,7 @@ from ..abc import AbstractDataProxy
 from ..base import BaseDataContainer, CheckDataMixin, ItemAccessMixin
 from ..mixins import ComparisonMixin, ForwardAttrsToDataMixin, NumbersMixin
 from ..utils import Link, extract_coords, extract_dim_names
+from . import is_container
 
 log = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ xr = LazyLoader("xarray")
 # -----------------------------------------------------------------------------
 
 
+@is_container
 class XrDataContainer(
     ForwardAttrsToDataMixin,
     NumbersMixin,

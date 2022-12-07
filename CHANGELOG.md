@@ -2,6 +2,29 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.19.0 *(work in progress)*
+- !326 implements the `PathContainer` and the `DirectoryGroup` that are used to represent filesystem paths.
+    - The `DirectoryGroup` can be used to represent nested filesystem structures.
+    - These objects have a `fs_path` property that provides a `pathlib.Path` from which path-related operations can be carried out.
+- !326 improves and extends data loading:
+    - Additionally registers data loaders in a global registry such that setting up a custom `DataManager` with mixins is no longer required (for mixins that resemble class methods).
+    - Improves globbing of files to load:
+        - The `ignore` argument now also supports glob strings
+        - Adds `include_directories` and `include_files` flags which can be used to filter out directories or files.
+    - The `target_path` format string has additional keys available to compose the target path:
+      `relpath`, `relpath_cleaned`, and `dirname_cleaned`.
+      The latter two are replacing `/` in the path by `__`.
+    - Implements the `fspath` data loader which loads filesystem paths as `PathContainer`s. By default, this creates a flat hierarchy.
+    - Implements the `fstree` data loader which creates a representation of a filesystem tree inside the data tree using `DirectoryGroup` for directories and `PathContainer` for files.
+- !326 implements a general `ObjectRegistry` class that can be used to keep track of types and objects throughout the package and make it easier for packages using dantro to supply their custom types.
+    - Implemented group and container types are registered by their simple name and fully qualified name.
+    - Decorators `@is_group` and `@is_container` are introduced that add class definitions to the respective registries.
+- !326 improves the `BaseDataContainer` and `BaseDataGroup` interface:
+    - `__init__` methods can now accept `parent` as argument.
+      In cases where the parent object is known at the time of creation of the container or group, that information can be used during initialization.
+- !326 makes `glob_paths` function available via `dantro.tools`.
+
+
 ## v0.18.10
 - !325 allows to always load a computation result from the file cache.
 
@@ -18,6 +41,8 @@
 - !319 address further incompatibilities with [matplotlib 3.6](https://matplotlib.org/stable/users/release_notes.html#version-3-6), especially in `ColorManager`
     - Colormaps are now retrieved via the new `matplotlib.colormaps` interface (instead of the deprecated `matplotlib.cm.get_cmap`)
 - !320 allows `.plot.multiplot` to use the `ColorManager` syntax to specify custom colormaps from the config
+
+
 ## v0.18.6
 - !317 address incompatibilities with [matplotlib 3.6](https://matplotlib.org/stable/users/release_notes.html#version-3-6)
 

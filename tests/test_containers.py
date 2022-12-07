@@ -12,12 +12,16 @@ import xarray as xr
 
 from dantro.base import BaseDataContainer, CheckDataMixin, ItemAccessMixin
 from dantro.containers import (
+    CONTAINERS,
     LinkContainer,
     MutableSequenceContainer,
     NumpyDataContainer,
     ObjectContainer,
+    PathContainer,
     StringContainer,
     XrDataContainer,
+    is_container,
+    register_container,
 )
 from dantro.groups import OrderedDataGroup
 from dantro.mixins import ForwardAttrsToDataMixin
@@ -75,6 +79,37 @@ def test_basics():
     ):
         with pytest.raises(ValueError, match="Invalid name"):
             DummyContainer(name=bad_name, data="foo")
+
+
+def test_registration():
+    """Tests registration via the is_container decorator. Only tests cases
+    that are not already covered during general import of dantro"""
+
+    # Invalid type
+    with pytest.raises(TypeError, match="needs to be a subclass"):
+
+        @is_container
+        class NotAContainer:
+            pass
+
+    assert "NotAContainer" not in CONTAINERS
+
+    # Custom name
+    @is_container("object")
+    class MyObjectContainer(ObjectContainer):
+        pass
+
+    assert "object" in CONTAINERS
+    assert "MyObjectContainer" in CONTAINERS
+
+    register_container(MyObjectContainer, "foo")
+    assert "foo" in CONTAINERS
+
+    register_container(MyObjectContainer, "foo", overwrite_existing=True)
+    assert "foo" in CONTAINERS
+
+
+# -----------------------------------------------------------------------------
 
 
 def test_CheckDataMixin():
@@ -243,6 +278,44 @@ def test_StringContainer():
 
     # Pickling
     assert pickle_roundtrip(sc) == sc
+
+
+# -----------------------------------------------------------------------------
+# PathContainer
+
+
+def test_PathContainer():
+    p1 = PathContainer(name="p1", data="some/path")
+
+    # Have additional fs_path attribute
+    assert str(p1.fs_path) == "some/path"
+
+    # … but can also access the underlying Path object interface (passthrough)
+    assert str(p1.joinpath("foo")) == "some/path/foo"
+
+    # item interface is not implemented
+    with pytest.raises(NotImplementedError):
+        p1["foo"]
+    with pytest.raises(NotImplementedError):
+        del p1["foo"]
+    with pytest.raises(NotImplementedError):
+        p1["foo"] = "bar"
+
+    # Can also create a new path from a parent group
+    from dantro.groups import DirectoryGroup
+
+    grp = DirectoryGroup(name="root", dirpath="root")
+    assert str(grp.fs_path) == "root"
+
+    p2 = grp.new_container("some.file")
+    assert str(p2.fs_path) == "root/some.file"
+
+    # … but the parent needs to be present and of correct type
+    with pytest.raises(TypeError, match="need a parent.*None"):
+        PathContainer(name="will fail")
+
+    with pytest.raises(TypeError, match="need a parent.*OrderedDataGroup"):
+        PathContainer(name="will fail", parent=OrderedDataGroup(name="foo"))
 
 
 # -----------------------------------------------------------------------------

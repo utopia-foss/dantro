@@ -12,7 +12,7 @@ from ..containers import NumpyDataContainer
 from ..groups import OrderedDataGroup
 from ..proxy import Hdf5DataProxy
 from ..tools import decode_bytestrings, print_line
-from ._tools import add_loader
+from ._registry import add_loader
 
 log = logging.getLogger(__name__)
 

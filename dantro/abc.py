@@ -31,13 +31,23 @@ class AbstractDataContainer(metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def __init__(self, *, name: str, data: Any):
-        """Initialize the AbstractDataContainer, which holds the bare
-        essentials of what a data container should have.
+    def __init__(
+        self, *, name: str, data: Any, parent: "AbstractDataGroup" = None
+    ):
+        """Initialize the AbstractDataContainer, which implements the bare
+        essentials of what a data container should be.
 
         Args:
             name (str): The name of this container
             data (Any): The data that is to be stored
+            parent (AbstractDataGroup, optional): If given, this is supposed
+                to be the parent group for this container.
+
+                .. note::
+
+                    This will not be used for setting the actual parent!
+                    The group takes care of that once the container is added
+                    to it.
         """
         self._parent = None
 

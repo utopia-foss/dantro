@@ -4,11 +4,11 @@ specific order.
 
 import collections
 import logging
-from typing import Generator, List
+from typing import Dict, Generator, List
 
-from ..base import BaseDataGroup
 from ..mixins import IntegerItemAccessMixin
 from ..utils import IntOrderedDict
+from . import BaseDataGroup, is_group
 
 # Local constants
 log = logging.getLogger(__name__)
@@ -16,6 +16,7 @@ log = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 
 
+@is_group
 class OrderedDataGroup(BaseDataGroup, collections.abc.MutableMapping):
     """The OrderedDataGroup class manages groups of data containers, preserving
     the order in which they were added to this group.
@@ -25,12 +26,13 @@ class OrderedDataGroup(BaseDataGroup, collections.abc.MutableMapping):
     """
 
     # Use OrderedDict for storage in insertion order
-    _STORAGE_CLS = collections.OrderedDict
+    _STORAGE_CLS: type = collections.OrderedDict
 
 
 # -----------------------------------------------------------------------------
 
 
+@is_group
 class IndexedDataGroup(IntegerItemAccessMixin, OrderedDataGroup):
     """The IndexedDataGroup class holds members that are of the same type and
     have names that can directly be interpreted as positive integers.
@@ -68,14 +70,14 @@ class IndexedDataGroup(IntegerItemAccessMixin, OrderedDataGroup):
 
     # A dict of (key length -> last key inserted of that length), which is used
     # as an insertion hint when adding a container to this group
-    __last_keys = None
+    __last_keys: Dict[int, str] = None
 
     # Use an orderable dict for storage, i.e. something like OrderedDict, but
     # where it's not sorted by insertion order but by key.
-    _STORAGE_CLS = IntOrderedDict
+    _STORAGE_CLS: type = IntOrderedDict
 
     # The child class should not necessarily be of the same type as this class.
-    _NEW_GROUP_CLS = OrderedDataGroup
+    _NEW_GROUP_CLS: type = OrderedDataGroup
 
     # Advanced key access .....................................................
 

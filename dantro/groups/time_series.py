@@ -2,12 +2,14 @@
 specializations for time series data.
 """
 
+from . import is_group
 from .labelled import LabelledDataGroup
 from .ordered import IndexedDataGroup
 
 # -----------------------------------------------------------------------------
 
 
+@is_group
 class TimeSeriesGroup(LabelledDataGroup, IndexedDataGroup):
     """A time-series group assumes that each stored member refers to one
     point in time, where the name is to be interpreted as the time coordinate.
@@ -27,6 +29,7 @@ class TimeSeriesGroup(LabelledDataGroup, IndexedDataGroup):
     expected to be the time coordinate."""
 
 
+@is_group
 class HeterogeneousTimeSeriesGroup(TimeSeriesGroup):
     """This extends the :py:class:`~dantro.groups.time_series.TimeSeriesGroup`
     by configuring it such that it retrieves its coordinates not from the name

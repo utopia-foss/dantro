@@ -1,14 +1,14 @@
 """Defines a loader mixin to load plain text files"""
 
 from ..containers import StringContainer
-from ._tools import add_loader
+from ._registry import add_loader
 
 
 class TextLoaderMixin:
     """A mixin for :py:class:`~dantro.data_mngr.DataManager` that supports
     loading of plain text files."""
 
-    @add_loader(TargetCls=StringContainer)
+    @add_loader(TargetCls=StringContainer, register_aliases=["text"])
     def _load_plain_text(
         filepath: str, *, TargetCls: type, **load_kwargs
     ) -> StringContainer:
@@ -27,6 +27,3 @@ class TextLoaderMixin:
             data = f.read()
 
         return TargetCls(data=data, attrs=dict(filepath=filepath))
-
-    # Also make the loader available under the ``text`` label
-    _load_text = _load_plain_text

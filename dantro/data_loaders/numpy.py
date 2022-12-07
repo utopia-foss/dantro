@@ -3,7 +3,7 @@
 import numpy as np
 
 from ..containers import NumpyDataContainer
-from ._tools import add_loader
+from ._registry import add_loader
 
 # -----------------------------------------------------------------------------
 
