@@ -344,6 +344,8 @@ _OPERATIONS = KeyOrderedDict({
     ".thin":                lambda d, *a, **k: d.thin(*a, **k),
     ".weighted":            lambda d, *a, **k: d.weighted(*a, **k),
 
+    ".chunk":               lambda d, *a, **k: d.chunk(*a, **k),
+
     ".rolling":             lambda d, *a, **k: d.rolling(*a, **k),
     ".coarsen":             lambda d, *a, **k: d.coarsen(*a, **k),
 
