@@ -23,6 +23,7 @@
     - `__init__` methods can now accept `parent` as argument.
       In cases where the parent object is known at the time of creation of the container or group, that information can be used during initialization.
 - !326 makes `glob_paths` function available via `dantro.tools`.
+- !328 adds `.chunk` data operation (for use with xarray objects).
 
 
 ## v0.18.10
