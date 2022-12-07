@@ -823,13 +823,15 @@ class Transformation:
             not check whether reading from cache is enabled or disabled.
         """
         read_opts = self._fc_opts.get("read", {})
+        always_from_file = read_opts.get("always", False)
         load_opts = read_opts.get("load_options", {})
+
         t0 = time.time()
 
         # Let the DAG check if there is a file cache, i.e. if a file with
         # this Transformation's hash exists in the DAG's cache directory.
         success, res = self.dag._retrieve_from_cache_file(
-            self.hashstr, **load_opts
+            self.hashstr, always_from_file=always_from_file, **load_opts
         )
 
         # Store the result in the memory cache
@@ -2961,7 +2963,12 @@ class TransformationDAG:
     #      more central entity and it is a bit easier ...
 
     def _retrieve_from_cache_file(
-        self, trf_hash: str, *, unpack: Optional[bool] = None, **load_kwargs
+        self,
+        trf_hash: str,
+        *,
+        always_from_file: bool = False,
+        unpack: Optional[bool] = None,
+        **load_kwargs,
     ) -> Tuple[bool, Any]:
         """Retrieves a transformation's result from a cache file and stores it
         in the data manager's cache group.
@@ -2975,6 +2982,9 @@ class TransformationDAG:
 
         Args:
             trf_hash (str): The hash to use for lookup
+            always_from_file (bool, optional): If set, will always load from
+                file instead of using a potentially existing already loaded
+                object in the data manager.
             unpack (Optional[bool], optional): Whether to unpack the data from
                 the container. If None, will only do so for certain types, see
                 :py:data:`.DAG_CACHE_CONTAINER_TYPES_TO_UNPACK`.
@@ -2985,12 +2995,13 @@ class TransformationDAG:
         # Check if the file was already loaded; only go through the trouble of
         # checking all the hash files and invoking the load method if the
         # desired cache file was really not loaded
-        try:
-            res = self.dm[DAG_CACHE_DM_PATH][trf_hash]
-        except ItemAccessError:
-            pass
-        else:
-            success = True
+        if not always_from_file:
+            try:
+                res = self.dm[DAG_CACHE_DM_PATH][trf_hash]
+            except ItemAccessError:
+                pass
+            else:
+                success = True
 
         if not success:
             cache_files = self.cache_files
