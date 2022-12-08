@@ -860,7 +860,10 @@ class Transformation:
 
             Args:
                 enabled (bool): Whether writing is enabled at all
-                always (bool, optional): If given, will always write.
+                always (bool, optional): If given, will not evaluate other
+                    conditions but always write, *unless* a cache file already
+                    exists. Set ``allow_overwrite`` to always overwrite an
+                    existing cache file.
                 allow_overwrite (bool, optional): If False, will not write a
                     cache file if one already exists. If True, a cache file
                     _might_ be written, although one already exists. This is
@@ -888,8 +891,16 @@ class Transformation:
                 # ... nothing else to check
                 return False
 
-            # With always: always write, don't look at other arguments.
+            # Some evaluations depend on whether a cache file already exists
+            file_exists = self.hashstr in self.dag.cache_files
+
+            # With always: always write (skip other conditions), but do not
+            # _overwrite_ a potentially existing file.
             if always:
+                if file_exists and not allow_overwrite:
+                    return False
+
+                # "always overwrite" --> no further checks needed
                 return True
             # All checks below are formulated such that they return False.
 

@@ -757,9 +757,13 @@ Except for ``operation``, ``args``, ``kwargs`` and ``tag``, all entries are set 
 
         # If writing is enabled, the following options determine whether a
         # cache file should actually be written (does not always make sense)
-        always: false               # If true, forces writing
+        always: false               # If true, skips other conditions below and
+                                    # ensures that a cache file is created.
+                                    # NOTE: This will not *overwrite* an
+                                    # existing cache file by default; see the
+                                    # ``allow_overwrite`` parameter for that.
         allow_overwrite: false      # If false, will not write if a cache file
-                                    # already exists
+                                    # already exists (even with ``always`` set)
         min_size: ~                 # If given, the result needs to have at
                                     # least this size (in bytes) for it to be
                                     # written to a cache file.
