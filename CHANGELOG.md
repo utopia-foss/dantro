@@ -24,6 +24,12 @@
       In cases where the parent object is known at the time of creation of the container or group, that information can be used during initialization.
 - !326 makes `glob_paths` function available via `dantro.tools`.
 - !328 adds `.chunk` data operation (for use with xarray objects).
+- !327 adds an option to file cache `load_options` that forces unpacking of the `data` attribute from a dantro object.
+
+#### Bug fixes
+- !327 addresses issues that appeared when using the data transformation framework with `dask.array`s:
+    - A bug where the `DataManager` acted as unwanted cache layer despite `read.always` file cache parameter being set.
+    - A bug where cache files were always overwritten, despite `write.allow_overwrite` being set to false.
 
 
 ## v0.18.10
