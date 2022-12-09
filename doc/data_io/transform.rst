@@ -746,15 +746,24 @@ Except for ``operation``, ``args``, ``kwargs`` and ``tag``, all entries are set 
                                     # cache, regardless of whether the result
                                     # was already stored in the memory cache
                                     # or just computed.
-        load_options: {}            # Passed on to DataManager.load
+        load_options:
+          unpack: ~                 # Whether to unpack the result from the
+                                    # dantro container it was loaded into.
+                                    # If None, will do so only for numeric
+                                    # types (xarray and numpy arrays)
+          # ... further arguments are passed on to DataManager.load
       write:                        # Write-related options
         enabled: false              # Whether to write to the file cache
 
         # If writing is enabled, the following options determine whether a
         # cache file should actually be written (does not always make sense)
-        always: false               # If true, forces writing
+        always: false               # If true, skips other conditions below and
+                                    # ensures that a cache file is created.
+                                    # NOTE: This will not *overwrite* an
+                                    # existing cache file by default; see the
+                                    # ``allow_overwrite`` parameter for that.
         allow_overwrite: false      # If false, will not write if a cache file
-                                    # already exists
+                                    # already exists (even with ``always`` set)
         min_size: ~                 # If given, the result needs to have at
                                     # least this size (in bytes) for it to be
                                     # written to a cache file.
