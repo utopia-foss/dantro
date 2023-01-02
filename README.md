@@ -236,7 +236,7 @@ dantro is licensed under the [GNU Lesser General Public License Version 3][LGPLv
 ### Copyright Notice
 
     dantro -- a python package for handling and plotting hierarchical data
-    Copyright (C) 2018 – 2022  dantro developers
+    Copyright (C) 2018 – 2023  dantro developers
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
