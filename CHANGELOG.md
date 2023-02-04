@@ -25,6 +25,7 @@
 - !326 makes `glob_paths` function available via `dantro.tools`.
 - !328 adds `.chunk` data operation (for use with xarray objects).
 - !327 adds an option to file cache `load_options` that forces unpacking of the `data` attribute from a dantro object.
+- !322 adds tests for Python 3.11 to the CI
 
 #### Bug fixes
 - !327 addresses issues that appeared when using the data transformation framework with `dask.array`s:
