@@ -28,7 +28,7 @@ py:class ModuleType
 py:class re.Pattern
 
 # -- third-party packages --
-# ...
+py:func dill._dill.load
 
 
 # -- dantro-internal --
