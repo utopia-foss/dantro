@@ -31,6 +31,7 @@
 - !327 addresses issues that appeared when using the data transformation framework with `dask.array`s:
     - A bug where the `DataManager` acted as unwanted cache layer despite `read.always` file cache parameter being set.
     - A bug where cache files were always overwritten, despite `write.allow_overwrite` being set to false.
+- !334 addresses a visual glitch in scatter plots caused by the default `markeredge` color.
 
 
 ## v0.18.10
