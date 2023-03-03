@@ -1540,7 +1540,7 @@ class PlotHelper:
                 to :py:meth:`mpl_toolkits.mplot3d.axes3d.Axes3D.set_zlabel`.
                 If there is no z-axis, this will be silently ignored.
             only_label_outer (bool, optional): If True, call
-                :py:meth:`matplotlib.axes.SubplotBase.label_outer` such that
+                :py:meth:`matplotlib.axes.Axes.label_outer` such that
                 only tick labels on "outer" axes are visible:
                 x-labels are only kept for subplots on the last row; y-labels
                 only for subplots on the first column. Note that this applies
