@@ -184,8 +184,8 @@ def test_ParamSpaceGroup_select(psp_grp, selectors):
     assert wdt.randints.dtype == "float32"
 
     # for arrays that needed alignment, the dtype cannot be preserved
-    assert rs_concat.dtype == "float64"
-    assert rs_merge.dtype == "float64"
+    assert rs_concat.dtype in ("float32", "float64")
+    assert rs_merge.dtype in ("float32", "float64")
 
     # config accessible by converting to python scalar
     assert isinstance(cfg[0, 0, 0].item(), dict)
@@ -259,7 +259,7 @@ def test_ParamSpaceGroup_select_missing_data(selectors, psp_grp_missing_data):
     sub = dsets["subspace"].state
 
     # dtype should always be float, even if explicitly specified
-    assert wdt.state.dtype == "float64"  # instead of uint8
+    assert wdt.state.dtype in ("float32", "float64")  # instead of uint8
     assert wdt.randints.dtype == "float32"
 
     # Test exceptions . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

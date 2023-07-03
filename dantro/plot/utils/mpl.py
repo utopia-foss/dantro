@@ -158,7 +158,7 @@ def gather_handles_labels(mpo) -> Tuple[list, list]:
 
     h, l = [], []
     for lg in mpo.findobj(mpl.legend.Legend):
-        h += [_h for _h in lg.legendHandles]
+        h += [_h for _h in lg.legend_handles]
         l += [_t.get_text() for _t in lg.texts]
 
     # Remove duplicates and return
