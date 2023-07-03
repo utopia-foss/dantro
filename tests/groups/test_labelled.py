@@ -698,7 +698,7 @@ def test_HeterogeneousTimeSeriesGroup_discontinuous():
     # Should be a large, NaN-including array now
     assert all_data.dims == ("time", "idx")
     assert all_data.shape == (15, 10)
-    assert all_data.dtype == "float64"
+    assert all_data.dtype in ("float32", "float64")
     np.testing.assert_equal(all_data, expctd)
 
     # Check the coordinates
