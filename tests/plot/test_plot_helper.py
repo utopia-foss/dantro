@@ -991,7 +991,7 @@ def test_helper_set_legend(hlpr):
     """Tests the `set_legend` helper directly"""
     get_legends = lambda obj: obj.findobj(mpl.legend.Legend)
     get_texts = lambda lg: [t.get_text() for t in lg.texts]
-    get_len = lambda lg: len(lg.legendHandles)
+    get_len = lambda lg: len(lg.legend_handles)
     is_empty = lambda lg: get_len(lg) == 0
 
     # Set up a more involved figure
