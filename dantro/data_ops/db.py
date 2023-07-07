@@ -3,7 +3,6 @@
 import logging
 import math
 import operator
-from typing import Any, Callable, Dict, Iterable, List, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -16,6 +15,7 @@ from ..exceptions import *
 from ..tools import recursive_getitem
 from ..utils.coords import extract_coords_from_attrs, extract_dim_names
 from ..utils.ordereddict import KeyOrderedDict
+from ._base_ops import BOOLEAN_OPERATORS, _make_passthrough
 from .arr_ops import *
 from .ctrl_ops import *
 from .expr_ops import *
@@ -86,13 +86,13 @@ _OPERATIONS = KeyOrderedDict({
     # Item access and manipulation
     "[]":                   lambda d, k:    d[k],
     "getitem":              lambda d, k:    d[k],
-    "setitem":              lambda d, k, v: d.__setitem__(k, v),
+    "setitem":              _make_passthrough(lambda d, *a: d.__setitem__(*a)),
     "recursive_getitem":    recursive_getitem,
 
     # Attribute-related
     ".":                    getattr,
     "getattr":              getattr,
-    "setattr":              setattr,
+    "setattr":              _make_passthrough(setattr),
     ".()":                  lambda d, attr, *a, **k: getattr(d, attr)(*a, **k),
     "callattr":             lambda d, attr, *a, **k: getattr(d, attr)(*a, **k),
 

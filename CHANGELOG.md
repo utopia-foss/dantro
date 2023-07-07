@@ -32,6 +32,7 @@
     - A bug where the `DataManager` acted as unwanted cache layer despite `read.always` file cache parameter being set.
     - A bug where cache files were always overwritten, despite `write.allow_overwrite` being set to false.
 - !334 addresses a visual glitch in scatter plots caused by the default `markeredge` color.
+- !336 makes `setitem` and `setattr` operations pass through the object that they are operating on, such that they can be used properly in the data transformation framework.
 
 
 ## v0.18.10

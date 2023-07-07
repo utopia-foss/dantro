@@ -235,6 +235,25 @@ def test_apply_operation():
 # -----------------------------------------------------------------------------
 
 
+def test_make_passthrough():
+    """Tests how functions are made passthrough"""
+    pt_setitem = OPERATIONS["setitem"]
+    d = dict()
+    rv = pt_setitem(d, "foo", 123)
+    assert d["foo"] == 123
+    assert rv is d
+
+    class Foo:
+        bar = None
+
+    pt_setattr = OPERATIONS["setattr"]
+    o = Foo()
+    assert o.bar is None
+    rv = pt_setattr(o, "bar", 123)
+    assert o.bar == 123
+    assert rv is o
+
+
 def test_op_print_data(capsys):
     """Tests the print_data operation
 
