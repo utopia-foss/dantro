@@ -3,7 +3,6 @@
 import logging
 import math
 import operator
-from typing import Any, Callable, Dict, Iterable, List, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -16,6 +15,7 @@ from ..exceptions import *
 from ..tools import recursive_getitem
 from ..utils.coords import extract_coords_from_attrs, extract_dim_names
 from ..utils.ordereddict import KeyOrderedDict
+from ._base_ops import BOOLEAN_OPERATORS, _make_passthrough
 from .arr_ops import *
 from .ctrl_ops import *
 from .expr_ops import *
@@ -31,19 +31,6 @@ scipy = LazyLoader("scipy")
 # -----------------------------------------------------------------------------
 # -- The Operations Database --------------------------------------------------
 # -----------------------------------------------------------------------------
-
-
-def _setitem(d, k, v):
-    """Itemsetter function"""
-    d.__setitem__(k, v)
-    return d
-
-
-def _setattr(__obj, __name, __val):
-    """Attribute setter"""
-    setattr(__obj, __name, __val)
-    return __obj
-
 
 # fmt: off
 # NOTE If a single "object to act upon" can be reasonably defined for an
@@ -99,13 +86,13 @@ _OPERATIONS = KeyOrderedDict({
     # Item access and manipulation
     "[]":                   lambda d, k:    d[k],
     "getitem":              lambda d, k:    d[k],
-    "setitem":              _setitem,
+    "setitem":              _make_passthrough(lambda d, *a: d.__setitem__(*a)),
     "recursive_getitem":    recursive_getitem,
 
     # Attribute-related
     ".":                    getattr,
     "getattr":              getattr,
-    "setattr":              _setattr,
+    "setattr":              _make_passthrough(setattr),
     ".()":                  lambda d, attr, *a, **k: getattr(d, attr)(*a, **k),
     "callattr":             lambda d, attr, *a, **k: getattr(d, attr)(*a, **k),
 
