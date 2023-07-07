@@ -32,6 +32,19 @@ scipy = LazyLoader("scipy")
 # -- The Operations Database --------------------------------------------------
 # -----------------------------------------------------------------------------
 
+
+def _setitem(d, k, v):
+    """Itemsetter function"""
+    d.__setitem__(k, v)
+    return d
+
+
+def _setattr(__obj, __name, __val):
+    """Attribute setter"""
+    setattr(__obj, __name, __val)
+    return __obj
+
+
 # fmt: off
 # NOTE If a single "object to act upon" can be reasonably defined for an
 #      operation, it should be accepted as the first positional argument.
@@ -86,13 +99,13 @@ _OPERATIONS = KeyOrderedDict({
     # Item access and manipulation
     "[]":                   lambda d, k:    d[k],
     "getitem":              lambda d, k:    d[k],
-    "setitem":              lambda d, k, v: d.__setitem__(k, v),
+    "setitem":              _setitem,
     "recursive_getitem":    recursive_getitem,
 
     # Attribute-related
     ".":                    getattr,
     "getattr":              getattr,
-    "setattr":              setattr,
+    "setattr":              _setattr,
     ".()":                  lambda d, attr, *a, **k: getattr(d, attr)(*a, **k),
     "callattr":             lambda d, attr, *a, **k: getattr(d, attr)(*a, **k),
 
