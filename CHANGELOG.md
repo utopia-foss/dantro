@@ -2,6 +2,9 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.19.1
+- !339 restricts numpy to < 2.0 to avoid breaking changes later this year.
+
 ## v0.19.0
 - !326 implements the `PathContainer` and the `DirectoryGroup` that are used to represent filesystem paths.
     - The `DirectoryGroup` can be used to represent nested filesystem structures.
