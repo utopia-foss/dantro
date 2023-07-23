@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 class YamlLoaderMixin:
     """Supplies functionality to load YAML files in the
     :py:class:`~dantro.data_mngr.DataManager`.
-    Uses the :py:func:`dantro._yaml.load_yml` function for loading the files.
+    Uses the :py:func:`yayaml.io.load_yml` function for loading the files.
     """
 
     @add_loader(TargetCls=MutableMappingContainer, register_aliases=["yml"])
@@ -23,12 +23,12 @@ class YamlLoaderMixin:
     ) -> MutableMappingContainer:
         """Load a YAML file from the given path and create a container to
         store that data in.
-        Uses the :py:func:`dantro._yaml.load_yml` function for loading.
+        Uses the :py:func:`yayaml.io.load_yml` function for loading.
 
         Args:
             filepath (str): Where to load the YAML file from
             TargetCls (type): The class constructor
-            **load_kwargs: Passed on to :py:func:`dantro._yaml.load_yml`
+            **load_kwargs: Passed on to :py:func:`yayaml.io.load_yml`
 
         Returns
             MutableMappingContainer: The loaded YAML content as a container
@@ -43,12 +43,12 @@ class YamlLoaderMixin:
         """Load a YAML file from the given path and create a container to
         store that data in.
 
-        Uses the :py:func:`dantro._yaml.load_yml` function for loading.
+        Uses the :py:func:`yayaml.io.load_yml` function for loading.
 
         Args:
             filepath (str): Where to load the YAML file from
             TargetCls (type): The class constructor
-            **load_kwargs: Passed on to :py:func:`dantro._yaml.load_yml`
+            **load_kwargs: Passed on to :py:func:`yayaml.io.load_yml`
 
         Returns:
             ObjectContainer: The loaded YAML content as an ObjectContainer

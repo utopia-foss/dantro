@@ -200,7 +200,7 @@ class DataManager(OrderedDataGroup):
             load_cfg (Union[dict, str], optional): The base configuration used
                 for loading data. If a string is given, assumes it to be the
                 path to a YAML file and loads it using the
-                :py:func:`~dantro._yaml.load_yml` function. If None is given,
+                :py:func:`~yayaml.io.load_yml` function. If None is given,
                 it can still be supplied to the
                 :py:meth:`~dantro.data_mngr.DataManager.load` method later on.
             out_dir (Union[str, bool], optional): where output is written to.

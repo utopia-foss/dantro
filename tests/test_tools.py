@@ -314,7 +314,8 @@ def test_glob_paths(tmpdir):
 
 
 def test_load_yml(tmpdir):
-    """Tests _yaml.load_yml function"""
+    """Tests _yaml.load_yml function; this is actually implemented in yayaml,
+    but it is included here to make finding errors easier."""
     from ruamel.yaml.parser import ParserError
 
     load_yml = dantro._yaml.load_yml
@@ -348,7 +349,7 @@ def test_load_yml_hints(tmpdir):
 
     load_yml = dantro._yaml.load_yml
 
-    # Loading fails, but a hint is shown
+    # Loading fails, but a !dag_prev -specific hint is shown
     with open(tmpdir.join("fails.yml"), "x") as f:
         f.write("---\n")
         f.write("bar: baz\n")
@@ -357,13 +358,7 @@ def test_load_yml_hints(tmpdir):
         f.write("  - !dag_prev\n")
         f.write("spam: fish\n")
 
-    with pytest.raises(ConstructorError, match=r"Hint\(s\) how to resolve"):
-        load_yml(tmpdir.join("fails.yml"))
-
     with pytest.raises(ConstructorError, match="Did you include a space"):
-        load_yml(tmpdir.join("fails.yml"))
-
-    with pytest.raises(ConstructorError, match="details about the error loc"):
         load_yml(tmpdir.join("fails.yml"))
 
     # Without hints
@@ -379,51 +374,3 @@ def test_load_yml_hints(tmpdir):
 
     with pytest.raises(ParserError, match=r"include a space after"):
         load_yml(tmpdir.join("fails2.yml"))
-
-
-def test_yaml_dumps():
-    """Test the _yaml.yaml_dumps function for string dumps.
-
-    This only tests the functionaltiy provided by the dantro implementation; it
-    does not test the behaviour of the ruamel.yaml.dump function itself!
-    """
-    dumps = dantro._yaml.yaml_dumps
-
-    # Basics
-    assert "foo: bar" in dumps(dict(foo="bar"))
-
-    # Passing additional parameters has an effect
-    assert "'foo': 'bar'" in dumps(dict(foo="bar"), default_style="'")
-    assert '"foo": "bar"' in dumps(dict(foo="bar"), default_style='"')
-
-    # Custom classes
-    class CannotSerializeThis:
-        """A class that cannot be serialized"""
-
-        def __init__(self, **kwargs):
-            self.kwargs = kwargs
-
-    class CanSerializeThis(CannotSerializeThis):
-        """A class that _can_ be serialized"""
-
-        yaml_tag = "!my_custom_tag"
-
-        @classmethod
-        def from_yaml(cls, constructor, node):
-            return cls(**constructor.construct_mapping(node.kwargs))
-
-        @classmethod
-        def to_yaml(cls, representer, node):
-            return representer.represent_mapping(cls.yaml_tag, node.kwargs)
-
-    # Without registering it, it should not work
-    with pytest.raises(ValueError, match="Could not serialize"):
-        dumps(CannotSerializeThis(foo="bar"))
-
-    with pytest.raises(ValueError, match="Could not serialize"):
-        dumps(CanSerializeThis(foo="bar"))
-
-    # Now, register it
-    assert "!my_custom_tag" in dumps(
-        CanSerializeThis(foo="bar"), register_classes=(CanSerializeThis,)
-    )

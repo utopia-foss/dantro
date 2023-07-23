@@ -14,7 +14,7 @@ from dantro.plot import MultiversePlotCreator, SkipPlot, UniversePlotCreator
 
 # Fixtures --------------------------------------------------------------------
 # Import some from other tests
-from ...groups.test_psp import psp_grp, psp_grp_default
+from ..._fixtures import psp_grp, psp_grp_default
 
 
 def dummy_plot():
@@ -29,7 +29,7 @@ def pspace():
     return ParamSpace(
         dict(
             foo="bar",
-            p0=ParamDim(default=0, values=[0, 1], order=0),
+            p0=ParamDim(default=0, values=[0, 1], order=-1),
             p1=ParamDim(default=0, values=[0, 1, 2]),
             p2=ParamDim(default=0, values=[0, 1, 2, 3, 4]),
             a=dict(a0=ParamDim(default=0, range=[4])),

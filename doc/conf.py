@@ -307,6 +307,7 @@ napoleon_include_special_with_doc = True
 intersphinx_mapping = {
     #
     # First-party docs:
+    "yayaml":       ("https://yayaml.readthedocs.io/en/latest/", None),
     "paramspace":   ("https://paramspace.readthedocs.io/en/latest/", None),
     #
     # Third-party docs

@@ -2,36 +2,7 @@
 
 import inspect
 from difflib import get_close_matches as _get_close_matches
-from typing import Callable, List, Tuple
-
-# -----------------------------------------------------------------------------
-
-
-def raise_improved_exception(
-    exc: Exception,
-    *,
-    hints: List[Tuple[Callable, str]] = [],
-) -> None:
-    """Improves the given exception by appending one or multiple hint messages.
-
-    The ``hints`` argument should be a list of 2-tuples, consisting of a unary
-    matching function, expecting the exception as only argument, and a hint
-    that is part of the new error message.
-    """
-    matching_hints = []
-    for match_func, hint in hints:
-        if match_func(exc):
-            matching_hints.append(hint)
-
-    if matching_hints:
-        _hints = "\n".join(f"  - {h}" for h in matching_hints)
-        raise type(exc)(
-            str(exc) + f"\n\nHint(s) how to resolve this:\n{_hints}"
-        ) from exc
-
-    # Re-raise the active exception
-    raise
-
+from typing import Tuple
 
 # -----------------------------------------------------------------------------
 

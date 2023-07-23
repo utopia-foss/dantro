@@ -183,7 +183,7 @@ References
 * :doc:`philosophy`
 * :ref:`integrate_data_gen_and_store_source_code`
 * :ref:`integrate_data_gen_sim_params`
-* API reference :py:func:`~dantro._yaml.load_yml`, :py:func:`~dantro._yaml.write_yml`, `paramspace <https://paramspace.readthedocs.io/en/latest/api/paramspace.paramspace.html>`_
+* API reference :py:func:`~yayaml.io.load_yml`, :py:func:`~yayaml.io.write_yml`, :py:class:`~paramspace.paramspace.ParamSpace`
 
 ----
 
