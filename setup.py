@@ -19,6 +19,9 @@ install_deps = [
     "networkx",
     "ruamel.yaml",
     "dill",              # For faster and more powerful pickling
+    #
+    # first-party packages
+    "yayaml",
     "paramspace",
 ]
 # NOTE When changing any of the dependencies, make sure to update the table of

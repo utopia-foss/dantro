@@ -191,7 +191,7 @@ def pspace():
     return ParamSpace(
         dict(
             foo="bar",
-            p0=ParamDim(default=0, values=[1, 2], order=0),
+            p0=ParamDim(default=0, values=[1, 2], order=-1),
             p1=ParamDim(default=0, values=[1, 2, 3]),
             p2=ParamDim(default=0, values=[1, 2, 3, 4, 5]),
         )

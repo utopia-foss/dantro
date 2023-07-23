@@ -77,6 +77,7 @@ _Note_ that if you have both Python 2 and Python 3 installed, you might have to 
 | [dill][dill]                  | For advanced pickling |
 | [ruamel.yaml][ruamelyaml]     | For parsing YAML configuration files |
 | [paramspace][paramspace]      | For dictionary- or YAML-based parameter spaces |
+| [yayaml][yayaml]              | Working conveniently with YAML files |
 
 If not specified further, dantro does not impose lower or upper bounds on package versions.
 Effectively, dantro works with the latest versions of all dependencies and the scheduled CI jobs make sure that combination continues working.
@@ -306,6 +307,7 @@ Contact the maintainers via: [`dantro-dev@iup.uni-heidelberg.de`][devmail]
 [ruamelyaml]: https://yaml.readthedocs.io/en/latest/
 [dill]: https://pypi.org/project/dill/
 [paramspace]: https://pypi.org/project/paramspace/
+[yayaml]: https://pypi.org/project/yayaml/
 
 [pytest]: https://pytest.org/en/latest/
 [pytest-cov]: https://pytest-cov.readthedocs.io/en/latest/

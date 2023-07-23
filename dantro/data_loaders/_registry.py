@@ -4,10 +4,9 @@ data loader function).
 """
 
 import logging
-from typing import Any, Dict, Optional, Union
+from typing import Callable, List
 
 from .._registry import ObjectRegistry as _ObjectRegistry
-from ..exceptions import *
 
 log = logging.getLogger(__name__)
 

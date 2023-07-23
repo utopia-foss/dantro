@@ -2,6 +2,9 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.19.2
+- !340 uses [`yayaml`](https://gitlab.com/blsqr/yayaml) as a YAML backend, including all the YAML-related functionality that was previously implemented directly in dantro.
+
 ## v0.19.1
 - !339 restricts numpy to < 2.0 to avoid breaking changes later this year.
 
