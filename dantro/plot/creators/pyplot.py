@@ -155,9 +155,6 @@ class PyPlotCreator(BasePlotCreator):
         # Store the output path, needed by methods
         self._out_path = out_path
 
-        # Generate a style dictionary to be used for context manager creation
-        rc_params = self._prepare_style_context(**(style if style else {}))
-
         # Check if PlotHelper is to be used, defaulting to True for None.
         _use_helper = getattr(self.plot_func, "use_helper", False)
         if _use_helper is None:
@@ -173,7 +170,7 @@ class PyPlotCreator(BasePlotCreator):
                 self._plot_with_helper(
                     out_path=out_path,
                     helpers=helpers,
-                    style_context=self._build_style_context(**rc_params),
+                    style=style,
                     func_kwargs=func_kwargs,
                     use_dag=use_dag,
                     animation=animation,
@@ -207,7 +204,7 @@ class PyPlotCreator(BasePlotCreator):
                     self._plot_with_helper(
                         out_path=out_path,
                         helpers=helpers,
-                        style_context=self._build_style_context(**rc_params),
+                        style=style,
                         func_kwargs=func_kwargs,
                         use_dag=use_dag,
                         animation=animation,
@@ -243,11 +240,16 @@ class PyPlotCreator(BasePlotCreator):
             # Prepare the arguments. The DataManager is added to args there
             # and data transformation via DAG occurs there as well.
             args, kwargs = self._prepare_plot_func_args(
-                use_dag=use_dag, out_path=out_path, **func_kwargs
+                use_dag=use_dag, out_path=out_path, style=style, **func_kwargs
             )
 
-            # Enter the style context and plot
-            with self._build_style_context(**rc_params):
+            # Create the style context
+            style = kwargs.pop("style", {})
+            rc_params = self._prepare_style_context(**(style if style else {}))
+            style_context = self._build_style_context(**rc_params)
+
+            # ... and plot
+            with style_context:
                 self._invoke_plot_func(*args, **kwargs)
 
     # .........................................................................
@@ -258,7 +260,7 @@ class PyPlotCreator(BasePlotCreator):
         *,
         out_path: str,
         helpers: dict,
-        style_context,
+        style: dict,
         func_kwargs: dict,
         animation: dict,
         use_dag: bool,
@@ -268,26 +270,31 @@ class PyPlotCreator(BasePlotCreator):
 
         Args:
             out_path (str): The output path
-            helpers (dict): The helper configuration
-            style_context: A style context; can also be DoNothingContext, if
-                no style adjustments are to take place.
-            func_kwargs (dict): Plot function arguments
+            helpers (dict): plot helper configuration
+            style (dict): style configuration
+            func_kwargs (dict): Plot function arguments, including helpers
+                and style ...
             animation (dict): Animation parameters
             use_dag (bool): Whether a DAG is used in preprocessing or not
         """
-        # Determine if animation is enabled, which is relevant for PlotHelper
-        animation = copy.deepcopy(animation) if animation else {}
-        animation_enabled = animation.pop("enabled", False)
-
         # Prepare the arguments. The DataManager is added to args there; if the
         # DAG is used, data transformation and placeholder resolution will
         # happen there as well.
-        # In order to apply placeholder resolution to the helper configuration
-        # as well, the helpers are passed along here (and popped from the
-        # parsed kwargs again a few lines below).
+        # In order to apply placeholder resolution to the whole config,
+        # the parameters are passed along here additionally (and popped from
+        # the parsed kwargs again a few lines below).
         args, kwargs = self._prepare_plot_func_args(
-            use_dag=use_dag, helpers=helpers, **func_kwargs
+            use_dag=use_dag,
+            animation=animation,
+            helpers=helpers,
+            style=style,
+            **func_kwargs,
         )
+
+        # Determine if animation is enabled, which is relevant for PlotHelper
+        animation = kwargs.pop("animation")
+        animation = copy.deepcopy(animation) if animation else {}
+        animation_enabled = animation.pop("enabled", False)
 
         # Initialize a PlotHelper instance that will take care of figure
         # setup, invoking helper-functions and saving the figure.
@@ -302,6 +309,11 @@ class PyPlotCreator(BasePlotCreator):
             animation_enabled=animation_enabled,
         )
         kwargs["hlpr"] = hlpr
+
+        # Generate a style dictionary to be used for context manager creation
+        style = kwargs.pop("style")
+        rc_params = self._prepare_style_context(**(style if style else {}))
+        style_context = self._build_style_context(**rc_params)
 
         # Check if an animation is to be done; if so, delegate to helper method
         if animation_enabled:
