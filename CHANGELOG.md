@@ -2,6 +2,9 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.19.3
+- !341 allows using `!dag_result` placeholders in `style` and `animation` entries of plot configuration.
+
 ## v0.19.2
 - !340 uses [`yayaml`](https://gitlab.com/blsqr/yayaml) as a YAML backend, including all the YAML-related functionality that was previously implemented directly in dantro.
 

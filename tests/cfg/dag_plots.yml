@@ -256,6 +256,11 @@ config_based:
       based_on: [creator.uni, dag.errorbars, select.randints_3D]
       # TODO Migrate to dag.errorbars
 
+      dag_options:
+        define:
+          fig_width: 12
+          fig_height: 8
+
       transform:
         - .mean: [!dag_tag randints, [x, z]]
         - .rename: [!dag_prev , mean]
@@ -283,6 +288,9 @@ config_based:
       yerr: std
 
       use_bands: !dag_result use_errorbands
+
+      style:
+        figure.figsize: [!dag_result fig_width, !dag_result fig_height]
 
       helpers:
         set_title:
