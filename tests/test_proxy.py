@@ -2,15 +2,14 @@
 
 NOTE Parts of the tests for the proxies are done elsewhere.
 """
-import copy
 
 import dask as da
+import dask.array
 import h5py as h5
 import numpy as np
 import pytest
 
 import dantro
-import dantro.dag
 from dantro.proxy import Hdf5DataProxy
 
 # Fixtures --------------------------------------------------------------------
@@ -76,9 +75,10 @@ def test_Hdf5DataProxy(tmp_h5file):
     assert len(foo._h5files) == 1
 
     # Deleting the proxy should close the file, invalidating the dataset
+    # This may lead to different error types, depending on environment
     del foo
     assert str(dset) == "<Closed HDF5 dataset>"
-    with pytest.raises(ValueError):
+    with pytest.raises((ValueError, RuntimeError)):
         dset[()]
 
     # NOTE Can't really test the try-except there, which only becomes relevant
