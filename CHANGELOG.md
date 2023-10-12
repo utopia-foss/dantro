@@ -2,6 +2,10 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.19.4 *(work in progress)*
+#### Internal
+- !342 fixes regressions in HDF5 proxy test caused by new h5py release
+
 ## v0.19.3
 - !341 allows using `!dag_result` placeholders in `style` and `animation` entries of plot configuration.
 
