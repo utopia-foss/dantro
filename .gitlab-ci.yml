@@ -95,9 +95,15 @@ test:py310:
 
 test:py311:
   extends: test:py38
-  image: python:3.11-rc  # FIXME use non-rc tag once available
+  image: python:3.11
   script:
     - tox -v -e py311
+
+test:py312:
+  extends: test:py38
+  image: python:3.12
+  script:
+    - tox -v -e py312
 
 
 
