@@ -63,7 +63,7 @@ _Note_ that if you have both Python 2 and Python 3 installed, you might have to 
 | Package Name                  | Purpose                                     |
 | ----------------------------- | ------------------------------------------- |
 | [numpy][numpy] < 2.0          | For fast and versatile array operations |
-| [xarray][xarray]              | For labelled N-dimensional arrays |
+| [xarray][xarray] >= 2022.11   | For labelled N-dimensional arrays |
 | [dask][dask]                  | To work with large data |
 | [toolz][toolz]                | For [dask.delayed][dask-delayed]
 | [distributed][distributed]    | For distributed computing |
@@ -146,8 +146,7 @@ For more information on commit hooks, see [the commit hooks section below](#comm
 To assert correct functionality, tests are written alongside all features.
 The [`pytest`][pytest] and [`tox`][tox] packages are used as testing frameworks.
 
-All tests are carried out for Python 3.7 through 3.11 using the GitLab CI/CD and the newest versions of all [dependencies](#dependencies).
-When merging to the master branch, `dantro` is additionally tested against the specified _minimum_ versions.
+All tests are carried out for Python 3.8 through 3.12 using the GitLab CI/CD and the newest versions of all [dependencies](#dependencies).
 
 Test coverage and pipeline status can be seen on [the project page][dantro-project].
 
@@ -164,7 +163,7 @@ Alternatively, with [`tox`][tox], it is possible to select different python envi
 Given that the interpreter is available, the test for a specific environment can be carried out with the following command:
 
 ```bash
-(dantro) $ tox -e py37
+(dantro) $ tox -e py312
 ```
 
 
