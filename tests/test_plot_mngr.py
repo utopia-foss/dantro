@@ -2,6 +2,7 @@
 
 import copy
 import os
+import time
 from collections import OrderedDict
 
 import numpy as np
@@ -503,6 +504,21 @@ def test_plotting_based_on(dm, pm_kwargs):
     ):
         pm.plot(name="foo", based_on="bad_based_on")
     assert_num_plots(pm, 5)  # No new plots
+
+    # Inheritance shortcuts
+    pm.plot_from_cfg(plots_cfg=dict(from_func=True))
+    assert_num_plots(pm, 6)
+
+    time.sleep(1)
+    pm.plot_from_cfg(plots_cfg=dict(from_func="inherit"))
+    assert_num_plots(pm, 7)
+
+    pm.plot_from_cfg(plots_cfg=dict(from_func=False))
+    assert_num_plots(pm, 7)  # No new plots
+
+    with pytest.raises(TypeError, match="12345"):
+        pm.plot_from_cfg(plots_cfg=dict(from_func=12345))
+    assert_num_plots(pm, 7)  # No new plots
 
 
 def test_plots_enabled(dm, pm_kwargs, pcr_pyplot_kwargs):

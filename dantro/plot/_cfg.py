@@ -5,7 +5,7 @@ import logging
 from collections import OrderedDict
 from difflib import get_close_matches as _get_close_matches
 from itertools import chain as _chain
-from typing import Dict, List, Sequence, Tuple, Union
+from typing import Any, Dict, Sequence, Tuple, Union
 
 from paramspace import ParamSpace
 
@@ -13,6 +13,22 @@ from ..exceptions import PlotConfigError
 from ..tools import make_columns, recursive_update
 
 log = logging.getLogger(__name__)
+
+INHERIT_BASED_ON_SAME_KEY: Tuple[Any, ...] = ("inherit", True, False)
+"""When resolving plots configurations, entries of the form
+
+.. code-block:: yaml
+
+    my_plot: <scalar>
+
+and ``<scalar>`` being one of those literals specified here, will be
+translated into:
+
+.. code-block:: yaml
+
+    my_plot:
+      based_on: my_plot
+"""
 
 # -----------------------------------------------------------------------------
 
@@ -99,6 +115,46 @@ def _find_in_pool(
         OrderedDict(list(base_pools.items())[:-i]) if i > 0 else base_pools
     )
     return pool_name, pcfg, _base_pools
+
+
+def resolve_plot_cfgs_shortcuts(
+    cfg: Union[dict, ParamSpace, str, bool], *, key: str
+) -> Union[dict, ParamSpace]:
+    """Given a single plot configuration that is referenced as ``key`` in the
+    parent scope, checks if the plot config is not dict-like, in which case
+    it is interpreted as a 'shortcut' for a plot configuration that is based
+    on a plot of the same ``key``.
+
+    In other words, a plot configuration like
+
+    .. code-block:: yaml
+
+        my_plot: inherit
+
+    is translated to
+
+    .. code-block:: yaml
+
+        my_plot:
+          based_on: my_plot
+          enabled: true         # == bool('inherit')
+
+    Valid plot configuration shortcuts are defined in
+    :py:data:`INHERIT_BASED_ON_SAME_KEY`.
+    """
+    if isinstance(cfg, (dict, ParamSpace)):
+        return cfg
+
+    elif cfg in INHERIT_BASED_ON_SAME_KEY:
+        return dict(enabled=bool(cfg), based_on=[key])
+
+    else:
+        raise TypeError(
+            "Plots configuration key-value pairs need to either have "
+            "a dict as value or one of the following literal values: "
+            f"{INHERIT_BASED_ON_SAME_KEY}\n"
+            f"For key '{key}', got:  {cfg}  (type: {type(cfg)})"
+        )
 
 
 def _resolve_based_on(
@@ -230,6 +286,7 @@ def resolve_based_on(
 
     plots_cfg = plots_cfg if plots_cfg else {}
     for pcfg_name, pcfg in plots_cfg.items():
+        pcfg = resolve_plot_cfgs_shortcuts(pcfg, key=pcfg_name)
         plots_cfg[pcfg_name] = _resolve_based_on(
             pcfg,
             base_pools=OrderedDict(
@@ -261,6 +318,8 @@ def resolve_based_on_single(
         **resolve_based_on_kwargs: Passed on
 
     """
+    plot_cfg = resolve_plot_cfgs_shortcuts(plot_cfg, key=name)
+
     return resolve_based_on(
         {name: dict(based_on=based_on, **(plot_cfg if plot_cfg else {}))},
         **resolve_based_on_kwargs,
