@@ -31,6 +31,7 @@ from ._fixtures import *
 # Paths
 PLOTS_EXT_PATH = resource_filename("tests", "cfg/plots_ext.yml")
 PLOTS_EXT2_PATH = resource_filename("tests", "cfg/plots_ext2.yml")
+PLOTS_EMPTY_PATH = resource_filename("tests", "cfg/plots_empty.yml")
 BASE_EXT_PATH = resource_filename("tests", "cfg/base_ext.yml")
 UPDATE_BASE_EXT_PATH = resource_filename("tests", "cfg/update_base_ext.yml")
 BASED_ON_EXT_PATH = resource_filename("tests", "cfg/based_on_ext.yml")
@@ -38,6 +39,7 @@ BASED_ON_EXT_PATH = resource_filename("tests", "cfg/based_on_ext.yml")
 # Configurations
 PLOTS_EXT = load_yml(PLOTS_EXT_PATH)
 PLOTS_EXT2 = load_yml(PLOTS_EXT2_PATH)
+PLOTS_EMPTY = load_yml(PLOTS_EMPTY_PATH)
 BASE_EXT = load_yml(BASE_EXT_PATH)
 UPDATE_BASE_EXT = load_yml(UPDATE_BASE_EXT_PATH)
 BASED_ON_EXT = load_yml(BASED_ON_EXT_PATH)
@@ -372,6 +374,10 @@ def test_plotting_from_file_path(dm, pm_kwargs):
     """Test plotting from file path works"""
     pm = PlotManager(dm=dm, default_plots_cfg=PLOTS_EXT, **pm_kwargs)
     pm.plot_from_cfg(plots_cfg=PLOTS_EXT_PATH)
+
+    # Can also be an empty / none-like yaml file
+    assert load_yml(PLOTS_EMPTY_PATH) is None
+    pm.plot_from_cfg(plots_cfg=PLOTS_EMPTY_PATH)
 
 
 def test_plotting_overwrite(
