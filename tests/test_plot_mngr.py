@@ -2,6 +2,7 @@
 
 import copy
 import os
+import time
 from collections import OrderedDict
 
 import numpy as np
@@ -30,6 +31,7 @@ from ._fixtures import *
 # Paths
 PLOTS_EXT_PATH = resource_filename("tests", "cfg/plots_ext.yml")
 PLOTS_EXT2_PATH = resource_filename("tests", "cfg/plots_ext2.yml")
+PLOTS_EMPTY_PATH = resource_filename("tests", "cfg/plots_empty.yml")
 BASE_EXT_PATH = resource_filename("tests", "cfg/base_ext.yml")
 UPDATE_BASE_EXT_PATH = resource_filename("tests", "cfg/update_base_ext.yml")
 BASED_ON_EXT_PATH = resource_filename("tests", "cfg/based_on_ext.yml")
@@ -37,6 +39,7 @@ BASED_ON_EXT_PATH = resource_filename("tests", "cfg/based_on_ext.yml")
 # Configurations
 PLOTS_EXT = load_yml(PLOTS_EXT_PATH)
 PLOTS_EXT2 = load_yml(PLOTS_EXT2_PATH)
+PLOTS_EMPTY = load_yml(PLOTS_EMPTY_PATH)
 BASE_EXT = load_yml(BASE_EXT_PATH)
 UPDATE_BASE_EXT = load_yml(UPDATE_BASE_EXT_PATH)
 BASED_ON_EXT = load_yml(BASED_ON_EXT_PATH)
@@ -372,6 +375,10 @@ def test_plotting_from_file_path(dm, pm_kwargs):
     pm = PlotManager(dm=dm, default_plots_cfg=PLOTS_EXT, **pm_kwargs)
     pm.plot_from_cfg(plots_cfg=PLOTS_EXT_PATH)
 
+    # Can also be an empty / none-like yaml file
+    assert load_yml(PLOTS_EMPTY_PATH) is None
+    pm.plot_from_cfg(plots_cfg=PLOTS_EMPTY_PATH)
+
 
 def test_plotting_overwrite(
     dm, pm_kwargs, pcr_pyplot_kwargs, tmpdir, pspace_plots
@@ -503,6 +510,21 @@ def test_plotting_based_on(dm, pm_kwargs):
     ):
         pm.plot(name="foo", based_on="bad_based_on")
     assert_num_plots(pm, 5)  # No new plots
+
+    # Inheritance shortcuts
+    pm.plot_from_cfg(plots_cfg=dict(from_func=True))
+    assert_num_plots(pm, 6)
+
+    time.sleep(1)
+    pm.plot_from_cfg(plots_cfg=dict(from_func="inherit"))
+    assert_num_plots(pm, 7)
+
+    pm.plot_from_cfg(plots_cfg=dict(from_func=False))
+    assert_num_plots(pm, 7)  # No new plots
+
+    with pytest.raises(TypeError, match="12345"):
+        pm.plot_from_cfg(plots_cfg=dict(from_func=12345))
+    assert_num_plots(pm, 7)  # No new plots
 
 
 def test_plots_enabled(dm, pm_kwargs, pcr_pyplot_kwargs):

@@ -23,6 +23,7 @@ from .exceptions import *
 from .plot import BasePlotCreator, SkipPlot
 from .plot._cfg import resolve_based_on as _resolve_based_on
 from .plot._cfg import resolve_based_on_single as _resolve_based_on_single
+from .plot._cfg import resolve_plot_cfgs_shortcuts as _resolve_shortcuts
 from .plot.creators import ALL_PLOT_CREATORS as ALL_PCRS
 from .plot.utils import PlotFuncResolver as _PlotFuncResolver
 from .tools import format_time as _format_time
@@ -341,14 +342,29 @@ class PlotManager:
     # Helpers
 
     @staticmethod
-    def _prepare_cfg(s: Union[str, dict]) -> dict:
+    def _prepare_cfg(s: Union[str, dict]) -> Dict[str, dict]:
         """Prepares a plots configuration by either loading it from a YAML file
         if the given argument is a string or returning a deep copy of the given
         dict-like object.
         """
         if isinstance(s, str):
-            return load_yml(s)
-        return copy.deepcopy(s)
+            plots_cfg = load_yml(s)
+        else:
+            plots_cfg = copy.deepcopy(s)
+
+        if not plots_cfg:
+            plots_cfg = {}
+        elif not isinstance(plots_cfg, dict):
+            raise TypeError(
+                f"Got an unexpected plots configuration type:  {plots_cfg}"
+            )
+
+        # Resolve shortcut syntax
+        plots_cfg = {
+            k: _resolve_shortcuts(cfg, key=k) for k, cfg in plots_cfg.items()
+        }
+
+        return plots_cfg
 
     def _handle_exception(
         self,

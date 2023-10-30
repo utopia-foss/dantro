@@ -367,6 +367,37 @@ To conclude, this feature allows to assemble plot configurations from different 
 This reduces the need for copying configurations into multiple places.
 
 
+.. _dantro_based_on_shortcuts:
+
+Shortcuts
+"""""""""
+Say you have defined many or all of your plots in the base pools and are using a particular plots config file only for enabling a set of plots, then that file will have many entries like the following:
+
+.. code-block:: yaml
+
+    my_plot:
+      based_on: my_plot
+
+To reduce redundancies, there is a shortcut syntax that achieves the same:
+
+.. code-block:: yaml
+
+    my_plot: inherit
+
+This will internally be translated to the long form.
+There is also the option to use booleans, which additionally controls whether the plot will be enabled by default:
+
+.. code-block:: yaml
+
+    # this ...
+    my_plot: false
+
+    # translates to:
+    my_plot:
+      based_on: my_plot
+      enabled: false
+
+
 .. _dantro_base_plots:
 
 dantro base plot configuration pool

@@ -2,9 +2,13 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
-## v0.19.4 *(work in progress)*
+## v0.19.4
+- !344 adds a shortcut syntax for same-name plot config inheritance.
+- !344 allows to have empty plot config files, which previously threw an error.
+
 #### Internal
 - !342 fixes regressions in HDF5 proxy test caused by new h5py release
+- !343 adds test environments for Python 3.12
 
 ## v0.19.3
 - !341 allows using `!dag_result` placeholders in `style` and `animation` entries of plot configuration.
