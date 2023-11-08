@@ -21,7 +21,7 @@ formats: all
 
 # Optionally set the Python version and requirements required to build the docs
 python:
-  version: 3.8
+  version: 3.10
   install:
     - method: pip
       path: .
@@ -32,5 +32,8 @@ python:
 # Need to install additional dependencies into the container such that
 # the docs build system can generate all the plots
 build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.10"
   apt_packages:
     - ffmpeg
