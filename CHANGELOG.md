@@ -1,6 +1,8 @@
 # Changelog
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
+## v0.19.5
+- !347 fixes empty axis label strings being ignored in the ``PlotHelper``
 
 ## v0.19.4
 - !344 adds a shortcut syntax for same-name plot config inheritance.
