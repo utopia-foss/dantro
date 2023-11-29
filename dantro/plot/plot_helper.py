@@ -1378,7 +1378,7 @@ class PlotHelper:
         """
         st = self.fig.suptitle(title, **title_kwargs)
 
-        if title and not "y" in title_kwargs:
+        if title is not None and not "y" in title_kwargs:
             # Make some figure adjustments such that it does not overlap with
             # the already existing parts.
             _, space_needed = calculate_space_needed_hv(self.fig, st)
@@ -1553,16 +1553,16 @@ class PlotHelper:
         def set_label(func: Callable, *, label: str = None, **label_kwargs):
             return func(label, **label_kwargs)
 
-        if x:
+        if x is not None:
             x = x if not isinstance(x, str) else dict(label=x)
             set_label(self.ax.set_xlabel, **x)
 
-        if y:
+        if y is not None:
             y = y if not isinstance(y, str) else dict(label=y)
             set_label(self.ax.set_ylabel, **y)
 
         if hasattr(self.ax, "zaxis"):
-            if z:
+            if z is not None:
                 z = z if not isinstance(z, str) else dict(label=z)
                 set_label(self.ax.set_zlabel, **z)
 
