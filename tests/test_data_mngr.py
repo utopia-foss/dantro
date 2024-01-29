@@ -423,7 +423,7 @@ def test_init(data_dir):
 
     # The DataManager's path should start within root
     assert dm.parent is None
-    assert dm.path == "/test_init0_Manager"
+    assert dm.path == f"/{os.path.basename(data_dir)}_Manager"
 
     # It should create a hashstr
     assert len(dm.hashstr) == 32
