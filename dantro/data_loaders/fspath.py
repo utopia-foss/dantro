@@ -2,6 +2,7 @@
 
 import glob
 import os
+import platform
 from typing import List, Union
 
 from ..containers import PathContainer
@@ -94,6 +95,11 @@ class FSPathLoaderMixin:
 
         for path in all_paths:
             relpath = os.path.relpath(path, start=dirpath)
+
+            # Ensure WindowsPaths are recognised later on
+            if platform.system() == "Windows":
+                relpath = relpath.replace("\\", "/")
+
             if os.path.isdir(path):
                 root.new_group(relpath, Cls=DirectoryGroup, dirpath=path)
             else:

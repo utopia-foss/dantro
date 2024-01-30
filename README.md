@@ -260,6 +260,7 @@ The copyright holders of dantro are collectively referred to as _dantro develope
 
 Maintainers:
 
+* Thomas Gaskin (@tgaskin)
 * Benjamin Herdeanu (@herdeanu)
 * Yunus Sevinchan (@blsqr)
 * Jeremias Traub (@jeremiastraub)
@@ -267,7 +268,6 @@ Maintainers:
 Contributors (in alphabetical order):
 
 * Unai Fischer Abaigar
-* Thomas Gaskin (@tgaskin)
 * Daniel Lake
 * Lukas Riedel (@peanutfun)
 * Julian Weninger (@julianweninger)

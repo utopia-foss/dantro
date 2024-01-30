@@ -1,6 +1,10 @@
 # Changelog
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
+
+## v0.20.0b0
+- !349 adds Windows support for dantro by ensuring paths are consistently formatted in Posix-style
+
 ## v0.19.5
 - !347 fixes empty axis label strings being ignored in the ``PlotHelper``
 
