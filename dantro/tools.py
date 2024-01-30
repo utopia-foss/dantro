@@ -5,6 +5,7 @@ import contextlib
 import glob
 import logging
 import os
+import pathlib
 import sys
 from datetime import timedelta as _timedelta
 from shutil import get_terminal_size as _get_terminal_size
@@ -596,6 +597,13 @@ def format_time(
     if not max_num_parts:
         return " ".join(parts)
     return " ".join(parts[: max_num_parts + int(is_negative)])
+
+
+def ensure_posix_path_on_windows(p: str) -> str:
+    """Prepares a path for use on Windows platform via
+    :py:class:`pathlib.PureWindowsPath` and its ``as_posix`` method.
+    """
+    return pathlib.PureWindowsPath(p).as_posix()
 
 
 def glob_paths(

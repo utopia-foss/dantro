@@ -2,6 +2,7 @@
 
 import logging
 import os
+import platform
 
 logging.basicConfig(level=logging.DEBUG, stream=open(os.devnull, "w"))
 
@@ -57,3 +58,8 @@ if os.environ.get("DANTRO_TEST_OUTPUT_DIR"):
         "Using test output directory set from environment variable:\n"
         f"  {TEST_OUTPUT_DIR}\n"
     )
+
+
+ON_WINDOWS = platform.system() == "Windows"
+"""Check whether the current platform is Windows. If tests cannot be run on Windows they can be skipped (this is
+controlled from the test configs)"""

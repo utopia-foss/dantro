@@ -3,6 +3,7 @@
 import builtins
 import copy
 import os
+import platform
 from itertools import chain
 
 import matplotlib as mpl
@@ -287,6 +288,12 @@ def test_figure_setup_subplots(hlpr):
 
 def test_figure_attachment(hlpr):
     """Test the attach_figure function"""
+
+    # On Windows, set the backend to avoid tkinter errors
+    if platform.system() == "Windows":
+        import matplotlib
+
+        matplotlib.use("agg")
 
     assert hlpr._fig is None
     assert not hlpr.axes

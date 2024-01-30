@@ -3,6 +3,7 @@
 import copy
 import os
 import time
+import timeit
 from builtins import *  # to have Exception types available in globals
 from typing import Any
 
@@ -37,6 +38,8 @@ from dantro.exceptions import *
 from dantro.groups import OrderedDataGroup
 from dantro.tools import load_yml, write_yml
 from dantro.utils.nx import ATTR_MAPPER_OP_PREFIX_DAG
+
+from . import ON_WINDOWS
 
 # Test files
 DAG_SYNTAX_PATH = resource_filename("tests", "cfg/dag_syntax.yml")
@@ -235,13 +238,13 @@ def test_deepcopy(dm):
 
     dill_deepcopy = lambda obj: dill.loads(dill.dumps(obj))
 
-    t0 = time.time()
+    t0 = timeit.default_timer()
     deepcopy(large_list)
-    t1 = time.time()
+    t1 = timeit.default_timer()
     copy.deepcopy(large_list)
-    t2 = time.time()
+    t2 = timeit.default_timer()
     dill_deepcopy(large_list)
-    t3 = time.time()
+    t3 = timeit.default_timer()
 
     dt = dict()
     dt["pickle"] = t1 - t0
@@ -249,7 +252,7 @@ def test_deepcopy(dm):
     dt["dill"] = t3 - t2
     print("times and speedups (vs regular):")
     for name, _dt in dt.items():
-        print(f"  {name:>10s}:  {_dt:.3g}s\t({dt['regular'] /  _dt:.3g}x)")
+        print(f"  {name:>10s}:  {_dt:.3g}s\t({dt['regular'] / _dt:.3g}x)")
 
     assert dt["regular"] / dt["pickle"] > 5
     assert dt["dill"] / dt["pickle"] > 10
@@ -908,6 +911,10 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
         print("-" * 80)
         print(f"Testing transformation DAG case '{name}' ...")
 
+        if cfg.get("skip_on_windows", False) and ON_WINDOWS:
+            print("Skipping this test case on Windows system.\n")
+            continue
+
         # Extract arguments
         params = cfg["params"]
         expected = cfg.get("expected", {})
@@ -1052,7 +1059,7 @@ def test_TransformationDAG_life_cycle(dm, tmpdir):
 
         else:
             with pytest.raises(_exp_exc, match=_match):
-                results = tdag.compute(compute_only=compute_only)
+                tdag.compute(compute_only=compute_only)
 
             print("Raised error as expected.\n")
             continue

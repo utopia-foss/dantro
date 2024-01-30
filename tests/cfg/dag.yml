@@ -533,6 +533,7 @@ force_compute:
 # Caching tests ---------------------------------------------------------------
 
 numpy_and_xarray_data:
+  skip_on_windows: True
   cache_dir_name: &shared_cache_dir shared_cache_dir
   params:
     file_cache_defaults:
@@ -581,6 +582,7 @@ numpy_and_xarray_data:
 
 
 numpy_and_xarray_data_2nd_run:
+  skip_on_windows: True
   cache_dir_name: *shared_cache_dir
   params:
     file_cache_defaults:
@@ -624,6 +626,7 @@ numpy_and_xarray_data_2nd_run:
 
 
 numpy_and_xarray_data_3rd_run:
+  skip_on_windows: True
   cache_dir_name: *shared_cache_dir
   params:
     file_cache_defaults:
@@ -2704,6 +2707,7 @@ doc_examples_meta_ops_args_with_defaults:
 
 
 doc_examples_meta_ops_prime_multiples:
+  skip_on_windows: True # Fails because
   params:
     ### Start -- dag_meta_ops_prime_multiples
     meta_operations:

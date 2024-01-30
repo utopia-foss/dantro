@@ -21,7 +21,7 @@ install_deps = [
     "dill",              # For faster and more powerful pickling
     #
     # first-party packages
-    "yayaml",
+    "yayaml >= 0.2",
     "paramspace",
 ]
 # NOTE When changing any of the dependencies, make sure to update the table of
@@ -150,6 +150,10 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Operating System :: Microsoft :: Windows",
+        "Operating System :: MacOS",
+        "Operating System :: Unix",
+        "Operating System :: POSIX :: Linux",
         "Topic :: Utilities",
         "License :: OSI Approved :: GNU Lesser General Public License v3 or"
         " later (LGPLv3+)",

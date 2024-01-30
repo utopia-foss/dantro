@@ -901,9 +901,7 @@ class ColorManager:
                 cmap = mpl.colormaps[name]
             except KeyError as err:
                 _avail = make_columns(
-                    sorted(
-                        [cm for cm in mpl.colormaps if not cm.endswith("_r")]
-                    )
+                    sorted(cm for cm in mpl.colormaps if not cm.endswith("_r"))
                 )
                 raise ValueError(
                     f"'{name}' is not a known colormap name!\n"

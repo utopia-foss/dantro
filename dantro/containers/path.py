@@ -74,11 +74,11 @@ class PathContainer(ForwardAttrsToDataMixin, BaseDataContainer):
                     f"Parent was:  {parent}"
                 )
 
-        data = pathlib.Path(data)
+        data = pathlib.PurePosixPath(data)
         super().__init__(*args, name=name, data=data, parent=parent, **kwargs)
 
     @property
-    def fs_path(self) -> pathlib.Path:
+    def fs_path(self) -> pathlib.PurePosixPath:
         """Returns the filesystem path associated with this container.
         This property is identical to the ``data`` property.
         """

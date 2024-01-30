@@ -7,6 +7,8 @@ import glob
 import logging
 import multiprocessing as mp
 import os
+import pathlib
+import platform
 import re
 import time
 import warnings
@@ -22,6 +24,7 @@ from .tools import (
     PoolErrorCallbackHandler,
     clear_line,
     ensure_dict,
+    ensure_posix_path_on_windows,
     fill_line,
     format_bytesize,
 )
@@ -403,6 +406,8 @@ class DataManager(OrderedDataGroup):
         data directory, which are regarded as the relevant parts. While other
         parts of the DataManager are not invariant, it is characterized most by
         the directory it is associated with.
+        On all operating systems the Posix representation of the path is used
+        for consistency purposes.
 
         As this is a string-based hash, it is not implemented as the __hash__
         magic method but as a separate property.
@@ -410,9 +415,12 @@ class DataManager(OrderedDataGroup):
         WARNING Changing how the hash is computed for the DataManager will
                 invalidate all TransformationDAG caches.
         """
-        return _hash(
-            "<DataManager '{}' @ {}>".format(self.name, self.dirs["data"])
-        )
+        if platform.system() == "Windows":
+            # Remove the C: from the path
+            _data_dir = ensure_posix_path_on_windows(self.dirs["data"])[2:]
+        else:
+            _data_dir = self.dirs["data"]
+        return _hash(f"<DataManager '{self.name}' @ {_data_dir}>")
 
     def __hash__(self) -> int:
         """The hash of this DataManager, computed from the hashstr property"""
@@ -871,6 +879,7 @@ class DataManager(OrderedDataGroup):
                     _base_path=_base_path,
                     **loader_kwargs,
                 )
+
                 num_success += self._store_object(
                     _obj,
                     target_path=_target_path,
@@ -1000,6 +1009,7 @@ class DataManager(OrderedDataGroup):
             _name = load_as_attr
         else:
             _name = _target_path[-1]
+
         _TargetCls = lambda **kws: TargetCls(name=_name, **kws)
 
         # Let the load function retrieve the data
@@ -1244,7 +1254,12 @@ class DataManager(OrderedDataGroup):
                 Path sequence that represents the target path within the
                 data tree where the loaded data is to be placed.
         """
+
         clean_path = lambda p: p.replace(PATH_JOIN_CHAR, join_char_replacement)
+
+        # On Windows platform, ensure the path is given in posix format
+        if platform.system() == "Windows":
+            filepath = ensure_posix_path_on_windows(filepath)
 
         # The dict to be filled with formatting parameters
         fps = dict(**fstr_params)
@@ -1262,6 +1277,10 @@ class DataManager(OrderedDataGroup):
         relpath, _ = os.path.splitext(
             os.path.relpath(filepath, start=base_path)
         )
+        # On Windows platform, ensure the relpath is given in posix format
+        if platform.system() == "Windows":
+            relpath = ensure_posix_path_on_windows(relpath)
+
         fps["relpath"] = relpath
         fps["relpath_cleaned"] = clean_path(relpath)
 
@@ -1398,6 +1417,7 @@ class DataManager(OrderedDataGroup):
             RequiredDataMissingError: If storing as attribute was selected
                 but there was no object at the given target_path
         """
+
         if obj is None:
             log.debug("Object was None, not storing.")
             return False
