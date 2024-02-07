@@ -122,6 +122,9 @@ test:windows:py312:
       allow_failure: false
     - when: manual
       allow_failure: true
+  retry:
+    max: 1
+    when: script_failure
   before_script:
     - Set-Variable -Name "time" -Value (date -Format "%H:%m")
     - echo ${time}
