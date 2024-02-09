@@ -703,10 +703,6 @@ class PlotManager:
         import contextlib
         import io
 
-        import matplotlib
-
-        matplotlib.use("agg")  # FIXME do this elsewhere / always?
-
         from .logging import DantroLogger
 
         captured = io.StringIO("")
@@ -722,6 +718,13 @@ class PlotManager:
         return task_key, captured.getvalue(), rv
 
     def _invoke_parallel_executor_benchmark(self) -> bool:
+        """A method that is passed to a parallel executor for benchmarking
+        how long it takes to spin up a new thread or process.
+        This is especially relevant for processes, because they require that
+        the PlotManager and all accompanying objects are pickled and passed
+        to the child process, which can take a long time ...
+
+        The method itself does not perform any actions."""
         return True
 
     def _parse_parallel_plotting_kwargs(
@@ -772,7 +775,7 @@ class PlotManager:
         # TODO consider parsing max_workers here?
 
         # Set up environment variables
-        log.note(
+        log.remark(
             "Setting up %s (max_workers: %s) ...",
             ExecutorCls.__name__,
             max_workers,
@@ -1213,6 +1216,7 @@ class PlotManager:
                 "default_out_dir",
                 "save_plot_cfg",
                 "creator_init_kwargs",
+                "parallel",
             )
         }
 
@@ -1667,7 +1671,7 @@ class PlotManager:
         """Performs parameter sweep plots in sequence."""
         import concurrent.futures as concfu
 
-        log.note("Creating plotting tasks ...")
+        log.remark("Creating plotting tasks ...")
 
         # .. Generate the tasks
         it = from_pspace.iterator(
@@ -1714,19 +1718,23 @@ class PlotManager:
             t0 = time.time()
 
             if benchmark_overhead:
-                log.note("Benchmarking executor task spawning overhead ...")
-
+                num_bfs = int(benchmark_overhead)
+                log.remark(
+                    "Benchmarking executor spawning overhead using %d tasks …",
+                    num_bfs,
+                )
                 bfs = [
                     executor.submit(self._invoke_parallel_executor_benchmark)
-                    for i in range(int(benchmark_overhead))
+                    for i in range(num_bfs)
                 ]
                 concfu.wait(bfs)
 
-                log.remark(
-                    "  Overhead:  %s", _fmt_time((time.time() - t0) / len(bfs))
+                log.note(
+                    "Executor overhead:  %s",
+                    _fmt_time((time.time() - t0) / len(bfs)),
                 )
 
-            log.note(
+            log.remark(
                 "Submitting %d tasks to %s ...",
                 len(tasks),
                 type(executor).__name__,
@@ -1741,7 +1749,7 @@ class PlotManager:
 
                 # TODO Can add callbacks to future here perhaps?
 
-            log.info("Parallel plotting now commencing ...")
+            log.note("Parallel plotting now commencing ...")
             t1 = time.time()
 
             num_skipped = 0

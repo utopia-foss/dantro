@@ -75,6 +75,7 @@ class PyPlotCreator(BasePlotCreator):
         self,
         name: str,
         *,
+        backend: str = "agg",
         style: dict = None,
         **parent_kwargs,
     ):
@@ -91,6 +92,11 @@ class PyPlotCreator(BasePlotCreator):
                 :py:meth:`~dantro.plot.creators.base.BasePlotCreator.__init__`.
         """
         super().__init__(name, **parent_kwargs)
+
+        # Set the backend
+        import matplotlib
+
+        matplotlib.use(backend)
 
         # Default style and RC parameters
         self._default_rc_params = None
