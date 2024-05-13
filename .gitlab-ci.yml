@@ -109,7 +109,7 @@ test:windows:py312:
   extends: test:py312
   image: 3.12-windowsservercore-ltsc2022
   tags:
-    - windows
+    - saas-windows-medium-amd64
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: always
