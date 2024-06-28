@@ -408,6 +408,9 @@ def test_determine_encoding():
 
     # Automatic column wrapping
     kws = detenc(dict(foo=10, bar=12, baz=15), col_wrap="auto")
+    assert kws["col_wrap"] == 5  # from foo column, ceil(sqrt(10)) +/- optim
+
+    kws = detenc(dict(foo=10, bar=12, baz=15), col_wrap="square")
     assert kws["col_wrap"] == 4  # from foo column, ceil(sqrt(10))
 
     # ... deactivated if no sizes are given
@@ -426,7 +429,7 @@ def test_determine_encoding():
     assert kws["hue"] == "baz"
     assert kws["col"] == "foo"
     assert kws["frames"] == "bar"
-    assert kws["col_wrap"] == 4
+    assert kws["col_wrap"] == 5
 
     # Allow mappings between x and y
     kws = detenc(

@@ -19,6 +19,7 @@ from ...tools import recursive_update
 from ..plot_helper import PlotHelper
 from ..utils import figure_leak_prevention, is_plot_func
 from ..utils.color_mngr import ColorManager, parse_cmap_and_norm_kwargs
+from ._utils import determine_ideal_col_wrap
 from ._utils import plot_errorbar as _plot_errorbar
 
 # Local constants and lazy module imports
@@ -233,7 +234,7 @@ def determine_encoding(
         :dedent: 4
 
     This function also implements **automatic column wrapping**, aiming to
-    produce a more square-like figure with column wrapping. The prerequisites
+    produce a efficient figure use with column wrapping. The prerequisites
     are the following:
 
         * The ``dims`` argument is a dict, containing size information
@@ -242,8 +243,12 @@ def determine_encoding(
         * The ``row`` specifier is *not* used, i.e. wrapping is possible
         * There are more than three columns
 
-    In such a case, ``col_wrap`` will be set to ``ceil(sqrt(num_cols))``.
-    Otherwise, the entry will be removed from the plot arguments.
+    To determine the column wrapping number, a little optimization routine
+    tries to reduce the number of empty spots in the last row while trying to
+    get a square-like grid.
+    To skip the optimization, potentially leading to last rows that have only
+    one or few subplots, set ``col_wrap`` to ``"square"``, in which case
+    wrapping will happen after ``ceil(sqrt(num_cols))`` columns.
 
     Args:
         dims (Union[List[str], Dict[str, int]]): The dimension names (and, if
@@ -337,15 +342,17 @@ def determine_encoding(
     )
 
     # -- Automatic column wrapping
-    if plot_kwargs.get("col_wrap") == "auto":
+    if plot_kwargs.get("col_wrap") in ("auto", "square"):
         if (
             not specs.get("row")
             and specs.get("col")
             and hasattr(dims, "items")  # i.e.: dict-like
-            and dims[specs["col"]] > 3
+            and dims[specs["col"]] >= 4
         ):
             num_cols = dims[specs["col"]]
-            plot_kwargs["col_wrap"] = math.ceil(math.sqrt(num_cols))
+            plot_kwargs["col_wrap"] = determine_ideal_col_wrap(
+                num_cols, fill_last_row=(plot_kwargs["col_wrap"] == "auto")
+            )
             log.remark(
                 "   col_wrap:  %d  (length of col dimension: %d)",
                 plot_kwargs["col_wrap"],

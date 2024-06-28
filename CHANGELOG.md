@@ -4,6 +4,8 @@
 
 ## v0.20.0b0
 - !349 adds Windows support for dantro by ensuring paths are consistently formatted in Posix-style
+- !355 improves automatic `col_wrap` in facet grid plots by using a simple optimization routine to maximize the fill ratio of the last row of a facet grid plot while trying to stay close to a square-like grid.
+  The old behaviour (which may create lonely plots in the last row) is retained by setting `col_wrap: square`.
 
 ## v0.19.5
 - !347 fixes empty axis label strings being ignored in the ``PlotHelper``
