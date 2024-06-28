@@ -3,10 +3,75 @@ functions. These can be shared tools between the plotting functions.
 """
 
 import copy
+import math
+from typing import Optional, Tuple
 
 import numpy as np
 
 # -----------------------------------------------------------------------------
+
+
+def determine_ideal_col_wrap(
+    N: int, *, fill_last_row: bool = True, fill_ratio_thrs: float = 3 / 4
+) -> Optional[int]:
+    """Given a number of subplots to place in a grid, determines the ideal
+    number of columns to wrap after such that:
+
+        1. The resulting grid is most "square"
+        2. If ``fill_last_row`` is set, we compromise on squared-ness in order
+           to have a last row that is more filled (avoiding lonely plots)
+
+    To get to the square-like configuration, uses:
+
+    .. code-block:: python
+
+        col_wrap = math.ceil(math.sqrt(N))
+
+    With ``fill_last_row``, will improve the fill ratio
+
+    Args:
+        N (int): Number of elements to place in the grid. If this is below 4,
+            will return None.
+        fill_last_row (bool, optional): Whether to not only optimize for a
+            square-like grid, but to also reduce lonely plots in the last row
+        fill_ratio_thrs (float, optional): If the fill ratio of the last row
+            is greater or equal this number already without optimization, will
+            not begin optimization.
+
+    Returns:
+        Optional[int]: The determined column wrapping number.
+            Will be None for ``N < 4``.
+    """
+
+    def last_row(cw: int) -> Tuple[int, int]:
+        """(filled, empty) in last row"""
+        n_rows_filled = N // cw
+        n_last_row = N - cw * n_rows_filled
+        return n_last_row, cw - n_last_row
+
+    def ratio_filled(cw: int) -> float:
+        n_full, _ = last_row(cw)
+        if n_full == 0:
+            return 1.0
+        return n_full / cw
+
+    if N < 4:
+        return None
+
+    cw = math.ceil(math.sqrt(N))
+    if not fill_last_row or ratio_filled(cw) >= fill_ratio_thrs:
+        return cw
+
+    # Try some fill ratios and return the best one.
+    # Also include the deviation from the square-like setting to decide in
+    # situations where the fill ratio is the same.
+    # The -_cw is added to prefer larger col_wrap values if identical.
+    dcw = max(2, cw // 3)
+    ratios_and_cws = [
+        (1.0 - ratio_filled(_cw), abs(_cw - cw), -_cw, _cw)
+        for _cw in range(max(3, cw - dcw), min(cw + dcw, N // 2 + 1) + 1)
+    ]
+    return sorted(ratios_and_cws)[0][-1]
 
 
 def plot_errorbar(
