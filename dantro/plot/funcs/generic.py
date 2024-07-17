@@ -350,12 +350,14 @@ def determine_encoding(
             and dims[specs["col"]] >= 4
         ):
             num_cols = dims[specs["col"]]
+            col_wrap_mode = plot_kwargs["col_wrap"]
             plot_kwargs["col_wrap"] = determine_ideal_col_wrap(
-                num_cols, fill_last_row=(plot_kwargs["col_wrap"] == "auto")
+                num_cols, fill_last_row=(col_wrap_mode == "auto")
             )
             log.remark(
-                "   col_wrap:  %d  (length of col dimension: %d)",
+                "   col_wrap:  %d  (mode '%s', length of col dimension: %d)",
                 plot_kwargs["col_wrap"],
+                col_wrap_mode,
                 num_cols,
             )
         else:
