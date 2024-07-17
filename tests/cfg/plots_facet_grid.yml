@@ -81,6 +81,7 @@ auto:
     specifiers: []
     min_dims: 2
     max_dims: 5
+    test_data_path: labelled_large
     plot_kwargs:
       auto_encoding:
         # to provoke early col_wrap and test custom encoding
@@ -127,6 +128,10 @@ kinds:
         set_legend:
           use_legend: true
           hiding_threshold: 2
+
+    warns:
+      3: &warn_ignore_col_wrap [UserWarning, Ignoring col_wrap]
+      4: *warn_ignore_col_wrap
 
   step:
     <<: *line
@@ -197,6 +202,20 @@ errorbars:
         set_figlegend:
           gather_from_fig: true
           hiding_threshold: 5
+
+  # scalar (1-sized) dimensions, indexing and non-indexing
+  ebars_scalar_dims:
+    <<: *ebars
+    min_dims: 2
+    test_data_path: ds_labelled_scalar
+    plot_kwargs:
+      <<: *ebars_kwargs
+      squeeze: false
+
+  ebars_scalar_dims_squeezed:
+    <<: *ebars
+    min_dims: 2
+    test_data_path: ds_labelled_scalar_squeezed
 
   # .. failing plots
   ebars_err_bad_dimensionality:

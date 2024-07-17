@@ -49,13 +49,18 @@ logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 
 def create_nd_data(
-    n: int, *, shape=None, with_coords: bool = False, **data_array_kwargs
+    n: int,
+    *,
+    shape=None,
+    with_coords: bool = False,
+    size_offset: int = 1,
+    **data_array_kwargs,
 ) -> xr.DataArray:
     """Creates n-dimensional random data of a certain shape. If no shape is
     given, will use ``(2, 3, 4, ..)``. Can also add coords to the data.
     """
     if shape is None:
-        shape = tuple(i + 2 for i in range(n))
+        shape = tuple(i + size_offset for i in range(1, n + 1))
 
     coord_kws = dict()
     if with_coords:
@@ -97,6 +102,10 @@ def associate_specifiers(
     else:
         # Probably a dataset or something similar
         dim_names = list(data.dims.keys())[::-1]
+
+    # Drop names that are not also a dimension
+    dim_names = [d for d in dim_names if d in data.sizes]
+
     return {spec: dim_name for spec, dim_name in zip(specifiers, dim_names)}
 
 
@@ -126,6 +135,7 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
         min_dims = cfg.get("min_dims", 0)
         max_dims = cfg["max_dims"]
         raises = cfg.get("raises", {})
+        warns = cfg.get("warns", {})
         plot_kwargs = cfg.get("plot_kwargs", {})
         test_data_path = cfg.get("test_data_path", "ndim_da")
 
@@ -163,6 +173,12 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
                 print("    expct. raise: ", exc_type, f": '{match}'")
                 exc_type = globals()[exc_type]
                 context = pytest.raises(exc_type, match=match)
+            elif ndim in warns:
+                warn_spec = warns[ndim]
+                warn_type, match = warn_spec
+                print("    expct. warn:  ", warn_type, f": '{match}'")
+                warn_type = globals()[warn_type]
+                context = pytest.warns(warn_type, match=match)
 
             # Now, run the plot function in that context
             with context:
@@ -302,6 +318,28 @@ def dm(_dm):
         ]
     )
 
+    grp_labelled_scalar = _dm.new_group("labelled_scalar")
+    grp_labelled_scalar.add(
+        *[
+            XrDataContainer(
+                name=f"{n:d}D",
+                data=create_nd_data(n, with_coords=True, size_offset=0),
+            )
+            for n in range(1, 7)
+        ]
+    )
+
+    grp_labelled_large = _dm.new_group("labelled_large")
+    grp_labelled_large.add(
+        *[
+            XrDataContainer(
+                name=f"{n:d}D",
+                data=create_nd_data(n, with_coords=True, size_offset=5),
+            )
+            for n in range(1, 7)
+        ]
+    )
+
     grp_ds_labelled = _dm.new_group("ds_labelled")
     grp_ds_labelled.add(
         *[
@@ -314,6 +352,45 @@ def dm(_dm):
                         baz=create_nd_data(n, with_coords=True),
                         spam=create_nd_data(n, with_coords=True),
                         fish=create_nd_data(n, with_coords=True),
+                    )
+                ),
+            )
+            for n in range(7)
+        ]
+    )
+
+    grp_ds_labelled_scalar = _dm.new_group("ds_labelled_scalar")
+    _ds_scalar_kws = dict(with_coords=True, size_offset=0)
+    grp_ds_labelled_scalar.add(
+        *[
+            PassthroughContainer(
+                name=f"{n:d}D",
+                data=xr.Dataset(
+                    dict(
+                        foo=create_nd_data(n, **_ds_scalar_kws),
+                        bar=create_nd_data(n, **_ds_scalar_kws),
+                        baz=create_nd_data(n, **_ds_scalar_kws),
+                        spam=create_nd_data(n, **_ds_scalar_kws),
+                        fish=create_nd_data(n, **_ds_scalar_kws),
+                    )
+                ),
+            )
+            for n in range(7)
+        ]
+    )
+
+    grp_ds_labelled_scalar_sqz = _dm.new_group("ds_labelled_scalar_squeezed")
+    grp_ds_labelled_scalar_sqz.add(
+        *[
+            PassthroughContainer(
+                name=f"{n:d}D",
+                data=xr.Dataset(
+                    dict(
+                        foo=create_nd_data(n, **_ds_scalar_kws).squeeze(),
+                        bar=create_nd_data(n, **_ds_scalar_kws).squeeze(),
+                        baz=create_nd_data(n, **_ds_scalar_kws).squeeze(),
+                        spam=create_nd_data(n, **_ds_scalar_kws).squeeze(),
+                        fish=create_nd_data(n, **_ds_scalar_kws).squeeze(),
                     )
                 ),
             )

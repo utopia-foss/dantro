@@ -684,6 +684,7 @@ def facet_grid(
     auto_encoding: Union[bool, dict] = False,
     suptitle_kwargs: dict = None,
     squeeze: bool = True,
+    drop_nonindexed_coords: bool = True,
     **plot_kwargs,
 ):
     """A generic facet grid plot function for high dimensional data.
@@ -807,10 +808,6 @@ def facet_grid(
     # .........................................................................
     def plot_frame(_d, *, kind: str, plot_kwargs: dict):
         """Plot a FacetGrid frame"""
-        # Squeeze size-1 dimension coordinates to non-dimension coordinates
-        if squeeze:
-            _d = _d.squeeze()
-
         # Retrieve the generic or specialized plot function, depending on kind
         if kind is None:
             plot_func = _d.plot
@@ -898,6 +895,24 @@ def facet_grid(
     # Actual plotting routine starts here .....................................
     # Get the Dataset, DataArray, or other compatible data
     d = data["data"]
+
+    # Prepare data
+    log.note("Preparing data for facet grid plot ...")
+    log.remark("%s", d.head())
+
+    # Squeeze size-1 dimension coordinates to non-dimension coordinates
+    if squeeze and 1 in d.sizes.values():
+        log.remark("Squeezing ...")
+        d = d.squeeze()
+
+    # Drop unwanted non-indexed coordinates
+    nonindexed_coords = [c for c in d.coords if c not in d.indexes]
+    if nonindexed_coords and drop_nonindexed_coords:
+        log.remark(
+            "Dropping non-indexed coordinate variables:  %s",
+            ", ".join(nonindexed_coords),
+        )
+        d = d.drop_vars(nonindexed_coords)
 
     # Determine kind and encoding, updating the plot kwargs accordingly.
     # NOTE Need to pop all explicitly given specifiers in order to not have
