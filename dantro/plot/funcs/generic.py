@@ -1080,7 +1080,10 @@ def errorbars(
     # Group by the hue dimension and perform plots. To be a bit more permissive
     # regarding data shape, squeeze out any additional dimensions that might
     # have been left over.
-    hue_iter = zip(_y.groupby(hue), _yerr.groupby(hue))
+    hue_iter = zip(
+        _y.groupby(hue, squeeze=False),
+        _yerr.groupby(hue, squeeze=False),
+    )
     for (_y_coord, _y_vals), (_yerr_coord, _yerr_vals) in hue_iter:
         _y_vals = _y_vals.squeeze(drop=True)
         _yerr_vals = _yerr_vals.squeeze(drop=True)
