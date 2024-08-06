@@ -738,7 +738,12 @@ class PlotManager:
         **executor_kwargs,
     ) -> dict:
         """Prepares arguments for parallel plotting"""
-        # TODO parse max_workers
+        if isinstance(max_workers, int):
+            if max_workers < 0:
+                max_workers = os.cpu_count() + max_workers
+
+            if max_workers <= 1:
+                enabled = False
 
         # TODO Automatic mode? :thinking: Would need to benchmark a single plot
 

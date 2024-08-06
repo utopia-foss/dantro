@@ -1,0 +1,88 @@
+# Configuration for parallelized PlotManager plots
+---
+.base_parallel_plots: !pspace
+  # creator: pyplot  (default)
+
+  module: .basic
+  plot_func: lineplot
+
+  # Define some large-enough sweep
+  x: vectors/times
+  y: !sweep
+    default: vectors/values
+    values:
+      - vectors/values
+      - vectors/more_values
+      - vectors/even_more_values
+
+  fmt: !sweep
+    default: go-
+    values:
+      - go-
+      - r+
+      - or
+      - "--"
+
+  linewidth: !sweep
+    default: 1
+    linspace: [1, 10, 10]
+
+
+# .............................................................................
+
+process: !pspace
+  based_on:
+    - .base_parallel_plots
+
+  parallel:
+    enabled: true
+    executor: process
+
+
+thread: !pspace
+  based_on:
+    - .base_parallel_plots
+
+  parallel:
+    enabled: true
+    executor: thread  # working, but slower than sequential
+
+
+single_process_fallback: !pspace
+  based_on:
+    - .base_parallel_plots
+
+  parallel:
+    enabled: true
+    executor: process
+    max_workers: 1
+
+
+rel_max_workers_definition: !pspace
+  based_on:
+    - .base_parallel_plots
+
+  parallel:
+    enabled: true
+    executor: process
+    max_workers: -1  # deduce from os.cpu_count()
+
+
+fallback: !pspace
+  based_on:
+    - .base_parallel_plots
+
+  parallel:
+    enabled: true
+    executor: process
+    fallback_on_fail: true
+
+
+benchmark_overhead: !pspace
+  based_on:
+    - .base_parallel_plots
+
+  parallel:
+    enabled: true
+    executor: process
+    benchmark_overhead: 10

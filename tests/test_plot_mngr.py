@@ -32,6 +32,7 @@ from ._fixtures import *
 PLOTS_EXT_PATH = resource_filename("tests", "cfg/plots_ext.yml")
 PLOTS_EXT2_PATH = resource_filename("tests", "cfg/plots_ext2.yml")
 PLOTS_EMPTY_PATH = resource_filename("tests", "cfg/plots_empty.yml")
+PLOTS_PARALLEL_PATH = resource_filename("tests", "cfg/plots_parallel.yml")
 BASE_EXT_PATH = resource_filename("tests", "cfg/base_ext.yml")
 UPDATE_BASE_EXT_PATH = resource_filename("tests", "cfg/update_base_ext.yml")
 BASED_ON_EXT_PATH = resource_filename("tests", "cfg/based_on_ext.yml")
@@ -40,6 +41,7 @@ BASED_ON_EXT_PATH = resource_filename("tests", "cfg/based_on_ext.yml")
 PLOTS_EXT = load_yml(PLOTS_EXT_PATH)
 PLOTS_EXT2 = load_yml(PLOTS_EXT2_PATH)
 PLOTS_EMPTY = load_yml(PLOTS_EMPTY_PATH)
+PLOTS_PARALLEL = load_yml(PLOTS_PARALLEL_PATH)
 BASE_EXT = load_yml(BASE_EXT_PATH)
 UPDATE_BASE_EXT = load_yml(UPDATE_BASE_EXT_PATH)
 BASED_ON_EXT = load_yml(BASED_ON_EXT_PATH)
@@ -64,6 +66,7 @@ def dm(tmpdir_or_local_dir) -> DataManager:
     vectors.add(NumpyDC(name="times", data=np.linspace(0, 1, vals)))
     vectors.add(NumpyDC(name="values", data=np.random.rand(vals)))
     vectors.add(NumpyDC(name="more_values", data=np.random.rand(vals)))
+    vectors.add(NumpyDC(name="even_more_values", data=np.random.rand(vals)))
 
     # Multidimensional datasets
     # TODO
@@ -786,3 +789,10 @@ def test_plot_skipping(dm, pm_kwargs):
     assert len(pm.plot_info) == 2 + 10
     assert all(pi["creator_rv"] == "skipped" for pi in pm.plot_info[-10::2])
     assert all(pi["creator_rv"] is True for pi in pm.plot_info[-9::2])
+
+
+def test_parallel_pspace_plot(dm, pm_kwargs):
+    pm_kwargs["raise_exc"] = True
+    pm = PlotManager(dm=dm, default_plots_cfg=PLOTS_PARALLEL, **pm_kwargs)
+
+    pm.plot_from_cfg()
