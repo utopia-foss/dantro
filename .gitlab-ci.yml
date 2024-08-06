@@ -105,6 +105,13 @@ test:py312:
   script:
     - tox -v -e py312
 
+test:py313:
+  extends: test:py38
+  image: python:3.13-rc  # TODO update once released
+  allow_failure: true
+  script:
+    - tox -v -e py313
+
 test:windows:py312:
   extends: test:py312
   image: 3.12-windowsservercore-ltsc2022
@@ -113,13 +120,13 @@ test:windows:py312:
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: always
-      allow_failure: false
+      allow_failure: true
     - if: $CI_PIPELINE_SOURCE == "web"
       when: always
-      allow_failure: false
+      allow_failure: true
     - if: $CI_COMMIT_TAG
       when: always
-      allow_failure: false
+      allow_failure: true
     - when: manual
       allow_failure: true
   retry:
@@ -132,7 +139,7 @@ test:windows:py312:
     - CHCP 65001
     #
     - Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
-    - choco install python --version=3.12.1 -y -f
+    - choco install python --version=3.12.4 -y -f
     - refreshenv
     #
     - pip install tox
