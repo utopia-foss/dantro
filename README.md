@@ -62,7 +62,7 @@ _Note_ that if you have both Python 2 and Python 3 installed, you might have to 
 
 | Package Name                  | Purpose                                     |
 | ----------------------------- | ------------------------------------------- |
-| [numpy][numpy] < 2.0          | For fast and versatile array operations |
+| [numpy][numpy]                | For fast and versatile array operations |
 | [xarray][xarray] >= 2022.11   | For labelled N-dimensional arrays |
 | [dask][dask]                  | To work with large data |
 | [toolz][toolz]                | For [dask.delayed][dask-delayed]
