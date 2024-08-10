@@ -25,7 +25,7 @@
 
   linewidth: !sweep
     default: 1
-    linspace: [1, 10, 10]
+    linspace: [1, 11, 6]
 
 
 # .............................................................................
@@ -68,7 +68,7 @@ rel_max_workers_definition: !pspace
     max_workers: -1  # deduce from os.cpu_count()
 
 
-fallback: !pspace
+fallback_no_fail: !pspace
   based_on:
     - .base_parallel_plots
 
@@ -86,3 +86,68 @@ benchmark_overhead: !pspace
     enabled: true
     executor: process
     benchmark_overhead: 10
+
+
+# .. Check exceptions .........................................................
+# These are set `enabled: false`, because they need to be run explicitly
+
+error_bad_executor_name: !pspace
+  enabled: false
+  based_on:
+    - .base_parallel_plots
+
+  parallel:
+    enabled: true
+    executor: some_bad_eXeCuTor_name
+
+
+error_propagates_from_thread: !pspace
+  enabled: false
+  based_on:
+    - .base_parallel_plots
+
+  some_bad_argument: this should cause an exception
+
+  parallel:
+    enabled: true
+    executor: thread
+
+
+error_propagates_from_process: !pspace
+  enabled: false
+  based_on:
+    - .base_parallel_plots
+
+  another_bad_argument: this should cause an exception
+
+  parallel:
+    enabled: true
+    executor: process
+
+
+
+fallback_with_fail: !pspace
+  enabled: false
+  based_on:
+    - .base_parallel_plots
+
+  some_bad_argument: should cause exception
+
+  parallel:
+    enabled: true
+    executor: process
+    fallback_on_fail: false
+
+
+without_exception_summary: !pspace
+  enabled: false
+  based_on:
+    - .base_parallel_plots
+
+  some_bad_argument: should cause exception
+
+  parallel:
+    enabled: true
+    executor: process
+    fallback_on_fail: false
+    show_exception_summary: false

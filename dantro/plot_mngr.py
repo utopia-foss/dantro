@@ -10,9 +10,8 @@ import logging
 import os
 import textwrap
 import time
-import warnings
 from collections import OrderedDict
-from difflib import get_close_matches as _get_close_matches
+from functools import partial
 from typing import Any, Callable, Dict, List, Literal, Sequence, Tuple, Union
 
 from paramspace import ParamDim, ParamSpace
@@ -27,7 +26,6 @@ from .plot._cfg import resolve_based_on_single as _resolve_based_on_single
 from .plot._cfg import resolve_plot_cfgs_shortcuts as _resolve_shortcuts
 from .plot.creators import ALL_PLOT_CREATORS as ALL_PCRS
 from .plot.utils import PlotFuncResolver as _PlotFuncResolver
-from .tools import ensure_dict
 from .tools import format_time as _format_time
 from .tools import load_yml, make_columns, recursive_update, write_yml
 
@@ -35,7 +33,7 @@ from .tools import load_yml, make_columns, recursive_update, write_yml
 
 log = logging.getLogger(__name__)
 
-_fmt_time = lambda seconds: _format_time(seconds, ms_precision=1)
+_fmt_time = partial(_format_time, ms_precision=1)
 
 BAD_PLOT_NAME_CHARS = tuple(
     [c for c in _BAD_NAME_CHARS if c not in ("/",)] + ["."]
@@ -777,8 +775,6 @@ class PlotManager:
                 "can only be 'process' or 'thread'."
             )
 
-        # TODO consider parsing max_workers here?
-
         # Set up environment variables
         log.remark(
             "Setting up %s (max_workers: %s) ...",
@@ -1464,7 +1460,7 @@ class PlotManager:
         # there was an error in parallel execution.
         plot_sequential = not parallel.pop("enabled", False)
         fallback_on_fail = parallel.pop("fallback_on_fail", False)
-        if not plot_sequential:
+        if not plot_sequential and n_max > 1:
             try:
                 res = self._plot_pspace_parallel(
                     from_pspace,
@@ -1483,11 +1479,24 @@ class PlotManager:
                     **parallel,
                 )
             except Exception as exc:
+                raise
+                log.error(
+                    "Parallel parameter space plot of '%s' failed!\n"
+                    "Got %s: %s\n",
+                    name,
+                    type(exc).__name__,
+                    exc,
+                )
                 if not fallback_on_fail:
+                    log.caution(
+                        "Check if the error was caused by parallel plotting "
+                        "or by the plot itself, regardless of execution.\n"
+                        "To test this, disable parallel plotting or set the "
+                        "`fallback_on_fail` flag to re-try with sequential "
+                        "execution."
+                    )
                     raise
-                # TODO log messages
-                log.error("Failed pspace parallel: %s", exc)
-                # TODO clear out dir before proceeding?!
+                log.caution("Re-trying using non-parallel plot ...")
                 plot_sequential = True
 
         if plot_sequential:
@@ -1671,6 +1680,7 @@ class PlotManager:
         #
         executor_name: Literal["thread", "process"],
         benchmark_overhead: Union[int, bool],
+        show_exception_summary: bool = True,
         **executor_kwargs,
     ) -> dict:
         """Performs parameter sweep plots in sequence."""
@@ -1684,6 +1694,7 @@ class PlotManager:
         )
         tasks = dict()
         pspace_info = dict()
+        debug = None
 
         for n, (cfg, state_no, state_vector, coords) in enumerate(it):
             log.debug("Adding '%s' plot task (%d/%d) ...", name, n + 1, n_max)
@@ -1715,8 +1726,14 @@ class PlotManager:
                 state_no=state_no, state_vector=state_vector, coords=coords
             )
 
+            # Evaluate debug flag; one `debug: true` suffices to trigger the
+            # debugging mode. If it is not set anywhere, it will remain None.
+            if not debug:
+                debug = cfg.get("debug", plot_cfg.get("debug"))
+
         # .. Parallel plotting
         futures: List[concfu.Future] = []
+        exceptions: Dict[int, Exception] = dict()
         executor = self._parallel_executor(executor_name, **executor_kwargs)
 
         with executor:
@@ -1763,12 +1780,13 @@ class PlotManager:
                 exc = future.exception()
                 if exc:
                     log.error(
-                        "Task %s failed with a %s: %s",
+                        "Parallel plotting task %s failed with a %s: %s",
                         future,
                         type(exc).__name__,
                         exc,
                     )
                     num_failed += 1
+                    exceptions[n] = exc
                     continue
 
                 # Get result
@@ -1836,6 +1854,20 @@ class PlotManager:
                         _fmt_time(etl),
                     )
 
-        # TODO summary
+        log.note(
+            "Finished parallel plotting of %d tasks (%d skipped, %d failed).",
+            len(tasks),
+            num_skipped,
+            num_failed,
+        )
 
-        return dict(num_skipped=num_skipped)
+        if exceptions:
+            should_raise = debug or (debug is None and self.raise_exc)
+            exc = ParallelPlottingError(
+                exceptions, create_summary=show_exception_summary
+            )
+            if should_raise:
+                raise exc
+            log.error(exc)
+
+        return dict(num_skipped=num_skipped, num_failed=num_failed)

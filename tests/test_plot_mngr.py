@@ -12,6 +12,7 @@ from pkg_resources import resource_filename
 
 from dantro.containers import NumpyDataContainer as NumpyDC
 from dantro.data_mngr import DataManager
+from dantro.exceptions import ParallelPlottingError
 from dantro.plot import PyPlotCreator
 from dantro.plot_mngr import (
     InvalidCreator,
@@ -791,8 +792,71 @@ def test_plot_skipping(dm, pm_kwargs):
     assert all(pi["creator_rv"] is True for pi in pm.plot_info[-9::2])
 
 
-def test_parallel_pspace_plot(dm, pm_kwargs):
+def test_parallel_pspace_plot(dm, pm_kwargs, caplog):
+    caplog.set_level(10)
+    pspace_vol = 3 * 4 * 6  # defined in plots_parallel.yml
+
     pm_kwargs["raise_exc"] = True
     pm = PlotManager(dm=dm, default_plots_cfg=PLOTS_PARALLEL, **pm_kwargs)
+    assert pm.raise_exc
 
     pm.plot_from_cfg()
+
+    # Check that parallel plotting was used by checking the log messages
+    _logs = caplog.text
+    assert "Adding 'thread' plot task" in _logs
+    assert "Adding 'process' plot task" in _logs
+    assert f"Submitting {pspace_vol} tasks to ProcessPoolExecutor" in _logs
+    assert "Benchmarking executor spawning overhead using 5 tasks" in _logs
+    assert "Executor overhead:" in _logs
+    assert "Parallel plotting now commencing ..." in _logs
+    assert f"Getting results for plot 1/{pspace_vol}" in _logs
+    # NOTE somehow not everything is captured here ... not super reliable
+
+    # Skipping is also handled
+    def plot_func_that_skips(*_, n: int = 0, skip_mod: int = 1, **__):
+        """A do-nothing function that raises SkipPlot if n % skip_mod == 0"""
+        if n % skip_mod == 0:
+            raise SkipPlot(f"{n} % {skip_mod} == 0")
+        return
+
+    pm.plot(
+        "skipping",
+        plot_func=plot_func_that_skips,
+        skip_mod=2,
+        from_pspace=psp.ParamSpace(
+            dict(n=psp.ParamDim(default=0, range=[10]))
+        ),
+        parallel=dict(enabled=True, executor="thread"),
+    )
+
+    # -- Check exceptions
+    with pytest.raises(ValueError, match="some_bad_eXeCuTor_name"):
+        pm.plot_from_cfg(plot_only=("error_bad_executor_name",))
+
+    # Errors propagate
+    with pytest.raises(ParallelPlottingError, match="some_bad_argument"):
+        pm.plot_from_cfg(plot_only=("error_propagates_from_thread",))
+
+    with pytest.raises(ParallelPlottingError, match="another_bad_argument"):
+        pm.plot_from_cfg(plot_only=("error_propagates_from_process",))
+
+    # The fallback_with_fail will still fail if the error is not due to
+    # parallel processing.
+    with pytest.raises(ParallelPlottingError, match="some_bad_argument"):
+        pm.plot_from_cfg(plot_only=("fallback_with_fail",))
+
+    with pytest.raises(ParallelPlottingError, match="See error log"):
+        pm.plot_from_cfg(plot_only=("without_exception_summary",))
+
+    # Provoke an error only in part of the parameter space
+    with pytest.raises(ParallelPlottingError, match="total of 2 exceptions"):
+        pm.plot(
+            "sometimes_failing",
+            plot_func=plot_func_that_skips,
+            skip_mod=2,
+            from_pspace=psp.ParamSpace(
+                dict(n=psp.ParamDim(default=0, values=[0, 1, "bad", 2, "X"]))
+            ),
+            parallel=dict(enabled=True, executor="thread"),
+        )
