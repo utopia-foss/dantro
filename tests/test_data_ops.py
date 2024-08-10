@@ -2,6 +2,7 @@
 
 import builtins
 import copy
+import sys
 from typing import Callable, Union
 
 import numpy as np
@@ -685,8 +686,15 @@ def test_op_expression():
     # Basics
     assert expr("1 + 2*3 / (4 - 5)") == -5.0
     assert expr("1 + 2*3 / (4 - five)", symbols=dict(five=5)) == -5.0
+    assert expr("1 + 2*3 / (4 - 5) + .1", astype="float32") == np.float32(-4.9)
     assert expr("1 + 2*3 / (4 - 5) + .1", astype=int) == -4
-    assert expr("1 + 2*3 / (4 - 5) + .1", astype="uint8") == 256 - 4
+    assert expr("1 + 2*3 / (4 - 5) + .1", astype="int8") == -4
+
+    if sys.version_info >= (3, 9):
+        with pytest.raises(
+            TypeError, match="OverflowError:.*-4 out of bounds for uint8"
+        ):
+            expr("1 + 2*3 / (4 - 5) + .1", astype="uint8")
 
     # ... also works with expr evaluating to a literal type
     assert expr("foo - foo") == 0
@@ -695,7 +703,7 @@ def test_op_expression():
 
     # XOR operator ^ is _not_ converted to exponentiation
     assert expr("2**3") == 8
-    assert expr("true^false", astype=bool) == True
+    assert expr("true^false", astype=bool) in (True, np.True_)
 
     # Expressions that retain free symbols cannot be fully evaluated
     with pytest.raises(TypeError, match="Failed casting.*free symbols.*"):

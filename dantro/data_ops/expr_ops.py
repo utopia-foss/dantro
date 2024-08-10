@@ -132,7 +132,8 @@ def expression(
             "remaining in the evaluated expression. Either specify the free "
             f"symbols (got: {', '.join(symbols) if symbols else 'none'}) or "
             "deactivate casting by specifying None as ``dtype`` argument. "
-            f"The expression evaluated to:\n\n    {res}\n"
+            f"The expression evaluated to:\n\n    {res}\n\n"
+            f"The original error was {type(exc).__name__}: {exc}\n"
         ) from exc
 
 
