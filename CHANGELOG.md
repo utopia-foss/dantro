@@ -2,6 +2,9 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.20.0b2
+- !358 adds numpy >= 2.0 compatibility.
+
 ## v0.20.0b0
 - !349 adds Windows support for dantro by ensuring paths are consistently formatted in Posix-style
 - !355 improves automatic `col_wrap` in facet grid plots by using a simple optimization routine to maximize the fill ratio of the last row of a facet grid plot while trying to stay close to a square-like grid.
