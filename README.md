@@ -120,10 +120,10 @@ For development purposes, the following additional packages are required.
 | [pytest][pytest]              | 3.4              | Testing framework        |
 | [pytest-cov][pytest-cov]      | 2.5              | Coverage report          |
 | [tox][tox]                    | 3.1              | Test environments        |
-| [Sphinx][sphinx]              | 4.*              | Documentation generator  |
-| [sphinx-book-theme][sphinx-book-theme] | 0.2.*   | Modern sphinx theme      |
+| [Sphinx][sphinx]              | 5                | Documentation generator  |
+| [sphinx-book-theme][sphinx-book-theme] |         | Modern sphinx theme      |
 | [pre-commit][pre-commit]      | 2.15             | For [commit hooks](#commit-hooks) |
-| [black][black]                | 22.3.0           | For code formatting      |
+| [black][black]                | 24.1.0           | For code formatting      |
 
 To install these development-related dependencies, enter the virtual environment, navigate to the cloned repository, and perform the installation using:
 

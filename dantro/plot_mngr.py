@@ -8,11 +8,11 @@ import copy
 import fnmatch
 import logging
 import os
+import textwrap
 import time
-import warnings
 from collections import OrderedDict
-from difflib import get_close_matches as _get_close_matches
-from typing import Any, Callable, Dict, List, Sequence, Tuple, Union
+from functools import partial
+from typing import Any, Callable, Dict, List, Literal, Sequence, Tuple, Union
 
 from paramspace import ParamDim, ParamSpace
 from pkg_resources import resource_filename as _resource_filename
@@ -33,7 +33,7 @@ from .tools import load_yml, make_columns, recursive_update, write_yml
 
 log = logging.getLogger(__name__)
 
-_fmt_time = lambda seconds: _format_time(seconds, ms_precision=1)
+_fmt_time = partial(_format_time, ms_precision=1)
 
 BAD_PLOT_NAME_CHARS = tuple(
     [c for c in _BAD_NAME_CHARS if c not in ("/",)] + ["."]
@@ -687,6 +687,102 @@ class PlotManager:
         log.debug("Plot creator call returned successfully.")
         return True
 
+    def _invoke_parallel_plot_creation(
+        self,
+        *,
+        task_key: Any,
+        plot_creator: BasePlotCreator,
+        out_path: str,
+        cfg: dict,
+        plot_cfg: dict,
+    ) -> Tuple[int, Tuple[str, str], Union[bool, str]]:
+        """Shallow wrapper around plot creator invocation, preparing arguments
+        for invocation in the context of parallel execution."""
+        import contextlib
+        import io
+
+        from .logging import DantroLogger
+
+        captured = io.StringIO("")
+        DantroLogger.change_settings(
+            divert_to=captured,
+            suppress_in_child_process=True,
+        )
+
+        with contextlib.redirect_stdout(captured):
+            rv = self._invoke_plot_creation(
+                plot_creator, out_path=out_path, **cfg, **plot_cfg
+            )
+        return task_key, captured.getvalue(), rv
+
+    def _invoke_parallel_executor_benchmark(self) -> bool:
+        """A method that is passed to a parallel executor for benchmarking
+        how long it takes to spin up a new thread or process.
+        This is especially relevant for processes, because they require that
+        the PlotManager and all accompanying objects are pickled and passed
+        to the child process, which can take a long time ...
+
+        The method itself does not perform any actions."""
+        return True
+
+    def _parse_parallel_plotting_kwargs(
+        self,
+        *,
+        enabled: bool,
+        executor: Literal["thread", "process"] = "process",
+        max_workers: Union[int, float] = None,
+        fallback_on_fail: bool = False,
+        benchmark_overhead: Union[bool, int] = 5,
+        **executor_kwargs,
+    ) -> dict:
+        """Prepares arguments for parallel plotting"""
+        if isinstance(max_workers, int):
+            if max_workers < 0:
+                max_workers = os.cpu_count() + max_workers
+
+            if max_workers <= 1:
+                enabled = False
+
+        # TODO Automatic mode? :thinking: Would need to benchmark a single plot
+
+        return dict(
+            enabled=bool(enabled),
+            fallback_on_fail=fallback_on_fail,
+            benchmark_overhead=benchmark_overhead,
+            executor_name=executor,
+            max_workers=max_workers,
+            **executor_kwargs,
+        )
+
+    def _parallel_executor(
+        self, executor_name: str, *, max_workers: int = None, **executor_kwargs
+    ) -> "concurrent.futures.Executor":
+        import concurrent.futures as concfu
+        import multiprocessing as mp
+
+        if executor_name == "process":
+            ExecutorCls = concfu.ProcessPoolExecutor
+            executor_kwargs["mp_context"] = mp.get_context(
+                executor_kwargs.get("mp_context", "fork")
+            )
+
+        elif executor_name == "thread":
+            ExecutorCls = concfu.ThreadPoolExecutor
+
+        else:
+            raise ValueError(
+                f"Executor name '{executor_name}' invalid, "
+                "can only be 'process' or 'thread'."
+            )
+
+        # Set up environment variables
+        log.remark(
+            "Setting up %s (max_workers: %s) ...",
+            ExecutorCls.__name__,
+            max_workers,
+        )
+        return ExecutorCls(max_workers=max_workers, **executor_kwargs)
+
     def _store_plot_info(
         self,
         name: str,
@@ -1121,6 +1217,7 @@ class PlotManager:
                 "default_out_dir",
                 "save_plot_cfg",
                 "creator_init_kwargs",
+                "parallel",
             )
         }
 
@@ -1140,6 +1237,7 @@ class PlotManager:
         save_plot_cfg: bool = None,
         creator_init_kwargs: dict = None,
         from_pspace: dict = None,
+        parallel: Union[dict, bool] = None,
         **plot_cfg,
     ) -> BasePlotCreator:
         """Create plot(s) from a single configuration entry.
@@ -1220,6 +1318,7 @@ class PlotManager:
             module_file=module_file,
             creator_init_kwargs=copy.deepcopy(creator_init_kwargs),
             save_plot_cfg=save_plot_cfg,
+            parallel=parallel,
         )
         plot_cfg_extras = {
             k: v for k, v in plot_cfg_extras.items() if v is not None
@@ -1347,13 +1446,143 @@ class PlotManager:
         # one directory even if the timestamp varies
         out_dir = self._parse_out_dir(out_dir, name=name)
 
+        # Parallel execution?
+        parallel = self._parse_parallel_plotting_kwargs(
+            **(
+                parallel
+                if isinstance(parallel, dict)
+                else dict(enabled=parallel)
+            )
+        )
+
+        # Evaluate whether to do this in sequence or in parallel.
+        # There is also the option to fall back to the sequential case, if
+        # there was an error in parallel execution.
+        plot_sequential = not parallel.pop("enabled", False)
+        fallback_on_fail = parallel.pop("fallback_on_fail", False)
+        if not plot_sequential and n_max > 1:
+            try:
+                res = self._plot_pspace_parallel(
+                    from_pspace,
+                    name=name,
+                    creator_name=creator,
+                    plot_creator=plot_creator,
+                    out_dir=out_dir,
+                    file_ext=file_ext,
+                    plot_cfg=plot_cfg,
+                    plot_cfg_extras=plot_cfg_extras,
+                    save_plot_cfg=save_plot_cfg,
+                    t0=t0,
+                    psp_vol=psp_vol,
+                    psp_dims=psp_dims,
+                    n_max=n_max,
+                    **parallel,
+                )
+            except Exception as exc:
+                raise
+                log.error(
+                    "Parallel parameter space plot of '%s' failed!\n"
+                    "Got %s: %s\n",
+                    name,
+                    type(exc).__name__,
+                    exc,
+                )
+                if not fallback_on_fail:
+                    log.caution(
+                        "Check if the error was caused by parallel plotting "
+                        "or by the plot itself, regardless of execution.\n"
+                        "To test this, disable parallel plotting or set the "
+                        "`fallback_on_fail` flag to re-try with sequential "
+                        "execution."
+                    )
+                    raise
+                log.caution("Re-trying using non-parallel plot ...")
+                plot_sequential = True
+
+        if plot_sequential:
+            res = self._plot_pspace(
+                from_pspace,
+                name=name,
+                creator_name=creator,
+                plot_creator=plot_creator,
+                out_dir=out_dir,
+                file_ext=file_ext,
+                plot_cfg=plot_cfg,
+                plot_cfg_extras=plot_cfg_extras,
+                save_plot_cfg=save_plot_cfg,
+                t0=t0,
+                psp_vol=psp_vol,
+                psp_dims=psp_dims,
+                n_max=n_max,
+            )
+
+        # Finished parameter space iteration.
+        num_skipped = res["num_skipped"]
+
+        # Save the plot configuration alongside, if configured to do so, and
+        # if at least one of the plots was *not* skipped and the parameter
+        # space was not zero-volume
+        if save_plot_cfg and num_skipped < n_max and psp_vol > 0:
+            self._save_plot_cfg(
+                from_pspace,
+                name=name,
+                target_dir=out_dir,
+                is_sweep=True,
+                **plot_cfg_extras,
+            )
+
+        dt = time.time() - t0
+        if not num_skipped:
+            log.progress(
+                "Performed all %d '%s' plots in %s.",
+                n_max,
+                name,
+                _fmt_time(dt),
+            )
+        else:
+            log.progress(
+                "Performed %d/%d '%s' plots in %s, skipped %d.",
+                n_max - num_skipped,
+                n_max,
+                name,
+                _fmt_time(dt),
+                num_skipped,
+            )
+        if n_max > 1 and num_skipped < n_max:
+            log.remark(
+                "Average:  %s / plot\n", _fmt_time(dt / (n_max - num_skipped))
+            )
+        else:
+            log.remark("")
+
+        # Done now. Return the plot creator object
+        return plot_creator
+
+    def _plot_pspace(
+        self,
+        from_pspace: ParamSpace,
+        *,
+        name: str,
+        creator_name: str,
+        plot_creator: BasePlotCreator,
+        out_dir: str,
+        file_ext: str,
+        plot_cfg: dict,
+        plot_cfg_extras: dict,
+        save_plot_cfg: bool,
+        t0: float,
+        psp_vol: int,
+        psp_dims: list,
+        n_max: int,
+    ) -> dict:
+        """Performs parameter sweep plots in sequence."""
+        # Keep track of how many plots are skipped
+        num_skipped = 0
+
         # Create the iterator
         it = from_pspace.iterator(
             with_info=("state_no", "state_vector", "coords")
         )
-
-        # Keep track of how many plots are skipped
-        num_skipped = 0
 
         # ...and loop over all points:
         for n, (cfg, state_no, state_vector, coords) in enumerate(it):
@@ -1401,7 +1630,7 @@ class PlotManager:
             # be saved again after the for-loop.
             self._store_plot_info(
                 name=name,
-                creator_name=creator,
+                creator_name=creator_name,
                 out_path=out_path,
                 plot_cfg=dict(**cfg, **plot_cfg),
                 plot_cfg_extras=plot_cfg_extras,
@@ -1430,33 +1659,215 @@ class PlotManager:
                         _fmt_time(etl),
                     )
 
-        # Finished parameter space iteration.
-        # Save the plot configuration alongside, if configured to do so, and
-        # if at least one of the plots was *not* skipped and the parameter
-        # space was not zero-volume
-        if save_plot_cfg and num_skipped < (n + 1) and psp_vol > 0:
-            self._save_plot_cfg(
-                from_pspace,
+        return dict(num_skipped=num_skipped)
+
+    def _plot_pspace_parallel(
+        self,
+        from_pspace: ParamSpace,
+        *,
+        name: str,
+        creator_name: str,
+        plot_creator: BasePlotCreator,
+        out_dir: str,
+        file_ext: str,
+        plot_cfg: dict,
+        plot_cfg_extras: dict,
+        save_plot_cfg: bool,
+        t0: float,
+        psp_vol: int,
+        psp_dims: list,
+        n_max: int,
+        #
+        executor_name: Literal["thread", "process"],
+        benchmark_overhead: Union[int, bool],
+        show_exception_summary: bool = True,
+        **executor_kwargs,
+    ) -> dict:
+        """Performs parameter sweep plots in sequence."""
+        import concurrent.futures as concfu
+
+        log.remark("Creating plotting tasks ...")
+
+        # .. Generate the tasks
+        it = from_pspace.iterator(
+            with_info=("state_no", "state_vector", "coords")
+        )
+        tasks = dict()
+        pspace_info = dict()
+        debug = None
+
+        for n, (cfg, state_no, state_vector, coords) in enumerate(it):
+            log.debug("Adding '%s' plot task (%d/%d) ...", name, n + 1, n_max)
+
+            # Handle the file extension parameter; it might come from the
+            # given configuration and then needs to be popped such that it
+            # is not propagated to the plot creator.
+            _file_ext = cfg.pop("file_ext", file_ext)
+
+            # Generate the output path
+            out_path = self._parse_out_path(
+                plot_creator,
                 name=name,
-                target_dir=out_dir,
-                is_sweep=True,
-                **plot_cfg_extras,
+                out_dir=out_dir,
+                file_ext=_file_ext,
+                state_no=state_no,
+                state_no_max=n_max - 1,
+                state_vector=state_vector,
+                dims=psp_dims,
             )
 
-        dt = time.time() - t0
-        if not num_skipped:
-            log.progress(
-                "Performed all '%s' plots in %s.\n", name, _fmt_time(dt)
+            tasks[state_no] = dict(
+                plot_creator=plot_creator,
+                out_path=out_path,
+                cfg=cfg,
+                plot_cfg=plot_cfg,
             )
-        else:
-            log.progress(
-                "Performed %d/%d '%s' plots in %s, skipped %d.\n",
-                (n + 1) - num_skipped,
-                n + 1,
-                name,
-                _fmt_time(dt),
-                num_skipped,
+            pspace_info[state_no] = dict(
+                state_no=state_no, state_vector=state_vector, coords=coords
             )
 
-        # Done now. Return the plot creator object
-        return plot_creator
+            # Evaluate debug flag; one `debug: true` suffices to trigger the
+            # debugging mode. If it is not set anywhere, it will remain None.
+            if not debug:
+                debug = cfg.get("debug", plot_cfg.get("debug"))
+
+        # .. Parallel plotting
+        futures: List[concfu.Future] = []
+        exceptions: Dict[int, Exception] = dict()
+        executor = self._parallel_executor(executor_name, **executor_kwargs)
+
+        with executor:
+            t0 = time.time()
+
+            if benchmark_overhead:
+                num_bfs = int(benchmark_overhead)
+                log.remark(
+                    "Benchmarking executor spawning overhead using %d tasks …",
+                    num_bfs,
+                )
+                bfs = [
+                    executor.submit(self._invoke_parallel_executor_benchmark)
+                    for i in range(num_bfs)
+                ]
+                concfu.wait(bfs)
+
+                log.note(
+                    "Executor overhead:  %s",
+                    _fmt_time((time.time() - t0) / len(bfs)),
+                )
+
+            log.remark(
+                "Submitting %d tasks to %s ...",
+                len(tasks),
+                type(executor).__name__,
+            )
+            for task_key, task_kwargs in tasks.items():
+                future = executor.submit(
+                    self._invoke_parallel_plot_creation,
+                    task_key=task_key,
+                    **task_kwargs,
+                )
+                futures.append(future)
+
+                # TODO Can add callbacks to future here perhaps?
+
+            log.note("Parallel plotting now commencing ...")
+            t1 = time.time()
+
+            num_skipped = 0
+            num_failed = 0
+            for n, future in enumerate(concfu.as_completed(futures)):
+                exc = future.exception()
+                if exc:
+                    log.error(
+                        "Parallel plotting task %s failed with a %s: %s",
+                        future,
+                        type(exc).__name__,
+                        exc,
+                    )
+                    num_failed += 1
+                    exceptions[n] = exc
+                    continue
+
+                # Get result
+                log.debug("Task completed:  %s ", future)
+                task_key, captured_stdout, rv = future.result()
+
+                # Get parameters
+                task = tasks[task_key]
+                out_path = task["out_path"]
+                cfg = task["cfg"]
+                plot_cfg = task["plot_cfg"]
+                state_no = task_key
+                state_vector = pspace_info[task_key]["state_vector"]
+                coords = pspace_info[task_key]["coords"]
+
+                # Always store plot information, regardless of skipping.
+                # Saving is enabled only for zero-volume parameter sweeps in
+                # order to have the backup file right beside the plot; the file
+                # will not be saved again after the for-loop.
+                self._store_plot_info(
+                    name=name,
+                    creator_name=creator_name,
+                    out_path=out_path,
+                    plot_cfg=dict(**cfg, **plot_cfg),
+                    plot_cfg_extras=plot_cfg_extras,
+                    state_no=state_no,
+                    state_vector=state_vector,
+                    save=(save_plot_cfg and psp_vol == 0 and rv != "skipped"),
+                    target_dir=os.path.dirname(out_path),
+                    creator_rv=rv,
+                    part_of_sweep=True,
+                )
+
+                # Inform about result
+                if rv == "skipped":
+                    num_skipped += 1
+                    log.caution("Skipped plot %d/%d.", n + 1, n_max)
+                    continue
+
+                log.progress(
+                    "Getting results for plot %d/%d ...", n + 1, n_max
+                )
+                if coords:
+                    log.note(
+                        "Coordinates:\n%s",
+                        "\n".join(
+                            "  {:>23s}:   {}".format(*kv)
+                            for kv in coords.items()
+                        ),
+                    )
+                if captured_stdout:
+                    log.remark(
+                        "Captured output:\n\n%s\n",
+                        textwrap.indent(captured_stdout, " " * 4),
+                    )
+
+                # Estimate for time remaining
+                log.progress("Finished plot %d/%d.", n + 1, n_max)
+                if (n + 1) < n_max:
+                    dt = time.time() - t1
+                    etl = dt / ((n + 1) / n_max) - dt
+                    log.note(
+                        "Estimated time needed for %d remaining plots:  %s\n\n",
+                        n_max - (n + 1),
+                        _fmt_time(etl),
+                    )
+
+        log.note(
+            "Finished parallel plotting of %d tasks (%d skipped, %d failed).",
+            len(tasks),
+            num_skipped,
+            num_failed,
+        )
+
+        if exceptions:
+            should_raise = debug or (debug is None and self.raise_exc)
+            exc = ParallelPlottingError(
+                exceptions, create_summary=show_exception_summary
+            )
+            if should_raise:
+                raise exc
+            log.error(exc)
+
+        return dict(num_skipped=num_skipped, num_failed=num_failed)

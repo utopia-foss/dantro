@@ -644,9 +644,6 @@ def test_plot_cfg_ref(cfg, tmpdir, pm_dm, pm_kwargs, pcr_pyplot_kwargs):
     cfg = cfg["plot_cfg_ref"]
     dm = pm_dm
 
-    # Use a tmpdir for the custom plot output directory
-    cfg["mngr_overview"]["my_plot"]["out_dir"] = str(tmpdir.join("overview"))
-
     # Run the examples
-    pm = PlotManager(dm=dm, raise_exc=True)
+    pm = PlotManager(dm=dm, out_dir=str(tmpdir), raise_exc=True)
     pm.plot_from_cfg(plots_cfg=cfg["mngr_overview"])

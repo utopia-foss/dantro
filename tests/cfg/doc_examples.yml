@@ -100,7 +100,7 @@ plot_cfg_ref:
       file_ext: png
 
       # Path to a custom output directory
-      out_dir: ~/my_plot_output
+      out_dir: ~  # for example: ~/my_plot_output
 
       # Whether to run this plot in debug mode. If given, overwrites the
       # default value specified in the PlotManager
@@ -123,6 +123,31 @@ plot_cfg_ref:
         # All further options are handled by the specialization's __init__
         # ...
 
+      # --- Parallelization (of ParamSpace-plots)
+      # Parallel plotting via processes
+      parallel:
+        enabled: false
+
+        # Whether to use processes (copied memory, independent)
+        # or threads (shared memory, GIL-limited)
+        executor: process          # options: process, thread
+
+        # How many processes to use; if None, uses os.cpu_count().
+        # Can also be negative (to deduce from CPU count); if 1, will not go
+        # into parallel mode.
+        max_workers: ~
+
+        # If true, retries failing parallel plot using sequential mode
+        fallback_on_fail: false
+
+        # To assess the overhead of spawning a process/thread, can precede the
+        # plot with a short benchmark where a given number of processes or
+        # threads are started (without any plotting to do).
+        benchmark_overhead: false
+
+        # If true, shows a full summary of all plotting errors.
+        show_exception_summary: true
+
       # --- Plot creator arguments
       # Any further parameters are handled by the plot creator
       # ...
@@ -135,3 +160,30 @@ plot_cfg_ref:
       x: vectors/times
       y: vectors/values
       fmt: go-
+
+
+    ### Start -- plot_mngr_parallel_plot_example
+    multiple_plots: !pspace        # -> define ParamSpace plot
+      creator: pyplot
+      module: .basic
+      plot_func: lineplot
+
+      # Enable parallel plotting via processes
+      parallel:
+        enabled: true
+        executor: process          # options: process, thread
+
+        # Advanced (and optional) parameters
+        max_workers: ~             # How many processes/threads to involve;
+                                   # if None, uses os.cpu_count()
+        fallback_on_fail: false    # If failing in parallel, retry sequentially
+        benchmark_overhead: 5      # Start 5 processes/threads and measure time
+        show_exception_summary: true  # Show detailed information on all errors
+
+      x: vectors/times
+      y: !sweep                    # -> define new sweep dimension (size 2)
+        default: vectors/values
+        values:
+          - vectors/values
+          - vectors/more_values
+    ### End ---- plot_mngr_parallel_plot_example

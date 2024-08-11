@@ -221,6 +221,28 @@ class PlotCreatorError(PlottingError):
     """Raised when an error occured in a plot creator"""
 
 
+class ParallelPlottingError(PlottingError):
+    """Raised upon error(s) in parallel plotting processes"""
+
+    def __init__(self, excs: dict, *, create_summary: bool = True):
+        self._excs = excs
+        msg = (
+            f"Parallel plotting failed! Got a total of {len(excs)} exceptions."
+        )
+        if create_summary:
+            msg += f" Exceptions summary:\n\n{self._create_summary(excs)}"
+        else:
+            msg += " See error log for more info or enable exception summary."
+        super().__init__(msg)
+
+    def _create_summary(self, excs: dict) -> str:
+        # TODO Reduce duplicates?!
+        return "\n\n".join(
+            f"  Task {t} -- {type(exc).__name__}: {exc}"
+            for t, exc in excs.items()
+        )
+
+
 # Messaging . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
 
