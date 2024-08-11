@@ -134,11 +134,12 @@ Both are using :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` (known to 
 
 Parameter sweeps in plot configurations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-With the configuration-based approach, it becomes possible to use **parameter sweeps** in the plot specification; the manager detects that it will need to create multiple plots and does so by repeatedly invoking the instantiated plot creator using the respective arguments for the respective point in the parameter space.
+With the configuration-based approach, it becomes possible to use **parameter sweeps** in the plot specification.
+If a plot configuration is a :py:class:`~paramspace.paramspace.ParamSpace`, the manager detects that it will need to create multiple plots and does so by repeatedly invoking the instantiated plot creator using the arguments for the respective point in the parameter space.
 
 .. code-block:: yaml
 
-    multiple_plots: !pspace
+    multiple_plots: !pspace   # !pspace -> creates parameter space
       creator: pyplot
       module: .basic
       plot_func: lineplot
@@ -147,14 +148,37 @@ With the configuration-based approach, it becomes possible to use **parameter sw
       x: vectors/times
 
       # Create multiple plots with different y-values
-      y: !pdim
+      y: !sweep               # !sweep  -> creates sweep dimension
         default: vectors/values
         values:
           - vectors/values
           - vectors/more_values
 
 This will create two *files*, one with ``values`` over ``times``, one with ``more_values`` over ``times``.
-By defining further ``!pdim``\ s, the combination of those parameters are each leading to a plot.
+By defining further ``!sweep``\ s, the combination of those parameters are each leading to a plot.
+
+
+.. _parallel_pspace_plots:
+
+Parallel execution of parameter space plots
+"""""""""""""""""""""""""""""""""""""""""""
+These parameter space plots are easy to parallelize:
+
+.. literalinclude:: ../../tests/cfg/doc_examples.yml
+    :language: yaml
+    :start-after: ### Start -- plot_mngr_parallel_plot_example
+    :end-before:  ### End ---- plot_mngr_parallel_plot_example
+    :dedent: 2
+
+A few things need to be taken into account when performing plots in parallel:
+
+* Plot performance depends on the chosen ``executor``:
+
+  * For ``thread``, no memory needs to be copied, but `GIL limitations <https://en.wikipedia.org/wiki/Global_interpreter_lock>`_ still apply; performance increases can only be expected by plots that have large non-Python components that are not affected by the GIL.
+  * For ``process``, the whole data tree is copied to the new process, which can be very costly. However, once that is done, the processes are completely independent, allowing large speedups.
+
+* Under the hood, :py:class:`concurrent.futures.ThreadPoolExecutor` and :py:class:`~concurrent.futures.ProcessPoolExecutor` are used.
+* The output (``stdout`` + logging) of individual plotting tasks is captured and only available once the task has finished; in the meantime there is no information on what is happening in the plot task. For that reason, it is advisable to develop and debug the actual plots in non-parallel execution mode.
 
 
 .. _plot_cfg_inheritance:

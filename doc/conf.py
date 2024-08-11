@@ -57,7 +57,7 @@ release = find_version("..", "dantro", "__init__.py")
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
-needs_sphinx = "4.5"
+needs_sphinx = "5"
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
@@ -71,7 +71,8 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.ifconfig",
     "sphinx.ext.viewcode",
-    ### Additional extensions...
+    #
+    # Additional extensions...
     #   ... to allow toggling content
     "sphinx_togglebutton",
     #   ... to pre-process Google-style Python docstrings
@@ -98,7 +99,7 @@ master_doc = "index"
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -141,7 +142,7 @@ html_theme = "sphinx_book_theme"
 html_theme_options = {
     "repository_url": "https://gitlab.com/utopia-project/dantro",
     "use_repository_button": True,
-    "use_issues_button": True,
+    "use_issues_button": False,
     "use_edit_page_button": False,  # NOTE Not working with GitLab repos yet
     "use_download_button": True,
     "use_fullscreen_button": False,

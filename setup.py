@@ -44,10 +44,11 @@ test_deps = [
 
 # Dependencies for building the dantro documentation
 doc_deps = [
-    "sphinx==4.*",
-    "sphinx-book-theme==0.3.*",
+    "sphinx>=5",
+    "sphinx-book-theme",
     "sphinx-togglebutton",
     "ipython",
+    "pickleshare",
 ]
 
 # .............................................................................
