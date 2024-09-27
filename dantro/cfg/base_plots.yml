@@ -181,8 +181,6 @@ _:
   based_on: .plot.facet_grid
   kind: scatter
 
-  edgecolor: none
-
 .plot.facet_grid.scatter3d:
   based_on:
     - .plot.facet_grid
