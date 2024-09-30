@@ -809,9 +809,11 @@ def facet_grid(
     def plot_frame(_d, *, kind: str, plot_kwargs: dict):
         """Plot a FacetGrid frame"""
         # Prepare data, getting rid of size-1 dimensions
-        # TODO check if not overkill
+        # TODO should be more explicit here, not squeezing all ...?!
+        # TODO is this even needed? The groupby will produce a non-index
+        #      coordinate, which cannot be squeezed away (generally) ...?
         if squeeze and 1 in _d.sizes.values():
-            _d = _d.squeeze()
+            _d = _d.squeeze(drop=True)
 
         # Drop unwanted non-indexed coordinates
         nonindexed_coords = [c for c in _d.coords if c not in _d.indexes]
@@ -911,11 +913,13 @@ def facet_grid(
     log.remark("%s", d.head())
 
     # Squeeze size-1 dimension coordinates to non-dimension coordinates
+    # TODO Really do this?!
     if squeeze and 1 in d.sizes.values():
         log.remark("Squeezing ...")
-        d = d.squeeze()
+        d = d.squeeze(drop=True)
 
     # Drop unwanted non-indexed coordinates
+    # TODO Do this already here or only in plot_frame?
     nonindexed_coords = [c for c in d.coords if c not in d.indexes]
     if nonindexed_coords and drop_nonindexed_coords:
         log.remark(
