@@ -1,5 +1,6 @@
 """Implements an object registry that can be specialized for certain use
 cases, e.g. to store all available container types."""
+
 import logging
 from typing import Any, Optional, Union
 

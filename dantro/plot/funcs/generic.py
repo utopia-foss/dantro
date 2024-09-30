@@ -497,6 +497,7 @@ class make_facet_grid_plot:
         general facet grid plotting function by adding it to the global
         ``_FACET_GRID_FUNCS`` dictionary.
         """
+
         # First, wrap the single-axis plot function to achieve helper support
         def wrapped_plot_func(
             *args,
@@ -963,6 +964,7 @@ def facet_grid(
 
 
 # -- Additional facet-grid supporting plots -----------------------------------
+
 
 # TODO Should support errors along x as well!
 @make_facet_grid_plot(

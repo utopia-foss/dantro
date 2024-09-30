@@ -1362,9 +1362,11 @@ class TransformationDAG:
         nodes = [self.objects[obj_hash] for obj_hash in self.nodes]
         for sort_by in to_sort_by:
             nct = [
-                (n.hashstr, n.profile[sort_by])
-                if not np.isnan(n.profile[sort_by])
-                else (n.hashstr, 0.0)
+                (
+                    (n.hashstr, n.profile[sort_by])
+                    if not np.isnan(n.profile[sort_by])
+                    else (n.hashstr, 0.0)
+                )
                 for n in nodes
             ]
             prof["sorted"][sort_by] = sorted(

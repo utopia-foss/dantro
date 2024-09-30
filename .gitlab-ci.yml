@@ -68,9 +68,9 @@ check:hooks:
 #      virtual CPUs should become required, custom tags can be set. See:
 #      https://docs.gitlab.com/ee/ci/runners/saas/linux_saas_runner.html
 
-test:py38:
+test:py39:
   stage: test
-  image: python:3.8
+  image: python:3.9
   extends:
     - .reports
   needs: []
@@ -79,34 +79,28 @@ test:py38:
   before_script:
     - pip3 install tox
   script:
-    - tox -v -e py38
-
-test:py39:
-  extends: test:py38
-  image: python:3.9
-  script:
     - tox -v -e py39
 
 test:py310:
-  extends: test:py38
+  extends: test:py39
   image: python:3.10
   script:
     - tox -v -e py310
 
 test:py311:
-  extends: test:py38
+  extends: test:py39
   image: python:3.11
   script:
     - tox -v -e py311
 
 test:py312:
-  extends: test:py38
+  extends: test:py39
   image: python:3.12
   script:
     - tox -v -e py312
 
 test:py313:
-  extends: test:py38
+  extends: test:py39
   image: python:3.13-rc  # TODO update once released
   allow_failure: true
   script:

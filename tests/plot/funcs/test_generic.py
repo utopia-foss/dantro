@@ -1,6 +1,7 @@
 """Tests the generic plotting functions, mostly the facet_grid method and the
 related functions and decorators.
 """
+
 import copy
 import logging
 import os

@@ -1809,9 +1809,11 @@ class PlotHelper:
             log.debug(
                 "Gathered %d handles and labels from %s.",
                 len(_h),
-                "the whole figure"
-                if (not h and gather_from_fig)
-                else "current axis",
+                (
+                    "the whole figure"
+                    if (not h and gather_from_fig)
+                    else "current axis"
+                ),
             )
 
             h += _h

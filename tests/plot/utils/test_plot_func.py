@@ -86,6 +86,7 @@ def test_PlotFuncResolver_resolve(tmpdir, tmp_module_file):
 
 def test_is_plot_func():
     """Test the is_plot_func decorator"""
+
     # Needs no arguments
     @is_plot_func()
     def my_func():

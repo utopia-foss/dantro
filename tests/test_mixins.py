@@ -317,6 +317,7 @@ def test_DirectInsertionModeMixin():
 
 def test_numeric_mixins():
     """Tests UnaryOperationsMixin and NumbersMixin"""
+
     # Define a test class using the NumbersMixin, which inherits the
     # UnaryOperationsMixin
     class Num(
