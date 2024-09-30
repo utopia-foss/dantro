@@ -2,7 +2,6 @@
 related functions and decorators.
 """
 
-import copy
 import logging
 import os
 from builtins import *  # to have Exception types available in globals
@@ -101,7 +100,7 @@ def associate_specifiers(
         dim_names = data.dims[::-1]
     else:
         # Probably a dataset or something similar
-        dim_names = list(data.dims.keys())[::-1]
+        dim_names = list(data.sizes.keys())[::-1]
 
     # Drop names that are not also a dimension
     dim_names = [d for d in dim_names if d in data.sizes]

@@ -808,6 +808,16 @@ def facet_grid(
     # .........................................................................
     def plot_frame(_d, *, kind: str, plot_kwargs: dict):
         """Plot a FacetGrid frame"""
+        # Prepare data, getting rid of size-1 dimensions
+        # TODO check if not overkill
+        if squeeze and 1 in _d.sizes.values():
+            _d = _d.squeeze()
+
+        # Drop unwanted non-indexed coordinates
+        nonindexed_coords = [c for c in _d.coords if c not in _d.indexes]
+        if nonindexed_coords and drop_nonindexed_coords:
+            _d = _d.drop_vars(nonindexed_coords)
+
         # Retrieve the generic or specialized plot function, depending on kind
         if kind is None:
             plot_func = _d.plot
