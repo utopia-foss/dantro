@@ -109,6 +109,7 @@ Learn more
 # .............................................................................
 # fmt: on
 
+
 # A function to extract version number from __init__.py
 def find_version(*file_paths) -> str:
     """Tries to extract a version from the given path sequence"""

@@ -45,6 +45,7 @@ yaml.register_class(DAGReference)
 yaml.register_class(DAGTag)
 yaml.register_class(DAGNode)
 
+
 # Special constructors ........................................................
 # .. For the case of a reference to the "previous" node . . . . . . . . . . . .
 def previous_DAGNode(loader, node):

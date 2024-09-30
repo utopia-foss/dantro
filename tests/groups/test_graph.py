@@ -163,7 +163,7 @@ def test_create_graph_function(graph_grps, graph_data):
         # is directed and whether it allows for parallel edges.
         if not directed and not parallel:
             edge_count = []
-            for (i, j) in _edges:
+            for i, j in _edges:
                 if (j, i) not in edge_count:
                     edge_count.append((i, j))
             assert g.number_of_edges() == len(set(edge_count))
