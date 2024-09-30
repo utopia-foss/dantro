@@ -58,7 +58,7 @@ _Note_ that if you have both Python 2 and Python 3 installed, you might have to 
 
 
 ### Dependencies
-`dantro` is implemented and tested for [Python >= 3.8][Python3] and depends on the following packages:
+`dantro` is implemented and tested for [Python >= 3.9][Python3] and depends on the following packages:
 
 | Package Name                  | Purpose                                     |
 | ----------------------------- | ------------------------------------------- |
@@ -80,7 +80,7 @@ _Note_ that if you have both Python 2 and Python 3 installed, you might have to 
 | [yayaml][yayaml]              | Working conveniently with YAML files |
 
 If not specified further, dantro does not impose lower or upper bounds on package versions.
-Effectively, dantro works with the latest versions of all dependencies and the scheduled CI jobs make sure that combination continues working.
+Effectively, dantro works with the latest versions of all dependencies and the scheduled CI jobs make sure that such a combination continues working.
 
 In case you have trouble with dependencies, make sure you have the most recent version of dantro installed.
 

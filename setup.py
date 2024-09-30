@@ -147,10 +147,11 @@ setup(
     url="https://gitlab.com/utopia-project/dantro",
     classifiers=[
         "Intended Audience :: Science/Research",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        # "Programming Language :: Python :: 3.13",  # TODO set once tests work
         "Operating System :: Microsoft :: Windows",
         "Operating System :: MacOS",
         "Operating System :: Unix",

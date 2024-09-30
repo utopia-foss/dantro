@@ -4,6 +4,7 @@
 
 ## v0.20.0b3
 - !359 fixes an error in the `.plot.facet_grid.scatter` base plot configuration.
+- !360 drops testing for Python 3.8 — while dantro (or at least most parts of it) *probably* still works for that release, it will no longer be actively tested as of v0.20 due to complications in dependency management.
 
 ## v0.20.0b2
 - !352 adds the `parallel` key to the plot configuration, allowing to execute `ParamSpace`-based plots in separate threads or processes; this can significantly speed up plot creation if there are many plots to be made (and individual plots need more time than spawning the plot executor).
