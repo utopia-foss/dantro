@@ -152,7 +152,7 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
-        # "Programming Language :: Python :: 3.13",  # TODO set once tests work
+        "Programming Language :: Python :: 3.13",
         "Operating System :: Microsoft :: Windows",
         "Operating System :: MacOS",
         "Operating System :: Unix",
@@ -166,7 +166,7 @@ setup(
     packages=find_packages(exclude=["tests.*", "tests"]),
     package_data=dict(dantro=["cfg/*.yml"]),
     data_files=[("", ["COPYING", "COPYING.LESSER", "README.md"])],
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     install_requires=install_deps,
     tests_require=test_deps,
     test_suite="py.test",

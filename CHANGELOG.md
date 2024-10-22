@@ -2,6 +2,19 @@
 
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).
 
+## v0.20.0
+- !352 adds the `parallel` key to the plot configuration, allowing to execute `ParamSpace`-based plots in separate threads or processes; this can significantly speed up plot creation if there are many plots to be made (and individual plots need more time than spawning the plot executor).
+- !358 adds numpy >= 2.0 compatibility.
+- !349 adds Windows support for dantro by ensuring paths are consistently formatted in Posix-style
+- !355 improves automatic `col_wrap` in facet grid plots by using a simple optimization routine to maximize the fill ratio of the last row of a facet grid plot while trying to stay close to a square-like grid.
+
+#### Bug fixes
+- !359 fixes an error in the `.plot.facet_grid.scatter` base plot configuration.
+
+#### Internal
+- !360 drops testing for Python 3.8 — while dantro (or at least most parts of it) *probably* still works for that release, it will no longer be actively tested as of v0.20 due to complications in dependency management.
+  The old behaviour (which may create lonely plots in the last row) is retained by setting `col_wrap: square`.
+
 ## v0.20.0b3
 - !359 fixes an error in the `.plot.facet_grid.scatter` base plot configuration.
 - !360 drops testing for Python 3.8 — while dantro (or at least most parts of it) *probably* still works for that release, it will no longer be actively tested as of v0.20 due to complications in dependency management.
