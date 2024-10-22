@@ -10,8 +10,8 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
-from pkg_resources import resource_filename
 
+from dantro._import_tools import get_resource_path
 from dantro.data_mngr import DataManager
 from dantro.plot import PlotHelper, PyPlotCreator, is_plot_func
 from dantro.plot.plot_helper import (
@@ -25,9 +25,9 @@ from dantro.plot.plot_helper import temporarily_changed_axis
 from dantro.tools import load_yml
 
 # Paths
-CFG_HELPER_PATH = resource_filename("tests", "cfg/helper_cfg.yml")
-CFG_HELPER_FUNCS_PATH = resource_filename("tests", "cfg/helper_funcs.yml")
-CFG_ANIM_PATH = resource_filename("tests", "cfg/anim_cfg.yml")
+CFG_HELPER_PATH = get_resource_path("tests", "cfg/helper_cfg.yml")
+CFG_HELPER_FUNCS_PATH = get_resource_path("tests", "cfg/helper_funcs.yml")
+CFG_ANIM_PATH = get_resource_path("tests", "cfg/anim_cfg.yml")
 
 # Configurations
 CFG_HELPER = load_yml(CFG_HELPER_PATH)

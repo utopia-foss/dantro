@@ -5,8 +5,8 @@ import copy
 import numpy as np
 import pytest
 import xarray as xr
-from pkg_resources import resource_filename
 
+from dantro._import_tools import get_resource_path
 from dantro.groups import (
     OrderedDataGroup,
     ParamSpaceGroup,
@@ -14,7 +14,7 @@ from dantro.groups import (
 )
 from dantro.tools import load_yml
 
-SELECTOR_PATH = resource_filename("tests", "cfg/selectors.yml")
+SELECTOR_PATH = get_resource_path("tests", "cfg/selectors.yml")
 
 from .._fixtures import *
 

@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 import pytest
 import seaborn as sns
-from pkg_resources import resource_filename
 
+from dantro._import_tools import get_resource_path
 from dantro.containers import PassthroughContainer, XrDataContainer
 from dantro.exceptions import PlottingError
 from dantro.plot import PlotHelper, PyPlotCreator
@@ -30,7 +30,7 @@ USE_TMPDIR = False
 TEST_OUTPUT_PATH = os.path.abspath(os.path.expanduser("~/dantro_test_output"))
 
 # Test configurations
-PLOTS_CFG_MP = load_yml(resource_filename("tests", "cfg/plots_multiplot.yml"))
+PLOTS_CFG_MP = load_yml(get_resource_path("tests", "cfg/plots_multiplot.yml"))
 
 # Disable matplotlib logger (much too verbose)
 logging.getLogger("matplotlib").setLevel(logging.WARNING)

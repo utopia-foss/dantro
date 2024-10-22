@@ -14,9 +14,9 @@ import numpy as np
 import pytest
 import seaborn as sns
 import xarray as xr
-from pkg_resources import resource_filename
 
 from dantro import DataManager, PlotManager
+from dantro._import_tools import get_resource_path
 from dantro._yaml import load_yml
 from dantro.containers import PassthroughContainer
 from dantro.exceptions import *
@@ -28,7 +28,7 @@ from dantro.plot_mngr import (
 )
 
 # The associated configuration file
-DAG_PLOTS_CONFIG = resource_filename("tests", "cfg/dag_plots.yml")
+DAG_PLOTS_CONFIG = get_resource_path("tests", "cfg/dag_plots.yml")
 
 # Set up logging, and disable some loggers (much too verbose)
 log = logging.getLogger(__name__)

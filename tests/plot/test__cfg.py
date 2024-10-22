@@ -3,13 +3,13 @@
 from pprint import pformat, pprint
 
 import pytest
-from pkg_resources import resource_filename
 
 import dantro.plot._cfg as _cfg
+from dantro._import_tools import get_resource_path
 from dantro.exceptions import *
 from dantro.tools import DoNothingContext, load_yml
 
-TEST_CFG_PATH = resource_filename("tests", "cfg/plot_cfg.yml")
+TEST_CFG_PATH = get_resource_path("tests", "cfg/plot_cfg.yml")
 
 # -- Fixtures -----------------------------------------------------------------
 

@@ -4,7 +4,6 @@ import os
 
 import matplotlib.pyplot as plt
 import pytest
-from pkg_resources import resource_filename
 
 from dantro.dag import TransformationDAG
 from dantro.data_mngr import DataManager

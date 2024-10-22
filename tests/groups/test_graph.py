@@ -9,7 +9,8 @@ import numpy as np
 import pytest
 from networkx.classes.multidigraph import MultiDiGraph
 from networkx.classes.multigraph import MultiGraph
-from pkg_resources import resource_filename
+
+from dantro._import_tools import get_resource_path
 
 # Import the dantro objects to test here
 from dantro.base import BaseDataGroup
@@ -18,7 +19,7 @@ from dantro.groups import GraphGroup, LabelledDataGroup, TimeSeriesGroup
 from dantro.tools import load_yml
 
 # Local paths
-GRAPH_GRP_PATH = resource_filename("tests", "cfg/graph_grps.yml")
+GRAPH_GRP_PATH = get_resource_path("tests", "cfg/graph_grps.yml")
 
 # Helper functions ------------------------------------------------------------
 
