@@ -101,8 +101,7 @@ test:py312:
 
 test:py313:
   extends: test:py39
-  image: python:3.13-rc  # TODO update once released
-  allow_failure: true
+  image: python:3.13
   script:
     - tox -v -e py313
 
@@ -143,7 +142,7 @@ test:windows:py312:
 # ... for building the documentation (and potentially more jobs)
 
 build:docs:
-  image: python:3.8   # to be identical to ReadTheDocs build
+  image: python:3.10   # to be identical to ReadTheDocs build
   stage: build
   allow_failure: true
   needs: []
