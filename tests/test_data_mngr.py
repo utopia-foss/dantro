@@ -7,12 +7,12 @@ import os
 import dill as pkl
 import h5py as h5
 import numpy as np
-import pkg_resources
 import pytest
 import xarray as xr
 
 import dantro.base
 import dantro.data_mngr
+from dantro._import_tools import get_resource_path
 from dantro.containers import (
     NumpyDataContainer,
     ObjectContainer,
@@ -38,7 +38,7 @@ from dantro.tools import total_bytesize, write_yml
 from .test_base import pickle_roundtrip
 
 # Local constants
-LOAD_CFG_PATH = pkg_resources.resource_filename("tests", "cfg/load_cfg.yml")
+LOAD_CFG_PATH = get_resource_path("tests", "cfg/load_cfg.yml")
 
 # Test classes ----------------------------------------------------------------
 

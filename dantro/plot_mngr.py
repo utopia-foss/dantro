@@ -15,8 +15,8 @@ from functools import partial
 from typing import Any, Callable, Dict, List, Literal, Sequence, Tuple, Union
 
 from paramspace import ParamDim, ParamSpace
-from pkg_resources import resource_filename as _resource_filename
 
+from ._import_tools import get_resource_path
 from .abc import BAD_NAME_CHARS as _BAD_NAME_CHARS
 from .data_mngr import DataManager
 from .exceptions import *
@@ -45,7 +45,7 @@ Unlike the :py:data:`~dantro.abc.BAD_NAME_CHARS`, these *allow* the ``/`` char
 (in order to not get confused with file extensions).
 """
 
-BASE_PLOTS_CFG_PATH: str = _resource_filename("dantro", "cfg/base_plots.yml")
+BASE_PLOTS_CFG_PATH: str = get_resource_path("dantro", "cfg/base_plots.yml")
 """The path to the base plot configurations pool for dantro.
 
 If the ``use_dantro_base_cfg_pool`` flag is set when initializing a

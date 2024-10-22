@@ -29,8 +29,7 @@ omit = [
 known_first_party = ["dantro"]
 known_third_party = [
     "dask", "dill", "h5py", "matplotlib", "networkx", "numpy", "paramspace",
-    "pkg_resources", "pytest", "ruamel", "scipy", "setuptools", "sympy",
-    "xarray"
+    "pytest", "ruamel", "scipy", "setuptools", "sympy", "xarray"
 ]
 
 # The following makes the effect of isort compatible to black

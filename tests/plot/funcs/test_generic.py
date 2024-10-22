@@ -13,8 +13,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 import xarray as xr
-from pkg_resources import resource_filename
 
+from dantro._import_tools import get_resource_path
 from dantro.containers import PassthroughContainer, XrDataContainer
 from dantro.exceptions import *
 from dantro.plot import PlotHelper, PyPlotCreator
@@ -38,8 +38,8 @@ skip_if_not_full = pytest.mark.skipif(
 )
 
 # Test configurations
-PLOTS_CFG_EBAR = load_yml(resource_filename("tests", "cfg/plots_ebar.yml"))
-PLOTS_CFG_FG = load_yml(resource_filename("tests", "cfg/plots_facet_grid.yml"))
+PLOTS_CFG_EBAR = load_yml(get_resource_path("tests", "cfg/plots_ebar.yml"))
+PLOTS_CFG_FG = load_yml(get_resource_path("tests", "cfg/plots_facet_grid.yml"))
 
 # Disable matplotlib logger (much too verbose)
 logging.getLogger("matplotlib").setLevel(logging.WARNING)

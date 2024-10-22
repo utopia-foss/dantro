@@ -12,13 +12,13 @@ import networkx as nx
 import numpy as np
 import pytest
 import xarray as xr
-from pkg_resources import resource_filename
 
 import dantro
 import dantro._dag_utils as dag_utils
 import dantro.dag as dag
 from dantro import DataManager
 from dantro._hash import _hash
+from dantro._import_tools import get_resource_path
 from dantro._yaml import yaml_dumps
 from dantro.base import BaseDataGroup
 from dantro.containers import (
@@ -42,9 +42,9 @@ from dantro.utils.nx import ATTR_MAPPER_OP_PREFIX_DAG
 from . import ON_WINDOWS
 
 # Test files
-DAG_SYNTAX_PATH = resource_filename("tests", "cfg/dag_syntax.yml")
-TRANSFORMATIONS_PATH = resource_filename("tests", "cfg/dag.yml")  # life-cycle
-DAG_NX_PATH = resource_filename("tests", "cfg/dag_nx.yml")
+DAG_SYNTAX_PATH = get_resource_path("tests", "cfg/dag_syntax.yml")
+TRANSFORMATIONS_PATH = get_resource_path("tests", "cfg/dag.yml")  # life-cycle
+DAG_NX_PATH = get_resource_path("tests", "cfg/dag_nx.yml")
 
 # Class Definitions -----------------------------------------------------------
 
