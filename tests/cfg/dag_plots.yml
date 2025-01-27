@@ -699,6 +699,70 @@ config_based:
     _match: bad dimension name
 
 
+  # .. MultiversePlotCreator auto_sweep feature ...............................
+
+  mpc/auto_sweep_simple:
+    plot_cfg:
+      based_on:
+        - .creator.multiverse
+        - .plot.facet_grid
+
+      # short notation
+      expected_multiverse_ndim: [2, 3, 4]
+      # equivalent to:
+      # expected_multiverse_dimensions:
+      #   required: 2
+      #   optional: 0
+      #   free: 2
+
+      # short notation
+      auto_sweep: true  # -> if beyond 4 dimensions, create sweep
+
+      select_and_combine:
+        fields:
+          data:
+            path: labelled/randints
+            transform:
+              - .mean: [!dag_prev , [x]]
+
+
+  mpc/auto_sweep_extd:
+    plot_cfg:
+      based_on:
+        - .creator.multiverse
+        - .plot.facet_grid
+
+      # more explicit notation
+      expected_multiverse_dimensions:
+        required:  # Union[int, list]
+          - [foo, bar]  # (foo OR bar)
+          - baz         # AND baz
+        optional:  # Union[int, list]
+          - spam
+        free: 1    # int
+        # TODO dimension names should allow simple wildcard matches
+        # -> supports [2, 3, 4] dimensions
+
+      # long notation
+      auto_sweep:
+        enabled: true
+        exclude:   # dimensions to never sweep over
+          - fish
+        prefer: short  # which dimensions to prefer sweeping over
+        # TODO option controlling over how many non-required to actually sweep
+        # -> if beyond 4 dimensions, will sweep
+
+        # TODO what about shared data from the whole Multiverse?!
+
+      select_and_combine:
+        fields:
+          data:
+            path: labelled/randints
+            transform:
+              - .mean: [!dag_prev , [x]]
+
+
+
 
   # .. Documentation Examples .................................................
 

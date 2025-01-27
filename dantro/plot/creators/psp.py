@@ -7,8 +7,7 @@ See :ref:`pcr_psp` for more information.
 
 import copy
 import logging
-import time
-from typing import Callable, List, Sequence, Tuple, Union
+from typing import List, Sequence, Tuple, Union
 
 import numpy as np
 from paramspace import ParamDim, ParamSpace
@@ -24,6 +23,76 @@ from .pyplot import PyPlotCreator
 log = logging.getLogger(__name__)
 
 xr = LazyLoader("xarray")
+
+
+# -----------------------------------------------------------------------------
+
+
+def _parse_subspace_selector(
+    unis: Union[str, dict], *, pspace: ParamSpace
+) -> dict:
+    """Parses a universe specifier into a ParamSpace subspace selector, such
+    that it can be used to call
+    :py:meth:`~paramspace.paramspace.ParamSpace.activate_subspace`.
+
+    Args:
+        unis (Union[str, dict]): The universe descriptor, which can be either
+            a string (``all``, ``single``, ``first``, ``last``, ``random``, or
+            ``any``) or subspace selector.
+        pspace (ParamSpace): The ParamSpace for which the selector should be
+            constructed.
+    """
+    if isinstance(unis, str):
+        if unis in ("all",):
+            # is equivalent to an empty specifier -> empty dict
+            unis = dict()
+
+        elif unis in ("single", "first", "random", "any", "last"):
+            # Find the state number from the universes available in the
+            # parameter space group. Then retrieve the coordinates from
+            # the corresponding parameter space state map
+            state_map = pspace.state_map
+            uni_ids = state_map.flat
+
+            # Select the first or a random ID
+            if unis in ("single", "first"):
+                uni_id = min(uni_ids)
+            elif unis in ("last",):
+                uni_id = max(uni_ids)
+            else:
+                uni_id = np.random.choice(uni_ids)
+
+            # Now retrieve the point from the (full) state map
+            point = state_map.where(state_map == uni_id, drop=True)
+            # NOTE Universe IDs are unique, so that's ok.
+
+            # And find its coordinates
+            unis = {k: c.item() for k, c in point.coords.items()}
+
+        else:
+            raise ValueError(
+                "Invalid value for `universes` argument. Got "
+                f"'{unis}', but expected one of: 'all', 'single', "
+                "'first', 'last', 'random', or 'any'."
+            )
+
+    elif not isinstance(unis, dict):
+        raise TypeError(
+            "Need parameter `universes` to be either a list of universe "
+            "state numbers, a string or a dictionary of subspace "
+            f"selectors, but got: {type(unis)} {unis}."
+        )
+
+    # Ensure that no invalid dimension names were provided
+    for pdim_name in unis.keys():
+        if pdim_name not in pspace.dims.keys():
+            _dim_names = ", ".join([n for n in pspace.dims])
+            raise ValueError(
+                f"No parameter dimension '{pdim_name}' available! "
+                f"Available parameter dimensions:  {_dim_names}"
+            )
+
+    return unis
 
 
 # -----------------------------------------------------------------------------
@@ -694,60 +763,7 @@ class UniversePlotCreator(PyPlotCreator):
             #      needs to be done in the approach below.
 
         # -- Case 3: Subspace selector
-        # Parse it such that it is a valid subspace selector
-        if isinstance(unis, str):
-            if unis in ("all",):
-                # is equivalent to an empty specifier -> empty dict
-                unis = dict()
-
-            elif unis in ("single", "first", "random", "any"):
-                # Find the state number from the universes available in the
-                # parameter space group. Then retrieve the coordinates from
-                # the corresponding parameter space state map
-
-                # Create a list of available universe IDs
-                uni_ids = [int(_id) for _id in self.psgrp.keys()]
-
-                # Select the first or a random ID
-                if unis in ["single", "first"]:
-                    uni_id = min(uni_ids)
-                else:
-                    uni_id = np.random.choice(uni_ids)
-
-                # Now retrieve the point from the (full) state map
-                smap = self._psp.state_map
-                point = smap.where(smap == uni_id, drop=True)
-                # NOTE Universe IDs are unique, so that's ok.
-
-                # And find its coordinates
-                unis = {k: c.item() for k, c in point.coords.items()}
-
-            else:
-                raise ValueError(
-                    "Invalid value for `universes` argument. Got "
-                    f"'{unis}', but expected one of: 'all', 'single', "
-                    "'first', 'random', or 'any'."
-                )
-
-        elif not isinstance(unis, dict):
-            raise TypeError(
-                "Need parameter `universes` to be either a list of universe "
-                "state numbers, a string or a dictionary of subspace "
-                f"selectors, but got: {type(unis)} {unis}."
-            )
-
-        # else: was a dict, can be used as a subspace selector
-
-        # Ensure that no invalid dimension names were selected
-        for pdim_name in unis.keys():
-            if pdim_name not in self._psp.dims.keys():
-                _dim_names = ", ".join([n for n in self._psp.dims])
-                raise ValueError(
-                    f"No parameter dimension '{pdim_name}' was available "
-                    "in the parameter space associated with "
-                    f"{self.psgrp.logstr}! Available parameter "
-                    f"dimensions: {_dim_names}"
-                )
+        unis: dict = _parse_subspace_selector(unis, pspace=self._psp)
 
         # Copy parameter dimension objects for each coordinate
         # As the parameter space with the coordinates has a different
