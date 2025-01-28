@@ -43,7 +43,7 @@ def find_version(*file_paths) -> str:
 # -- Project information -----------------------------------------------------
 
 project = "dantro"
-copyright = "2018 — 2024, dantro developers"
+copyright = "2018 — 2025, dantro developers"
 author = "dantro developers"
 
 # The short X.Y version

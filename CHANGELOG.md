@@ -1,6 +1,11 @@
 # Changelog
 
-`dantro` aims to adhere to [semantic versioning](https://semver.org/).
+`dantro` aims to adhere to [semantic versioning](https://semver.org/).  
+However, given the rather burst-like development on this package, features are often released immediately, sometimes also as a "patch" (`+0.0.1`) release.
+
+
+## v0.20.2
+- !364 adds the `without_edges` option to `GraphGroup.create_graph`, allowing ignore an edge container and create a graph only with nodes.
 
 ## v0.20.1
 - !362 replaces the deprecated `pkg_resources` with `importlib.resources`.

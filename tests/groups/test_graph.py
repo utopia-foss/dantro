@@ -302,6 +302,8 @@ def test_create_graph_function(graph_grps, graph_data):
         dims=("edge_idx", "type"),
     )
     g = gg.create_graph()
+    assert g.number_of_nodes() == 2
+    assert g.number_of_edges() == 1
 
     with pytest.raises(
         TypeError, match="The edge dimension might have been squeezed"
@@ -338,8 +340,17 @@ def test_create_graph_function(graph_grps, graph_data):
         coords={"bar": [42], "node_idx": [0, 1, 2]},
     )
     g = gg.create_graph(node_props=["np"], isel=dict(time=0))
+    assert g.number_of_nodes() == 3
+    assert g.number_of_edges() == 3
 
     assert g.graph == {"time": 42, "foo": 42, "bar": 42}
+
+    # -------------------------------------------------------------------------
+    # Can also generate a graph without edges, despite edge container present
+
+    g = gg.create_graph(without_edges=True)
+    assert g.number_of_nodes() == 3
+    assert g.number_of_edges() == 0
 
 
 def test_set_property_functions(graph_grps, graph_data):
