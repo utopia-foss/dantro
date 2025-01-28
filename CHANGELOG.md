@@ -4,6 +4,10 @@
 However, given the rather burst-like development on this package, features are often released immediately, sometimes also as a "patch" (`+0.0.1`) release.
 
 
+## v0.20.3 *(Work in Progress)*
+- !365 allows to specify `max_workers` for parallel plotting as a float-value that denotes the fraction of available CPUs that should be used, making plot configurations more machine-averse.
+
+
 ## v0.20.2
 - !364 adds the `without_edges` option to `GraphGroup.create_graph`, allowing ignore an edge container and create a graph only with nodes.
 
