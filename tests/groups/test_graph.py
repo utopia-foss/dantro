@@ -9,7 +9,8 @@ import numpy as np
 import pytest
 from networkx.classes.multidigraph import MultiDiGraph
 from networkx.classes.multigraph import MultiGraph
-from pkg_resources import resource_filename
+
+from dantro._import_tools import get_resource_path
 
 # Import the dantro objects to test here
 from dantro.base import BaseDataGroup
@@ -18,7 +19,7 @@ from dantro.groups import GraphGroup, LabelledDataGroup, TimeSeriesGroup
 from dantro.tools import load_yml
 
 # Local paths
-GRAPH_GRP_PATH = resource_filename("tests", "cfg/graph_grps.yml")
+GRAPH_GRP_PATH = get_resource_path("tests", "cfg/graph_grps.yml")
 
 # Helper functions ------------------------------------------------------------
 
@@ -301,6 +302,8 @@ def test_create_graph_function(graph_grps, graph_data):
         dims=("edge_idx", "type"),
     )
     g = gg.create_graph()
+    assert g.number_of_nodes() == 2
+    assert g.number_of_edges() == 1
 
     with pytest.raises(
         TypeError, match="The edge dimension might have been squeezed"
@@ -337,8 +340,17 @@ def test_create_graph_function(graph_grps, graph_data):
         coords={"bar": [42], "node_idx": [0, 1, 2]},
     )
     g = gg.create_graph(node_props=["np"], isel=dict(time=0))
+    assert g.number_of_nodes() == 3
+    assert g.number_of_edges() == 3
 
     assert g.graph == {"time": 42, "foo": 42, "bar": 42}
+
+    # -------------------------------------------------------------------------
+    # Can also generate a graph without edges, despite edge container present
+
+    g = gg.create_graph(without_edges=True)
+    assert g.number_of_nodes() == 3
+    assert g.number_of_edges() == 0
 
 
 def test_set_property_functions(graph_grps, graph_data):

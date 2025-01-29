@@ -7,12 +7,13 @@ a step-by-step instructions (similar to the other documentation examples).
 from typing import Callable
 
 import pytest
-from pkg_resources import resource_filename
+
+from dantro._import_tools import get_resource_path
 
 # Local Variables and test fixtures -------------------------------------------
 
-INTEGRATION_CFG_PATH = resource_filename("tests", "cfg/integration.yml")
-PLOTS_CFG_PATH = resource_filename("tests", "cfg/integration_plots.yml")
+INTEGRATION_CFG_PATH = get_resource_path("tests", "cfg/integration.yml")
+PLOTS_CFG_PATH = get_resource_path("tests", "cfg/integration_plots.yml")
 
 
 # -----------------------------------------------------------------------------
@@ -187,7 +188,7 @@ def test_integration(tmpdir):
     project_cfg_path = "~/my_project/project_cfg.yml"  # project configuration
     plots_cfg_path = "~/path/to/plot_cfg.yml"          # plot configurations
     # NOTE: In practice, you might want to define these paths not in this
-    #       absolute fashion but via `pkg_resources.resource_filename` function
+    #       absolute fashion but via the `importlib.resources` module
     ### End ---- data_generation_00
 
     # To not have side effects, yet allow readable examples, overwrite the

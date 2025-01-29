@@ -33,13 +33,13 @@ be any imports on the global level of this test file!
 import h5py as h5
 import numpy as np
 import pytest
-from pkg_resources import resource_filename
 
+from dantro._import_tools import get_resource_path
 from dantro.tools import load_yml
 
 # Local Variables -------------------------------------------------------------
 
-DOC_EXAMPLES_CFG = resource_filename("tests", "cfg/doc_examples.yml")
+DOC_EXAMPLES_CFG = get_resource_path("tests", "cfg/doc_examples.yml")
 
 
 # Fixtures --------------------------------------------------------------------

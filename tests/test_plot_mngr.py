@@ -8,8 +8,8 @@ from collections import OrderedDict
 import numpy as np
 import paramspace as psp
 import pytest
-from pkg_resources import resource_filename
 
+from dantro._import_tools import get_resource_path
 from dantro.containers import NumpyDataContainer as NumpyDC
 from dantro.data_mngr import DataManager
 from dantro.exceptions import ParallelPlottingError
@@ -30,13 +30,13 @@ from ._fixtures import *
 # TODO Find better names for files
 
 # Paths
-PLOTS_EXT_PATH = resource_filename("tests", "cfg/plots_ext.yml")
-PLOTS_EXT2_PATH = resource_filename("tests", "cfg/plots_ext2.yml")
-PLOTS_EMPTY_PATH = resource_filename("tests", "cfg/plots_empty.yml")
-PLOTS_PARALLEL_PATH = resource_filename("tests", "cfg/plots_parallel.yml")
-BASE_EXT_PATH = resource_filename("tests", "cfg/base_ext.yml")
-UPDATE_BASE_EXT_PATH = resource_filename("tests", "cfg/update_base_ext.yml")
-BASED_ON_EXT_PATH = resource_filename("tests", "cfg/based_on_ext.yml")
+PLOTS_EXT_PATH = get_resource_path("tests", "cfg/plots_ext.yml")
+PLOTS_EXT2_PATH = get_resource_path("tests", "cfg/plots_ext2.yml")
+PLOTS_EMPTY_PATH = get_resource_path("tests", "cfg/plots_empty.yml")
+PLOTS_PARALLEL_PATH = get_resource_path("tests", "cfg/plots_parallel.yml")
+BASE_EXT_PATH = get_resource_path("tests", "cfg/base_ext.yml")
+UPDATE_BASE_EXT_PATH = get_resource_path("tests", "cfg/update_base_ext.yml")
+BASED_ON_EXT_PATH = get_resource_path("tests", "cfg/based_on_ext.yml")
 
 # Configurations
 PLOTS_EXT = load_yml(PLOTS_EXT_PATH)

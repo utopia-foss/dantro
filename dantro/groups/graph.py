@@ -415,6 +415,9 @@ class GraphGroup(BaseDataGroup):
         at_time_idx: int = None,
         align: bool = False,
         keep_dim=None,
+        node_container: str = None,
+        edge_container: str = None,
+        without_edges: bool = False,
         **graph_kwargs,
     ) -> "networkx.Graph":
         """Create a networkx :py:class:`networkx.Graph` (or a more specialized
@@ -469,6 +472,13 @@ class GraphGroup(BaseDataGroup):
             keep_dim (optional): Iterable containing names of the dimensions
                 that can not be squeezed. Passed on to
                 :py:meth:`~dantro.groups.graph.GraphGroup._get_data_at`.
+            node_container (str, optional): If given, use this as the path for
+                the node container, not the one specified by the graph group.
+            edge_container (str, optional): If given, use this as the path for
+                the edge container, not the one specified by the graph group.
+            without_edges (bool, optional): If true, will not add edges to the
+                graph, which may be useful for very large graphs with a focus
+                on node properties.
             **graph_kwargs: Passed to the constructor of the respective
                 networkx graph object.
 
@@ -481,22 +491,28 @@ class GraphGroup(BaseDataGroup):
         # Get the node and edge data stored in the graph group
         log.debug("Checking whether node and edge data is available...")
 
+        nc_path = node_container if node_container else self.node_container
+        ec_path = edge_container if edge_container else self.edge_container
+
         node_cont = self._get_data_at(
-            data=self.node_container,
+            data=nc_path,
             sel=sel,
             isel=isel,
             at_time=at_time,
             at_time_idx=at_time_idx,
             keep_dim=keep_dim,
         )
-        edge_cont = self._get_data_at(
-            data=self.edge_container,
-            sel=sel,
-            isel=isel,
-            at_time=at_time,
-            at_time_idx=at_time_idx,
-            keep_dim=keep_dim,
-        )
+        if not without_edges:
+            edge_cont = self._get_data_at(
+                data=ec_path,
+                sel=sel,
+                isel=isel,
+                at_time=at_time,
+                at_time_idx=at_time_idx,
+                keep_dim=keep_dim,
+            )
+        else:
+            edge_cont = None
 
         # Get info on directed and parallel edges from attributes, if not
         # explicitly given
@@ -522,10 +538,11 @@ class GraphGroup(BaseDataGroup):
             g = nx.MultiDiGraph(**graph_kwargs)
 
         # Prepare the edge data. If needed, the data is transposed
-        edge_cont = self._prepare_edge_data(
-            edges=edge_cont,
-            max_tuple_size=(4 if isinstance(g, nx.MultiGraph) else 3),
-        )
+        if edge_cont is not None:
+            edge_cont = self._prepare_edge_data(
+                edges=edge_cont,
+                max_tuple_size=(4 if isinstance(g, nx.MultiGraph) else 3),
+            )
 
         # Drop missing values from the node-data and edge-data. After calling
         # `_prepare_edge_data`, the first edge-data dim should be the edge-dim.
@@ -539,7 +556,7 @@ class GraphGroup(BaseDataGroup):
                 self.node_container.logstr,
             )
 
-        if np.isnan(edge_cont).any():
+        if edge_cont is not None and np.isnan(edge_cont).any():
             edge_cont = edge_cont.dropna(dim=edge_cont.dims[0])
             log.debug(
                 "Removed entries containg missing (NaN) values along dim '%s' "
@@ -552,8 +569,11 @@ class GraphGroup(BaseDataGroup):
         log.debug("Adding nodes to the graph...")
         g.add_nodes_from(node_cont.values)
 
-        log.debug("Adding edges to the graph...")
-        g.add_edges_from(edge_cont.values)
+        if edge_cont is not None:
+            log.debug("Adding edges to the graph...")
+            g.add_edges_from(edge_cont.values)
+        else:
+            log.debug("Not adding any edges to the graph.")
 
         # Store node and edge coordinates as graph attribute for dimensions
         # of size 1; they are discarded otherwise. Since the networkx graph
@@ -566,11 +586,15 @@ class GraphGroup(BaseDataGroup):
             for d in node_cont.coords
             if node_cont.coords[d].size == 1
         }
-        edge_coords = {
-            d: edge_cont.coords[d].item()
-            for d in edge_cont.coords
-            if edge_cont.coords[d].size == 1
-        }
+        if edge_cont is not None:
+            edge_coords = {
+                d: edge_cont.coords[d].item()
+                for d in edge_cont.coords
+                if edge_cont.coords[d].size == 1
+            }
+        else:
+            edge_coords = {}
+
         # The order of the dictionary update should not matter
         g.graph.update(node_coords, **edge_coords)
 
@@ -587,7 +611,8 @@ class GraphGroup(BaseDataGroup):
                     align=align,
                     keep_dim=keep_dim,
                 )
-        if edge_props:
+
+        if edge_props and edge_cont is not None:
             for prop_name in edge_props:
                 self.set_edge_property(
                     g=g,

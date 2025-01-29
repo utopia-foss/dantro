@@ -9,15 +9,15 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
-from pkg_resources import resource_filename
 
+from dantro._import_tools import get_resource_path
 from dantro.exceptions import *
 from dantro.plot.utils import ColorManager, parse_cmap_and_norm_kwargs
 from dantro.tools import load_yml
 
 from ..._fixtures import *
 
-COLOR_MANAGER_CFG = resource_filename("tests", "cfg/color_manager_cfg.yml")
+COLOR_MANAGER_CFG = get_resource_path("tests", "cfg/color_manager_cfg.yml")
 
 # Fixtures --------------------------------------------------------------------
 

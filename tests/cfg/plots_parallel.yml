@@ -58,7 +58,7 @@ single_process_fallback: !pspace
     max_workers: 1
 
 
-rel_max_workers_definition: !pspace
+negative_max_workers_definition: !pspace
   based_on:
     - .base_parallel_plots
 
@@ -66,6 +66,16 @@ rel_max_workers_definition: !pspace
     enabled: true
     executor: process
     max_workers: -1  # deduce from os.cpu_count()
+
+
+rel_max_workers_definition: !pspace
+  based_on:
+    - .base_parallel_plots
+
+  parallel:
+    enabled: true
+    executor: process
+    max_workers: 0.5  # 50% of os.cpu_count()
 
 
 fallback_no_fail: !pspace

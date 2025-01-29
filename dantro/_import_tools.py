@@ -2,6 +2,7 @@
 
 import copy
 import importlib
+import importlib.resources
 import importlib.util
 import logging
 import os
@@ -94,6 +95,21 @@ class temporary_sys_modules:
 
 
 # -- Various import functions -------------------------------------------------
+
+
+def get_resource_path(mod: Union[str, ModuleType], path: str) -> str:
+    """Returns a path of a resource within a specified module.
+
+    Args:
+        mod (Union[str, ModuleType]): The module name or module object.
+        path (str): The resource path relative to the module
+
+    Returns:
+        str: The absolute resource path
+    """
+    mod_path = importlib.resources.files(mod)
+    res_path = mod_path / path
+    return str(res_path)
 
 
 def get_from_module(mod: ModuleType, *, name: str):
