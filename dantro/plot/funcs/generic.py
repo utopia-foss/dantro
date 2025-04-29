@@ -982,9 +982,22 @@ def facet_grid(
 
             # Apply the suptitle format string, then invoke the helper
             st_kwargs = copy.deepcopy(suptitle_kwargs)
-            st_kwargs["title"] = st_kwargs["title"].format(
-                dim=frames, value=f_value
-            )
+            try:
+                st_kwargs["title"] = st_kwargs["title"].format(
+                    dim=frames, value=f_value
+                )
+            except Exception as exc:
+                # Fall back to string-based format
+                log.warning(
+                    "Failed to format suptitle using '%s'! Got %s: %s",
+                    st_kwargs["title"],
+                    type(exc).__name__,
+                    exc,
+                )
+                st_kwargs["title"] = "{dim:s} = {value:s}".format(
+                    dim=frames, value=f_value
+                )
+
             hlpr.invoke_helper("set_suptitle", **st_kwargs)
 
             # Done with this frame. Let the writer grab it.
