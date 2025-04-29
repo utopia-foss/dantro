@@ -182,8 +182,9 @@ def determine_plot_kind(
 
 
 def determine_encoding(
-    dims: Union[List[str], Dict[str, int]],
     *,
+    sizes: Union[List[str], Dict[str, int]],
+    coords: Union[List[str], Dict[str, xr.DataArray]],
     kind: str,
     auto_encoding: Union[bool, dict],
     default_encodings: dict,
@@ -251,11 +252,16 @@ def determine_encoding(
     wrapping will happen after ``ceil(sqrt(num_cols))`` columns.
 
     Args:
-        dims (Union[List[str], Dict[str, int]]): The dimension names (and, if
+        sizes (Union[List[str], Dict[str, int]]): The dimension names (and, if
             given as dict: their sizes) that are to be encoded. If no sizes are
             provided, the assignment order will be the same as in the given
             sequence of dimension names. If sizes are given, these will be used
             to sort the dimension names in descending order of their sizes.
+            For xarray objects, ``da.sizes`` or ``ds.sizes`` should be used.
+        coords (Union[List[str], Dict[str, xr.DataArray]]): Coordinate names
+            and (optionally) values, e.g. from ``da.coords``. These are used
+            to determine which dimensions are indexed and distinguish them from
+            non-indexed dimensions (those without coordinates).
         kind (str): The chosen plot kind. If this was None, will directly
             return, because auto-encoding information is missing.
         auto_encoding (Union[bool, dict]): Whether to perform auto-encoding.
@@ -301,18 +307,33 @@ def determine_encoding(
     specs = {k: v for k, v in plot_kwargs.items() if k in encoding_specs}
     plot_kwargs = {k: v for k, v in plot_kwargs.items() if k not in specs}
 
+    # -- Determine different groups of dimensions and coordinates
+    # TODO Actually do sth with these here?!
+    # Indexed dimensions: dimensions with coordinate of the same name
+    dims_indexed = [
+        dim for dim in sizes if dim in coords and coords[dim].dims == (dim,)
+    ]
+
+    # Non-indexed dimensions: dimensions without a matching coordinate
+    dims_nonindexed = [dim for dim in sizes if dim not in dims_indexed]
+
+    # Non-indexed coordinates: coords that don't match any dimension name
+    coords_nonindexed = [name for name in coords if name not in sizes]
+
     # -- Determine specifiers, depending on kind and dimensionality
     # Get all available dimension names. If size-information is available,
     # sort them by size (descending), otherwise just use them as they are.
-    if isinstance(dims, dict):
+    if hasattr(sizes, "items"):
         dim_names = [
             name
             for name, _ in sorted(
-                dims.items(), key=lambda kv: kv[1], reverse=True
+                sizes.items(), key=lambda kv: kv[1], reverse=True
             )
         ]
     else:
-        dim_names = list(dims)
+        dim_names = list(sizes)
+
+    # TODO Warn upon non-indexed dimensions?
 
     # Some dimensions and specifiers might already have been associated;
     # determine those that have *not* yet been associated:
@@ -346,10 +367,10 @@ def determine_encoding(
         if (
             not specs.get("row")
             and specs.get("col")
-            and hasattr(dims, "items")  # i.e.: dict-like
-            and dims[specs["col"]] >= 4
+            and hasattr(sizes, "items")  # i.e.: dict-like
+            and sizes[specs["col"]] >= 4
         ):
-            num_cols = dims[specs["col"]]
+            num_cols = sizes[specs["col"]]
             col_wrap_mode = plot_kwargs["col_wrap"]
             plot_kwargs["col_wrap"] = determine_ideal_col_wrap(
                 num_cols, fill_last_row=(col_wrap_mode == "auto")
@@ -935,7 +956,8 @@ def facet_grid(
         d, kind=kind, default_kind_map=_AUTO_PLOT_KINDS, **plot_kwargs
     )
     plot_kwargs = determine_encoding(
-        d.sizes,
+        sizes=d.sizes,
+        coords=d.coords,
         kind=kind,
         auto_encoding=auto_encoding,
         default_encodings=_FACET_GRID_KINDS,

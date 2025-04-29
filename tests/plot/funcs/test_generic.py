@@ -52,27 +52,63 @@ def create_nd_data(
     *,
     shape=None,
     with_coords: bool = False,
+    extra_coords: dict = None,
     size_offset: int = 1,
-    **data_array_kwargs,
+    **da_kwargs,
 ) -> xr.DataArray:
     """Creates n-dimensional random data of a certain shape. If no shape is
     given, will use ``(2, 3, 4, ..)``. Can also add coords to the data.
     """
+
+    def gen_coords(i: int, s: int, step: int = 1) -> list:
+        return range((i + 10 * i), (i + 10 * i) + s, step)
+
     if shape is None:
         shape = tuple(i + size_offset for i in range(1, n + 1))
 
-    coord_kws = dict()
-    if with_coords:
-        dims = tuple(f"dim_{i}" for i, _ in enumerate(shape))
-        coord_kws["dims"] = dims
-        coord_kws["coords"] = {
-            dim: range((i + 10 * i), (i + 10 * i) + s)
-            for i, (dim, s) in enumerate(zip(dims, shape))
+    dims = tuple(f"dim_{i}" for i, _ in enumerate(shape))
+
+    # We want to control whether all or no dimensions have coordinates
+    dims_iter = enumerate(zip(dims, shape))
+    if with_coords is True:
+        # coordinates for all dimensions --> all dims are indexed
+        coords = {dim: gen_coords(i, s) for i, (dim, s) in dims_iter}
+
+    elif with_coords is False:
+        # no coordinates --> no indexed dimensions
+        coords = None
+
+    elif isinstance(with_coords, int):
+        # coordinates for every second dimension --> not all dims are indexed
+        coords = {
+            dim: gen_coords(i, s)
+            for i, (dim, s) in dims_iter
+            if i % with_coords == 0
         }
 
-    return xr.DataArray(
-        data=np.random.random(shape), **coord_kws, **data_array_kwargs
+    elif isinstance(with_coords, (list, tuple)):
+        # coordinates for specific dimension --> none, some or all dims indexed
+        coords = {
+            dim: gen_coords(i, s)
+            for i, (dim, s) in dims_iter
+            if dim in with_coords
+        }
+
+    else:
+        raise TypeError(
+            f"Unexpected type {type(with_coords)} for argument `with_coords`! "
+            f"Should be boolean, int, list or tuple. Value was: {with_coords}"
+        )
+
+    da = xr.DataArray(
+        data=np.random.random(shape), dims=dims, coords=coords, **da_kwargs
     )
+
+    # May want additional, non-indexed coordinates
+    if extra_coords:
+        da = da.assign_coords(**extra_coords)
+
+    return da
 
 
 def associate_specifiers(
@@ -333,7 +369,32 @@ def dm(_dm):
         *[
             XrDataContainer(
                 name=f"{n:d}D",
-                data=create_nd_data(n, with_coords=True, size_offset=5),
+                data=create_nd_data(n, with_coords=True, size_offset=4),
+            )
+            for n in range(1, 7)
+        ]
+    )
+
+    grp_labelled_alternating = _dm.new_group("labelled_alternating")
+    grp_labelled_alternating.add(
+        *[
+            XrDataContainer(
+                name=f"{n:d}D",
+                data=create_nd_data(n, with_coords=2, size_offset=4),
+            )
+            for n in range(1, 7)
+        ]
+    )
+
+    grp_labelled_extra_coords = _dm.new_group("labelled_extra_coords")
+    extra_coords = dict(foo=123, bar=1.23, baz="spam")
+    grp_labelled_extra_coords.add(
+        *[
+            XrDataContainer(
+                name=f"{n:d}D",
+                data=create_nd_data(
+                    n, with_coords=2, extra_coords=extra_coords, size_offset=4
+                ),
             )
             for n in range(1, 7)
         ]

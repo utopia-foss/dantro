@@ -38,7 +38,7 @@ no_kind:
     specifiers: [x, hue]
     max_dims: 4
     raises:
-      3: &line_plots_1d_or_2d [PlottingError, Line plots are for 1- or 2-dimensio]
+      3: &line_plots_1d_or_2d [PlottingError, Line plots are for 1- or 2-dimensional]
       4: *only_1d_and_2d
 
   line_plots_anim:
@@ -75,6 +75,28 @@ auto:
       auto_encoding: true
     raises:
       6: [PlottingError, must be a permuted list]
+
+  with_non_indexed_dims:
+    kinds: [line]
+    specifiers: []  # should not need to specify these for it to work
+    min_dims: 2
+    max_dims: 6
+    test_data_path: labelled_alternating
+    plot_kwargs:
+      auto_encoding: true
+    raises:
+      6: *line_plots_1d_or_2d
+
+  with_extra_coords:  # ... which are ignored
+    kinds: [line]
+    specifiers: []
+    min_dims: 2
+    max_dims: 6
+    test_data_path: labelled_extra_coords
+    plot_kwargs:
+      auto_encoding: true
+    raises:
+      6: *line_plots_1d_or_2d
 
   auto_col_wrap:
     kinds: [line]
