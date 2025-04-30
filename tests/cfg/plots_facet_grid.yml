@@ -87,6 +87,58 @@ auto:
     raises:
       6: *line_plots_1d_or_2d
 
+  with_size_one:  # ... which can be squeezed
+    kinds: [line]
+    specifiers: []
+    min_dims: 2
+    max_dims: 8
+    test_data_path: labelled_with_size_one
+    plot_kwargs:
+      auto_encoding: true
+      # squeeze: true  # is the default value
+    raises:
+      2: &err_no_num_data [PlottingError, "TypeError: No numeric data to plot"]
+      8: *line_plots_1d_or_2d
+
+  with_size_one_no_squeeze:
+    kinds: [line]
+    specifiers: []
+    min_dims: 2
+    max_dims: 5
+    test_data_path: labelled_with_size_one
+    plot_kwargs:
+      auto_encoding: true
+      squeeze: false
+    raises:
+      5: *line_plots_1d_or_2d
+
+  ignore_missing:
+    kinds: [line]
+    specifiers: []  # to not have row be set by test function
+    max_dims: 6
+    plot_kwargs:
+      auto_encoding: true
+      auto_encoding_options:
+        ignore_missing: true
+      hue: dim_3  # only exists for dims >= 4, would be on x usually
+    raises:
+      6: *line_plots_1d_or_2d
+
+  ignore_missing_disabled:
+    kinds: [line]
+    specifiers: []  # to not have row be set by test function
+    max_dims: 5
+    plot_kwargs:
+      auto_encoding: true
+      auto_encoding_options:
+        ignore_missing: false  # default
+      x: dim_3    # only exists for dims >= 4
+      row: dim_2  # only exists for dims >= 3
+    raises:
+      1: &err_enc_missing [PlottingError, "KeyError: 'dim_2'"]
+      2: *err_enc_missing
+      3: [PlottingError, must be one of]
+
   with_extra_coords:  # ... which are ignored
     kinds: [line]
     specifiers: []
@@ -95,6 +147,18 @@ auto:
     test_data_path: labelled_extra_coords
     plot_kwargs:
       auto_encoding: true
+    raises:
+      6: *line_plots_1d_or_2d
+
+  with_extra_coords_drop:
+    kinds: [line]
+    specifiers: []
+    min_dims: 2
+    max_dims: 6
+    test_data_path: labelled_extra_coords
+    plot_kwargs:
+      auto_encoding: true
+      drop_nonindexed_coords: true
     raises:
       6: *line_plots_1d_or_2d
 

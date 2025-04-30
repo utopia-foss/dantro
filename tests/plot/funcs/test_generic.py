@@ -400,6 +400,21 @@ def dm(_dm):
         ]
     )
 
+    grp_labelled_with_size_one = _dm.new_group("labelled_with_size_one")
+    grp_labelled_with_size_one.add(
+        *[
+            XrDataContainer(
+                name=f"{n+2:d}D",
+                data=create_nd_data(
+                    n,
+                    shape=(1,) + tuple(range(3, n + 3)) + (1,),
+                    extra_coords=extra_coords,
+                ),
+            )
+            for n in range(0, 7)
+        ]
+    )
+
     grp_ds_labelled = _dm.new_group("ds_labelled")
     grp_ds_labelled.add(
         *[

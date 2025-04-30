@@ -187,8 +187,9 @@ def determine_encoding(
     kind: str,
     auto_encoding: Union[bool, dict],
     default_encodings: dict,
-    allow_y_for_x: List[str] = ("line",),
     plot_kwargs: dict,
+    allow_y_for_x: List[str] = ("line",),
+    ignore_missing: bool = False,
 ) -> dict:
     """Determines the layout encoding for the given plot kind and the available
     data dimensions (as specified by the ``dims`` argument).
@@ -233,6 +234,28 @@ def determine_encoding(
         :end-before:  }   # --- end literalinclude
         :dedent: 4
 
+    The ``ignore_missing`` option will unset a previously set encoding if
+    that dimension does not exist in the data; a warning will be shown if this
+    was the case.
+
+    .. note::
+
+        **Background:**
+        One can distinguish different categories of xarray data dimensions,
+        most relevant for association of encodings: those *with* and those
+        *without* coordinate labels. If coordinates are available, the
+        corresponding dimension is called *indexed*, otherwise it is a
+        *non-indexed* dimension, no coordinate labels exist and hence only
+        trivial indexing is possible.
+
+        xarray objects may also contain additional (scalar) coordinate metadata
+        which has no relation to the data dimensions and is ignored here.
+
+        Furthermore, there can be additional non-scalar coordinates that *are*
+        associated with existing data dimensions, but are *not* acting as their
+        index; these run "in parallel" to the existing coordinates along that
+        dimension.
+
     This function also implements **automatic column wrapping**, aiming to
     produce a efficient figure use with column wrapping. The prerequisites
     are the following:
@@ -248,7 +271,9 @@ def determine_encoding(
     get a square-like grid.
     To skip the optimization, potentially leading to last rows that have only
     one or few subplots, set ``col_wrap`` to ``"square"``, in which case
-    wrapping will happen after ``ceil(sqrt(num_cols))`` columns.
+    wrapping will happen after ``ceil(sqrt(num_cols))`` columns; see
+    :py:func:`~dantro.plot.funcs._utils.determine_ideal_col_wrap` for more
+    information and implementation.
 
     Args:
         dims (Union[List[str], Dict[str, int]]): The dimension names (and, if
@@ -316,6 +341,25 @@ def determine_encoding(
         dim_names = list(dims)
 
     # TODO Warn upon non-indexed dimensions?
+
+    # May want to ignore specified encodings that are not available in the data
+    specs_without_dims = {
+        s: dim for s, dim in specs.items() if dim and dim not in dim_names
+    }
+    if ignore_missing and specs_without_dims:
+        log.caution(
+            "   ignoring:  %s",
+            ", ".join([f"{s}: {d}" for s, d in specs_without_dims.items()]),
+        )
+        specs = {
+            s: dim for s, dim in specs.items() if s not in specs_without_dims
+        }
+
+    elif specs_without_dims:
+        log.error(
+            "   missing:   %s  (not available in data)",
+            ", ".join([f"{s}: {d}" for s, d in specs_without_dims.items()]),
+        )
 
     # Some dimensions and specifiers might already have been associated;
     # determine those that have *not* yet been associated:
@@ -685,9 +729,10 @@ def facet_grid(
     kind: Union[str, dict] = None,
     frames: str = None,
     auto_encoding: Union[bool, dict] = False,
+    auto_encoding_options: dict = None,
     suptitle_kwargs: dict = None,
     squeeze: bool = True,
-    drop_nonindexed_coords: bool = True,
+    drop_nonindexed_coords: bool = False,
     **plot_kwargs,
 ):
     """A generic facet grid plot function for high dimensional data.
@@ -790,6 +835,7 @@ def facet_grid(
             ``dim``, ``value``. Default: ``{dim:} = {value:.3g}``.
         squeeze (bool, optional): whether to squeeze the data before plotting,
             such that size-1 dimensions do not take up encoding dimensions.
+        drop_nonindexed_coords (bool, optional): TODO
         **plot_kwargs: Passed on to ``<data>.plot`` or ``<data>.plot.<kind>``
             These should include the layout encoding specifiers (``x``, ``y``,
             ``hue``, ``col``, and/or ``row``).
@@ -916,13 +962,11 @@ def facet_grid(
     log.remark("%s", d.head())
 
     # Squeeze size-1 dimension coordinates to non-dimension coordinates
-    # TODO Really do this?!
     if squeeze and 1 in d.sizes.values():
         log.remark("Squeezing ...")
-        d = d.squeeze(drop=True)
+        d = d.squeeze()
 
     # Drop unwanted non-indexed coordinates
-    # TODO Do this already here or only in plot_frame?
     nonindexed_coords = [c for c in d.coords if c not in d.indexes]
     if nonindexed_coords and drop_nonindexed_coords:
         log.remark(
@@ -946,6 +990,7 @@ def facet_grid(
             frames=frames,
             **plot_kwargs,
         ),
+        **(auto_encoding_options if auto_encoding_options else {}),
     )
     frames = plot_kwargs.pop("frames", None)
 
