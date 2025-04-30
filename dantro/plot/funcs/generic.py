@@ -5,11 +5,8 @@ creators.
 
 import copy
 import logging
-import math
-import numbers
-import warnings
 from functools import partial as _partial
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, List, Tuple, Union
 
 import matplotlib.colors as mcolors
 
@@ -835,7 +832,8 @@ def facet_grid(
             ``dim``, ``value``. Default: ``{dim:} = {value:.3g}``.
         squeeze (bool, optional): whether to squeeze the data before plotting,
             such that size-1 dimensions do not take up encoding dimensions.
-        drop_nonindexed_coords (bool, optional): TODO
+        drop_nonindexed_coords (bool, optional): If true, non-indexed
+            coordinates will be dropped.
         **plot_kwargs: Passed on to ``<data>.plot`` or ``<data>.plot.<kind>``
             These should include the layout encoding specifiers (``x``, ``y``,
             ``hue``, ``col``, and/or ``row``).
@@ -855,19 +853,15 @@ def facet_grid(
     from .generic import _FACET_GRID_FUNCS, _FACET_GRID_KINDS
 
     # .........................................................................
-    def plot_frame(_d, *, kind: str, plot_kwargs: dict):
+    def plot_frame(
+        _d, *, kind: str, plot_kwargs: dict, groupby_dim: str = None
+    ):
         """Plot a FacetGrid frame"""
-        # Prepare data, getting rid of size-1 dimensions
-        # TODO should be more explicit here, not squeezing all ...?!
-        # TODO is this even needed? The groupby will produce a non-index
-        #      coordinate, which cannot be squeezed away (generally) ...?
-        if squeeze and 1 in _d.sizes.values():
-            _d = _d.squeeze(drop=True)
-
-        # Drop unwanted non-indexed coordinates
-        nonindexed_coords = [c for c in _d.coords if c not in _d.indexes]
-        if nonindexed_coords and drop_nonindexed_coords:
-            _d = _d.drop_vars(nonindexed_coords)
+        # Prepare data, getting rid of size-1 dimensions resulting from
+        # a potential outside groupby operation.
+        # Importantly, other dimensions should not be squeezed out here!
+        if groupby_dim:
+            _d = _d.squeeze(groupby_dim)
 
         # Retrieve the generic or specialized plot function, depending on kind
         if kind is None:
@@ -953,6 +947,35 @@ def facet_grid(
 
         # Done with this frame now.
 
+    def set_suptitle_kwargs(
+        st_kwargs: dict, dim: str, value: Any, suptitle_warning_issued
+    ) -> Tuple[dict, bool]:
+        try:
+            st_kwargs["title"] = st_kwargs["title"].format(
+                dim=dim, value=value
+            )
+        except Exception as exc:
+            # Warn (once)
+            if not suptitle_warning_issued:
+                log.caution(
+                    "Failed to format suptitle using '%s'! Got %s: %s",
+                    st_kwargs["title"],
+                    type(exc).__name__,
+                    exc,
+                )
+                log.remark(
+                    "Falling back to string-based formatting "
+                    "(not warning again)."
+                )
+                suptitle_warning_issued = True
+
+            # Fall back to string-based format
+            st_kwargs["title"] = "{dim:s} = {value:s}".format(
+                dim=dim, value=value
+            )
+
+        return st_kwargs, suptitle_warning_issued
+
     # Actual plotting routine starts here .....................................
     # Get the Dataset, DataArray, or other compatible data
     d = data["data"]
@@ -963,7 +986,10 @@ def facet_grid(
 
     # Squeeze size-1 dimension coordinates to non-dimension coordinates
     if squeeze and 1 in d.sizes.values():
-        log.remark("Squeezing ...")
+        log.remark(
+            "Squeezing ... (1-sized dimensions: %s)",
+            ", ".join(d for d, size in d.sizes.items() if size == 1),
+        )
         d = d.squeeze()
 
     # Drop unwanted non-indexed coordinates
@@ -1023,29 +1049,20 @@ def facet_grid(
     # because it would be discarded anyway.
     def update():
         """The animation update function: a python generator"""
+        suptitle_warning_issued = False
+
         # Go over all available frame data dimension
         for f_value, f_data in d.groupby(frames):
             # Plot a frame. It attaches the new figure and axes to the hlpr
-            plot_frame(f_data, kind=kind, plot_kwargs=plot_kwargs)
+            plot_frame(
+                f_data, kind=kind, plot_kwargs=plot_kwargs, groupby_dim=frames
+            )
 
-            # Apply the suptitle format string, then invoke the helper
+            # Apply the suptitle format string and invoke the helper to set it
             st_kwargs = copy.deepcopy(suptitle_kwargs)
-            try:
-                st_kwargs["title"] = st_kwargs["title"].format(
-                    dim=frames, value=f_value
-                )
-            except Exception as exc:
-                # Fall back to string-based format
-                log.warning(
-                    "Failed to format suptitle using '%s'! Got %s: %s",
-                    st_kwargs["title"],
-                    type(exc).__name__,
-                    exc,
-                )
-                st_kwargs["title"] = "{dim:s} = {value:s}".format(
-                    dim=frames, value=f_value
-                )
-
+            st_kwargs, suptitle_warning_issued = set_suptitle_kwargs(
+                st_kwargs, frames, f_value, suptitle_warning_issued
+            )
             hlpr.invoke_helper("set_suptitle", **st_kwargs)
 
             # Done with this frame. Let the writer grab it.

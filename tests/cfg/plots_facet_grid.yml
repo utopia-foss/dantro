@@ -104,13 +104,13 @@ auto:
     kinds: [line]
     specifiers: []
     min_dims: 2
-    max_dims: 5
+    max_dims: 6
     test_data_path: labelled_with_size_one
     plot_kwargs:
       auto_encoding: true
       squeeze: false
     raises:
-      5: *line_plots_1d_or_2d
+      6: *line_plots_1d_or_2d
 
   ignore_missing:
     kinds: [line]
