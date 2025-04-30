@@ -4,12 +4,19 @@
 However, given the rather burst-like development on this package, features are often released immediately, sometimes also as a "patch" (`+0.0.1`) release.
 
 
-## v0.20.3 *(Work in Progress)*
+## v0.20.3
 - !365 allows to specify `max_workers` for parallel plotting as a float-value that denotes the fraction of available CPUs that should be used, making plot configurations more machine-averse.
+- !356 adds the option to squeeze 1-sized indexed dimensions from data for `facet_grid` plots (enabled by default), effectively increasing the dimensionality the facet grid plots can handle and alleviating manual steps to do this.
+- !356 adds the `auto_encoding_options.ignore_missing` flag to facet grid plots, allowing to ignore encodings if they were specified but are missing in the data; this makes plot setups more flexible.
+  It can be enabled using the `.plot.facet_grid.with_auto_encoding.ignore_missing` base plots configuration.
+
+#### Bug fixes
+- !356 addresses upstream deprecation warnings from `groupby` operations.
+- !356 fixes a bug in the `auto_encoding` feature that led to the dimension sizes being ignored.
 
 
 ## v0.20.2
-- !364 adds the `without_edges` option to `GraphGroup.create_graph`, allowing ignore an edge container and create a graph only with nodes.
+- !364 adds the `without_edges` option to `GraphGroup.create_graph`, allowing to ignore an edge container and create a graph only with nodes.
 
 ## v0.20.1
 - !362 replaces the deprecated `pkg_resources` with `importlib.resources`.
