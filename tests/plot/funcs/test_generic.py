@@ -2,7 +2,6 @@
 related functions and decorators.
 """
 
-import copy
 import logging
 import os
 from builtins import *  # to have Exception types available in globals
@@ -49,26 +48,67 @@ logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 
 def create_nd_data(
-    n: int, *, shape=None, with_coords: bool = False, **data_array_kwargs
+    n: int,
+    *,
+    shape=None,
+    with_coords: bool = False,
+    extra_coords: dict = None,
+    size_offset: int = 1,
+    **da_kwargs,
 ) -> xr.DataArray:
     """Creates n-dimensional random data of a certain shape. If no shape is
     given, will use ``(2, 3, 4, ..)``. Can also add coords to the data.
     """
-    if shape is None:
-        shape = tuple(i + 2 for i in range(n))
 
-    coord_kws = dict()
-    if with_coords:
-        dims = tuple(f"dim_{i}" for i, _ in enumerate(shape))
-        coord_kws["dims"] = dims
-        coord_kws["coords"] = {
-            dim: range((i + 10 * i), (i + 10 * i) + s)
-            for i, (dim, s) in enumerate(zip(dims, shape))
+    def gen_coords(i: int, s: int, step: int = 1) -> list:
+        return range((i + 10 * i), (i + 10 * i) + s, step)
+
+    if shape is None:
+        shape = tuple(i + size_offset for i in range(1, n + 1))
+
+    dims = tuple(f"dim_{i}" for i, _ in enumerate(shape))
+
+    # We want to control whether all or no dimensions have coordinates
+    dims_iter = enumerate(zip(dims, shape))
+    if with_coords is True:
+        # coordinates for all dimensions --> all dims are indexed
+        coords = {dim: gen_coords(i, s) for i, (dim, s) in dims_iter}
+
+    elif with_coords is False:
+        # no coordinates --> no indexed dimensions
+        coords = None
+
+    elif isinstance(with_coords, int):
+        # coordinates for every second dimension --> not all dims are indexed
+        coords = {
+            dim: gen_coords(i, s)
+            for i, (dim, s) in dims_iter
+            if i % with_coords == 0
         }
 
-    return xr.DataArray(
-        data=np.random.random(shape), **coord_kws, **data_array_kwargs
+    elif isinstance(with_coords, (list, tuple)):
+        # coordinates for specific dimension --> none, some or all dims indexed
+        coords = {
+            dim: gen_coords(i, s)
+            for i, (dim, s) in dims_iter
+            if dim in with_coords
+        }
+
+    else:
+        raise TypeError(
+            f"Unexpected type {type(with_coords)} for argument `with_coords`! "
+            f"Should be boolean, int, list or tuple. Value was: {with_coords}"
+        )
+
+    da = xr.DataArray(
+        data=np.random.random(shape), dims=dims, coords=coords, **da_kwargs
     )
+
+    # May want additional, non-indexed coordinates
+    if extra_coords:
+        da = da.assign_coords(**extra_coords)
+
+    return da
 
 
 def associate_specifiers(
@@ -96,7 +136,11 @@ def associate_specifiers(
         dim_names = data.dims[::-1]
     else:
         # Probably a dataset or something similar
-        dim_names = list(data.dims.keys())[::-1]
+        dim_names = list(data.sizes.keys())[::-1]
+
+    # Drop names that are not also a dimension
+    dim_names = [d for d in dim_names if d in data.sizes]
+
     return {spec: dim_name for spec, dim_name in zip(specifiers, dim_names)}
 
 
@@ -126,6 +170,7 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
         min_dims = cfg.get("min_dims", 0)
         max_dims = cfg["max_dims"]
         raises = cfg.get("raises", {})
+        warns = cfg.get("warns", {})
         plot_kwargs = cfg.get("plot_kwargs", {})
         test_data_path = cfg.get("test_data_path", "ndim_da")
 
@@ -163,6 +208,12 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
                 print("    expct. raise: ", exc_type, f": '{match}'")
                 exc_type = globals()[exc_type]
                 context = pytest.raises(exc_type, match=match)
+            elif ndim in warns:
+                warn_spec = warns[ndim]
+                warn_type, match = warn_spec
+                print("    expct. warn:  ", warn_type, f": '{match}'")
+                warn_type = globals()[warn_type]
+                context = pytest.warns(warn_type, match=match)
 
             # Now, run the plot function in that context
             with context:
@@ -302,6 +353,68 @@ def dm(_dm):
         ]
     )
 
+    grp_labelled_scalar = _dm.new_group("labelled_scalar")
+    grp_labelled_scalar.add(
+        *[
+            XrDataContainer(
+                name=f"{n:d}D",
+                data=create_nd_data(n, with_coords=True, size_offset=0),
+            )
+            for n in range(1, 7)
+        ]
+    )
+
+    grp_labelled_large = _dm.new_group("labelled_large")
+    grp_labelled_large.add(
+        *[
+            XrDataContainer(
+                name=f"{n:d}D",
+                data=create_nd_data(n, with_coords=True, size_offset=4),
+            )
+            for n in range(1, 7)
+        ]
+    )
+
+    grp_labelled_alternating = _dm.new_group("labelled_alternating")
+    grp_labelled_alternating.add(
+        *[
+            XrDataContainer(
+                name=f"{n:d}D",
+                data=create_nd_data(n, with_coords=2, size_offset=4),
+            )
+            for n in range(1, 7)
+        ]
+    )
+
+    grp_labelled_extra_coords = _dm.new_group("labelled_extra_coords")
+    extra_coords = dict(foo=123, bar=1.23, baz="spam")
+    grp_labelled_extra_coords.add(
+        *[
+            XrDataContainer(
+                name=f"{n:d}D",
+                data=create_nd_data(
+                    n, with_coords=2, extra_coords=extra_coords, size_offset=4
+                ),
+            )
+            for n in range(1, 7)
+        ]
+    )
+
+    grp_labelled_with_size_one = _dm.new_group("labelled_with_size_one")
+    grp_labelled_with_size_one.add(
+        *[
+            XrDataContainer(
+                name=f"{n+2:d}D",
+                data=create_nd_data(
+                    n,
+                    shape=(1,) + tuple(range(3, n + 3)) + (1,),
+                    extra_coords=extra_coords,
+                ),
+            )
+            for n in range(0, 7)
+        ]
+    )
+
     grp_ds_labelled = _dm.new_group("ds_labelled")
     grp_ds_labelled.add(
         *[
@@ -314,6 +427,45 @@ def dm(_dm):
                         baz=create_nd_data(n, with_coords=True),
                         spam=create_nd_data(n, with_coords=True),
                         fish=create_nd_data(n, with_coords=True),
+                    )
+                ),
+            )
+            for n in range(7)
+        ]
+    )
+
+    grp_ds_labelled_scalar = _dm.new_group("ds_labelled_scalar")
+    _ds_scalar_kws = dict(with_coords=True, size_offset=0)
+    grp_ds_labelled_scalar.add(
+        *[
+            PassthroughContainer(
+                name=f"{n:d}D",
+                data=xr.Dataset(
+                    dict(
+                        foo=create_nd_data(n, **_ds_scalar_kws),
+                        bar=create_nd_data(n, **_ds_scalar_kws),
+                        baz=create_nd_data(n, **_ds_scalar_kws),
+                        spam=create_nd_data(n, **_ds_scalar_kws),
+                        fish=create_nd_data(n, **_ds_scalar_kws),
+                    )
+                ),
+            )
+            for n in range(7)
+        ]
+    )
+
+    grp_ds_labelled_scalar_sqz = _dm.new_group("ds_labelled_scalar_squeezed")
+    grp_ds_labelled_scalar_sqz.add(
+        *[
+            PassthroughContainer(
+                name=f"{n:d}D",
+                data=xr.Dataset(
+                    dict(
+                        foo=create_nd_data(n, **_ds_scalar_kws).squeeze(),
+                        bar=create_nd_data(n, **_ds_scalar_kws).squeeze(),
+                        baz=create_nd_data(n, **_ds_scalar_kws).squeeze(),
+                        spam=create_nd_data(n, **_ds_scalar_kws).squeeze(),
+                        fish=create_nd_data(n, **_ds_scalar_kws).squeeze(),
                     )
                 ),
             )

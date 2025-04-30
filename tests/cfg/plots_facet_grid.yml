@@ -38,7 +38,7 @@ no_kind:
     specifiers: [x, hue]
     max_dims: 4
     raises:
-      3: &line_plots_1d_or_2d [PlottingError, Line plots are for 1- or 2-dimensio]
+      3: &line_plots_1d_or_2d [PlottingError, Line plots are for 1- or 2-dimensional]
       4: *only_1d_and_2d
 
   line_plots_anim:
@@ -76,11 +76,98 @@ auto:
     raises:
       6: [PlottingError, must be a permuted list]
 
+  with_non_indexed_dims:
+    kinds: [line]
+    specifiers: []  # should not need to specify these for it to work
+    min_dims: 2
+    max_dims: 6
+    test_data_path: labelled_alternating
+    plot_kwargs:
+      auto_encoding: true
+    raises:
+      6: *line_plots_1d_or_2d
+
+  with_size_one:  # ... which can be squeezed
+    kinds: [line]
+    specifiers: []
+    min_dims: 2
+    max_dims: 8
+    test_data_path: labelled_with_size_one
+    plot_kwargs:
+      auto_encoding: true
+      # squeeze: true  # is the default value
+    raises:
+      2: &err_no_num_data [PlottingError, "TypeError: No numeric data to plot"]
+      8: *line_plots_1d_or_2d
+
+  with_size_one_no_squeeze:
+    kinds: [line]
+    specifiers: []
+    min_dims: 2
+    max_dims: 6
+    test_data_path: labelled_with_size_one
+    plot_kwargs:
+      auto_encoding: true
+      squeeze: false
+    raises:
+      6: *line_plots_1d_or_2d
+
+  ignore_missing:
+    kinds: [line]
+    specifiers: []  # to not have row be set by test function
+    max_dims: 6
+    plot_kwargs:
+      auto_encoding: true
+      auto_encoding_options:
+        ignore_missing: true
+      hue: dim_3  # only exists for dims >= 4, would be on x usually
+    raises:
+      6: *line_plots_1d_or_2d
+
+  ignore_missing_disabled:
+    kinds: [line]
+    specifiers: []  # to not have row be set by test function
+    max_dims: 5
+    plot_kwargs:
+      auto_encoding: true
+      auto_encoding_options:
+        ignore_missing: false  # default
+      x: dim_3    # only exists for dims >= 4
+      row: dim_2  # only exists for dims >= 3
+    raises:
+      1: &err_enc_missing [PlottingError, "KeyError: 'dim_2'"]
+      2: *err_enc_missing
+      3: [PlottingError, must be one of]
+
+  with_extra_coords:  # ... which are ignored
+    kinds: [line]
+    specifiers: []
+    min_dims: 2
+    max_dims: 6
+    test_data_path: labelled_extra_coords
+    plot_kwargs:
+      auto_encoding: true
+    raises:
+      6: *line_plots_1d_or_2d
+
+  with_extra_coords_drop:
+    kinds: [line]
+    specifiers: []
+    min_dims: 2
+    max_dims: 6
+    test_data_path: labelled_extra_coords
+    plot_kwargs:
+      auto_encoding: true
+      drop_nonindexed_coords: true
+    raises:
+      6: *line_plots_1d_or_2d
+
   auto_col_wrap:
     kinds: [line]
     specifiers: []
     min_dims: 2
     max_dims: 5
+    test_data_path: labelled_large
     plot_kwargs:
       auto_encoding:
         # to provoke early col_wrap and test custom encoding
@@ -127,6 +214,10 @@ kinds:
         set_legend:
           use_legend: true
           hiding_threshold: 2
+
+    warns:
+      3: &warn_ignore_col_wrap [UserWarning, Ignoring col_wrap]
+      4: *warn_ignore_col_wrap
 
   step:
     <<: *line
@@ -197,6 +288,20 @@ errorbars:
         set_figlegend:
           gather_from_fig: true
           hiding_threshold: 5
+
+  # scalar (1-sized) dimensions, indexing and non-indexing
+  ebars_scalar_dims:
+    <<: *ebars
+    min_dims: 2
+    test_data_path: ds_labelled_scalar
+    plot_kwargs:
+      <<: *ebars_kwargs
+      squeeze: false
+
+  ebars_scalar_dims_squeezed:
+    <<: *ebars
+    min_dims: 2
+    test_data_path: ds_labelled_scalar_squeezed
 
   # .. failing plots
   ebars_err_bad_dimensionality:

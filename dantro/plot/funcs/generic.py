@@ -5,11 +5,8 @@ creators.
 
 import copy
 import logging
-import math
-import numbers
-import warnings
 from functools import partial as _partial
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, List, Tuple, Union
 
 import matplotlib.colors as mcolors
 
@@ -187,8 +184,9 @@ def determine_encoding(
     kind: str,
     auto_encoding: Union[bool, dict],
     default_encodings: dict,
-    allow_y_for_x: List[str] = ("line",),
     plot_kwargs: dict,
+    allow_y_for_x: List[str] = ("line",),
+    ignore_missing: bool = False,
 ) -> dict:
     """Determines the layout encoding for the given plot kind and the available
     data dimensions (as specified by the ``dims`` argument).
@@ -233,6 +231,28 @@ def determine_encoding(
         :end-before:  }   # --- end literalinclude
         :dedent: 4
 
+    The ``ignore_missing`` option will unset a previously set encoding if
+    that dimension does not exist in the data; a warning will be shown if this
+    was the case.
+
+    .. note::
+
+        **Background:**
+        One can distinguish different categories of xarray data dimensions,
+        most relevant for association of encodings: those *with* and those
+        *without* coordinate labels. If coordinates are available, the
+        corresponding dimension is called *indexed*, otherwise it is a
+        *non-indexed* dimension, no coordinate labels exist and hence only
+        trivial indexing is possible.
+
+        xarray objects may also contain additional (scalar) coordinate metadata
+        which has no relation to the data dimensions and is ignored here.
+
+        Furthermore, there can be additional non-scalar coordinates that *are*
+        associated with existing data dimensions, but are *not* acting as their
+        index; these run "in parallel" to the existing coordinates along that
+        dimension.
+
     This function also implements **automatic column wrapping**, aiming to
     produce a efficient figure use with column wrapping. The prerequisites
     are the following:
@@ -248,7 +268,9 @@ def determine_encoding(
     get a square-like grid.
     To skip the optimization, potentially leading to last rows that have only
     one or few subplots, set ``col_wrap`` to ``"square"``, in which case
-    wrapping will happen after ``ceil(sqrt(num_cols))`` columns.
+    wrapping will happen after ``ceil(sqrt(num_cols))`` columns; see
+    :py:func:`~dantro.plot.funcs._utils.determine_ideal_col_wrap` for more
+    information and implementation.
 
     Args:
         dims (Union[List[str], Dict[str, int]]): The dimension names (and, if
@@ -256,6 +278,7 @@ def determine_encoding(
             provided, the assignment order will be the same as in the given
             sequence of dimension names. If sizes are given, these will be used
             to sort the dimension names in descending order of their sizes.
+            For xarray objects, ``da.sizes`` or ``ds.sizes`` should be used.
         kind (str): The chosen plot kind. If this was None, will directly
             return, because auto-encoding information is missing.
         auto_encoding (Union[bool, dict]): Whether to perform auto-encoding.
@@ -304,7 +327,7 @@ def determine_encoding(
     # -- Determine specifiers, depending on kind and dimensionality
     # Get all available dimension names. If size-information is available,
     # sort them by size (descending), otherwise just use them as they are.
-    if isinstance(dims, dict):
+    if hasattr(dims, "items"):
         dim_names = [
             name
             for name, _ in sorted(
@@ -313,6 +336,27 @@ def determine_encoding(
         ]
     else:
         dim_names = list(dims)
+
+    # TODO Warn upon non-indexed dimensions?
+
+    # May want to ignore specified encodings that are not available in the data
+    specs_without_dims = {
+        s: dim for s, dim in specs.items() if dim and dim not in dim_names
+    }
+    if ignore_missing and specs_without_dims:
+        log.caution(
+            "   ignoring:  %s",
+            ", ".join([f"{s}: {d}" for s, d in specs_without_dims.items()]),
+        )
+        specs = {
+            s: dim for s, dim in specs.items() if s not in specs_without_dims
+        }
+
+    elif specs_without_dims:
+        log.error(
+            "   missing:   %s  (not available in data)",
+            ", ".join([f"{s}: {d}" for s, d in specs_without_dims.items()]),
+        )
 
     # Some dimensions and specifiers might already have been associated;
     # determine those that have *not* yet been associated:
@@ -350,12 +394,14 @@ def determine_encoding(
             and dims[specs["col"]] >= 4
         ):
             num_cols = dims[specs["col"]]
+            col_wrap_mode = plot_kwargs["col_wrap"]
             plot_kwargs["col_wrap"] = determine_ideal_col_wrap(
-                num_cols, fill_last_row=(plot_kwargs["col_wrap"] == "auto")
+                num_cols, fill_last_row=(col_wrap_mode == "auto")
             )
             log.remark(
-                "   col_wrap:  %d  (length of col dimension: %d)",
+                "   col_wrap:  %d  (mode '%s', length of col dimension: %d)",
                 plot_kwargs["col_wrap"],
+                col_wrap_mode,
                 num_cols,
             )
         else:
@@ -680,8 +726,10 @@ def facet_grid(
     kind: Union[str, dict] = None,
     frames: str = None,
     auto_encoding: Union[bool, dict] = False,
+    auto_encoding_options: dict = None,
     suptitle_kwargs: dict = None,
     squeeze: bool = True,
+    drop_nonindexed_coords: bool = False,
     **plot_kwargs,
 ):
     """A generic facet grid plot function for high dimensional data.
@@ -784,6 +832,8 @@ def facet_grid(
             ``dim``, ``value``. Default: ``{dim:} = {value:.3g}``.
         squeeze (bool, optional): whether to squeeze the data before plotting,
             such that size-1 dimensions do not take up encoding dimensions.
+        drop_nonindexed_coords (bool, optional): If true, non-indexed
+            coordinates will be dropped.
         **plot_kwargs: Passed on to ``<data>.plot`` or ``<data>.plot.<kind>``
             These should include the layout encoding specifiers (``x``, ``y``,
             ``hue``, ``col``, and/or ``row``).
@@ -803,11 +853,15 @@ def facet_grid(
     from .generic import _FACET_GRID_FUNCS, _FACET_GRID_KINDS
 
     # .........................................................................
-    def plot_frame(_d, *, kind: str, plot_kwargs: dict):
+    def plot_frame(
+        _d, *, kind: str, plot_kwargs: dict, groupby_dim: str = None
+    ):
         """Plot a FacetGrid frame"""
-        # Squeeze size-1 dimension coordinates to non-dimension coordinates
-        if squeeze:
-            _d = _d.squeeze()
+        # Prepare data, getting rid of size-1 dimensions resulting from
+        # a potential outside groupby operation.
+        # Importantly, other dimensions should not be squeezed out here!
+        if groupby_dim:
+            _d = _d.squeeze(groupby_dim)
 
         # Retrieve the generic or specialized plot function, depending on kind
         if kind is None:
@@ -893,9 +947,59 @@ def facet_grid(
 
         # Done with this frame now.
 
+    def set_suptitle_kwargs(
+        st_kwargs: dict, dim: str, value: Any, suptitle_warning_issued
+    ) -> Tuple[dict, bool]:
+        try:
+            st_kwargs["title"] = st_kwargs["title"].format(
+                dim=dim, value=value
+            )
+        except Exception as exc:
+            # Warn (once)
+            if not suptitle_warning_issued:
+                log.caution(
+                    "Failed to format suptitle using '%s'! Got %s: %s",
+                    st_kwargs["title"],
+                    type(exc).__name__,
+                    exc,
+                )
+                log.remark(
+                    "Falling back to string-based formatting "
+                    "(not warning again)."
+                )
+                suptitle_warning_issued = True
+
+            # Fall back to string-based format
+            st_kwargs["title"] = "{dim:s} = {value:s}".format(
+                dim=dim, value=value
+            )
+
+        return st_kwargs, suptitle_warning_issued
+
     # Actual plotting routine starts here .....................................
     # Get the Dataset, DataArray, or other compatible data
     d = data["data"]
+
+    # Prepare data
+    log.note("Preparing data for facet grid plot ...")
+    log.remark("%s", d.head())
+
+    # Squeeze size-1 dimension coordinates to non-dimension coordinates
+    if squeeze and 1 in d.sizes.values():
+        log.remark(
+            "Squeezing ... (1-sized dimensions: %s)",
+            ", ".join(d for d, size in d.sizes.items() if size == 1),
+        )
+        d = d.squeeze()
+
+    # Drop unwanted non-indexed coordinates
+    nonindexed_coords = [c for c in d.coords if c not in d.indexes]
+    if nonindexed_coords and drop_nonindexed_coords:
+        log.remark(
+            "Dropping non-indexed coordinate variables:  %s",
+            ", ".join(nonindexed_coords),
+        )
+        d = d.drop_vars(nonindexed_coords)
 
     # Determine kind and encoding, updating the plot kwargs accordingly.
     # NOTE Need to pop all explicitly given specifiers in order to not have
@@ -912,6 +1016,7 @@ def facet_grid(
             frames=frames,
             **plot_kwargs,
         ),
+        **(auto_encoding_options if auto_encoding_options else {}),
     )
     frames = plot_kwargs.pop("frames", None)
 
@@ -944,15 +1049,19 @@ def facet_grid(
     # because it would be discarded anyway.
     def update():
         """The animation update function: a python generator"""
+        suptitle_warning_issued = False
+
         # Go over all available frame data dimension
         for f_value, f_data in d.groupby(frames):
             # Plot a frame. It attaches the new figure and axes to the hlpr
-            plot_frame(f_data, kind=kind, plot_kwargs=plot_kwargs)
+            plot_frame(
+                f_data, kind=kind, plot_kwargs=plot_kwargs, groupby_dim=frames
+            )
 
-            # Apply the suptitle format string, then invoke the helper
+            # Apply the suptitle format string and invoke the helper to set it
             st_kwargs = copy.deepcopy(suptitle_kwargs)
-            st_kwargs["title"] = st_kwargs["title"].format(
-                dim=frames, value=f_value
+            st_kwargs, suptitle_warning_issued = set_suptitle_kwargs(
+                st_kwargs, frames, f_value, suptitle_warning_issued
             )
             hlpr.invoke_helper("set_suptitle", **st_kwargs)
 
@@ -1063,7 +1172,10 @@ def errorbars(
     # Group by the hue dimension and perform plots. To be a bit more permissive
     # regarding data shape, squeeze out any additional dimensions that might
     # have been left over.
-    hue_iter = zip(_y.groupby(hue), _yerr.groupby(hue))
+    hue_iter = zip(
+        _y.groupby(hue, squeeze=False),
+        _yerr.groupby(hue, squeeze=False),
+    )
     for (_y_coord, _y_vals), (_yerr_coord, _yerr_vals) in hue_iter:
         _y_vals = _y_vals.squeeze(drop=True)
         _yerr_vals = _yerr_vals.squeeze(drop=True)

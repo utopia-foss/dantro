@@ -135,6 +135,11 @@ _:
   auto_encoding: true
   col_wrap: auto
 
+.plot.facet_grid.with_auto_encoding.ignore_missing:
+  based_on: .plot.facet_grid.with_auto_encoding
+  auto_encoding_options:
+    ignore_missing: true
+
 .plot.facet_grid.with_auto_kind:
   based_on: .plot.facet_grid
   kind: auto
