@@ -699,24 +699,25 @@ config_based:
     _match: bad dimension name
 
 
-  # .. MultiversePlotCreator auto_sweep feature ...............................
+  # .. files encoding .........................................................
 
-  mpc/auto_sweep_simple:
+  files/short_syntax:
     plot_cfg:
+      <<: *shared_plot_cfg
       based_on:
-        - .creator.multiverse
-        - .plot.facet_grid
+        - .creator.pyplot
+        - .plot.facet_grid.with_auto_encoding
 
       # short notation
-      expected_multiverse_ndim: [2, 3, 4]
+      expected_data_dimensions: [2, 3, 4]
       # equivalent to:
-      # expected_multiverse_dimensions:
+      # expected_data_dimensions:
       #   required: 2
       #   optional: 0
       #   free: 2
 
       # short notation
-      auto_sweep: true  # -> if beyond 4 dimensions, create sweep
+      files: true  # -> if beyond 4 dimensions, sweep over left-over dims
 
       select_and_combine:
         fields:
@@ -726,14 +727,15 @@ config_based:
               - .mean: [!dag_prev , [x]]
 
 
-  mpc/auto_sweep_extd:
+  files/long_syntax:
     plot_cfg:
+      <<: *shared_plot_cfg
       based_on:
-        - .creator.multiverse
-        - .plot.facet_grid
+        - .creator.pyplot
+        - .plot.facet_grid.with_auto_encoding
 
       # more explicit notation
-      expected_multiverse_dimensions:
+      expected_data_dimensions:
         required:  # Union[int, list]
           - [foo, bar]  # (foo OR bar)
           - baz         # AND baz
@@ -743,16 +745,14 @@ config_based:
         # TODO dimension names should allow simple wildcard matches
         # -> supports [2, 3, 4] dimensions
 
-      # long notation
-      auto_sweep:
-        enabled: true
-        exclude:   # dimensions to never sweep over
+      # long notation, allowing to supply options
+      files:
+        dims: [spam]  # dims to always create files for
+        auto: true    # whether to add left-over dims as well
+        exclude:      # dimensions to never sweep over
           - fish
-        prefer: short  # which dimensions to prefer sweeping over
-        # TODO option controlling over how many non-required to actually sweep
-        # -> if beyond 4 dimensions, will sweep
-
-        # TODO what about shared data from the whole Multiverse?!
+        sort_by: size_asc   # `dims` order
+        # TODO more here?
 
       select_and_combine:
         fields:
@@ -762,6 +762,8 @@ config_based:
               - .mean: [!dag_prev , [x]]
 
 
+    # TODO auto-encoding + explicitly defined encodings
+    # TODO without auto-encoding: for `files: true`, would absorb those
 
 
   # .. Documentation Examples .................................................
