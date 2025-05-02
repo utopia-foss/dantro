@@ -908,6 +908,7 @@ class BasePlotCreator(AbstractPlotCreator):
         output: dict = None,
         export: dict = None,
         generation: dict = None,
+        max_num_nodes: int = 256,
         **plot_kwargs,
     ) -> Union["networkx.DiGraph", None]:
         """Generates a DAG representation according to certain criteria and
@@ -982,6 +983,9 @@ class BasePlotCreator(AbstractPlotCreator):
 
             generation (dict, optional): Graph generation arguments passed to
                 :py:meth:`~dantro.dag.TransformationDAG.generate_nx_graph`.
+            max_num_nodes (int, optional): If given, do not continue with the
+                visualization if the generated graph has more than this amount
+                of nodes. Exporting is not affected by this.
             **plot_kwargs: Plotting-related arguments, passed on to
                 :py:meth:`~dantro.dag.TransformationDAG.visualize`.
 
@@ -1120,19 +1124,31 @@ class BasePlotCreator(AbstractPlotCreator):
             with exception_handling("exporting DAG representation"):
                 export_graph(g, out_path=out_path, **export)
 
-        # Plot it
+        # Plot it (if there are not too many nodes)
         if plot_enabled:
-            with exception_handling("plotting DAG representation"):
-                self._dag.visualize(g=g, out_path=out_path, **plot_kwargs)
+            if max_num_nodes and g.number_of_nodes() > max_num_nodes:
+                log.caution(
+                    "Not visualizing this DAG because there are %d nodes in "
+                    "the visualization, exceeding the configured limit of %d.",
+                    g.number_of_nodes(),
+                    max_num_nodes,
+                )
+                log.remark(
+                    "Unset `max_num_nodes` or provide a larger limit to still "
+                    "perform the visualization."
+                )
 
-                if "error" in scenario:
-                    log.caution(
-                        "Created DAG visualization for scenario '%s'. "
-                        "For debugging, inspecting the generated plot and the "
-                        "traceback information may be helpful:\n  %s",
-                        scenario,
-                        out_path,
-                    )
+            else:
+                with exception_handling("plotting DAG representation"):
+                    self._dag.visualize(g=g, out_path=out_path, **plot_kwargs)
+                    if "error" in scenario:
+                        log.caution(
+                            "Created DAG visualization for scenario '%s'. "
+                            "For debugging, inspecting the generated plot and "
+                            "the traceback information may be helpful:\n  %s",
+                            scenario,
+                            out_path,
+                        )
 
         # All done
         self._dag_vis_done_for.append(scenario)

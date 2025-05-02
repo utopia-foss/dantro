@@ -391,6 +391,15 @@ config_based:
           on_plot_error: true
           on_plot_success: true
 
+  gen_nx_graph_max_num_nodes:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        when:
+          always: true
+        max_num_nodes: 3  # -> should lead to no plot being created
+
   gen_nx_graph_full_syntax:
     # NOTE does not use default values but aims to hit many branches
     plot_cfg:
@@ -916,6 +925,10 @@ config_based:
         # Whether to raise an exception if graph generation, plotting or
         # exporting failed. If None, will use the creator's setting.
         raise_exc: ~
+
+        # Maximum number of nodes for visualization; if set, will not perform
+        # the plot if the number of nodes is exceeding this threshold.
+        max_num_nodes: ~
 
         # Whether to *additionally* export the graph
         export:
