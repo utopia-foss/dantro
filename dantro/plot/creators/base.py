@@ -24,7 +24,7 @@ from ..._hash import _hash
 from ...abc import AbstractPlotCreator
 from ...dag import TransformationDAG
 from ...data_mngr import DataManager
-from ...exceptions import PlotCreatorError, SkipPlot
+from ...exceptions import DantroMessagingException, PlotCreatorError, SkipPlot
 from ...tools import format_time as _format_time
 from ...tools import recursive_update
 
@@ -340,7 +340,7 @@ class BasePlotCreator(AbstractPlotCreator):
         """
         return plot_cfg, pspace
 
-    # .........................................................................
+    # .. Helpers ..............................................................
 
     def _prepare_path(
         self, out_path: str, *, exist_ok: Union[bool, str]
@@ -398,8 +398,7 @@ class BasePlotCreator(AbstractPlotCreator):
         """
         pass
 
-    # .........................................................................
-    # Plot argument preparation and function invocation
+    # .. Plot argument preparation and function invocation ....................
 
     def _prepare_plot_func_args(
         self, *, use_dag: bool = None, **kwargs
@@ -458,7 +457,11 @@ class BasePlotCreator(AbstractPlotCreator):
         try:
             self.plot_func(*args, **kwargs)
 
-        except:
+        except DantroMessagingException:
+            # Pass on such that it is handled in the outer scope
+            raise
+
+        except Exception:
             if self._using_dag:
                 self._generate_DAG_vis(
                     scenario="plot_error", **self._dag_vis_kwargs
@@ -473,8 +476,7 @@ class BasePlotCreator(AbstractPlotCreator):
 
         log.note("Plotting function '%s' returned.", self.plot_func_name)
 
-    # .........................................................................
-    # Data selection interface, using TransformationDAG
+    # .. Data selection interface, using TransformationDAG ....................
 
     def _perform_data_selection(
         self, *, use_dag: bool = None, plot_kwargs: dict, **shared_kwargs
@@ -893,8 +895,7 @@ class BasePlotCreator(AbstractPlotCreator):
 
         return cfg
 
-    # .........................................................................
-    # DAG Visualization
+    # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
     def _generate_DAG_vis(
         self,

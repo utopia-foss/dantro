@@ -112,26 +112,26 @@ auto:
     raises:
       6: *line_plots_1d_or_2d
 
-  ignore_missing:
+  drop_missing_dims:
     kinds: [line]
     specifiers: []  # to not have row be set by test function
     max_dims: 6
     plot_kwargs:
       auto_encoding: true
       auto_encoding_options:
-        ignore_missing: true
+        drop_missing_dims: true
       hue: dim_3  # only exists for dims >= 4, would be on x usually
     raises:
       6: *line_plots_1d_or_2d
 
-  ignore_missing_disabled:
+  drop_missing_dims_disabled:
     kinds: [line]
     specifiers: []  # to not have row be set by test function
     max_dims: 5
     plot_kwargs:
       auto_encoding: true
       auto_encoding_options:
-        ignore_missing: false  # default
+        drop_missing_dims: false  # default
       x: dim_3    # only exists for dims >= 4
       row: dim_2  # only exists for dims >= 3
     raises:
@@ -267,6 +267,7 @@ kinds:
   # NOTE errorbars and scatter3d kinds are tested separately below
 
 
+# .. Specific plot kinds ......................................................
 # .. errorbar plots . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 errorbars:
   ebars_simple: &ebars

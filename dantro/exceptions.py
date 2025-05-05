@@ -258,6 +258,24 @@ class SkipPlot(DantroMessagingException):
         super().__init__(what)
 
 
+class UpdatePlotConfig(DantroMessagingException):
+    """A custom exception class that allows to update the plot configuration
+    from a lower level and causes the plot to start over with dynamically
+    updated parameters. The exception itself is handled in
+    :py:method:`dantro.plot_mngr.PlotManager.plot` and can thus be raised
+    anywhere below it: in the plot creators, in the user-defined plotting
+    functions, ...
+    """
+
+    def __init__(self, context: str = None, **plot_cfg_updates):
+        super().__init__(
+            f"{type(self).__name__} messaging exception raised "
+            f"(context: {context})\n\nPlot config updates:  {plot_cfg_updates}"
+        )
+        self.context = context
+        self.plot_cfg_updates = dict(plot_cfg_updates)
+
+
 class EnterAnimationMode(DantroMessagingException):
     """An exception that is used to convey to any
     :py:class:`~dantro.plot.creators.pyplot.PyPlotCreator` or derived

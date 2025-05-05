@@ -50,9 +50,12 @@ def _parse_subspace_selector(
         elif unis in ("single", "first", "random", "any", "last"):
             # Find the state number from the universes available in the
             # parameter space group. Then retrieve the coordinates from
-            # the corresponding parameter space state map
-            state_map = pspace.state_map
-            uni_ids = state_map.flat
+            # the corresponding parameter space state map.
+            # Need to take care to not use masked values.
+            state_map = pspace.state_map.isel(
+                {d: slice(1, None) for d in pspace.state_map.dims}
+            )
+            uni_ids = state_map.values.flatten().tolist()
 
             # Select the first or a random ID
             if unis in ("single", "first"):
@@ -77,6 +80,7 @@ def _parse_subspace_selector(
             )
 
     elif not isinstance(unis, dict):
+        # NOTE The list-case is already handled outside this function
         raise TypeError(
             "Need parameter `universes` to be either a list of universe "
             "state numbers, a string or a dictionary of subspace "

@@ -25,6 +25,7 @@ from dantro.plot.funcs.generic import (
     determine_plot_kind,
     facet_grid,
     make_facet_grid_plot,
+    map_dims_to_encoding,
 )
 from dantro.tools import DoNothingContext, load_yml
 
@@ -175,7 +176,7 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
         test_data_path = cfg.get("test_data_path", "ndim_da")
 
         print(
-            "Testing scenario '{}' with {}…{}-dimensional data ...".format(
+            "\n\nTesting scenario '{}' with {}…{}-dimensional data ...".format(
                 case_name, min_dims, max_dims
             )
         )
@@ -193,7 +194,7 @@ def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
         # Now, iterate over these combinations
         for kind, (cont_name, cont) in product(kinds_it, conts_it):
             aspecs = associate_specifiers(cont, specifiers=specifiers)
-            print("... with data:    ", cont)
+            print("\n... with data:    ", cont)
             print("    plot_kwargs:  ", plot_kwargs)
             print("    kind:         ", kind)
             print("    and spec map: ", aspecs)
@@ -529,6 +530,164 @@ def test_determine_plot_kind():
         dpk("not_an_array", kind="auto", default_kind_map=dict())
 
 
+def test_map_dims_to_encoding():
+    # Some shortcuts to make test definitions shorter
+    mp = map_dims_to_encoding
+    tp = tuple
+    dt = dict
+
+    # Simple assignments
+    #            encodings  dimensions      (mapped, free specs, free dims)
+    assert mp(tp("ABC"), tp("abc")) == (dt(A="a", B="b", C="c"), [], [])
+    assert mp(tp("ABC"), tp("cab")) == (dt(A="c", B="a", C="b"), [], [])
+    assert mp(tp("A"), tp("cab")) == (dt(A="c"), [], ["a", "b"])
+    assert mp(tp("ABC"), tp("c")) == (dt(A="c"), [("B", 1), ("C", 1)], [])
+    assert mp(tp(), tp()) == (dt(), [], [])
+
+    # Multi-dim encodings by naming an encoding multiple times
+    assert mp(tp("ABA"), tp("abcd")) == (dt(A=tp("ac"), B="b"), [], ["d"])
+    assert mp(tp("AAA"), tp("a")) == (dt(A=tp("a")), [("A", 1), ("A", 1)], [])
+
+    # Ellipses
+    assert mp(("A", "B", ("C", ...)), tp("abcdefgh")) == (
+        dt(A="a", B="b", C=tp("cdefgh")),
+        [],
+        [],
+    )
+
+    assert mp((("A", ...), "B", "C", "D"), tp("abcdefgh")) == (
+        dt(A=tp("abcde"), B="f", C="g", D="h"),
+        [],
+        [],
+    )
+
+    assert mp(("A", "B", "A", ("C", ...), "D"), tp("abcdefgh")) == (
+        dt(A=tp("ac"), B="b", C=tp("defg"), D="h"),
+        [],
+        [],
+    )
+
+    assert mp(
+        (("A", ...), "B", "C", "D", "E"), tp("bcde")  # zero-sized ellipsis
+    ) == (dt(B="b", C="c", D="d", E="e"), [], [])
+
+    # With partly-specified encoding
+    assert mp(tp("ABC"), tp("cab"), encoding=dict(B="b")) == (
+        dt(A="c", B="b", C="a"),
+        [],
+        [],
+    )
+
+    assert mp(tp("ABC"), tp("cab"), encoding=dict(A="a", B="b", C="c")) == (
+        dt(A="a", B="b", C="c"),
+        [],
+        [],
+    )
+
+    assert mp(tp("ABC"), tp("abcd"), encoding=dict(B="b")) == (
+        dt(A="a", B="b", C="c"),
+        [],
+        ["d"],
+    )
+
+    assert mp(tp("ABCD"), tp("abc"), encoding=dict(B="b")) == (
+        dt(A="a", B="b", C="c"),
+        [("D", 1)],
+        [],
+    )
+
+    assert mp(tp("ABBC"), tp("abcd"), encoding=dict(B=["c"])) == (
+        dt(A="a", B=tp("cb"), C="d"),
+        [],
+        [],
+    )
+
+    assert mp(tp("ABCBDE"), tp("abcdefg"), encoding=dict(B=["d"], D="g")) == (
+        dt(A="a", B=tp("dc"), C="b", D="g", E="e"),
+        [],
+        ["f"],
+    )
+
+    # Dropping missing pre-specified dimensions
+    assert mp(
+        tp("ABC"),
+        tp("abc"),
+        encoding=dict(C="a", B="d"),
+        drop_missing_dims=False,
+    ) == (
+        dt(A="b", B="d", C="a"),
+        [],
+        ["c"],
+    )  # -> downstream errors
+
+    assert mp(
+        tp("ABC"),
+        tp("abc"),
+        encoding=dict(C="a", B="d"),
+        drop_missing_dims=True,
+    ) == (
+        dt(A="b", B="c", C="a"),
+        [],
+        [],
+    )  # -> unavailable d dim dropped
+
+    assert mp(
+        tp("ABBC"),
+        tp("abcdef"),
+        encoding=dict(C="a", B=tp("gfj"), A="k"),
+        drop_missing_dims=True,
+    ) == (dt(C="a", B=tp("fc"), A="b"), [], ["d", "e"])
+
+    # Dropping encodings
+    assert mp(
+        tp("ABCBDE"),
+        tp("abcdefg"),
+        encoding=dict(B=["d"], D="g"),
+        drop_encodings=tp("BC"),  # -> only ADE remain
+    ) == (dt(A="a", D="g", E="b"), [], ["c", "d", "e", "f"])
+
+    # None-valued encodings lead to specifier being blocked
+    assert mp(
+        tp("ABCBDE"), tp("abcdefg"), encoding=dict(B=None, D="g", E=None)
+    ) == (dt(A="a", B=None, C="b", D="g", E=None), [], ["c", "d", "e", "f"])
+
+    assert mp(
+        tp("ABCBDE"), tp("abcdefg"), encoding=dict(B=[None], D="g", E=None)
+    ) == (
+        dt(
+            A="a",
+            C="b",
+            B=(
+                None,
+                "c",
+            ),
+            D="g",
+            E=None,
+        ),
+        [],
+        ["d", "e", "f"],
+    )
+
+    assert mp(
+        tp("ABCBDBEB"), tp("abcdefg"), encoding=dict(B=[None, None], D=None)
+    ) == (
+        dt(A="a", C="b", D=None, B=(None, None, "c", "e"), E="d"),
+        [],
+        ["f", "g"],
+    )
+
+    # Errors
+    with pytest.raises(
+        ValueError, match="need to be unique.* duplicate.* a, b, b, c"
+    ):
+        mp(tp("ABCDE"), tp("abbcde"))
+
+    with pytest.raises(
+        ValueError, match="Only one encoding can be an Ellipsis.* foo, bar"
+    ):
+        mp(("A", ("foo", ...), "B", ("bar", ...)), tp("abcd"))
+
+
 def test_determine_encoding():
     """Test the determine_encoding helper function
 
@@ -539,9 +698,9 @@ def test_determine_encoding():
     default_kws = dict(
         kind="line", auto_encoding=True, default_encodings=_FACET_GRID_KINDS
     )
-    detenc = lambda d, **plot_kwargs: determine_encoding(
-        d, **default_kws, plot_kwargs=plot_kwargs
-    )
+
+    def detenc(d, **plot_kwargs):
+        return determine_encoding(d, **default_kws, plot_kwargs=plot_kwargs)
 
     # Input can be a sizes dict or a sequence of dimension names. If size info
     # is available, will sort it descendingly and use that order
@@ -585,9 +744,10 @@ def test_determine_encoding():
     assert kws["col_wrap"] == 5
 
     # Allow mappings between x and y
-    kws = detenc(
+    kws = determine_encoding(
         dict(foo=10, bar=12, baz=15, spam=21),
-        y="bar",
+        **default_kws,
+        plot_kwargs=dict(y="bar"),
         allow_y_for_x=["line"],
     )
     assert kws["y"] == "bar"
@@ -595,6 +755,49 @@ def test_determine_encoding():
     assert kws["hue"] == "spam"
     assert kws["col"] == "baz"
     assert kws["row"] == "foo"
+
+    # Can ignore missing dims
+    kws = determine_encoding(
+        dict(foo=10, bar=12, baz=15, spam=21),
+        **default_kws,
+        plot_kwargs=dict(hue="foo", col="fish"),
+        drop_missing_dims=True,
+    )
+    assert kws["x"] == "spam"
+    assert kws["hue"] == "foo"
+    assert kws["col"] == "baz"
+    assert kws["row"] == "bar"
+
+    # Can have catch-all dimensions where free dimensions are mapped to
+    kws = determine_encoding(
+        dict(foo=10, bar=12, baz=15, spam=21, fish=25, chips=30, salt=33),
+        **default_kws,
+        plot_kwargs=dict(hue="bar", col="bad_dim_name"),
+        drop_missing_dims=True,
+        map_free_dims_to="files",
+    )
+    assert kws["x"] == "salt"
+    assert kws["hue"] == "bar"
+    assert kws["col"] == "chips"
+    assert kws["row"] == "fish"
+    assert kws["frames"] == "spam"
+    assert kws["files"] == ("baz", "foo")
+
+    # Can drop encodings from the defaults to not have them filled
+    kws = determine_encoding(
+        dict(foo=10, bar=12, baz=15, spam=21, fish=25, chips=30, salt=33),
+        **default_kws,
+        plot_kwargs=dict(hue="bar", col="bad_dim_name"),
+        drop_missing_dims=True,
+        drop_encodings=("col",),
+        map_free_dims_to="files",
+    )
+    assert kws["x"] == "salt"
+    assert kws["hue"] == "bar"
+    assert "col" not in kws
+    assert kws["row"] == "chips"
+    assert kws["frames"] == "fish"
+    assert kws["files"] == ("spam", "baz", "foo")
 
 
 # -----------------------------------------------------------------------------

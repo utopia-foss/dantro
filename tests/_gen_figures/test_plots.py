@@ -39,16 +39,17 @@ def test_plots(dm, out_dir):
     )
 
     # Safety check: all plots defined above are valid names
-    invalid_plot_names = [p for p in to_plot if p not in plots["config_based"]]
+    plots_cfg = plots["doc_examples"]
+    invalid_plot_names = [p for p in to_plot if p not in plots_cfg]
     if invalid_plot_names:
-        _avail = "\n".join(f"  {p}" for p in sorted(plots["config_based"]))
+        _avail = "\n".join(f"  {p}" for p in sorted(plots_cfg))
         raise ValueError(
             f"Invalid plot names:  {', '.join(invalid_plot_names)}\n"
             f"Available:\n{_avail}"
         )
 
     # Here we go ...
-    for name, cfg in plots["config_based"].items():
+    for name, cfg in plots_cfg.items():
         if name not in to_plot:
             continue
 
@@ -57,7 +58,7 @@ def test_plots(dm, out_dir):
         try:
             pm.plot(name=name, **cfg["plot_cfg"])
 
-        except Exception as exc:
+        except Exception:
             if not cfg.get("_raises"):
                 raise
             print(f"Raised an exception, as expected.")

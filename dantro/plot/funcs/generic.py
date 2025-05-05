@@ -9,9 +9,10 @@ from functools import partial as _partial
 from typing import Any, Callable, Dict, List, Tuple, Union
 
 import matplotlib.colors as mcolors
+import paramspace as psp
 
 from ..._import_tools import LazyLoader
-from ...exceptions import PlottingError
+from ...exceptions import PlotConfigError, PlottingError, UpdatePlotConfig
 from ...tools import recursive_update
 from ..plot_helper import PlotHelper
 from ..utils import figure_leak_prevention, is_plot_func
@@ -84,6 +85,28 @@ This is populated by the ``make_facet_grid_plot`` decorator."""
 # -----------------------------------------------------------------------------
 # -- Helper functions ---------------------------------------------------------
 # -----------------------------------------------------------------------------
+
+
+def _fmt_spec(spec: Union[str, Tuple[str, int]]) -> str:
+    if isinstance(spec, str):
+        return spec
+    spec, nd = spec
+    if nd == 1:
+        return spec
+    elif nd is Ellipsis:
+        return f"{spec} (…)"
+    return f"{spec} ({nd}×)"
+
+
+def _fmt_specs(specs, join_by=", ") -> str:
+    return join_by.join(_fmt_spec(spec) for spec in specs)
+
+
+def _fmt_kv(kv, fstr="{k}: {v}", join_by=", ") -> str:
+    return join_by.join(fstr.format(k=k, v=v) for k, v in kv)
+
+
+# .............................................................................
 
 
 def determine_plot_kind(
@@ -178,6 +201,240 @@ def determine_plot_kind(
     return kind
 
 
+def parse_encoding_spec(s: Union[str, Tuple[str, int]]) -> Tuple[str, int]:
+    """Brings an encoding specification into a uniform 2-tuple shape, where
+    the first is the name of the encoding and the second is how many dimensions
+    it may absorb. The second value can also be ``Ellipsis`` to denote that
+    all remaining dimensions are to be absorbed."""
+    if isinstance(s, str):
+        return (s, 1)
+    name, nd = s
+    if nd in (Ellipsis, ..., "inf", "∞", float("inf")):
+        nd = ...
+    return (name, nd)
+
+
+def map_dims_to_encoding(
+    all_specs: List[Union[str, Tuple[str, int]]],
+    all_dims: List[str],
+    *,
+    encoding: Dict[str, Union[str, Tuple[str, ...]]] = None,
+    drop_missing_dims: bool = False,
+    drop_encodings: List[str] = None,
+) -> Tuple[
+    Dict[str, Union[str, Tuple[str, ...]]], List[Tuple[str, int]], List[str]
+]:
+    """Maps encoding specifiers to one or multiple dimension names.
+
+    Encoding specifiers are given as a list of encoding names that are filled,
+    one by one, with a free dimension. The encoding specifier can be given as a
+    string, assuming that it can absorb a single dimension; alternatively, if a
+    2-tuple ``(name, num_dims)`` is given, the second entry denotes the number
+    of dimensions that specifier can absorb.
+
+    Specifiers are assigned in the given order. They may also appear multiple
+    times, in which case they are handled as multi-dimensional encodings.
+
+    .. code-block:: python
+
+        specs = [x, hue, col, row]           # -> 1 absorbing dim each
+        specs = [(x, 1), (hue, 1), (col, 1), (row, 1)]   # same as above
+        specs = [x, col, row, (files, 5)]    # -> files absorbs 5 dims
+        specs = [x, files, hue, (files, 4)]  # -> files absorbs 5 dims, but hue
+                                             #    will be assigned in between
+        specs = [x, (files, ...), hue]       # -> files absorbs all free dims
+
+    Args:
+        all_specs (List[Union[str, Tuple[str, int]]]): All available encoding
+            specifiers as a list of string or list of ``(name, num_dims)``
+            tuples. ``num_dims`` can also be ``...`` (an ``Ellipsis``) to
+            denote that this dimension will absorb remaining free dimensions.
+        all_dims (List[str]): List of all available dimension names; these will
+            be the values of the returned mapping.
+        encoding (Dict[str, Union[str, Tuple[str, ...]]], optional): If given,
+            denotes which encodings and dimensions are already in use.
+        drop_missing_dims (bool, optional): If True, will drop those entries
+            in ``encoding`` that use a dimension name that is not part of
+            ``all_dims``.
+        drop_encodings (List[str], optional): Names of encoding specifiers that
+            should be removed from ``all_specs`` and ``encoding`` before
+            starting to assign values.
+
+    Returns:
+        Tuple[Dict[str, Union[str, Tuple[str, ...]]], List[Tuple[str, int]], List[str]]:
+            A 3-tuple ``(mapping, free_specs, free_dims)`` containing the
+            desired mapping dictionary and information about possibly free
+            encoding specifiers or dimensions.
+    """
+
+    def unpack_nested(l: list) -> list:
+        """[1, 2, [3, 4], 5] --> [1, 2, 3, 4, 5]"""
+        return [
+            e for e in l for e in (e if isinstance(e, (list, tuple)) else [e])
+        ]
+
+    if len(set(all_dims)) != len(all_dims):
+        raise ValueError(
+            "Dimension names to map to encodings need to be unique, but "
+            f"duplicate dimension names were given:  {', '.join(all_dims)}"
+        )
+
+    # Bring dims and specs into a normalized form
+    all_dims: List[str] = list(all_dims)
+
+    all_specs: List[Tuple[str, int]] = [
+        parse_encoding_spec(s) for s in all_specs
+    ]
+
+    if drop_encodings:
+        all_specs = [
+            (spec, nd) for spec, nd in all_specs if spec not in drop_encodings
+        ]
+
+    all_spec_names: List[str] = [spec for spec, _ in all_specs]
+    multi_dim_specs = set(
+        spec
+        for spec, nd in all_specs
+        if (nd is Ellipsis or nd > 1) or all_spec_names.count(spec) > 1
+    )
+
+    # Set up the target encoding dict
+    encoding = encoding if encoding else {}
+    encoding = {
+        spec: dim if not dim or isinstance(dim, str) else tuple(dim)
+        for spec, dim in encoding.items()
+        if not drop_encodings or spec not in drop_encodings
+    }
+
+    # May want to modify the given encoding, e.g. if dimensions have been
+    # specified that are missing in the data, they should be dropped
+    used_dims: List[str] = unpack_nested(encoding.values())
+    missing_dims = [dim for dim in used_dims if dim and dim not in all_dims]
+
+    if missing_dims:
+        if drop_missing_dims:
+            # Filter out missing dimensions, either by dropping the whole entry
+            # for a spec or dropping the dimension from a multi-dim spec.
+            # This may result in empty lists, but that's fine.
+            log.caution(
+                "   ignoring dimensions:  %s  (not available in data)",
+                ", ".join(missing_dims),
+            )
+            encoding = {
+                spec: (
+                    dim
+                    if isinstance(dim, str)
+                    else [_dim for _dim in dim if _dim not in missing_dims]
+                )
+                for spec, dim in encoding.items()
+                if dim not in missing_dims or not isinstance(dim, str)
+            }
+            used_dims = unpack_nested(encoding.values())
+        else:
+            log.error(
+                "   missing dimensions:   %s  (not available in data)",
+                ", ".join(missing_dims),
+            )
+
+    # Check how many of these may have already been set in the encoding,
+    # i.e. find out the free dimensions and free encoding specifiers.
+    # Start with the used and free dimensions:
+    used_dims: List[str] = [
+        dim for dim in unpack_nested(encoding.values()) if dim
+    ]
+    free_dims = [dim for dim in all_dims if dim not in used_dims]
+
+    if len(set(used_dims)) != len(used_dims):
+        raise ValueError(
+            "The given encoding contains duplicate dimension names! Make sure "
+            f"that each dimension only appears once. Encoding:  {encoding}"
+        )
+
+    # Now the free specifiers: count how many have been previously specified
+    # and deduce those from the number of available specifiers.
+    # The used specs can be a dict because the order is not relevant.
+    used_specs: Dict[str, int] = {
+        spec: len(dim if dim else []) if not isinstance(dim, str) else 1
+        for spec, dim in encoding.items()
+    }
+
+    free_specs = []
+    _used_specs = copy.copy(used_specs)  # to allow counting down
+    for spec, nd in all_specs:
+        if spec not in _used_specs:
+            free_specs.append((spec, nd))
+
+        elif _used_specs[spec] >= 1:
+            free_specs.append(
+                (spec, nd - 1 if nd is not Ellipsis else Ellipsis)
+            )
+
+            # Reduce and maybe remove the entry
+            _used_specs[spec] -= 1
+            if _used_specs[spec] <= 0:
+                del _used_specs[spec]
+
+    del _used_specs
+
+    # Inform
+    log.remark("   given encoding:       %s", _fmt_kv(encoding.items()))
+    log.remark("   free specifiers:      %s", _fmt_specs(free_specs))
+    log.remark("   free dimensions:      %s", ", ".join(free_dims))
+
+    # Evaluate Ellipsis to fill unspecified encodings depending on the whole
+    # sequence of available encodings.
+    # For this, need to make sure that there is only one Ellipsis specified.
+    # Then, count how many dimensions need to be absorbed by the Ellipsis
+    # depending on how many dimensions are available in total and how man
+    # other encodings come after the Ellipsis.
+    # Also, the given encoding may already include an explicit setting of a
+    # dimension to the ellipsis spec, we don't want to re-set that one!
+    ellipses_specs = [spec for spec, nd in all_specs if nd is Ellipsis]
+    if len(ellipses_specs) > 1:
+        raise ValueError(
+            "Only one encoding can be an Ellipsis, "
+            f"got multiple:  {', '.join(ellipses_specs)}"
+        )
+
+    elif len(ellipses_specs) == 1:
+        n_other = sum(nd for _, nd in free_specs if nd is not Ellipsis)
+        n_fixed = sum(used_specs.values())
+        n_free = max(0, len(all_dims) - n_other - n_fixed)
+        free_specs = [
+            (spec, nd if nd is not Ellipsis else n_free)
+            for spec, nd in free_specs
+        ]
+
+    # Go over the dimensions, one by one, and map them to an encoding specifier
+    while free_dims and free_specs:
+        spec, nd = free_specs.pop(0)
+        if nd < 1:
+            continue
+
+        dim = free_dims.pop(0)
+
+        # Need to distinguish between multi-dim encodings and scalar ones
+        if spec in multi_dim_specs:
+            encoding[spec]: Tuple[str, ...] = tuple(encoding.get(spec, ())) + (
+                dim,
+            )
+        else:
+            encoding[spec] = dim
+
+        # May need to put the specifier back with a reduced counter such that
+        # it may be picked again in the next iteration. Ellipses remain.
+        if nd is Ellipsis:
+            free_specs.insert(0, (spec, Ellipsis))
+        elif nd > 1:
+            free_specs.insert(0, (spec, nd - 1))
+
+    # Drop the zero-sized specs, they are all used up
+    free_specs = [(spec, nd) for spec, nd in free_specs if nd != 0]
+
+    # Return the mapping and the remaining free specs and free dims
+    return encoding, free_specs, free_dims
+
+
 def determine_encoding(
     dims: Union[List[str], Dict[str, int]],
     *,
@@ -186,7 +443,9 @@ def determine_encoding(
     default_encodings: dict,
     plot_kwargs: dict,
     allow_y_for_x: List[str] = ("line",),
-    ignore_missing: bool = False,
+    drop_missing_dims: bool = False,
+    drop_encodings: List[str] = None,
+    map_free_dims_to: str = None,
 ) -> dict:
     """Determines the layout encoding for the given plot kind and the available
     data dimensions (as specified by the ``dims`` argument).
@@ -231,9 +490,16 @@ def determine_encoding(
         :end-before:  }   # --- end literalinclude
         :dedent: 4
 
-    The ``ignore_missing`` option will unset a previously set encoding if
+    The ``drop_missing_dims`` option will unset a previously set encoding if
     that dimension does not exist in the data; a warning will be shown if this
     was the case.
+
+    The ``drop_encodings`` option allows to remove encodings from the mapping,
+    despite them being specified in ``auto_encoding`` or ``default_encodings``.
+
+    With ``map_free_dims_to``, a new encoding specifier can be appended, which
+    will absorb all remaining free dimesions. This will be a multi-dimensional
+    encoding specifier, e.g. ``files``, and needs to be handled accordingly.
 
     .. note::
 
@@ -296,6 +562,7 @@ def determine_encoding(
             layout encoding arguments that aim to *fix* a dimension. Everything
             else is ignored.
     """
+
     if not auto_encoding or kind is None:
         log.debug("Layout auto-encoding was disabled (kind: %s).", kind)
         return plot_kwargs
@@ -309,97 +576,86 @@ def determine_encoding(
     if isinstance(auto_encoding, dict):
         encs.update(auto_encoding)
 
-    encoding_specs = encs[kind]
+    all_specs = encs[kind]
 
     # Special case for line-like kinds
     if allow_y_for_x and kind in allow_y_for_x:
         if plot_kwargs.get("y") and not plot_kwargs.get("x"):
-            encoding_specs = tuple(
-                s if s != "x" else "y" for s in encoding_specs
-            )
+            all_specs = [s if s != "x" else "y" for s in all_specs]
 
-    # Split plotting kwargs into a dict of layout specifiers and one that only
-    # includes the remaining plotting kwargs
-    plot_kwargs = copy.deepcopy(plot_kwargs)
-    specs = {k: v for k, v in plot_kwargs.items() if k in encoding_specs}
-    plot_kwargs = {k: v for k, v in plot_kwargs.items() if k not in specs}
+    # May want an additional specifier for free dimensions
+    if map_free_dims_to:
+        all_specs = tuple(all_specs) + ((map_free_dims_to, Ellipsis),)
 
-    # -- Determine specifiers, depending on kind and dimensionality
+    # Bring encoding specifiers into uniform shape
+    all_specs = [parse_encoding_spec(spec) for spec in all_specs]
+    all_spec_names: List[str] = [spec for spec, _ in all_specs]
+
+    # Split plotting kwargs into a dict of layout specifiers (encoding) and one
+    # that only includes the remaining plotting kwargs
+    encoding: Dict[str, Union[str, Tuple[str, ...]]] = {
+        k: v for k, v in plot_kwargs.items() if k in all_spec_names
+    }
+    plot_kwargs = {k: v for k, v in plot_kwargs.items() if k not in encoding}
+
     # Get all available dimension names. If size-information is available,
     # sort them by size (descending), otherwise just use them as they are.
     if hasattr(dims, "items"):
-        dim_names = [
+        all_dims = [
             name
             for name, _ in sorted(
                 dims.items(), key=lambda kv: kv[1], reverse=True
             )
         ]
     else:
-        dim_names = list(dims)
+        all_dims = list(dims)
 
     # TODO Warn upon non-indexed dimensions?
 
-    # May want to ignore specified encodings that are not available in the data
-    specs_without_dims = {
-        s: dim for s, dim in specs.items() if dim and dim not in dim_names
-    }
-    if ignore_missing and specs_without_dims:
-        log.caution(
-            "   ignoring:  %s",
-            ", ".join([f"{s}: {d}" for s, d in specs_without_dims.items()]),
-        )
-        specs = {
-            s: dim for s, dim in specs.items() if s not in specs_without_dims
-        }
-
-    elif specs_without_dims:
-        log.error(
-            "   missing:   %s  (not available in data)",
-            ", ".join([f"{s}: {d}" for s, d in specs_without_dims.items()]),
-        )
-
-    # Some dimensions and specifiers might already have been associated;
-    # determine those that have *not* yet been associated:
-    free_specs = [s for s in encoding_specs if not specs.get(s)]
-    free_dim_names = [name for name in dim_names if name not in specs.values()]
-
-    log.debug("   given specifiers:  %s", specs)
-    log.debug("   free specifiers:   %s", ", ".join(free_specs))
-    log.debug("   free dimensions:   %s", ", ".join(free_dim_names))
-
-    # From these two lists, update the specifier dictionary
-    specs.update(
-        {s: dim_name for s, dim_name in zip(free_specs, free_dim_names)}
+    # From these two lists, assign free dimension names to free encodings;
+    encoding, free_specs, free_dims = map_dims_to_encoding(
+        all_specs,
+        all_dims,
+        encoding=encoding,
+        drop_missing_dims=drop_missing_dims,
+        drop_encodings=drop_encodings,
     )
 
-    # Drop those specifiers that are effectively unset.
-    specs = {s: dim_name for s, dim_name in specs.items() if dim_name}
+    # Drop those encoding specifiers that are effectively unset.
+    #   Will remove things like {s: None} -> {},
+    #   but also from multi-dim specs: {s: [None, foo, None]} -> {s: [foo]}
+    # Need to do this in two steps, first dropping nested Nones, then Nones
+    # or empty lists.
+    encoding = {
+        s: (
+            tuple([_dim for _dim in dim if _dim])
+            if isinstance(dim, (tuple, list))
+            else dim
+        )
+        for s, dim in encoding.items()
+    }
+    encoding = {s: dim for s, dim in encoding.items() if dim}
 
     # Provide information about the chosen encoding
-    log.remark(
-        "   encoding:  %s",
-        ", ".join([f"{s}: {d}" for s, d in specs.items()]),
-    )
-    log.remark(
-        "   free:      %s",
-        ", ".join([k for k in encoding_specs if k not in specs]),
-    )
+    log.remark("   resulting encoding:   %s", _fmt_kv(encoding.items()))
+    log.remark("   free specifiers:      %s", _fmt_specs(free_specs))
+    log.remark("   free dimensions:      %s", ", ".join(free_dims))
 
     # -- Automatic column wrapping
     if plot_kwargs.get("col_wrap") in ("auto", "square"):
         if (
-            not specs.get("row")
-            and specs.get("col")
-            and hasattr(dims, "items")  # i.e.: dict-like
-            and dims[specs["col"]] >= 4
+            not encoding.get("row")
+            and encoding.get("col")
+            and hasattr(dims, "items")  # i.e.: have size information
+            and dims[encoding["col"]] >= 4
         ):
-            num_cols = dims[specs["col"]]
+            num_cols = dims[encoding["col"]]
             col_wrap_mode = plot_kwargs["col_wrap"]
             plot_kwargs["col_wrap"] = determine_ideal_col_wrap(
                 num_cols, fill_last_row=(col_wrap_mode == "auto")
             )
             log.remark(
-                "   col_wrap:  %d  (mode '%s', length of col dimension: %d)",
+                "   col_wrap:              %d  (mode '%s', col dim size: %d)",
                 plot_kwargs["col_wrap"],
                 col_wrap_mode,
                 num_cols,
@@ -409,7 +665,42 @@ def determine_encoding(
             del plot_kwargs["col_wrap"]
 
     # Finally, return the merged layout specifiers and plot kwargs
-    return dict(**plot_kwargs, **specs)
+    return dict(**plot_kwargs, **encoding)
+
+
+def build_pspace_selector(
+    d: Union[xr.DataArray, xr.Dataset], dims: List[str], **sel
+) -> Dict[str, Union[psp.ParamDim, Any]]:
+    """Builds a selector for :py:meth:`~xarray.DataArray.sel` operations that
+    uses :py:class:`~paramspace.paramdim.ParamDim` as values.
+
+    This method also combines the parameter space selector with an existing
+    selector dict, ``sel``, and throws an error if there is an overlap between
+    keys in ``dims`` and ``sel``.
+    """
+    psp_sel: Dict[str, psp.ParamDim] = {
+        dim: psp.ParamDim(
+            default=d.coords[dim].values.tolist()[0],
+            values=d.coords[dim].values.tolist(),
+        )
+        for dim in dims
+    }
+    # NOTE Using ``tolist`` here to get native data types.
+    #      The default value should not be needed, so we don't specify it; if
+    #      it is used somewhere, we will probably find out ...
+
+    overlap = set(psp_sel).intersection(sel)
+    if overlap:
+        raise PlotConfigError(
+            f"Cannot combine parameter sweep selector ({', '.join(dims)}) "
+            f"with existing selector ({', '.join(sel)}) because there are "
+            f"overlapping dimension names:  {', '.join(overlap)} !"
+        )
+
+    return dict(**psp_sel, **sel)
+
+
+# -----------------------------------------------------------------------------
 
 
 class make_facet_grid_plot:
@@ -724,12 +1015,12 @@ def facet_grid(
     data: dict,
     hlpr: PlotHelper,
     kind: Union[str, dict] = None,
-    frames: str = None,
     auto_encoding: Union[bool, dict] = False,
     auto_encoding_options: dict = None,
     suptitle_kwargs: dict = None,
     squeeze: bool = True,
     drop_nonindexed_coords: bool = False,
+    sel: dict = None,
     **plot_kwargs,
 ):
     """A generic facet grid plot function for high dimensional data.
@@ -980,9 +1271,17 @@ def facet_grid(
     # Get the Dataset, DataArray, or other compatible data
     d = data["data"]
 
-    # Prepare data
+    # .. Prepare data . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     log.note("Preparing data for facet grid plot ...")
     log.remark("%s", d.head())
+
+    # Can apply a data subselection
+    if sel:
+        log.remark(
+            "Applying data selection:  %s",
+            ",  ".join(f"{dim}: {val}" for dim, val in sel.items()),
+        )
+        d = d.sel(**sel)
 
     # Squeeze size-1 dimension coordinates to non-dimension coordinates
     if squeeze and 1 in d.sizes.values():
@@ -1012,13 +1311,21 @@ def facet_grid(
         kind=kind,
         auto_encoding=auto_encoding,
         default_encodings=_FACET_GRID_KINDS,
-        plot_kwargs=dict(
-            frames=frames,
-            **plot_kwargs,
-        ),
+        plot_kwargs=plot_kwargs,
         **(auto_encoding_options if auto_encoding_options else {}),
     )
     frames = plot_kwargs.pop("frames", None)
+    files = plot_kwargs.pop("files", None)
+
+    # Potentially perform files iteration
+    # This may leave the plotting function via a messaging exception; the next
+    # time we arrive here, `files` should no longer be set.
+    if files:
+        sel = build_pspace_selector(d, files, **(sel if sel else {}))
+        # TODO Consider setting files to some informative value.
+        raise UpdatePlotConfig(
+            "facet_grid files iteration", files=None, from_pspace=dict(sel=sel)
+        )
 
     # Parse colorbar-related arguments
     plot_kwargs = parse_cmap_and_norm_kwargs(**plot_kwargs)

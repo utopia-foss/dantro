@@ -263,8 +263,7 @@ class PlotManager:
             ", ".join(self._base_cfg_pools),
         )
 
-    # .........................................................................
-    # Properties
+    # .. Properties ...........................................................
 
     @property
     def out_fstrs(self) -> dict:
@@ -302,8 +301,7 @@ class PlotManager:
             )
         self._default_creator = new_creator
 
-    # .........................................................................
-    # Configuration
+    # .. Configuration ........................................................
 
     def add_base_cfg_pool(self, *, label: str, plots_cfg: Union[str, dict]):
         """Adds a base configuration pool entry, allowing for the ``plots_cfg``
@@ -338,8 +336,7 @@ class PlotManager:
         self._base_cfg_pools[label] = self._prepare_cfg(plots_cfg)
         log.debug("Added base configuration pool '%s'.", label)
 
-    # .........................................................................
-    # Helpers
+    # .. Helpers ..............................................................
 
     @staticmethod
     def _prepare_cfg(s: Union[str, dict]) -> Dict[str, dict]:
@@ -678,6 +675,10 @@ class PlotManager:
             log.caution("Skipped. %s\n", skip_reason)
             return "skipped"
 
+        except DantroMessagingException as msg:
+            # Pass on to outside scope
+            raise
+
         except Exception as exc:
             self._handle_exception(
                 exc, pc=plot_creator, debug=debug, ExcCls=PlotCreatorError
@@ -787,6 +788,10 @@ class PlotManager:
             max_workers,
         )
         return ExecutorCls(max_workers=max_workers, **executor_kwargs)
+
+    def _update_plot_cfg(self, plot_cfg: dict, **updates) -> dict:
+        """Updates the plot configuration with the given updates."""
+        return recursive_update(copy.deepcopy(plot_cfg), updates)
 
     def _store_plot_info(
         self,
@@ -923,8 +928,7 @@ class PlotManager:
 
         return save_path
 
-    # .........................................................................
-    # Plotting
+    # .. Plotting .............................................................
 
     def plot_from_cfg(
         self,
@@ -1187,7 +1191,14 @@ class PlotManager:
                 label="plot",
                 base_pools=self._base_cfg_pools,
             )
-            return self._plot(name, **plot_cfg)
+            try:
+                return self._plot(name, **plot_cfg)
+
+            except UpdatePlotConfig as upc:
+                updated_plot_cfg = self._update_plot_cfg(
+                    plot_cfg, **upc.plot_cfg_updates
+                )
+                return self.plot(name, **updated_plot_cfg)
 
         # Else: It's more complicated now, as the config is in from_pspace, and
         # (partly) in plot_cfg. Urgh.
@@ -1226,7 +1237,15 @@ class PlotManager:
             )
         }
 
-        return self._plot(name, from_pspace=from_pspace, **kwargs)
+        try:
+            return self._plot(name, from_pspace=from_pspace, **kwargs)
+
+        except UpdatePlotConfig as upc:
+            updated_plot_cfg = self._update_plot_cfg(
+                dict(from_pspace=from_pspace, **kwargs),  # FIXME likely wrong
+                **upc.plot_cfg_updates,
+            )
+            return self.plot(name, **updated_plot_cfg)
 
     def _plot(
         self,

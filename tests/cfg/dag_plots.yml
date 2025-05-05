@@ -50,13 +50,26 @@ _pm_init_kwargs:
 
 _shared_plot_cfg: &shared_plot_cfg {}
 
+_files_encoding_base: &files_encoding_base
+  <<: *shared_plot_cfg
+  based_on:
+    - creator.pyplot
+    - dag.facet_grid
+
+  select:
+    data: datasets/mean_and_std_6D
+
+  kind: errorbars
+  y: mean
+  yerr: std
+
+
 # -----------------------------------------------------------------------------
 # -- Test config below this line ----------------------------------------------
 # -----------------------------------------------------------------------------
 
-# Test cases for the test_config_based test function
-config_based:
-  # .. Example cases ..........................................................
+# .. Basics ...................................................................
+basics:
   # Example for a succeeding plot invocation
   simple_example:
     plot_cfg: &simple_example
@@ -88,7 +101,8 @@ config_based:
     _match: Missing `plot_func` argument
 
 
-  # .. Tests for UniversePlotCreator ..........................................
+# .. Tests for UniversePlotCreator ............................................
+uni:
   # Plot only specific universe IDs
   uni_specific_IDs:
     plot_cfg:
@@ -111,8 +125,8 @@ config_based:
       yerr: std
 
 
-  # .. Test handling of missing data in MultiversePlotCreator .................
-
+# .. Test handling of missing data in MultiversePlotCreator ...................
+mv:
   mv_missing_uni_fails:
     plot_cfg:
       <<: *shared_plot_cfg
@@ -205,8 +219,8 @@ config_based:
     _match: bad_argument_leading_to_failure
 
 
-  # .. Test conditional plot skipping .........................................
-
+# .. Test conditional plot skipping ...........................................
+skipping:
   skip_plot_directly:
     plot_cfg:
       <<: *shared_plot_cfg
@@ -248,13 +262,12 @@ config_based:
       yerr: yerr
 
 
-  # .. Test DAG placeholder resolution ........................................
-
+# .. Test DAG placeholder resolution ..........................................
+dag_placeholder_resolution:
   phres_simple:
     plot_cfg: &phres_simple
       <<: *shared_plot_cfg
       based_on: [creator.uni, dag.errorbars, select.randints_3D]
-      # TODO Migrate to dag.errorbars
 
       dag_options:
         define:
@@ -331,8 +344,8 @@ config_based:
     _match: Operation '.format' failed with a ValueError
 
 
-  # .. Test nx.DiGraph generation and plotting ................................
-
+# .. Test nx.DiGraph generation and plotting ..................................
+dag_graph_generation:
   gen_nx_graph_minimal:
     plot_cfg:
       <<: *simple_example
@@ -632,8 +645,8 @@ config_based:
     _match: Failed plotting DAG representation
 
 
-  # .. PlotHelper tests .......................................................
-
+# .. PlotHelper tests .........................................................
+plot_helper:
   helper/empty_axis:
     plot_cfg: &empty_axis
       <<: *shared_plot_cfg
@@ -672,8 +685,8 @@ config_based:
     _match: Could not get a finite value
 
 
-  # .. facet_grid integration tests ...........................................
-
+# .. facet_grid integration tests .............................................
+facet_grid:
   facet_grid/errorbars_standalone:
     plot_cfg:
       <<: *shared_plot_cfg
@@ -708,75 +721,100 @@ config_based:
     _match: bad dimension name
 
 
-  # .. files encoding .........................................................
-
-  files/short_syntax:
+# .. files encoding ...........................................................
+files_encoding:
+  explicit:
     plot_cfg:
-      <<: *shared_plot_cfg
-      based_on:
-        - .creator.pyplot
-        - .plot.facet_grid.with_auto_encoding
+      <<: *files_encoding_base
 
-      # short notation
-      expected_data_dimensions: [2, 3, 4]
-      # equivalent to:
-      # expected_data_dimensions:
-      #   required: 2
-      #   optional: 0
-      #   free: 2
-
-      # short notation
-      files: true  # -> if beyond 4 dimensions, sweep over left-over dims
-
-      select_and_combine:
-        fields:
-          data:
-            path: labelled/randints
-            transform:
-              - .mean: [!dag_prev , [x]]
+      # explicitly specify encoding, including two file sweep dimensions
+      x: dim_5
+      hue: dim_4
+      col: dim_3
+      row: dim_2
+      frames: ~
+      files: [dim_1, dim_0]
 
 
-  files/long_syntax:
+  merged_pspace:
     plot_cfg:
-      <<: *shared_plot_cfg
-      based_on:
-        - .creator.pyplot
-        - .plot.facet_grid.with_auto_encoding
+      <<: *files_encoding_base
 
-      # more explicit notation
-      expected_data_dimensions:
-        required:  # Union[int, list]
-          - [foo, bar]  # (foo OR bar)
-          - baz         # AND baz
-        optional:  # Union[int, list]
-          - spam
-        free: 1    # int
-        # TODO dimension names should allow simple wildcard matches
-        # -> supports [2, 3, 4] dimensions
+      select:
+        data: datasets/mean_and_std_4D  # dims: foo, bar, baz, spam
 
-      # long notation, allowing to supply options
-      files:
-        dims: [spam]  # dims to always create files for
-        auto: true    # whether to add left-over dims as well
-        exclude:      # dimensions to never sweep over
-          - fish
-        sort_by: size_asc   # `dims` order
-        # TODO more here?
+      # need partial specification here to adapt to sweep
+      auto_encoding: true
+      x: foo
+      files: [spam]
 
-      select_and_combine:
-        fields:
-          data:
-            path: labelled/randints
-            transform:
-              - .mean: [!dag_prev , [x]]
+    from_pspace:
+      x: !sweep
+        default: ~
+        values: [bar, baz]
+
+
+  auto_from_free:
+    plot_cfg:
+      <<: *files_encoding_base
+
+      # let auto-encoding do the association, but partially specify some dims
+      x: dim_4
+      files: [dim_2]
+
+      auto_encoding: true
+      auto_encoding_options:
+        drop_encodings: [frames]
+        map_free_dims_to: files
+
+
+  # files/short_syntax:
+  #   plot_cfg:
+  #     <<: *files_encoding_cfg
+
+  #     # short notation
+  #     expected_data_dimensions: [2, 3, 4]
+  #     # equivalent to:
+  #     # expected_data_dimensions:
+  #     #   required: 2
+  #     #   optional: 0
+  #     #   free: 2
+
+  #     # short notation
+  #     files: true  # -> if beyond 4 dimensions, sweep over left-over dims
+
+
+  # files/long_syntax:
+  #   plot_cfg:
+  #     <<: *files_encoding_cfg
+
+  #     # more explicit notation
+  #     expected_data_dimensions:
+  #       required:  # Union[int, list]
+  #         - [foo, bar]  # (foo OR bar)
+  #         - baz         # AND baz
+  #       optional:  # Union[int, list]
+  #         - spam
+  #       free: 1    # int
+  #       # TODO dimension names should allow simple wildcard matches
+  #       # -> supports [2, 3, 4] dimensions
+
+  #     # long notation, allowing to supply options
+  #     files:
+  #       dims: [spam]  # dims to always create files for
+  #       auto: true    # whether to add left-over dims as well
+  #       exclude:      # dimensions to never sweep over
+  #         - fish
+  #       sort_by: size_asc   # `dims` order
+  #       # TODO more here?
 
 
     # TODO auto-encoding + explicitly defined encodings
     # TODO without auto-encoding: for `files: true`, would absorb those
 
 
-  # .. Documentation Examples .................................................
-
+# .. Documentation Examples ...................................................
+doc_examples:
   doc_examples_placeholder_title:
     plot_cfg:
       # Keys that need/should not be included
