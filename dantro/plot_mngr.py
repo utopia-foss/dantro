@@ -1200,7 +1200,7 @@ class PlotManager:
 
             except UpdatePlotConfig as upc:
                 updated_plot_cfg = self._handle_UpdatePlotConfig(upc, plot_cfg)
-                log.note("Restarting plot with updated configuration ...\n")
+                log.info("Restarting plot with updated configuration ...\n")
                 return self.plot(name, **updated_plot_cfg)
 
         # Else: It's more complicated now, as the config is in from_pspace, and

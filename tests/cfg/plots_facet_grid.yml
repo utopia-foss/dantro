@@ -63,9 +63,11 @@ auto:
   fully_automatic:
     kinds: [auto]
     specifiers: []
-    max_dims: 7
+    max_dims: 6
     plot_kwargs:
       auto_encoding: true
+    raises:
+      6: &err_facet_grid_files [UpdatePlotConfig, facet_grid files iteration]
 
   partly_specified:
     kinds: [auto]
@@ -74,7 +76,7 @@ auto:
     plot_kwargs:
       auto_encoding: true
     raises:
-      6: &err_plot_cfg_update [UpdatePlotConfig, facet_grid files iteration]
+      6: *err_facet_grid_files
 
   with_non_indexed_dims:
     kinds: [line]
@@ -85,7 +87,7 @@ auto:
     plot_kwargs:
       auto_encoding: true
     raises:
-      6: *err_plot_cfg_update
+      6: *err_facet_grid_files
 
   with_size_one:  # ... which can be squeezed
     kinds: [line]
@@ -98,7 +100,7 @@ auto:
       # squeeze: true  # is the default value
     raises:
       2: &err_no_num_data [PlottingError, "TypeError: No numeric data to plot"]
-      8: *err_plot_cfg_update
+      8: *err_facet_grid_files
 
   with_size_one_no_squeeze:
     kinds: [line]
@@ -110,7 +112,7 @@ auto:
       auto_encoding: true
       squeeze: false
     raises:
-      6: *err_plot_cfg_update
+      6: *err_facet_grid_files
 
   drop_missing_dims:
     kinds: [line]
@@ -122,7 +124,7 @@ auto:
         drop_missing_dims: true
       hue: dim_3  # only exists for dims >= 4, would be on x usually
     raises:
-      6: *err_plot_cfg_update
+      6: *err_facet_grid_files
 
   drop_missing_dims_disabled:
     kinds: [line]
@@ -148,7 +150,7 @@ auto:
     plot_kwargs:
       auto_encoding: true
     raises:
-      6: *err_plot_cfg_update
+      6: *err_facet_grid_files
 
   with_extra_coords_drop:
     kinds: [line]
@@ -160,7 +162,7 @@ auto:
       auto_encoding: true
       drop_nonindexed_coords: true
     raises:
-      6: *err_plot_cfg_update
+      6: *err_facet_grid_files
 
   auto_col_wrap:
     kinds: [line]
@@ -176,15 +178,32 @@ auto:
     raises:
       5: *line_plots_1d_or_2d
 
+  hist:
+    kinds: [hist]
+    specifiers: []
+    max_dims: 3
+    plot_kwargs:
+      auto_encoding: true
+    raises:
+      3: *err_facet_grid_files
+
+  hist_multiple_free_dims:
+    kinds: [hist]
+    specifiers: []
+    max_dims: 6
+    plot_kwargs:
+      auto_encoding:
+        hist: [[free, 3], frames, [files, ...], free]
+    raises:
+      6: *err_facet_grid_files
+
 
 auto_ds:
-  # FIXME These don't work because auto-encoding does not retain a free
-  #       dimension to be used within a single subplot!
   scatter:
     kinds: [scatter]
     specifiers: []
     min_dims: 1
-    max_dims: 4
+    max_dims: 5
     test_data_path: ds_labelled  # (foo, bar, baz, spam, fish), dim_0 … _4
     plot_kwargs:
       x: foo
@@ -192,8 +211,52 @@ auto_ds:
       hue: spam                  # as data variable … but could also be a dim!
       auto_encoding: true        # -> assigns col, row, frames, files
     raises:
-      4: *err_plot_cfg_update    # col, row, frames all set --> need files
+      5: *err_facet_grid_files    # col, row, frames all set --> need files
 
+  scatter_hue_faceting:
+    kinds: [scatter]
+    specifiers: []
+    min_dims: 1
+    max_dims: 6
+    test_data_path: ds_labelled  # (foo, bar, baz, spam, fish), dim_0 … _4
+    plot_kwargs:
+      x: foo
+      y: bar
+      hue: dim_0                 # as faceting dimension
+      auto_encoding: true        # -> assigns col, row, frames, files
+    raises:
+      6: *err_facet_grid_files    # col, row, frames all set --> need files
+
+  scatter_specific_free:
+    kinds: [scatter]
+    specifiers: []
+    min_dims: 1
+    max_dims: 5
+    test_data_path: ds_labelled  # (foo, bar, baz, spam, fish), dim_0 … _4
+    plot_kwargs:
+      x: foo
+      y: bar
+      hue: spam                  # as data variable … but could also be a dim!
+      free: dim_1
+      auto_encoding: true        # -> assigns col, row, frames, files
+    raises:
+      1: *err_no_num_data        # {col: dim_0} -> 0D-data in subplot
+      5: *err_facet_grid_files    # col, row, frames all set --> need files
+
+  scatter_multiple_free:
+    kinds: [scatter]
+    specifiers: []
+    min_dims: 1
+    max_dims: 7
+    test_data_path: ds_labelled  # (foo, bar, baz, spam, fish), dim_0 … _4
+    plot_kwargs:
+      x: foo
+      y: bar
+      hue: spam                  # as data variable … but could also be a dim!
+      free: [dim_0, dim_1, dim_2]  # possible despite default size 1
+      auto_encoding: true        # -> assigns col, row, frames, files
+    raises:
+      7: *err_facet_grid_files    # 3x free + col, row, frames set --> files
 
 
 # .. With `kind` specified ....................................................
@@ -479,7 +542,7 @@ scatter3d:
       markersize: dim_2
       <<: *use_3d_projection
     raises:
-      5: &bad_dimensionality [PlottingError, "Unexpected data dimensionality"]
+      5: *err_facet_grid_files
 
   scatter3d_autoenc:
     kinds: [scatter3d]
@@ -575,7 +638,7 @@ cm_support:
       y: bar
       hue: spam
     raises:
-      1: [PlottingError, No numeric data to plot]
+      1: *err_no_num_data
 
 
 

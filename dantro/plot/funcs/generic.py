@@ -30,28 +30,28 @@ xr = LazyLoader("xarray")
 # fmt: off
 
 _XR_PLOT_KINDS = {  # --- start literalinclude
-    "scatter":      ("hue", "col", "row"),
+    "scatter":      ("free", "hue", "col", "row"),
     "line":         ("x", "hue", "col", "row"),
     "step":         ("x", "col", "row"),
     "contourf":     ("x", "y", "col", "row"),
     "contour":      ("x", "y", "col", "row"),
     "imshow":       ("x", "y", "col", "row"),
     "pcolormesh":   ("x", "y", "col", "row"),
-    "hist":         (),
+    "hist":         ("free",),  # can also set ("free", ...) to absorb all
 }   # --- end literalinclude
 """The available plot kinds for the *xarray* plotting interface, together with
 the supported layout specifier keywords."""
 
 _FACET_GRID_KINDS = {
     # based on xarray plotting functions
-    "scatter":      ("hue", "col", "row", ("files", ...), "frames"),
+    "scatter":      ("free", "hue", "col", "row", ("files", ...), "frames"),
     "line":         ("x", "hue", "col", "row", ("files", ...), "frames"),
     "step":         ("x", "col", "row", ("files", ...), "frames"),
     "contourf":     ("x", "y", "col", "row", ("files", ...), "frames"),
     "contour":      ("x", "y", "col", "row", ("files", ...), "frames"),
     "imshow":       ("x", "y", "col", "row", ("files", ...), "frames"),
     "pcolormesh":   ("x", "y", "col", "row", ("files", ...), "frames"),
-    "hist":         ("frames",),
+    "hist":         ("free", ("files", ...), "frames",),
 
     # based on dantro plotting functions
     # NOTE These are dynamically added but generally look similar to the above:
@@ -209,7 +209,7 @@ def parse_encoding_spec(s: Union[str, Tuple[str, int]]) -> Tuple[str, int]:
     if isinstance(s, str):
         return (s, 1)
     name, nd = s
-    if nd in (Ellipsis, ..., "inf", "∞", float("inf")):
+    if nd in (Ellipsis, ..., "...", "…"):
         nd = ...
     return (name, nd)
 
@@ -275,7 +275,7 @@ def map_dims_to_encoding(
             e for e in l for e in (e if isinstance(e, (list, tuple)) else [e])
         ]
 
-    def get_spec_size(name: str, all_specs: list) -> Union[int, Ellipsis]:
+    def get_spec_size(name: str, all_specs: list) -> Union[int, "Ellipsis"]:
         size = 0
         for spec, nd in all_specs:
             if name == spec:
@@ -399,9 +399,8 @@ def map_dims_to_encoding(
         for spec in ignore_encodings:
             used_specs[spec] = all_specs_sizes[spec]
 
-    # FIXME .debug
-    log.remark("   used specifiers:      %s", _fmt_specs(used_specs.items()))
-    log.remark("   used data vars:       %s", ", ".join(used_data_vars))
+    log.debug("   used specifiers:      %s", _fmt_specs(used_specs.items()))
+    log.debug("   used data vars:       %s", ", ".join(used_data_vars))
 
     # Knowing the used specifiers, we can determine the free specifiers by
     # deducting the number of used dimensions from all specifiers. This is done
@@ -454,8 +453,7 @@ def map_dims_to_encoding(
             for spec, nd in free_specs
         ]
 
-    # FIXME .debug
-    log.remark("   eff. free specifiers: %s", _fmt_specs(free_specs))
+    log.debug("   eff. free specifiers: %s", _fmt_specs(free_specs))
 
     # Go over the dimensions, one by one, and map them to an encoding specifier
     while free_dims and free_specs:
@@ -1090,6 +1088,7 @@ def facet_grid(
     squeeze: bool = True,
     drop_nonindexed_coords: bool = False,
     sel: dict = None,
+    show_data: bool = False,
     **plot_kwargs,
 ):
     """A generic facet grid plot function for high dimensional data.
@@ -1194,6 +1193,11 @@ def facet_grid(
             such that size-1 dimensions do not take up encoding dimensions.
         drop_nonindexed_coords (bool, optional): If true, non-indexed
             coordinates will be dropped.
+        sel (dict, optional): A selector dict that is applied to the data to
+            use only a subset of it for the plot; passed to
+            :py:meth:`xr.Dataset.sel` or :py:meth:`xr.DataArray.sel`.
+        show_data (bool, optional): If true, shows the head of the data that
+            will be used for plotting.
         **plot_kwargs: Passed on to ``<data>.plot`` or ``<data>.plot.<kind>``
             These should include the layout encoding specifiers (``x``, ``y``,
             ``hue``, ``col``, and/or ``row``).
@@ -1204,6 +1208,10 @@ def facet_grid(
             plotting capabilities. This wraps the given error message and
             provides additional information that helps to track down why the
             plotting failed.
+        UpdatePlotConfig: To rewrite the plot configuration and restart this
+            plot with a new configuration.
+        EnterAnimationMode: To enter animation mode if not already in it.
+        ExitAnimationMode: To exit animation mode if unnecessarily in it.
     """
     import matplotlib.pyplot as plt
 
@@ -1342,7 +1350,8 @@ def facet_grid(
 
     # .. Prepare data . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     log.note("Preparing data for facet grid plot ...")
-    log.remark("%s", d.head())
+    if show_data:
+        log.remark("%s", d.head())
 
     # Can apply a data subselection
     if sel:
@@ -1385,14 +1394,20 @@ def facet_grid(
         return_encoding_info=True,
         **(auto_encoding_options if auto_encoding_options else {}),
     )
+    free = plot_kwargs.pop("free", None)  # TODO Should this be an argument?
     frames = plot_kwargs.pop("frames", None)
     files = plot_kwargs.pop("files", None)
+    _special_specs = ("free", "frames", "files")
+
+    if free:
+        free = (free,) if isinstance(free, str) else tuple(free)
+        log.remark("   deliberately free:    %s", ", ".join(free))
 
     # Potentially perform files iteration
     # This may leave the plotting function via a messaging exception; the next
     # time we arrive here, `files` should no longer be set.
     if files:
-        log.note(
+        log.info(
             "Initiating %d-dimensional files iteration:  %s",
             len(files),
             ", ".join(files),
@@ -1402,17 +1417,15 @@ def facet_grid(
         # TODO What about index selection?! May not always have coordinates
         sel = build_pspace_selector(d, files, **(sel if sel else {}))
 
-        # TODO Consider setting files to some informative value.
         raise UpdatePlotConfig(
             "facet_grid files iteration",
             from_pspace=dict(sel=sel),
-            **{
-                s: d
-                for s, d in encoding.items()
-                if s not in ("files", "frames")
-            },
+            #
+            # Explicitly pass the encoding so it's not tinkered with again
+            **{s: d for s, d in encoding.items() if s not in _special_specs},
+            free=free,
             frames=frames,
-            files=None,
+            files=None,  # TODO Consider setting to some informative value
         )
 
     # Parse colorbar-related arguments
@@ -1605,7 +1618,7 @@ def errorbars(
 @make_facet_grid_plot(
     map_as="dataset",
     register_as_kind="scatter3d",
-    encodings=("hue", "markersize"),  # TODO correct?!
+    encodings=("hue", "markersize"),
     supported_hue_styles=("continuous",),
     parse_cmap_and_norm_kwargs=False,
     # defaults
