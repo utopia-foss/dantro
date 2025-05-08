@@ -133,12 +133,14 @@ _:
 .plot.facet_grid.with_auto_encoding:
   based_on: .plot.facet_grid
   auto_encoding: true
+  auto_encoding_options:
+    ignore_encodings: [frames]
   col_wrap: auto
 
-.plot.facet_grid.with_auto_encoding.ignore_missing:
+.plot.facet_grid.with_auto_encoding.drop_missing_dims:
   based_on: .plot.facet_grid.with_auto_encoding
   auto_encoding_options:
-    ignore_missing: true
+    drop_missing_dims: true
 
 .plot.facet_grid.with_auto_kind:
   based_on: .plot.facet_grid

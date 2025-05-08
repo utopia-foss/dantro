@@ -9,6 +9,13 @@ However, given the rather burst-like development on this package, features are o
     - The `UpdatePlotConfig` messaging exception can be raised anywhere within the plotting procedure, even in the plot function itself, to update the given plot configuration and restart the plot.
     - The `facet_grid` plot adds a new `files` encoding, which triggers such a restart. Effectively, this turns a single plot into a parameter space plot which iterates over one or multiple data dimensions and creates separate output files for each point in that parameter space.
     - The `auto_encoding` feature can now work with encodings that accept more than one dimension (e.g. the `files` encoding). These are either specified with a fixed amount of data dimensions they accept or by an `...`, absorbing all remaining data dimensions. The auto-encoding procedure was reworked and improved in general, making it more robust and versatile.
+        - Can now `ignore_encodings` without adjusting the list of all available encodings.
+        - Now includes handling of `xr.Dataset` data variables, which may sometimes be used in place of dimension names.
+
+- !366 adds or adjusts the following base plot config entries:
+    - `.plot.facet_grid.with_auto_encoding` now ignores the `frames` encoding by default to focus on the more descriptive `files` encoding.
+    - `.plot.facet_grid.with_auto_encoding.drop_missing_dims`: to ignore missing data dimensions and assign them anew (replaces the `….ignore_missing` entry from v0.20.3).
+
 - !366 adds the `show_data` argument to the `facet_grid` plot, allowing to control whether data should be shown.
 - !366 adds the `max_num_nodes` argument to DAG visualization; if the number of nodes of the DAG exceeds this, the visualization will not be performed.
 
@@ -27,6 +34,7 @@ However, given the rather burst-like development on this package, features are o
 - !356 adds the option to squeeze 1-sized indexed dimensions from data for `facet_grid` plots (enabled by default), effectively increasing the dimensionality the facet grid plots can handle and alleviating manual steps to do this.
 - !356 adds the `auto_encoding_options.ignore_missing` flag to facet grid plots, allowing to ignore encodings if they were specified but are missing in the data; this makes plot setups more flexible.
   It can be enabled using the `.plot.facet_grid.with_auto_encoding.ignore_missing` base plots configuration.
+    - Note: As of 0.21.0, this was renamed to `drop_missing_dims`.
 
 #### Bug fixes
 - !356 addresses upstream deprecation warnings from `groupby` operations.

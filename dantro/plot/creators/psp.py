@@ -39,8 +39,8 @@ def _parse_subspace_selector(
         unis (Union[str, dict]): The universe descriptor, which can be either
             a string (``all``, ``single``, ``first``, ``last``, ``random``, or
             ``any``) or subspace selector.
-        pspace (ParamSpace): The ParamSpace for which the selector should be
-            constructed.
+        pspace (paramspace.paramspace.ParamSpace): The ParamSpace for which the
+            selector should be constructed.
     """
     if isinstance(unis, str):
         if unis in ("all",):

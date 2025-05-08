@@ -536,27 +536,28 @@ def determine_encoding(
     be specified in two ways:
 
         - By default, ``default_encodings`` is used as a map from plot kind to
-          a sequence of available layout specifiers.
+          a sequence of available layout encodings.
         - If ``auto_encoding`` is a dictionary, the default map will be
           *updated* with that dictionary.
 
     The association is done in the following way:
 
         1. Inspecting ``plot_kwargs``, all layout encoding specifiers are
-           extracted, dropping those that evaluate to False.
+           extracted, regardless of their value.
         2. The encodings mapping is determined (see above).
         3. The available dimension names are determined from ``dims``.
         4. Depending on ``kind`` and the already fixed specifiers, the *free*
            encoding specifiers and dimension names are extracted.
         5. These free specifiers are associated with free dimension names,
-           in order of descending dimension size.
+           in order of descending dimension size. Encoding specifiers that have
+           previously been set will keep that value, even if it was ``None``.
 
     **Example:** Assume, the available specifiers are ``('x', 'y', 'col')`` and
     the data has dimensions ``dim0``, ``dim1`` and ``dim2``. Let's further say
-    that ``y`` was already fixed to ``dim2``, leaving ``x`` and ``col`` as free
-    specifiers and ``dim0`` and ``dim1`` as free dimensions.
+    that ``y`` was already fixed to ``dim2``, leaving ``x`` and ``col`` as
+    available encodings and ``dim0`` and ``dim1`` as free dimensions.
     With ``x`` being specified before ``col`` in the list of available
-    specifiers, ``x`` would be associated to the remaining dimension with the
+    encodings, ``x`` would be associated to the remaining dimension with the
     *larger* size and ``col`` to the remaining one.
 
     An encodings mapping may look like this:
@@ -567,32 +568,37 @@ def determine_encoding(
         :end-before:  }   # --- end literalinclude
         :dedent: 4
 
+    Here, string-like specifiers denote encodings that can represent only a
+    single data dimension. The ``(name, ndim)`` syntax can be used to let an
+    encoding absorb ``ndim`` dimensions. Setting ``ndim`` to an Ellipsis
+    (``...``, ``Ellipsis`` or the ``'...'`` string) specifies that encoding to
+    take up *all* data dimensions that are not taken-up by other encodings.
+    Encodings with ``ndim > 1`` are always multi-dimensional, regardless of
+    how many dimensions will be associated with it.
+
+    **Example:** Let's assume the available encoding is ``x, hue, files…`` and
+    there are five free dimensions to assign. In this case, the largest will go
+    to ``x``, the next-largest to ``hue`` and the remaining three to the
+    multi-dimensional``files`` encoding.
+
     The ``drop_missing_dims`` option will unset a previously set encoding if
-    that dimension does not exist in the data; a warning will be shown if this
-    was the case.
+    that dimension does not exist in the data; a log message will inform about
+    this case. Setting this can be useful to make a plot definition more
+    flexible.
 
     The ``ignore_encodings`` option allows to not automatically assign certain
     encodings, e.g. if it is desired that an encoding is typically kept
-    unassigned. Effectively, it is not regarded as a free encoding, regardless
-    of its value.
+    unassigned. Effectively, it is never regarded as an available encoding,
+    regardless of its value. This can be useful to set if it is undesired to
+    change the ``auto_encoding`` dict.
 
-    .. note::
-
-        **Background:**
-        One can distinguish different categories of xarray data dimensions,
-        most relevant for association of encodings: those *with* and those
-        *without* coordinate labels. If coordinates are available, the
-        corresponding dimension is called *indexed*, otherwise it is a
-        *non-indexed* dimension, no coordinate labels exist and hence only
-        trivial indexing is possible.
-
-        xarray objects may also contain additional (scalar) coordinate metadata
-        which has no relation to the data dimensions and is ignored here.
-
-        Furthermore, there can be additional non-scalar coordinates that *are*
-        associated with existing data dimensions, but are *not* acting as their
-        index; these run "in parallel" to the existing coordinates along that
-        dimension.
+    When working with :py:class:`xarray.Dataset` objects, its data variables
+    may play a role in the encoding as some specifiers (like ``hue`` in a
+    ``scatter`` plot) accept both dimension names and data variables, behaving
+    differently depending on which one was passed.
+    By passing on the data variables via the ``data_vars`` argument, the
+    encoding algorithm can take into account that a specified encoding does
+    perhaps not refer to a data dimension but to a data *variable*.
 
     This function also implements **automatic column wrapping**, aiming to
     produce a efficient figure use with column wrapping. The prerequisites
@@ -1143,15 +1149,20 @@ def facet_grid(
 
         * the ``frames`` layout encoding argument, which behaves in the same
           way as the other encodings, but leads to an *animation* being
-          generated, thus opening up one further dimension of representation,
-        * the ``auto_encoding`` feature, which allows to select layout-
-          encodings automatically,
-        * and the ``kind: 'auto'`` option, which can be used in conjunction
-          with ``auto_encoding`` to choose the plot kind automatically as well.
-        * allows ``col_wrap: 'auto'``, which selects the value such that the
-          figure becomes more square-like (requires ``auto_encoding: true``)
-        * allows to register additional plot ``kind`` values that create plots
-          with a custom single-axis plotting function, using the
+          generated, thus opening up one further dimension of representation;
+        * the ``files`` encoding, which triggers plot config updating and
+          thereby allows to represent data of arbitrary dimensionality; this is
+          achieved by performing a parameter sweep plot where each point
+          corresponds to a single plot file of a subspace of the data;
+        * the ``auto_encoding`` feature, which allows to assign layout-
+          encodings automatically, depending on dimensions and dimension
+          sizes of the data;
+        * the ``kind: 'auto'`` option, which can be used in conjunction
+          with ``auto_encoding`` to choose the plot kind automatically as well;
+        * the ``col_wrap: 'auto'`` option, which selects the value such that
+          the figure becomes more square-like (requires ``auto_encoding``);
+        * and allowing to register additional plot ``kind`` values that create
+          plots with a custom single-axis plotting function, using the
           :py:class:`~dantro.plot.funcs.generic.make_facet_grid_plot`
           decorator.
 
@@ -1161,7 +1172,29 @@ def facet_grid(
 
     .. note::
 
-        When specifying ``frames``, the ``animation`` arguments need to be
+        The way the plot data is labelled for the facet grid plot is very
+        important to understand how this plot function behaves.
+
+        **Background:**
+        One can distinguish different categories of xarray data dimensions,
+        most relevant for association of encodings: those *with* and those
+        *without* coordinate labels. If coordinates are available, the
+        corresponding dimension is called *indexed*, otherwise it is a
+        *non-indexed* dimension, no coordinate labels exist and hence only
+        trivial indexing is possible.
+
+        xarray objects may also contain additional (scalar) coordinate metadata
+        which has no relation to the data dimensions and is ignored here.
+
+        Furthermore, there can be additional non-scalar coordinates that *are*
+        associated with existing data dimensions, but are *not* acting as their
+        index; these run "in parallel" to the existing coordinates along that
+        dimension.
+
+
+    .. note::
+
+        When specifying ``frames``, the ``animation`` arguments also need to be
         specified. See :ref:`here <pcr_pyplot_animations>` for more information
         on the expected animation parameters.
 
@@ -1173,8 +1206,9 @@ def facet_grid(
 
     .. note::
 
-        Internally, this function calls ``.squeeze`` on the selected data, thus
-        being more tolerant with data that has size-1 dimension coordinates.
+        Internally, this function by default call ``.squeeze`` on the selected
+        data (controlled by the ``squeeze`` argument), thus being more tolerant
+        with data that has size-1 dimension coordinates.
         To suppress this behaviour, set the ``squeeze`` argument accordingly.
 
     .. warning::
@@ -1212,6 +1246,8 @@ def facet_grid(
         auto_encoding (Union[bool, dict], optional): Whether to choose the
             layout encoding options automatically. For further options, can
             pass a dict. See :ref:`dag_generic_auto_encoding` for more info.
+        auto_encoding_options (dict, optional): Additional arguments for
+            :py:func:`~dantro.plot.funcs.generic.determine_encoding`.
         suptitle_kwargs (dict, optional): Key passed on to the PlotHelper's
             ``set_suptitle`` helper function. Only used if animations are
             enabled. The ``title`` entry can be a format string with the
@@ -1224,11 +1260,12 @@ def facet_grid(
         sel (dict, optional): A selector dict that is applied to the data to
             use only a subset of it for the plot; passed to
             :py:meth:`xarray.Dataset.sel` or :py:meth:`xarray.DataArray.sel`.
+            Note that this requires the data to have indexed dimensions.
         show_data (bool, optional): If true, shows the head of the data that
             will be used for plotting.
         **plot_kwargs: Passed on to ``<data>.plot`` or ``<data>.plot.<kind>``
             These should include the layout encoding specifiers (``x``, ``y``,
-            ``hue``, ``col``, and/or ``row``).
+            ``hue``, ``col``, ``row``, ``frames``, ``files``, ...).
 
     Raises:
         AttributeError: Upon unsupported ``kind`` value
