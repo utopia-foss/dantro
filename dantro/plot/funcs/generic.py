@@ -1212,7 +1212,7 @@ def facet_grid(
             coordinates will be dropped.
         sel (dict, optional): A selector dict that is applied to the data to
             use only a subset of it for the plot; passed to
-            :py:meth:`xr.Dataset.sel` or :py:meth:`xr.DataArray.sel`.
+            :py:meth:`xarray.Dataset.sel` or :py:meth:`xarray.DataArray.sel`.
         show_data (bool, optional): If true, shows the head of the data that
             will be used for plotting.
         **plot_kwargs: Passed on to ``<data>.plot`` or ``<data>.plot.<kind>``

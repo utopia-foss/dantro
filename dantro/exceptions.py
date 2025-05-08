@@ -262,7 +262,7 @@ class UpdatePlotConfig(DantroMessagingException):
     """A custom exception class that allows to update the plot configuration
     from a lower level and causes the plot to start over with dynamically
     updated parameters. The exception itself is handled in
-    :py:method:`dantro.plot_mngr.PlotManager.plot` and can thus be raised
+    :py:meth:`dantro.plot_mngr.PlotManager.plot` and can thus be raised
     anywhere below it: in the plot creators, in the user-defined plotting
     functions, ...
     """

@@ -3,6 +3,20 @@
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).  
 However, given the rather burst-like development on this package, features are often released immediately, sometimes also as a "patch" (`+0.0.1`) release.
 
+## v0.21.0 🚧
+- !366 makes it possible to create facet grid plots for data of arbitrary dimensionality.
+  This is achieved through the following changes:
+    - The `UpdatePlotConfig` messaging exception can be raised anywhere within the plotting procedure, even in the plot function itself, to update the given plot configuration and restart the plot.
+    - The `facet_grid` plot adds a new `files` encoding, which triggers such a restart. Effectively, this turns a single plot into a parameter space plot which iterates over one or multiple data dimensions and creates separate output files for each point in that parameter space.
+    - The `auto_encoding` feature can now work with encodings that accept more than one dimension (e.g. the `files` encoding). These are either specified with a fixed amount of data dimensions they accept or by an `...`, absorbing all remaining data dimensions. The auto-encoding procedure was reworked and improved in general, making it more robust and versatile.
+- !366 adds the `show_data` argument to the `facet_grid` plot, allowing to control whether data should be shown.
+- !366 adds the `max_num_nodes` argument to DAG visualization; if the number of nodes of the DAG exceeds this, the visualization will not be performed.
+
+
+#### Internal
+- !366 adds the `ping` log level (yet unused).
+- !366 adjusts pytest config to show log messages.
+
 
 ## v0.21.0 🚧
 - !367 fixes `is_iterable` after a [behaviour change in Python 3.13.4](https://github.com/python/cpython/issues/135171).
