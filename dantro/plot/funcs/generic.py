@@ -44,14 +44,14 @@ the supported layout specifier keywords."""
 
 _FACET_GRID_KINDS = {
     # based on xarray plotting functions
-    "scatter":      ("hue", "col", "row", "frames"),
-    "line":         ("x", "hue", "col", "row", "frames"),
-    "step":         ("x", "col", "row", "frames"),
-    "contourf":     ("x", "y", "col", "row", "frames"),
-    "contour":      ("x", "y", "col", "row", "frames"),
-    "imshow":       ("x", "y", "col", "row", "frames"),
-    "pcolormesh":   ("x", "y", "col", "row", "frames"),
-    "hist":         ("frames",),
+    "scatter":      ("hue", "col", "row", ("files", ...), "frames"),
+    "line":         ("x", "hue", "col", "row", ("files", ...), "frames"),
+    "step":         ("x", "col", "row", ("files", ...), "frames"),
+    "contourf":     ("x", "y", "col", "row", ("files", ...), "frames"),
+    "contour":      ("x", "y", "col", "row", ("files", ...), "frames"),
+    "imshow":       ("x", "y", "col", "row", ("files", ...), "frames"),
+    "pcolormesh":   ("x", "y", "col", "row", ("files", ...), "frames"),
+    "hist":         (("files", ...), "frames",),
 
     # based on dantro plotting functions
     # NOTE These are dynamically added but generally look similar to the above:
@@ -220,7 +220,7 @@ def map_dims_to_encoding(
     *,
     encoding: Dict[str, Union[str, Tuple[str, ...]]] = None,
     drop_missing_dims: bool = False,
-    drop_encodings: List[str] = None,
+    ignore_encodings: List[str] = None,
 ) -> Tuple[
     Dict[str, Union[str, Tuple[str, ...]]], List[Tuple[str, int]], List[str]
 ]:
@@ -256,9 +256,10 @@ def map_dims_to_encoding(
         drop_missing_dims (bool, optional): If True, will drop those entries
             in ``encoding`` that use a dimension name that is not part of
             ``all_dims``.
-        drop_encodings (List[str], optional): Names of encoding specifiers that
-            should be removed from ``all_specs`` and ``encoding`` before
-            starting to assign values.
+        ignore_encodings (List[str], optional): Names of encoding specifiers
+            that should be ignored, i.e. which remain in ``all_specs`` but are
+            not automatically assigned dimensions; note that they remain in
+            ``encoding`` and retain the value they have received manually.
 
     Returns:
         Tuple[Dict[str, Union[str, Tuple[str, ...]]], List[Tuple[str, int]], List[str]]:
@@ -273,6 +274,15 @@ def map_dims_to_encoding(
             e for e in l for e in (e if isinstance(e, (list, tuple)) else [e])
         ]
 
+    def get_spec_size(name: str, all_specs: list) -> Union[int, Ellipsis]:
+        size = 0
+        for spec, nd in all_specs:
+            if name == spec:
+                if nd is Ellipsis:
+                    return Ellipsis
+                size += nd
+        return size
+
     if len(set(all_dims)) != len(all_dims):
         raise ValueError(
             "Dimension names to map to encodings need to be unique, but "
@@ -286,16 +296,13 @@ def map_dims_to_encoding(
         parse_encoding_spec(s) for s in all_specs
     ]
 
-    if drop_encodings:
-        all_specs = [
-            (spec, nd) for spec, nd in all_specs if spec not in drop_encodings
-        ]
-
     all_spec_names: List[str] = [spec for spec, _ in all_specs]
+    all_specs_sizes: Dict[str, int] = {
+        spec_name: get_spec_size(spec_name, all_specs)
+        for spec_name in set(all_spec_names)
+    }
     multi_dim_specs = set(
-        spec
-        for spec, nd in all_specs
-        if (nd is Ellipsis or nd > 1) or all_spec_names.count(spec) > 1
+        spec for spec, size in all_specs_sizes.items() if size not in (0, 1)
     )
 
     # Set up the target encoding dict
@@ -303,8 +310,8 @@ def map_dims_to_encoding(
     encoding = {
         spec: dim if not dim or isinstance(dim, str) else tuple(dim)
         for spec, dim in encoding.items()
-        if not drop_encodings or spec not in drop_encodings
     }
+    log.remark("   given encoding:       %s", _fmt_kv(encoding.items()))
 
     # May want to modify the given encoding, e.g. if dimensions have been
     # specified that are missing in the data, they should be dropped
@@ -312,13 +319,20 @@ def map_dims_to_encoding(
     missing_dims = [dim for dim in used_dims if dim and dim not in all_dims]
 
     if missing_dims:
+        log.caution("   missing dimensions:   %s", ", ".join(missing_dims))
+        specs_with_missing_dims = [
+            spec
+            for spec, dim in encoding.items()
+            if (isinstance(dim, str) and dim in missing_dims)
+            or any(_dim in missing_dims for _dim in dim)
+        ]
         if drop_missing_dims:
             # Filter out missing dimensions, either by dropping the whole entry
             # for a spec or dropping the dimension from a multi-dim spec.
             # This may result in empty lists, but that's fine.
-            log.caution(
-                "   ignoring dimensions:  %s  (not available in data)",
-                ", ".join(missing_dims),
+            log.remark(
+                "   → dropping from affected encodings (%s)",
+                ", ".join(specs_with_missing_dims),
             )
             encoding = {
                 spec: (
@@ -331,9 +345,10 @@ def map_dims_to_encoding(
             }
             used_dims = unpack_nested(encoding.values())
         else:
-            log.error(
-                "   missing dimensions:   %s  (not available in data)",
-                ", ".join(missing_dims),
+            log.warning(
+                "   → will likely cause errors downstream related to the "
+                "affected encodings:  %s",
+                ", ".join(specs_with_missing_dims),
             )
 
     # Check how many of these may have already been set in the encoding,
@@ -350,14 +365,24 @@ def map_dims_to_encoding(
             f"that each dimension only appears once. Encoding:  {encoding}"
         )
 
-    # Now the free specifiers: count how many have been previously specified
-    # and deduce those from the number of available specifiers.
+    # To determine the free specifiers, we first need to know which specifiers
+    # have been previously specified or should otherwise be regarded as "used";
+    # either because they are already specified or because they have been
+    # denoted as to-be-ignored.
     # The used specs can be a dict because the order is not relevant.
     used_specs: Dict[str, int] = {
         spec: len(dim if dim else []) if not isinstance(dim, str) else 1
         for spec, dim in encoding.items()
     }
 
+    if ignore_encodings:
+        log.remark("   ignoring:             %s", ", ".join(ignore_encodings))
+        for spec in ignore_encodings:
+            used_specs[spec] = all_specs_sizes[spec]
+
+    # Knowing the used specifiers, we can determine the free specifiers by
+    # deducting the number of used dimensions from all specifiers. This is done
+    # in the order in which they are to be filled.
     free_specs = []
     _used_specs = copy.copy(used_specs)  # to allow counting down
     for spec, nd in all_specs:
@@ -374,10 +399,9 @@ def map_dims_to_encoding(
             if _used_specs[spec] <= 0:
                 del _used_specs[spec]
 
+    free_specs = [(spec, nd) for spec, nd in free_specs if nd != 0]
     del _used_specs
 
-    # Inform
-    log.remark("   given encoding:       %s", _fmt_kv(encoding.items()))
     log.remark("   free specifiers:      %s", _fmt_specs(free_specs))
     log.remark("   free dimensions:      %s", ", ".join(free_dims))
 
@@ -444,8 +468,8 @@ def determine_encoding(
     plot_kwargs: dict,
     allow_y_for_x: List[str] = ("line",),
     drop_missing_dims: bool = False,
-    drop_encodings: List[str] = None,
-    map_free_dims_to: str = None,
+    ignore_encodings: List[str] = None,
+    return_encoding_info: bool = False,
 ) -> dict:
     """Determines the layout encoding for the given plot kind and the available
     data dimensions (as specified by the ``dims`` argument).
@@ -494,12 +518,10 @@ def determine_encoding(
     that dimension does not exist in the data; a warning will be shown if this
     was the case.
 
-    The ``drop_encodings`` option allows to remove encodings from the mapping,
-    despite them being specified in ``auto_encoding`` or ``default_encodings``.
-
-    With ``map_free_dims_to``, a new encoding specifier can be appended, which
-    will absorb all remaining free dimesions. This will be a multi-dimensional
-    encoding specifier, e.g. ``files``, and needs to be handled accordingly.
+    The ``ignore_encodings`` option allows to not automatically assign certain
+    encodings, e.g. if it is desired that an encoding is typically kept
+    unassigned. Effectively, it is not regarded as a free encoding, regardless
+    of its value.
 
     .. note::
 
@@ -561,11 +583,22 @@ def determine_encoding(
         plot_kwargs (dict): The actual plot function arguments, including any
             layout encoding arguments that aim to *fix* a dimension. Everything
             else is ignored.
+        drop_missing_dims (bool, optional): If set, will drop pre-specified
+            encodings from ``plot_kwargs`` if they refer to a dimension that
+            is not available in ``dims``. The encoding can then be filled with
+            another dimension.
+        ignore_encodings (List[str], optional): If given, will ignore these
+            encodings when automatically assigning.
+        return_encoding_info (bool, optional): If set, will return a 2-tuple of
+            the updated plots config *and* the encoding information as a
+            3-tuple ``(encoding, free_specs, free_dims)``.
     """
 
     if not auto_encoding or kind is None:
         log.debug("Layout auto-encoding was disabled (kind: %s).", kind)
-        return plot_kwargs
+        if not return_encoding_info:
+            return plot_kwargs
+        return plot_kwargs, ({}, (), ())
 
     log.note(
         "Automatically determining layout encoding for kind '%s' ...", kind
@@ -582,10 +615,6 @@ def determine_encoding(
     if allow_y_for_x and kind in allow_y_for_x:
         if plot_kwargs.get("y") and not plot_kwargs.get("x"):
             all_specs = [s if s != "x" else "y" for s in all_specs]
-
-    # May want an additional specifier for free dimensions
-    if map_free_dims_to:
-        all_specs = tuple(all_specs) + ((map_free_dims_to, Ellipsis),)
 
     # Bring encoding specifiers into uniform shape
     all_specs = [parse_encoding_spec(spec) for spec in all_specs]
@@ -618,7 +647,7 @@ def determine_encoding(
         all_dims,
         encoding=encoding,
         drop_missing_dims=drop_missing_dims,
-        drop_encodings=drop_encodings,
+        ignore_encodings=ignore_encodings,
     )
 
     # Drop those encoding specifiers that are effectively unset.
@@ -665,7 +694,11 @@ def determine_encoding(
             del plot_kwargs["col_wrap"]
 
     # Finally, return the merged layout specifiers and plot kwargs
-    return dict(**plot_kwargs, **encoding)
+    updated_plot_cfg = dict(**plot_kwargs, **encoding)
+
+    if not return_encoding_info:
+        return updated_plot_cfg
+    return updated_plot_cfg, (encoding, free_specs, free_dims)
 
 
 def build_pspace_selector(
@@ -720,9 +753,9 @@ class make_facet_grid_plot:
     }
     """The available mapping functions in :py:class:`xarray.plot.FacetGrid`"""
 
-    DEFAULT_ENCODINGS = ("col", "row", "frames")
+    DEFAULT_ENCODINGS = ("col", "row", ("files", ...), "frames")
     """The default encodings the facet grid supplies; these are those supported
-    by the generic facet grid function"""
+    by the generic facet grid function, irrespective of chosen ``kind``"""
 
     DEFAULT_DROP_KWARGS = ("_fg", "meta_data", "hue_style", "add_guide")
     """The default kwargs that are to be dropped rather than passed on to the
@@ -980,7 +1013,7 @@ class make_facet_grid_plot:
             log.debug(
                 "Registered '%s' encodings:  %s",
                 regname,
-                ", ".join(_FACET_GRID_KINDS[regname]),
+                _fmt_specs(_FACET_GRID_KINDS[regname]),
             )
 
         # Build the standalone plot function, which takes the place of the
@@ -1306,12 +1339,13 @@ def facet_grid(
     kind = determine_plot_kind(
         d, kind=kind, default_kind_map=_AUTO_PLOT_KINDS, **plot_kwargs
     )
-    plot_kwargs = determine_encoding(
+    plot_kwargs, (encoding, _, _) = determine_encoding(
         d.sizes,
         kind=kind,
         auto_encoding=auto_encoding,
         default_encodings=_FACET_GRID_KINDS,
         plot_kwargs=plot_kwargs,
+        return_encoding_info=True,
         **(auto_encoding_options if auto_encoding_options else {}),
     )
     frames = plot_kwargs.pop("frames", None)
@@ -1321,10 +1355,27 @@ def facet_grid(
     # This may leave the plotting function via a messaging exception; the next
     # time we arrive here, `files` should no longer be set.
     if files:
+        log.note(
+            "Initiating %d-dimensional files iteration:  %s",
+            len(files),
+            ", ".join(files),
+        )
+
+        # Build selector, including existing values
+        # TODO What about index selection?! May not always have coordinates
         sel = build_pspace_selector(d, files, **(sel if sel else {}))
+
         # TODO Consider setting files to some informative value.
         raise UpdatePlotConfig(
-            "facet_grid files iteration", files=None, from_pspace=dict(sel=sel)
+            "facet_grid files iteration",
+            from_pspace=dict(sel=sel),
+            **{
+                s: d
+                for s, d in encoding.items()
+                if s not in ("files", "frames")
+            },
+            frames=frames,
+            files=None,
         )
 
     # Parse colorbar-related arguments

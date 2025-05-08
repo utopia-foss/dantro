@@ -82,6 +82,16 @@ def dm(psp_grp, psp_grp_default, psp_grp_missing_data, tmpdir) -> DataManager:
         Cls=PassthroughContainer,
     )
     dsets.new_container(
+        path="mean_and_std_5D",
+        data=xr.Dataset(
+            dict(
+                mean=create_nd_data(5, with_coords=True),
+                std=create_nd_data(5, with_coords=True),
+            )
+        ),
+        Cls=PassthroughContainer,
+    )
+    dsets.new_container(
         path="mean_and_std_6D",
         data=xr.Dataset(
             dict(
@@ -179,7 +189,7 @@ def invoke_test_plots(pm: PlotManager, plots_cfg: dict):
 
     # .. Automate creation of individual plots with their respective config ...
     for name, cfg in plots_cfg.items():
-        print(f"\n\n\n--- Testing plot config '{name}' ... ---\n")
+        print(f"\n\n\n➡️ Testing plot config '{name}' ...")
 
         # Find out whether this is expected to succeed or not
         _raises = cfg.get("_raises", False)
@@ -211,7 +221,7 @@ def invoke_test_plots(pm: PlotManager, plots_cfg: dict):
                 f"Check config of case '{name}'"
             )
 
-        print(f"\nTest for plot config '{name}' succeeded.")
+        print(f"✅ '{name}' plot succeeded.")
 
 
 # Tests -----------------------------------------------------------------------

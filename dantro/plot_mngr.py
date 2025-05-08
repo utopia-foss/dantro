@@ -789,9 +789,13 @@ class PlotManager:
         )
         return ExecutorCls(max_workers=max_workers, **executor_kwargs)
 
-    def _update_plot_cfg(self, plot_cfg: dict, **updates) -> dict:
+    def _handle_UpdatePlotConfig(
+        self, upc: UpdatePlotConfig, plot_cfg: dict
+    ) -> dict:
         """Updates the plot configuration with the given updates."""
-        return recursive_update(copy.deepcopy(plot_cfg), updates)
+        log.note("Received plot configuration updates.")
+        log.debug("Context:  %s", upc.context)
+        return recursive_update(copy.deepcopy(plot_cfg), upc.plot_cfg_updates)
 
     def _store_plot_info(
         self,
@@ -1195,9 +1199,8 @@ class PlotManager:
                 return self._plot(name, **plot_cfg)
 
             except UpdatePlotConfig as upc:
-                updated_plot_cfg = self._update_plot_cfg(
-                    plot_cfg, **upc.plot_cfg_updates
-                )
+                updated_plot_cfg = self._handle_UpdatePlotConfig(upc, plot_cfg)
+                log.note("Restarting plot with updated configuration ...\n")
                 return self.plot(name, **updated_plot_cfg)
 
         # Else: It's more complicated now, as the config is in from_pspace, and
@@ -1241,10 +1244,10 @@ class PlotManager:
             return self._plot(name, from_pspace=from_pspace, **kwargs)
 
         except UpdatePlotConfig as upc:
-            updated_plot_cfg = self._update_plot_cfg(
-                dict(from_pspace=from_pspace, **kwargs),  # FIXME likely wrong
-                **upc.plot_cfg_updates,
-            )
+            updated_plot_cfg = self._handle_UpdatePlotConfig(
+                upc, dict(from_pspace=from_pspace, **kwargs)
+            )  # FIXME likely wrong
+            log.note("Restarting plot with updated configuration ...\n")
             return self.plot(name, **updated_plot_cfg)
 
     def _plot(
@@ -1423,7 +1426,7 @@ class PlotManager:
 
             if rv is True:
                 log.progress(
-                    "Performed '%s' plot in %s.\n",
+                    "Performed '%s' plot in %s.\n\n",
                     name,
                     _fmt_time(time.time() - t0),
                 )
@@ -1574,10 +1577,11 @@ class PlotManager:
             )
         if n_max > 1 and num_skipped < n_max:
             log.remark(
-                "Average:  %s / plot\n", _fmt_time(dt / (n_max - num_skipped))
+                "Average:  %s / plot\n\n",
+                _fmt_time(dt / (n_max - num_skipped)),
             )
         else:
-            log.remark("")
+            log.remark("\n")
 
         # Done now. Return the plot creator object
         return plot_creator

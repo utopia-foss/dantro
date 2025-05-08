@@ -571,6 +571,10 @@ def test_map_dims_to_encoding():
         (("A", ...), "B", "C", "D", "E"), tp("bcde")  # zero-sized ellipsis
     ) == (dt(B="b", C="c", D="d", E="e"), [], [])
 
+    assert mp(
+        (("A", 2), "B", "A", "C", ("A", ...)), tp("abcdefg")  # split-up
+    ) == (dt(A=tp("abdfg"), B="c", C="e"), [], [])
+
     # With partly-specified encoding
     assert mp(tp("ABC"), tp("cab"), encoding=dict(B="b")) == (
         dt(A="c", B="b", C="a"),
@@ -614,22 +618,16 @@ def test_map_dims_to_encoding():
         tp("abc"),
         encoding=dict(C="a", B="d"),
         drop_missing_dims=False,
-    ) == (
-        dt(A="b", B="d", C="a"),
-        [],
-        ["c"],
-    )  # -> downstream errors
+    ) == (dt(A="b", B="d", C="a"), [], ["c"])
+    # -> downstream errors
 
     assert mp(
         tp("ABC"),
         tp("abc"),
         encoding=dict(C="a", B="d"),
         drop_missing_dims=True,
-    ) == (
-        dt(A="b", B="c", C="a"),
-        [],
-        [],
-    )  # -> unavailable d dim dropped
+    ) == (dt(A="b", B="c", C="a"), [], [])
+    # -> unavailable d dim dropped
 
     assert mp(
         tp("ABBC"),
@@ -638,13 +636,13 @@ def test_map_dims_to_encoding():
         drop_missing_dims=True,
     ) == (dt(C="a", B=tp("fc"), A="b"), [], ["d", "e"])
 
-    # Dropping encodings
+    # Ignoring encodings
     assert mp(
         tp("ABCBDE"),
         tp("abcdefg"),
         encoding=dict(B=["d"], D="g"),
-        drop_encodings=tp("BC"),  # -> only ADE remain
-    ) == (dt(A="a", D="g", E="b"), [], ["c", "d", "e", "f"])
+        ignore_encodings=tp("BC"),  # -> only ADE remain, but B=d already set
+    ) == (dt(A="a", B=("d",), D="g", E="b"), [], ["c", "e", "f"])
 
     # None-valued encodings lead to specifier being blocked
     assert mp(
@@ -653,20 +651,7 @@ def test_map_dims_to_encoding():
 
     assert mp(
         tp("ABCBDE"), tp("abcdefg"), encoding=dict(B=[None], D="g", E=None)
-    ) == (
-        dt(
-            A="a",
-            C="b",
-            B=(
-                None,
-                "c",
-            ),
-            D="g",
-            E=None,
-        ),
-        [],
-        ["d", "e", "f"],
-    )
+    ) == (dt(A="a", C="b", B=(None, "c"), D="g", E=None), [], ["d", "e", "f"])
 
     assert mp(
         tp("ABCBDBEB"), tp("abcdefg"), encoding=dict(B=[None, None], D=None)
@@ -789,7 +774,7 @@ def test_determine_encoding():
         **default_kws,
         plot_kwargs=dict(hue="bar", col="bad_dim_name"),
         drop_missing_dims=True,
-        drop_encodings=("col",),
+        ignore_encodings=("col",),
         map_free_dims_to="files",
     )
     assert kws["x"] == "salt"

@@ -5,7 +5,18 @@ _pm_init_kwargs:
   # The base plots configuration, available in the shared plot manager
   base_cfg_pools:
     - - base
-      - # .. Creators .........................................................
+      - # .. Misc .............................................................
+        animation.defaults:
+          file_ext: pdf
+          animation:
+            enabled: false
+            writer: frames
+            writer_kwargs:
+              frames:
+                saving:
+                  dpi: 92
+
+        # .. Creators .........................................................
         creator.pyplot:
           creator: pyplot
 
@@ -57,11 +68,18 @@ _files_encoding_base: &files_encoding_base
     - dag.facet_grid
 
   select:
-    data: datasets/mean_and_std_6D
+    data: datasets/mean_and_std_5D
 
   kind: errorbars
   y: mean
   yerr: std
+
+_files_encoding_base_with_animation: &files_encoding_base_with_animation
+  <<: *files_encoding_base
+  based_on:
+    - creator.pyplot
+    - dag.facet_grid
+    - animation.defaults
 
 
 # -----------------------------------------------------------------------------
@@ -728,10 +746,10 @@ files_encoding:
       <<: *files_encoding_base
 
       # explicitly specify encoding, including two file sweep dimensions
-      x: dim_5
-      hue: dim_4
-      col: dim_3
-      row: dim_2
+      x: dim_4
+      hue: dim_3
+      col: dim_2
+      row: ~
       frames: ~
       files: [dim_1, dim_0]
 
@@ -764,53 +782,37 @@ files_encoding:
 
       auto_encoding: true
       auto_encoding_options:
-        drop_encodings: [frames]
-        map_free_dims_to: files
+        ignore_encodings: [frames]
 
 
-  # files/short_syntax:
-  #   plot_cfg:
-  #     <<: *files_encoding_cfg
+  auto_from_free_ignoring_frames:
+    plot_cfg:
+      <<: *files_encoding_base_with_animation
 
-  #     # short notation
-  #     expected_data_dimensions: [2, 3, 4]
-  #     # equivalent to:
-  #     # expected_data_dimensions:
-  #     #   required: 2
-  #     #   optional: 0
-  #     #   free: 2
+      # check if we can still set frames if `drop_encoding` is set
+      x: dim_4
+      files: [dim_2]
+      frames: dim_3
 
-  #     # short notation
-  #     files: true  # -> if beyond 4 dimensions, sweep over left-over dims
+      auto_encoding: true
+      auto_encoding_options:
+        ignore_encodings: [frames]
 
 
-  # files/long_syntax:
-  #   plot_cfg:
-  #     <<: *files_encoding_cfg
+  auto_from_free_not_ignoring_frames:
+    plot_cfg:
+      <<: *files_encoding_base_with_animation
 
-  #     # more explicit notation
-  #     expected_data_dimensions:
-  #       required:  # Union[int, list]
-  #         - [foo, bar]  # (foo OR bar)
-  #         - baz         # AND baz
-  #       optional:  # Union[int, list]
-  #         - spam
-  #       free: 1    # int
-  #       # TODO dimension names should allow simple wildcard matches
-  #       # -> supports [2, 3, 4] dimensions
+      # block some encodings such that the frames encoding is used
+      x: dim_4
+      files: [dim_2]
+      hue: ~
+      col: ~
 
-  #     # long notation, allowing to supply options
-  #     files:
-  #       dims: [spam]  # dims to always create files for
-  #       auto: true    # whether to add left-over dims as well
-  #       exclude:      # dimensions to never sweep over
-  #         - fish
-  #       sort_by: size_asc   # `dims` order
-  #       # TODO more here?
+      auto_encoding: true
+      # auto_encoding_options:
+      #   ignore_encodings: [frames]  # -> will lead to frames iteration
 
-
-    # TODO auto-encoding + explicitly defined encodings
-    # TODO without auto-encoding: for `files: true`, would absorb those
 
 
 # .. Documentation Examples ...................................................
