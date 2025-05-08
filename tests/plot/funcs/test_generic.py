@@ -759,14 +759,13 @@ def test_determine_encoding():
         **default_kws,
         plot_kwargs=dict(hue="bar", col="bad_dim_name"),
         drop_missing_dims=True,
-        map_free_dims_to="files",
     )
     assert kws["x"] == "salt"
     assert kws["hue"] == "bar"
     assert kws["col"] == "chips"
     assert kws["row"] == "fish"
-    assert kws["frames"] == "spam"
-    assert kws["files"] == ("baz", "foo")
+    assert kws["files"] == ("spam", "baz")
+    assert kws["frames"] == "foo"  # assigned to shortest
 
     # Can drop encodings from the defaults to not have them filled
     kws = determine_encoding(
@@ -775,14 +774,29 @@ def test_determine_encoding():
         plot_kwargs=dict(hue="bar", col="bad_dim_name"),
         drop_missing_dims=True,
         ignore_encodings=("col",),
-        map_free_dims_to="files",
     )
     assert kws["x"] == "salt"
     assert kws["hue"] == "bar"
     assert "col" not in kws
     assert kws["row"] == "chips"
-    assert kws["frames"] == "fish"
-    assert kws["files"] == ("spam", "baz", "foo")
+    assert kws["files"] == ("fish", "spam", "baz")
+    assert kws["frames"] == "foo"
+
+    # Given encodings may also be data variables ...
+    kws = determine_encoding(
+        dict(foo=10, bar=12, baz=15, spam=21, fish=25, chips=30, salt=33),
+        **default_kws,
+        plot_kwargs=dict(hue="dvar", row="spam", col="bad_dim_name"),
+        drop_missing_dims=True,
+        data_vars=["dvar"],
+        ignore_encodings=("col", "row"),
+    )
+    assert kws["x"] == "salt"
+    assert kws["hue"] == "dvar"
+    assert "col" not in kws
+    assert kws["row"] == "spam"
+    assert kws["files"] == ("chips", "fish", "baz", "bar")
+    assert kws["frames"] == "foo"
 
 
 # -----------------------------------------------------------------------------
@@ -968,6 +982,12 @@ def test_facet_grid_no_kind(dm, out_dir):
 def test_facet_grid_auto_encoding(dm, out_dir):
     """Tests the facet_grid with auto-encoding of kind and specifiers"""
     invoke_facet_grid(dm=dm, out_dir=out_dir, to_test=PLOTS_CFG_FG["auto"])
+
+
+def test_facet_grid_auto_encoding_ds(dm, out_dir):
+    """Tests the facet_grid with auto-encoding of kind and specifiers for
+    datasets"""
+    invoke_facet_grid(dm=dm, out_dir=out_dir, to_test=PLOTS_CFG_FG["auto_ds"])
 
 
 def test_facet_grid_kinds(dm, out_dir):

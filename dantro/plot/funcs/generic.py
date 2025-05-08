@@ -51,12 +51,12 @@ _FACET_GRID_KINDS = {
     "contour":      ("x", "y", "col", "row", ("files", ...), "frames"),
     "imshow":       ("x", "y", "col", "row", ("files", ...), "frames"),
     "pcolormesh":   ("x", "y", "col", "row", ("files", ...), "frames"),
-    "hist":         (("files", ...), "frames",),
+    "hist":         ("frames",),
 
     # based on dantro plotting functions
     # NOTE These are dynamically added but generally look similar to the above:
-    # "errorbars":    ("x", "hue", "col", "row", "frames"),
-    # "scatter3d":    ("hue", "col", "row", "frames"),
+    # "errorbars":    ("x", "hue", "col", "row", ("files", ...), "frames"),
+    # "scatter3d":    ("hue", "col", "row", ("files", ...), "frames"),
 }
 """The available plot kinds for the *dantro* plotting interface, together with
 the supported layout specifiers, which include the ``frames`` option."""
@@ -94,7 +94,7 @@ def _fmt_spec(spec: Union[str, Tuple[str, int]]) -> str:
     if nd == 1:
         return spec
     elif nd is Ellipsis:
-        return f"{spec} (…)"
+        return f"{spec}…"
     return f"{spec} ({nd}×)"
 
 
@@ -220,6 +220,7 @@ def map_dims_to_encoding(
     *,
     encoding: Dict[str, Union[str, Tuple[str, ...]]] = None,
     drop_missing_dims: bool = False,
+    data_vars: List[str] = None,
     ignore_encodings: List[str] = None,
 ) -> Tuple[
     Dict[str, Union[str, Tuple[str, ...]]], List[Tuple[str, int]], List[str]
@@ -291,6 +292,7 @@ def map_dims_to_encoding(
 
     # Bring dims and specs into a normalized form
     all_dims: List[str] = list(all_dims)
+    data_vars: List[str] = list(data_vars) if data_vars else []
 
     all_specs: List[Tuple[str, int]] = [
         parse_encoding_spec(s) for s in all_specs
@@ -313,10 +315,17 @@ def map_dims_to_encoding(
     }
     log.remark("   given encoding:       %s", _fmt_kv(encoding.items()))
 
+    if data_vars:
+        log.remark("   all data variables:   %s", ", ".join(data_vars))
+
     # May want to modify the given encoding, e.g. if dimensions have been
     # specified that are missing in the data, they should be dropped
     used_dims: List[str] = unpack_nested(encoding.values())
-    missing_dims = [dim for dim in used_dims if dim and dim not in all_dims]
+    missing_dims = [
+        dim
+        for dim in used_dims
+        if dim and dim not in all_dims and dim not in data_vars
+    ]
 
     if missing_dims:
         log.caution("   missing dimensions:   %s", ", ".join(missing_dims))
@@ -331,7 +340,7 @@ def map_dims_to_encoding(
             # for a spec or dropping the dimension from a multi-dim spec.
             # This may result in empty lists, but that's fine.
             log.remark(
-                "   → dropping from affected encodings (%s)",
+                "     → dropping from affected encodings (%s)",
                 ", ".join(specs_with_missing_dims),
             )
             encoding = {
@@ -346,7 +355,7 @@ def map_dims_to_encoding(
             used_dims = unpack_nested(encoding.values())
         else:
             log.warning(
-                "   → will likely cause errors downstream related to the "
+                "     → may cause errors downstream related to the "
                 "affected encodings:  %s",
                 ", ".join(specs_with_missing_dims),
             )
@@ -355,20 +364,30 @@ def map_dims_to_encoding(
     # i.e. find out the free dimensions and free encoding specifiers.
     # Start with the used and free dimensions:
     used_dims: List[str] = [
-        dim for dim in unpack_nested(encoding.values()) if dim
+        dim
+        for dim in unpack_nested(encoding.values())
+        if dim and dim not in data_vars
+    ]
+    used_data_vars: List[str] = [
+        dim
+        for dim in unpack_nested(encoding.values())
+        if dim and dim in data_vars
     ]
     free_dims = [dim for dim in all_dims if dim not in used_dims]
 
     if len(set(used_dims)) != len(used_dims):
         raise ValueError(
             "The given encoding contains duplicate dimension names! Make sure "
-            f"that each dimension only appears once. Encoding:  {encoding}"
+            "that each dimension only appears once.\n"
+            f"  Encoding:         {_fmt_kv(encoding.items())}\n"
+            f"  Data dimensions:  {', '.join(all_dims)}\n"
+            f"  Data variables:   {data_vars}"
         )
 
     # To determine the free specifiers, we first need to know which specifiers
-    # have been previously specified or should otherwise be regarded as "used";
-    # either because they are already specified or because they have been
-    # denoted as to-be-ignored.
+    # have been previously set or should otherwise be regarded as "used";
+    # either because they were already set or because they have been denoted as
+    # to-be-ignored.
     # The used specs can be a dict because the order is not relevant.
     used_specs: Dict[str, int] = {
         spec: len(dim if dim else []) if not isinstance(dim, str) else 1
@@ -379,6 +398,10 @@ def map_dims_to_encoding(
         log.remark("   ignoring:             %s", ", ".join(ignore_encodings))
         for spec in ignore_encodings:
             used_specs[spec] = all_specs_sizes[spec]
+
+    # FIXME .debug
+    log.remark("   used specifiers:      %s", _fmt_specs(used_specs.items()))
+    log.remark("   used data vars:       %s", ", ".join(used_data_vars))
 
     # Knowing the used specifiers, we can determine the free specifiers by
     # deducting the number of used dimensions from all specifiers. This is done
@@ -421,13 +444,18 @@ def map_dims_to_encoding(
         )
 
     elif len(ellipses_specs) == 1:
+        # How many dimensions are to be taken up by other free specifiers?
         n_other = sum(nd for _, nd in free_specs if nd is not Ellipsis)
-        n_fixed = sum(used_specs.values())
-        n_free = max(0, len(all_dims) - n_other - n_fixed)
+
+        # How many of the free dimensions does the Ellipsis need to use up?
+        n_free = max(0, len(free_dims) - n_other)
         free_specs = [
             (spec, nd if nd is not Ellipsis else n_free)
             for spec, nd in free_specs
         ]
+
+    # FIXME .debug
+    log.remark("   eff. free specifiers: %s", _fmt_specs(free_specs))
 
     # Go over the dimensions, one by one, and map them to an encoding specifier
     while free_dims and free_specs:
@@ -466,6 +494,7 @@ def determine_encoding(
     auto_encoding: Union[bool, dict],
     default_encodings: dict,
     plot_kwargs: dict,
+    data_vars: List[str] = None,
     allow_y_for_x: List[str] = ("line",),
     drop_missing_dims: bool = False,
     ignore_encodings: List[str] = None,
@@ -587,6 +616,11 @@ def determine_encoding(
             encodings from ``plot_kwargs`` if they refer to a dimension that
             is not available in ``dims``. The encoding can then be filled with
             another dimension.
+        data_vars (List[str], optional): If given, names of data variables
+            that may (in addition to the ``dims``) be used for encoding; this
+            is relevant when determining whether an encoding includes a
+            missing dimension, as some encodings may also refer not to
+            dimensions but to data variables.
         ignore_encodings (List[str], optional): If given, will ignore these
             encodings when automatically assigning.
         return_encoding_info (bool, optional): If set, will return a 2-tuple of
@@ -647,6 +681,7 @@ def determine_encoding(
         all_dims,
         encoding=encoding,
         drop_missing_dims=drop_missing_dims,
+        data_vars=data_vars,
         ignore_encodings=ignore_encodings,
     )
 
@@ -666,6 +701,7 @@ def determine_encoding(
     encoding = {s: dim for s, dim in encoding.items() if dim}
 
     # Provide information about the chosen encoding
+    # TODO Maybe hide if no free specifiers or encodings are left?
     log.remark("   resulting encoding:   %s", _fmt_kv(encoding.items()))
     log.remark("   free specifiers:      %s", _fmt_specs(free_specs))
     log.remark("   free dimensions:      %s", ", ".join(free_dims))
@@ -1344,6 +1380,7 @@ def facet_grid(
         kind=kind,
         auto_encoding=auto_encoding,
         default_encodings=_FACET_GRID_KINDS,
+        data_vars=(list(d.data_vars) if hasattr(d, "data_vars") else None),
         plot_kwargs=plot_kwargs,
         return_encoding_info=True,
         **(auto_encoding_options if auto_encoding_options else {}),

@@ -74,7 +74,7 @@ auto:
     plot_kwargs:
       auto_encoding: true
     raises:
-      6: [PlottingError, must be a permuted list]
+      6: &err_plot_cfg_update [UpdatePlotConfig, facet_grid files iteration]
 
   with_non_indexed_dims:
     kinds: [line]
@@ -85,7 +85,7 @@ auto:
     plot_kwargs:
       auto_encoding: true
     raises:
-      6: *line_plots_1d_or_2d
+      6: *err_plot_cfg_update
 
   with_size_one:  # ... which can be squeezed
     kinds: [line]
@@ -98,7 +98,7 @@ auto:
       # squeeze: true  # is the default value
     raises:
       2: &err_no_num_data [PlottingError, "TypeError: No numeric data to plot"]
-      8: *line_plots_1d_or_2d
+      8: *err_plot_cfg_update
 
   with_size_one_no_squeeze:
     kinds: [line]
@@ -110,7 +110,7 @@ auto:
       auto_encoding: true
       squeeze: false
     raises:
-      6: *line_plots_1d_or_2d
+      6: *err_plot_cfg_update
 
   drop_missing_dims:
     kinds: [line]
@@ -122,7 +122,7 @@ auto:
         drop_missing_dims: true
       hue: dim_3  # only exists for dims >= 4, would be on x usually
     raises:
-      6: *line_plots_1d_or_2d
+      6: *err_plot_cfg_update
 
   drop_missing_dims_disabled:
     kinds: [line]
@@ -137,7 +137,7 @@ auto:
     raises:
       1: &err_enc_missing [PlottingError, "KeyError: 'dim_2'"]
       2: *err_enc_missing
-      3: [PlottingError, must be one of]
+      3: [PlottingError, "must be one of .* Received 'dim_3'"]
 
   with_extra_coords:  # ... which are ignored
     kinds: [line]
@@ -148,7 +148,7 @@ auto:
     plot_kwargs:
       auto_encoding: true
     raises:
-      6: *line_plots_1d_or_2d
+      6: *err_plot_cfg_update
 
   with_extra_coords_drop:
     kinds: [line]
@@ -160,7 +160,7 @@ auto:
       auto_encoding: true
       drop_nonindexed_coords: true
     raises:
-      6: *line_plots_1d_or_2d
+      6: *err_plot_cfg_update
 
   auto_col_wrap:
     kinds: [line]
@@ -176,19 +176,24 @@ auto:
     raises:
       5: *line_plots_1d_or_2d
 
-  scatter_autoenc:
+
+auto_ds:
+  # FIXME These don't work because auto-encoding does not retain a free
+  #       dimension to be used within a single subplot!
+  scatter:
     kinds: [scatter]
-    specifiers: [col, frames]
-    min_dims: 3
-    max_dims: 5
-    test_data_path: ds_labelled
+    specifiers: []
+    min_dims: 1
+    max_dims: 4
+    test_data_path: ds_labelled  # (foo, bar, baz, spam, fish), dim_0 … _4
     plot_kwargs:
       x: foo
       y: bar
-      hue: spam
-      auto_encoding: true
+      hue: spam                  # as data variable … but could also be a dim!
+      auto_encoding: true        # -> assigns col, row, frames, files
     raises:
-      3: [PlottingError, No numeric data to plot]  # dataset is < 1D
+      4: *err_plot_cfg_update    # col, row, frames all set --> need files
+
 
 
 # .. With `kind` specified ....................................................

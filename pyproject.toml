@@ -4,7 +4,7 @@
 # If not in root directory, run with -c pyproject.toml to include test config
 [tool.pytest.ini_options]
 log_format = "-- %(levelname)8s  %(message)s"
-log_level = "debug"
+log_level = 12
 
 
 # pytest-cov / coverage.py ....................................................
