@@ -106,6 +106,15 @@ def _fmt_kv(kv, fstr="{k}: {v}", join_by=", ") -> str:
     return join_by.join(fstr.format(k=k, v=v) for k, v in kv)
 
 
+def _fmt_encoding(enc: dict, fstr="{s}: {d}", join_by=", ") -> str:
+    def fmt_dim(d: Union[str, list]) -> str:
+        if isinstance(d, (tuple, list)):
+            return f"[{', '.join(d)}]"
+        return d
+
+    return join_by.join(fstr.format(s=s, d=fmt_dim(d)) for s, d in enc.items())
+
+
 # .............................................................................
 
 
@@ -292,7 +301,11 @@ def map_dims_to_encoding(
 
     # Bring dims and specs into a normalized form
     all_dims: List[str] = list(all_dims)
+    log.remark("   data dims:     %s", ", ".join(all_dims))
+
     data_vars: List[str] = list(data_vars) if data_vars else []
+    if data_vars:
+        log.remark("   data vars:     %s", ", ".join(data_vars))
 
     all_specs: List[Tuple[str, int]] = [
         parse_encoding_spec(s) for s in all_specs
@@ -313,10 +326,7 @@ def map_dims_to_encoding(
         spec: dim if not dim or isinstance(dim, str) else tuple(dim)
         for spec, dim in encoding.items()
     }
-    log.remark("   given encoding:       %s", _fmt_kv(encoding.items()))
-
-    if data_vars:
-        log.remark("   all data variables:   %s", ", ".join(data_vars))
+    log.remark("   given:         %s", _fmt_encoding(encoding))
 
     # May want to modify the given encoding, e.g. if dimensions have been
     # specified that are missing in the data, they should be dropped
@@ -328,7 +338,7 @@ def map_dims_to_encoding(
     ]
 
     if missing_dims:
-        log.caution("   missing dimensions:   %s", ", ".join(missing_dims))
+        log.caution("   missing dims:  %s", ", ".join(missing_dims))
         specs_with_missing_dims = [
             spec
             for spec, dim in encoding.items()
@@ -379,7 +389,7 @@ def map_dims_to_encoding(
         raise ValueError(
             "The given encoding contains duplicate dimension names! Make sure "
             "that each dimension only appears once.\n"
-            f"  Encoding:         {_fmt_kv(encoding.items())}\n"
+            f"  Encoding:         {_fmt_encoding(encoding)}\n"
             f"  Data dimensions:  {', '.join(all_dims)}\n"
             f"  Data variables:   {data_vars}"
         )
@@ -395,12 +405,12 @@ def map_dims_to_encoding(
     }
 
     if ignore_encodings:
-        log.remark("   ignoring:             %s", ", ".join(ignore_encodings))
+        log.remark("   ignoring:      %s", ", ".join(ignore_encodings))
         for spec in ignore_encodings:
             used_specs[spec] = all_specs_sizes[spec]
 
-    log.debug("   used specifiers:      %s", _fmt_specs(used_specs.items()))
-    log.debug("   used data vars:       %s", ", ".join(used_data_vars))
+    log.debug("   used specs:    %s", _fmt_specs(used_specs.items()))
+    log.debug("   used data vars:  %s", ", ".join(used_data_vars))
 
     # Knowing the used specifiers, we can determine the free specifiers by
     # deducting the number of used dimensions from all specifiers. This is done
@@ -424,8 +434,12 @@ def map_dims_to_encoding(
     free_specs = [(spec, nd) for spec, nd in free_specs if nd != 0]
     del _used_specs
 
-    log.remark("   free specifiers:      %s", _fmt_specs(free_specs))
-    log.remark("   free dimensions:      %s", ", ".join(free_dims))
+    if not free_dims:
+        # No need to continue
+        return encoding, free_specs, free_dims
+
+    log.remark("   available:     %s", _fmt_specs(free_specs))
+    log.remark("   free dims:     %s", ", ".join(free_dims))
 
     # Evaluate Ellipsis to fill unspecified encodings depending on the whole
     # sequence of available encodings.
@@ -453,7 +467,7 @@ def map_dims_to_encoding(
             for spec, nd in free_specs
         ]
 
-    log.debug("   eff. free specifiers: %s", _fmt_specs(free_specs))
+    log.debug("   eff. free specs:  %s", _fmt_specs(free_specs))
 
     # Go over the dimensions, one by one, and map them to an encoding specifier
     while free_dims and free_specs:
@@ -699,10 +713,13 @@ def determine_encoding(
     encoding = {s: dim for s, dim in encoding.items() if dim}
 
     # Provide information about the chosen encoding
-    # TODO Maybe hide if no free specifiers or encodings are left?
-    log.remark("   resulting encoding:   %s", _fmt_kv(encoding.items()))
-    log.remark("   free specifiers:      %s", _fmt_specs(free_specs))
-    log.remark("   free dimensions:      %s", ", ".join(free_dims))
+    log.remark("   → encoding:    %s", _fmt_encoding(encoding))
+
+    if free_specs:
+        log.remark("   remaining:     %s", _fmt_specs(free_specs))
+
+    if free_dims:
+        log.remark("   free dims:     %s", ", ".join(free_dims))
 
     # -- Automatic column wrapping
     if plot_kwargs.get("col_wrap") in ("auto", "square"):
@@ -718,7 +735,7 @@ def determine_encoding(
                 num_cols, fill_last_row=(col_wrap_mode == "auto")
             )
             log.remark(
-                "   col_wrap:              %d  (mode '%s', col dim size: %d)",
+                "   col_wrap:      %d  (mode '%s', col dim size: %d)",
                 plot_kwargs["col_wrap"],
                 col_wrap_mode,
                 num_cols,
