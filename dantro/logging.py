@@ -8,6 +8,7 @@ from logging import getLogger
 TRACE: int = 5
 REMARK: int = 12
 NOTE: int = 18
+PING: int = 21
 PROGRESS: int = 22
 CAUTION: int = 23
 HILIGHT: int = 25
@@ -35,6 +36,7 @@ class DantroLogger(logging.getLoggerClass()):
         logging.addLevelName(TRACE, "TRACE")
         logging.addLevelName(REMARK, "REMARK")
         logging.addLevelName(NOTE, "NOTE")
+        logging.addLevelName(PING, "PING")
         logging.addLevelName(PROGRESS, "PROGRESS")
         logging.addLevelName(CAUTION, "CAUTION")
         logging.addLevelName(HILIGHT, "HILIGHT")
@@ -51,6 +53,10 @@ class DantroLogger(logging.getLoggerClass()):
     def note(self, msg, *args, **kwargs):
         if self.isEnabledFor(NOTE):
             self._log(NOTE, msg, args, **kwargs)
+
+    def ping(self, msg, *args, **kwargs):
+        if self.isEnabledFor(PING):
+            self._log(PING, msg, args, **kwargs)
 
     def progress(self, msg, *args, **kwargs):
         if self.isEnabledFor(PROGRESS):
