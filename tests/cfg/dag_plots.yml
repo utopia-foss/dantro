@@ -286,6 +286,7 @@ dag_placeholder_resolution:
     plot_cfg: &phres_simple
       <<: *shared_plot_cfg
       based_on: [creator.uni, dag.errorbars, select.randints_3D]
+      universes: last
 
       dag_options:
         define:
@@ -363,8 +364,8 @@ dag_placeholder_resolution:
 
 
 # .. Test nx.DiGraph generation and plotting ..................................
-dag_graph_generation:
-  gen_nx_graph_minimal:
+dag_visualization:
+  minimal:
     plot_cfg:
       <<: *simple_example
 
@@ -373,14 +374,14 @@ dag_graph_generation:
           always: true
           only_once: true
 
-  gen_nx_graph_disabled:
+  disabled:
     plot_cfg:
       <<: *simple_example
 
       dag_visualization:
         enabled: false
 
-  gen_nx_graph_on_success:
+  on_success:
     plot_cfg:
       <<: *simple_example
 
@@ -388,7 +389,7 @@ dag_graph_generation:
         when:
           on_compute_success: true
 
-  gen_nx_graph_on_compute_error:
+  on_compute_error:
     plot_cfg:
       <<: *simple_example
 
@@ -410,7 +411,7 @@ dag_graph_generation:
     _raises: PlotCreatorError
     _match: Operation 'pow' failed with a TypeError
 
-  gen_nx_graph_only_once:
+  only_once:
     plot_cfg:
       <<: *simple_example
 
@@ -422,19 +423,36 @@ dag_graph_generation:
           on_plot_error: true
           on_plot_success: true
 
-  gen_nx_graph_max_num_nodes:
+  max_num_nodes:
     plot_cfg:
       <<: *simple_example
 
       dag_visualization:
+        plot_enabled: true
+        export_enabled: true
         when:
           always: true
-        max_num_nodes: 3  # -> should lead to no plot being created
 
-  gen_nx_graph_full_syntax:
+        max_num_nodes: 2  # -> have 3 nodes -> should get no plot but export
+
+        export:
+          manipulate_attrs:
+            map_node_attrs:
+              label:
+                operation: attr_mapper.copy_from_attr
+                args: [description]
+            keep_node_attrs: [label]
+
+          graphml: {}
+          gml: {file_ext: gee.em.el}
+          adjlist: {enabled: true}
+          dot: false  # NOTE Not available without pygraphviz (i.e.: in CI)
+
+  full_syntax:
     # NOTE does not use default values but aims to hit many branches
     plot_cfg:
       <<: *phres_simple
+      universes: [70, 71]
 
       dag_visualization:
         enabled: true
@@ -556,7 +574,7 @@ dag_graph_generation:
             from_attr: my_custom_attr
       ### End ---- dag_gen_nx_label_from_mapped_attr
 
-  gen_nx_graph_no_raise_exc:
+  no_raise_exc:
     plot_cfg:
       <<: *simple_example
 
@@ -572,7 +590,7 @@ dag_graph_generation:
     # _raises: PlotCreatorError
     # _match: Failed generating DAG representation
 
-  gen_nx_graph_fallback_layout:
+  fallback_layout:
     plot_cfg:
       <<: *simple_example
 
@@ -603,7 +621,7 @@ dag_graph_generation:
                 y: ~
                 seed: 123  # set to None to always get new wiggles
 
-  gen_nx_graph_err_generation_failed:
+  err_generation_failed:
     plot_cfg:
       <<: *simple_example
 
@@ -617,7 +635,7 @@ dag_graph_generation:
     _raises: PlotCreatorError
     _match: Failed generating DAG representation
 
-  gen_nx_graph_err_export_failed:
+  err_export_failed:
     plot_cfg:
       <<: *simple_example
 
@@ -633,7 +651,7 @@ dag_graph_generation:
     _raises: PlotCreatorError
     _match: Failed exporting DAG representation
 
-  gen_nx_graph_err_export_failed_graphviz_missing_or_bad:
+  err_export_failed_graphviz_missing_or_bad:
     plot_cfg:
       <<: *simple_example
 
@@ -648,7 +666,7 @@ dag_graph_generation:
     _raises: PlotCreatorError
     _match: Failed exporting DAG representation
 
-  gen_nx_graph_err_plotting_failed:
+  err_plotting_failed:
     plot_cfg:
       <<: *simple_example
 
@@ -766,10 +784,41 @@ files_encoding:
       x: foo
       files: [spam]
 
+      # can make a non-colliding sub-selection
+      show_data: true
+      sel:
+        foo: [1, 3]
+
     from_pspace:
       x: !sweep
         default: ~
         values: [bar, baz]
+
+
+  err_merged_pspace:
+    plot_cfg:
+      <<: *files_encoding_base
+
+      select:
+        data: datasets/mean_and_std_4D  # dims: foo, bar, baz, spam
+
+      # need partial specification here to adapt to sweep
+      auto_encoding: true
+      x: foo
+      files: [spam]
+
+      show_data: true
+
+      sel:
+        spam: [0, 1]  # collision with `files`
+
+    from_pspace:
+      x: !sweep
+        default: ~
+        values: [bar, baz]
+
+    _raises: PlottingError
+    _match: "PlotConfigError: Cannot combine parameter sweep selector"
 
 
   auto_from_free:

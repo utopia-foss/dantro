@@ -63,8 +63,8 @@ the supported layout specifiers, which include the ``frames`` option."""
 
 _AUTO_PLOT_KINDS = {  # --- start literalinclude
     1:               "line",
-    2:               "pcolormesh",
-    3:               "pcolormesh",
+    2:               "line",
+    3:               "line",
     4:               "pcolormesh",
     5:               "pcolormesh",
     "with_hue":      "line",         # used when `hue` is explicitly set
@@ -88,6 +88,8 @@ This is populated by the ``make_facet_grid_plot`` decorator."""
 
 
 def _fmt_spec(spec: Union[str, Tuple[str, int]]) -> str:
+    """Formats a single encoding specification, taking care of the various
+    kinds of possible encodings, e.g. potential Ellipsis sizes."""
     if isinstance(spec, str):
         return spec
     spec, nd = spec
@@ -98,21 +100,22 @@ def _fmt_spec(spec: Union[str, Tuple[str, int]]) -> str:
     return f"{spec} ({nd}×)"
 
 
-def _fmt_specs(specs, join_by=", ") -> str:
-    return join_by.join(_fmt_spec(spec) for spec in specs)
+def _fmt_specs(specs: list) -> str:
+    """Formats an encoding specifications list, typically a list of strings
+    or tuples."""
+    return ", ".join(_fmt_spec(spec) for spec in specs)
 
 
-def _fmt_kv(kv, fstr="{k}: {v}", join_by=", ") -> str:
-    return join_by.join(fstr.format(k=k, v=v) for k, v in kv)
+def _fmt_encoding(enc: dict, fstr="{s}: {d}") -> str:
+    """Formats an encoding dictionary into a single-line, comma-separated
+    string, taking care of multi-dimensional encoding specifiers."""
 
-
-def _fmt_encoding(enc: dict, fstr="{s}: {d}", join_by=", ") -> str:
     def fmt_dim(d: Union[str, list]) -> str:
         if isinstance(d, (tuple, list)):
-            return f"[{', '.join(d)}]"
+            return f"[{', '.join(str(_d) for _d in d)}]"
         return d
 
-    return join_by.join(fstr.format(s=s, d=fmt_dim(d)) for s, d in enc.items())
+    return ",  ".join(fstr.format(s=s, d=fmt_dim(d)) for s, d in enc.items())
 
 
 # .............................................................................
@@ -320,12 +323,22 @@ def map_dims_to_encoding(
         spec for spec, size in all_specs_sizes.items() if size not in (0, 1)
     )
 
-    # Set up the target encoding dict
+    # Set up the target encoding dict, starting from the given keys
     encoding = encoding if encoding else {}
     encoding = {
         spec: dim if not dim or isinstance(dim, str) else tuple(dim)
         for spec, dim in encoding.items()
     }
+
+    # For easier comprehension when writing this, sort the dict
+    _seen = set()  # to only keep the first occurrence of a spec (if multiple)
+    encoding = {
+        spec: encoding[spec]
+        for spec in all_spec_names
+        if spec in encoding and spec not in _seen and not _seen.add(spec)
+    }
+    del _seen
+
     log.remark("   given:         %s", _fmt_encoding(encoding))
 
     # May want to modify the given encoding, e.g. if dimensions have been
@@ -486,10 +499,9 @@ def map_dims_to_encoding(
             encoding[spec] = dim
 
         # May need to put the specifier back with a reduced counter such that
-        # it may be picked again in the next iteration. Ellipses remain.
-        if nd is Ellipsis:
-            free_specs.insert(0, (spec, Ellipsis))
-        elif nd > 1:
+        # it may be picked again in the next iteration.
+        # NOTE No Ellipses are remaining here, they were made explicit above.
+        if nd > 1:
             free_specs.insert(0, (spec, nd - 1))
 
     # Drop the zero-sized specs, they are all used up
@@ -773,12 +785,11 @@ def build_pspace_selector(
     #      The default value should not be needed, so we don't specify it; if
     #      it is used somewhere, we will probably find out ...
 
-    overlap = set(psp_sel).intersection(sel)
-    if overlap:
+    if any(_sel in psp_sel for _sel in sel):
         raise PlotConfigError(
             f"Cannot combine parameter sweep selector ({', '.join(dims)}) "
-            f"with existing selector ({', '.join(sel)}) because there are "
-            f"overlapping dimension names:  {', '.join(overlap)} !"
+            f"with existing selector ({sel}) because there are "
+            "overlapping dimension names! Remove them and retry."
         )
 
     return dict(**psp_sel, **sel)

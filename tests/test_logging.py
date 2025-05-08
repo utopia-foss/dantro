@@ -13,6 +13,7 @@ def test_logging():
     _log.debug("Debug")
     _log.note("Note")
     _log.info("Info")
+    _log.ping("Ping")
     _log.progress("Progress")
     _log.hilight("Hilight")
     _log.warning("Warning")

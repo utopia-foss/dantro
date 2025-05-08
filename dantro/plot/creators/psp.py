@@ -707,6 +707,7 @@ class UniversePlotCreator(PyPlotCreator):
         # Identify those keys that specify which universes to loop over
         try:
             unis = plot_cfg.pop("universes")
+            # FIXME Leads to this key not being stored in the plot info file
 
         except KeyError as err:
             raise ValueError(
@@ -721,14 +722,14 @@ class UniversePlotCreator(PyPlotCreator):
         # -- Case 1: No parameter space available in the first place
         # Only default point is available, which should be handled differently
         if self._psp.num_dims == 0 or self.psgrp.only_default_data_present:
-            if unis not in ("all", "single", "first", "random", "any"):
+            if unis not in ("all", "single", "first", "last", "random", "any"):
                 raise ValueError(
                     "Could not select a universe for plotting because the "
                     "associated parameter space has no dimensions available "
                     "or only data for the default point was available in "
                     f"{self.psgrp.logstr}. For these cases, the only valid "
                     "values for the `universes` argument are: "
-                    "'all', 'single', 'first', 'random', or 'any'."
+                    "'all', 'single', 'first', 'last', 'random', or 'any'."
                 )
 
             # Set a flag to carry information to _prepare_plot_func_args
@@ -738,7 +739,7 @@ class UniversePlotCreator(PyPlotCreator):
             if pspace is not None:
                 # There was a recursive update step; return the plot config
                 # as parameter space
-                return dict(), ParamSpace(plot_cfg)
+                return {}, ParamSpace(plot_cfg)
 
             # else: Only need to return the plot configuration
             return plot_cfg, None

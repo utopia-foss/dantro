@@ -248,8 +248,8 @@ def test_dag_placeholder_resolution(pm, dag_plots_cfg):
     invoke_test_plots(pm, dag_plots_cfg["dag_placeholder_resolution"])
 
 
-def test_dag_graph_generation(pm, dag_plots_cfg):
-    invoke_test_plots(pm, dag_plots_cfg["dag_graph_generation"])
+def test_dag_visualization(pm, dag_plots_cfg):
+    invoke_test_plots(pm, dag_plots_cfg["dag_visualization"])
 
 
 def test_plot_helper(pm, dag_plots_cfg):

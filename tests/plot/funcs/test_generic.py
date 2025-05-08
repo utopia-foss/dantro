@@ -506,8 +506,10 @@ def test_determine_plot_kind():
     # Like a data array -> depends on (mocked) dimensionality, fallback to hist
     assert dpk(DA(0), kind="auto") == "hist"
     assert dpk(DA(1), kind="auto") == "line"
-    for i in range(2, 6):
-        assert dpk(DA(i), kind="auto") == "pcolormesh"
+    assert dpk(DA(2), kind="auto") == "line"
+    assert dpk(DA(3), kind="auto") == "line"
+    assert dpk(DA(4), kind="auto") == "pcolormesh"
+    assert dpk(DA(5), kind="auto") == "pcolormesh"
     assert dpk(DA(6), kind="auto") == "hist"
     assert dpk(DA(23), kind="auto") == "hist"
 
@@ -671,6 +673,11 @@ def test_map_dims_to_encoding():
         ValueError, match="Only one encoding can be an Ellipsis.* foo, bar"
     ):
         mp(("A", ("foo", ...), "B", ("bar", ...)), tp("abcd"))
+
+    with pytest.raises(
+        ValueError, match="encoding contains duplicate dimension names"
+    ):
+        mp(tp("ABCDE"), tp("abcdX"), encoding=dict(B="X", C="X"))
 
 
 def test_determine_encoding():
