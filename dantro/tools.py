@@ -357,7 +357,7 @@ def ensure_dict(d: Optional[dict]) -> dict:
 def is_iterable(obj) -> bool:
     """Tries whether the given object is iterable."""
     try:
-        (e for e in obj)
+        iter(obj)
     except:
         return False
     return True
