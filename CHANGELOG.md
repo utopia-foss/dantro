@@ -4,6 +4,10 @@
 However, given the rather burst-like development on this package, features are often released immediately, sometimes also as a "patch" (`+0.0.1`) release.
 
 
+## v0.21.0 🚧
+- !367 fixes `is_iterable` after a [behaviour change in Python 3.13.4](https://github.com/python/cpython/issues/135171).
+
+
 ## v0.20.3
 - !365 allows to specify `max_workers` for parallel plotting as a float-value that denotes the fraction of available CPUs that should be used, making plot configurations more machine-averse.
 - !356 adds the option to squeeze 1-sized indexed dimensions from data for `facet_grid` plots (enabled by default), effectively increasing the dimensionality the facet grid plots can handle and alleviating manual steps to do this.
