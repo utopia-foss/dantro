@@ -6,7 +6,7 @@ creators.
 import copy
 import logging
 from functools import partial as _partial
-from typing import Any, Callable, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, List, Literal, Tuple, Union
 
 import matplotlib.colors as mcolors
 import paramspace as psp
@@ -234,6 +234,7 @@ def map_dims_to_encoding(
     drop_missing_dims: bool = False,
     data_vars: List[str] = None,
     ignore_encodings: List[str] = None,
+    ensure_unique_dims: Union[bool, Literal["warn"]] = False,
 ) -> Tuple[
     Dict[str, Union[str, Tuple[str, ...]]], List[Tuple[str, int]], List[str]
 ]:
@@ -273,6 +274,14 @@ def map_dims_to_encoding(
             that should be ignored, i.e. which remain in ``all_specs`` but are
             not automatically assigned dimensions; note that they remain in
             ``encoding`` and retain the value they have received manually.
+        ensure_unique_dims (Union[bool, Literal["warn"]], optional): If True,
+            will make sure that the user-specified ``encoding`` does not cause
+            dimensions to be assigned more than once. This should be set if the
+            plot function does not support duplicate encodings, e.g. because it
+            involves a sequential dimensionality reduction. It should *not* be
+            set for plot functions that allow parallel encodings, e.g. scatter
+            plots with ``hue`` and ``size`` encodings shared within a subplot.
+            If set to ``warn``, will warn instead of raise.
 
     Returns:
         Tuple[Dict[str, Union[str, Tuple[str, ...]]], List[Tuple[str, int]], List[str]]:
@@ -398,14 +407,21 @@ def map_dims_to_encoding(
     ]
     free_dims = [dim for dim in all_dims if dim not in used_dims]
 
-    if len(set(used_dims)) != len(used_dims):
-        raise ValueError(
-            "The given encoding contains duplicate dimension names! Make sure "
-            "that each dimension only appears once.\n"
-            f"  Encoding:         {_fmt_encoding(encoding)}\n"
-            f"  Data dimensions:  {', '.join(all_dims)}\n"
-            f"  Data variables:   {data_vars}"
-        )
+    if ensure_unique_dims and len(set(used_dims)) != len(used_dims):
+        if ensure_unique_dims == "warn":
+            log.caution("   ∃ duplicates:  %s", _fmt_encoding(encoding))
+            log.warning(
+                "     → may cause errors downstream related to sequential "
+                "dimensionality reduction of the specified dimensions.",
+            )
+        else:
+            raise ValueError(
+                "The given encoding contains duplicate dimension names! Make "
+                "sure that each dimension only appears once.\n"
+                f"  Encoding:         {_fmt_encoding(encoding)}\n"
+                f"  Data dimensions:  {', '.join(all_dims)}\n"
+                f"  Data variables:   {data_vars}"
+            )
 
     # To determine the free specifiers, we first need to know which specifiers
     # have been previously set or should otherwise be regarded as "used";
@@ -522,6 +538,7 @@ def determine_encoding(
     allow_y_for_x: List[str] = ("line",),
     drop_missing_dims: bool = False,
     ignore_encodings: List[str] = None,
+    ensure_unique_dims: Union[bool, Literal["warn"]] = False,
     return_encoding_info: bool = False,
 ) -> dict:
     """Determines the layout encoding for the given plot kind and the available
@@ -653,6 +670,14 @@ def determine_encoding(
             dimensions but to data variables.
         ignore_encodings (List[str], optional): If given, will ignore these
             encodings when automatically assigning.
+        ensure_unique_dims (Union[bool, Literal["warn"]], optional): If True,
+            will make sure that the user-specified ``encoding`` does not cause
+            dimensions to be assigned more than once. This should be set if the
+            plot function does not support duplicate encodings, e.g. because it
+            involves a sequential dimensionality reduction. It should *not* be
+            set for plot functions that allow parallel encodings, e.g. scatter
+            plots with ``hue`` and ``size`` encodings shared within a subplot.
+            If set to ``warn``, will warn instead of raise.
         return_encoding_info (bool, optional): If set, will return a 2-tuple of
             the updated plots config *and* the encoding information as a
             3-tuple ``(encoding, free_specs, free_dims)``.
@@ -713,6 +738,7 @@ def determine_encoding(
         drop_missing_dims=drop_missing_dims,
         data_vars=data_vars,
         ignore_encodings=ignore_encodings,
+        ensure_unique_dims=ensure_unique_dims,
     )
 
     # Drop those encoding specifiers that are effectively unset.

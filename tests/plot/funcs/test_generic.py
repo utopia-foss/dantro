@@ -663,6 +663,36 @@ def test_map_dims_to_encoding():
         ["f", "g"],
     )
 
+    # Dimension names in the pre-specified encoding need not be unique; this is
+    # important to allow as there can be plot functions that allow duplicate
+    # encodings, e.g. hue and size.
+    # However, sometimes this is not meant to be possible, so there also is an
+    # option to detect and raise (tested below)
+    assert mp(tp("ABCDEF"), tp("abcd"), encoding=dict(B="b", F="b")) == (
+        dt(A="a", B="b", C="c", D="d", F="b"),
+        [("E", 1)],
+        [],
+    )
+    assert mp(tp("ABBCDE"), tp("abcdef"), encoding=dict(B=["b", "b"])) == (
+        dt(A="a", B=("b", "b"), C="c", D="d", E="e"),
+        [],
+        ["f"],
+    )
+
+    # ... can warn (via logging) though
+    mp(
+        tp("ABBCDE"),
+        tp("abcdef"),
+        encoding=dict(B="b", F="b"),
+        ensure_unique_dims="warn",
+    )
+    mp(
+        tp("ABBCDE"),
+        tp("abcdef"),
+        encoding=dict(B=["b", "b"]),
+        ensure_unique_dims="warn",
+    )
+
     # Errors
     with pytest.raises(
         ValueError, match="need to be unique.* duplicate.* a, b, b, c"
@@ -677,7 +707,12 @@ def test_map_dims_to_encoding():
     with pytest.raises(
         ValueError, match="encoding contains duplicate dimension names"
     ):
-        mp(tp("ABCDE"), tp("abcdX"), encoding=dict(B="X", C="X"))
+        mp(
+            tp("ABCDE"),
+            tp("abcdX"),
+            encoding=dict(B="X", C="X"),
+            ensure_unique_dims=True,
+        )
 
 
 def test_determine_encoding():
