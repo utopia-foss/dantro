@@ -25,6 +25,15 @@ log = logging.getLogger(__name__)
 
 xr = LazyLoader("xarray")
 
+ENSURE_UNIQUE_DIMS: Dict[Tuple[str, bool], Union[bool, str]] = {
+    ("raise_auto", True): False,
+    ("raise_auto", False): True,
+    ("warn_auto", True): False,
+    ("warn_auto", False): "warn",
+}
+"""For ``auto`` mode, maps (``ensure_unique_dims``, ``data_vars is not None``)
+tuples to the appropriate evaluated parameter."""
+
 # .............................................................................
 
 # fmt: off
@@ -538,7 +547,7 @@ def determine_encoding(
     allow_y_for_x: List[str] = ("line",),
     drop_missing_dims: bool = False,
     ignore_encodings: List[str] = None,
-    ensure_unique_dims: Union[bool, Literal["warn"]] = False,
+    ensure_unique_dims: Union[bool, str] = False,
     return_encoding_info: bool = False,
 ) -> dict:
     """Determines the layout encoding for the given plot kind and the available
@@ -670,7 +679,7 @@ def determine_encoding(
             dimensions but to data variables.
         ignore_encodings (List[str], optional): If given, will ignore these
             encodings when automatically assigning.
-        ensure_unique_dims (Union[bool, Literal["warn"]], optional): If True,
+        ensure_unique_dims (Union[bool, str], optional): If True,
             will make sure that the user-specified ``encoding`` does not cause
             dimensions to be assigned more than once. This should be set if the
             plot function does not support duplicate encodings, e.g. because it
@@ -678,6 +687,9 @@ def determine_encoding(
             set for plot functions that allow parallel encodings, e.g. scatter
             plots with ``hue`` and ``size`` encodings shared within a subplot.
             If set to ``warn``, will warn instead of raise.
+            If set to ``warn_auto`` or ``raise_auto``, will warn or raise only
+            if ``data_vars is None``; in such a case, encoding is typically
+            used for dimensionality reduction, which can only be done once…
         return_encoding_info (bool, optional): If set, will return a 2-tuple of
             the updated plots config *and* the encoding information as a
             3-tuple ``(encoding, free_specs, free_dims)``.
@@ -729,6 +741,13 @@ def determine_encoding(
         all_dims = list(dims)
 
     # TODO Warn upon non-indexed dimensions?
+
+    # Evaluate ensure_unique_dims depending on whether there are data variables
+    # or not
+    if isinstance(ensure_unique_dims, str) and "auto" in ensure_unique_dims:
+        ensure_unique_dims = ENSURE_UNIQUE_DIMS[
+            (ensure_unique_dims, data_vars is not None)
+        ]
 
     # From these two lists, assign free dimension names to free encodings;
     encoding, free_specs, free_dims = map_dims_to_encoding(

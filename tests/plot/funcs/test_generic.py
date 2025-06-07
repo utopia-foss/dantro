@@ -840,6 +840,42 @@ def test_determine_encoding():
     assert kws["files"] == ("chips", "fish", "baz", "bar")
     assert kws["frames"] == "foo"
 
+    # Can warn or raise automatically upon duplicate dimension names
+    _args = [dict(foo=10, bar=12, baz=15, spam=21, fish=25, chips=30, salt=33)]
+    _kwargs = dict(
+        **default_kws,
+        plot_kwargs=dict(hue="dvar", x="spam", row="spam"),
+        ignore_encodings=("row",),
+    )
+
+    # ... with a data variable
+    kws = determine_encoding(
+        *_args, **_kwargs, data_vars=["dvar"], ensure_unique_dims="warn_auto"
+    )
+    assert kws["x"] == "spam"
+    assert kws["hue"] == "dvar"
+    assert kws["col"] == "salt"
+    assert kws["row"] == "spam"
+    assert kws["files"] == ("chips", "fish", "baz", "bar")
+    assert kws["frames"] == "foo"
+
+    kws2 = determine_encoding(
+        *_args, **_kwargs, data_vars=["dvar"], ensure_unique_dims="raise_auto"
+    )
+    assert kws == kws2
+
+    # ... and now without a data variable
+    kws = determine_encoding(*_args, **_kwargs, ensure_unique_dims="warn_auto")
+    assert kws["x"] == "spam"
+    assert kws["hue"] == "dvar"
+    assert kws["col"] == "salt"
+    assert kws["row"] == "spam"
+    assert kws["files"] == ("chips", "fish", "baz", "bar")
+    assert kws["frames"] == "foo"
+
+    with pytest.raises(ValueError, match="duplicate dimension names"):
+        determine_encoding(*_args, **_kwargs, ensure_unique_dims="raise_auto")
+
 
 # -----------------------------------------------------------------------------
 # -- FacetGrid tests ----------------------------------------------------------
