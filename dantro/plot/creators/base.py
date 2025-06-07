@@ -296,7 +296,7 @@ class BasePlotCreator(AbstractPlotCreator):
         use_dag: bool = None,
         **func_kwargs,
     ):
-        """Prepares argument for the plot function and invokes it.
+        """Prepares plot function arguments, then invokes it.
 
         Args:
             out_path (str): The output path for the resulting file
@@ -447,15 +447,31 @@ class BasePlotCreator(AbstractPlotCreator):
             return ((self.dm,), kwargs)
         return ((), kwargs)
 
-    def _invoke_plot_func(self, *args, **kwargs):
+    def _invoke_plot_func(
+        self, *args, plot_func_kwargs: dict = None, **kwargs
+    ):
         """Method that invokes the plot function with the prepared arguments.
 
-        This additionally allows to generate a DAG visualization in case the
-        plotting failed or succeeded.
+        On failure or success, a DAG visualization may be created.
+
+        Args:
+            *args: Plot function positional arguments
+            plot_func_kwargs (dict, optional): Usually, plot function keyword
+                arguments are specified via ``**kwargs``; however, as dantro
+                uses some keyword arguments for its own functionality, not all
+                of them can be passed on to the plot function. In such cases,
+                they can be specified via this dict and they will be passed to
+                the plot function *in addition to* the ``**kwargs``.
+            **kwargs: Plot function keyword arguments from the top level of the
+                plot configuration.
         """
         log.info("Now calling plotting function '%s' ...", self.plot_func_name)
         try:
-            self.plot_func(*args, **kwargs)
+            self.plot_func(
+                *args,
+                **(plot_func_kwargs if plot_func_kwargs else {}),
+                **kwargs,
+            )
 
         except DantroMessagingException:
             # Pass on such that it is handled in the outer scope
