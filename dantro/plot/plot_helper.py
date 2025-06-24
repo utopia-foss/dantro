@@ -10,10 +10,8 @@ from itertools import product
 from typing import Callable, Dict, Generator, Sequence, Tuple, Union
 
 import numpy as np
-from paramspace.tools import recursive_replace
 
 from .._import_tools import LazyLoader
-from .._import_tools import resolve_lazy_imports as _resolve_lazy_imports
 from ..exceptions import *
 from ..tools import make_columns, recursive_update
 from .utils.mpl import *

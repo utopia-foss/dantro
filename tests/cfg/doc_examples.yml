@@ -109,6 +109,11 @@ plot_cfg_ref:
       # Whether to save the plot configuration alongside the plot
       save_plot_cfg: true
 
+      # Additional way to specify plot function keyword arguments
+      # This can become necessary if desiring to pass arguments that are also
+      # used by dantro, e.g. `debug` ...
+      plot_func_kwargs: {}
+
       # --- Choosing and configuring a plot creator
       # Manually
       creator: pyplot

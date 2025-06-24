@@ -24,7 +24,7 @@ from ..._hash import _hash
 from ...abc import AbstractPlotCreator
 from ...dag import TransformationDAG
 from ...data_mngr import DataManager
-from ...exceptions import PlotCreatorError, SkipPlot
+from ...exceptions import DantroMessagingException, PlotCreatorError, SkipPlot
 from ...tools import format_time as _format_time
 from ...tools import recursive_update
 
@@ -296,7 +296,7 @@ class BasePlotCreator(AbstractPlotCreator):
         use_dag: bool = None,
         **func_kwargs,
     ):
-        """Prepares argument for the plot function and invokes it.
+        """Prepares plot function arguments, then invokes it.
 
         Args:
             out_path (str): The output path for the resulting file
@@ -340,7 +340,7 @@ class BasePlotCreator(AbstractPlotCreator):
         """
         return plot_cfg, pspace
 
-    # .........................................................................
+    # .. Helpers ..............................................................
 
     def _prepare_path(
         self, out_path: str, *, exist_ok: Union[bool, str]
@@ -398,8 +398,7 @@ class BasePlotCreator(AbstractPlotCreator):
         """
         pass
 
-    # .........................................................................
-    # Plot argument preparation and function invocation
+    # .. Plot argument preparation and function invocation ....................
 
     def _prepare_plot_func_args(
         self, *, use_dag: bool = None, **kwargs
@@ -448,17 +447,37 @@ class BasePlotCreator(AbstractPlotCreator):
             return ((self.dm,), kwargs)
         return ((), kwargs)
 
-    def _invoke_plot_func(self, *args, **kwargs):
+    def _invoke_plot_func(
+        self, *args, plot_func_kwargs: dict = None, **kwargs
+    ):
         """Method that invokes the plot function with the prepared arguments.
 
-        This additionally allows to generate a DAG visualization in case the
-        plotting failed or succeeded.
+        On failure or success, a DAG visualization may be created.
+
+        Args:
+            *args: Plot function positional arguments
+            plot_func_kwargs (dict, optional): Usually, plot function keyword
+                arguments are specified via ``**kwargs``; however, as dantro
+                uses some keyword arguments for its own functionality, not all
+                of them can be passed on to the plot function. In such cases,
+                they can be specified via this dict and they will be passed to
+                the plot function *in addition to* the ``**kwargs``.
+            **kwargs: Plot function keyword arguments from the top level of the
+                plot configuration.
         """
         log.info("Now calling plotting function '%s' ...", self.plot_func_name)
         try:
-            self.plot_func(*args, **kwargs)
+            self.plot_func(
+                *args,
+                **(plot_func_kwargs if plot_func_kwargs else {}),
+                **kwargs,
+            )
 
-        except:
+        except DantroMessagingException:
+            # Pass on such that it is handled in the outer scope
+            raise
+
+        except Exception:
             if self._using_dag:
                 self._generate_DAG_vis(
                     scenario="plot_error", **self._dag_vis_kwargs
@@ -473,8 +492,7 @@ class BasePlotCreator(AbstractPlotCreator):
 
         log.note("Plotting function '%s' returned.", self.plot_func_name)
 
-    # .........................................................................
-    # Data selection interface, using TransformationDAG
+    # .. Data selection interface, using TransformationDAG ....................
 
     def _perform_data_selection(
         self, *, use_dag: bool = None, plot_kwargs: dict, **shared_kwargs
@@ -893,8 +911,7 @@ class BasePlotCreator(AbstractPlotCreator):
 
         return cfg
 
-    # .........................................................................
-    # DAG Visualization
+    # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
     def _generate_DAG_vis(
         self,
@@ -908,6 +925,7 @@ class BasePlotCreator(AbstractPlotCreator):
         output: dict = None,
         export: dict = None,
         generation: dict = None,
+        max_num_nodes: int = 256,
         **plot_kwargs,
     ) -> Union["networkx.DiGraph", None]:
         """Generates a DAG representation according to certain criteria and
@@ -982,6 +1000,9 @@ class BasePlotCreator(AbstractPlotCreator):
 
             generation (dict, optional): Graph generation arguments passed to
                 :py:meth:`~dantro.dag.TransformationDAG.generate_nx_graph`.
+            max_num_nodes (int, optional): If given, do not continue with the
+                visualization if the generated graph has more than this amount
+                of nodes. Exporting is not affected by this.
             **plot_kwargs: Plotting-related arguments, passed on to
                 :py:meth:`~dantro.dag.TransformationDAG.visualize`.
 
@@ -1120,19 +1141,31 @@ class BasePlotCreator(AbstractPlotCreator):
             with exception_handling("exporting DAG representation"):
                 export_graph(g, out_path=out_path, **export)
 
-        # Plot it
+        # Plot it (if there are not too many nodes)
         if plot_enabled:
-            with exception_handling("plotting DAG representation"):
-                self._dag.visualize(g=g, out_path=out_path, **plot_kwargs)
+            if max_num_nodes and g.number_of_nodes() > max_num_nodes:
+                log.caution(
+                    "Not visualizing this DAG because there are %d nodes in "
+                    "the visualization, exceeding the configured limit of %d.",
+                    g.number_of_nodes(),
+                    max_num_nodes,
+                )
+                log.remark(
+                    "Unset `max_num_nodes` or provide a larger limit to still "
+                    "perform the visualization."
+                )
 
-                if "error" in scenario:
-                    log.caution(
-                        "Created DAG visualization for scenario '%s'. "
-                        "For debugging, inspecting the generated plot and the "
-                        "traceback information may be helpful:\n  %s",
-                        scenario,
-                        out_path,
-                    )
+            else:
+                with exception_handling("plotting DAG representation"):
+                    self._dag.visualize(g=g, out_path=out_path, **plot_kwargs)
+                    if "error" in scenario:
+                        log.caution(
+                            "Created DAG visualization for scenario '%s'. "
+                            "For debugging, inspecting the generated plot and "
+                            "the traceback information may be helpful:\n  %s",
+                            scenario,
+                            out_path,
+                        )
 
         # All done
         self._dag_vis_done_for.append(scenario)

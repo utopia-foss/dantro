@@ -333,7 +333,7 @@ class PyPlotCreator(BasePlotCreator):
             return
         # else: No animation to be done.
 
-        # Enter two context: one for style (could also be DoNothingContext)
+        # Enter two contexts: one for style (could also be DoNothingContext)
         # and one for prevention of figures leaking from the plot function.
         leak_prev = figure_leak_prevention(close_current_fig_on_raise=True)
 

@@ -5,7 +5,18 @@ _pm_init_kwargs:
   # The base plots configuration, available in the shared plot manager
   base_cfg_pools:
     - - base
-      - # .. Creators .........................................................
+      - # .. Misc .............................................................
+        animation.defaults:
+          file_ext: pdf
+          animation:
+            enabled: false
+            writer: frames
+            writer_kwargs:
+              frames:
+                saving:
+                  dpi: 92
+
+        # .. Creators .........................................................
         creator.pyplot:
           creator: pyplot
 
@@ -50,13 +61,33 @@ _pm_init_kwargs:
 
 _shared_plot_cfg: &shared_plot_cfg {}
 
+_files_encoding_base: &files_encoding_base
+  <<: *shared_plot_cfg
+  based_on:
+    - creator.pyplot
+    - dag.facet_grid
+
+  select:
+    data: datasets/mean_and_std_5D
+
+  kind: errorbars
+  y: mean
+  yerr: std
+
+_files_encoding_base_with_animation: &files_encoding_base_with_animation
+  <<: *files_encoding_base
+  based_on:
+    - creator.pyplot
+    - dag.facet_grid
+    - animation.defaults
+
+
 # -----------------------------------------------------------------------------
 # -- Test config below this line ----------------------------------------------
 # -----------------------------------------------------------------------------
 
-# Test cases for the test_config_based test function
-config_based:
-  # .. Example cases ..........................................................
+# .. Basics ...................................................................
+basics:
   # Example for a succeeding plot invocation
   simple_example:
     plot_cfg: &simple_example
@@ -88,7 +119,8 @@ config_based:
     _match: Missing `plot_func` argument
 
 
-  # .. Tests for UniversePlotCreator ..........................................
+# .. Tests for UniversePlotCreator ............................................
+uni:
   # Plot only specific universe IDs
   uni_specific_IDs:
     plot_cfg:
@@ -111,8 +143,8 @@ config_based:
       yerr: std
 
 
-  # .. Test handling of missing data in MultiversePlotCreator .................
-
+# .. Test handling of missing data in MultiversePlotCreator ...................
+mv:
   mv_missing_uni_fails:
     plot_cfg:
       <<: *shared_plot_cfg
@@ -205,8 +237,8 @@ config_based:
     _match: bad_argument_leading_to_failure
 
 
-  # .. Test conditional plot skipping .........................................
-
+# .. Test conditional plot skipping ...........................................
+skipping:
   skip_plot_directly:
     plot_cfg:
       <<: *shared_plot_cfg
@@ -248,13 +280,13 @@ config_based:
       yerr: yerr
 
 
-  # .. Test DAG placeholder resolution ........................................
-
+# .. Test DAG placeholder resolution ..........................................
+dag_placeholder_resolution:
   phres_simple:
     plot_cfg: &phres_simple
       <<: *shared_plot_cfg
       based_on: [creator.uni, dag.errorbars, select.randints_3D]
-      # TODO Migrate to dag.errorbars
+      universes: last
 
       dag_options:
         define:
@@ -331,9 +363,9 @@ config_based:
     _match: Operation '.format' failed with a ValueError
 
 
-  # .. Test nx.DiGraph generation and plotting ................................
-
-  gen_nx_graph_minimal:
+# .. Test nx.DiGraph generation and plotting ..................................
+dag_visualization:
+  minimal:
     plot_cfg:
       <<: *simple_example
 
@@ -342,14 +374,14 @@ config_based:
           always: true
           only_once: true
 
-  gen_nx_graph_disabled:
+  disabled:
     plot_cfg:
       <<: *simple_example
 
       dag_visualization:
         enabled: false
 
-  gen_nx_graph_on_success:
+  on_success:
     plot_cfg:
       <<: *simple_example
 
@@ -357,7 +389,7 @@ config_based:
         when:
           on_compute_success: true
 
-  gen_nx_graph_on_compute_error:
+  on_compute_error:
     plot_cfg:
       <<: *simple_example
 
@@ -379,7 +411,7 @@ config_based:
     _raises: PlotCreatorError
     _match: Operation 'pow' failed with a TypeError
 
-  gen_nx_graph_only_once:
+  only_once:
     plot_cfg:
       <<: *simple_example
 
@@ -391,10 +423,36 @@ config_based:
           on_plot_error: true
           on_plot_success: true
 
-  gen_nx_graph_full_syntax:
+  max_num_nodes:
+    plot_cfg:
+      <<: *simple_example
+
+      dag_visualization:
+        plot_enabled: true
+        export_enabled: true
+        when:
+          always: true
+
+        max_num_nodes: 2  # -> have 3 nodes -> should get no plot but export
+
+        export:
+          manipulate_attrs:
+            map_node_attrs:
+              label:
+                operation: attr_mapper.copy_from_attr
+                args: [description]
+            keep_node_attrs: [label]
+
+          graphml: {}
+          gml: {file_ext: gee.em.el}
+          adjlist: {enabled: true}
+          dot: false  # NOTE Not available without pygraphviz (i.e.: in CI)
+
+  full_syntax:
     # NOTE does not use default values but aims to hit many branches
     plot_cfg:
       <<: *phres_simple
+      universes: [70, 71]
 
       dag_visualization:
         enabled: true
@@ -516,7 +574,7 @@ config_based:
             from_attr: my_custom_attr
       ### End ---- dag_gen_nx_label_from_mapped_attr
 
-  gen_nx_graph_no_raise_exc:
+  no_raise_exc:
     plot_cfg:
       <<: *simple_example
 
@@ -532,7 +590,7 @@ config_based:
     # _raises: PlotCreatorError
     # _match: Failed generating DAG representation
 
-  gen_nx_graph_fallback_layout:
+  fallback_layout:
     plot_cfg:
       <<: *simple_example
 
@@ -563,7 +621,7 @@ config_based:
                 y: ~
                 seed: 123  # set to None to always get new wiggles
 
-  gen_nx_graph_err_generation_failed:
+  err_generation_failed:
     plot_cfg:
       <<: *simple_example
 
@@ -577,7 +635,7 @@ config_based:
     _raises: PlotCreatorError
     _match: Failed generating DAG representation
 
-  gen_nx_graph_err_export_failed:
+  err_export_failed:
     plot_cfg:
       <<: *simple_example
 
@@ -593,7 +651,7 @@ config_based:
     _raises: PlotCreatorError
     _match: Failed exporting DAG representation
 
-  gen_nx_graph_err_export_failed_graphviz_missing_or_bad:
+  err_export_failed_graphviz_missing_or_bad:
     plot_cfg:
       <<: *simple_example
 
@@ -608,7 +666,7 @@ config_based:
     _raises: PlotCreatorError
     _match: Failed exporting DAG representation
 
-  gen_nx_graph_err_plotting_failed:
+  err_plotting_failed:
     plot_cfg:
       <<: *simple_example
 
@@ -623,8 +681,8 @@ config_based:
     _match: Failed plotting DAG representation
 
 
-  # .. PlotHelper tests .......................................................
-
+# .. PlotHelper tests .........................................................
+plot_helper:
   helper/empty_axis:
     plot_cfg: &empty_axis
       <<: *shared_plot_cfg
@@ -663,8 +721,8 @@ config_based:
     _match: Could not get a finite value
 
 
-  # .. facet_grid integration tests ...........................................
-
+# .. facet_grid integration tests .............................................
+facet_grid:
   facet_grid/errorbars_standalone:
     plot_cfg:
       <<: *shared_plot_cfg
@@ -699,9 +757,115 @@ config_based:
     _match: bad dimension name
 
 
+# .. files encoding ...........................................................
+files_encoding:
+  explicit:
+    plot_cfg:
+      <<: *files_encoding_base
 
-  # .. Documentation Examples .................................................
+      # explicitly specify encoding, including two file sweep dimensions
+      x: dim_4
+      hue: dim_3
+      col: dim_2
+      row: ~
+      frames: ~
+      files: [dim_1, dim_0]
 
+
+  merged_pspace:
+    plot_cfg:
+      <<: *files_encoding_base
+
+      select:
+        data: datasets/mean_and_std_4D  # dims: foo, bar, baz, spam
+
+      # need partial specification here to adapt to sweep
+      auto_encoding: true
+      x: foo
+      files: [spam]
+
+      # can make a non-colliding sub-selection
+      show_data: true
+      sel:
+        foo: [1, 3]
+
+    from_pspace:
+      x: !sweep
+        default: ~
+        values: [bar, baz]
+
+
+  err_merged_pspace:
+    plot_cfg:
+      <<: *files_encoding_base
+
+      select:
+        data: datasets/mean_and_std_4D  # dims: foo, bar, baz, spam
+
+      # need partial specification here to adapt to sweep
+      auto_encoding: true
+      x: foo
+      files: [spam]
+
+      show_data: true
+
+      sel:
+        spam: [0, 1]  # collision with `files`
+
+    from_pspace:
+      x: !sweep
+        default: ~
+        values: [bar, baz]
+
+    _raises: PlottingError
+    _match: "PlotConfigError: Cannot combine parameter sweep selector"
+
+
+  auto_from_free:
+    plot_cfg:
+      <<: *files_encoding_base
+
+      # let auto-encoding do the association, but partially specify some dims
+      x: dim_4
+      files: [dim_2]
+
+      auto_encoding: true
+      auto_encoding_options:
+        ignore_encodings: [frames]
+
+
+  auto_from_free_ignoring_frames:
+    plot_cfg:
+      <<: *files_encoding_base_with_animation
+
+      # check if we can still set frames if `drop_encoding` is set
+      x: dim_4
+      files: [dim_2]
+      frames: dim_3
+
+      auto_encoding: true
+      auto_encoding_options:
+        ignore_encodings: [frames]
+
+
+  auto_from_free_not_ignoring_frames:
+    plot_cfg:
+      <<: *files_encoding_base_with_animation
+
+      # block some encodings such that the frames encoding is used
+      x: dim_4
+      files: [dim_2]
+      hue: ~
+      col: ~
+
+      auto_encoding: true
+      # auto_encoding_options:
+      #   ignore_encodings: [frames]  # -> will lead to frames iteration
+
+
+
+# .. Documentation Examples ...................................................
+doc_examples:
   doc_examples_placeholder_title:
     plot_cfg:
       # Keys that need/should not be included
@@ -850,6 +1014,10 @@ config_based:
         # Whether to raise an exception if graph generation, plotting or
         # exporting failed. If None, will use the creator's setting.
         raise_exc: ~
+
+        # Maximum number of nodes for visualization; if set, will not perform
+        # the plot if the number of nodes is exceeding this threshold.
+        max_num_nodes: ~
 
         # Whether to *additionally* export the graph
         export:

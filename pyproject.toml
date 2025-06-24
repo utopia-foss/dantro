@@ -1,5 +1,12 @@
 # dantro project configuration
 # ============================
+# pytest ......................................................................
+# If not in root directory, run with -c pyproject.toml to include test config
+[tool.pytest.ini_options]
+log_format = "-- %(levelname)8s  %(message)s"
+log_level = 12
+
+
 # pytest-cov / coverage.py ....................................................
 # Configuration for pytest-cov coverage reports
 # For syntax, see here: https://coverage.readthedocs.io/en/latest/config.html

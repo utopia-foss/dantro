@@ -2,16 +2,7 @@
 
 import logging
 from itertools import product
-from typing import (
-    Dict,
-    Hashable,
-    Iterable,
-    List,
-    Sequence,
-    Tuple,
-    TypeVar,
-    Union,
-)
+from typing import Dict, Hashable, Iterable, List, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -25,7 +16,7 @@ log = logging.getLogger(__name__)
 TDims = Tuple[str]
 """A dimension sequence type"""
 
-TCoord = TypeVar("TCoord", int, float, str, Hashable)
+TCoord = Union[int, float, str, Hashable]
 """A single coordinate value type"""
 
 TCoords = Sequence[TCoord]

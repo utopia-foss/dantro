@@ -40,6 +40,7 @@ from .. import TEST_VERBOSITY
 
 # Fixtures --------------------------------------------------------------------
 from .._fixtures import *
+from .funcs.test_generic import create_nd_data
 
 
 @pytest.fixture
@@ -76,6 +77,26 @@ def dm(psp_grp, psp_grp_default, psp_grp_missing_data, tmpdir) -> DataManager:
                         foo=range(5), bar=range(4), baz=range(3), spam=range(2)
                     ),
                 ),
+            )
+        ),
+        Cls=PassthroughContainer,
+    )
+    dsets.new_container(
+        path="mean_and_std_5D",
+        data=xr.Dataset(
+            dict(
+                mean=create_nd_data(5, with_coords=True),
+                std=create_nd_data(5, with_coords=True),
+            )
+        ),
+        Cls=PassthroughContainer,
+    )
+    dsets.new_container(
+        path="mean_and_std_6D",
+        data=xr.Dataset(
+            dict(
+                mean=create_nd_data(6, with_coords=True),
+                std=create_nd_data(6, with_coords=True),
             )
         ),
         Cls=PassthroughContainer,
@@ -154,48 +175,94 @@ def pm(dm, out_dir, dag_plots_cfg) -> PlotManager:
     )
 
 
-# Tests -----------------------------------------------------------------------
+# Testing Helper Functions ....................................................
 
 
-def test_config_based(pm, dag_plots_cfg):
-    """Carries out fully config-based tests using a PlotManager"""
+def invoke_test_plots(pm: PlotManager, plots_cfg: dict):
 
-    def invoke_plot(pm: PlotManager, *, name: str, plot_cfg: dict):
-        return pm.plot(name=name, **plot_cfg)
+    def invoke_plot(pm: PlotManager, name: str, cfg: dict):
+        return pm.plot(
+            name=name,
+            **cfg.get("plot_cfg", {}),
+            from_pspace=cfg.get("from_pspace"),
+        )
 
     # .. Automate creation of individual plots with their respective config ...
-    for case_name, case_cfg in dag_plots_cfg["config_based"].items():
-        print(f"\n\n\n--- Testing plot case '{case_name}' ... ---\n")
+    for name, cfg in plots_cfg.items():
+        print(f"\n\n\n➡️ Testing plot config '{name}' ...")
 
         # Find out whether this is expected to succeed or not
-        _raises = case_cfg.get("_raises", False)
+        _raises = cfg.get("_raises", False)
         _exp_exc = (
             Exception if not isinstance(_raises, str) else globals()[_raises]
         )
-        _warns = case_cfg.get("_warns", False)
+        _warns = cfg.get("_warns", False)
         _exp_warning = (
             UserWarning if not isinstance(_warns, str) else globals()[_warns]
         )
-        _match = case_cfg.get("_match")
+        _match = cfg.get("_match")
 
         if not _raises and not _warns:
-            invoke_plot(pm, name=case_name, plot_cfg=case_cfg["plot_cfg"])
+            invoke_plot(pm, name, cfg)
 
         elif _warns and not _raises:
             print(f"Expecting {_exp_warning.__name__} (match: {_match}) ...")
             with pytest.warns(_exp_warning, match=_match):
-                invoke_plot(pm, name=case_name, plot_cfg=case_cfg["plot_cfg"])
+                invoke_plot(pm, name, cfg)
 
         elif _raises and not _warns:
             print(f"Expecting {_exp_exc.__name__} (match: {_match}) ...")
-
             with pytest.raises(_exp_exc, match=_match):
-                invoke_plot(pm, name=case_name, plot_cfg=case_cfg["plot_cfg"])
+                invoke_plot(pm, name, cfg)
 
         else:
             raise ValueError(
                 "Cannot have `_raises` AND `_warns`! "
-                f"Check config of case {case_name}"
+                f"Check config of case '{name}'"
             )
 
-        print(f"\n\n\n--- Test case '{case_name}' succeeded ---\n")
+        print(f"✅ '{name}' plot succeeded.")
+
+
+# Tests -----------------------------------------------------------------------
+# ... each with a subset of the dag_plots_cfg
+
+
+def test_basics(pm, dag_plots_cfg):
+    invoke_test_plots(pm, dag_plots_cfg["basics"])
+
+
+def test_uni(pm, dag_plots_cfg):
+    invoke_test_plots(pm, dag_plots_cfg["uni"])
+
+
+def test_mv(pm, dag_plots_cfg):
+    invoke_test_plots(pm, dag_plots_cfg["mv"])
+
+
+def test_skipping(pm, dag_plots_cfg):
+    invoke_test_plots(pm, dag_plots_cfg["skipping"])
+
+
+def test_dag_placeholder_resolution(pm, dag_plots_cfg):
+    invoke_test_plots(pm, dag_plots_cfg["dag_placeholder_resolution"])
+
+
+def test_dag_visualization(pm, dag_plots_cfg):
+    invoke_test_plots(pm, dag_plots_cfg["dag_visualization"])
+
+
+def test_plot_helper(pm, dag_plots_cfg):
+    invoke_test_plots(pm, dag_plots_cfg["plot_helper"])
+
+
+def test_facet_grid(pm, dag_plots_cfg):
+    invoke_test_plots(pm, dag_plots_cfg["facet_grid"])
+
+
+def test_files_encoding(pm, dag_plots_cfg):
+    invoke_test_plots(pm, dag_plots_cfg["files_encoding"])
+
+
+def test_doc_examples(pm, dag_plots_cfg):
+    invoke_test_plots(pm, dag_plots_cfg["doc_examples"])
