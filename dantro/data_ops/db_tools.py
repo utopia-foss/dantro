@@ -200,6 +200,7 @@ def available_operations(
     return _get_close_matches(match, _ops.keys(), n=n)
 
 
+@is_operation
 def get_operation(
     op_name: str, *, _ops: Dict[str, Callable] = None
 ) -> Callable:
@@ -214,6 +215,9 @@ def get_operation(
     Raises:
         BadOperationName: Upon invalid operation name
     """
+    if _ops is None:
+        _ops = _OPERATIONS
+
     try:
         return _ops[op_name]
 

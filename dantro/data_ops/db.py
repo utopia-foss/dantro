@@ -364,6 +364,7 @@ _OPERATIONS = KeyOrderedDict({
     ".to_dataframe":        lambda d, *a, **k: d.to_dataframe(*a, **k),
 
     ".to_array":            lambda ds, *a, **k: ds.to_array(*a, **k),
+    ".to_dataarray":        lambda ds, *a, **k: ds.to_dataarray(*a, **k),
     ".rename_dims":         lambda ds, *a, **k: ds.rename_dims(*a, **k),
     ".rename_vars":         lambda ds, *a, **k: ds.rename_vars(*a, **k),
     ".drop_vars":           lambda ds, *a, **k: ds.drop_vars(*a, **k),

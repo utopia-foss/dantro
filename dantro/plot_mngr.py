@@ -1246,7 +1246,7 @@ class PlotManager:
         except UpdatePlotConfig as upc:
             updated_plot_cfg = self._handle_UpdatePlotConfig(
                 upc, dict(from_pspace=from_pspace, **kwargs)
-            )  # FIXME likely wrong
+            )
             log.note("Restarting plot with updated configuration ...\n")
             return self.plot(name, **updated_plot_cfg)
 
