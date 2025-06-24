@@ -9,14 +9,14 @@ This page gives an overview of plot functions that are implemented within :py:mo
 These plot functions are meant to be as generic as possible, allowing to work with a wide variety of data.
 They make use of the :ref:`dag_framework` for :ref:`plot_creator_dag`.
 
-To use these plot functions, the following information needs to be specified in the plot configuration:
+To use these plot functions, you can base your plot configuration on a base plot configuration that selects these functions, for instance:
 
 .. code-block:: yaml
 
     my_plot:
-      creator: pyplot        # or: universe, multiverse, ...
-      module: .generic       # absolute: dantro.plot.funcs.generic
-      plot_func: facet_grid  # or some other plot function name
+      based_on:
+        - .creator.pyplot
+        - .plot.facet_grid   # <- select the generic facet grid plot
 
       # ...
 
@@ -46,6 +46,10 @@ All steps are fully configurable and optimized for the YAML-based plotting inter
 Thus, generating a plot of multidimensional data does not require touching any actual code but just specifying the desired representation in the plot configuration. 🎉
 
 For more information, have a look at the :py:func:`~.facet_grid` docstring.
+
+.. note::
+
+    To use this plot function, use ``.plot.facet_grid`` in your ``based_on`` specification.
 
 
 .. _dag_generic_facet_grid_auto_kind:
@@ -257,3 +261,24 @@ The resulting plot looks like this:
     :target: ../_static/_gen/plots/doc_examples_multiplot_subplots.pdf
     :width: 90%
     :alt: Multiplot plot example with subplots and artificial time series data
+
+
+.. note::
+
+    To use this plot function, use ``.plot.multiplot`` in your ``based_on`` specification.
+
+
+-----
+
+.. _snsplot:
+
+``snsplot``: Plot using seaborn
+-------------------------------
+
+Invokes :py:func:`~dantro.plot.funcs.snsplot.snsplot`, which is a bridge to :py:module:`seaborn`.
+
+.. note::
+
+    To use this plot function, use ``.plot.snsplot`` in your ``based_on`` specification.
+
+.. todo:: Write more and add examples ... 🚧

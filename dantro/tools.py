@@ -72,7 +72,7 @@ TTY_COLS = TERMINAL_INFO["columns"]
 
 # -- YAML ---------------------------------------------------------------------
 
-from ._yaml import load_yml, write_yml, yaml
+from ._yaml import load_yml, write_yml, yaml, yaml_dumps
 
 # -- Dictionary operations ----------------------------------------------------
 

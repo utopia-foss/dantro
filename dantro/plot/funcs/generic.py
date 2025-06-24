@@ -833,8 +833,7 @@ def build_pspace_selector(
         for dim in dims
     }
     # NOTE Using ``tolist`` here to get native data types.
-    #      The default value should not be needed, so we don't specify it; if
-    #      it is used somewhere, we will probably find out ...
+    #      The default value should not be needed, but we still specify sth.
 
     if any(_sel in psp_sel for _sel in sel):
         raise PlotConfigError(

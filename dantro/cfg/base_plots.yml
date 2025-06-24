@@ -216,6 +216,15 @@ _:
   plot_func: multiplot
 
 
+# -- Seaborn ------------------------------------------------------------------
+.plot.snsplot:
+  module: !add [*dantro_plots, .snsplot]
+  plot_func: snsplot
+
+.plot.snsplot.with_auto_encoding:
+  based_on: .plot.snsplot
+  auto_encoding: true
+
 
 # -- Legacy plots -------------------------------------------------------------
 .plot.lineplot:

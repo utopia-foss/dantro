@@ -1,0 +1,398 @@
+"""Implements seaborn-based plotting functions"""
+
+import logging
+import operator
+from typing import Any, Dict, Hashable, List, Sequence, Tuple, Union
+
+import numpy as np
+import pandas as pd
+import paramspace as psp
+import seaborn as sns
+import xarray as xr
+
+from dantro.exceptions import PlottingError
+from dantro.plot import PlotHelper, is_plot_func
+from dantro.plot.funcs.generic import (
+    UpdatePlotConfig,
+    determine_encoding,
+    figure_leak_prevention,
+    make_facet_grid_plot,
+)
+
+log = logging.getLogger(__name__)
+
+# -- Definitions --------------------------------------------------------------
+# .. Seaborn's figure-level plot functions ....................................
+SNS_PLOT_FUNCS = {
+    "relplot": sns.relplot,
+    "displot": sns.displot,
+    "catplot": sns.catplot,
+    "lmplot": sns.lmplot,
+    "clustermap": sns.clustermap,
+    "pairplot": sns.pairplot,
+    "jointplot": sns.jointplot,
+}
+
+SNS_FACETGRID_KINDS = (
+    "relplot",
+    "displot",
+    "catplot",
+    "lmplot",
+)
+
+# .. Encodings for seaborn's figure-level plot functions ......................
+# TODO Check if all are correct
+SNS_ENCODINGS = {
+    # FacetGrid: Distributions
+    "displot": ("x", "col", "row", "hue"),
+    "catplot": ("y", "hue", "col", "row"),
+    # FacetGrid: Relational
+    "relplot": ("x", "y", "hue", "col", "row", "style", "size"),
+    "lmplot": ("x", "y", "hue", "col", "row"),
+    # Others
+    "clustermap": ("hue", "col", "row"),
+    "pairplot": ("hue",),
+    "jointplot": ("x", "y", "hue"),
+}
+
+
+# -- Utilities ----------------------------------------------------------------
+
+
+def build_df_selector(
+    df: pd.DataFrame, vars: List[str], **sel
+) -> Dict[str, Union[psp.ParamDim, Any]]:
+    """Builds a selector dict for DataFrame selections, using
+    :py:class:`~paramspace.paramdim.ParamDim` as values.
+
+    This method also combines the parameter space selector with an existing
+    selector dict, ``sel``, and throws an error if there is an overlap between
+    keys in ``vars`` and ``sel``.
+    """
+
+    def get_unique_vals(var: str) -> list:
+        if var in df.columns:
+            vals = df[var].unique()
+        elif var in df.index.names:
+            vals = np.unique(df.index.get_level_values(var))
+        else:
+            raise ValueError(
+                f"Variable '{var}' is neither a column nor an index, cannot "
+                f"build a selector for it!\n\n{df.head()}\n"
+            )
+
+        return vals.tolist()
+
+    unique_vals = {var: get_unique_vals(var) for var in vars}
+    psp_sel: Dict[str, psp.ParamDim] = {
+        str(var): psp.ParamDim(
+            default=unique_vals[var][0],
+            values=unique_vals[var],
+        )
+        for var in vars
+    }
+
+    if any(_sel in psp_sel for _sel in sel):
+        raise PlotConfigError(
+            f"Cannot combine parameter sweep selector ({', '.join(dims)}) "
+            f"with existing selector ({sel}) because there are "
+            "overlapping dimension names! Remove them and retry."
+        )
+
+    return dict(**psp_sel, **sel)
+
+
+# -----------------------------------------------------------------------------
+
+
+@is_plot_func(use_dag=True, required_dag_tags=("data",))
+def snsplot(
+    *,
+    data: dict,
+    hlpr: PlotHelper,
+    sns_kind: str,
+    free_indices: Tuple[str, ...],
+    optional_free_indices: Tuple[str, ...] = (),
+    auto_encoding: Union[bool, dict] = None,
+    auto_encoding_options: dict = None,
+    reset_index: bool = False,
+    to_dataframe_kwargs: dict = None,
+    dropna: bool = False,
+    dropna_kwargs: dict = None,
+    sample: Union[bool, int] = False,
+    sample_kwargs: dict = None,
+    _sel: dict = None,
+    **plot_kwargs,
+) -> None:
+    """Interface to seaborn's figure-level plot functions.
+    Plot functions are selected via the ``sns_kind`` argument:
+
+    - ``relplot``:      :py:func:`seaborn.relplot`
+    - ``displot``:      :py:func:`seaborn.displot`
+    - ``catplot``:      :py:func:`seaborn.catplot`
+    - ``lmplot``:       :py:func:`seaborn.lmplot`
+    - ``clustermap``:   :py:func:`seaborn.clustermap` *(not faceting)*
+    - ``pairplot``:     :py:func:`seaborn.pairplot`   *(not faceting)*
+    - ``jointplot``:    :py:func:`seaborn.jointplot`  *(not faceting)*
+
+    This plot function also supports the ``files`` encoding, which triggers
+    plot config updating and thereby allows to represent data of arbitrary
+    dimensionality; this is achieved by performing a parameter sweep plot where
+    each point corresponds to a single plot file of a subspace of the data.
+
+    Args:
+        data (dict): The data transformation framework results, expecting a
+            single entry ``data`` which can be a :py:class:`pandas.DataFrame`
+            or an :py:class:`xarray.DataArray` or :py:class:`xarray.Dataset`.
+        hlpr (PlotHelper): The plot helper instance
+        sns_kind (str): Which seaborn plot to use, see list above.
+        free_indices (Tuple[str]): Which index names *not* to associate with a
+            layout encoding; seaborn uses these to calculate the distribution
+            statistics.
+        optional_free_indices (Tuple[str], optional): These indices will be
+            added to the free indices *if they are part of the data frame*.
+            Otherwise, they are silently ignored.
+        auto_encoding (Union[bool, dict], optional): Whether to use
+            auto-encoding to map encodings to data variables or dimensions;
+            see :py:func:`~dantro.plot.funcs.generic.determine_encoding`.
+        auto_encoding_options (dict, optional): Additional arguments for
+            :py:func:`~dantro.plot.funcs.generic.determine_encoding`.
+        reset_index (bool, optional): Whether to reset indices such
+            that only the ``free_indices`` remain as indices and all others are
+            converted into columns.
+        to_dataframe_kwargs (dict, optional): For xarray data types, this is
+            used to convert the given data into a pandas.DataFrame.
+        sample (bool, optional): If True, will sample a subset from the final
+            dataframe, controlled by ``sample_kwargs``
+        sample_kwargs (dict, optional): Passed to
+            :py:meth:`pandas.DataFrame.sample`.
+        _sel (dict, optional): Select a subset of the dataframe. (For internal
+            use only!)
+        **plot_kwargs: Passed on to the selected plotting function, containing
+            the respective encoding variables, e.g. ``x``, ``y``, ``hue``,
+            ``col``, ``row``, ``files``, ...
+    """
+    df = data["data"]
+
+    # For xarray types, attempt conversion
+    if isinstance(df, (xr.Dataset, xr.DataArray)):
+        tdf_kwargs = to_dataframe_kwargs if to_dataframe_kwargs else {}
+        log.note("Attempting conversion to pd.DataFrame ...")
+        log.remark(
+            "   arguments:  %s",
+            ", ".join(f"{k}: {v}" for k, v in tdf_kwargs.items()),
+        )
+        df = df.to_dataframe(**tdf_kwargs)
+
+    # Re-index to get long-form data
+    # See:  https://seaborn.pydata.org/tutorial/data_structure.html
+    log.note("Evaluating data frame ...")
+    log.remark("   length:           %d", len(df))
+    log.remark("   shape:            %s", df.shape)
+    log.remark("   size:             %d", df.size)
+    try:
+        log.remark("   columns:          %s", ", ".join(df.columns))
+    except:  # TODO Make more specific or even avoid try-except
+        log.remark("   columns:          (none)")
+
+    try:
+        log.remark("   indices:          %s", ", ".join(df.index.names))
+    except:  # TODO Make more specific or even avoid try-except
+        log.remark("   indices:          (no named indices)")
+
+    log.remark("   free indices:     %s", ", ".join(free_indices))
+    log.remark("   optionally free:  %s", ", ".join(optional_free_indices))
+
+    # TODO Add an option to make all indices free, excluding some ...
+
+    # Apply optionally free indices
+    free_indices += [n for n in optional_free_indices if n in df.index.names]
+
+    # For some kinds, it makes sense to re-index such that only the free
+    # indices are used as columns
+    if reset_index:
+        # FIXME df.index.names can be [None]
+        reset_for = [n for n in df.index.names if n not in free_indices]
+        if reset_for:
+            df = df.reset_index(level=reset_for)
+            log.remark("   reset index for:  %s", ", ".join(reset_for))
+
+    # Can apply a data subselection to allow files iteration
+    if _sel:
+        log.note("Applying data selection ...")
+        log.remark(
+            "   selector:         %s",
+            ",  ".join(f"{var}: {val}" for var, val in _sel.items()),
+        )
+        for var, val in _sel.items():
+            if var in df.columns:
+                df = df.loc[df[var] == val]
+            elif var in df.index.names:
+                index_order = df.index.names
+                df = df.reset_index(var)
+                df = df[df[var] == val]
+                df = df.set_index(var, append=True)
+                df = df.reorder_levels(index_order)
+            else:
+                raise ValueError(
+                    f"Selector variable '{var}' is neither a valid column "
+                    "name nor an index, cannot apply selection!\n\n"
+                    f"Given DataFrame:\n{df.head()}\n"
+                )
+
+        log.remark("   new length:       %d", len(df))
+
+    # Might want to drop null values
+    if dropna:
+        dropna_kwargs = dropna_kwargs if dropna_kwargs else {}
+        log.note("Dropping null values ...")
+        log.remark(
+            "  Arguments:  %s",
+            ", ".join(f"{k}: {v}" for k, v in dropna_kwargs.items()),
+        )
+        df = df.dropna(**dropna_kwargs)
+        log.remark("   new length:       %d", len(df))
+
+    # Sampling
+    if sample:
+        if not sample_kwargs:
+            sample_kwargs = {}
+            if isinstance(sample, int) and sample < len(df):
+                sample_kwargs["n"] = sample
+
+        if sample_kwargs:
+            log.note("Sampling from data frame ...")
+            log.remark(
+                "   arguments:  %s",
+                ", ".join(f"{k}: {v}" for k, v in sample_kwargs.items()),
+            )
+            len_before = len(df)
+            try:
+                df = df.sample(**sample_kwargs)
+            except Exception as exc:
+                log.error(
+                    "   sampling failed with %s: %s", type(exc).__name__, exc
+                )
+            else:
+                log.remark(
+                    "   sampling succeeded. New length: %d (%d)",
+                    len(df),
+                    len(df) - len_before,
+                )
+        else:
+            log.note("Sampling skipped (no arguments applicable).")
+
+    # ... further preprocessing ...
+
+    # Interface with auto-encoding
+    # Need to pop any given `kind` argument (valid input to sns.pairplot)
+    kind = plot_kwargs.pop("kind", None)
+    plot_kwargs, (encoding, _, _) = determine_encoding(
+        {
+            n: s
+            for n, s in zip(
+                df.index.names, getattr(df.index, "levshape", [len(df.index)])
+            )
+            if n not in free_indices
+        },
+        kind=sns_kind,
+        auto_encoding=auto_encoding,
+        default_encodings=SNS_ENCODINGS,
+        data_vars=list(df.columns),
+        plot_kwargs=plot_kwargs,
+        return_encoding_info=True,
+        **(auto_encoding_options if auto_encoding_options else {}),
+    )
+
+    files = plot_kwargs.pop("files", None)
+    free = plot_kwargs.pop("free", None)  # TODO Should this be an argument?
+    _special_specs = ("free", "files")
+
+    if free:
+        free = (free,) if isinstance(free, str) else tuple(free)
+        log.remark("   deliberately free:  %s", ", ".join(free))
+
+    if kind is not None:
+        plot_kwargs["kind"] = kind
+
+    # Depending on plot kinds, determine some further arguments
+    if kind in SNS_FACETGRID_KINDS:
+        # Provide a best guess for the `x` encoding, if it is not given
+        if "x" not in plot_kwargs and len(df.columns) == 1:
+            x = str(df.columns[0])
+            log.note("Using '%s' for x-axis encoding.", x)
+            plot_kwargs["x"] = x
+
+    # Potentially perform files iteration
+    # This may leave the plotting function via a messaging exception; the next
+    # time we arrive here, `files` should no longer be set.
+    if files:
+        log.info(
+            "Initiating %d-dimensional files iteration:  %s",
+            len(files),
+            ", ".join(files),
+        )
+
+        # Build selector, including existing values
+        _sel = build_df_selector(df, files, **(_sel if _sel else {}))
+
+        raise UpdatePlotConfig(
+            "snsplot files iteration",
+            from_pspace=dict(_sel=_sel),
+            #
+            # Explicitly pass the encoding so it's not tinkered with again
+            **{s: d for s, d in encoding.items() if s not in _special_specs},
+            free=free,
+            files=None,  # TODO Consider setting to some informative value
+        )
+
+    # Retrieve the plot function
+    try:
+        plot_func = SNS_PLOT_FUNCS[sns_kind]
+
+    except KeyError:
+        _avail = ", ".join(SNS_PLOT_FUNCS)
+        raise ValueError(
+            f"Invalid plot kind '{sns_kind}'! Available: {_avail}"
+        )
+
+    # Actual plotting . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    # Close the existing figure; the seaborn functions create their own
+    hlpr.close_figure()
+
+    # Let seaborn do the plotting
+    log.note("Now invoking sns.%s ...", sns_kind)
+
+    try:
+        with figure_leak_prevention():
+            fg = plot_func(data=df, **plot_kwargs)
+
+    except Exception as exc:
+        raise PlottingError(
+            f"sns.{sns_kind} failed! Got {type(exc).__name__}: {exc}\n\n"
+            f"Data was:\n{df}\n\n"
+            f"Plot function arguments were:\n  {plot_kwargs}"
+        ) from exc
+
+    # Store FacetGrid (or similar) and encoding as helper attributes
+    hlpr._attrs["facet_grid"] = fg
+    hlpr._attrs["encoding"] = encoding
+
+    # Attach the created figure, including a workaround for `col_wrap`, in
+    # which case `fg.axes` is one-dimensional (for whatever reason)
+    if isinstance(fg, sns.JointGrid):
+        fig = fg.fig
+        axes = [[fg.ax_joint]]  # TODO consider registering all axes
+
+    else:
+        # Assume it's FacetGrid-like
+        fig = fg.fig
+        axes = fg.axes
+        if axes.ndim != 2:
+            axes = axes.reshape((fg._nrow, fg._ncol))
+
+    hlpr.attach_figure_and_axes(fig=fig, axes=axes)
+
+    # TODO Animation?!
+
+    return fg

@@ -134,6 +134,7 @@ def parse_function_specs(
     args: list = None,
     pass_axis_object_as: str = None,
     pass_helper: bool = False,
+    pass_helper_attrs: List[str] = None,
     **func_kwargs,
 ) -> Tuple[str, Callable, list, dict]:
     """Parses a function specification used in the ``invoke_function`` helper.
@@ -159,6 +160,10 @@ def parse_function_specs(
             to-be-invoked function.
         pass_helper (bool, optional): If true, passes the helper instance to
             the function call as keyword argument ``hlpr``.
+        pass_helper_attrs (List[str], optional): If given, names of the
+            helper's (figure-level) ``attrs`` that are to be passed on to the
+            function call; if an attribute is missing, the corresponding
+            keyword argument will have None as value.
         **func_kwargs (dict): The function kwargs to be passed on to the
             function object.
 
@@ -181,6 +186,9 @@ def parse_function_specs(
 
     if pass_helper:
         func_kwargs["hlpr"] = _hlpr
+
+    if pass_helper_attrs:
+        func_kwargs.update({k: _hlpr._attrs.get(k) for k in pass_helper_attrs})
 
     # Get the function object and a readable name
     if callable(function):

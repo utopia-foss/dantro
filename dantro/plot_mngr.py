@@ -12,6 +12,7 @@ import textwrap
 import time
 from collections import OrderedDict
 from functools import partial
+from pprint import pformat
 from typing import Any, Callable, Dict, List, Literal, Sequence, Tuple, Union
 
 from paramspace import ParamDim, ParamSpace
@@ -924,6 +925,19 @@ class PlotManager:
                     "`exists_action`! Choose from: raise, skip, append, "
                     "overwrite, overwrite_nowarn"
                 )
+
+        except Exception as exc:
+            if self.raise_exc:
+                raise RuntimeError(
+                    f"Failed storing '{name}' plot configuration file! "
+                    f"Got {type(exc).__name__}: {exc}\n\n"
+                    f"Plot configuration:\n{cfg}\n"
+                ) from exc
+            log.error(
+                "Failed saving plot config! %s: %s",
+                type(exc).__name__,
+                exc,
+            )
 
         else:
             log.debug(
