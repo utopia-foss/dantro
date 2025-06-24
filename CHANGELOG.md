@@ -17,7 +17,9 @@ However, given the rather burst-like development on this package, features are o
     - `.plot.facet_grid.with_auto_encoding.drop_missing_dims`: to ignore missing data dimensions and assign them anew (replaces the `….ignore_missing` entry from v0.20.3).
 
 - !366 adds the `show_data` argument to the `facet_grid` plot, allowing to control whether data should be shown.
+- !366 makes it possible to pass arbitrary keyword arguments to plot functions, even if the same keys are used by dantro (e.g. the `style` key). To do so, keyword arguments defined in `plot_func_kwargs` are now directly passed on to the plot function.
 - !366 adds the `max_num_nodes` argument to DAG visualization; if the number of nodes of the DAG exceeds this, the visualization will not be performed.
+- !366 adds the `.to_datarray` and `get_operation` operations to the data transformation framework.
 
 
 #### Internal
