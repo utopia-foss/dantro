@@ -20,6 +20,7 @@ However, given the rather burst-like development on this package, features are o
 - !366 makes it possible to pass arbitrary keyword arguments to plot functions, even if the same keys are used by dantro (e.g. the `style` key). To do so, keyword arguments defined in `plot_func_kwargs` are now directly passed on to the plot function.
 - !366 adds the `max_num_nodes` argument to DAG visualization; if the number of nodes of the DAG exceeds this, the visualization will not be performed.
 - !366 adds the `.to_datarray` and `get_operation` operations to the data transformation framework.
+- !368 adds the `snsplot` plot function, bridging to [seaborn](https://seaborn.pydata.org); it is available via the `.plot.snsplot` base config.
 
 
 #### Bug fixes
