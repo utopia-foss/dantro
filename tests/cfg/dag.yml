@@ -673,8 +673,7 @@ file_cache_pickle_data:
       - operation: getattr
         args: [!dag_tag some_dict, _data]
         tag: dict_data
-        file_cache:
-          write: true
+        file_cache: true
 
   expected:
     num_nodes: 2

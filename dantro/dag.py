@@ -5,7 +5,8 @@ It revolves around two main classes:
 - :py:class:`~dantro.dag.TransformationDAG` that aggregates those
   transformations into a directed acyclic graph.
 
-For more information, see :ref:`data transformation framework <dag_framework>`."""
+For more information, see :ref:`data transformation framework <dag_framework>`.
+"""
 
 import copy
 import glob
@@ -16,18 +17,9 @@ import sys
 import time
 import warnings
 from collections import defaultdict as _defaultdict
+from functools import partial
 from itertools import chain
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    Union,
-)
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
 from paramspace.tools import recursive_collect, recursive_replace
@@ -67,7 +59,7 @@ from .utils.nx import manipulate_attributes as _manipulate_attributes
 log = logging.getLogger(__name__)
 
 # A locally used time formatting function
-_fmt_time = lambda seconds: _format_time(seconds, ms_precision=2)
+_fmt_time = partial(_format_time, ms_precision=2)
 
 # Lazy module imports
 xr = LazyLoader("xarray")
@@ -174,7 +166,7 @@ class Transformation:
         allow_failure: Union[bool, str] = None,
         fallback: Any = None,
         memory_cache: bool = True,
-        file_cache: dict = None,
+        file_cache: Union[bool, dict] = None,
         context: dict = None,
     ):
         """Initialize a Transformation object.
@@ -325,6 +317,8 @@ class Transformation:
         self._cache = dict(result=None, filled=False)
 
         # Parse file cache options, making sure it's a dict with default values
+        if isinstance(file_cache, bool):
+            file_cache = dict(write=file_cache, read=file_cache)
         self._fc_opts = file_cache if file_cache is not None else {}
 
         if isinstance(self._fc_opts.get("write", {}), bool):
