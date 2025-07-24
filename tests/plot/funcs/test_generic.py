@@ -6,7 +6,7 @@ import logging
 import os
 from builtins import *  # to have Exception types available in globals
 from itertools import product
-from typing import Tuple
+from typing import Callable, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -122,11 +122,14 @@ def associate_specifiers(
     of (number of specifiers specifiers, number of data dimensions).
 
     Args:
-        data (TYPE): The data
+        data: The (xarray-like) data from which to get the dimension names
         specifiers (Tuple[str], optional): The available specifiers. If None,
             will use: (x, y, row, col, hue, frames)
         exclude (tuple, optional): Which ones to exclude from ``specifiers``
     """
+    if specifiers is False:
+        return {}
+
     if specifiers is None:
         specifiers = ("x", "y", "row", "col", "hue", "frames")
 
@@ -145,14 +148,21 @@ def associate_specifiers(
     return {spec: dim_name for spec, dim_name in zip(specifiers, dim_names)}
 
 
-def invoke_facet_grid(*, dm, out_dir, to_test: dict, max_num_figs: int = 1):
+def invoke_facet_grid(
+    *,
+    dm,
+    out_dir,
+    to_test: dict,
+    max_num_figs: int = 1,
+    plot_func: Callable = facet_grid,
+):
     """Repeatedly invokes the facet_grid plot function and checks whether it
     runs through as expected or generates an exception as expected.
 
     After each invocation, if the number of open figures is checked, which can
     be used to detect figure leakage.
     """
-    ppc = PyPlotCreator("test_facet_grid", dm=dm, plot_func=facet_grid)
+    ppc = PyPlotCreator("test_facet_grid", dm=dm, plot_func=plot_func)
     ppc._exist_ok = True
 
     # Shortcuts

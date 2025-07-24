@@ -1,0 +1,123 @@
+# Configuration for testing the seaborn plotting function
+---
+# Shared YAML specifications
+_:
+  shared: &shared
+    specifiers: false
+    kinds: [scatter]
+    test_data_path: ds_labelled
+    min_dims: 1
+
+  shared_kws: &shared_kws
+    free_indices: []
+    sns_kind: relplot
+
+# -----------------------------------------------------------------------------
+
+basics:
+  simple: &simple
+    <<: *shared
+    min_dims: 1
+    max_dims: 5
+    raises:
+      1: [PlottingError, Could not interpret value `dim_1` for `col`]
+    plot_kwargs: &simple_kws
+      <<: *shared_kws
+      reset_index: true
+      x: foo
+      y: bar
+      hue: baz
+      size: spam
+      col: dim_1
+      row: dim_0
+
+  sel_col:
+    <<: *simple
+    raises:
+      1: [ValueError, Selector variable 'dim_1' is neither a valid column]
+      2: [PlottingError, Could not interpret value `dim_2` for `row`]
+    plot_kwargs:
+      <<: *simple_kws
+      _sel:
+        dim_1: 11
+      row: dim_2
+
+  sel_idx:
+    <<: *simple
+    raises:
+      1: [ValueError, Selector variable 'dim_1' is neither a valid column]
+      2: [PlottingError, Could not interpret value `dim_2` for `col`]
+    plot_kwargs:
+      <<: *simple_kws
+      reset_index: false
+      _sel:
+        dim_1: 11
+      col: dim_2
+
+  sel_err:
+    <<: *simple
+    min_dims: 3
+    max_dims: 4
+    raises:
+      3: &err_sel_bad [ValueError, variable 'bad' is neither a valid column]
+      4: *err_sel_bad
+    plot_kwargs:
+      <<: *simple_kws
+      _sel:
+        bad: selector
+
+  dropna:
+    <<: *simple
+    max_dims: 3
+    plot_kwargs:
+      <<: *simple_kws
+      dropna: true
+      dropna_kwargs:
+        how: any
+
+  sample:
+    <<: *simple
+    max_dims: 3
+    plot_kwargs:
+      <<: *simple_kws
+      sample: 10
+
+  sample_skipped:
+    <<: *simple
+    max_dims: 3
+    plot_kwargs:
+      <<: *simple_kws
+      sample: 10000000  # -> more than there are points to sample -> keep all
+
+  sample_kwargs:
+    <<: *simple
+    min_dims: 3
+    max_dims: 4
+    plot_kwargs:
+      <<: *simple_kws
+      sample: true
+      sample_kwargs: {frac: 0.2}
+
+  free:
+    <<: *simple
+    min_dims: 3
+    max_dims: 5
+    plot_kwargs:
+      <<: *simple_kws
+      free: [dim_2, dim_3]
+
+  files:
+    <<: *simple
+    min_dims: 2
+    max_dims: 4
+    raises:
+      2: [ValueError, Variable 'dim_2' is neither a column nor an index]
+      #
+      # As this is invoked via the PlotCreator, not the PlotManager, can only
+      # check for files iteration indirectly by the messasging exception being
+      # raised from within the plot function:
+      3: &err_upd_files [UpdatePlotConfig, messaging exception .* snsplot files]
+      4: *err_upd_files
+    plot_kwargs:
+      <<: *simple_kws
+      files: [dim_2]

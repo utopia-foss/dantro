@@ -10,7 +10,7 @@ import paramspace as psp
 import seaborn as sns
 import xarray as xr
 
-from dantro.exceptions import PlottingError
+from dantro.exceptions import PlotConfigError, PlottingError
 from dantro.plot import PlotHelper, is_plot_func
 from dantro.plot.funcs.generic import (
     UpdatePlotConfig,
@@ -94,7 +94,7 @@ def build_df_selector(
 
     if any(_sel in psp_sel for _sel in sel):
         raise PlotConfigError(
-            f"Cannot combine parameter sweep selector ({', '.join(dims)}) "
+            f"Cannot combine parameter sweep selector ({', '.join(vars)}) "
             f"with existing selector ({sel}) because there are "
             "overlapping dimension names! Remove them and retry."
         )
@@ -211,8 +211,10 @@ def snsplot(
     # For some kinds, it makes sense to re-index such that only the free
     # indices are used as columns
     if reset_index:
-        # FIXME df.index.names can be [None]
-        reset_for = [n for n in df.index.names if n not in free_indices]
+        # FIXME df.index.names can be [None], what should happen then?!
+        if df.index.names is not None:
+            reset_for = [n for n in df.index.names if n not in free_indices]
+
         if reset_for:
             df = df.reset_index(level=reset_for)
             log.remark("   reset index for:  %s", ", ".join(reset_for))

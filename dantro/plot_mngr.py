@@ -11,6 +11,7 @@ import os
 import textwrap
 import time
 from collections import OrderedDict
+from difflib import get_close_matches as _get_close_matches
 from functools import partial
 from pprint import pformat
 from typing import Any, Callable, Dict, List, Literal, Sequence, Tuple, Union
@@ -1054,13 +1055,19 @@ class PlotManager:
                 plots_cfg = {k: plots_cfg[k] for k in to_plot}
 
             except KeyError as err:
+                _name = str(err).replace("'", "")
                 _plot_only = ", ".join(plot_only)
+                _close = _get_close_matches(_name, plots_cfg.keys(), n=6)
+                if _close:
+                    _dym = (
+                        f"Did you mean any of these?\n\n{make_columns(_close)}"
+                    )
+                else:
+                    _all = make_columns(plots_cfg.keys())
+                    _dym = f"All available plot configurations:\n\n{_all}"
                 raise ValueError(
-                    f"Could not find a configuration for a plot named {err} "
-                    "while resolving the plot_only argument! Check that it "
-                    "was specified correctly:\n"
-                    f"  plot_only:  {_plot_only}\n"
-                    f"  available:\n{make_columns(plots_cfg.keys())}"
+                    f"Could not find a plot config named '{_name}' "
+                    f"while resolving plot_only ('{_plot_only}')!\n{_dym}\n"
                 ) from err
 
             # Remove all `enabled` keys from the remaining entries, thus also

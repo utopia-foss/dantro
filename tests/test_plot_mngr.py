@@ -196,7 +196,7 @@ def test_plotting(dm, pm_kwargs, pcr_pyplot_kwargs):
 
     # Check invalid specifications and that they create no plots
     # An invalid key should be propagated
-    with pytest.raises(ValueError, match="Could not find a configuration"):
+    with pytest.raises(ValueError, match="Could not find a plot config"):
         pm.plot_from_cfg(plot_only=["invalid_key"])
     assert_num_plots(pm, 7)
 
