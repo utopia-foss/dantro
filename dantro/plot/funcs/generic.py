@@ -1690,10 +1690,15 @@ def errorbars(
     # Group by the hue dimension and perform plots. To be a bit more permissive
     # regarding data shape, squeeze out any additional dimensions that might
     # have been left over.
+    def ordered_groupby(ds, dim):
+        for v in ds[dim].values:  # preserves existing order
+            yield (v, ds.sel({dim: v}, drop=False))
+
     hue_iter = zip(
-        _y.groupby(hue, squeeze=False),
-        _yerr.groupby(hue, squeeze=False),
+        ordered_groupby(_y, hue),
+        ordered_groupby(_yerr, hue),
     )
+
     for (_y_coord, _y_vals), (_yerr_coord, _yerr_vals) in hue_iter:
         _y_vals = _y_vals.squeeze(drop=True)
         _yerr_vals = _yerr_vals.squeeze(drop=True)
