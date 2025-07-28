@@ -1527,27 +1527,38 @@ class PlotManager:
                     **parallel,
                 )
             except Exception as exc:
-                raise
                 log.error(
-                    "Parallel parameter space plot of '%s' failed!\n"
+                    "Parallel parameter space plot (%s) of '%s' failed! "
                     "Got %s: %s\n",
+                    ", ".join(f"{k}: {v}" for k, v in parallel.items()),
                     name,
                     type(exc).__name__,
                     exc,
                 )
                 if not fallback_on_fail:
                     log.caution(
-                        "Check if the error was caused by parallel plotting "
-                        "or by the plot itself, regardless of execution.\n"
+                        "Check if the error was caused by being run in "
+                        "parallel plotting mode or by the plot itself."
                         "To test this, disable parallel plotting or set the "
-                        "`fallback_on_fail` flag to re-try with sequential "
-                        "execution."
+                        "`fallback_on_fail` flag to automatically re-try with "
+                        "sequential execution."
+                    )
+                    log.note(
+                        "You can also try using a different `executor`, "
+                        "available:  thread, process"
+                    )
+                    log.note(
+                        "If the plot failed due to a pickling error, your "
+                        "other plots may be causing side-effects on the data "
+                        "tree; either disable parallel plotting or restart "
+                        "your plotting session *only* with this plot, "
+                        f"'{name}', enabled."
                     )
                     raise
                 log.caution("Re-trying using non-parallel plot ...")
                 plot_sequential = True
 
-        if plot_sequential:
+        if plot_sequential or n_max <= 1:
             res = self._plot_pspace(
                 from_pspace,
                 name=name,

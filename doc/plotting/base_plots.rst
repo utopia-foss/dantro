@@ -125,6 +125,16 @@ The following entries can be included into a plot configuration to make pre-defi
     :end-before: # ===
 
 
+Miscellaneous
+-------------
+Other plot configurations that do not belong in any of the above categories.
+
+.. literalinclude:: ../../dantro/cfg/base_plots.yml
+    :language: yaml
+    :start-after: # start: .misc
+    :end-before: # ===
+
+
 ----
 
 .. _dantro_base_plots_ref_complete:
