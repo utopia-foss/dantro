@@ -59,6 +59,55 @@ SNS_ENCODINGS = {
 # -- Utilities ----------------------------------------------------------------
 
 
+def normalize_df_names(df: pd.DataFrame) -> pd.DataFrame:
+    """In-place normalizes index and column names by prefixing ``index_`` or
+    ``col_`` if they are not named.
+    """
+
+    def _normalize(names: List[Union[str, None]], prefix: str) -> List[str]:
+        return [
+            str(n) if n is not None else f"{prefix}_{i}"
+            for i, n in enumerate(names)
+        ]
+
+    # Index names (MultiIndex or simple)
+    if isinstance(df.index, pd.MultiIndex):
+        df.index.set_names(_normalize(df.index.names, "index"), inplace=True)
+    else:
+        df.index.name = (
+            str(df.index.name) if df.index.name is not None else "index_0"
+        )
+
+    # Column names
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns.set_names(_normalize(df.columns.names, "col"), inplace=True)
+    else:
+        df.columns = _normalize(df.columns, "col")
+
+    return df
+
+
+def apply_selection(df: pd.DataFrame, **sel) -> pd.DataFrame:
+    """Apply a selection, defined by key-value pairs, on a DataFrame."""
+    for var, val in sel.items():
+        if var in df.columns:
+            df = df.loc[df[var] == val]
+        elif var in df.index.names:
+            index_order = df.index.names
+            df = df.reset_index(var)
+            df = df[df[var] == val]
+            df = df.set_index(var, append=True)
+            df = df.reorder_levels(index_order)
+        else:
+            raise ValueError(
+                f"Selector variable '{var}' is neither a valid column "
+                "name nor an index, cannot apply selection!\n\n"
+                f"Given DataFrame:\n{df.head()}\n"
+            )
+
+    return df
+
+
 def build_df_selector(
     df: pd.DataFrame, vars: List[str], **sel
 ) -> Dict[str, Union[psp.ParamDim, Any]]:
@@ -115,8 +164,9 @@ def snsplot(
     optional_free_indices: Tuple[str, ...] = (),
     auto_encoding: Union[bool, dict] = None,
     auto_encoding_options: dict = None,
-    reset_index: bool = False,
+    reset_index: Union[bool, List[str]] = False,
     to_dataframe_kwargs: dict = None,
+    normalize_names: bool = False,
     dropna: bool = False,
     dropna_kwargs: dict = None,
     sample: Union[bool, int] = False,
@@ -146,26 +196,37 @@ def snsplot(
             or an :py:class:`xarray.DataArray` or :py:class:`xarray.Dataset`.
         hlpr (PlotHelper): The plot helper instance
         sns_kind (str): Which seaborn plot to use, see list above.
-        free_indices (Tuple[str]): Which index names *not* to associate with a
-            layout encoding; seaborn uses these to calculate the distribution
-            statistics.
-        optional_free_indices (Tuple[str], optional): These indices will be
-            added to the free indices *if they are part of the data frame*.
+        free_indices (Tuple[str, ...]): Which index names *not* to associate
+            with a layout encoding; seaborn uses these to calculate the
+            distribution statistics.
+        optional_free_indices (Tuple[str, ...], optional): These indices will
+            be added to the free indices *if they are part of the data frame*.
             Otherwise, they are silently ignored.
         auto_encoding (Union[bool, dict], optional): Whether to use
             auto-encoding to map encodings to data variables or dimensions;
             see :py:func:`~dantro.plot.funcs.generic.determine_encoding`.
         auto_encoding_options (dict, optional): Additional arguments for
             :py:func:`~dantro.plot.funcs.generic.determine_encoding`.
-        reset_index (bool, optional): Whether to reset indices such
-            that only the ``free_indices`` remain as indices and all others are
-            converted into columns.
+        reset_index (Union[bool, List[str]], optional): If a boolean, controls
+            whether to reset indices such that only the ``free_indices`` remain
+            as indices and all others are converted into columns.
+            Otherwise, assumes it's a sequence of index names to reset.
         to_dataframe_kwargs (dict, optional): For xarray data types, this is
             used to convert the given data into a pandas.DataFrame.
-        sample (bool, optional): If True, will sample a subset from the final
-            dataframe, controlled by ``sample_kwargs``
+        normalize_names (bool, optional): If True (default), unnamed columns
+            and indices will get names assigned. This makes handling of various
+            data frames easier.
+        dropna (bool, optional): If True, will invoke ``.dropna`` on the data.
+        dropna_kwargs (dict, optional): Additional arguments to the ``.dropna``
+            call on the data.
+        sample (Union[bool, int], optional): If True, will sample a subset from
+            the final dataframe, controlled by ``sample_kwargs``. If an
+            integer, will use that as the absolute number of samples to draw.
+            If a float in the unit interval, will use it as the fraction of
+            samples to draw.
         sample_kwargs (dict, optional): Passed to
-            :py:meth:`pandas.DataFrame.sample`.
+            :py:meth:`pandas.DataFrame.sample`. May contain ``n`` for absolute
+            or ``frac`` for relative number of samples to keep.
         _sel (dict, optional): Select a subset of the dataframe. (For internal
             use only!)
         **plot_kwargs: Passed on to the selected plotting function, containing
@@ -184,20 +245,43 @@ def snsplot(
         )
         df = df.to_dataframe(**tdf_kwargs)
 
-    # Re-index to get long-form data
-    # See:  https://seaborn.pydata.org/tutorial/data_structure.html
+    elif isinstance(df, pd.DataFrame):
+        # Let's work on a copy, just to be sure ...
+        df = df.copy()
+
+    else:
+        raise TypeError(
+            "Expected pd.DataFrame, xr.Dataset, or xr.DataArray, but got "
+            f"{type(df).__name__}!"
+        )
+
+    # Might want to normalize names for easier handling ...
+    if normalize_names:
+        df = normalize_df_names(df)
+
+    # Provide some information
     log.note("Evaluating data frame ...")
     log.remark("   length:           %d", len(df))
     log.remark("   shape:            %s", df.shape)
     log.remark("   size:             %d", df.size)
-    try:
-        log.remark("   columns:          %s", ", ".join(df.columns))
-    except:  # TODO Make more specific or even avoid try-except
+
+    if len(df.columns) > 0:
+        if isinstance(df.columns, pd.MultiIndex):
+            col_names = ["/".join(map(str, tup)) for tup in df.columns]
+            log.remark("   columns:          %s", ", ".join(col_names))
+        else:
+            log.remark(
+                "   columns:          %s", ", ".join(map(str, df.columns))
+            )
+    else:
         log.remark("   columns:          (none)")
 
-    try:
-        log.remark("   indices:          %s", ", ".join(df.index.names))
-    except:  # TODO Make more specific or even avoid try-except
+    if any(n is not None for n in df.index.names):
+        idx_names = [
+            str(n) if n is not None else "(unnamed)" for n in df.index.names
+        ]
+        log.remark("   indices:          %s", ", ".join(idx_names))
+    else:
         log.remark("   indices:          (no named indices)")
 
     log.remark("   free indices:     %s", ", ".join(free_indices))
@@ -209,11 +293,24 @@ def snsplot(
     free_indices += [n for n in optional_free_indices if n in df.index.names]
 
     # For some kinds, it makes sense to re-index such that only the free
-    # indices are used as columns
+    # indices are used as columns. Most plots require long-form data.
+    # See:  https://seaborn.pydata.org/tutorial/data_structure.html
+    reset_for = []
     if reset_index:
-        # FIXME df.index.names can be [None], what should happen then?!
-        if df.index.names is not None:
-            reset_for = [n for n in df.index.names if n not in free_indices]
+        if isinstance(reset_index, bool):
+            # Reset all. There can be unnamed indices, i.e. df.index.names can
+            # contain None, and we need to handle that case explicitly.
+            if df.index.names:
+                reset_for = [
+                    n
+                    for n in df.index.names
+                    if n is not None and n not in free_indices
+                ]
+            else:
+                reset_for = []
+        else:
+            # Assume that index names have been specified, use those
+            reset_for = list(reset_index)
 
         if reset_for:
             df = df.reset_index(level=reset_for)
@@ -226,21 +323,7 @@ def snsplot(
             "   selector:         %s",
             ",  ".join(f"{var}: {val}" for var, val in _sel.items()),
         )
-        for var, val in _sel.items():
-            if var in df.columns:
-                df = df.loc[df[var] == val]
-            elif var in df.index.names:
-                index_order = df.index.names
-                df = df.reset_index(var)
-                df = df[df[var] == val]
-                df = df.set_index(var, append=True)
-                df = df.reorder_levels(index_order)
-            else:
-                raise ValueError(
-                    f"Selector variable '{var}' is neither a valid column "
-                    "name nor an index, cannot apply selection!\n\n"
-                    f"Given DataFrame:\n{df.head()}\n"
-                )
+        df = apply_selection(df, **_sel)
 
         log.remark("   new length:       %d", len(df))
 
@@ -261,6 +344,8 @@ def snsplot(
             sample_kwargs = {}
             if isinstance(sample, int) and sample < len(df):
                 sample_kwargs["n"] = sample
+            elif isinstance(sample, float) and 0.0 <= sample <= 1.0:
+                sample_kwargs["frac"] = sample
 
         if sample_kwargs:
             log.note("Sampling from data frame ...")
@@ -275,6 +360,7 @@ def snsplot(
                 log.error(
                     "   sampling failed with %s: %s", type(exc).__name__, exc
                 )
+                log.remark("Continuing without sampling.")
             else:
                 log.remark(
                     "   sampling succeeded. New length: %d (%d)",
@@ -289,14 +375,15 @@ def snsplot(
     # Interface with auto-encoding
     # Need to pop any given `kind` argument (valid input to sns.pairplot)
     kind = plot_kwargs.pop("kind", None)
+    ae_dims = {
+        n: s
+        for n, s in zip(
+            df.index.names, getattr(df.index, "levshape", [len(df.index)])
+        )
+        if n not in free_indices
+    }
     plot_kwargs, (encoding, _, _) = determine_encoding(
-        {
-            n: s
-            for n, s in zip(
-                df.index.names, getattr(df.index, "levshape", [len(df.index)])
-            )
-            if n not in free_indices
-        },
+        ae_dims,
         kind=sns_kind,
         auto_encoding=auto_encoding,
         default_encodings=SNS_ENCODINGS,
@@ -316,14 +403,6 @@ def snsplot(
 
     if kind is not None:
         plot_kwargs["kind"] = kind
-
-    # Depending on plot kinds, determine some further arguments
-    if kind in SNS_FACETGRID_KINDS:
-        # Provide a best guess for the `x` encoding, if it is not given
-        if "x" not in plot_kwargs and len(df.columns) == 1:
-            x = str(df.columns[0])
-            log.note("Using '%s' for x-axis encoding.", x)
-            plot_kwargs["x"] = x
 
     # Potentially perform files iteration
     # This may leave the plotting function via a messaging exception; the next
@@ -373,7 +452,13 @@ def snsplot(
         raise PlottingError(
             f"sns.{sns_kind} failed! Got {type(exc).__name__}: {exc}\n\n"
             f"Data was:\n{df}\n\n"
-            f"Plot function arguments were:\n  {plot_kwargs}"
+            f"sns.{sns_kind} arguments:\n  {plot_kwargs}\n\n"
+            "Selected snsplot arguments:\n"
+            f"  reset_index:    {reset_index} (reset levels: {reset_for})\n"
+            f"  auto_encoding:  {auto_encoding} -> {encoding}\n"
+            "\nCheck the log output, data, and specified arguments and make "
+            "sure the resulting DataFrame is in the desired shape for the "
+            "selected plot function."
         ) from exc
 
     # Store FacetGrid (or similar) and encoding as helper attributes

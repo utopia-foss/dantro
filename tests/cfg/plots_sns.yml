@@ -20,16 +20,23 @@ basics:
     min_dims: 1
     max_dims: 5
     raises:
-      1: [PlottingError, Could not interpret value `dim_1` for `col`]
+      1: &err_dim_1 [PlottingError, Could not interpret value `dim_1` for `col`]
     plot_kwargs: &simple_kws
       <<: *shared_kws
-      reset_index: true
       x: foo
       y: bar
       hue: baz
       size: spam
       col: dim_1
       row: dim_0
+
+  minimal:
+    <<: *shared
+    min_dims: 1
+    max_dims: 5
+    plot_kwargs:
+      <<: *shared_kws
+      reset_index: true
 
   sel_col:
     <<: *simple
@@ -82,6 +89,13 @@ basics:
       <<: *simple_kws
       sample: 10
 
+  sample_frac:
+    <<: *simple
+    max_dims: 3
+    plot_kwargs:
+      <<: *simple_kws
+      sample: 0.5
+
   sample_skipped:
     <<: *simple
     max_dims: 3
@@ -97,6 +111,15 @@ basics:
       <<: *simple_kws
       sample: true
       sample_kwargs: {frac: 0.2}
+
+  sample_err:
+    <<: *simple
+    min_dims: 3
+    max_dims: 3
+    plot_kwargs:
+      <<: *simple_kws
+      sample: true
+      sample_kwargs: {bad_argument: 123}
 
   free:
     <<: *simple
@@ -121,3 +144,28 @@ basics:
     plot_kwargs:
       <<: *simple_kws
       files: [dim_2]
+
+
+# -----------------------------------------------------------------------------
+
+auto_encoding:
+  simple: &ae_simple
+    <<: *shared
+    min_dims: 1
+    max_dims: 5
+    plot_kwargs: &ae_simple_kws
+      <<: *shared_kws
+      auto_encoding: true
+      x: foo
+
+  overspecified:
+    <<: *ae_simple
+    raises:
+      1: *err_dim_1
+    plot_kwargs:
+      <<: *ae_simple_kws
+      y: bar
+      hue: baz
+      size: spam
+      col: dim_1
+      row: dim_0

@@ -22,6 +22,10 @@ def invoke_snsplot(*args, to_test: str, **kwargs):
 
 
 def test_sns_basics(dm, out_dir):
-    """Tests the facet_grid with auto-encoding of kind and specifiers for
-    datasets"""
+    """Tests snsplot basics"""
     invoke_snsplot(dm=dm, out_dir=out_dir, to_test="basics")
+
+
+def test_sns_auto_encoding(dm, out_dir):
+    """Tests the auto-encoding feature of snsplot"""
+    invoke_snsplot(dm=dm, out_dir=out_dir, to_test="auto_encoding")
