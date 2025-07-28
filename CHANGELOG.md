@@ -22,13 +22,14 @@ However, given the rather burst-like development on this package, features are o
 - !366 adds the `.to_datarray` and `get_operation` operations to the data transformation framework.
 
 
+#### Bug fixes
+- !367 fixes `is_iterable` after a [behaviour change in Python 3.13.4](https://github.com/python/cpython/issues/135171).
+- !369 resolves an issue in `.plot.errorbars` where labels were (undesirably) ordered alphabetically along the `hue` dimension.
+
+
 #### Internal
 - !366 adds the `ping` log level (yet unused).
 - !366 adjusts pytest config to show log messages.
-
-
-## v0.21.0 🚧
-- !367 fixes `is_iterable` after a [behaviour change in Python 3.13.4](https://github.com/python/cpython/issues/135171).
 
 
 ## v0.20.3
