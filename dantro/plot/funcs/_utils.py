@@ -115,7 +115,7 @@ def plot_errorbar(
     if y.ndim != 1 or (yerr is not None and yerr.ndim != 1):
         raise ValueError(
             "Expected 1D `y` and `yerr` data for errorbar plot but selected "
-            f"data was {y.ndim}- and {yerr.ndim}-dimensional, respecetively!\n"
+            f"data was {y.ndim}- and {yerr.ndim}-dimensional, respectively!\n"
             f"\ny: {y}\nyerr: {yerr}"
         )
 
