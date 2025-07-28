@@ -275,7 +275,7 @@ The resulting plot looks like this:
 ``snsplot``: Plot using seaborn
 -------------------------------
 
-Invokes :py:func:`~dantro.plot.funcs.snsplot.snsplot`, which is a bridge to :py:mod:`seaborn`.
+Invokes :py:func:`~dantro.plot.funcs.snsplot.snsplot`, which is a bridge to `seaborn <https://seaborn.pydata.org>`_.
 
 .. note::
 
