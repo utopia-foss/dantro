@@ -25,6 +25,9 @@ However, given the rather burst-like development on this package, features are o
 
 #### Bug fixes
 - !367 fixes `is_iterable` after a [behaviour change in Python 3.13.4](https://github.com/python/cpython/issues/135171).
+- !368 fixes a bug where non-pickleable objects (e.g. lambdas) were retained in `Transformation` objects' memory cache, hence prohibiting multiprocessing for parallel plotting.
+    - To resolve this, `Transformation` now excludes these objects from both the memory and file cache and instead re-evaluates them each time in order to not retain them.
+    As they are fast to construct, the performance drawback is negligible.
 - !369 resolves an issue in `.plot.errorbars` where labels were (undesirably) ordered alphabetically along the `hue` dimension. Thanks to [@tgaskin](https://gitlab.com/tgaskin)!
 
 

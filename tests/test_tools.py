@@ -5,7 +5,6 @@ import os
 
 import numpy as np
 import pytest
-import ruamel.yaml
 
 import dantro
 import dantro.tools as t
@@ -131,6 +130,45 @@ def test_is_hashable():
     assert not t.is_hashable([123, 456])
     assert not t.is_hashable(Foo(allow_hash=False))
     assert t.is_hashable(Foo(allow_hash=True))
+
+
+def test_is_unpickleable_function():
+    class Foo:
+        bar = 123
+
+    def local_function(foo):
+        return "bar"
+
+    def outer():
+        def inner():
+            return 1
+
+        return inner
+
+    def make_func(x):
+        def inner():
+            return x
+
+        return inner
+
+    # no function types
+    assert not t.is_unpickleable_function("bar")
+    assert not t.is_unpickleable_function(123)
+    assert not t.is_unpickleable_function(dict(foo="bar"))
+    assert not t.is_unpickleable_function(Foo())
+
+    # importable functions should be fine
+    assert not t.is_unpickleable_function(test_is_hashable)
+    assert not t.is_unpickleable_function(t.is_unpickleable_function)
+    assert not t.is_unpickleable_function(t.update_terminal_info)
+
+    # lambdas, local functions, nested functions, and closures: not pickleable!
+    assert t.is_unpickleable_function(lambda foo: "bar")
+    assert t.is_unpickleable_function(local_function)
+    assert t.is_unpickleable_function(outer())
+    assert t.is_unpickleable_function(make_func(123))
+
+    # NOTE cannot check for __main__ functions
 
 
 def test_try_conversion():

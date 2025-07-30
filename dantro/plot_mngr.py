@@ -1538,7 +1538,7 @@ class PlotManager:
                 if not fallback_on_fail:
                     log.caution(
                         "Check if the error was caused by being run in "
-                        "parallel plotting mode or by the plot itself."
+                        "parallel plotting mode or by the plot itself. "
                         "To test this, disable parallel plotting or set the "
                         "`fallback_on_fail` flag to automatically re-try with "
                         "sequential execution."
@@ -1548,7 +1548,7 @@ class PlotManager:
                         "available:  thread, process"
                     )
                     log.note(
-                        "If the plot failed due to a pickling error, your "
+                        "If the plot failed due to a PicklingError, your "
                         "other plots may be causing side-effects on the data "
                         "tree; either disable parallel plotting or restart "
                         "your plotting session *only* with this plot, "
@@ -1822,6 +1822,9 @@ class PlotManager:
                 type(executor).__name__,
             )
             for task_key, task_kwargs in tasks.items():
+                log.debug(
+                    "  Submitting task '%s':\n  %s\n", task_key, task_kwargs
+                )
                 future = executor.submit(
                     self._invoke_parallel_plot_creation,
                     task_key=task_key,
