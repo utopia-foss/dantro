@@ -1707,7 +1707,7 @@ class PlotManager:
                 num_skipped += 1
 
             elif rv is True:
-                log.progress("Finished plot %d/%d.", n + 1, n_max)
+                log.progress("Finished '%s' plot %d/%d.", name, n + 1, n_max)
 
                 # Estimate for time remaining
                 if (n + 1) < n_max:
@@ -1907,13 +1907,14 @@ class PlotManager:
                     )
 
                 # Estimate for time remaining
-                log.progress("Finished plot %d/%d.", n + 1, n_max)
+                log.progress("Finished '%s' plot %d/%d.", name, n + 1, n_max)
                 if (n + 1) < n_max:
                     dt = time.time() - t1
                     etl = dt / ((n + 1) / n_max) - dt
                     log.note(
-                        "Estimated time needed for %d remaining plots:  %s\n\n",
+                        "Estimated time needed for %d remaining '%s' plots:  %s\n\n",
                         n_max - (n + 1),
+                        name,
                         _fmt_time(etl),
                     )
 
