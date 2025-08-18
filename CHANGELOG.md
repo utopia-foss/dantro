@@ -24,12 +24,14 @@ However, given the rather burst-like development on this package, features are o
 
 #### Bug fixes
 - !367 fixes `is_iterable` after a [behaviour change in Python 3.13.4](https://github.com/python/cpython/issues/135171).
-- !369 resolves an issue in `.plot.errorbars` where labels were (undesirably) ordered alphabetically along the `hue` dimension.
+- !369 resolves an issue in `.plot.errorbars` where labels were (undesirably) ordered alphabetically along the `hue` dimension. Thanks to [@tgaskin](https://gitlab.com/tgaskin)!
 
 
 #### Internal
 - !366 adds the `ping` log level (yet unused).
 - !366 adjusts pytest config to show log messages.
+- !370 use [`netcdf4` package](https://github.com/Unidata/netcdf4-python) instead of `h5netcdf` as netCDF backend; this is more reliable in combination with newer xarray releases and installation issues with the `netcdf4` python package seem to be a thing of the past.
+- !370 use `netcdf-4` engine by default when storing and loading xarray files via the `DataManager`; the most common use case of this is file caching via the DAG.
 
 
 ## v0.20.3
