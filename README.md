@@ -63,14 +63,14 @@ _Note_ that if you have both Python 2 and Python 3 installed, you might have to 
 | Package Name                  | Purpose                                     |
 | ----------------------------- | ------------------------------------------- |
 | [numpy][numpy]                | For fast and versatile array operations |
-| [xarray][xarray] >= 2022.11   | For labelled N-dimensional arrays |
+| [xarray][xarray]              | For labelled N-dimensional arrays |
+| [scipy][scipy]                | As engine for NetCDF files |
+| [sympy][sympy]                | For symbolic math operations |
 | [dask][dask]                  | To work with large data |
 | [toolz][toolz]                | For [dask.delayed][dask-delayed]
 | [distributed][distributed]    | For distributed computing |
-| [scipy][scipy]                | As engine for NetCDF files |
-| [sympy][sympy]                | For symbolic math operations |
 | [h5py][h5py]                  | For reading HDF5 datasets |
-| [h5netcdf][h5netcdf]          | h5py-based netcdf backend |
+| [netCDF4][netCDF4]            | netCDF4 backend |
 | [matplotlib][matplotlib]      | For data visualization |
 | [seaborn][seaborn]            | For advanced data visualization |
 | [networkx][networkx]          | For network visualization |
@@ -298,6 +298,7 @@ Contact the maintainers via: [`dantro-dev@iup.uni-heidelberg.de`][devmail]
 [dask-delayed]: https://docs.dask.org/en/latest/delayed.html
 [distributed]: https://distributed.dask.org/en/latest/
 [h5py]: http://www.h5py.org
+[netCDF4]: https://github.com/Unidata/netcdf4-python
 [h5netcdf]: https://github.com/h5netcdf/h5netcdf
 [sympy]: https://www.sympy.org/
 [matplotlib]: https://matplotlib.org

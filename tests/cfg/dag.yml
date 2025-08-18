@@ -970,12 +970,12 @@ file_cache_with_callable_result:
       - 041086b927535557204b1a16c9026be2.pkl
 
 
-file_cache_netcdf3_coercion:
+file_cache_netcdf4_coercion:
   params:
     transform:
       - operation: np.array
         args: [[1,2,3]]
-        kwargs: {dtype: uint64}  # coerced by xarray
+        kwargs: {dtype: uint64}   # supported by netcdf-4 -> not coerced
         tag: arr_uint64
       - xr.DataArray: {data: !dag_tag arr_uint64}
         file_cache:
@@ -1003,30 +1003,30 @@ file_cache_pkl_fallback:
   params:
     transform:
       - operation: np.array
-        args: [[1,2,3, 18446744073709551615]]  # coercion fails -> can't save
-        kwargs: {dtype: uint64}
-        tag: arr_uint64
-      - xr.DataArray: {data: !dag_tag arr_uint64}
+        args: [[1,2,3,4]]
+        kwargs: {dtype: complex128}  # not supported by netcdf4
+        tag: arr
+      - xr.DataArray: {data: !dag_tag arr}
         file_cache:
           read: true
           write:
             enabled: true
             storage_options:
               attempt_pickling: true
-        tag: arr_uint64_write
-      - xr.DataArray: {data: !dag_tag arr_uint64}
+        tag: arr_write
+      - xr.DataArray: {data: !dag_tag arr}
         file_cache:
           read: true
-        tag: arr_uint64_read
+        tag: arr_read
 
   expected:
     num_nodes: 3
     num_objects: 4
-    tags: [dag, dm, select_base, arr_uint64, arr_uint64_write, arr_uint64_read]
+    tags: [dag, dm, select_base, arr, arr_write, arr_read]
     cache_dir_available: true
     cache_files:
       # - <hash>.nc_da from failed storage function call does _not_ exist
-      - e6eb9083f519ef9a3a2655396514dd3f.pkl  # .pkl shows fallback was used
+      - a66004adbb0bee08b0591fbd15273be2.pkl  # .pkl shows fallback was used
 
 
 file_cache_with_module_as_result:  # module pickling is supported by dill

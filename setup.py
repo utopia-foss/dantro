@@ -6,14 +6,14 @@ from setuptools import find_packages, setup
 # Dependencies for dantro itself
 install_deps = [
     "numpy",
-    "xarray >= 2022.11",
+    "scipy",
+    "xarray",
+    "sympy",
     "dask",
     "toolz",             # For dask.delayed
     "distributed",       # For dask's distributed scheduler
-    "scipy",             # Used as a netcdf4 storage engine for xarray
-    "sympy",
     "h5py",
-    "h5netcdf",          # A more capable, h5py-based netcdf backend
+    "netCDF4",           # Storage engine for xarray (alternative: h5netcdf)
     "matplotlib",
     "seaborn",
     "networkx",

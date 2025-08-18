@@ -1232,7 +1232,7 @@ def test_TransformationDAG_specifics(dm, tmpdir):
         **test_cfgs["file_cache_pkl_fallback"]["params"],
     )
     results = tdag.compute()
-    assert isinstance(results["arr_uint64_read"], xr.DataArray)
+    assert isinstance(results["arr_read"], xr.DataArray)
 
 
 # -----------------------------------------------------------------------------
