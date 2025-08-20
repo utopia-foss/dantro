@@ -1178,7 +1178,7 @@ def facet_grid(
     i.e. :py:class:`xarray.DataArray` and :py:class:`xarray.Dataset`.
     Specifying the kind of plot requires the data to be of one of those types
     and have a dimensionality that can be represented in these plots. See
-    `the correponding API documentation <https://xarray.pydata.org/en/stable/api.html#plotting>`_ for more information.
+    `the correponding API documentation <https://docs.xarray.dev/en/stable/api/plotting.html>`_ for more information.
 
     In most cases, this function creates a so-called
     :py:class:`xarray.plot.FacetGrid` object that automatically layouts and
@@ -1186,9 +1186,9 @@ def facet_grid(
     To specify which data dimension should be represented in which way, it
     supports a declarative syntax: via the optional keyword arguments ``x``,
     ``y``, ``row``, ``col``, and/or ``hue`` (available options are listed in
-    the corresponding `plot function documentation <https://xarray.pydata.org/en/stable/api.html#plotting>`_),
-    the representation of the data dimensions can be selected. This is
-    referred to as "layout encoding".
+    the corresponding `plot function documentation <https://docs.xarray.dev/en/stable/api/plotting.html>`_),
+    the representation of the data dimensions can be selected.
+    In dantro, this is referred to as "layout encoding".
 
     dantro not only wraps this interface, but adds the following functionality:
 

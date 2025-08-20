@@ -463,11 +463,15 @@ class ParamSpaceGroup(PaddedIntegerItemAccessMixin, IndexedDataGroup):
             #      function is called.
 
             # Merging . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+            # Use old xarray defaults to combine the datasets while forming
+            # a union of coordinates; there shouldn't be any overlaps anyway.
             if method in ["merge"]:
                 log.remark("Combining datasets by merging ...")
                 # TODO consider warning about dtype changes?!
 
-                dset = xr.merge(dsets.flat)
+                dset = xr.merge(
+                    dsets.flat, join="outer", compat="no_conflicts"
+                )
 
                 log.remark("Merge successful.")
                 return dset

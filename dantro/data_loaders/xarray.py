@@ -15,7 +15,7 @@ class XarrayLoaderMixin:
         *,
         TargetCls: type,
         load_completely: bool = False,
-        engine: str = "scipy",
+        engine: str = "netcdf4",
         **load_kwargs,
     ) -> XrDataContainer:
         """Loads an :py:class:`xarray.DataArray` from a netcdf file into an
@@ -51,7 +51,7 @@ class XarrayLoaderMixin:
         *,
         TargetCls: type,
         load_completely: bool = False,
-        engine: str = "scipy",
+        engine: str = "netcdf4",
         **load_kwargs,
     ) -> PassthroughContainer:
         """Loads an :py:class:`xarray.Dataset` from a netcdf file into a
