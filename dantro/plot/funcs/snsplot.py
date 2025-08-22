@@ -151,6 +151,95 @@ def build_df_selector(
     return dict(**psp_sel, **sel)
 
 
+def convert_to_df(
+    df: Union[xr.Dataset, xr.DataArray, pd.DataFrame],
+    to_dataframe_kwargs: dict = None,
+) -> pd.DataFrame:
+    """Converts a xarray DataArray or Dataset to a pandas DataFrame"""
+    if isinstance(df, (xr.Dataset, xr.DataArray)):
+        tdf_kwargs = to_dataframe_kwargs if to_dataframe_kwargs else {}
+        log.note("Attempting conversion to pd.DataFrame ...")
+        log.remark(
+            "   arguments:  %s",
+            ", ".join(f"{k}: {v}" for k, v in tdf_kwargs.items()),
+        )
+        df = df.to_dataframe(**tdf_kwargs)
+
+    elif isinstance(df, pd.DataFrame):
+        # Let's work on a copy, just to be sure ...
+        df = df.copy()
+
+    else:
+        raise TypeError(
+            "Expected pd.DataFrame, xr.Dataset, or xr.DataArray, but got "
+            f"{type(df).__name__}!"
+        )
+
+    return df
+
+
+def _log_df_summary(df: pd.DataFrame):
+    """Logs a summary of the the data frame properties"""
+
+    def cols_to_str(cols) -> str:
+        if len(cols) == 0:
+            return "(none)"
+        if isinstance(cols, pd.MultiIndex):
+            return ", ".join("/".join(map(str, tup)) for tup in cols)
+        return ", ".join(map(str, cols))
+
+    def index_names_to_str(index) -> str:
+        names = list(index.names)
+        if not any(n is not None for n in names):
+            return "(no named indices)"
+        return ", ".join(
+            str(n) if n is not None else "(unnamed)" for n in names
+        )
+
+    log.note("Evaluating data frame properties ...")
+    log.remark("   length:           %d", len(df))
+    log.remark("   shape:            %s", df.shape)
+    log.remark("   size:             %d", df.size)
+    log.remark("   columns:          %s", cols_to_str(df.columns))
+    log.remark("   indices:          %s", index_names_to_str(df.index))
+
+
+def sample_df(
+    df: pd.DataFrame, sample: int, sample_kwargs: dict
+) -> pd.DataFrame:
+    if not sample_kwargs:
+        sample_kwargs = {}
+        if isinstance(sample, int) and sample < len(df):
+            sample_kwargs["n"] = sample
+        elif isinstance(sample, float) and 0.0 <= sample <= 1.0:
+            sample_kwargs["frac"] = sample
+
+    if sample_kwargs:
+        log.note("Sampling from data frame ...")
+        log.remark(
+            "   arguments:  %s",
+            ", ".join(f"{k}: {v}" for k, v in sample_kwargs.items()),
+        )
+        len_before = len(df)
+        try:
+            df = df.sample(**sample_kwargs)
+        except Exception as exc:
+            log.error(
+                "   sampling failed with %s: %s", type(exc).__name__, exc
+            )
+            log.remark("Continuing without sampling.")
+        else:
+            log.remark(
+                "   sampling succeeded. New length: %d (%d)",
+                len(df),
+                len(df) - len_before,
+            )
+    else:
+        log.note("Sampling skipped (no arguments applicable).")
+
+    return df
+
+
 # -----------------------------------------------------------------------------
 
 
@@ -233,65 +322,22 @@ def snsplot(
             the respective encoding variables, e.g. ``x``, ``y``, ``hue``,
             ``col``, ``row``, ``files``, ...
     """
+    # Get and pre-process data
     df = data["data"]
+    df = convert_to_df(df, to_dataframe_kwargs)
 
+    # Take care of free indices, and unnamed columns or indices
     free_indices = list(free_indices) if free_indices else []
-
-    # For xarray types, attempt conversion
-    if isinstance(df, (xr.Dataset, xr.DataArray)):
-        tdf_kwargs = to_dataframe_kwargs if to_dataframe_kwargs else {}
-        log.note("Attempting conversion to pd.DataFrame ...")
-        log.remark(
-            "   arguments:  %s",
-            ", ".join(f"{k}: {v}" for k, v in tdf_kwargs.items()),
-        )
-        df = df.to_dataframe(**tdf_kwargs)
-
-    elif isinstance(df, pd.DataFrame):
-        # Let's work on a copy, just to be sure ...
-        df = df.copy()
-
-    else:
-        raise TypeError(
-            "Expected pd.DataFrame, xr.Dataset, or xr.DataArray, but got "
-            f"{type(df).__name__}!"
-        )
-
-    # Might want to normalize names for easier handling ...
     if normalize_names:
         df = normalize_df_names(df)
 
     # Provide some information
-    log.note("Evaluating data frame ...")
-    log.remark("   length:           %d", len(df))
-    log.remark("   shape:            %s", df.shape)
-    log.remark("   size:             %d", df.size)
-
-    if len(df.columns) > 0:
-        if isinstance(df.columns, pd.MultiIndex):
-            col_names = ["/".join(map(str, tup)) for tup in df.columns]
-            log.remark("   columns:          %s", ", ".join(col_names))
-        else:
-            log.remark(
-                "   columns:          %s", ", ".join(map(str, df.columns))
-            )
-    else:
-        log.remark("   columns:          (none)")
-
-    if any(n is not None for n in df.index.names):
-        idx_names = [
-            str(n) if n is not None else "(unnamed)" for n in df.index.names
-        ]
-        log.remark("   indices:          %s", ", ".join(idx_names))
-    else:
-        log.remark("   indices:          (no named indices)")
-
+    _log_df_summary(df)
     log.remark("   free indices:     %s", ", ".join(free_indices))
     log.remark("   optionally free:  %s", ", ".join(optional_free_indices))
 
-    # TODO Add an option to make all indices free, excluding some ...
-
     # Apply optionally free indices
+    # TODO Add an option to make all indices free, excluding some ...
     free_indices += [n for n in optional_free_indices if n in df.index.names]
 
     # For some kinds, it makes sense to re-index such that only the free
@@ -342,37 +388,7 @@ def snsplot(
 
     # Sampling
     if sample:
-        if not sample_kwargs:
-            sample_kwargs = {}
-            if isinstance(sample, int) and sample < len(df):
-                sample_kwargs["n"] = sample
-            elif isinstance(sample, float) and 0.0 <= sample <= 1.0:
-                sample_kwargs["frac"] = sample
-
-        if sample_kwargs:
-            log.note("Sampling from data frame ...")
-            log.remark(
-                "   arguments:  %s",
-                ", ".join(f"{k}: {v}" for k, v in sample_kwargs.items()),
-            )
-            len_before = len(df)
-            try:
-                df = df.sample(**sample_kwargs)
-            except Exception as exc:
-                log.error(
-                    "   sampling failed with %s: %s", type(exc).__name__, exc
-                )
-                log.remark("Continuing without sampling.")
-            else:
-                log.remark(
-                    "   sampling succeeded. New length: %d (%d)",
-                    len(df),
-                    len(df) - len_before,
-                )
-        else:
-            log.note("Sampling skipped (no arguments applicable).")
-
-    # ... further preprocessing ...
+        df = sample_df(df, sample, sample_kwargs)
 
     # Interface with auto-encoding
     # Need to pop any given `kind` argument (valid input to sns.pairplot)
