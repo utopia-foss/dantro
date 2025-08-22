@@ -6,3 +6,4 @@ creators.
 from .basic import lineplot
 from .generic import errorbars, facet_grid, scatter3d
 from .multiplot import multiplot
+from .snsplot import snsplot

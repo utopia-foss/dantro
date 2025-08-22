@@ -41,18 +41,22 @@ _pm_init_kwargs:
             psgrp_path: psp/missing_data
 
         # .. Plot functions ...................................................
-        dag.facet_grid:
+        .plot.facet_grid:
           module: .generic
           plot_func: facet_grid
 
-        dag.errorbars:
+        .plot.errorbars:
           module: .generic
           plot_func: errorbars
 
-        dag.errorbands:
+        .plot.errorbands:
           module: .generic
           plot_func: errorbars
           use_bands: true
+
+        .plot.snsplot:
+          module: .snsplot
+          plot_func: snsplot
 
         # .. Selection ........................................................
         select.randints_3D:
@@ -65,7 +69,7 @@ _files_encoding_base: &files_encoding_base
   <<: *shared_plot_cfg
   based_on:
     - creator.pyplot
-    - dag.facet_grid
+    - .plot.facet_grid
 
   select:
     data: datasets/mean_and_std_5D
@@ -78,7 +82,7 @@ _files_encoding_base_with_animation: &files_encoding_base_with_animation
   <<: *files_encoding_base
   based_on:
     - creator.pyplot
-    - dag.facet_grid
+    - .plot.facet_grid
     - animation.defaults
 
 
@@ -92,7 +96,7 @@ basics:
   simple_example:
     plot_cfg: &simple_example
       <<: *shared_plot_cfg
-      based_on: [creator.pyplot, dag.errorbars]
+      based_on: [creator.pyplot, .plot.errorbars]
 
       # Create some mock data with the DAG framework
       transform:
@@ -125,7 +129,7 @@ uni:
   uni_specific_IDs:
     plot_cfg:
       <<: *shared_plot_cfg
-      based_on: [creator.uni, dag.errorbars, select.randints_3D]
+      based_on: [creator.uni, .plot.errorbars, select.randints_3D]
       universes: [32, 33, 37, 68]
 
       transform:
@@ -148,7 +152,7 @@ mv:
   mv_missing_uni_fails:
     plot_cfg:
       <<: *shared_plot_cfg
-      based_on: [creator.mv_missing, dag.facet_grid]
+      based_on: [creator.mv_missing, .plot.facet_grid]
 
       select_and_combine:
         fields:
@@ -160,7 +164,7 @@ mv:
   mv_missing_uni: &mv_warns_fallback
     plot_cfg:
       <<: *shared_plot_cfg
-      based_on: [creator.mv_missing, dag.facet_grid]
+      based_on: [creator.mv_missing, .plot.facet_grid]
 
       select_and_combine:
         allow_missing_or_failing: warn
@@ -174,7 +178,7 @@ mv:
     <<: *mv_warns_fallback
     plot_cfg:
       <<: *shared_plot_cfg
-      based_on: [creator.mv_missing, dag.facet_grid]
+      based_on: [creator.mv_missing, .plot.facet_grid]
 
       select_and_combine:
         allow_missing_or_failing: false  # testing whether override is used
@@ -192,7 +196,7 @@ mv:
     <<: *mv_warns_fallback
     plot_cfg:
       <<: *shared_plot_cfg
-      based_on: [creator.mv_missing, dag.facet_grid]
+      based_on: [creator.mv_missing, .plot.facet_grid]
 
       select_and_combine:
         allow_missing_or_failing: warn
@@ -205,7 +209,7 @@ mv:
   mv_missing_uni_with_bad_transform:
     plot_cfg:
       <<: *shared_plot_cfg
-      based_on: [creator.mv_missing, dag.facet_grid]
+      based_on: [creator.mv_missing, .plot.facet_grid]
 
       select_and_combine:
         allow_missing_or_failing: silent  # ... because catching error
@@ -222,7 +226,7 @@ mv:
     <<: *mv_warns_fallback
     plot_cfg:
       <<: *shared_plot_cfg
-      based_on: [creator.mv_missing, dag.facet_grid]
+      based_on: [creator.mv_missing, .plot.facet_grid]
 
       select_and_combine:
         fields:
@@ -242,7 +246,7 @@ skipping:
   skip_plot_directly:
     plot_cfg:
       <<: *shared_plot_cfg
-      based_on: [creator.pyplot, dag.errorbars]
+      based_on: [creator.pyplot, .plot.errorbars]
 
       transform:
         - raise_SkipPlot: [true]
@@ -253,7 +257,7 @@ skipping:
   skip_plot_conditionally:
     plot_cfg:
       <<: *shared_plot_cfg
-      based_on: [creator.pyplot, dag.errorbars]
+      based_on: [creator.pyplot, .plot.errorbars]
 
       transform:
         - xr.DataArray: [[.5,1,2,4,8,16,32]]
@@ -285,7 +289,7 @@ dag_placeholder_resolution:
   phres_simple:
     plot_cfg: &phres_simple
       <<: *shared_plot_cfg
-      based_on: [creator.uni, dag.errorbars, select.randints_3D]
+      based_on: [creator.uni, .plot.errorbars, select.randints_3D]
       universes: last
 
       dag_options:
@@ -686,7 +690,7 @@ plot_helper:
   helper/empty_axis:
     plot_cfg: &empty_axis
       <<: *shared_plot_cfg
-      based_on: [creator.pyplot, dag.facet_grid]
+      based_on: [creator.pyplot, .plot.facet_grid]
       debug: true
 
       select:
@@ -726,7 +730,7 @@ facet_grid:
   facet_grid/errorbars_standalone:
     plot_cfg:
       <<: *shared_plot_cfg
-      based_on: [creator.pyplot, dag.errorbars]
+      based_on: [creator.pyplot, .plot.errorbars]
 
       select:
         data: datasets/mean_and_std_4D
@@ -741,7 +745,7 @@ facet_grid:
   facet_grid/errorbars_standalone_failing:
     plot_cfg:
       <<: *shared_plot_cfg
-      based_on: [creator.pyplot, dag.errorbars]
+      based_on: [creator.pyplot, .plot.errorbars]
 
       select:
         data: datasets/mean_and_std_4D
@@ -755,6 +759,125 @@ facet_grid:
 
     _raises: PlotCreatorError
     _match: bad dimension name
+
+
+
+# .. snsplot integration tests ................................................
+
+snsplot:
+  # .. Simple, explicit scenarios . . . . . . . . . . . . . . . . . . . . . . .
+  penguins:
+    plot_cfg: &snsplot_defaults
+      <<: *shared_plot_cfg
+      based_on: [creator.pyplot, .plot.snsplot]
+
+      select:
+        data: sns_dsets/penguins
+
+      sns_kind: displot
+
+  penguins_pretty:
+    plot_cfg: &snsplot_penguins_pretty
+      <<: *snsplot_defaults
+
+      x: bill_length_mm
+      y: bill_depth_mm
+      # hue: body_mass_g
+
+  fmri:
+    plot_cfg: &snsplot_fmri
+      <<: *snsplot_defaults
+      select:
+        data: sns_dsets/fmri
+
+      sns_kind: relplot
+      kind: line
+
+      x: timepoint
+      y: signal
+      hue: event
+      col: region
+
+  air_temperature:
+    plot_cfg: &snsplot_air_temperature
+      <<: *snsplot_defaults
+      select:
+        data:
+          path: xr_tutorial/air_temperature
+          transform:
+            - .data
+            - .isel: [!dag_prev , {lat: [0, 10, 20], lon: [0, 1]}]
+
+      sns_kind: relplot
+      kind: line
+
+      x: time
+      y: air
+      hue: lat
+      col: lon
+
+  err__bad_type:
+    plot_cfg:
+      <<: *snsplot_defaults
+      select:
+        data:
+          path: .
+          transform:
+            - define: [foobar]
+
+    _raises: PlotCreatorError
+    _match: "TypeError: Expected pd.DataFrame, xr.Dataset, or xr.DataArray"
+
+  err__bad_sns_kind:
+    plot_cfg:
+      <<: *snsplot_defaults
+      sns_kind: bad
+
+    _raises: PlotCreatorError
+    _match: "ValueError: Invalid plot kind 'bad'! Available"
+
+
+  # .. Different sns plot kinds . . . . . . . . . . . . . . . . . . . . . . . .
+  # TODO
+
+  # .. Auto-encoding . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+  auto_penguins:
+    plot_cfg:
+      <<: *snsplot_defaults
+      auto_encoding: true
+
+  auto_penguins_pretty:
+    plot_cfg:
+      <<: *snsplot_penguins_pretty
+      auto_encoding: true
+
+  auto_fmri:
+    plot_cfg:
+      <<: *snsplot_fmri
+      auto_encoding: true
+      col: ~
+
+  err__auto_invalid_sns_kind:
+    plot_cfg:
+      <<: *snsplot_defaults
+      sns_kind: bad
+      auto_encoding: true
+
+    _raises: PlotCreatorError
+    _match: "PlotConfigError: Unknown `kind` 'bad' specified"
+
+  # .. Other features . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+  normalize_names:
+    plot_cfg:
+      <<: *snsplot_defaults
+      normalize_names: true
+
+  reset_index_explicit:
+    plot_cfg:
+      <<: *snsplot_air_temperature
+      reset_index: [lat, lon]
 
 
 # .. files encoding ...........................................................

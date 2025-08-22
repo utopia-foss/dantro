@@ -89,10 +89,13 @@ def _find_in_pool(
                 *[pc.keys() for _, pc in base_pools.items() if pc is not None]
             )
         )
-        matches = _get_close_matches(name, all_names, n=5)
+        matches = _get_close_matches(name, all_names, n=6)
         _dym = ""
         if matches:
-            _dym = f"Did you mean: {', '.join(matches)} ?\n"
+            _dym = (
+                "Did you mean any of the following?\n\n"
+                f"{make_columns(matches)}\n"
+            )
 
         _pools = "\n".join(
             [
@@ -103,9 +106,9 @@ def _find_in_pool(
         )
         raise PlotConfigError(
             f"Did not find a base plot configuration named '{name}' in the "
-            f"pool of available base configurations! {_dym}Check that an "
+            f"pool of available base configurations!\n{_dym}\nCheck that an "
             "entry with that name is part of at least one of the specified "
-            f"pools:\n{_pools}"
+            f"pools:\n\n{_pools}\n"
         )
 
     # Found the desired configuration by searching the last i entries.

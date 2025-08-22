@@ -7,6 +7,7 @@ import logging
 import os
 import pathlib
 import sys
+import types
 from datetime import timedelta as _timedelta
 from shutil import get_terminal_size as _get_terminal_size
 from typing import List, Mapping, Optional, Sequence, Set, Tuple, Union
@@ -72,7 +73,7 @@ TTY_COLS = TERMINAL_INFO["columns"]
 
 # -- YAML ---------------------------------------------------------------------
 
-from ._yaml import load_yml, write_yml, yaml
+from ._yaml import load_yml, write_yml, yaml, yaml_dumps
 
 # -- Dictionary operations ----------------------------------------------------
 
@@ -358,7 +359,7 @@ def is_iterable(obj) -> bool:
     """Tries whether the given object is iterable."""
     try:
         iter(obj)
-    except:
+    except Exception:
         return False
     return True
 
@@ -367,9 +368,54 @@ def is_hashable(obj) -> bool:
     """Tries whether the given object is hashable."""
     try:
         hash(obj)
-    except:
+    except Exception:
         return False
     return True
+
+
+def is_unpickleable_function(f) -> bool:
+    """Checks whether a function is (typically) unpickleable, which is relevant
+    when using multiprocessing.
+
+    Returns True if ``f`` is any of the following:
+
+        - A ``lambda`` function (has no qualified name or global reference)
+        - A function defined in the ``__main__`` module (not importable from
+          subprocesses)
+        - A nested function (its ``__qualname__`` includes a dot, indicating
+          it's scoped inside another function or method)
+        - A function with a closure (i.e. it captures variables from an outer
+          scope)
+
+        These functions are typically unpickleable by the standard pickle
+        module (which is the one used in ``multiprocessing`` and ``futures``)
+        and will raise ``PicklingError`` when passed to multiprocessing-based
+        executors, e.g. ``ProcessPoolExecutor``.
+
+    .. note::
+
+        For performance and reliablity reasons, we avoid using pickle directly
+        and instead check the function type and metadata.
+
+    Args:
+        f: The function to check
+
+    Returns:
+        bool: True if it is a (typically) unpickleable function-like object,
+            False otherwise.
+    """
+    if isinstance(f, types.LambdaType) and f.__name__ == "<lambda>":
+        return True
+
+    if isinstance(f, types.FunctionType):
+        if f.__module__ == "__main__":
+            return True
+        if f.__qualname__.count(".") > 0:
+            return True
+        if f.__closure__:
+            return True
+
+    return False
 
 
 def try_conversion(c: str) -> Union[bool, int, float, complex, str, None]:
@@ -385,17 +431,17 @@ def try_conversion(c: str) -> Union[bool, int, float, complex, str, None]:
 
     try:
         return int(c)
-    except:
+    except Exception:
         pass
 
     try:
         return float(c)
-    except:
+    except Exception:
         pass
 
     try:
         return complex(c)
-    except:
+    except Exception:
         pass
 
     return c

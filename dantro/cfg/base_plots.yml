@@ -74,8 +74,6 @@ _:
 
 
 
-
-
 # =============================================================================
 #  ╔═╗╦  ╔═╗╔╦╗  ╔═╗╦═╗╔═╗╔═╗╔╦╗╔═╗╦═╗╔═╗
 #  ╠═╝║  ║ ║ ║   ║  ╠╦╝║╣ ╠═╣ ║ ║ ║╠╦╝╚═╗
@@ -215,6 +213,15 @@ _:
   module: !add [*dantro_plots, .multiplot]
   plot_func: multiplot
 
+
+# -- Seaborn ------------------------------------------------------------------
+.plot.snsplot:
+  module: !add [*dantro_plots, .snsplot]
+  plot_func: snsplot
+
+.plot.snsplot.with_auto_encoding:
+  based_on: .plot.snsplot
+  auto_encoding: true
 
 
 # -- Legacy plots -------------------------------------------------------------
@@ -567,9 +574,8 @@ _:
         saving:
           dpi: 254
 
-
-
-
+.animation.parallel:
+  based_on: .parallel
 
 
 
@@ -879,6 +885,38 @@ _:
           - !arg 0
           - !arg 1
         - xr.Dataset
+
+
+
+# =============================================================================
+#  ╔╦╗╦╔═╗╔═╗
+#  ║║║║╚═╗║
+#  ╩ ╩╩╚═╝╚═╝
+# =============================================================================
+# start: .misc
+# Various other useful base configurations.
+
+# .. Parallel plotting ........................................................
+# Create parameter space plots (e.g. universe plots) in parallel
+#
+# This is useful if: individual plots take longer than copying their data.
+
+.parallel:
+  parallel:
+    enabled: true
+    max_workers: 0.5
+    executor: process   # can be: process, thread
+    benchmark_overhead: false
+    fallback_on_fail: true
+
+.parallel.enabled:
+  based_on: .parallel
+
+.parallel.disabled:
+  parallel:
+    enabled: false
+
+
 
 
 

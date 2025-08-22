@@ -314,6 +314,9 @@ def map_dims_to_encoding(
                 size += nd
         return size
 
+    # Sometimes includes Nones, which we can't do anything with here.
+    all_dims = [d for d in all_dims if d is not None]
+
     if len(set(all_dims)) != len(all_dims):
         raise ValueError(
             "Dimension names to map to encodings need to be unique, but "
@@ -710,7 +713,14 @@ def determine_encoding(
     if isinstance(auto_encoding, dict):
         encs.update(auto_encoding)
 
-    all_specs = encs[kind]
+    try:
+        all_specs = encs[kind]
+    except KeyError as err:
+        raise PlotConfigError(
+            f"Unknown `kind` '{kind}' specified in auto-encoding. "
+            f"Make sure you chose a valid kind ({', '.join(encs)}) or supply "
+            "a default encoding explicitly."
+        ) from err
 
     # Special case for line-like kinds
     if allow_y_for_x and kind in allow_y_for_x:
@@ -833,8 +843,7 @@ def build_pspace_selector(
         for dim in dims
     }
     # NOTE Using ``tolist`` here to get native data types.
-    #      The default value should not be needed, so we don't specify it; if
-    #      it is used somewhere, we will probably find out ...
+    #      The default value should not be needed, but we still specify sth.
 
     if any(_sel in psp_sel for _sel in sel):
         raise PlotConfigError(

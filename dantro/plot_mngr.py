@@ -11,7 +11,9 @@ import os
 import textwrap
 import time
 from collections import OrderedDict
+from difflib import get_close_matches as _get_close_matches
 from functools import partial
+from pprint import pformat
 from typing import Any, Callable, Dict, List, Literal, Sequence, Tuple, Union
 
 from paramspace import ParamDim, ParamSpace
@@ -925,6 +927,19 @@ class PlotManager:
                     "overwrite, overwrite_nowarn"
                 )
 
+        except Exception as exc:
+            if self.raise_exc:
+                raise RuntimeError(
+                    f"Failed storing '{name}' plot configuration file! "
+                    f"Got {type(exc).__name__}: {exc}\n\n"
+                    f"Plot configuration:\n{cfg}\n"
+                ) from exc
+            log.error(
+                "Failed saving plot config! %s: %s",
+                type(exc).__name__,
+                exc,
+            )
+
         else:
             log.debug(
                 "Saved plot configuration for '%s' to: %s", name, save_path
@@ -1040,13 +1055,19 @@ class PlotManager:
                 plots_cfg = {k: plots_cfg[k] for k in to_plot}
 
             except KeyError as err:
+                _name = str(err).replace("'", "")
                 _plot_only = ", ".join(plot_only)
+                _close = _get_close_matches(_name, plots_cfg.keys(), n=6)
+                if _close:
+                    _dym = (
+                        f"Did you mean any of these?\n\n{make_columns(_close)}"
+                    )
+                else:
+                    _all = make_columns(plots_cfg.keys())
+                    _dym = f"All available plot configurations:\n\n{_all}"
                 raise ValueError(
-                    f"Could not find a configuration for a plot named {err} "
-                    "while resolving the plot_only argument! Check that it "
-                    "was specified correctly:\n"
-                    f"  plot_only:  {_plot_only}\n"
-                    f"  available:\n{make_columns(plots_cfg.keys())}"
+                    f"Could not find a plot config named '{_name}' "
+                    f"while resolving plot_only ('{_plot_only}')!\n{_dym}\n"
                 ) from err
 
             # Remove all `enabled` keys from the remaining entries, thus also
@@ -1506,27 +1527,38 @@ class PlotManager:
                     **parallel,
                 )
             except Exception as exc:
-                raise
                 log.error(
-                    "Parallel parameter space plot of '%s' failed!\n"
+                    "Parallel parameter space plot (%s) of '%s' failed! "
                     "Got %s: %s\n",
+                    ", ".join(f"{k}: {v}" for k, v in parallel.items()),
                     name,
                     type(exc).__name__,
                     exc,
                 )
                 if not fallback_on_fail:
                     log.caution(
-                        "Check if the error was caused by parallel plotting "
-                        "or by the plot itself, regardless of execution.\n"
+                        "Check if the error was caused by being run in "
+                        "parallel plotting mode or by the plot itself. "
                         "To test this, disable parallel plotting or set the "
-                        "`fallback_on_fail` flag to re-try with sequential "
-                        "execution."
+                        "`fallback_on_fail` flag to automatically re-try with "
+                        "sequential execution."
+                    )
+                    log.note(
+                        "You can also try using a different `executor`, "
+                        "available:  thread, process"
+                    )
+                    log.note(
+                        "If the plot failed due to a PicklingError, your "
+                        "other plots may be causing side-effects on the data "
+                        "tree; either disable parallel plotting or restart "
+                        "your plotting session *only* with this plot, "
+                        f"'{name}', enabled."
                     )
                     raise
                 log.caution("Re-trying using non-parallel plot ...")
                 plot_sequential = True
 
-        if plot_sequential:
+        if plot_sequential or n_max <= 1:
             res = self._plot_pspace(
                 from_pspace,
                 name=name,
@@ -1675,7 +1707,7 @@ class PlotManager:
                 num_skipped += 1
 
             elif rv is True:
-                log.progress("Finished plot %d/%d.", n + 1, n_max)
+                log.progress("Finished '%s' plot %d/%d.", name, n + 1, n_max)
 
                 # Estimate for time remaining
                 if (n + 1) < n_max:
@@ -1790,6 +1822,9 @@ class PlotManager:
                 type(executor).__name__,
             )
             for task_key, task_kwargs in tasks.items():
+                log.debug(
+                    "  Submitting task '%s':\n  %s\n", task_key, task_kwargs
+                )
                 future = executor.submit(
                     self._invoke_parallel_plot_creation,
                     task_key=task_key,
@@ -1872,13 +1907,14 @@ class PlotManager:
                     )
 
                 # Estimate for time remaining
-                log.progress("Finished plot %d/%d.", n + 1, n_max)
+                log.progress("Finished '%s' plot %d/%d.", name, n + 1, n_max)
                 if (n + 1) < n_max:
                     dt = time.time() - t1
                     etl = dt / ((n + 1) / n_max) - dt
                     log.note(
-                        "Estimated time needed for %d remaining plots:  %s\n\n",
+                        "Estimated time needed for %d remaining '%s' plots:  %s\n\n",
                         n_max - (n + 1),
+                        name,
                         _fmt_time(etl),
                     )
 

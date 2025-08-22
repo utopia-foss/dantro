@@ -176,6 +176,7 @@ A few things need to be taken into account when performing plots in parallel:
 
   * For ``thread``, no memory needs to be copied, but `GIL limitations <https://en.wikipedia.org/wiki/Global_interpreter_lock>`_ still apply; performance increases can only be expected by plots that have large non-Python components that are not affected by the GIL.
   * For ``process``, the whole data tree is copied to the new process, which can be very costly. However, once that is done, the processes are completely independent, allowing large speedups.
+    If using this executor, *all* objects in the data tree need to be pickleable, otherwise parallel plotting will fail.
 
 * Under the hood, :py:class:`concurrent.futures.ThreadPoolExecutor` and :py:class:`~concurrent.futures.ProcessPoolExecutor` are used.
 * The output (``stdout`` + logging) of individual plotting tasks is captured and only available once the task has finished; in the meantime there is no information on what is happening in the plot task. For that reason, it is advisable to develop and debug the actual plots in non-parallel execution mode.

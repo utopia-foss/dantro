@@ -261,7 +261,7 @@ resolve_based_on:
 
     raises: PlotConfigError
     match: >-
-      Did not find a base plot configuration named 'bar'.*Did you mean
+      Did not find a base plot configuration named 'bar'
 
 
   # Loop detection works

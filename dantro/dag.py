@@ -5,7 +5,8 @@ It revolves around two main classes:
 - :py:class:`~dantro.dag.TransformationDAG` that aggregates those
   transformations into a directed acyclic graph.
 
-For more information, see :ref:`data transformation framework <dag_framework>`."""
+For more information, see :ref:`data transformation framework <dag_framework>`.
+"""
 
 import copy
 import glob
@@ -16,6 +17,7 @@ import sys
 import time
 import warnings
 from collections import defaultdict as _defaultdict
+from functools import partial
 from itertools import chain
 from typing import (
     Any,
@@ -26,6 +28,7 @@ from typing import (
     Sequence,
     Set,
     Tuple,
+    Type,
     Union,
 )
 
@@ -56,6 +59,7 @@ from .data_ops import (
 from .exceptions import *
 from .tools import adjusted_log_levels as _adjusted_log_levels
 from .tools import format_time as _format_time
+from .tools import is_unpickleable_function as _is_unpickleable_function
 from .tools import make_columns as _make_columns
 from .tools import recursive_update as _recursive_update
 from .utils import KeyOrderedDict
@@ -67,18 +71,18 @@ from .utils.nx import manipulate_attributes as _manipulate_attributes
 log = logging.getLogger(__name__)
 
 # A locally used time formatting function
-_fmt_time = lambda seconds: _format_time(seconds, ms_precision=2)
+_fmt_time = partial(_format_time, ms_precision=2)
 
 # Lazy module imports
 xr = LazyLoader("xarray")
 pkl = LazyLoader("dill")
 
-DAG_CACHE_DM_PATH = "cache/dag"
+DAG_CACHE_DM_PATH: str = "cache/dag"
 """The path within the :py:class:`~dantro.dag.TransformationDAG` associated
 :py:class:`~dantro.data_mngr.DataManager` to which caches are loaded
 """
 
-DAG_CACHE_CONTAINER_TYPES_TO_UNPACK = (
+DAG_CACHE_CONTAINER_TYPES_TO_UNPACK: Tuple[Type, ...] = (
     ObjectContainer,
     XrDataContainer,
 )
@@ -88,7 +92,7 @@ from cache (e.g. because the name attribute is shadowed by tree objects ...)
 """
 
 # fmt: off
-DAG_CACHE_RESULT_SAVE_FUNCS = {
+DAG_CACHE_RESULT_SAVE_FUNCS: Dict[Tuple[Type, ...], Callable] = {
     # Specific dantro types
     (NumpyDataContainer,): (
         lambda obj, p, **kws: obj.save(p + ".npy", **kws)
@@ -161,6 +165,7 @@ class Transformation:
         "_mc_opts",
         "_fc_opts",
         "_cache",
+        "_exclude_from_cache",
     )
 
     def __init__(
@@ -174,7 +179,7 @@ class Transformation:
         allow_failure: Union[bool, str] = None,
         fallback: Any = None,
         memory_cache: bool = True,
-        file_cache: dict = None,
+        file_cache: Union[bool, dict] = None,
         context: dict = None,
     ):
         """Initialize a Transformation object.
@@ -325,6 +330,8 @@ class Transformation:
         self._cache = dict(result=None, filled=False)
 
         # Parse file cache options, making sure it's a dict with default values
+        if isinstance(file_cache, bool):
+            file_cache = dict(write=file_cache, read=file_cache)
         self._fc_opts = file_cache if file_cache is not None else {}
 
         if isinstance(self._fc_opts.get("write", {}), bool):
@@ -336,6 +343,9 @@ class Transformation:
             self._fc_opts["read"] = dict(enabled=self._fc_opts["read"])
         elif "read" not in self._fc_opts:
             self._fc_opts["read"] = dict(enabled=False)
+
+        # Cache exclusion flag, set after first computation
+        self._exclude_from_cache = None
 
         # Set the status
         self.status = "initialized"
@@ -464,6 +474,13 @@ class Transformation:
         """Whether there is a memory-cached result available for this
         transformation."""
         return self._cache["filled"]
+
+    @property
+    def exclude_from_cache(self) -> bool:
+        """Whether the result needs to be excluded from memory and file cache,
+        e.g. because it is a non-pickleable object that creates problems in
+        other places."""
+        return self._exclude_from_cache
 
     @property
     def status(self) -> str:
@@ -612,13 +629,19 @@ class Transformation:
                 # No error; carry out the operation with the resolved arguments
                 res = self._perform_operation(args=args, kwargs=kwargs)
 
-        # Allow caching the result, even if it comes from the cache
+        # Have a result now.
+        # Check for cache exclusion and potentially return early
+        if self._check_cache_exclusion(res):
+            return res
+
+        # Allow caching the result, even if it comes from the cache.
+        # If cache exclusion flag is set, nothing will happen.
         self._cache_result(res)
 
         # In some cases, it can be useful to *always* read the result from the
         # file cache. We only need to do that if the previous cache lookup
         # (which would have been from the cache file) was NOT successful.
-        if not success:
+        if not success and not self.exclude_from_cache:
             success, res = self._lookup_result()
 
         return res
@@ -803,7 +826,7 @@ class Transformation:
 
         # Check if the cache is already filled and is configured to be read
         # from. If not, see if the file cache can (and should) be read from.
-        if self._cache["filled"] and not always_from_file:
+        if self.has_result and not always_from_file:
             success = True
             res = self._cache["result"]
             log.trace("Re-using memory-cached result for %s.", self.hashstr)
@@ -841,8 +864,24 @@ class Transformation:
         self._update_profile(cache_lookup=(time.time() - t0))
         return success, res
 
+    def _check_cache_exclusion(self, result: Any) -> bool:
+        """Checks whether a result needs to be excluded from caching.
+
+        This can happen because it is unpickleable and should not be retained
+        to avoid downstream problems, e.g. with multiprocessing.
+        """
+        if self.exclude_from_cache is None:
+            # Check for the first time
+            exclude = False
+            if _is_unpickleable_function(result):
+                exclude = True
+
+            self._exclude_from_cache = exclude
+
+        return self.exclude_from_cache
+
     def _cache_result(self, result: Any) -> None:
-        """Stores a computed result in the cache"""
+        """Stores a computed result in the memory cache and/or file cache."""
 
         def should_write(
             *,
@@ -934,6 +973,10 @@ class Transformation:
 
             # If this point is reached, the cache file should be written.
             return True
+
+        # Perhaps cannot cache it at all
+        if self.exclude_from_cache:
+            return
 
         # If the memory cache is enabled, store a reference to the result and
         # mark the memory cache as being in use.
