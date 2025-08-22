@@ -3,7 +3,8 @@
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).  
 However, given the rather burst-like development on this package, features are often released immediately, sometimes also as a "patch" (`+0.0.1`) release.
 
-## v0.21.0 🚧
+
+## v0.21.0
 - !366 makes it possible to create facet grid plots for data of arbitrary dimensionality.
   This is achieved through the following changes:
     - The `UpdatePlotConfig` messaging exception can be raised anywhere within the plotting procedure, even in the plot function itself, to update the given plot configuration and restart the plot.
@@ -21,6 +22,9 @@ However, given the rather burst-like development on this package, features are o
 - !366 adds the `max_num_nodes` argument to DAG visualization; if the number of nodes of the DAG exceeds this, the visualization will not be performed.
 - !366 adds the `.to_datarray` and `get_operation` operations to the data transformation framework.
 - !368 adds the `snsplot` plot function, bridging to [seaborn](https://seaborn.pydata.org); it is available via the `.plot.snsplot` base config.
+    - Carried over from `utopya`, but extended to support `auto_encoding`.
+    - This plot function should be regarded as *EXPERIMENTAL* and will surely show some quirks.
+      Please report any errors or unexpected behaviour and note that the interface may still change in future versions.
 
 
 #### Bug fixes
