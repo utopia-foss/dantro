@@ -160,7 +160,7 @@ def snsplot(
     data: dict,
     hlpr: PlotHelper,
     sns_kind: str,
-    free_indices: Tuple[str, ...],
+    free_indices: Tuple[str, ...] = None,
     optional_free_indices: Tuple[str, ...] = (),
     auto_encoding: Union[bool, dict] = None,
     auto_encoding_options: dict = None,
@@ -196,9 +196,9 @@ def snsplot(
             or an :py:class:`xarray.DataArray` or :py:class:`xarray.Dataset`.
         hlpr (PlotHelper): The plot helper instance
         sns_kind (str): Which seaborn plot to use, see list above.
-        free_indices (Tuple[str, ...]): Which index names *not* to associate
-            with a layout encoding; seaborn uses these to calculate the
-            distribution statistics.
+        free_indices (Tuple[str, ...], optional): Which index names *not* to
+            associate with a layout encoding; seaborn uses these to calculate
+            the distribution statistics.
         optional_free_indices (Tuple[str, ...], optional): These indices will
             be added to the free indices *if they are part of the data frame*.
             Otherwise, they are silently ignored.
@@ -234,6 +234,8 @@ def snsplot(
             ``col``, ``row``, ``files``, ...
     """
     df = data["data"]
+
+    free_indices = list(free_indices) if free_indices else []
 
     # For xarray types, attempt conversion
     if isinstance(df, (xr.Dataset, xr.DataArray)):

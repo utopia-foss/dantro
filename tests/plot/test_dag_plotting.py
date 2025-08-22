@@ -109,6 +109,7 @@ def dm(psp_grp, psp_grp_default, psp_grp_missing_data, tmpdir) -> DataManager:
         "air_temperature",
         "rasm",
         "ROMS_example",
+        "tiny",
     )
     try:
         for ds_name in XR_TUT_DATASETS:
@@ -258,6 +259,10 @@ def test_plot_helper(pm, dag_plots_cfg):
 
 def test_facet_grid(pm, dag_plots_cfg):
     invoke_test_plots(pm, dag_plots_cfg["facet_grid"])
+
+
+def test_snsplot(pm, dag_plots_cfg):
+    invoke_test_plots(pm, dag_plots_cfg["snsplot"])
 
 
 def test_files_encoding(pm, dag_plots_cfg):
