@@ -263,8 +263,9 @@ def snsplot(
     _sel: dict = None,
     **plot_kwargs,
 ) -> None:
-    """Interface to seaborn's figure-level plot functions.
-    Plot functions are selected via the ``sns_kind`` argument:
+    """An *experimental* interface to seaborn's figure-level plot functions.
+
+    Seaborn plot functions are selected via the ``sns_kind`` argument:
 
     - ``relplot``:      :py:func:`seaborn.relplot`
     - ``displot``:      :py:func:`seaborn.displot`
@@ -278,6 +279,12 @@ def snsplot(
     plot config updating and thereby allows to represent data of arbitrary
     dimensionality; this is achieved by performing a parameter sweep plot where
     each point corresponds to a single plot file of a subspace of the data.
+
+    .. warning::
+
+        This plot function is still being experimented with and surely will
+        show some quirks. Please report any errors or unexpected behavior and
+        note that the interface may still change in future versions.
 
     Args:
         data (dict): The data transformation framework results, expecting a
@@ -476,7 +483,8 @@ def snsplot(
             f"  auto_encoding:  {auto_encoding} -> {encoding}\n"
             "\nCheck the log output, data, and specified arguments and make "
             "sure the resulting DataFrame is in the desired shape for the "
-            "selected plot function."
+            "selected plot function. Make sure that all required encodings "
+            "have been specified in the `plot_kwargs`."
         ) from exc
 
     # Store FacetGrid (or similar) and encoding as helper attributes
