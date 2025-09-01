@@ -641,6 +641,21 @@ cm_support:
       1: *err_no_num_data
 
 
+# .. Other facet grid features ................................................
+
+misc:
+  title_kwargs:
+    kinds: [line]
+    specifiers: []
+    min_dims: 2
+    max_dims: 5
+    plot_kwargs:
+      auto_encoding: true
+      title_kwargs:
+        template: "${coord} = {value}$"  # use math mode
+        maxchar: 50
+        size: x-small
+
 
 # -----------------------------------------------------------------------------
 # NOTE: All below are extended tests, i.e.: only run if FULL_TEST is set!
