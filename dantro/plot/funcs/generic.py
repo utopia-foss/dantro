@@ -1304,9 +1304,9 @@ def facet_grid(
         auto_encoding_options (dict, optional): Additional arguments for
             :py:func:`~dantro.plot.funcs.generic.determine_encoding`.
         title_kwargs (dict, optional): Keyword arguments passed on
-            :py:meth:`xarray.plot.FacetGrid.set_title` to set the ``template``
+            :py:meth:`xarray.plot.FacetGrid.set_titles` to set the ``template``
             (allowing ``{coord}`` and ``{value}`` placeholders), ``maxchar``
-            and other properties of the titles.
+            and other properties of the title strings.
             Invoked only if a FacetGrid object is produced, i.e. if ``col``
             and/or ``row`` encodings are used. If not given, FacetGrid still
             invokes the same method, but then uses default arguments.
