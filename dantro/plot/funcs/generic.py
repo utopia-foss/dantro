@@ -1172,6 +1172,7 @@ def facet_grid(
     kind: Union[str, dict] = None,
     auto_encoding: Union[bool, dict] = False,
     auto_encoding_options: dict = None,
+    title_kwargs: dict = None,
     suptitle_kwargs: dict = None,
     squeeze: bool = True,
     drop_nonindexed_coords: bool = False,
@@ -1302,11 +1303,18 @@ def facet_grid(
             pass a dict. See :ref:`dag_generic_auto_encoding` for more info.
         auto_encoding_options (dict, optional): Additional arguments for
             :py:func:`~dantro.plot.funcs.generic.determine_encoding`.
-        suptitle_kwargs (dict, optional): Key passed on to the PlotHelper's
-            ``set_suptitle`` helper function. Only used if animations are
-            enabled. The ``title`` entry can be a format string with the
-            following keys, which are updated for each frame of the animation:
-            ``dim``, ``value``. Default: ``{dim:} = {value:.3g}``.
+        title_kwargs (dict, optional): Keyword arguments passed on
+            :py:meth:`xarray.plot.FacetGrid.set_titles` to set the ``template``
+            (allowing ``{coord}`` and ``{value}`` placeholders), ``maxchar``
+            and other properties of the title strings.
+            Invoked only if a FacetGrid object is produced, i.e. if ``col``
+            and/or ``row`` encodings are used. If not given, FacetGrid still
+            invokes the same method, but then uses default arguments.
+        suptitle_kwargs (dict, optional): Keyword arguments passed on to the
+            PlotHelper's ``set_suptitle`` helper function. Only used if
+            animations are enabled. The ``title`` entry can be a format string
+            with the following keys, which are updated for each frame of the
+            animation: ``dim``, ``value``. Default: ``{dim:} = {value:.3g}``.
         squeeze (bool, optional): whether to squeeze the data before plotting,
             such that size-1 dimensions do not take up encoding dimensions.
         drop_nonindexed_coords (bool, optional): If true, non-indexed
@@ -1418,6 +1426,10 @@ def facet_grid(
         if isinstance(rv, xr.plot.FacetGrid):
             fig = rv.fig
             axes = rv.axs
+
+            # Allow re-writing the axis titles with custom kwargs
+            if title_kwargs is not None:
+                rv.set_titles(**title_kwargs)
         else:
             # Use the currently set figure and its axes.
             fig = plt.gcf()

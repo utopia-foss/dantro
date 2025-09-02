@@ -384,7 +384,7 @@ def multi_concat(
     dimensions, the custom :py:func:`.apply_along_axis` function is used.
 
     Args:
-        arrs (np.ndarray): The array containing xarray objects which are to
+        arrs (numpy.ndarray): The array containing xarray objects which are to
             be concatenated. Each array dimension should correspond to one of
             the given ``dims``. For each of the dimensions, the
             :py:func:`xarray.concat` operation is applied along the axis,

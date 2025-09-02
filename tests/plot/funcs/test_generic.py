@@ -1113,6 +1113,11 @@ def test_facet_grid_fig_creation(dm, out_dir):
     )
 
 
+def test_facet_grid_misc(dm, out_dir):
+    """Tests other features of the facet grid plot"""
+    invoke_facet_grid(dm=dm, out_dir=out_dir, to_test=PLOTS_CFG_FG["misc"])
+
+
 # -- Extended tests -----------------------------------------------------------
 
 
