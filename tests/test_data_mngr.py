@@ -298,10 +298,10 @@ def xr_dm(data_dir) -> XarrayDataManager:
 
     # Dump DataArrays and Datasets, separately
     for name, da in das.items():
-        da.to_netcdf(str(xr_dir.join(name + ".nc_da")))
+        da.to_netcdf(str(xr_dir.join(name + ".nc_da")), engine="netcdf4")
 
     for name, dset in dsets.items():
-        dset.to_netcdf(str(xr_dir.join(name + ".nc_ds")))
+        dset.to_netcdf(str(xr_dir.join(name + ".nc_ds")), engine="netcdf4")
 
     return XarrayDataManager(data_dir, out_dir=None)
 

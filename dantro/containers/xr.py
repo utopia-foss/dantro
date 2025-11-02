@@ -217,6 +217,9 @@ class XrDataContainer(
             path (str): The path to save the file at
             **save_kwargs: Passed to ``.no_netcdf`` method call
         """
+        # Ensure a stable backend to avoid HDF5/NetCDF conflicts across envs
+        if "engine" not in save_kwargs:
+            save_kwargs["engine"] = "netcdf4"
         self.to_netcdf(path, **save_kwargs)
 
     # Methods to extract and apply metadata ...................................
