@@ -1233,7 +1233,7 @@ class PlotHelper:
         # Go over all possible coordinates
         for ax_coords in self.coords_iter(match="all"):
             # Store a copy of the base configuration for these coordinates
-            cfg[ax_coords] = copy.deepcopy(self._base_cfg)
+            cfg[ax_coords] = copy.deepcopy(base_cfg)
 
             # Go over the list of updates and apply them
             for ax_key, update_params in self._axis_specific_updates.items():

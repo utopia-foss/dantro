@@ -329,7 +329,7 @@ class GraphGroup(BaseDataGroup):
         if not any([isinstance(data, t) for t in self._ALLOWED_CONT_TYPES]):
             try:
                 data = XrDataContainer(name=name, data=data)
-            except:
+            except Exception:
                 _allowed_types = ", ".join(
                     [str(t) for t in self._ALLOWED_CONT_TYPES]
                 )

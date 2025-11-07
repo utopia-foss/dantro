@@ -1485,9 +1485,9 @@ class TransformationDAG:
         is_normal_tag = lambda obj: (
             isinstance(obj, DAGTag) and obj.name not in self.SPECIAL_TAGS
         )
-        is_special_tag = lambda obj: (
-            isinstance(obj, DAGTag) and obj.name in self.SPECIAL_TAGS
-        )
+        # is_special_tag = lambda obj: (
+        #     isinstance(obj, DAGTag) and obj.name in self.SPECIAL_TAGS
+        # )
         is_arg = lambda obj: isinstance(obj, _Arg)
         is_kwarg = lambda obj: isinstance(obj, _Kwarg)
 

@@ -52,7 +52,7 @@ class Placeholder:
         equal; specifically, this makes instances of subclasses always unequal
         to instances of this base class.
         """
-        if type(other) == type(self):
+        if type(other) is type(self):
             return self._data == other._data
         return False
 
@@ -290,7 +290,7 @@ class PositionalArgument(PlaceholderWithFallback):
             # Need an integer conversion to accept YAML string dumps
             try:
                 pos = int(pos)
-            except:
+            except Exception:
                 raise TypeError(
                     "PositionalArgument requires an int-convertible argument, "
                     f"got {type(pos)} with value {repr(pos)}!"
@@ -523,7 +523,7 @@ class DAGNode(DAGReference):
             # Need an integer conversion to accept YAML string dumps
             try:
                 idx = int(idx)
-            except:
+            except Exception:
                 raise TypeError(
                     "DAGNode requires an int-convertible argument, got "
                     f"{type(idx)} with value {repr(idx)}!"
