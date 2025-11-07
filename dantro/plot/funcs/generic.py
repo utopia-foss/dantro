@@ -6,7 +6,19 @@ creators.
 import copy
 import logging
 from functools import partial as _partial
-from typing import Any, Callable, Dict, List, Literal, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Tuple,
+    Union,
+)
+
+if TYPE_CHECKING:
+    import xarray
 
 import matplotlib.colors as mcolors
 import paramspace as psp

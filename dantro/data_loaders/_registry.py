@@ -4,7 +4,10 @@ data loader function).
 """
 
 import logging
-from typing import Callable, List
+from typing import TYPE_CHECKING, Callable, List
+
+if TYPE_CHECKING:
+    from ..data_mngr import DataManager
 
 from .._registry import ObjectRegistry as _ObjectRegistry
 

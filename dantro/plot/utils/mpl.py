@@ -4,7 +4,10 @@
 
 import logging
 from itertools import chain
-from typing import List, Tuple
+from typing import TYPE_CHECKING, List, Tuple
+
+if TYPE_CHECKING:
+    import matplotlib
 
 from .color_mngr import ColorManager
 

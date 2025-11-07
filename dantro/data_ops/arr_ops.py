@@ -2,7 +2,20 @@
 or xarray."""
 
 import logging
-from typing import Any, Callable, Dict, Iterable, List, Sequence, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Sequence,
+    Tuple,
+    Union,
+)
+
+if TYPE_CHECKING:
+    import xarray
 
 import numpy as np
 

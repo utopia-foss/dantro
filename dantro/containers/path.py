@@ -2,7 +2,10 @@
 
 import logging
 import pathlib
-from typing import Union
+from typing import TYPE_CHECKING, Union
+
+if TYPE_CHECKING:
+    from ..groups.dirpath import DirectoryGroup
 
 from ..mixins import ForwardAttrsToDataMixin
 from . import BaseDataContainer, is_container

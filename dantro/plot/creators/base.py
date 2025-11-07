@@ -14,7 +14,10 @@ import importlib.util
 import logging
 import os
 import time
-from typing import Callable, Dict, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Callable, Dict, Sequence, Tuple, Union
+
+if TYPE_CHECKING:
+    import networkx
 
 from paramspace import ParamSpace
 

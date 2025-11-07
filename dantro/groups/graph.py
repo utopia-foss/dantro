@@ -8,7 +8,11 @@ See :ref:`data_structures_graph_group` for more information.
 
 import logging
 import warnings
-from typing import List, Union
+from typing import TYPE_CHECKING, List, Union
+
+if TYPE_CHECKING:
+    import networkx
+    import xarray
 
 import numpy as np
 

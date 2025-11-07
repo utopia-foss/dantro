@@ -2,7 +2,10 @@
 
 import inspect
 from difflib import get_close_matches as _get_close_matches
-from typing import Tuple
+from typing import TYPE_CHECKING, Tuple
+
+if TYPE_CHECKING:
+    from .abc import AbstractDataContainer
 
 # -----------------------------------------------------------------------------
 

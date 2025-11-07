@@ -8,7 +8,11 @@
 import copy
 import logging
 import os
-from typing import Callable, Union
+from typing import TYPE_CHECKING, Callable, Union
+
+if TYPE_CHECKING:
+    import matplotlib
+    import networkx
 
 from ...tools import recursive_update as _recursive_update
 
