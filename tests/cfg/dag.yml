@@ -1002,8 +1002,9 @@ file_cache_pkl_fallback:
   params:
     transform:
       - operation: np.array
-        args: [[1,2,3,4]]
-        kwargs: {dtype: complex128}  # not supported by netcdf4
+        args: [[{foo: bar}, {foo: baz}]]
+        kwargs:
+          dtype: object  # object dtype cannot be serialized by netCDF backends
         tag: arr
       - xr.DataArray: {data: !dag_tag arr}
         file_cache:
@@ -1025,7 +1026,7 @@ file_cache_pkl_fallback:
     cache_dir_available: true
     cache_files:
       # - <hash>.nc_da from failed storage function call does _not_ exist
-      - a66004adbb0bee08b0591fbd15273be2.pkl  # .pkl shows fallback was used
+      - 1eead78124663d3be22b9d4e5200838a.pkl  # .pkl shows fallback was used
 
 
 file_cache_with_module_as_result:  # module pickling is supported by dill

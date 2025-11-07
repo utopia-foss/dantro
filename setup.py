@@ -13,7 +13,7 @@ install_deps = [
     "toolz",             # For dask.delayed
     "distributed",       # For dask's distributed scheduler
     "h5py",
-    "netCDF4",           # Storage engine for xarray (alternative: h5netcdf)
+    "h5netcdf",          # Storage engine for xarray
     "matplotlib",
     "seaborn",
     "networkx",

@@ -298,10 +298,10 @@ def xr_dm(data_dir) -> XarrayDataManager:
 
     # Dump DataArrays and Datasets, separately
     for name, da in das.items():
-        da.to_netcdf(str(xr_dir.join(name + ".nc_da")), engine="netcdf4")
+        da.to_netcdf(str(xr_dir.join(name + ".nc_da")), engine="h5netcdf")
 
     for name, dset in dsets.items():
-        dset.to_netcdf(str(xr_dir.join(name + ".nc_ds")), engine="netcdf4")
+        dset.to_netcdf(str(xr_dir.join(name + ".nc_ds")), engine="h5netcdf")
 
     return XarrayDataManager(data_dir, out_dir=None)
 
@@ -329,7 +329,7 @@ def hdf5_dm(data_dir) -> Hdf5DataManager:
 
     # Also write some encoded data
     basic["group"].attrs["encoded_arr"] = np.array(["foo", "bar"], dtype="S3")
-    basic["group"].attrs["encoded_arra"] = np.array(["foo", "bar"], dtype="a")
+    basic["group"].attrs["encoded_arra"] = np.array(["foo", "bar"], dtype="S")
     basic["group"].attrs["encoded_arrb"] = np.array([b"foo", b"bar"])
     basic["group"].attrs["encoded_utf8"] = bytes("🎉", "utf8")
     basic["group"].attrs["encoded_utf16"] = bytes("👻", "utf16")

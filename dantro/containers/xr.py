@@ -219,7 +219,7 @@ class XrDataContainer(
         """
         # Ensure a stable backend to avoid HDF5/NetCDF conflicts across envs
         if "engine" not in save_kwargs:
-            save_kwargs["engine"] = "netcdf4"
+            save_kwargs["engine"] = "h5netcdf"
         self.to_netcdf(path, **save_kwargs)
 
     # Methods to extract and apply metadata ...................................
