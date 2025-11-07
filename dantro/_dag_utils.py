@@ -4,7 +4,7 @@ For more information, see :ref:`data transformation framework <dag_framework>`.
 """
 
 import logging
-from typing import Any, Tuple, Union
+from typing import Any, Union
 
 from paramspace.tools import recursive_collect, recursive_replace
 
@@ -146,8 +146,11 @@ def resolve_placeholders(
         **compute_kwargs: Passed on to
             :py:meth:`~dantro.dag.TransformationDAG.compute`.
     """
+
     # First, collect the placeholders
-    is_placeholder = lambda obj: isinstance(obj, Cls)
+    def is_placeholder(obj):
+        return isinstance(obj, Cls)
+
     phs = recursive_collect(d, select_func=is_placeholder)
 
     # If there weren't any, don't have anything to do

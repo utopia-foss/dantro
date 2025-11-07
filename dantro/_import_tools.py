@@ -1,6 +1,5 @@
 """Tools for module importing, e.g. lazy imports."""
 
-import copy
 import importlib
 import importlib.resources
 import importlib.util
@@ -8,7 +7,7 @@ import logging
 import os
 import sys
 from types import ModuleType
-from typing import Any, Callable, Sequence, Tuple, Union
+from typing import Any, Callable, Sequence, Union
 
 log = logging.getLogger(__name__)
 

@@ -7,7 +7,7 @@ and specialized such that it can load and dump dantro classes.
 import copy
 import logging
 from functools import partial as _partial
-from typing import TYPE_CHECKING, Callable, List, Tuple
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import matplotlib

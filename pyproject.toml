@@ -93,21 +93,15 @@ target-version = "py39"
 
 [tool.ruff.lint]
 # Ignore false positives from intentional patterns
+# Ruff uses its default rule set (which is already conservative)
+# and we ignore the known false positives
 ignore = [
+    "F401",  # Many "unused" imports are for public API (__init__.py)
+    "E402",  # Module-level imports not at top (may be intentional)
     "F403",  # Star imports are used intentionally in dantro
     "F405",  # Star import usage is intentional
-    "F401",  # Many "unused" imports are for public API (__init__.py)
+    "E501",  # Line too long (handled by black -- or rare exception ...)
     "E731",  # Lambda assignments are acceptable
     "E741",  # Variable name ambiguity warnings (often false positives)
-    "E402",  # Module-level imports not at top (may be intentional)
     "F811",  # Redefined while unused (may be intentional)
-]
-
-# Only select rules that catch real bugs
-select = [
-    "E722",  # Bare except clauses (should specify exception type)
-    "E721",  # Type comparison should use isinstance()
-    "F841",  # Unused variables (may indicate bugs)
-    "F821",  # Undefined names (real bugs, but many false positives)
-    "E713",  # Test for membership should use 'not in'
 ]
