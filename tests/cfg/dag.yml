@@ -2264,7 +2264,7 @@ allow_failure_upstream_with_error_in_fallback:
   compute_only: [final_result]
   _raises: DataOperationError
   _raises_on_compute: true
-  _match: "ValueError: math domain error"
+  _match: "ValueError"  # "domain error" py<3.14, "expected a positive" beyond
 
 
 # Examples in documentation ---------------------------------------------------
