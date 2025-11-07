@@ -105,6 +105,12 @@ test:py313:
   script:
     - tox -v -e py313
 
+test:py314:
+  extends: test:py39
+  image: python:3.14
+  script:
+    - tox -v -e py314
+
 test:windows:py312:
   extends: test:py312
   image: 3.12-windowsservercore-ltsc2022
