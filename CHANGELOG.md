@@ -6,6 +6,10 @@ However, given the rather burst-like development on this package, features are o
 ## v0.21.1 🚧
 - !372 adds the `title_kwargs` argument to `.plot.facet_grid`, allowing to control the `template`, `maxchar`, and other properties of the [xarray `FacetGrid` titles](https://docs.xarray.dev/en/stable/generated/xarray.plot.FacetGrid.set_titles.html).
 
+#### Internal
+- !374 Change back to using `h5netcdf` as a xarray netCDF engine in `DataManager`, reversing !370.
+    - The `netcdf4` Python package seems to be quite unreliable for some reason...
+
 
 ## v0.21.0
 - !366 makes it possible to create facet grid plots for data of arbitrary dimensionality.

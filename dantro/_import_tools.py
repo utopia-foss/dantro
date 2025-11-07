@@ -170,7 +170,7 @@ def import_module_or_object(
     mod = (
         importlib.import_module(module, package=package)
         if module
-        else __builtin__
+        else __builtins__
     )
 
     if not name:

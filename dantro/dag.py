@@ -106,10 +106,10 @@ DAG_CACHE_RESULT_SAVE_FUNCS: Dict[Tuple[Type, ...], Callable] = {
         lambda obj, p, **kws: np.save(p + ".npy", obj, **kws)
     ),
     ("xarray.DataArray",): (
-        lambda obj, p, **kws: obj.to_netcdf(p + ".nc_da", **kws)
+        lambda obj, p, **kws: obj.to_netcdf(p + ".nc_da", engine="h5netcdf", **kws)
     ),
     ("xarray.Dataset",): (
-        lambda obj, p, **kws: obj.to_netcdf(p + ".nc_ds", **kws)
+        lambda obj, p, **kws: obj.to_netcdf(p + ".nc_ds", engine="h5netcdf", **kws)
     ),
 }
 """Functions that can store the DAG computation result objects, distinguishing
