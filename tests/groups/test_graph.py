@@ -603,7 +603,6 @@ def test_loading_external_data():
     """
     # Create a simple graph from a GraphGroup
     gg = GraphGroup(name="gg", attrs=dict(directed=False, parallel=False))
-    gg._GG_WARN_UPON_BAD_ALIGN = False
     gg.new_container(
         "nodes",
         Cls=XrDataContainer,
@@ -789,8 +788,6 @@ def test_loading_external_data():
     # -------------------------------------------------------------------------
     # More tests for the alignment of property data
     # Also test loading the external data directly
-    gg._GG_WARN_UPON_BAD_ALIGN = True
-
     # Aligning external data without coordinates
     np5 = XrDataContainer(
         name="np5", data=[[0, 0, 0], [2, 1, 0]], dims=("time",)
@@ -799,8 +796,15 @@ def test_loading_external_data():
         name="ep5", data=[[0, 0, 0], [1, 0, 2]], dims=("time",)
     )
 
-    gg.set_node_property(g=g, name="np5", data=np5, at_time_idx=-1, align=True)
-    gg.set_edge_property(g=g, name="ep5", data=ep5, at_time_idx=-1, align=True)
+    # These operations will emit warnings about no matching dimensions
+    with pytest.warns(UserWarning, match="No matching dimensions found"):
+        gg.set_node_property(
+            g=g, name="np5", data=np5, at_time_idx=-1, align=True
+        )
+    with pytest.warns(UserWarning, match="No matching dimensions found"):
+        gg.set_edge_property(
+            g=g, name="ep5", data=ep5, at_time_idx=-1, align=True
+        )
 
     assert g.nodes[0]["np5"] == 0
     assert g.nodes[1]["np5"] == 1
@@ -808,12 +812,6 @@ def test_loading_external_data():
     assert g.edges[(1, 0)]["ep5"] == 1
     assert g.edges[(0, 2)]["ep5"] == 0
     assert g.edges[(2, 1)]["ep5"] == 2
-
-    # Do it again, now checking for the warning
-    with pytest.warns(UserWarning, match="No matching dimensions found"):
-        gg.set_node_property(
-            g=g, name="np5", data=np5, at_time_idx=-1, align=True
-        )
 
     # Aligning external data with coordinate mismatch
     np6 = XrDataContainer(
@@ -829,19 +827,22 @@ def test_loading_external_data():
         coords=dict(edge_idx=[555, 999]),
     )
 
-    gg.set_node_property(g=g, name="np6", data=np6, at_time_idx=-1, align=True)
-    gg.set_edge_property(g=g, name="ep6", data=ep6, at_time_idx=-1, align=True)
-
-    assert all([isnan(g.nodes[n]["np6"]) for n in g.nodes])
-    assert all([isnan(g.edges[e]["ep6"]) for e in g.edges])
-
-    # Do it again, now checking for the warning
+    # These operations will emit warnings about missing values after alignment
     with pytest.warns(
         UserWarning, match="Found missing values in property data"
     ):
         gg.set_node_property(
             g=g, name="np6", data=np6, at_time_idx=-1, align=True
         )
+    with pytest.warns(
+        UserWarning, match="Found missing values in property data"
+    ):
+        gg.set_edge_property(
+            g=g, name="ep6", data=ep6, at_time_idx=-1, align=True
+        )
+
+    assert all([isnan(g.nodes[n]["np6"]) for n in g.nodes])
+    assert all([isnan(g.edges[e]["ep6"]) for e in g.edges])
 
     # -------------------------------------------------------------------------
     # Test failing cases

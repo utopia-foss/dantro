@@ -366,6 +366,7 @@ def multi_concat(
     dims: Sequence[str],
     join: str = "outer",
     compat: str = "no_conflicts",
+    coords: str = "different",
     **kwargs,
 ) -> "xarray.DataArray":
     """Concatenates :py:class:`xarray.Dataset` or :py:class:`xarray.DataArray`
@@ -397,9 +398,18 @@ def multi_concat(
             operation, the name is passed along to :py:func:`xarray.concat`
             where it is used to select the dimension of the *content* of
             ``arrs`` along which concatenation should occur.
-        join (str, optional): Passed on to :py:func:`xarray.concat`
-        compat (str, optional): Passed on to :py:func:`xarray.concat`
+        join (str, optional): Passed on to :py:func:`xarray.concat`.
+        compat (str, optional): Passed on to :py:func:`xarray.concat`.
+        coords (str, optional): Passed on to :py:func:`xarray.concat`.
         **kwargs: Passed on to :py:func:`xarray.concat`
+
+    .. note::
+
+        The default value for ``compat`` is ``"no_conflicts"``, which differs
+        from xarray's default of ``"equals"``. This is intentional to allow
+        concatenation of objects with compatible but not identical coordinate
+        values, which is often needed when combining data from different
+        sources or parameter space points.
 
     Raises:
         ValueError: If number of dimension names does not match the number of
@@ -424,6 +434,7 @@ def multi_concat(
             dim=dim_name,
             join=join,
             compat=compat,
+            coords=coords,
             **kwargs,
         )
         # NOTE ``np.apply_along_axis`` would be what is desired here, but that
@@ -441,6 +452,8 @@ def merge(
     ],
     *,
     reduce_to_array: bool = False,
+    join: str = "outer",
+    compat: str = "no_conflicts",
     **merge_kwargs,
 ) -> Union["xarray.Dataset", "xarray.DataArray"]:
     """Merges the given sequence of xarray objects into an
@@ -452,11 +465,21 @@ def merge(
     single data variable, that variable can be extracted as a
     :py:class:`xarray.DataArray` by setting the ``reduce_to_array`` flag,
     making that array the return value of this operation.
+
+    Args:
+        arrs (Union[Sequence[Union["xarray.DataArray", "xarray.Dataset"]], numpy.ndarray]):
+            The sequence of xarray objects to merge.
+            If a numpy array is given, it is flattened.
+        reduce_to_array (bool, optional): If True, the resulting Dataset is
+            reduced to a DataArray by extracting the first data variable.
+        join (str, optional): Passed on to :py:func:`xarray.merge`
+        compat (str, optional): Passed on to :py:func:`xarray.merge`
+        **merge_kwargs: Passed on to :py:func:`xarray.merge`
     """
     if isinstance(arrs, np.ndarray):
         arrs = arrs.flat
 
-    dset = xr.merge(arrs, **merge_kwargs)
+    dset = xr.merge(arrs, join=join, compat=compat, **merge_kwargs)
 
     if not reduce_to_array:
         return dset
