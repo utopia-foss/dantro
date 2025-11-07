@@ -1,10 +1,19 @@
 # pre-commit configuration for dantro
 ---
 repos:
-  # Manually run this every now and again .....................................
-  # Command:  pre-commit run --all-files --hook-stage manual
+  # Manual stage ..............................................................
+  # To run the whole manual stage:
+  #
+  #   pre-commit run --all-files --hook-stage manual
+  #
 
-  # Run if desiring to make use of newer language features
+
+  # Automatic upgrade of Python syntax
+  #
+  # To run individually:
+  #
+  #   pre-commit run --hook-stage manual pyupgrade --all-files
+  #
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.21.0
     hooks:
@@ -14,6 +23,21 @@ repos:
         - --py3-plus
         - --py37-plus
       stages: [manual]
+
+  # Conservative linting: only checks for real bugs, not style issues
+  #
+  # To run individually:
+  #
+  #   pre-commit run --hook-stage manual ruff --all-files
+  #
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        name: ruff linting (conservative)
+        args: [--exit-non-zero-on-fix, --fix]
+        stages: [manual]
+
 
   # Default pre-commit hooks ..................................................
   - repo: https://github.com/timothycrosley/isort

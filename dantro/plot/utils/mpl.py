@@ -256,7 +256,7 @@ def set_tick_locators_or_formatters(
         # and the mpl.dates modules
         try:
             ticker = getattr(mpl.ticker, name)
-        except AttributeError as err:
+        except AttributeError:
             try:
                 ticker = getattr(mpl.dates, name)
             except AttributeError as err:

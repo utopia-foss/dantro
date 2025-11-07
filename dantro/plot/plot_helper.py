@@ -1376,7 +1376,7 @@ class PlotHelper:
         """
         st = self.fig.suptitle(title, **title_kwargs)
 
-        if title is not None and not "y" in title_kwargs:
+        if title is not None and "y" not in title_kwargs:
             # Make some figure adjustments such that it does not overlap with
             # the already existing parts.
             _, space_needed = calculate_space_needed_hv(self.fig, st)
@@ -1912,7 +1912,7 @@ class PlotHelper:
             try:
                 pos = float(pos)
 
-            except Exception as err:
+            except Exception:
                 raise PlotConfigError(
                     f"Got non-numeric value '{pos}' for `pos` argument in "
                     "set_hv_lines helper!"

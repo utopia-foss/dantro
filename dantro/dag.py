@@ -2858,7 +2858,7 @@ class TransformationDAG:
         ) -> Any:
             try:
                 return lookup[ph.data]
-            except (IndexError, KeyError) as err:
+            except (IndexError, KeyError):
                 if ph.has_fallback:
                     return ph.fallback
                 # Will never get here, because these cases where checked
