@@ -5,7 +5,10 @@ package to represent the underlying data.
 
 import copy
 import logging
-from typing import Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Sequence, Tuple, Union
+
+if TYPE_CHECKING:
+    import xarray
 
 import numpy as np
 

@@ -4,7 +4,10 @@ creators.
 """
 
 import logging
-from typing import Callable, Dict, List, Tuple, Union
+from typing import TYPE_CHECKING, Callable, Dict, List, Tuple, Union
+
+if TYPE_CHECKING:
+    import dantro
 
 from ..utils import is_plot_func
 from ._multiplot import parse_and_invoke_function

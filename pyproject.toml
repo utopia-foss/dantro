@@ -67,3 +67,41 @@ exclude = '''
   | dist
 )/
 '''
+
+
+# Ruff configuration ...........................................................
+# Conservative configuration: only check for real bugs, not style issues
+[tool.ruff]
+# Exclude test files and documentation
+exclude = [
+    "tests/",
+    "doc/",
+    "setup.py",
+    ".eggs",
+    ".git",
+    ".tox",
+    ".venv",
+    "_build",
+    "dist",
+]
+
+# Line length matches black
+line-length = 79
+
+# Target Python version
+target-version = "py39"
+
+[tool.ruff.lint]
+# Ignore false positives from intentional patterns
+# Ruff uses its default rule set (which is already conservative)
+# and we ignore the known false positives
+ignore = [
+    "F401",  # Many "unused" imports are for public API (__init__.py)
+    "E402",  # Module-level imports not at top (may be intentional)
+    "F403",  # Star imports are used intentionally in dantro
+    "F405",  # Star import usage is intentional
+    "E501",  # Line too long (handled by black -- or rare exception ...)
+    "E731",  # Lambda assignments are acceptable
+    "E741",  # Variable name ambiguity warnings (often false positives)
+    "F811",  # Redefined while unused (may be intentional)
+]

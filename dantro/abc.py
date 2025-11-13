@@ -4,7 +4,12 @@ import abc
 import collections
 import collections.abc
 import logging
-from typing import Any, Tuple, Union
+from typing import TYPE_CHECKING, Any, Tuple, Union
+
+if TYPE_CHECKING:
+    import paramspace
+
+    import dantro
 
 log = logging.getLogger(__name__)
 

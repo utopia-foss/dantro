@@ -87,10 +87,10 @@ def test_MultiversePlotCreator_select(init_kwargs, psp_grp_default, tmpdir):
     print("Selected Multiverse data:", mv_data)
 
     # Check the lengths are correct
-    assert mv_data.dims["p0"] == 2
-    assert mv_data.dims["a0"] == 4
-    assert mv_data.dims["p1"] == 1
-    assert mv_data.dims["p2"] == 5
+    assert mv_data.sizes["p0"] == 2
+    assert mv_data.sizes["a0"] == 4
+    assert mv_data.sizes["p1"] == 1
+    assert mv_data.sizes["p2"] == 5
 
     # Check the coordinates are correct
     assert np.all(mv_data.coords["p0"] == [0, 1])

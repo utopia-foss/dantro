@@ -6,7 +6,10 @@ specializations that make use of features from the
 
 import copy
 import logging
-from typing import Dict, List, Sequence, Union
+from typing import TYPE_CHECKING, Dict, List, Sequence, Union
+
+if TYPE_CHECKING:
+    import xarray
 
 import numpy as np
 import numpy.ma

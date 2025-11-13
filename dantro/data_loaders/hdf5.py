@@ -2,7 +2,10 @@
 
 import logging
 import os
-from typing import Dict, Union
+from typing import TYPE_CHECKING, Dict, Union
+
+if TYPE_CHECKING:
+    import h5py
 
 import numpy as np
 

@@ -677,7 +677,7 @@ class PlotManager:
             log.caution("Skipped. %s\n", skip_reason)
             return "skipped"
 
-        except DantroMessagingException as msg:
+        except DantroMessagingException:
             # Pass on to outside scope
             raise
 

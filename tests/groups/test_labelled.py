@@ -1,5 +1,4 @@
-"""Test the LabelledDataGroup and specializations of it, e.g. TimeSeriesGroup
-"""
+"""Test the LabelledDataGroup and specializations of it, e.g. TimeSeriesGroup"""
 
 from itertools import product
 

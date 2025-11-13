@@ -3,6 +3,10 @@ specialization for HDF5 data.
 """
 
 import logging
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import h5py
 
 import numpy as np
 

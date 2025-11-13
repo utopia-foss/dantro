@@ -1,12 +1,15 @@
 # pre-commit configuration for dantro
 ---
 repos:
-  # Manually run this every now and again .....................................
-  # Command:  pre-commit run --all-files --hook-stage manual
+  # Manual stage ..............................................................
+  # To run the whole manual stage:
+  #
+  #   pre-commit run --all-files --hook-stage manual
+  #
 
-  # Run if desiring to make use of newer language features
+  # Automatic upgrade of Python syntax
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.19.0
+    rev: v3.21.0
     hooks:
     - id: pyupgrade
       name: upgrade python syntax
@@ -15,9 +18,17 @@ repos:
         - --py37-plus
       stages: [manual]
 
+
   # Default pre-commit hooks ..................................................
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        name: ruff linting (conservative)
+        args: [--exit-non-zero-on-fix, --fix]
+
   - repo: https://github.com/timothycrosley/isort
-    rev: 5.13.2
+    rev: 7.0.0
     hooks:
       - id: isort
         name: sort imports
@@ -26,7 +37,7 @@ repos:
         args: [--project=dantro]
 
   - repo: https://github.com/psf/black
-    rev: 24.10.0
+    rev: 25.9.0
     hooks:
       - id: black
         name: black code formatting
@@ -38,7 +49,7 @@ repos:
         name: check RST backticks
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: end-of-file-fixer
         name: fix end of files

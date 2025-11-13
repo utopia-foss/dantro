@@ -24,5 +24,5 @@ def _deepcopy(obj: Any) -> Any:
     """
     try:
         return _pickle.loads(_pickle.dumps(obj))
-    except:
+    except Exception:
         return copy.deepcopy(obj)

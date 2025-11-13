@@ -6,7 +6,19 @@ creators.
 import copy
 import logging
 from functools import partial as _partial
-from typing import Any, Callable, Dict, List, Literal, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Tuple,
+    Union,
+)
+
+if TYPE_CHECKING:
+    import xarray
 
 import matplotlib.colors as mcolors
 import paramspace as psp
@@ -940,7 +952,7 @@ class make_facet_grid_plot:
         """
         try:
             self.map_func = self.MAP_FUNCS[map_as]
-        except KeyError as exc:
+        except KeyError:
             raise ValueError(
                 f"Unsupported value for `map_as` argument: '{map_as}'! Needs "
                 f"to be one of:  {', '.join(self.MAP_FUNCS)}"

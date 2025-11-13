@@ -3,7 +3,15 @@
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).  
 However, given the rather burst-like development on this package, features are often released immediately, sometimes also as a "patch" (`+0.0.1`) release.
 
-## v0.21.1 🚧
+## v0.21.2 🚧
+...
+
+#### Internal
+- !375 Addresses several warnings in tests and elsewhere, mostly related to upstream packages.
+- !375 Adds the `ruff` linter as a pre-commit hook and applies suggested fixes (for a subset of warnings).
+
+
+## v0.21.1
 - !372 adds the `title_kwargs` argument to `.plot.facet_grid`, allowing to control the `template`, `maxchar`, and other properties of the [xarray `FacetGrid` titles](https://docs.xarray.dev/en/stable/generated/xarray.plot.FacetGrid.set_titles.html).
 
 #### Internal

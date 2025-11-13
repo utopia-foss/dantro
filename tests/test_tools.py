@@ -217,7 +217,9 @@ def test_decode_bytestrings():
 
     # Numpy string arrays get their dtype changed
     assert decode(np.array(["foo", "bar"], dtype="S")).dtype == np.dtype("<U3")
-    assert decode(np.array(["foo", "bar"], dtype="a")).dtype == np.dtype("<U3")
+    assert decode(np.array(["foo", "bar"], dtype="|S3")).dtype == np.dtype(
+        "<U3"
+    )
 
     # Object arrays get their items converted
     assert decode(np.array([foob, barb], dtype="O"))[0] == "foo"

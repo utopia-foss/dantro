@@ -4,7 +4,7 @@ For more information, see :ref:`data transformation framework <dag_framework>`.
 """
 
 import logging
-from typing import Any, Tuple, Union
+from typing import Any, Union
 
 from paramspace.tools import recursive_collect, recursive_replace
 
@@ -52,7 +52,7 @@ class Placeholder:
         equal; specifically, this makes instances of subclasses always unequal
         to instances of this base class.
         """
-        if type(other) == type(self):
+        if type(other) is type(self):
             return self._data == other._data
         return False
 
@@ -146,8 +146,11 @@ def resolve_placeholders(
         **compute_kwargs: Passed on to
             :py:meth:`~dantro.dag.TransformationDAG.compute`.
     """
+
     # First, collect the placeholders
-    is_placeholder = lambda obj: isinstance(obj, Cls)
+    def is_placeholder(obj):
+        return isinstance(obj, Cls)
+
     phs = recursive_collect(d, select_func=is_placeholder)
 
     # If there weren't any, don't have anything to do
@@ -290,7 +293,7 @@ class PositionalArgument(PlaceholderWithFallback):
             # Need an integer conversion to accept YAML string dumps
             try:
                 pos = int(pos)
-            except:
+            except Exception:
                 raise TypeError(
                     "PositionalArgument requires an int-convertible argument, "
                     f"got {type(pos)} with value {repr(pos)}!"
@@ -523,7 +526,7 @@ class DAGNode(DAGReference):
             # Need an integer conversion to accept YAML string dumps
             try:
                 idx = int(idx)
-            except:
+            except Exception:
                 raise TypeError(
                     "DAGNode requires an int-convertible argument, got "
                     f"{type(idx)} with value {repr(idx)}!"

@@ -1074,13 +1074,23 @@ class LabelledDataGroup(OrderedDataGroup):
         return darr
 
     @classmethod
-    def _combine_by_merge(cls, dsets: np.ndarray) -> "xarray.Dataset":
+    def _combine_by_merge(
+        cls,
+        dsets: np.ndarray,
+        *,
+        join: str = "outer",
+        compat: str = "no_conflicts",
+        **merge_kwargs,
+    ) -> "xarray.Dataset":
         """Combine the given datasets by merging using xarray's
         :py:func:`xarray.merge`.
 
         Args:
             dsets (numpy.ndarray): The ``object``-dtype array of
                 :py:class:`xarray.Dataset` objects that are to be combined.
+            join (str, optional): Passed on to :py:func:`xarray.merge`
+            compat (str, optional): Passed on to :py:func:`xarray.merge`
+            **merge_kwargs: Passed on to :py:func:`xarray.merge`
 
         Returns:
             xarray.Dataset: All datasets, aligned and combined via
@@ -1088,14 +1098,26 @@ class LabelledDataGroup(OrderedDataGroup):
         """
         log.debug("Combining %d datasets by merging ...", dsets.size)
 
-        dset = xr.merge(dsets.flat)
+        dset = xr.merge(
+            dsets.flat,
+            join=join,
+            compat=compat,
+            **merge_kwargs,
+        )
 
         log.debug("Merge successful.")
         return dset
 
     @classmethod
     def _combine_by_concatenation(
-        cls, dsets: np.ndarray, *, dims: TDims
+        cls,
+        dsets: np.ndarray,
+        *,
+        dims: TDims,
+        join: str = "outer",
+        coords: str = "different",
+        compat: str = "equals",
+        **concat_kwargs,
     ) -> "xarray.Dataset":
         """Combine the given datasets by concatenation using xarray's
         :py:func:`xarray.concat` and subsequent application along all
@@ -1107,6 +1129,11 @@ class LabelledDataGroup(OrderedDataGroup):
                 concatenation.
             dims (TDims): The dimension names corresponding to *all* the
                 dimensions of the ``dsets`` array.
+            join (str, optional): Passed on to :py:func:`xarray.concat`.
+            coords (str, optional): Passed on to :py:func:`xarray.concat`.
+            compat (str, optional): Passed on to :py:func:`xarray.concat`.
+                Defaults to ``"equals"``, matching xarray's current default.
+            **concat_kwargs: Passed on to :py:func:`xarray.concat`.
 
         Returns:
             xarray.Dataset: The dataset resulting from the concatenation
@@ -1133,7 +1160,14 @@ class LabelledDataGroup(OrderedDataGroup):
             )
 
             dsets = apply_along_axis(
-                xr.concat, axis=dim_idx, arr=dsets, dim=dim_name
+                xr.concat,
+                axis=dim_idx,
+                arr=dsets,
+                dim=dim_name,
+                join=join,
+                coords=coords,
+                compat=compat,
+                **concat_kwargs,
             )
 
         log.debug("Concatenation successful.")
