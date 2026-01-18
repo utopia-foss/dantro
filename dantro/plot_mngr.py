@@ -698,25 +698,38 @@ class PlotManager:
         out_path: str,
         cfg: dict,
         plot_cfg: dict,
-    ) -> Tuple[int, Tuple[str, str], Union[bool, str]]:
+    ) -> Tuple[int, str, str, Union[bool, str]]:
         """Shallow wrapper around plot creator invocation, preparing arguments
-        for invocation in the context of parallel execution."""
+        for invocation in the context of parallel execution.
+
+        Returns:
+            Tuple of (task_key, captured_stdout, captured_stderr, return_value)
+        """
         import contextlib
         import io
 
         from .logging import DantroLogger
 
-        captured = io.StringIO("")
+        captured_stdout = io.StringIO("")
+        captured_stderr = io.StringIO("")
         DantroLogger.change_settings(
-            divert_to=captured,
+            divert_to=captured_stdout,
             suppress_in_child_process=True,
         )
 
-        with contextlib.redirect_stdout(captured):
+        with (
+            contextlib.redirect_stdout(captured_stdout),
+            contextlib.redirect_stderr(captured_stderr),
+        ):
             rv = self._invoke_plot_creation(
                 plot_creator, out_path=out_path, **cfg, **plot_cfg
             )
-        return task_key, captured.getvalue(), rv
+        return (
+            task_key,
+            captured_stdout.getvalue(),
+            captured_stderr.getvalue(),
+            rv,
+        )
 
     def _invoke_parallel_executor_benchmark(self) -> bool:
         """A method that is passed to a parallel executor for benchmarking
@@ -1821,6 +1834,7 @@ class PlotManager:
                 len(tasks),
                 type(executor).__name__,
             )
+            futures_to_task: Dict[concfu.Future, int] = {}
             for task_key, task_kwargs in tasks.items():
                 log.debug(
                     "  Submitting task '%s':\n  %s\n", task_key, task_kwargs
@@ -1831,6 +1845,7 @@ class PlotManager:
                     **task_kwargs,
                 )
                 futures.append(future)
+                futures_to_task[future] = task_key
 
                 # TODO Can add callbacks to future here perhaps?
 
@@ -1842,19 +1857,22 @@ class PlotManager:
             for n, future in enumerate(concfu.as_completed(futures)):
                 exc = future.exception()
                 if exc:
+                    task_key = futures_to_task[future]
                     log.error(
-                        "Parallel plotting task %s failed with a %s: %s",
-                        future,
+                        "Parallel plotting task %d failed with a %s: %s",
+                        task_key,
                         type(exc).__name__,
                         exc,
                     )
                     num_failed += 1
-                    exceptions[n] = exc
+                    exceptions[task_key] = exc
                     continue
 
                 # Get result
                 log.debug("Task completed:  %s ", future)
-                task_key, captured_stdout, rv = future.result()
+                task_key, captured_stdout, captured_stderr, rv = (
+                    future.result()
+                )
 
                 # Get parameters
                 task = tasks[task_key]
@@ -1902,8 +1920,13 @@ class PlotManager:
                     )
                 if captured_stdout:
                     log.remark(
-                        "Captured output:\n\n%s\n",
+                        "Captured stdout:\n\n%s\n",
                         textwrap.indent(captured_stdout, " " * 4),
+                    )
+                if captured_stderr:
+                    log.caution(
+                        "Captured stderr:\n\n%s\n",
+                        textwrap.indent(captured_stderr, " " * 4),
                     )
 
                 # Estimate for time remaining

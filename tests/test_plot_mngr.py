@@ -2,6 +2,7 @@
 
 import copy
 import os
+import sys
 import time
 from collections import OrderedDict
 
@@ -46,6 +47,12 @@ PLOTS_PARALLEL = load_yml(PLOTS_PARALLEL_PATH)
 BASE_EXT = load_yml(BASE_EXT_PATH)
 UPDATE_BASE_EXT = load_yml(UPDATE_BASE_EXT_PATH)
 BASED_ON_EXT = load_yml(BASED_ON_EXT_PATH)
+
+
+# Helper functions for parallel tests (must be at module-level for pickling)
+def _plot_func_with_stderr(*_, **__):
+    """Plot function that writes to stderr, for testing stderr capture."""
+    print("UNIQUE_STDERR_TEST_MESSAGE", file=sys.stderr)
 
 
 # Fixtures --------------------------------------------------------------------
@@ -829,6 +836,27 @@ def test_parallel_pspace_plot(dm, pm_kwargs, caplog):
         ),
         parallel=dict(enabled=True, executor="thread"),
     )
+
+    # Stderr is captured and logged (only reliable with process executor,
+    # as redirect_stderr is not thread-safe). Use mock because caplog doesn't
+    # reliably capture logs from parallel execution.
+    from unittest.mock import patch
+
+    with patch("dantro.plot_mngr.log.caution") as mock_caution:
+        pm.plot(
+            "stderr_test",
+            plot_func=_plot_func_with_stderr,
+            from_pspace=psp.ParamSpace(
+                dict(x=psp.ParamDim(default=0, range=[2]))
+            ),
+            parallel=dict(enabled=True, executor="process"),
+        )
+
+        # Verify log.caution was called with captured stderr content
+        caution_calls = [str(call) for call in mock_caution.call_args_list]
+        assert any(
+            "UNIQUE_STDERR_TEST_MESSAGE" in call for call in caution_calls
+        )
 
     # -- Check exceptions
     with pytest.raises(ValueError, match="some_bad_eXeCuTor_name"):

@@ -3,8 +3,8 @@
 `dantro` aims to adhere to [semantic versioning](https://semver.org/).  
 However, given the rather burst-like development on this package, features are often released immediately, sometimes also as a "patch" (`+0.0.1`) release.
 
-## v0.21.2 🚧
-...
+## v0.21.2
+- !376 fixes an error that suppressed `stderr` output during parallel plotting.
 
 #### Internal
 - !375 Addresses several warnings in tests and elsewhere, mostly related to upstream packages.
