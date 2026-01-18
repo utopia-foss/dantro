@@ -1,6 +1,8 @@
 """Implements data operations that work on array-like data, e.g. from numpy
 or xarray."""
 
+from __future__ import annotations
+
 import logging
 from typing import (
     TYPE_CHECKING,
@@ -15,6 +17,7 @@ from typing import (
 )
 
 if TYPE_CHECKING:
+    import numpy
     import xarray
 
 import numpy as np
@@ -30,8 +33,8 @@ xr = LazyLoader("xarray")
 
 
 def apply_along_axis(
-    func: Callable, axis: int, arr: np.ndarray, *args, **kwargs
-) -> np.ndarray:
+    func: Callable, axis: int, arr: numpy.ndarray, *args, **kwargs
+) -> numpy.ndarray:
     """This is like numpy's function of the same name, but does not try to
     cast the results of func to an :py:class:`numpy.ndarray` but tries to keep
     them as dtype object. Thus, the return value of this function will always
@@ -84,8 +87,8 @@ def apply_along_axis(
 
 
 def create_mask(
-    data: "xarray.DataArray", operator_name: str, rhs_value: float
-) -> "xarray.DataArray":
+    data: xarray.DataArray, operator_name: str, rhs_value: float
+) -> xarray.DataArray:
     """Given the data, returns a binary mask by applying the following
     comparison: ``data <operator> rhs value``.
 
@@ -128,8 +131,8 @@ def create_mask(
 
 
 def where(
-    data: "xarray.DataArray", operator_name: str, rhs_value: float, **kwargs
-) -> "xarray.DataArray":
+    data: xarray.DataArray, operator_name: str, rhs_value: float, **kwargs
+) -> xarray.DataArray:
     """Filter elements from the given data according to a condition. Only
     those elemens where the condition is fulfilled are not masked.
 
@@ -151,7 +154,7 @@ def where(
     )
 
 
-def count_unique(data, dims: List[str] = None) -> "xarray.DataArray":
+def count_unique(data, dims: List[str] = None) -> xarray.DataArray:
     """Applies :py:func:`numpy.unique` to the given data and constructs a
     :py:class:`xarray.DataArray` for the results.
 
@@ -165,7 +168,7 @@ def count_unique(data, dims: List[str] = None) -> "xarray.DataArray":
 
     """
 
-    def _count_unique(data) -> "xarray.DataArray":
+    def _count_unique(data) -> xarray.DataArray:
         unique, counts = np.unique(data, return_counts=True)
 
         # remove np.nan values
@@ -212,11 +215,11 @@ def count_unique(data, dims: List[str] = None) -> "xarray.DataArray":
 def populate_ndarray(
     objs: Iterable,
     shape: Tuple[int] = None,
-    dtype: Union[str, type, np.dtype] = float,
+    dtype: Union[str, type, numpy.dtype] = float,
     order: str = "C",
-    out: np.ndarray = None,
+    out: numpy.ndarray = None,
     ufunc: Callable = None,
-) -> np.ndarray:
+) -> numpy.ndarray:
     """Populates an empty :py:class:`numpy.ndarray` of the given ``dtype`` with
     the given objects by zipping over a new array of the given ``shape`` and
     the sequence of objects.
@@ -272,7 +275,7 @@ def build_object_array(
     *,
     dims: Tuple[str] = ("label",),
     fillna: Any = None,
-) -> "xarray.DataArray":
+) -> xarray.DataArray:
     """Creates a *simple* labelled multidimensional object array.
 
     It accepts simple iterable types like dictionaries or lists and unpacks
@@ -374,14 +377,14 @@ def build_object_array(
 
 
 def multi_concat(
-    arrs: np.ndarray,
+    arrs: numpy.ndarray,
     *,
     dims: Sequence[str],
     join: str = "outer",
     compat: str = "no_conflicts",
     coords: str = "different",
     **kwargs,
-) -> "xarray.DataArray":
+) -> xarray.DataArray:
     """Concatenates :py:class:`xarray.Dataset` or :py:class:`xarray.DataArray`
     objects using :py:func:`xarray.concat`. This function expects the xarray
     objects to be pre-aligned inside the numpy *object* array ``arrs``, with
@@ -461,14 +464,14 @@ def multi_concat(
 
 def merge(
     arrs: Union[
-        Sequence[Union["xarray.DataArray", "xarray.Dataset"]], np.ndarray
+        Sequence[Union[xarray.DataArray, xarray.Dataset]], numpy.ndarray
     ],
     *,
     reduce_to_array: bool = False,
     join: str = "outer",
     compat: str = "no_conflicts",
     **merge_kwargs,
-) -> Union["xarray.Dataset", "xarray.DataArray"]:
+) -> Union[xarray.Dataset, xarray.DataArray]:
     """Merges the given sequence of xarray objects into an
     :py:class:`xarray.Dataset`.
 
@@ -480,7 +483,7 @@ def merge(
     making that array the return value of this operation.
 
     Args:
-        arrs (Union[Sequence[Union["xarray.DataArray", "xarray.Dataset"]], numpy.ndarray]):
+        arrs (Union[Sequence[Union[xarray.DataArray, xarray.Dataset]], numpy.ndarray]):
             The sequence of xarray objects to merge.
             If a numpy array is given, it is flattened.
         reduce_to_array (bool, optional): If True, the resulting Dataset is
@@ -518,8 +521,8 @@ def merge(
 
 
 def expand_dims(
-    d: Union[np.ndarray, "xarray.DataArray"], *, dim: dict = None, **kwargs
-) -> "xarray.DataArray":
+    d: Union[numpy.ndarray, xarray.DataArray], *, dim: dict = None, **kwargs
+) -> xarray.DataArray:
     """Expands the dimensions of the given object.
 
     If the object does not support a ``expand_dims`` method call, it will be
@@ -543,16 +546,16 @@ def expand_dims(
 
 
 def expand_object_array(
-    d: "xarray.DataArray",
+    d: xarray.DataArray,
     *,
     shape: Sequence[int] = None,
-    astype: Union[str, type, np.dtype] = None,
+    astype: Union[str, type, numpy.dtype] = None,
     dims: Sequence[str] = None,
     coords: Union[dict, str] = "trivial",
     combination_method: str = "concat",
     allow_reshaping_failure: bool = False,
     **combination_kwargs,
-) -> "xarray.DataArray":
+) -> xarray.DataArray:
     """Expands a labelled object-array that contains array-like objects into a
     higher-dimensional labelled array.
 
@@ -623,15 +626,15 @@ def expand_object_array(
     """
 
     def prepare_item(
-        d: "xarray.DataArray",
+        d: xarray.DataArray,
         *,
         midx: Sequence[int],
         shape: Sequence[int],
-        astype: Union[str, type, np.dtype, None],
+        astype: Union[str, type, numpy.dtype, None],
         name: str,
         dims: Sequence[str],
         generate_coords: Callable,
-    ) -> Union["xarray.DataArray", None]:
+    ) -> Union[xarray.DataArray, None]:
         """Extracts the desired element and reshapes and labels it accordingly.
         If any of this fails, returns ``None``.
         """
@@ -753,12 +756,12 @@ def expand_object_array(
 
 
 def transform_coords(
-    d: "xarray.DataArray",
+    d: xarray.DataArray,
     dim: Union[str, Sequence[str]],
     func: Callable,
     *,
     func_kwargs: dict = None,
-) -> "xarray.DataArray":
+) -> xarray.DataArray:
     """Assigns new, transformed coordinates to a data array by applying a
     function on the existing coordinates.
 
